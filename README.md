@@ -59,6 +59,9 @@ Rename your .jar to "opencv.jar" and the corresponding .ddl to "opencv.dll" and 
 #### Java EE for Web Developer
 In Eclipse go to Help -> Install New Software -> Work with neon -> Install Web, XML, Java EE and OSGi Enterprise Development
 
+#### Maven
+Install Maven as seen above and build the project.
+
 #### Apache Tomcat
 Download the most recent version under http://tomcat.apache.org/download-90.cgi.
 
