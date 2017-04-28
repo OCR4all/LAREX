@@ -1,0 +1,23 @@
+$font-stack:    Helvetica, sans-serif;
+$color1: #333333;
+$color2: white;
+$color3: #757575;
+
+/* Sticky footer */
+body {
+	display: flex;
+	min-height: 100vh;
+	flex-direction: column;
+}
+
+main {
+	flex: 1 0 auto;
+    z-index: 0 !important;
+}
+.bookopen{
+    cursor: pointer;
+    &:hover *{
+      background-color: $color3;
+      color: $color2;
+    }
+}

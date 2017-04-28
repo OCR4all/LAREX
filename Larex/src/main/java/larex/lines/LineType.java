@@ -1,0 +1,3 @@
+package larex.lines;
+
+public enum LineType {VERTICAL_LEFT, HORIZONTAL_TOP, VERTICAL_RIGHT, HORIZONTAL_BOTTOM}

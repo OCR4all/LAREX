@@ -1,0 +1,61 @@
+$font-stack:    Helvetica, sans-serif;
+$color1: #333333;
+$color2: white;
+$color3: #757575;
+
+/* Sticky footer */
+body {
+	display: flex;
+	min-height: 100vh;
+	flex-direction: column;
+}
+
+main {
+	flex: 1 0 auto;
+    z-index: 0 !important;
+}
+
+#menu{
+	width: 100%;
+		.mainMenu{
+		    *{
+		    	background-color: $color1 !important;
+		    	color: $color2 !important;
+		    }
+
+		    .indicator{
+		    	background-color: $color2 !important;
+		    	color: $color2 !important;
+		    }
+		}
+		.secondMenu{
+			background-color: $color2 !important;
+			padding: 0px;
+			margin: 0px;
+			width: 100%;
+		}
+}
+
+#footer{
+		background-color: $color1 !important;
+		color: $color2 !important;
+}
+
+#header{
+		background-color: $color1 !important;
+		color: $color2 !important;
+		*{
+				background-color: $color1 !important;
+				color: $color2 !important;
+		}
+}
+
+#preloader {
+		position: absolute;
+		right: 50%;
+		top: 50%;
+		#preloader-body{
+				background-color: white;
+				padding: 5px;
+		}
+}
