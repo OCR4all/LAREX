@@ -32,7 +32,7 @@ LAREX expects the corresponding .jar to be located in /src/main/WEB-INF/lib and 
 `apt-get install openjdk-8-jdk`
 
 #### Link the opencv.jar
-cd *your git rep*/LAREX/src/main/WEB-INF
+cd *your git rep*/Larex/src/main/WEB-INF
 
 mkdir lib && cd lib
 
@@ -43,11 +43,11 @@ run `mvn clean install` in the root dir. This dir contains the `pom.xml`.
 
 #### Copy or link the created war file to tomcat
 Either:
-`sudo ln -s $PWD/target/LAREX.war /var/lib/tomcat7/webapps/LAREX.war`
+`sudo ln -s $PWD/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
 or
 
-`cp target/LAREX.war /var/lib/tomcat7/webapps/LAREX.war`
+`cp target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
 
 ### Windows
@@ -66,7 +66,7 @@ Select the web perspective and add the Tomcat server.
 
 ## Running
 ### Access in browser
-Go to `localhost:8080/LAREX`.
+Go to `localhost:8080/Larex`.
 
 The WebApp was developed and tested using Chrome. We observed some strange behavour when using Firefox. These issues will be addressed in the near future.
 
