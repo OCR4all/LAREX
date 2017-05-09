@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import com.web.model.Book;
 import com.web.model.BookSettings;
@@ -23,7 +22,6 @@ import larex.regions.Region;
 import larex.regions.RegionManager;
 import larex.regions.colors.RegionColor;
 import larex.regions.type.RegionType;
-import larex.segmentation.parameters.DEFAULT_Parameters;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
 
@@ -41,6 +39,8 @@ public class LarexTranslator {
 		if(parameters == null){
 			parameters = new Parameters(new RegionManager(),(int) pagesize.height);
 		}
+		
+		parameters.setScaleFactor((double) parameters.getDesiredImageHeight() / pagesize.height);
 		RegionManager regionmanager = parameters.getRegionManager();
 		
 		for(Region region: regionmanager.getRegions()){
@@ -125,6 +125,8 @@ public class LarexTranslator {
 				regionCount++;
 			}
 			
+			//TODO ? PointList -> Cut
+			
 			settings.addRegion(guiRegion);
 		}
 		return settings;
@@ -157,7 +159,6 @@ public class LarexTranslator {
 		
 		ArrayList<PointList> fixedSegments = new ArrayList<PointList>();
 		for(Polygon fixedSegment: settings.getPage(pageid).getFixedSegments().values()){
-			System.out.print("xxx");
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for(Point point: fixedSegment.getPoints()){
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
