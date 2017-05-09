@@ -24,7 +24,30 @@
 
 		<!-- Main Method -->
 		<script>
-		var controller = new Controller(${book.getId()},'viewerCanvas');
+		//specify specific colors
+		var specifiedColors = {
+				image: new paper.Color(0,1,0),
+				paragraph: new paper.Color(1,0,0),
+				marginalia: new paper.Color(1,1,0),
+				page_number: new paper.Color(0,1,1),
+				ignore: new paper.Color(0,0,0),
+				heading: new paper.Color(0,0,1),
+				signature_mark: new paper.Color(0.5,0,0),
+				caption: new paper.Color(0.5,0.5,0.5),
+				header: new paper.Color(1,0,1),
+				footer: new paper.Color(0.9,0.6,1),
+				drop_capital: new paper.Color(0.5,0,0.55),
+				credit: new paper.Color(0.25,0.51,1),
+				floating: new paper.Color(0,0,0.5),
+				signature_mark: new paper.Color(0,0.5,0.5),
+				catch_word: new paper.Color(0,0.6,0),
+				footnote: new paper.Color(1,0.95,0.7),
+				footnote_continued: new paper.Color(0.8,0.6,0),
+				endnote: new paper.Color(0.7,0.45,0.2),
+				TOC_entry: new paper.Color(0.5,0,0),
+				other: new paper.Color(0.4,0,0.55),
+		};
+		var controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors);
 		$(document).ready(function() {
 			$(".button-collapse").sideNav();
 		    $('select').material_select();
@@ -115,7 +138,7 @@
 			<div id="viewer" class="col s5 m9 l9">
 				<canvas id="viewerCanvas" class="grey darken-1" resize="true"></canvas>
 			</div>
-			
+
 			<div class="sidebar col s4 m2 l2">
 			<t:sidebar/>
 			</div>
@@ -128,7 +151,7 @@
 			<t:menuIcon jsClass="zoomfit" icon="zoom_out_map"
 				tooltip="Zooms image to fit the screen (Shortcut: space)"></t:menuIcon>
 		</div> -->
-	
+
 		<t:preloader/>
 		<t:regionsettings/>
 		<t:contextmenu/>

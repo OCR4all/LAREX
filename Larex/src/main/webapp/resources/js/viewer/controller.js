@@ -1,4 +1,4 @@
-function Controller(bookID, canvasID) {
+function Controller(bookID, canvasID, specifiedColors) {
 	var _bookID = bookID;
 	var _communicator = new Communicator();
 	var _gui;
@@ -42,17 +42,6 @@ function Controller(bookID, canvasID) {
 							// Init the viewer
 							var navigationController = new NavigationController();
 							var viewerInput = new ViewerInput(_thisController);
-
-							//specify specific colors
-							var specifiedColors = {
-									image: new paper.Color(0,1,0),
-									paragraph: new paper.Color(1,0,0),
-									marginalia: new paper.Color(1,1,0),
-									page_number: new paper.Color(0,1,1),
-									ignore: new paper.Color(0,0,0),
-									heading: new paper.Color(0,0,1),
-									signature_mark: new paper.Color(0.5,0,0)
-							};
 
 							// Inheritance Editor extends Viewer
 							_editor = new Editor(new Viewer(
