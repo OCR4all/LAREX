@@ -121,15 +121,30 @@ function KeyInput(navigationController, controller, gui) {
 		}
 	}
 
-	$("canvas").bind('mousewheel DOMMouseScroll', function(event) {
+	var wheelEvent = 'onwheel' in document ? 'wheel': 'mousewheel DOMMouseScroll';
+	$("canvas").bind(wheelEvent, function(event) {
 		if (_this.isActive) {
 			var canvasOffset = $(this).offset();
-			var scrollDelta = event.originalEvent.wheelDelta;
-			var mousepoint = new paper.Point(event.pageX-canvasOffset.left,event.pageY-canvasOffset.top);
-			if (scrollDelta > 0 || event.originalEvent.detail < 0) {
-				_navigationController.zoomIn(0.05, mousepoint);
+			var scrollDirection; //positive => down, negative => up
+
+			switch(event.type){
+				case 'wheel': //Modern Browser is used
+					scrollDirection = event.originalEvent.deltaY;
+					break;
+				case 'mousewheel': //Old non Firefox or Opera browser is used
+					scrollDirection = event.originalEvent.wheelDelta*-1;
+					break;
+				case 'DOMMouseScroll': //Old version of Firefox or Opera is used
+					scrollDirection = event.originalEvent.detail;
+					break;
+			}
+
+			var mousepoint = new paper.Point(event.originalEvent.pageX-canvasOffset.left,
+																				event.originalEvent.pageY-canvasOffset.top);
+			if (scrollDirection < 0) {
+				_navigationController.zoomIn(0.1, mousepoint);
 			} else {
-				_navigationController.zoomOut(0.05, mousepoint);
+				_navigationController.zoomOut(0.1, mousepoint);
 			}
 		}
 	});
