@@ -49,9 +49,11 @@ or
 
 `cp target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
+#### If you had to compile OpenCV on your own
+set `LD_LIBRARY_PATH` to `$CMAKE_INSTALL_PREFIX/share/OpenCV/java` when starting the Tomcat server.
 
 ### Windows
-In is recommended to use Eclipse.
+It is recommended to use Eclipse.
 
 #### OpenCV
 Rename your .jar to "opencv.jar" and the corresponding .ddl to "opencv.dll" and copy it to /src/main/WEB-INF/lib.
