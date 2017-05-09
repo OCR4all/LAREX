@@ -112,10 +112,23 @@ public class Segmenter {
 	}
 
 	public ArrayList<MatOfPoint> detectText() {
-		binary = ImageProcessor.dilate(binary, new Size(parameters.getTextDilationX(), parameters.getTextDilationY()));
+//		binary = ImageProcessor.dilate(binary, new Size(parameters.getTextDilationX(), parameters.getTextDilationY()));
+//
+//		// draw user defined lines
+//		binary = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(binary,
+//				parameters.getScaleFactor());
+		
+		Mat dilate = new Mat();
+
+		if (parameters.getTextDilationX() == 0 || parameters.getTextDilationY() == 0) {
+			dilate = binary.clone();
+		} else {
+			dilate = ImageProcessor.dilate(binary,
+					new Size(parameters.getTextDilationX(), parameters.getTextDilationY()));
+		}
 
 		// draw user defined lines
-		binary = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(binary,
+		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate,
 				parameters.getScaleFactor());
 
 		int minSize = Integer.MAX_VALUE;
@@ -126,7 +139,7 @@ public class Segmenter {
 			}
 		}
 
-		ArrayList<MatOfPoint> texts = ImageSegmentation.detectTextContours(binary, minSize);
+		ArrayList<MatOfPoint> texts = ImageSegmentation.detectTextContours(dilate, minSize);
 
 		return texts;
 	}

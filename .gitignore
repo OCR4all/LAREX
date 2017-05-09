@@ -17,3 +17,6 @@ Larex/src/main/webapp/WEB-INF/lib/opencv.dll
 *.zip
 *.tar.gz
 *.rar
+
+#books 
+Larex/src/main/webapp/resources/books/

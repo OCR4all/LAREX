@@ -105,7 +105,6 @@ public class LarexSegmenter implements ISegmenter {
 		String imageIdentifier = "" + page.getId();
 
 		// TODO Regionmanager + GUI ? Delete?
-		System.out.println(imagePath);
 		larex.dataManagement.Page pageSegment = new larex.dataManagement.Page(imagePath, imageIdentifier);
 
 		pageSegment.initPage();
