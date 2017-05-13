@@ -197,6 +197,19 @@ function Controller(bookID, canvasID, specifiedColors) {
 	this.createCut = function() {
 		_editor.startCreateLine();
 	}
+	this.moveSelected = function() {
+		if(_selected.length > 0){
+			//moveLast instead of all maybe TODO
+			var moveID = _selected[_selected.length-1];
+			if (_selectType === "region") {
+				_editor.startMovePath(moveID,false);
+			} else if(_selectType === "segment"){
+				_editor.startMovePath(moveID,true);
+			}else if(_selectType === "line"){
+				//TODO
+			}
+		}
+	}
 	this.endEditing = function(){
 		_editor.endEditing();
 	}
@@ -285,6 +298,21 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 		addAndExecuteAction(actionAdd);
 	}
+
+	this.transformSegment = function(segment){
+
+	}
+
+	this.transformRegion = function(regionID,regionSegments){
+		var polygonType = getPolygonMainType(regionID);
+		if(polygonType === "region"){
+			var regionType = getRegionByID(regionID).type;
+			var actionTransformRegion = new ActionTransformRegion(regionID,regionSegments,regionType, _editor, _settings, _currentPage,_thisController);
+			addAndExecuteAction(actionTransformRegion);
+			_thisController.hideRegion(regionType,false);
+		}
+	}
+
 	this.changeRegionType = function(id, type){
 		var polygonType = getPolygonMainType(id);
 		if(polygonType === "region"){
@@ -451,15 +479,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_thisController.endEditing();
 			_thisController.closeContextMenu();
 			_gui.closeRegionSettings();
-	}
-
-	var idIsFromRegion = function(regionID){
-		var region = getRegionByID(regionID);
-		if(region == null){
-			return false;
-		}else{
-			return true;
-		}
 	}
 
 	var addAndExecuteAction = function(action) {

@@ -226,6 +226,9 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
+	this.getPath = function(id){
+		return _paths[id];
+	}
 	this.drawPathLine = function(segment){
 		//Construct path from segment
 		var path = new paper.Path();

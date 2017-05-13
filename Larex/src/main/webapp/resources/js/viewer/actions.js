@@ -303,3 +303,40 @@ function ActionRemoveCut(cut,editor,settings,page){
 		}
 	}
 }
+
+function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,controller){
+	var _isExecuted = false;
+	var _viewer = viewer;
+	var _settings = settings;
+	var _page = page;
+	var _id = id;
+	var _regionType = regionType;
+	var _newRegionPoints = JSON.parse(JSON.stringify(regionPolygon));
+	var _oldRegionPoints = JSON.parse(JSON.stringify(_settings.regions[_regionType].polygons[_id].points));
+	var _controller = controller;
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+			var region = _settings.regions[_regionType].polygons[_id];
+			region.points = _newRegionPoints;
+			_viewer.updateSegment(region);
+			if(_controller != null){
+				_controller.hideRegion(_regionType,false);
+			}
+			console.log('Do - Transform Region: {"id":"'+_id+' [..]}');
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+			var region = _settings.regions[_regionType].polygons[_id];
+			region.points = _oldRegionPoints;
+			_viewer.updateSegment(region);
+			if(_controller != null){
+				_controller.hideRegion(_regionType,false);
+			}
+			console.log('Undo - Transform Region: {"id":"'+_id+' [..]}');
+		}
+	}
+}

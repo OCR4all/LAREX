@@ -89,6 +89,10 @@ function KeyInput(navigationController, controller, gui) {
 				_controller.createCut();
 				validKey = true;
 				break;
+			case 77: // M
+				_controller.moveSelected();
+				validKey = true;
+				break;
 
 			// default: //Debug to get key codes
 			 	//alert(event.keyCode);

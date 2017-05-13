@@ -3,10 +3,11 @@ function Editor(viewer,controller) {
 	this.isEditing = false;
 	var _viewer = viewer;
 	var _controller = controller;
-	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line
+	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move
 	var _tempPathIsSegment;
 	var _tempPath;
 	var _tempPoint;
+	var _tempID;
 	var _this = this;
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
@@ -301,6 +302,71 @@ function Editor(viewer,controller) {
 		}
 	}
 
+	this.startMovePath = function(pathID,doSegment) {
+		if(_this.isEditing === false){
+			_editMode = 4;
+			_this.isEditing = true;
+			_tempPathIsSegment = doSegment;
+			document.body.style.cursor = "copy";
+
+			// Create Copy of movable
+			_tempPath = new paper.Path(_this.getPath(pathID).segments);
+			_tempID = pathID;
+			_tempPath.fillColor = 'grey';
+			_tempPath.opacity = 0.3;
+			_tempPath.closed = true;
+			_tempPath.selected = true;
+
+			// Position variables between old and new path position
+			_tempPoint = new paper.Point(0,0);
+			var oldPosition = new paper.Point(_tempPath.position);
+			var oldMouse = null;
+
+			var tool = new paper.Tool();
+			tool.activate();
+			tool.onMouseMove = function(event) {
+				if(_this.isEditing === true){
+					if(oldMouse === null){
+						oldMouse = event.point;
+					}
+					_tempPoint = oldPosition.add(event.point.subtract(oldMouse));
+					_tempPath.position = _tempPoint;
+				}else{
+					this.remove()
+				}
+			}
+			tool.onMouseDown = function(event) {
+				if(_this.isEditing === true){
+					_this.endMovePath();
+				}
+				this.remove();
+			}
+		}
+	}
+
+	this.endMovePath = function() {
+		if(_this.isEditing){
+			_this.isEditing = false;
+
+			if(_tempPath != null){
+				var path = new paper.Path(_this.getPath(_tempID).segments);
+				console.log(">",path.position, _tempPoint);
+				path.position = _tempPoint;
+				console.log("<",path.position, _tempPoint);
+
+				if(_tempPathIsSegment){
+					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
+				}else{
+					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));
+				}
+
+				_tempPath.remove();
+				_tempPath = null;
+			}
+			document.body.style.cursor = "auto";
+		}
+	}
+
 	this.getMouseRegion = function(mousepos){
 		var bounds = _viewer.getBoundaries();
 		var width = bounds.width;
@@ -350,6 +416,9 @@ function Editor(viewer,controller) {
 					break;
 				case 3:
 					_this.endCreateLine();
+					break;
+				case 4:
+					_this.endMovePath();
 					break;
 				default:
 					break;
@@ -489,6 +558,9 @@ function Editor(viewer,controller) {
 		return _viewer.getColor(segmentType);
 	}
 	//Protected functions
+	this.getPath = function(id){
+		return _viewer.getPath(id);
+	}
 	this.drawPath = function(segment, doFill, info){
 		_viewer.drawPath(segment, doFill, info);
 	}
