@@ -58,7 +58,7 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 			_settings.regions[_oldType].polygons[_regionPolygon.id] = _regionPolygon;
 			_viewer.updateSegment(_regionPolygon);
 			if(_controller != null){
-				_controller.hideRegion(_old,false);
+				_controller.hideRegion(_oldType,false);
 			}
 			console.log('Undo - Change Type: {"id":"'+_regionPolygon.id+'","points":[..],"type":"'+_oldType+'->'+_newType+'"}');
 		}
