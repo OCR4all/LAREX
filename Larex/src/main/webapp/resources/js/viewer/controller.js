@@ -299,8 +299,12 @@ function Controller(bookID, canvasID, specifiedColors) {
 		addAndExecuteAction(actionAdd);
 	}
 
-	this.transformSegment = function(segment){
-
+	this.transformSegment = function(segmentID,segmentPoints){
+		var polygonType = getPolygonMainType(segmentID);
+		if(polygonType === "fixed"){
+			var actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_settings,_currentPage);
+			addAndExecuteAction(actionTransformSegment);
+		}
 	}
 
 	this.transformRegion = function(regionID,regionSegments){

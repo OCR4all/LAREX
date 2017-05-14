@@ -340,3 +340,32 @@ function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,
 		}
 	}
 }
+
+function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
+	var _isExecuted = false;
+	var _viewer = viewer;
+	var _settings = settings;
+	var _page = page;
+	var _id = id;
+	var _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
+	var _oldRegionPoints = JSON.parse(JSON.stringify(_settings.pages[_page].segments[_id].points));
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+			var segment = _settings.pages[_page].segments[_id];
+			segment.points = _newRegionPoints;
+			_viewer.updateSegment(segment);
+			console.log('Do - Transform Segment: {"id":"'+_id+' [..]}');
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+			var segment = _settings.pages[_page].segments[_id];
+			segment.points = _oldRegionPoints;
+			_viewer.updateSegment(segment);
+			console.log('Undo - Transform Segment: {"id":"'+_id+' [..]}');
+		}
+	}
+}
