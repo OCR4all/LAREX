@@ -8,6 +8,7 @@ function Editor(viewer,controller) {
 	var _tempPath;
 	var _tempPoint;
 	var _tempID;
+	var _tempEndCircle;
 	var _this = this;
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
@@ -57,11 +58,11 @@ function Editor(viewer,controller) {
 						_tempPath.selected = true;
 
 						// circle to end the path
-						var endCircle = new paper.Path.Circle(canvasPoint, 5);
-						endCircle.strokeColor = 'black';
-						endCircle.fillColor = 'grey';
-						endCircle.opacity = 0.5;
-						endCircle.onMouseDown = function(event) {
+						_tempEndCircle = new paper.Path.Circle(canvasPoint, 5);
+						_tempEndCircle.strokeColor = 'black';
+						_tempEndCircle.fillColor = 'grey';
+						_tempEndCircle.opacity = 0.5;
+						_tempEndCircle.onMouseDown = function(event) {
 							_this.endCreatePolygon();
 							this.remove();
 						}
@@ -87,6 +88,8 @@ function Editor(viewer,controller) {
 				}
 				_tempPath.remove();
 				_tempPath = null;
+				_tempEndCircle.remove();
+				_temPath = null;
 			}
 			document.body.style.cursor = "auto";
 		}
@@ -449,9 +452,9 @@ function Editor(viewer,controller) {
 		var boundaryPath = new paper.Path.Rectangle(_this.getBoundaries());
 		var intersections = path.getIntersections(boundaryPath);
 		for(var i = 0; i < intersections.length;i++){
-			console.log(path,intersections[i].point,intersections[i].index);
 			path.insertSegment(intersections[i].index+1,intersections[i].point);
 		}
+		path.reduce();
 		boundaryPath.remove();
 		var points = [];
 		for(var pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
