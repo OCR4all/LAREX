@@ -94,7 +94,7 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 
-			// default: //Debug to get key codes
+			 //default: //Debug to get key codes
 			 	//alert(event.keyCode);
 
 			}
@@ -112,9 +112,12 @@ function KeyInput(navigationController, controller, gui) {
 			var validKey = false;
 
 			switch (event.keyCode) {
-			case 17: // CTRL
-				_controller.selectmultiple = false;
-				break;
+				case 17: // CTRL
+					_controller.selectmultiple = false;
+					break;
+				case 18: // ALT
+					_controller.removeGrid();
+					break;
 			}
 
 			if (validKey = true) {
@@ -164,6 +167,9 @@ function KeyInput(navigationController, controller, gui) {
 			if (_gui.doMoveCanvas) {
 				if (deltaX && deltaY)
 					_navigationController.move(deltaX, deltaY);
+			}
+			if(event.altKey){
+				_controller.addGrid(event.pageX,event.pageY);
 			}
 
 			lastPositionX = event.pageX;

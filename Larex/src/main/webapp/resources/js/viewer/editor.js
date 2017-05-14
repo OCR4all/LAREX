@@ -10,6 +10,7 @@ function Editor(viewer,controller) {
 	var _tempID;
 	var _tempEndCircle;
 	var _this = this;
+	var _grid = {isActive:false};
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
 	this.addRegion = function(region){
@@ -332,7 +333,13 @@ function Editor(viewer,controller) {
 					if(oldMouse === null){
 						oldMouse = event.point;
 					}
-					_tempPoint = oldPosition.add(event.point.subtract(oldMouse));
+					if(!_grid.isActive){
+						_tempPoint = oldPosition.add(event.point.subtract(oldMouse));
+					}else{
+						_tempPoint = oldPosition.add(
+							_this.getPointFixedToGrid(event.point).subtract(
+								_this.getPointFixedToGrid(oldMouse)));
+					}
 					_tempPath.position = _tempPoint;
 				}else{
 					this.remove()
@@ -442,6 +449,56 @@ function Editor(viewer,controller) {
 			}
 
 			return boundPoint;
+		}else{
+			return point;
+		}
+	}
+
+	this.addGrid = function(point){
+		_this.setGrid(point);
+		_grid.isActive = true;
+	}
+
+	this.setGrid = function(point){
+		if(_grid.vertical ==  null || _grid.horizontal == null){
+			_grid.vertical = new paper.Path.Line();
+			_grid.vertical.strokeColor = 'black';
+			_grid.vertical.dashArray = [3, 3];
+
+			_grid.horizontal = new paper.Path.Line();
+			_grid.horizontal.strokeColor = 'black';
+			_grid.horizontal.dashArray = [3, 3];
+		}
+		var bounds = paper.view.bounds;
+		_grid.vertical.removeSegments();
+		_grid.vertical.add(new paper.Point(point.x,bounds.top));
+		_grid.vertical.add(new paper.Point(point.x,bounds.bottom));
+
+		_grid.horizontal.removeSegments();
+		_grid.horizontal.add(new paper.Point(bounds.left,point.y));
+		_grid.horizontal.add(new paper.Point(bounds.right,point.y));
+	}
+
+	this.removeGrid = function(point){
+		if(_grid.vertical !=  null && _grid.horizontal != null){
+			_grid.vertical.removeSegments();
+			_grid.horizontal.removeSegments();
+		}
+		_grid.isActive = false;
+	}
+
+	this.getPointFixedToGrid = function(point){
+		if(_grid.isActive && _grid.vertical !=  null && _grid.horizontal != null){
+			var verticalFixedPoint = new paper.Point(_grid.vertical.getPointAt(0).x,point.y);
+			var horizontalFixedPoint = new paper.Point(point.x,_grid.horizontal.getPointAt(0).y);
+			/*The following should have worked...
+			var verticalFixedPoint = _grid.vertical.getNearestLocation(event.point).point;
+			var horizontalFixedPoint = _grid.horizontal.getNearestLocation(event.point).point;*/
+			if(verticalFixedPoint.getDistance(point) < horizontalFixedPoint.getDistance(point)){
+				return verticalFixedPoint;
+			}else{
+				return horizontalFixedPoint;
+			}
 		}else{
 			return point;
 		}

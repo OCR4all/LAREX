@@ -14,6 +14,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _actionpointer = -1;
 	var _presentRegions = [];
 
+	var _gridIsActive = false;
+
 	var _thisController = this;
 	var _selected = [];
 	this.selectmultiple = false;
@@ -355,6 +357,23 @@ function Controller(bookID, canvasID, specifiedColors) {
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate);
+	}
+
+	this.addGrid = function(pageX, pageY){
+		if(!_gridIsActive){
+			$canvas = $("canvas");
+			var canvasPoint = new paper.Point(pageX-$canvas.offset().left, pageY-$canvas.offset().top);
+
+			_editor.addGrid(canvasPoint);
+		}
+		_gridIsActive = true;
+	}
+
+	this.removeGrid = function(){
+		if(_gridIsActive){
+			_editor.removeGrid();
+			_gridIsActive = false;
+		}
 	}
 
 	// Display
