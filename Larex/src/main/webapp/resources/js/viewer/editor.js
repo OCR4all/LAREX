@@ -350,9 +350,7 @@ function Editor(viewer,controller) {
 
 			if(_tempPath != null){
 				var path = new paper.Path(_this.getPath(_tempID).segments);
-				console.log(">",path.position, _tempPoint);
 				path.position = _tempPoint;
-				console.log("<",path.position, _tempPoint);
 
 				if(_tempPathIsSegment){
 					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
@@ -448,6 +446,13 @@ function Editor(viewer,controller) {
 
 	// Private Helper methods
 	var convertPointsPathToSegment = function(path,isRelative){
+		var boundaryPath = new paper.Path.Rectangle(_this.getBoundaries());
+		var intersections = path.getIntersections(boundaryPath);
+		for(var i = 0; i < intersections.length;i++){
+			console.log(path,intersections[i].point,intersections[i].index);
+			path.insertSegment(intersections[i].index+1,intersections[i].point);
+		}
+		boundaryPath.remove();
 		var points = [];
 		for(var pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
 			var point = path.segments[pointItr].point;
