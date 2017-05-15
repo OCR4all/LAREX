@@ -419,13 +419,19 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_selected = [];
 	}
 	this.toggleSegment = function(sectionID, isSelected, info) {
-		_editor.selectSegment(sectionID, isSelected);
+		if(!_editor.isEditing){
+			_editor.selectSegment(sectionID, isSelected);
+		}
 	}
 	this.enterSegment = function(sectionID, info) {
-		_editor.highlightSegment(sectionID, true);
+		if(!_editor.isEditing){
+			_editor.highlightSegment(sectionID, true);
+		}
 	}
 	this.leaveSegment = function(sectionID, info) {
-		_editor.highlightSegment(sectionID, false);
+		if(!_editor.isEditing){
+			_editor.highlightSegment(sectionID, false);
+		}
 	}
 	this.hideAllRegions = function(doHide){
 		// Iterate over Regions-"Map" (Object in JS)
