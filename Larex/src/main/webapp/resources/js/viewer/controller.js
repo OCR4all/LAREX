@@ -184,6 +184,10 @@ function Controller(bookID, canvasID) {
 		});
 	}
 
+	this.downloadPageXML = function(){
+		_communicator.downloadPageXML(_currentPage);
+	}
+
 	// Actions
 	this.redo = function() {
 		if (_actionpointer < _actions.length - 1) {

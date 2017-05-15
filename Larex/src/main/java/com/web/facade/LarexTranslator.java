@@ -1,4 +1,4 @@
-package com.web.segmenter;
+package com.web.facade;
 
 import java.awt.Color;
 import java.util.ArrayList;

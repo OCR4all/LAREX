@@ -6,8 +6,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,13 +20,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
+import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
 import com.web.model.Library;
 import com.web.model.database.IDatabase;
 import com.web.model.database.FileDatabase;
-import com.web.segmenter.LarexSegmenter;
 
 import larex.regions.type.RegionType;
 
@@ -39,7 +41,7 @@ public class ViewerController {
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
-	private LarexSegmenter segmenter;
+	private LarexFacade segmenter;
 	@Autowired
 	private FileController fileController;
 	
@@ -79,13 +81,18 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody BookSegmentation segment(@RequestBody SegmentationRequest segmentationRequest/*@RequestBody BookSettings settings*//*@RequestParam("settings") BookSettings settings, @RequestParam("pageid") int pageID*/) {
+	public @ResponseBody BookSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
 		
 		BookSegmentation segmentation = segmenter.segmentPages(segmentationRequest.getSettings(), segmentationRequest.getPages());
 		return segmentation;
 	}
 
-	private LarexSegmenter prepareSegmenter(int bookID) {
+	@RequestMapping(value = "/exportXML", method = RequestMethod.GET)//, headers = "Accept=*/*", consumes = "application/json"*/)
+	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("page") int pageID) {
+	    return segmenter.getPageXML(pageID);
+	}
+	
+	private LarexFacade prepareSegmenter(int bookID) {
 		if(!fileController.isInit()){
 			fileController.init(servletContext);
 		}

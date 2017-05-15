@@ -41,7 +41,6 @@ function Communicator() {
 	}
 
 	this.segmentBook = function(settings,pages) {
-		//return this.debugConnection();
 		// Deferred object for function status
 		var status = $.Deferred();
 
@@ -69,6 +68,10 @@ function Communicator() {
 			}
 		});
 		return status;
+	}
+
+	this.downloadPageXML = function(pageID){
+		window.open("exportXML?page="+pageID);
 	}
 
 	this.debugConnection = function() {

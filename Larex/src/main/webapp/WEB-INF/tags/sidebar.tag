@@ -79,8 +79,7 @@
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	
-	<a class="col s12 waves-effect waves-light btn disabled tooltipped" 
-	data-position="bottom" data-delay="50" data-tooltip="Comming soon">
+	<a class="col s12 waves-effect waves-light btn exportPageXML">
 		Export PageXML 
 	</a>
 </div>
