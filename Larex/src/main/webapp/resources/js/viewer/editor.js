@@ -321,6 +321,9 @@ function Editor(viewer,controller) {
 			_tempPath.closed = true;
 			_tempPath.selected = true;
 
+			// Set Grid
+			_this.setGrid(_tempPath.position);
+
 			// Position variables between old and new path position
 			_tempPoint = new paper.Point(0,0);
 			var oldPosition = new paper.Point(_tempPath.position);
@@ -333,16 +336,18 @@ function Editor(viewer,controller) {
 					if(oldMouse === null){
 						oldMouse = event.point;
 					}
+					_tempPoint = oldPosition.add(event.point.subtract(oldMouse));
 					if(!_grid.isActive){
-						_tempPoint = oldPosition.add(event.point.subtract(oldMouse));
+						_grid.vertical.visible = false;
+						_grid.horizontal.visible = false;
 					}else{
-						_tempPoint = oldPosition.add(
-							_this.getPointFixedToGrid(event.point).subtract(
-								_this.getPointFixedToGrid(oldMouse)));
+						_tempPoint = _this.getPointFixedToGrid(_tempPoint);
+						_grid.vertical.visible = true;
+						_grid.horizontal.visible = true;
 					}
 					_tempPath.position = _tempPoint;
 				}else{
-					this.remove()
+					this.remove();
 				}
 			}
 			tool.onMouseDown = function(event) {
@@ -371,6 +376,10 @@ function Editor(viewer,controller) {
 				_tempPath.remove();
 				_tempPath = null;
 			}
+			//hide grid
+			_grid.vertical.visible = false;
+			_grid.horizontal.visible = false;
+
 			document.body.style.cursor = "auto";
 		}
 	}
@@ -454,8 +463,7 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.addGrid = function(point){
-		_this.setGrid(point);
+	this.addGrid = function(){
 		_grid.isActive = true;
 	}
 
@@ -477,12 +485,21 @@ function Editor(viewer,controller) {
 		_grid.horizontal.removeSegments();
 		_grid.horizontal.add(new paper.Point(bounds.left,point.y));
 		_grid.horizontal.add(new paper.Point(bounds.right,point.y));
+
+		//visibility
+		if(!_grid.isActive){
+			_grid.vertical.visible = false;
+			_grid.horizontal.visible = false;
+		}else{
+			_grid.vertical.visible = true;
+			_grid.horizontal.visible = true;
+		}
 	}
 
 	this.removeGrid = function(point){
 		if(_grid.vertical !=  null && _grid.horizontal != null){
-			_grid.vertical.removeSegments();
-			_grid.horizontal.removeSegments();
+			_grid.vertical.visible = false;
+			_grid.horizontal.visible = false;
 		}
 		_grid.isActive = false;
 	}

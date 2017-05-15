@@ -359,12 +359,9 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate);
 	}
 
-	this.addGrid = function(pageX, pageY){
+	this.applyGrid = function(){
 		if(!_gridIsActive){
-			$canvas = $("canvas");
-			var canvasPoint = new paper.Point(pageX-$canvas.offset().left, pageY-$canvas.offset().top);
-
-			_editor.addGrid(canvasPoint);
+			_editor.addGrid();
 		}
 		_gridIsActive = true;
 	}
