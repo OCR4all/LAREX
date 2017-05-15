@@ -51,23 +51,29 @@
 			</div>
 			<div class="collapsible-body">
 				<div id="parameter-settings">
-					<p class="settings-input">Binary Threash</p>
-					<p class="settings-input">
-						<input value="" id="binarythreash" class="input-number"
-							type="number" class="validate" size="4" />
-					</p>
-					<p class="settings-input">Text Dilation</p>
-					<p class="settings-input">
-						<input value="" id="textdilationX" class="input-number textdilationX" type="number" class="validate" /> :
-						<input value="" id="textdilationY" class="input-number textdilationY" type="number" class="validate" />
-					</p>
-					<p class="settings-input">Image Dilation</p>
-					<p class="settings-input">
-						<input value="" id="imagedilationX"
-							class="input-number imagedilationX" type="number" class="validate" />
-						: <input value="" id="imagedilationY"
-							class="input-number imagedilationY" type="number" class="validate" />
-					</p>
+					<div class="hide">
+						<p class="settings-input" >Binary Thresh</p>
+						<p class="settings-input">
+							<input value="" id="binarythreash" class="input-number"
+								type="number" class="validate" size="4" />
+						</p>
+					</div>
+					<div>
+						<p class="settings-input">Text Dilation</p>
+						<p class="settings-input">
+							<input value="" id="textdilationX" class="input-number textdilationX" type="number" class="validate" /> :
+							<input value="" id="textdilationY" class="input-number textdilationY" type="number" class="validate" />
+						</p>
+					</div>
+					<div>
+						<p class="settings-input">Image Dilation</p>
+						<p class="settings-input">
+							<input value="" id="imagedilationX"
+								class="input-number imagedilationX" type="number" class="validate" />
+							: <input value="" id="imagedilationY"
+								class="input-number imagedilationY" type="number" class="validate" />
+						</p>
+					</div>
 				</div>
 			</div>
 	</ul>
