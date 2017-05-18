@@ -319,9 +319,10 @@ function Editor(viewer,controller) {
 			_tempPath = new paper.Path(_this.getPath(pathID).segments);
 			_tempID = pathID;
 			_tempPath.fillColor = 'grey';
-			_tempPath.opacity = 0.3;
+			_tempPath.opacity = 0.2;
 			_tempPath.closed = true;
-			_tempPath.selected = true;
+			_tempPath.strokeColor = 'black';
+			_tempPath.dashArray = [5, 3];
 
 			// Set Grid
 			_this.setGrid(_tempPath.position);
@@ -487,7 +488,7 @@ function Editor(viewer,controller) {
 			if(_tempPath != null){
 				var path = new paper.Path(_this.getPath(_tempID).segments);
 				path.bounds = _tempPath.bounds;
-				
+
 				if(_tempPathIsSegment){
 					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
 				}else{
