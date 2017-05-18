@@ -89,9 +89,20 @@ function KeyInput(navigationController, controller, gui) {
 				_controller.createCut();
 				validKey = true;
 				break;
+			case 77: // M
+				_controller.moveSelected();
+				validKey = true;
+				break;
+			case 83: // S
+				_controller.scaleSelected();
+				validKey = true;
+				break;
+			case 18: // ALT
+				_controller.applyGrid();
+				break;
 
-			// default: //Debug to get key codes
-			 	//alert(event.keyCode);
+			 //default: //Debug to get key codes
+			 //	alert(event.keyCode);
 
 			}
 
@@ -108,9 +119,12 @@ function KeyInput(navigationController, controller, gui) {
 			var validKey = false;
 
 			switch (event.keyCode) {
-			case 17: // CTRL
-				_controller.selectmultiple = false;
-				break;
+				case 17: // CTRL
+					_controller.selectmultiple = false;
+					break;
+				case 18: // ALT
+					_controller.removeGrid();
+					break;
 			}
 
 			if (validKey = true) {

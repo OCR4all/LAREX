@@ -17,8 +17,8 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 		}
 	}
 
-	this.addSegment = function(segment){
-		this.drawPath(segment, false, null);
+	this.addSegment = function(segment,isFixed){
+		this.drawPath(segment, false, null,isFixed);
 	}
 
 	this.clear = function() {
@@ -40,13 +40,14 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 			//Save old alpha
 			var alphaFill = path.fillColor.alpha;
 			var alphaStroke = path.strokeColor.alpha;
-
+			var dashArray = path.dashArray;
 			var oldAlpha = path.fillColor.oldAlpha;
 			path.fillColor = new paper.Color(color);//color;
 			path.fillColor.alpha = alphaFill;
 			path.fillColor.oldAlpha = oldAlpha;
 			path.strokeColor = color;
 			path.strokeColor.alpha = alphaStroke;
+			path.dashArray = dashArray;
 
 			//Convert segment points to current canvas coordinates
 			var imagePosition = _imageCanvas.bounds;
@@ -174,7 +175,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	this.drawPath = function(segment, doFill, info){
+	this.drawPath = function(segment, doFill, info, isFixed){
 		//Construct path from segment
 		var path = new paper.Path();
 		var color = this.getColor(segment.type);
@@ -190,6 +191,9 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 			path.fillColor.alpha = 0.001;
 			path.strokeColor.alpha = 1;
 			path.strokeWidth = 2;
+		}
+		if(isFixed){
+			path.dashArray = [5, 3];
 		}
 		path.fillColor.oldAlpha = path.fillColor.alpha;
 
@@ -226,6 +230,9 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
+	this.getPath = function(id){
+		return _paths[id];
+	}
 	this.drawPathLine = function(segment){
 		//Construct path from segment
 		var path = new paper.Path();

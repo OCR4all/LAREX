@@ -58,7 +58,7 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 			_settings.regions[_oldType].polygons[_regionPolygon.id] = _regionPolygon;
 			_viewer.updateSegment(_regionPolygon);
 			if(_controller != null){
-				_controller.hideRegion(_old,false);
+				_controller.hideRegion(_oldType,false);
 			}
 			console.log('Undo - Change Type: {"id":"'+_regionPolygon.id+'","points":[..],"type":"'+_oldType+'->'+_newType+'"}');
 		}
@@ -211,7 +211,7 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page){
 		if(!_isExecuted){
 			_isExecuted = true;
 			_settings.pages[page].segments[_segment.id] = _segment;
-			_editor.addSegment(_segment);
+			_editor.addSegment(_segment,true);
 			console.log('Do - Add Region Polygon: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}
@@ -300,6 +300,72 @@ function ActionRemoveCut(cut,editor,settings,page){
 			_settings.pages[_page].cuts[_cut.id] = JSON.parse(JSON.stringify(_cut));
 			_editor.addLine(_cut);
 			console.log('Undo - Remove Cut: {"id":"'+_cut.id+'","points":'+_cut.points+',"type":"'+_cut.type+'"}');
+		}
+	}
+}
+
+function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,controller){
+	var _isExecuted = false;
+	var _viewer = viewer;
+	var _settings = settings;
+	var _page = page;
+	var _id = id;
+	var _regionType = regionType;
+	var _newRegionPoints = JSON.parse(JSON.stringify(regionPolygon));
+	var _oldRegionPoints = JSON.parse(JSON.stringify(_settings.regions[_regionType].polygons[_id].points));
+	var _controller = controller;
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+			var region = _settings.regions[_regionType].polygons[_id];
+			region.points = _newRegionPoints;
+			_viewer.updateSegment(region);
+			if(_controller != null){
+				_controller.hideRegion(_regionType,false);
+			}
+			console.log('Do - Transform Region: {"id":"'+_id+' [..]}');
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+			var region = _settings.regions[_regionType].polygons[_id];
+			region.points = _oldRegionPoints;
+			_viewer.updateSegment(region);
+			if(_controller != null){
+				_controller.hideRegion(_regionType,false);
+			}
+			console.log('Undo - Transform Region: {"id":"'+_id+' [..]}');
+		}
+	}
+}
+
+function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
+	var _isExecuted = false;
+	var _viewer = viewer;
+	var _settings = settings;
+	var _page = page;
+	var _id = id;
+	var _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
+	var _oldRegionPoints = JSON.parse(JSON.stringify(_settings.pages[_page].segments[_id].points));
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+			var segment = _settings.pages[_page].segments[_id];
+			segment.points = _newRegionPoints;
+			_viewer.updateSegment(segment);
+			console.log('Do - Transform Segment: {"id":"'+_id+' [..]}');
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+			var segment = _settings.pages[_page].segments[_id];
+			segment.points = _oldRegionPoints;
+			_viewer.updateSegment(segment);
+			console.log('Undo - Transform Segment: {"id":"'+_id+' [..]}');
 		}
 	}
 }

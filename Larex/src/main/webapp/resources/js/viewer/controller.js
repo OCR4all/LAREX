@@ -1,4 +1,4 @@
-function Controller(bookID, canvasID) {
+function Controller(bookID, canvasID, specifiedColors) {
 	var _bookID = bookID;
 	var _communicator = new Communicator();
 	var _gui;
@@ -13,6 +13,8 @@ function Controller(bookID, canvasID) {
 	var _actions = [];
 	var _actionpointer = -1;
 	var _presentRegions = [];
+
+	var _gridIsActive = false;
 
 	var _thisController = this;
 	var _selected = [];
@@ -42,17 +44,6 @@ function Controller(bookID, canvasID) {
 							// Init the viewer
 							var navigationController = new NavigationController();
 							var viewerInput = new ViewerInput(_thisController);
-
-							//specify specific colors
-							var specifiedColors = {
-									image: new paper.Color(0,1,0),
-									paragraph: new paper.Color(1,0,0),
-									marginalia: new paper.Color(1,1,0),
-									page_number: new paper.Color(0,1,1),
-									ignore: new paper.Color(0,0,0),
-									heading: new paper.Color(0,0,1),
-									signature_mark: new paper.Color(0.5,0,0)
-							};
 
 							// Inheritance Editor extends Viewer
 							_editor = new Editor(new Viewer(
@@ -212,6 +203,35 @@ function Controller(bookID, canvasID) {
 	this.createCut = function() {
 		_editor.startCreateLine();
 	}
+	this.moveSelected = function() {
+		if(_selected.length > 0){
+			//moveLast instead of all maybe TODO
+			var moveID = _selected[_selected.length-1];
+			if (_selectType === "region") {
+				_editor.startMovePath(moveID,false);
+			} else if(_selectType === "segment"){
+				_editor.startMovePath(moveID,true);
+			}else if(_selectType === "line"){
+				//TODO
+			}
+			this.unSelect();
+		}
+	}
+
+	this.scaleSelected = function() {
+		if(_selected.length > 0){
+			//moveLast instead of all maybe TODO
+			var moveID = _selected[_selected.length-1];
+			if (_selectType === "region") {
+				_editor.startScalePath(moveID,false);
+			} else if(_selectType === "segment"){
+				_editor.startScalePath(moveID,true);
+			}else if(_selectType === "line"){
+				//TODO
+			}
+			this.unSelect();
+		}
+	}
 	this.endEditing = function(){
 		_editor.endEditing();
 	}
@@ -300,6 +320,25 @@ function Controller(bookID, canvasID) {
 
 		addAndExecuteAction(actionAdd);
 	}
+
+	this.transformSegment = function(segmentID,segmentPoints){
+		var polygonType = getPolygonMainType(segmentID);
+		if(polygonType === "fixed"){
+			var actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_settings,_currentPage);
+			addAndExecuteAction(actionTransformSegment);
+		}
+	}
+
+	this.transformRegion = function(regionID,regionSegments){
+		var polygonType = getPolygonMainType(regionID);
+		if(polygonType === "region"){
+			var regionType = getRegionByID(regionID).type;
+			var actionTransformRegion = new ActionTransformRegion(regionID,regionSegments,regionType, _editor, _settings, _currentPage,_thisController);
+			addAndExecuteAction(actionTransformRegion);
+			_thisController.hideRegion(regionType,false);
+		}
+	}
+
 	this.changeRegionType = function(id, type){
 		var polygonType = getPolygonMainType(id);
 		if(polygonType === "region"){
@@ -338,6 +377,20 @@ function Controller(bookID, canvasID) {
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate);
+	}
+
+	this.applyGrid = function(){
+		if(!_gridIsActive){
+			_editor.addGrid();
+		}
+		_gridIsActive = true;
+	}
+
+	this.removeGrid = function(){
+		if(_gridIsActive){
+			_editor.removeGrid();
+			_gridIsActive = false;
+		}
 	}
 
 	// Display
@@ -386,13 +439,19 @@ function Controller(bookID, canvasID) {
 		_selected = [];
 	}
 	this.toggleSegment = function(sectionID, isSelected, info) {
-		_editor.selectSegment(sectionID, isSelected);
+		if(!_editor.isEditing){
+			_editor.selectSegment(sectionID, isSelected);
+		}
 	}
 	this.enterSegment = function(sectionID, info) {
-		_editor.highlightSegment(sectionID, true);
+		if(!_editor.isEditing){
+			_editor.highlightSegment(sectionID, true);
+		}
 	}
 	this.leaveSegment = function(sectionID, info) {
-		_editor.highlightSegment(sectionID, false);
+		if(!_editor.isEditing){
+			_editor.highlightSegment(sectionID, false);
+		}
 	}
 	this.hideAllRegions = function(doHide){
 		// Iterate over Regions-"Map" (Object in JS)
@@ -466,15 +525,6 @@ function Controller(bookID, canvasID) {
 			_thisController.endEditing();
 			_thisController.closeContextMenu();
 			_gui.closeRegionSettings();
-	}
-
-	var idIsFromRegion = function(regionID){
-		var region = getRegionByID(regionID);
-		if(region == null){
-			return false;
-		}else{
-			return true;
-		}
 	}
 
 	var addAndExecuteAction = function(action) {

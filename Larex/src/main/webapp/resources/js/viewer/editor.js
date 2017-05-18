@@ -3,11 +3,15 @@ function Editor(viewer,controller) {
 	this.isEditing = false;
 	var _viewer = viewer;
 	var _controller = controller;
-	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line
+	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
 	var _tempPathIsSegment;
 	var _tempPath;
 	var _tempPoint;
+	var _tempID;
+	var _tempMouseregion;
+	var _tempEndCircle;
 	var _this = this;
+	var _grid = {isActive:false};
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
 	this.addRegion = function(region){
@@ -56,11 +60,11 @@ function Editor(viewer,controller) {
 						_tempPath.selected = true;
 
 						// circle to end the path
-						var endCircle = new paper.Path.Circle(canvasPoint, 5);
-						endCircle.strokeColor = 'black';
-						endCircle.fillColor = 'grey';
-						endCircle.opacity = 0.5;
-						endCircle.onMouseDown = function(event) {
+						_tempEndCircle = new paper.Path.Circle(canvasPoint, 5);
+						_tempEndCircle.strokeColor = 'black';
+						_tempEndCircle.fillColor = 'grey';
+						_tempEndCircle.opacity = 0.5;
+						_tempEndCircle.onMouseDown = function(event) {
 							_this.endCreatePolygon();
 							this.remove();
 						}
@@ -86,6 +90,8 @@ function Editor(viewer,controller) {
 				}
 				_tempPath.remove();
 				_tempPath = null;
+				_tempEndCircle.remove();
+				_temPath = null;
 			}
 			document.body.style.cursor = "auto";
 		}
@@ -224,8 +230,9 @@ function Editor(viewer,controller) {
 				tool.onMouseMove = function(event) {
 					if(_this.isEditing === true){
 						if (_tempPath) {
-							var mouseregion = _this.getMouseRegion(event.point);
 							var boundaries = _viewer.getBoundaries();
+							var mouseregion = _this.getMouseRegion(boundaries,event.point);
+							_tempMouseregion = mouseregion;
 
 							switch(mouseregion){
 							case _this.mouseregions.LEFT:
@@ -301,11 +308,234 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.getMouseRegion = function(mousepos){
-		var bounds = _viewer.getBoundaries();
+	this.startMovePath = function(pathID,doSegment) {
+		if(_this.isEditing === false){
+			_editMode = 4;
+			_this.isEditing = true;
+			_tempPathIsSegment = doSegment;
+			document.body.style.cursor = "copy";
+
+			// Create Copy of movable
+			_tempPath = new paper.Path(_this.getPath(pathID).segments);
+			_tempID = pathID;
+			_tempPath.fillColor = 'grey';
+			_tempPath.opacity = 0.3;
+			_tempPath.closed = true;
+			_tempPath.strokeColor = 'black';
+			_tempPath.dashArray = [5, 3];
+
+			// Set Grid
+			_this.setGrid(_tempPath.position);
+
+			// Position variables between old and new path position
+			_tempPoint = new paper.Point(0,0);
+			var oldPosition = new paper.Point(_tempPath.position);
+			var oldMouse = null;
+
+			var tool = new paper.Tool();
+			tool.activate();
+			tool.onMouseMove = function(event) {
+				if(_this.isEditing === true){
+					if(oldMouse === null){
+						oldMouse = event.point;
+					}
+					_tempPoint = oldPosition.add(event.point.subtract(oldMouse));
+					if(!_grid.isActive){
+						_grid.vertical.visible = false;
+						_grid.horizontal.visible = false;
+					}else{
+						_tempPoint = _this.getPointFixedToGrid(_tempPoint);
+						_grid.vertical.visible = true;
+						_grid.horizontal.visible = true;
+					}
+					_tempPath.position = _tempPoint;
+
+					// Correct to stay in viewer bounds
+					var tempPathBounds = _tempPath.bounds;
+					var pictureBounds = _this.getBoundaries();
+					var correctionPoint = new paper.Point(0,0);
+					if(tempPathBounds.left < pictureBounds.left){
+						correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
+					}
+					if(tempPathBounds.right > pictureBounds.right){
+						correctionPoint = correctionPoint.subtract(new paper.Point((tempPathBounds.right-pictureBounds.right),0));
+					}
+					if(tempPathBounds.top < pictureBounds.top){
+						correctionPoint = correctionPoint.add(new paper.Point(0,(pictureBounds.top-tempPathBounds.top)));
+					}
+					if(tempPathBounds.bottom > pictureBounds.bottom){
+						correctionPoint = correctionPoint.subtract(new paper.Point(0,(tempPathBounds.bottom-pictureBounds.bottom)));
+					}
+					_tempPoint = _tempPoint.add(correctionPoint);
+					_tempPath.position = _tempPoint;
+				}else{
+					this.remove();
+				}
+			}
+			tool.onMouseDown = function(event) {
+				if(_this.isEditing === true){
+					_this.endMovePath();
+				}
+				this.remove();
+			}
+		}
+	}
+
+	this.endMovePath = function() {
+		if(_this.isEditing){
+			_this.isEditing = false;
+
+			if(_tempPath != null){
+				var path = new paper.Path(_this.getPath(_tempID).segments);
+				path.position = _tempPoint;
+
+				if(_tempPathIsSegment){
+					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
+				}else{
+					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));
+				}
+
+				_tempPath.remove();
+				_tempPath = null;
+			}
+			//hide grid
+			_grid.vertical.visible = false;
+			_grid.horizontal.visible = false;
+
+			document.body.style.cursor = "auto";
+		}
+	}
+
+	this.startScalePath = function(pathID,doSegment) {
+		if(_this.isEditing === false){
+			_editMode = 5;
+			_this.isEditing = true;
+			_tempPathIsSegment = doSegment;
+
+			// Create Copy of movable
+			var boundaries = _this.getPath(pathID).bounds;
+			_tempPath = new paper.Path.Rectangle(boundaries);
+			_tempID = pathID;
+			_tempPath.fillColor = 'grey';
+			_tempPath.opacity = 0.3;
+			_tempPath.closed = true;
+			_tempPath.strokeColor = 'black';
+			_tempPath.dashArray = [5, 3];
+
+			var tool = new paper.Tool();
+			tool.activate();
+			tool.onMouseMove = function(event) {
+				if(_this.isEditing === true){
+					if(_tempPath){
+						var mouseregion = _this.getMouseRegion(_tempPath.bounds,event.point,0.1);
+						_tempMouseregion = mouseregion;
+
+						switch(mouseregion){
+						case _this.mouseregions.LEFT:
+						case _this.mouseregions.RIGHT:
+							document.body.style.cursor = "col-resize";
+							break;
+						case _this.mouseregions.TOP:
+						case _this.mouseregions.BOTTOM:
+							document.body.style.cursor = "row-resize";
+							break;
+						case _this.mouseregions.MIDDLE:
+						default:
+							document.body.style.cursor = "auto";
+							break;
+						}
+					}
+				}else{
+					this.remove();
+				}
+			}
+			tool.onMouseDown = function(event) {
+				if(_this.isEditing === true){
+					scalePath(_tempPath,_tempMouseregion);
+				}
+				this.remove();
+			}
+		}
+	}
+
+	var scalePath = function(path,mouseregion){
+		var tool = new paper.Tool();
+		tool.activate();
+		tool.onMouseMove = function(event) {
+			if(_this.isEditing === true){
+				if(_tempPath){
+					switch(mouseregion){
+					case _this.mouseregions.LEFT:
+						if(event.point.x < path.bounds.right){
+							path.bounds.left = event.point.x;
+							document.body.style.cursor = "col-resize";
+						}
+						break;
+					case _this.mouseregions.RIGHT:
+						if(event.point.x > path.bounds.left){
+							path.bounds.right = event.point.x;
+							document.body.style.cursor = "col-resize";
+						}
+						break;
+					case _this.mouseregions.TOP:
+						if(event.point.y < path.bounds.bottom){
+							path.bounds.top = event.point.y;
+							document.body.style.cursor = "row-resize";
+						}
+						break;
+					case _this.mouseregions.BOTTOM:
+						if(event.point.y > path.bounds.top){
+							path.bounds.bottom = event.point.y;
+							document.body.style.cursor = "row-resize";
+						}
+						break;
+					case _this.mouseregions.MIDDLE:
+					default:
+						document.body.style.cursor = "auto";
+						this.remove();
+						break;
+					}
+				}
+			}else{
+				this.remove();
+			}
+		}
+		tool.onMouseUp = function(event) {
+			if(_this.isEditing === true){
+				_this.endScalePath();
+			}
+			this.remove();
+		}
+	}
+
+	this.endScalePath = function() {
+		if(_this.isEditing){
+			_this.isEditing = false;
+
+			if(_tempPath != null){
+				var path = new paper.Path(_this.getPath(_tempID).segments);
+				path.bounds = _tempPath.bounds;
+
+				if(_tempPathIsSegment){
+					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
+				}else{
+					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));
+				}
+
+				_tempPath.remove();
+				_tempPath = null;
+			}
+
+			document.body.style.cursor = "auto";
+		}
+	}
+
+	this.getMouseRegion = function(bounds,mousepos,percentarea){
 		var width = bounds.width;
 		var height = bounds.height;
-		var percentarea = 0.4;
+		if(percentarea == null){
+			percentarea = 0.4;
+		}
 
 		var leftmin = bounds.left;
 		var leftmax = leftmin + (width*percentarea);
@@ -351,6 +581,12 @@ function Editor(viewer,controller) {
 				case 3:
 					_this.endCreateLine();
 					break;
+				case 4:
+					_this.endMovePath();
+					break;
+				case 5:
+					endMovePath();
+					break;
 				default:
 					break;
 			}
@@ -377,8 +613,73 @@ function Editor(viewer,controller) {
 		}
 	}
 
+	this.addGrid = function(){
+		_grid.isActive = true;
+	}
+
+	this.setGrid = function(point){
+		if(_grid.vertical ==  null || _grid.horizontal == null){
+			_grid.vertical = new paper.Path.Line();
+			_grid.vertical.strokeColor = 'black';
+			_grid.vertical.dashArray = [3, 3];
+
+			_grid.horizontal = new paper.Path.Line();
+			_grid.horizontal.strokeColor = 'black';
+			_grid.horizontal.dashArray = [3, 3];
+		}
+		var bounds = paper.view.bounds;
+		_grid.vertical.removeSegments();
+		_grid.vertical.add(new paper.Point(point.x,bounds.top));
+		_grid.vertical.add(new paper.Point(point.x,bounds.bottom));
+
+		_grid.horizontal.removeSegments();
+		_grid.horizontal.add(new paper.Point(bounds.left,point.y));
+		_grid.horizontal.add(new paper.Point(bounds.right,point.y));
+
+		//visibility
+		if(!_grid.isActive){
+			_grid.vertical.visible = false;
+			_grid.horizontal.visible = false;
+		}else{
+			_grid.vertical.visible = true;
+			_grid.horizontal.visible = true;
+		}
+	}
+
+	this.removeGrid = function(point){
+		if(_grid.vertical !=  null && _grid.horizontal != null){
+			_grid.vertical.visible = false;
+			_grid.horizontal.visible = false;
+		}
+		_grid.isActive = false;
+	}
+
+	this.getPointFixedToGrid = function(point){
+		if(_grid.isActive && _grid.vertical !=  null && _grid.horizontal != null){
+			var verticalFixedPoint = new paper.Point(_grid.vertical.getPointAt(0).x,point.y);
+			var horizontalFixedPoint = new paper.Point(point.x,_grid.horizontal.getPointAt(0).y);
+			/*The following should have worked...
+			var verticalFixedPoint = _grid.vertical.getNearestLocation(event.point).point;
+			var horizontalFixedPoint = _grid.horizontal.getNearestLocation(event.point).point;*/
+			if(verticalFixedPoint.getDistance(point) < horizontalFixedPoint.getDistance(point)){
+				return verticalFixedPoint;
+			}else{
+				return horizontalFixedPoint;
+			}
+		}else{
+			return point;
+		}
+	}
+
 	// Private Helper methods
 	var convertPointsPathToSegment = function(path,isRelative){
+		var boundaryPath = new paper.Path.Rectangle(_this.getBoundaries());
+		var intersections = path.getIntersections(boundaryPath);
+		for(var i = 0; i < intersections.length;i++){
+			path.insertSegment(intersections[i].index+1,intersections[i].point);
+		}
+		path.reduce();
+		boundaryPath.remove();
 		var points = [];
 		for(var pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
 			var point = path.segments[pointItr].point;
@@ -433,8 +734,8 @@ function Editor(viewer,controller) {
 	this.setImage = function(id){
 		_viewer.setImage(id);
 	}
-	this.addSegment = function(segment){
-		_viewer.addSegment(segment);
+	this.addSegment = function(segment,isFixed){
+		_viewer.addSegment(segment,isFixed);
 	}
 	this.clear = function() {
 		_viewer.clear();
@@ -489,6 +790,9 @@ function Editor(viewer,controller) {
 		return _viewer.getColor(segmentType);
 	}
 	//Protected functions
+	this.getPath = function(id){
+		return _viewer.getPath(id);
+	}
 	this.drawPath = function(segment, doFill, info){
 		_viewer.drawPath(segment, doFill, info);
 	}
