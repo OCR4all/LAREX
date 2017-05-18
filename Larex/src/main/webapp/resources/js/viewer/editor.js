@@ -3,11 +3,12 @@ function Editor(viewer,controller) {
 	this.isEditing = false;
 	var _viewer = viewer;
 	var _controller = controller;
-	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move
+	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
 	var _tempPathIsSegment;
 	var _tempPath;
 	var _tempPoint;
 	var _tempID;
+	var _tempMouseregion;
 	var _tempEndCircle;
 	var _this = this;
 	var _grid = {isActive:false};
@@ -229,8 +230,9 @@ function Editor(viewer,controller) {
 				tool.onMouseMove = function(event) {
 					if(_this.isEditing === true){
 						if (_tempPath) {
-							var mouseregion = _this.getMouseRegion(event.point);
 							var boundaries = _viewer.getBoundaries();
+							var mouseregion = _this.getMouseRegion(boundaries,event.point);
+							_tempMouseregion = mouseregion;
 
 							switch(mouseregion){
 							case _this.mouseregions.LEFT:
@@ -384,11 +386,128 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.getMouseRegion = function(mousepos){
-		var bounds = _viewer.getBoundaries();
+	this.startScalePath = function(pathID,doSegment) {
+		if(_this.isEditing === false){
+			_editMode = 5;
+			_this.isEditing = true;
+			_tempPathIsSegment = doSegment;
+
+			// Create Copy of movable
+			var boundaries = _this.getPath(pathID).bounds;
+			_tempPath = new paper.Path.Rectangle(boundaries);
+			_tempID = pathID;
+			_tempPath.fillColor = 'grey';
+			_tempPath.opacity = 0.2;
+			_tempPath.closed = true;
+			_tempPath.strokeColor = 'black';
+			_tempPath.dashArray = [5, 3];
+
+			var tool = new paper.Tool();
+			tool.activate();
+			tool.onMouseMove = function(event) {
+				if(_this.isEditing === true){
+					if(_tempPath){
+						var mouseregion = _this.getMouseRegion(_tempPath.bounds,event.point,0.1);
+						_tempMouseregion = mouseregion;
+
+						switch(mouseregion){
+						case _this.mouseregions.LEFT:
+						case _this.mouseregions.RIGHT:
+							document.body.style.cursor = "col-resize";
+							break;
+						case _this.mouseregions.TOP:
+						case _this.mouseregions.BOTTOM:
+							document.body.style.cursor = "row-resize";
+							break;
+						case _this.mouseregions.MIDDLE:
+						default:
+							document.body.style.cursor = "auto";
+							break;
+						}
+					}
+				}else{
+					this.remove();
+				}
+			}
+			tool.onMouseDown = function(event) {
+				if(_this.isEditing === true){
+					scalePath(_tempPath,_tempMouseregion);
+				}
+				this.remove();
+			}
+		}
+	}
+
+	var scalePath = function(path,mouseregion){
+		var tool = new paper.Tool();
+		tool.activate();
+		tool.onMouseMove = function(event) {
+			if(_this.isEditing === true){
+				if(_tempPath){
+					switch(mouseregion){
+					case _this.mouseregions.LEFT:
+						path.bounds.left = event.point.x;
+						document.body.style.cursor = "col-resize";
+						break;
+					case _this.mouseregions.RIGHT:
+						path.bounds.right = event.point.x;
+						document.body.style.cursor = "col-resize";
+						break;
+					case _this.mouseregions.TOP:
+						path.bounds.top = event.point.y;
+						document.body.style.cursor = "row-resize";
+						break;
+					case _this.mouseregions.BOTTOM:
+						path.bounds.bottom = event.point.y;
+						document.body.style.cursor = "row-resize";
+						break;
+					case _this.mouseregions.MIDDLE:
+					default:
+						document.body.style.cursor = "auto";
+						this.remove();
+						break;
+					}
+				}
+			}else{
+				this.remove();
+			}
+		}
+		tool.onMouseUp = function(event) {
+			if(_this.isEditing === true){
+				_this.endScalePath();
+			}
+			this.remove();
+		}
+	}
+
+	this.endScalePath = function() {
+		if(_this.isEditing){
+			_this.isEditing = false;
+
+			if(_tempPath != null){
+				var path = new paper.Path(_this.getPath(_tempID).segments);
+				path.bounds = _tempPath.bounds;
+				
+				if(_tempPathIsSegment){
+					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
+				}else{
+					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));
+				}
+
+				_tempPath.remove();
+				_tempPath = null;
+			}
+
+			document.body.style.cursor = "auto";
+		}
+	}
+
+	this.getMouseRegion = function(bounds,mousepos,percentarea){
 		var width = bounds.width;
 		var height = bounds.height;
-		var percentarea = 0.4;
+		if(percentarea == null){
+			percentarea = 0.4;
+		}
 
 		var leftmin = bounds.left;
 		var leftmax = leftmin + (width*percentarea);

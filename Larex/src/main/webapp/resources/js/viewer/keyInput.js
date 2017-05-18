@@ -93,12 +93,16 @@ function KeyInput(navigationController, controller, gui) {
 				_controller.moveSelected();
 				validKey = true;
 				break;
+			case 83: // S
+				_controller.scaleSelected();
+				validKey = true;
+				break;
 			case 18: // ALT
 				_controller.applyGrid();
 				break;
 
 			 //default: //Debug to get key codes
-			 	//alert(event.keyCode);
+			 //	alert(event.keyCode);
 
 			}
 

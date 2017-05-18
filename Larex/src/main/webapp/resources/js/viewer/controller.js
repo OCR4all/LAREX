@@ -210,6 +210,22 @@ function Controller(bookID, canvasID, specifiedColors) {
 			}else if(_selectType === "line"){
 				//TODO
 			}
+			this.unSelect();
+		}
+	}
+
+	this.scaleSelected = function() {
+		if(_selected.length > 0){
+			//moveLast instead of all maybe TODO
+			var moveID = _selected[_selected.length-1];
+			if (_selectType === "region") {
+				_editor.startScalePath(moveID,false);
+			} else if(_selectType === "segment"){
+				_editor.startScalePath(moveID,true);
+			}else if(_selectType === "line"){
+				//TODO
+			}
+			this.unSelect();
 		}
 	}
 	this.endEditing = function(){
