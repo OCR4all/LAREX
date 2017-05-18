@@ -40,13 +40,14 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 			//Save old alpha
 			var alphaFill = path.fillColor.alpha;
 			var alphaStroke = path.strokeColor.alpha;
-
+			var dashArray = path.dashArray;
 			var oldAlpha = path.fillColor.oldAlpha;
 			path.fillColor = new paper.Color(color);//color;
 			path.fillColor.alpha = alphaFill;
 			path.fillColor.oldAlpha = oldAlpha;
 			path.strokeColor = color;
 			path.strokeColor.alpha = alphaStroke;
+			path.dashArray = dashArray;
 
 			//Convert segment points to current canvas coordinates
 			var imagePosition = _imageCanvas.bounds;
