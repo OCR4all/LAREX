@@ -49,8 +49,8 @@
 					<div class="">
 						<t:menuIcon url="${pageContext.request.contextPath}/" jsClass="open" icon="folder_open"
 							tooltip="Open a different book">Open</t:menuIcon>
-						<t:menuIcon jsClass="export" icon="code"
-							tooltip="Export as PageXML (Coming soon)">PageXML Export</t:menuIcon>
+						<t:menuIcon url="${pageContext.request.contextPath}/exportXML?page=0" jsClass="exportPageXML" icon="code"
+							tooltip="Export as PageXML">PageXML Export</t:menuIcon>
 					</div>
 				</div>
 				<div id="nav" class="">
