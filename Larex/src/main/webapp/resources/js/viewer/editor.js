@@ -319,7 +319,7 @@ function Editor(viewer,controller) {
 			_tempPath = new paper.Path(_this.getPath(pathID).segments);
 			_tempID = pathID;
 			_tempPath.fillColor = 'grey';
-			_tempPath.opacity = 0.2;
+			_tempPath.opacity = 0.3;
 			_tempPath.closed = true;
 			_tempPath.strokeColor = 'black';
 			_tempPath.dashArray = [5, 3];
@@ -348,6 +348,25 @@ function Editor(viewer,controller) {
 						_grid.vertical.visible = true;
 						_grid.horizontal.visible = true;
 					}
+					_tempPath.position = _tempPoint;
+
+					// Correct to stay in viewer bounds
+					var tempPathBounds = _tempPath.bounds;
+					var pictureBounds = _this.getBoundaries();
+					var correctionPoint = new paper.Point(0,0);
+					if(tempPathBounds.left < pictureBounds.left){
+						correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
+					}
+					if(tempPathBounds.right > pictureBounds.right){
+						correctionPoint = correctionPoint.subtract(new paper.Point((tempPathBounds.right-pictureBounds.right),0));
+					}
+					if(tempPathBounds.top < pictureBounds.top){
+						correctionPoint = correctionPoint.add(new paper.Point(0,(pictureBounds.top-tempPathBounds.top)));
+					}
+					if(tempPathBounds.bottom > pictureBounds.bottom){
+						correctionPoint = correctionPoint.subtract(new paper.Point(0,(tempPathBounds.bottom-pictureBounds.bottom)));
+					}
+					_tempPoint = _tempPoint.add(correctionPoint);
 					_tempPath.position = _tempPoint;
 				}else{
 					this.remove();
@@ -398,7 +417,7 @@ function Editor(viewer,controller) {
 			_tempPath = new paper.Path.Rectangle(boundaries);
 			_tempID = pathID;
 			_tempPath.fillColor = 'grey';
-			_tempPath.opacity = 0.2;
+			_tempPath.opacity = 0.3;
 			_tempPath.closed = true;
 			_tempPath.strokeColor = 'black';
 			_tempPath.dashArray = [5, 3];
