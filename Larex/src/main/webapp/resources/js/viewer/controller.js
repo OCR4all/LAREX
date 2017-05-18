@@ -99,7 +99,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 				var pageFixedSegments = _settings.pages[_currentPage].segments;
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
-					_editor.addSegment(pageFixedSegments[key]);
+					_editor.addSegment(pageFixedSegments[key],true);
 				});
 
 				var regions = _settings.regions;
