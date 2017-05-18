@@ -734,8 +734,8 @@ function Editor(viewer,controller) {
 	this.setImage = function(id){
 		_viewer.setImage(id);
 	}
-	this.addSegment = function(segment){
-		_viewer.addSegment(segment);
+	this.addSegment = function(segment,isFixed){
+		_viewer.addSegment(segment,isFixed);
 	}
 	this.clear = function() {
 		_viewer.clear();

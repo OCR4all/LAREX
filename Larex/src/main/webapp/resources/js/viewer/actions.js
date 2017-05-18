@@ -211,7 +211,7 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page){
 		if(!_isExecuted){
 			_isExecuted = true;
 			_settings.pages[page].segments[_segment.id] = _segment;
-			_editor.addSegment(_segment);
+			_editor.addSegment(_segment,true);
 			console.log('Do - Add Region Polygon: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}

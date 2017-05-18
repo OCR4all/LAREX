@@ -17,8 +17,8 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 		}
 	}
 
-	this.addSegment = function(segment){
-		this.drawPath(segment, false, null);
+	this.addSegment = function(segment,isFixed){
+		this.drawPath(segment, false, null,isFixed);
 	}
 
 	this.clear = function() {
@@ -174,7 +174,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	this.drawPath = function(segment, doFill, info){
+	this.drawPath = function(segment, doFill, info, isFixed){
 		//Construct path from segment
 		var path = new paper.Path();
 		var color = this.getColor(segment.type);
@@ -190,6 +190,9 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 			path.fillColor.alpha = 0.001;
 			path.strokeColor.alpha = 1;
 			path.strokeWidth = 2;
+		}
+		if(isFixed){
+			path.dashArray = [5, 3];
 		}
 		path.fillColor.oldAlpha = path.fillColor.alpha;
 
