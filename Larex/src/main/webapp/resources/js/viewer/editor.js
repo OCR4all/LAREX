@@ -447,20 +447,28 @@ function Editor(viewer,controller) {
 				if(_tempPath){
 					switch(mouseregion){
 					case _this.mouseregions.LEFT:
-						path.bounds.left = event.point.x;
-						document.body.style.cursor = "col-resize";
+						if(event.point.x < path.bounds.right){
+							path.bounds.left = event.point.x;
+							document.body.style.cursor = "col-resize";
+						}
 						break;
 					case _this.mouseregions.RIGHT:
-						path.bounds.right = event.point.x;
-						document.body.style.cursor = "col-resize";
+						if(event.point.x > path.bounds.left){
+							path.bounds.right = event.point.x;
+							document.body.style.cursor = "col-resize";
+						}
 						break;
 					case _this.mouseregions.TOP:
-						path.bounds.top = event.point.y;
-						document.body.style.cursor = "row-resize";
+						if(event.point.y < path.bounds.bottom){
+							path.bounds.top = event.point.y;
+							document.body.style.cursor = "row-resize";
+						}
 						break;
 					case _this.mouseregions.BOTTOM:
-						path.bounds.bottom = event.point.y;
-						document.body.style.cursor = "row-resize";
+						if(event.point.y > path.bounds.top){
+							path.bounds.bottom = event.point.y;
+							document.body.style.cursor = "row-resize";
+						}
 						break;
 					case _this.mouseregions.MIDDLE:
 					default:
@@ -556,6 +564,9 @@ function Editor(viewer,controller) {
 					break;
 				case 4:
 					_this.endMovePath();
+					break;
+				case 5:
+					endMovePath();
 					break;
 				default:
 					break;
