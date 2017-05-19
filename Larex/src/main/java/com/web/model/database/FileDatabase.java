@@ -1,6 +1,9 @@
 package com.web.model.database;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -24,13 +27,17 @@ public class FileDatabase implements IDatabase{
 
 	public Map<Integer, Book> getBooks() {
 		File[] files = databaseFolder.listFiles();
-		if(files != null){
-			for(File bookFile: files){
-				if(bookFile.isDirectory()){
-					int bookHash = bookFile.getName().hashCode();
-					Book book = readBook(bookFile, bookHash);
-					books.put(bookHash, book);
-				}
+		
+		//sort book files/folders
+		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(files));
+		//sortedFiles.sort((f1,f2) -> f1.getName().compareTo(f2.getName())); //ArrayOutOfBounds exception ? 
+		sortedFiles.sort(new FileNameComparator());//Because lambda throws exception
+		
+		for(File bookFile: sortedFiles){
+			if(bookFile.isDirectory()){
+				int bookHash = bookFile.getName().hashCode();
+				Book book = readBook(bookFile, bookHash);
+				books.put(bookHash, book);
 			}
 		}
 		return books;
@@ -52,7 +59,12 @@ public class FileDatabase implements IDatabase{
 		
 		LinkedList<Page> pages = new LinkedList<Page>();
 		int pageCounter = 0;
-		for(File pageFile: bookFile.listFiles()){
+		
+		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(bookFile.listFiles()));
+
+		//Because lambda throws exception
+		sortedFiles.sort(new FileNameComparator());
+		for(File pageFile: sortedFiles){
 			if(pageFile.isFile()){
 				String pageName = pageFile.getName();
 				pages.add(new Page(pageCounter, bookName + File.separator + pageName));
@@ -63,4 +75,13 @@ public class FileDatabase implements IDatabase{
 		Book book = new Book(bookID,bookName,pages);
 		return book;
 	}
+	
+
+	private class FileNameComparator implements Comparator<File>{
+		@Override
+		public int compare(File o1, File o2) {
+			return o1.getName().compareTo(o2.getName());
+		}
+	};		
 }
+
