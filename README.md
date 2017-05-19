@@ -73,8 +73,6 @@ Select the web perspective and add the Tomcat server.
 ### Access in browser
 Go to `localhost:8080/Larex`.
 
-The WebApp was developed and tested using Chrome. We observed some strange behavour when using Firefox. These issues will be addressed in the near future.
-
 ### Using your own images
 You can add your own books by copying them to src/webapp/resources/books.
 
