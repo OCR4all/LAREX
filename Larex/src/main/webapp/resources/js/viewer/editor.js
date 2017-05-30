@@ -462,28 +462,30 @@ function Editor(viewer,controller) {
 		tool.onMouseMove = function(event) {
 			if(_this.isEditing === true){
 				if(_tempPath){
+					var mouseinbound = _this.getPointInBounds(event.point,_viewer.getBoundaries());
+
 					switch(mouseregion){
 					case _this.mouseregions.LEFT:
-						if(event.point.x < path.bounds.right){
-							path.bounds.left = event.point.x;
+						if(mouseinbound.x < path.bounds.right){
+							path.bounds.left = mouseinbound.x;
 							document.body.style.cursor = "col-resize";
 						}
 						break;
 					case _this.mouseregions.RIGHT:
-						if(event.point.x > path.bounds.left){
-							path.bounds.right = event.point.x;
+						if(mouseinbound.x > path.bounds.left){
+							path.bounds.right = mouseinbound.x;
 							document.body.style.cursor = "col-resize";
 						}
 						break;
 					case _this.mouseregions.TOP:
-						if(event.point.y < path.bounds.bottom){
-							path.bounds.top = event.point.y;
+						if(mouseinbound.y < path.bounds.bottom){
+							path.bounds.top = mouseinbound.y;
 							document.body.style.cursor = "row-resize";
 						}
 						break;
 					case _this.mouseregions.BOTTOM:
-						if(event.point.y > path.bounds.top){
-							path.bounds.bottom = event.point.y;
+						if(mouseinbound.y > path.bounds.top){
+							path.bounds.bottom = mouseinbound.y;
 							document.body.style.cursor = "row-resize";
 						}
 						break;
@@ -671,13 +673,6 @@ function Editor(viewer,controller) {
 
 	// Private Helper methods
 	var convertPointsPathToSegment = function(path,isRelative){
-		var boundaryPath = new paper.Path.Rectangle(_this.getBoundaries());
-		/*var intersections = path.getIntersections(boundaryPath);
-		for(var i = 0; i < intersections.length;i++){
-			path.insertSegment(intersections[i].index+1,intersections[i].point);
-		}
-		path.reduce();*/
-		boundaryPath.remove();
 		var points = [];
 		for(var pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
 			var point = path.segments[pointItr].point;
