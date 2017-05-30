@@ -34,7 +34,7 @@ public class DEFAULT_Parameters {
 	private static final int TEXT_REMOVAL_DILATION_Y_STEPSIZE = 1;
 
 	// DEFAULT Region Parameters
-	private static final int IMAGE_MIN_SIZE_DEFAULT = 5000;
+	private static final int IMAGE_MIN_SIZE_DEFAULT = 3000;
 	private static final int IMAGE_MIN_SIZE_MIN = 1;
 	private static final int IMAGE_MIN_SIZE_MAX = 999000;
 	private static final int IMAGE_MIN_SIZE_STEPSIZE = 100;
