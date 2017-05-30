@@ -317,6 +317,7 @@ function Editor(viewer,controller) {
 
 			// Create Copy of movable
 			_tempPath = new paper.Path(_this.getPath(pathID).segments);
+			//_tempPath = _this.getPath(pathID).clone();
 			_tempID = pathID;
 			_tempPath.fillColor = 'grey';
 			_tempPath.opacity = 0.3;
@@ -386,13 +387,10 @@ function Editor(viewer,controller) {
 			_this.isEditing = false;
 
 			if(_tempPath != null){
-				var path = new paper.Path(_this.getPath(_tempID).segments);
-				path.position = _tempPoint;
-
 				if(_tempPathIsSegment){
-					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
+					_controller.transformSegment(_tempID,convertPointsPathToSegment(_tempPath,false));
 				}else{
-					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));
+					_controller.transformRegion(_tempID,convertPointsPathToSegment(_tempPath,true));
 				}
 
 				_tempPath.remove();
@@ -674,11 +672,11 @@ function Editor(viewer,controller) {
 	// Private Helper methods
 	var convertPointsPathToSegment = function(path,isRelative){
 		var boundaryPath = new paper.Path.Rectangle(_this.getBoundaries());
-		var intersections = path.getIntersections(boundaryPath);
+		/*var intersections = path.getIntersections(boundaryPath);
 		for(var i = 0; i < intersections.length;i++){
 			path.insertSegment(intersections[i].index+1,intersections[i].point);
 		}
-		path.reduce();
+		path.reduce();*/
 		boundaryPath.remove();
 		var points = [];
 		for(var pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
@@ -689,6 +687,7 @@ function Editor(viewer,controller) {
 				points.push(getPointFromCanvas(point.x, point.y));
 			}
 		}
+
 		return points;
 	}
 
