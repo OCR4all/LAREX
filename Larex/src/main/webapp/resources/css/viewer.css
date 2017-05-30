@@ -68,6 +68,8 @@ body {
       .sidebar .settings-regions .collection-item:hover {
         background-color: #757575;
         color: white; }
+  .sidebar .btn {
+    margin-bottom: 5px !important; }
 
 #pagecontainer {
   height: 100% !important;
