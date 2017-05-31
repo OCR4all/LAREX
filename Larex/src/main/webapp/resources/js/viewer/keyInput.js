@@ -74,11 +74,11 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 51: // 3
-				_controller.createPolygon(true);
+				_controller.createRectangle(true);
 				validKey = true;
 				break;
 			case 52: // 4
-				_controller.createRectangle(true);
+				_controller.createPolygon(true);
 				validKey = true;
 				break;
 			case 53: // 5

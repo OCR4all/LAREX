@@ -115,9 +115,9 @@
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Segment" defaultJs="createSegmentRectangle">
 							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
-								tooltip="Create a fixed segment rectangle (Shortcut: 4)">Rectangle</t:menuIcon>
+								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
-								tooltip="Create a fixed segment polygon. Back to start, double click or ESC to end (Shortcut: 3)">Polygon</t:menuIcon>
+								tooltip="Create a fixed segment polygon. Back to start, double click or ESC to end (Shortcut: 4)">Polygon</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="createCut" icon="content_cut"
