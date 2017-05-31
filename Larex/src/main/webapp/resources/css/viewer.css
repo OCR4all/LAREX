@@ -126,8 +126,6 @@ body {
   padding: 2px 2px 0px 2px !important;
   margin: 1px 1px 1px 1px !important;
   float: left; }
-  .menuIconCategory :hover {
-    cursor: pointer; }
   .menuIconCategory .menuIcon {
     width: 23px;
     height: 23px;

@@ -78,7 +78,7 @@
 				</div>
 				<div id="nav" class="">
 					<div class="">
-						<t:menuIconCategory name="Move" defaultJs="">
+						<t:menuIconCategory name="Move" >
 							<t:menuIcon jsClass="moveup" icon="keyboard_arrow_up"
 								tooltip="Moves the image up (Shortcut: arrow up or drag image)">Up</t:menuIcon>
 							<t:menuIcon jsClass="movedown" icon="keyboard_arrow_down"
@@ -106,14 +106,14 @@
 				</div>
 				<div id="edit" class="">
 					<div class="">
-						<t:menuIconCategory name="Region" defaultJs="createRegionRectangle">
+						<t:menuIconCategory name="Region" >
 							<t:menuIcon jsClass="createRegionRectangle" icon="crop_5_4"
 								tooltip="Create a region rectangle (Shortcut: 1)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createRegionBorder" icon="border_left"
 								tooltip="Create a region border (Shortcut: 2)">Border</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
-						<t:menuIconCategory name="Segment" defaultJs="createSegmentRectangle">
+						<t:menuIconCategory name="Segment" >
 							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
 								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
