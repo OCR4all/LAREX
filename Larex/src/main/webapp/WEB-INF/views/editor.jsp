@@ -117,11 +117,11 @@
 							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
 								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
-								tooltip="Create a fixed segment polygon. Back to start, double click or ESC to end (Shortcut: 4)">Polygon</t:menuIcon>
+								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="createCut" icon="content_cut"
-							tooltip="Create a cut line. Double click or ESC to end (Shortcut: 6)">Line</t:menuIcon>
+							tooltip="Create a cut line. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="undo" icon="undo"
 							tooltip="Undo: Revokes the last action (Shortcut: ctrl+z)">Undo</t:menuIcon>

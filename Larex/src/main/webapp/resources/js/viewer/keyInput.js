@@ -82,10 +82,6 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 53: // 5
-				_controller.createBorder(true);
-				validKey = true;
-				break;
-			case 54: // 6
 				_controller.createCut();
 				validKey = true;
 				break;

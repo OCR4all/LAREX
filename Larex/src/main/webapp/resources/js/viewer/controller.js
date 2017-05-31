@@ -544,8 +544,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 	this.escape = function(){
 			_thisController.unSelect();
-			_thisController.endEditing();
 			_thisController.closeContextMenu();
+			_thisController.endEditing(true);
 			_gui.closeRegionSettings();
 	}
 
