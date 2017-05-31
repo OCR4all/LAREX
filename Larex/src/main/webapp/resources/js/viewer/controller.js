@@ -196,12 +196,21 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 	this.createPolygon = function(doSegment) {
 		_editor.startCreatePolygon(doSegment);
+		if(doSegment){
+			_gui.selectToolBarButton('segmentPolygon',true);
+		}
 	}
 	this.createRectangle = function(doSegment) {
 		_editor.startCreateRectangle(doSegment);
+		if(doSegment){
+			_gui.selectToolBarButton('segmentRectangle',true);
+		}else{
+			_gui.selectToolBarButton('regionRectangle',true);
+		}
 	}
 	this.createCut = function() {
 		_editor.startCreateLine();
+		_gui.selectToolBarButton('cut',true);
 	}
 	this.moveSelected = function() {
 		if(_selected.length > 0){
@@ -234,6 +243,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 	this.endEditing = function(){
 		_editor.endEditing();
+		_gui.unselectAllToolBarButtons();
 	}
 	this.deleteSelected = function() {
 		var actions = [];
@@ -284,6 +294,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 	this.createBorder = function(doSegment) {
 		_editor.startCreateBorder(doSegment);
+		if(doSegment){
+			//currently not in gui: _gui.selectToolBarButton('createSegmentBorder',true);
+		}else{
+			_gui.selectToolBarButton('createRegionBorder',true);
+		}
 	}
 	this.callbackNewRegion = function(regionpoints) {
 		var newID = "created" + _newPathCounter;
@@ -297,6 +312,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 		addAndExecuteAction(actionAdd);
 		_thisController.openContextMenu(false,newID);
+		_gui.unselectAllToolBarButtons();
 	}
 	this.callbackNewFixedSegment = function(segmentpoints) {
 		var newID = "created" + _newPathCounter;
@@ -310,6 +326,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 		addAndExecuteAction(actionAdd);
 		_thisController.openContextMenu(false,newID);
+		_gui.unselectAllToolBarButtons();
 	}
 	this.callbackNewCut = function(segmentpoints) {
 		var newID = "created" + _newPathCounter;
@@ -319,6 +336,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 				_editor, _settings, _currentPage);
 
 		addAndExecuteAction(actionAdd);
+		_gui.unselectAllToolBarButtons();
 	}
 
 	this.transformSegment = function(segmentID,segmentPoints){

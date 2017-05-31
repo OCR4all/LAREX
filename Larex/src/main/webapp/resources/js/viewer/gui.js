@@ -185,4 +185,39 @@ function GUI(canvas, viewer) {
 	this.closeRegionSettings = function(){
 		$('#regioneditor').addClass('hide');
 	}
+
+	this.selectToolBarButton = function(option, doSelect){
+		var $button = null;
+		switch(option){
+			case 'regionRectangle':
+				$button = $('.createRegionRectangle');
+				break;
+			case 'regionBorder':
+				$button = $('.createRegionBorder');
+				break;
+			case 'segmentRectangle':
+				$button = $('.createSegmentRectangle');
+				break;
+			case 'segmentPolygon':
+				$button = $('.createSegmentPolygon');
+				break;
+			case 'cut':
+				$button = $('.createCut');
+				break;
+			default:
+				break;
+		}
+		if($button){
+			if(doSelect){
+				$button.addClass('invert');
+			}else{
+				$button.removeClass('invert');
+			}
+		}
+	}
+
+	this.unselectAllToolBarButtons = function(){
+		var $buttons = $('.menuIcon');
+		$buttons.removeClass('invert');
+	}
 }
