@@ -204,6 +204,9 @@ body{
   padding: 1px !important;
   opacity: 0.7;
   &.selected{
+    background-color: red;
+  }
+  &.segmented{
     opacity: 1;
   }
 

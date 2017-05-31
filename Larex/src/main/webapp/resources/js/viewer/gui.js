@@ -225,4 +225,10 @@ function GUI(canvas, viewer) {
 		$('.pageImageContainer').removeClass('selected');
 		$('.pageImageContainer[data-page~="'+page+'"]').addClass('selected');
 	}
+	this.highlightSegmentedPages = function(segmentedPages){
+		$('.pageImageContainer').removeClass('segmented');
+		segmentedPages.forEach(function(page) {
+			$('.pageImageContainer[data-page~="'+page+'"]').addClass('segmented');
+		});
+	}
 }

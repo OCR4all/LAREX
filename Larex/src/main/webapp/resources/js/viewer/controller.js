@@ -56,6 +56,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 							_gui.setParameters(_settings.parameters);
 							_gui.setRegionLegendColors(_segmentationtypes);
+							_gui.highlightSegmentedPages(_segmentedPages);
 
 							navigationController.setGUI(_gui);
 							navigationController.setViewer(_editor);
@@ -168,11 +169,13 @@ function Controller(bookID, canvasID, specifiedColors) {
 				pages = [_currentPage];
 		}
 
+
 		_communicator.segmentBook(_activesettings,pages).done(function(data){
 				_segmentedPages.push.apply(_segmentedPages,pages);
 				_segmentation = data;
 				_thisController.displayPage(pages[0]);
 				_thisController.showPreloader(false);
+				_gui.highlightSegmentedPages(_segmentedPages);
 		});
 	}
 

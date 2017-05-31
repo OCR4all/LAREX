@@ -157,6 +157,8 @@ body {
   padding: 1px !important;
   opacity: 0.7; }
   .pageImageContainer.selected {
+    background-color: red; }
+  .pageImageContainer.segmented {
     opacity: 1; }
   .pageImageContainer .pageImage {
     width: 100%; }
