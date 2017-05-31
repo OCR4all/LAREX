@@ -118,6 +118,11 @@ body{
 	margin: 0px !important;
 	float: left;
 
+  :hover{
+  	cursor: pointer;
+    color: $color2 !important;
+    background-color: $color3 !important;
+  }
   .menuIconMain{
   	width: 100%;
   	height: 100%;

@@ -87,6 +87,10 @@ body {
   padding: 2px 0px 0px 0px !important;
   margin: 0px !important;
   float: left; }
+  .menuIcon :hover {
+    cursor: pointer;
+    color: white !important;
+    background-color: #757575 !important; }
   .menuIcon .menuIconMain {
     width: 100%;
     height: 100%;
