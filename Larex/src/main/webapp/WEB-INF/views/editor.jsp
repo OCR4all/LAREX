@@ -78,14 +78,16 @@
 				</div>
 				<div id="nav" class="">
 					<div class="">
-						<t:menuIcon jsClass="moveup" icon="keyboard_arrow_up"
-							tooltip="Moves the image up (Shortcut: arrow up or drag image)">Up</t:menuIcon>
-						<t:menuIcon jsClass="movedown" icon="keyboard_arrow_down"
-							tooltip="Moves the image down (Shortcut: arrow down or drag image)">Down</t:menuIcon>
-						<t:menuIcon jsClass="moveleft" icon="keyboard_arrow_left"
-							tooltip="Moves the image left (Shortcut: arrow left or drag image)">Left</t:menuIcon>
-						<t:menuIcon jsClass="moveright" icon="keyboard_arrow_right"
-							tooltip="Moves the image right (Shortcut: arrow right or drag image)">Right</t:menuIcon>
+						<t:menuIconCategory name="Move" defaultJs="">
+							<t:menuIcon jsClass="moveup" icon="keyboard_arrow_up"
+								tooltip="Moves the image up (Shortcut: arrow up or drag image)">Up</t:menuIcon>
+							<t:menuIcon jsClass="movedown" icon="keyboard_arrow_down"
+								tooltip="Moves the image down (Shortcut: arrow down or drag image)">Down</t:menuIcon>
+							<t:menuIcon jsClass="moveleft" icon="keyboard_arrow_left"
+								tooltip="Moves the image left (Shortcut: arrow left or drag image)">Left</t:menuIcon>
+							<t:menuIcon jsClass="moveright" icon="keyboard_arrow_right"
+								tooltip="Moves the image right (Shortcut: arrow right or drag image)">Right</t:menuIcon>
+						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="movecenter" icon="crop_free"
 							tooltip="Centers the images position (Shortcut: space)">Center</t:menuIcon>

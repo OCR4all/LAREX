@@ -115,12 +115,12 @@ body {
   display: block; }
 
 .menuIconCategory {
-  height: 40px;
+  height: 38px;
   text-align: center;
   color: white !important;
   background-color: #757575 !important;
-  padding: 3px 2px 0px 2px !important;
-  margin: 0px !important;
+  padding: 2px 2px 0px 2px !important;
+  margin: 1px 1px 1px 1px !important;
   float: left; }
   .menuIconCategory :hover {
     cursor: pointer; }
@@ -150,6 +150,12 @@ body {
   padding: 0px !important;
   margin: 3px 0px !important;
   float: left; }
+
+.pageImageContainer {
+  padding: 1px !important; }
+
+.pageImage {
+  width: 100%; }
 
 #regioneditor {
   position: absolute; }

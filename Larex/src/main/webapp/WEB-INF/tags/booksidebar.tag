@@ -3,8 +3,8 @@
 <div id="pagecontainer" class="row">
 	<div class="col s12">
 		<c:forEach items="${book.getPages()}" var="bookpage">
-			<div class="chagePage card col s12" data-page="${bookpage.getId()}">
-				<img class="pageImage responsive-img"
+			<div class="chagePage pageImageContainer card col s12" data-page="${bookpage.getId()}">
+				<img class="pageImage"
 					src="${bookPath}${bookpage.getImage()}"
 					id="${bookpage.getImage()}" />
 			</div>
