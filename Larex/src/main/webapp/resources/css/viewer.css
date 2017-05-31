@@ -154,10 +154,12 @@ body {
   float: left; }
 
 .pageImageContainer {
-  padding: 1px !important; }
-
-.pageImage {
-  width: 100%; }
+  padding: 1px !important;
+  opacity: 0.7; }
+  .pageImageContainer.selected {
+    opacity: 1; }
+  .pageImageContainer .pageImage {
+    width: 100%; }
 
 #regioneditor {
   position: absolute; }

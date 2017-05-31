@@ -135,6 +135,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
 		}
+		_gui.selectPage(pageNr);
 	}
 	this.addPresentRegions = function(regionType){
 		if($.inArray(regionType, _presentRegions) < 0){

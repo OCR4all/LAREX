@@ -220,4 +220,9 @@ function GUI(canvas, viewer) {
 		var $buttons = $('.menuIcon');
 		$buttons.removeClass('invert');
 	}
+
+	this.selectPage = function(page){
+		$('.pageImageContainer').removeClass('selected');
+		$('.pageImageContainer[data-page~="'+page+'"]').addClass('selected');
+	}
 }
