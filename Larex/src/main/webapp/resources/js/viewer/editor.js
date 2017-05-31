@@ -566,30 +566,48 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.endEditing = function(){
-		if(_this.isEditing){
-			switch(_editMode){
-				case 0:
-					_this.endCreatePolygon();
-					break;
-				case 1:
-					_this.endCreateRectangle();
-					break;
-				case 2:
-					_this.endCreateBorder();
-					break;
-				case 3:
-					_this.endCreateLine();
-					break;
-				case 4:
-					_this.endMovePath();
-					break;
-				case 5:
-					endMovePath();
-					break;
-				default:
-					break;
+	this.endEditing = function(doAbbord){
+		if(!doAbbord){
+			if(_this.isEditing){
+				switch(_editMode){
+					case 0:
+						_this.endCreatePolygon();
+						break;
+					case 1:
+						_this.endCreateRectangle();
+						break;
+					case 2:
+						_this.endCreateBorder();
+						break;
+					case 3:
+						_this.endCreateLine();
+						break;
+					case 4:
+						_this.endMovePath();
+						break;
+					case 5:
+						_this.endMovePath();
+						break;
+					default:
+						break;
+				}
 			}
+		}else{
+			_this.isEditing = false;
+
+			_tempID = null;
+			if(_tempPath != null){
+				_tempPath.remove();
+				_tempPath = null;
+			}
+			_tempPoint = null;
+			
+			if(_tempEndCircle){
+				_tempEndCircle.remove();
+				_tempEndCircle = null;
+			}
+
+			document.body.style.cursor = "auto";
 		}
 	}
 

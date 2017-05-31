@@ -4,7 +4,7 @@
 <%@ attribute name="defaultJs" required="true" %>
 
 
-<div class="menuIconCategory ${defaultJs}">
+<div class="menuIconCategory">
 	<div><jsp:doBody /></div>
-	<span class="menuIconCategoryText"><c:out value="${name}"/></span>
+	<span class="menuIconCategoryText ${defaultJs}"><c:out value="${name}"/></span>
 </div>

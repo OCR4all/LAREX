@@ -113,7 +113,7 @@
 								tooltip="Create a region border (Shortcut: 2)">Border</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
-						<t:menuIconCategory name="Segment" defaultJs="createRegionRectangle">
+						<t:menuIconCategory name="Segment" defaultJs="createSegmentRectangle">
 							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
 								tooltip="Create a fixed segment rectangle (Shortcut: 4)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"

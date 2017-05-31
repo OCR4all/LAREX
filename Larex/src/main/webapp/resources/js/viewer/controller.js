@@ -195,12 +195,14 @@ function Controller(bookID, canvasID, specifiedColors) {
 		}
 	}
 	this.createPolygon = function(doSegment) {
+		_thisController.endEditing(true);
 		_editor.startCreatePolygon(doSegment);
 		if(doSegment){
 			_gui.selectToolBarButton('segmentPolygon',true);
 		}
 	}
 	this.createRectangle = function(doSegment) {
+		_thisController.endEditing(true);
 		_editor.startCreateRectangle(doSegment);
 		if(doSegment){
 			_gui.selectToolBarButton('segmentRectangle',true);
@@ -209,6 +211,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		}
 	}
 	this.createCut = function() {
+		_thisController.endEditing(true);
 		_editor.startCreateLine();
 		_gui.selectToolBarButton('cut',true);
 	}
@@ -241,8 +244,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 			this.unSelect();
 		}
 	}
-	this.endEditing = function(){
-		_editor.endEditing();
+	this.endEditing = function(doAbbord){
+		_editor.endEditing(doAbbord);
 		_gui.unselectAllToolBarButtons();
 	}
 	this.deleteSelected = function() {
@@ -293,11 +296,12 @@ function Controller(bookID, canvasID, specifiedColors) {
 		}
 	}
 	this.createBorder = function(doSegment) {
+		_thisController.endEditing(true);
 		_editor.startCreateBorder(doSegment);
 		if(doSegment){
 			//currently not in gui: _gui.selectToolBarButton('createSegmentBorder',true);
 		}else{
-			_gui.selectToolBarButton('createRegionBorder',true);
+			_gui.selectToolBarButton('regionBorder',true);
 		}
 	}
 	this.callbackNewRegion = function(regionpoints) {
