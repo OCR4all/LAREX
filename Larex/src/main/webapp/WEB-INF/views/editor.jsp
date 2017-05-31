@@ -92,11 +92,8 @@
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="zoomout" icon="zoom_out"
 							tooltip="Zoom the image out (Shortcut: - or scroll wheel)">Zoom out</t:menuIcon>
-						<div class="menuIcon col">
-							<div class="menuIconMain">
-								<span class="zoomvalue">100.00</span>%
-							</div>
-							<span class="menuIconSecond">Zoom</span>
+						<div class="menuTextIcon">
+							<span class="zoomvalue">100.00</span>%
 						</div>
 						<t:menuIcon jsClass="zoomin" icon="zoom_in"
 							tooltip="Zoom the image in (Shortcut: + or scroll wheel)">Zoom in</t:menuIcon>
@@ -106,26 +103,28 @@
 					</div>
 				</div>
 				<div id="edit" class="">
-					<div class=""><t:menuIcon jsClass="invert" icon="dashboard" tooltip="Region">Region</t:menuIcon>
-						<t:menuIcon jsClass="createRegionRectangle" icon="crop_5_4"
-							tooltip="Create a region rectangle (Shortcut: 1)">Rectangle</t:menuIcon>
-						<t:menuIcon jsClass="createRegionBorder" icon="border_left"
-							tooltip="Create a region border (Shortcut: 2)">Border</t:menuIcon>
+					<div class="">
+						<t:menuIconCategory name="Region" defaultJs="createRegionRectangle">
+							<t:menuIcon jsClass="createRegionRectangle" icon="crop_5_4"
+								tooltip="Create a region rectangle (Shortcut: 1)">Rectangle</t:menuIcon>
+							<t:menuIcon jsClass="createRegionBorder" icon="border_left"
+								tooltip="Create a region border (Shortcut: 2)">Border</t:menuIcon>
+						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="invert" icon="bubble_chart" tooltip="Fixed Result Segment">Segment</t:menuIcon>
-						<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
-							tooltip="Create a fixed segment rectangle (Shortcut: 4)">Rectangle</t:menuIcon>
-						<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
-							tooltip="Create a fixed segment polygon. Back to start, double click or ESC to end (Shortcut: 3)">Polygon</t:menuIcon>
+						<t:menuIconCategory name="Segment" defaultJs="createRegionRectangle">
+							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
+								tooltip="Create a fixed segment rectangle (Shortcut: 4)">Rectangle</t:menuIcon>
+							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
+								tooltip="Create a fixed segment polygon. Back to start, double click or ESC to end (Shortcut: 3)">Polygon</t:menuIcon>
+						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="invert" icon="content_cut" tooltip="Cut">Cut</t:menuIcon>
-						<t:menuIcon jsClass="createCut" icon="timeline"
+						<t:menuIcon jsClass="createCut" icon="content_cut"
 							tooltip="Create a cut line. Double click or ESC to end (Shortcut: 6)">Line</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="undo" icon="undo"
-							tooltip="Revokes the last action (Shortcut: ctrl+z)">Undo</t:menuIcon>
+							tooltip="Undo: Revokes the last action (Shortcut: ctrl+z)">Undo</t:menuIcon>
 						<t:menuIcon jsClass="redo" icon="redo"
-							tooltip="Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
+							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 					</div>
 				</div>
 			</div>
