@@ -32,7 +32,7 @@ LAREX expects the corresponding .jar to be located in /src/main/WEB-INF/lib and 
 `apt-get install openjdk-8-jdk`
 
 #### Link the opencv.jar
-cd *your git rep*/Larex/src/main/WEB-INF
+cd *your git rep*/Larex/src/main/webapp/WEB-INF
 
 mkdir lib && cd lib
 
