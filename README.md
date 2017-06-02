@@ -32,11 +32,11 @@ LAREX expects the corresponding .jar to be located in /src/main/WEB-INF/lib and 
 `apt-get install openjdk-8-jdk`
 
 #### Link the opencv.jar
-cd *your git rep*/Larex/src/main/webapp/WEB-INF
+`cd LAREX/Larex/src/main/webapp/WEB-INF`
 
-mkdir lib && cd lib
+`mkdir lib && cd lib`
 
-ln -s /usr/share/java/opencv.jar
+`ln -s /usr/share/java/opencv.jar`
 
 #### Compile
 run `mvn clean install` in the root dir. This dir contains the `pom.xml`.
