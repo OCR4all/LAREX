@@ -31,6 +31,9 @@ LAREX expects the corresponding .jar to be located in /src/main/WEB-INF/lib and 
 
 `apt-get install openjdk-8-jdk`
 
+#### Clone Repository
+`git clone https://github.com/chreul/LAREX.git`
+
 #### Link the opencv.jar
 `cd LAREX/Larex/src/main/webapp/WEB-INF`
 
