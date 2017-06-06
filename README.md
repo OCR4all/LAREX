@@ -31,23 +31,24 @@ LAREX expects the corresponding .jar to be located in /src/main/WEB-INF/lib and 
 
 `apt-get install openjdk-8-jdk`
 
+#### Clone Repository
+`git clone https://github.com/chreul/LAREX.git`
+
 #### Link the opencv.jar
-cd *your git rep*/Larex/src/main/WEB-INF
+`mkdir LAREX/Larex/src/main/webapp/WEB-INF/lib`
 
-mkdir lib && cd lib
-
-ln -s /usr/share/java/opencv.jar
+`ln -s /usr/share/java/opencv.jar LAREX/Larex/src/main/webapp/WEB-INF/lib/opencv.jar`
 
 #### Compile
-run `mvn clean install` in the root dir. This dir contains the `pom.xml`.
+run `mvn clean install -f LAREX/Larex/pom.xml`.
 
 #### Copy or link the created war file to tomcat
 Either:
-`sudo ln -s $PWD/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+`sudo ln -s LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
 or
 
-`cp target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+`cp LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
 #### If you had to compile OpenCV on your own
 set `LD_LIBRARY_PATH` to `$CMAKE_INSTALL_PREFIX/share/OpenCV/java` when starting the Tomcat server.
