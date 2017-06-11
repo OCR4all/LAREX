@@ -54,15 +54,14 @@ public class ViewerController {
 			return "redirect:/404";
 		}
 
-		IDatabase database = new FileDatabase(new File(fileController.getBooksPath())); 
-		Library lib = new Library(database);
-		Book book = lib.getBook(bookID);
+		prepareSegmenter(bookID);
+		Book book = segmenter.getBook();
 		
 		if(book == null){
 			return "redirect:/404";
 		}
 		
-		model.addAttribute("book", lib.getBook(bookID));
+		model.addAttribute("book", book);
 		model.addAttribute("segmenttypes", getSegmentTypes());
 		model.addAttribute("bookPath", fileController.getWebBooksPath());
 		
