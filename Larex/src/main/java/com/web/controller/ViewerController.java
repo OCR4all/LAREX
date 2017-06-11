@@ -20,11 +20,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
+import com.web.communication.SegmentationResult;
+import com.web.communication.SegmentationStatus;
 import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
-import com.web.model.Library;
 import com.web.model.database.IDatabase;
 import com.web.model.database.FileDatabase;
 
@@ -53,16 +54,16 @@ public class ViewerController {
 		if(bookID == null){
 			return "redirect:/404";
 		}
-
-		IDatabase database = new FileDatabase(new File(fileController.getBooksPath())); 
-		Library lib = new Library(database);
-		Book book = lib.getBook(bookID);
+		
+		segmenter.clear();
+		prepareSegmenter(bookID);
+		Book book = segmenter.getBook();
 		
 		if(book == null){
 			return "redirect:/404";
 		}
 		
-		model.addAttribute("book", lib.getBook(bookID));
+		model.addAttribute("book", book);
 		model.addAttribute("segmenttypes", getSegmentTypes());
 		model.addAttribute("bookPath", fileController.getWebBooksPath());
 		
@@ -81,10 +82,11 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody BookSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
+	public @ResponseBody SegmentationResult segment(@RequestBody SegmentationRequest segmentationRequest) {
 		
 		BookSegmentation segmentation = segmenter.segmentPages(segmentationRequest.getSettings(), segmentationRequest.getPages());
-		return segmentation;
+		SegmentationResult result = new SegmentationResult(segmentation, SegmentationStatus.SUCCESS);
+		return result;
 	}
 
 	@RequestMapping(value = "/exportXML", method = RequestMethod.GET)//, headers = "Accept=*/*", consumes = "application/json"*/)

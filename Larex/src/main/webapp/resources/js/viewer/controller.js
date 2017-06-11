@@ -171,11 +171,24 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 
 		_communicator.segmentBook(_activesettings,pages).done(function(data){
+				_segmentation = data.result;
+				var failedSegmentations = [];
+
+				pages.forEach(function(pageID) {
+					switch (_segmentation.pages[pageID].status) {
+						case 'SUCCESS':
+							break;
+						default:
+							failedSegmentations.push(pageID);
+						}
+				});
 				_segmentedPages.push.apply(_segmentedPages,pages);
-				_segmentation = data;
+
 				_thisController.displayPage(pages[0]);
 				_thisController.showPreloader(false);
 				_gui.highlightSegmentedPages(_segmentedPages);
+				_gui.highlightPagesAsError(failedSegmentations);
+
 		});
 	}
 

@@ -26,6 +26,8 @@ public interface IFacade {
 
 	public boolean isInit();
 
+	public void clear();
+	
 	public BookSettings getDefaultSettings(Book book);
 	
 	public BookSegmentation segmentAll(BookSettings settings);

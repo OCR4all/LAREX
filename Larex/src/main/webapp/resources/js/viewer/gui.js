@@ -231,4 +231,10 @@ function GUI(canvas, viewer) {
 			$('.pageImageContainer[data-page~="'+page+'"]').addClass('segmented');
 		});
 	}
+	this.highlightPagesAsError = function(errorPages){
+		errorPages.forEach(function(page) {
+			$('.pageImageContainer[data-page~="'+page+'"]').addClass('segmentError');
+			//$('.pageImageContainer[data-page~="'+page+'"]').addClass('hide');
+		});
+	}
 }

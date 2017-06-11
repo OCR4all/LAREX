@@ -160,6 +160,24 @@ body {
     background-color: red; }
   .pageImageContainer.segmented {
     opacity: 1; }
+  .pageImageContainer.segmentError {
+    opacity: 0.2;
+    overflow: hidden; }
+  .pageImageContainer.segmentError:before, .pageImageContainer.segmentError:after {
+    position: absolute;
+    margin: auto;
+    width: 100%;
+    height: 2px;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    content: '';
+    background-color: black; }
+  .pageImageContainer.segmentError:after {
+    transform: rotate(45deg); }
+  .pageImageContainer.segmentError:before {
+    transform: rotate(-45deg); }
   .pageImageContainer .pageImage {
     width: 100%; }
 

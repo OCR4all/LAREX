@@ -17,6 +17,9 @@ function GuiInput(navigationController, controller, gui){
 	$('.exportPageXML').click(function() {
 		_controller.downloadPageXML();
 	});
+	$('.reload').click(function() {
+		location.reload();
+	});
 
 	$('.createRegionRectangle').click(function() {
 		_controller.createRectangle(false);

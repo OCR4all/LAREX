@@ -72,6 +72,8 @@
 					<div class="">
 						<t:menuIcon url="${pageContext.request.contextPath}/" jsClass="open" icon="folder_open"
 							tooltip="Open a different book">Open</t:menuIcon>
+						<t:menuIcon url="" jsClass="reload" icon="autorenew"
+							tooltip="Reload the current book">Reload</t:menuIcon>
 						<t:menuIcon url="${pageContext.request.contextPath}/exportXML?page=0" jsClass="exportPageXML" icon="code"
 							tooltip="Export as PageXML">PageXML Export</t:menuIcon>
 					</div>

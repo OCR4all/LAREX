@@ -209,7 +209,28 @@ body{
   &.segmented{
     opacity: 1;
   }
-
+  &.segmentError{
+      opacity: 0.2;
+      overflow: hidden;
+  }
+  &.segmentError:before, &.segmentError:after {
+    position: absolute;
+    margin: auto;
+    width: 100%;
+    height: 2px;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    content: '';
+    background-color: black;
+  }
+  &.segmentError:after {
+    transform: rotate(45deg);
+  }
+  &.segmentError:before {
+    transform: rotate(-45deg);
+  }
   .pageImage{
     width: 100%;
   }
