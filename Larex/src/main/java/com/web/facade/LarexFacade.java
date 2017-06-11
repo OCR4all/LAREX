@@ -92,7 +92,7 @@ public class LarexFacade implements IFacade {
 	@Override
 	public BookSegmentation segmentAll(BookSettings settings) {
 		if (book == null || !(settings.getBookID() == book.getId())) {
-			// TODO Error
+			System.err.println("Warning: book and settings do not match.");
 		}
 
 		// TODO Settings changed?
@@ -136,8 +136,8 @@ public class LarexFacade implements IFacade {
 	public ResponseEntity<byte[]> getPageXML(int pageID) {
 		larex.dataManagement.Page page = segmentedLarexPages.get(pageID);
 		Document document = PageXMLWriter.getPageXML(page);
-		
-		//convert document to bytes
+
+		// convert document to bytes
 		byte[] documentbytes = null;
 		try {
 			ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -151,44 +151,53 @@ public class LarexFacade implements IFacade {
 			e.printStackTrace();
 		}
 
-		//create ResponseEntry
+		// create ResponseEntry
 		HttpHeaders headers = new HttpHeaders();
 		headers.setContentType(MediaType.parseMediaType("application/xml"));
 		String filename = page.getFileName() + ".xml";
 		headers.setContentDispositionFormData(filename, filename);
 		headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
-		
+
 		return new ResponseEntity<byte[]>(documentbytes, headers, HttpStatus.OK);
 	}
 
 	private PageSegmentation segment(BookSettings settings, Page page) {
 		// TODO Performance
 		String imagePath = resourcepath + File.separator + page.getImage();
-		String imageIdentifier = "" + page.getId();
+		PageSegmentation segmentation = null;
+		
+		if (new File(imagePath).exists()) {
+			String imageIdentifier = "" + page.getId();
+			// TODO Regionmanager + GUI ? Delete?
+			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath, imageIdentifier);
+			segmentedLarexPages.put(page.getId(), currentLarexPage);
+			currentLarexPage.initPage();
 
-		// TODO Regionmanager + GUI ? Delete?
-		larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath, imageIdentifier);
-		segmentedLarexPages.put(page.getId(), currentLarexPage);
-		currentLarexPage.initPage();
+			Size pagesize = currentLarexPage.getOriginalSize();
 
-		Size pagesize = currentLarexPage.getOriginalSize();
+			parameters = LarexTranslator.translateSettingsToParameters(settings, parameters, page, pagesize);
+			parameters.getRegionManager()
+					.setPointListManager(LarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
 
-		parameters = LarexTranslator.translateSettingsToParameters(settings, parameters, page, pagesize);
-		parameters.getRegionManager()
-				.setPointListManager(LarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
+			if (segmenter == null) {
+				segmenter = new Segmenter(parameters);
+			} else {
+				segmenter.setParameters(parameters);
+			}
+			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
+			currentLarexPage.setSegmentationResult(segmentationResult);
 
-		if (segmenter == null) {
-			segmenter = new Segmenter(parameters);
-		} else {
-			segmenter.setParameters(parameters);
+			ArrayList<ResultRegion> regions = segmentationResult.getRegions();
+
+			segmentation = LarexTranslator.translateResultRegionsToSegmentation(regions, page.getId());
+		}else{
+			ArrayList<ResultRegion> regions = new ArrayList<ResultRegion>();
+
+			segmentation = LarexTranslator.translateResultRegionsToSegmentation(regions, page.getId());
+
+			System.err.println("Warning: Image file could not be found. Segmentation result will be empty. File: "+imagePath);
 		}
-		SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
-		currentLarexPage.setSegmentationResult(segmentationResult);
-
-		ArrayList<ResultRegion> regions = segmentationResult.getRegions();
-
-		PageSegmentation segmentation = LarexTranslator.translateResultRegionsToSegmentation(regions, page.getId());
-
+		
 		return segmentation;
 	}
 }
