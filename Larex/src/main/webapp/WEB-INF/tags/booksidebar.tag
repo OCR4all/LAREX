@@ -5,6 +5,8 @@
 		<c:forEach items="${book.getPages()}" var="bookpage">
 			<div class="chagePage pageImageContainer card col s12" data-page="${bookpage.getId()}">
 				<img class="pageImage"
+					alt="${bookpage.getImage()}"
+					title="${bookpage.getImage()}"
 					src="${bookPath}${bookpage.getImage()}"
 					id="${bookpage.getImage()}" />
 			</div>
