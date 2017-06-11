@@ -79,6 +79,17 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
+	public void clear() {
+		this.resourcepath = "";
+		this.book = null;
+		this.bookSegment = null;
+		this.segmenter = null;
+		this.parameters = null;
+		this.isInit = false;
+		this.segmentedLarexPages = null;
+	}
+
+	@Override
 	public BookSegmentation segmentAll(BookSettings settings) {
 		if (book == null || !(settings.getBookID() == book.getId())) {
 			// TODO Error

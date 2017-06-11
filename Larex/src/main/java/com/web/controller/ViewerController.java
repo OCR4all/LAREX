@@ -53,7 +53,8 @@ public class ViewerController {
 		if(bookID == null){
 			return "redirect:/404";
 		}
-
+		
+		segmenter.clear();
 		prepareSegmenter(bookID);
 		Book book = segmenter.getBook();
 		
