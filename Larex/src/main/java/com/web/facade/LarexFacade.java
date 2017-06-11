@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
@@ -13,11 +14,13 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import com.web.communication.SegmentationStatus;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
 import com.web.model.Page;
 import com.web.model.PageSegmentation;
+import com.web.model.Polygon;
 
 import larex.export.PageXMLWriter;
 import larex.regions.RegionManager;
@@ -92,7 +95,7 @@ public class LarexFacade implements IFacade {
 	@Override
 	public BookSegmentation segmentAll(BookSettings settings) {
 		if (book == null || !(settings.getBookID() == book.getId())) {
-			System.err.println("Warning: book and settings do not match.");
+			System.err.println("Warning: Book and settings do not match.");
 		}
 
 		// TODO Settings changed?
@@ -191,9 +194,7 @@ public class LarexFacade implements IFacade {
 
 			segmentation = LarexTranslator.translateResultRegionsToSegmentation(regions, page.getId());
 		}else{
-			ArrayList<ResultRegion> regions = new ArrayList<ResultRegion>();
-
-			segmentation = LarexTranslator.translateResultRegionsToSegmentation(regions, page.getId());
+			segmentation = new PageSegmentation(page.getId(),new HashMap<String, Polygon>(),SegmentationStatus.MISSINGFILE);
 
 			System.err.println("Warning: Image file could not be found. Segmentation result will be empty. File: "+imagePath);
 		}
