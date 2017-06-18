@@ -114,8 +114,10 @@ public class ViewerController {
 
 		int i = 0;
 		for (RegionType type : RegionType.values()) {
-			segmentTypes.put(type, i);
-			i++;
+			if(type != RegionType.ignore){
+				segmentTypes.put(type, i);
+				i++;
+			}
 		}
 		return segmentTypes;
 	}
