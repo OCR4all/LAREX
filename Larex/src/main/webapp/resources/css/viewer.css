@@ -180,6 +180,20 @@ body {
     transform: rotate(-45deg); }
   .pageImageContainer .pageImage {
     width: 100%; }
+  .pageImageContainer .pagestatus {
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    right: 2px;
+    bottom: 2px; }
+    .pageImageContainer .pagestatus .pagestatusIcon {
+      font-size: 18px; }
+      .pageImageContainer .pagestatus .pagestatusIcon.pageIconError {
+        color: #f5f5f5;
+        background-color: red; }
+      .pageImageContainer .pagestatus .pagestatusIcon.pageIconExported {
+        color: #f5f5f5;
+        background-color: #8bc34a; }
 
 #regioneditor {
   position: absolute; }

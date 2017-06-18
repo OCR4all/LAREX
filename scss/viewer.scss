@@ -2,6 +2,7 @@ $font-stack:    Helvetica, sans-serif;
 $color1: #333333;
 $color2: white;
 $color3: #757575;
+$color4: #f5f5f5;
 
 body{
     overflow: hidden;
@@ -113,7 +114,7 @@ body{
 	height: 40px;
 	text-align: center;
   color: black !important;
-  background-color: #f5f5f5 !important;
+  background-color: $color4 !important;
   padding: 2px 0px 0px 0px !important;
 	margin: 0px !important;
 	float: left;
@@ -147,7 +148,7 @@ body{
 	height: 40px;
 	text-align: center;
   color: black !important;
-  background-color: #f5f5f5 !important;
+  background-color: $color4 !important;
   padding: 4px 0px 0px 0px !important;
 	margin: 0px !important;
 	float: left;
@@ -233,6 +234,25 @@ body{
   }
   .pageImage{
     width: 100%;
+  }
+  .pagestatus{
+    position: absolute;
+    padding: 0px;
+    margin: 0px;
+    right: 2px;
+    bottom: 2px;
+    .pagestatusIcon{
+      font-size: 18px;
+      &.pageIconError{
+        color: $color4;
+        background-color: red;
+      }
+      &.pageIconExported{
+        color: $color4;
+        background-color: #8bc34a;
+      }
+    }
+
   }
 }
 #regioneditor{

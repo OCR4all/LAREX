@@ -194,6 +194,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 	this.downloadPageXML = function(){
 		_communicator.downloadPageXML(_currentPage);
+		_gui.highlightExportedPage(_currentPage);
 	}
 
 	// Actions

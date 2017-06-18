@@ -232,9 +232,16 @@ function GUI(canvas, viewer) {
 		});
 	}
 	this.highlightPagesAsError = function(errorPages){
+		$('.pageIconError').addClass('hide');
 		errorPages.forEach(function(page) {
-			$('.pageImageContainer[data-page~="'+page+'"]').addClass('segmentError');
-			//$('.pageImageContainer[data-page~="'+page+'"]').addClass('hide');
+			var $errorPage = $('.pageImageContainer[data-page~="'+page+'"]');
+			$errorPage.addClass('segmentError');
+			$errorPage.find('.pageIconError').removeClass('hide');
 		});
+	}
+	this.highlightExportedPage = function(exportedPage){
+		var $exportedPage = $('.pageImageContainer[data-page~="'+exportedPage+'"]');
+		$exportedPage.addClass('exported');
+		$exportedPage.find(".pageIconExported").removeClass('hide');
 	}
 }
