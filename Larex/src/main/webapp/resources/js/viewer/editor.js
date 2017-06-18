@@ -68,6 +68,10 @@ function Editor(viewer,controller) {
 							_this.endCreatePolygon();
 							this.remove();
 						}
+
+						var imageCanvas = _this.getImageCanvas();
+						imageCanvas.addChild(_tempPath);
+						imageCanvas.addChild(_tempEndCircle);
 					}
 					_tempPath.add(new paper.Point(canvasPoint));
 				}else{
@@ -98,6 +102,7 @@ function Editor(viewer,controller) {
 	}
 
 	this.startCreateRectangle = function(doSegment) {
+		var imageCanvas = _this.getImageCanvas();
 		if(_this.isEditing === false){
 			_editMode = 1;
 			_this.isEditing = true;
@@ -130,6 +135,7 @@ function Editor(viewer,controller) {
 								}
 							}
 						}
+						_this.getImageCanvas().addChild(_tempPath);
 					}else{
 						_this.endCreateRectangle();
 						this.remove();
@@ -185,6 +191,8 @@ function Editor(viewer,controller) {
 						_tempPath.strokeColor = new paper.Color(0,0,0);
 						_tempPath.closed = false;
 						_tempPath.selected = true;
+
+						_this.getImageCanvas().addChild(_tempPath);
 					}
 					_tempPath.add(new paper.Point(canvasPoint));
 				}else{
@@ -226,6 +234,8 @@ function Editor(viewer,controller) {
 				_tempPath.opacity = 0.5;
 				_tempPath.closed = true;
 				//_tempPath.selected = true;
+
+				_this.getImageCanvas().addChild(_tempPath);
 
 				tool.onMouseMove = function(event) {
 					if(_this.isEditing === true){
@@ -601,7 +611,7 @@ function Editor(viewer,controller) {
 				_tempPath = null;
 			}
 			_tempPoint = null;
-			
+
 			if(_tempEndCircle){
 				_tempEndCircle.remove();
 				_tempEndCircle = null;
