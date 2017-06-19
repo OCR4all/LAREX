@@ -30,6 +30,7 @@ import com.web.model.database.IDatabase;
 import com.web.model.database.FileDatabase;
 
 import larex.regions.type.RegionType;
+import larex.segmentation.parameters.ImageSegType;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.
@@ -65,6 +66,7 @@ public class ViewerController {
 		
 		model.addAttribute("book", book);
 		model.addAttribute("segmenttypes", getSegmentTypes());
+		model.addAttribute("imageSegTypes",getImageSegmentTypes());
 		model.addAttribute("bookPath", fileController.getWebBooksPath());
 		
 		return "editor";
@@ -117,6 +119,20 @@ public class ViewerController {
 			segmentTypes.put(type, i);
 			i++;
 		}
+		return segmentTypes;
+	}
+	
+	private Map<ImageSegType, String> getImageSegmentTypes() {
+		Map<ImageSegType, String> segmentTypes = new HashMap<ImageSegType, String>();
+		segmentTypes.put(ImageSegType.NONE, "None");
+		segmentTypes.put(ImageSegType.CONTOUR_ONLY, "Contour only");
+		segmentTypes.put(ImageSegType.STRAIGHT_RECT, "Straight rectangle");
+		segmentTypes.put(ImageSegType.ROTATED_RECT, "Rotated rectangle");
+		/*int i = 0;
+		for (ImageSegType type : ImageSegType.values()) {
+			segmentTypes.put(type, i);
+			i++;
+		}*/
 		return segmentTypes;
 	}
 }

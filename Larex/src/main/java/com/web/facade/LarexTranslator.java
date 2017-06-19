@@ -53,8 +53,9 @@ public class LarexTranslator {
 		parameters.setTextDilationY(settingParameters.get("textdilationY"));
 		parameters.setImageRemovalDilationX(settingParameters.get("imagedilationX"));
 		parameters.setImageRemovalDilationY(settingParameters.get("imagedilationY"));
-
-		// TODO not all Settings
+		parameters.setImageSegType(settings.getImageSegType());
+		parameters.setCombineImages(settings.isCombine());
+		
 
 		for (com.web.model.Region guiRegion : settings.getRegions().values()) {
 			RegionType regionType = guiRegion.getType();
@@ -99,6 +100,9 @@ public class LarexTranslator {
 		settingParameters.put("imagedilationX", parameters.getImageRemovalDilationX());
 		settingParameters.put("imagedilationY", parameters.getImageRemovalDilationY());
 
+		settings.setCombine(parameters.isCombineImages());
+		settings.setImageSegType(parameters.getImageSegType());
+		
 		RegionManager regionManager = parameters.getRegionManager();
 		for (Region region : regionManager.getRegions()) {
 			/*List<Polygon> regions = translateRegionToGUIRegions(region);

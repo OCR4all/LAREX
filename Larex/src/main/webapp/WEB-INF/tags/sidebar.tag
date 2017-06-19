@@ -74,6 +74,24 @@
 								class="input-number imagedilationY" type="number" class="validate" />
 						</p>
 					</div>
+					<div class="settings-input settings-imagesegmentation">
+						<div class="input-field">
+							<select class="settings-image-mode">
+								<c:forEach var="type" items="${imageSegTypes}">
+									<option value="${type.key}">${type.value}</option>
+								</c:forEach>
+							</select>
+							<label>Image Segmentation Mode</label>
+						</div>
+						<div class="">
+						<span class="">Combine</span>
+							<span class="settings-combine-image switch"> 
+								<label><input type="checkbox"> 
+									<span class="lever"></span>
+								</label>
+							</span>	
+						</div>
+					</div>
 				</div>
 			</div>
 	</ul>

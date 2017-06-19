@@ -38,10 +38,6 @@ public class Segmenter {
 		// initialize image and regions
 		init(original, parameters);
 
-		//ToDo: besser
-		parameters.setImageSegType(ImageSegType.STRAIGHT_RECT);
-		parameters.setCombineImages(true);
-		
 		// handle fixed regions and detect images
 		// ?????????????????????????????????
 		Region imageRegion = getImageRegion();

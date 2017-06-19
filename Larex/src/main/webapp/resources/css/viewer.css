@@ -68,6 +68,9 @@ body {
       .sidebar .settings-regions .collection-item:hover {
         background-color: #757575;
         color: white; }
+  .sidebar .settings-imagesegmentation {
+    margin-top: 4px;
+    margin-bottom: 4px; }
   .sidebar .btn {
     margin-bottom: 5px !important; }
 

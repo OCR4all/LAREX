@@ -20,7 +20,18 @@ function GuiInput(navigationController, controller, gui){
 	$('.reload').click(function() {
 		location.reload();
 	});
+	$('.settings-image-mode').on('change', function() {
+		if(this.value){
+			_controller.changeImageMode(this.value);
+		}
+	})
 
+	$('.settings-combine-image').on('change', function() {
+		var doCombine = $(this).find('input').prop('checked');
+		if(doCombine !== undefined){
+		  _controller.changeImageCombine(doCombine);
+		}
+	});
 	$('.createRegionRectangle').click(function() {
 		_controller.createRectangle(false);
 	});

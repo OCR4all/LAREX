@@ -54,7 +54,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 							_gui.setCanvasUITopRight();
 							_gui.resizeViewerHeight();
 
-							_gui.setParameters(_settings.parameters);
+							_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
 							_gui.setRegionLegendColors(_segmentationtypes);
 							_gui.highlightSegmentedPages(_segmentedPages);
 
@@ -417,6 +417,14 @@ function Controller(bookID, canvasID, specifiedColors) {
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate);
+	}
+
+	this.changeImageMode = function(imageMode){
+		_settings.imageSegType = imageMode;
+	}
+
+	this.changeImageCombine = function(doCombine){
+		_settings.combine = doCombine;
 	}
 
 	this.applyGrid = function(){

@@ -9,6 +9,7 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import larex.regions.type.RegionType;
+import larex.segmentation.parameters.ImageSegType;
 
 /**
  * Handels all parameters and settings passing through the gui to the
@@ -16,7 +17,7 @@ import larex.regions.type.RegionType;
  * 
  */
 public class BookSettings {
-	
+
 	@JsonProperty("book")
 	protected int bookID;
 	@JsonProperty("pages")
@@ -27,18 +28,24 @@ public class BookSettings {
 	protected Map<RegionType, Region> regions;
 	@JsonProperty("global")
 	protected PageSettings globalSettings;
-	
+	@JsonProperty("combine")
+	protected boolean combine;
+	@JsonProperty("imageSegType")
+	private ImageSegType imageSegType;
+
 	@JsonCreator
-	public BookSettings(@JsonProperty("book") int bookID,
-			@JsonProperty("pages") LinkedList<PageSettings> pages,
+	public BookSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<PageSettings> pages,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
 			@JsonProperty("regions") Map<RegionType, Region> regions,
-			@JsonProperty("global") PageSettings globalSettings) {
+			@JsonProperty("global") PageSettings globalSettings, @JsonProperty("combine") boolean combine,
+			@JsonProperty("imageSegType") ImageSegType imageSegType) {
 		this.bookID = bookID;
 		this.globalSettings = globalSettings;
 		this.regions = regions;
 		this.pages = pages;
 		this.parameters = parameters;
+		this.combine = combine;
+		this.imageSegType = imageSegType;
 	}
 
 	public BookSettings(Book book) {
@@ -68,15 +75,35 @@ public class BookSettings {
 		return new LinkedList<PageSettings>(pages);
 	}
 
-	public PageSettings getPage(int pageNr){
+	public PageSettings getPage(int pageNr) {
 		return pages.get(pageNr);
 	}
-	
+
 	public Map<String, Integer> getParameters() {
 		return parameters;
 	}
-	
+
 	public int getBookID() {
 		return bookID;
+	}
+
+	public PageSettings getGlobalSettings() {
+		return globalSettings;
+	}
+
+	public ImageSegType getImageSegType() {
+		return imageSegType;
+	}
+
+	public boolean isCombine() {
+		return combine;
+	}
+
+	public void setImageSegType(ImageSegType imageSegType) {
+		this.imageSegType = imageSegType;
+	}
+
+	public void setCombine(boolean combine) {
+		this.combine = combine;
 	}
 }

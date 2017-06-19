@@ -51,7 +51,7 @@ public class Parameters {
 		setScaleFactor((double) desiredImageHeight / originalHeight);
 		
 		//TODO is Default Value
-		String modeString = "Rotated Rect";
+		String modeString = "Straight Rect";
 		
 		if(modeString.equals("Rotated Rect")) {
 			setImageSegType(ImageSegType.ROTATED_RECT);

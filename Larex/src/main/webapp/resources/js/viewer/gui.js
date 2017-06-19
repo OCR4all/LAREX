@@ -90,12 +90,20 @@ function GUI(canvas, viewer) {
 		$("#toprightUI").offset({ top: positionCanvas.top, left: positionCanvas.left });
 	}
 
-	this.setParameters = function(parameters){
+	this.setParameters = function(parameters,imageMode,combineMode){
 		$("#binarythreash").val(parameters['binarythreash']);
 		$("#textdilationX").val(parameters['textdilationX']);
 		$("#textdilationY").val(parameters['textdilationY']);
 		$("#imagedilationX").val(parameters['imagedilationX']);
 		$("#imagedilationY").val(parameters['imagedilationY']);
+
+		var $imageMode = $('.settings-image-mode');
+		$imageMode.find('option').removeAttr('selected');
+		$imageMode.find('option[value="'+imageMode+'"]').attr('selected','selected');
+		//reinitialize dropdown
+		$imageMode.find('select').material_select();
+
+		$('.settings-combine-image').find('input').prop('checked',combineMode);
 	}
 
 	this.getParameters = function(){
