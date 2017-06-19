@@ -52,21 +52,21 @@
 			<div class="collapsible-body">
 				<div id="parameter-settings">
 					<div class="hide">
-						<p class="settings-input" >Binary Thresh</p>
+						<p class="settings-header settings-input" >Binary Thresh</p>
 						<p class="settings-input">
 							<input value="" id="binarythreash" class="input-number"
 								type="number" class="validate" size="4" />
 						</p>
 					</div>
 					<div>
-						<p class="settings-input">Text Dilation</p>
+						<p class="settings-header settings-input">Text Dilation</p>
 						<p class="settings-input">
 							<input value="" id="textdilationX" class="input-number textdilationX" type="number" class="validate" /> :
 							<input value="" id="textdilationY" class="input-number textdilationY" type="number" class="validate" />
 						</p>
 					</div>
 					<div>
-						<p class="settings-input">Image Dilation</p>
+						<p class="settings-header settings-input">Image Dilation</p>
 						<p class="settings-input">
 							<input value="" id="imagedilationX"
 								class="input-number imagedilationX" type="number" class="validate" />
@@ -75,18 +75,19 @@
 						</p>
 					</div>
 					<div class="settings-input settings-imagesegmentation">
-						<div class="input-field">
+						<p class="settings-header settings-input" >Image Segmentation</p>
+						<div class="input-field settings-input">
 							<select class="settings-image-mode">
 								<c:forEach var="type" items="${imageSegTypes}">
 									<option value="${type.key}">${type.value}</option>
 								</c:forEach>
 							</select>
-							<label>Image Segmentation Mode</label>
 						</div>
 						<div class="">
-						<span class="">Combine</span>
 							<span class="settings-combine-image switch"> 
-								<label><input type="checkbox"> 
+								<label>
+									combine
+									<input type="checkbox"> 
 									<span class="lever"></span>
 								</label>
 							</span>	

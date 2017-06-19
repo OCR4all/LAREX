@@ -42,6 +42,8 @@ body {
     transition: none; }
   .sidebar #parameter-settings {
     margin: 7px; }
+  .sidebar .settings-header {
+    font-weight: bold; }
   .sidebar .settings-input {
     margin: 2px;
     padding: 0px; }
@@ -68,8 +70,14 @@ body {
       .sidebar .settings-regions .collection-item:hover {
         background-color: #757575;
         color: white; }
+  .sidebar .settings-image-mode, .sidebar .settings-combine-image {
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 0px; }
   .sidebar .settings-imagesegmentation {
-    margin-top: 4px;
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 20px;
     margin-bottom: 4px; }
   .sidebar .btn {
     margin-bottom: 5px !important; }

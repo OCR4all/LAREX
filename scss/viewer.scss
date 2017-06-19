@@ -60,6 +60,9 @@ body{
     #parameter-settings{
         margin: 7px;
     }
+    .settings-header{
+      font-weight: bold;
+    }
     .settings-input{
         margin: 2px;
         padding: 0px;
@@ -95,8 +98,15 @@ body{
             }
         }
     }
+    .settings-image-mode, .settings-combine-image{
+      margin-left:5px;
+      margin-right:5px;
+      margin-top: 0px;
+    }
     .settings-imagesegmentation{
-      margin-top: 4px;
+      margin-left:5px;
+      margin-right:5px;
+      margin-top: 20px;
       margin-bottom: 4px;
     }
     .btn {
