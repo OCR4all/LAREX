@@ -66,7 +66,7 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 49: // 1
-				_controller.createRectangle(false);
+				_controller.createRectangle('region');
 				validKey = true;
 				break;
 			case 50: // 2
@@ -74,7 +74,7 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 51: // 3
-				_controller.createRectangle(true);
+				_controller.createRectangle('segment');
 				validKey = true;
 				break;
 			case 52: // 4

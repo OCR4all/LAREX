@@ -214,18 +214,27 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 	this.createPolygon = function(doSegment) {
 		_thisController.endEditing(true);
-		_editor.startCreatePolygon(doSegment);
+		var type = doSegment ? 'segment' : 'region';
+		_editor.startCreatePolygon(type);
 		if(doSegment){
 			_gui.selectToolBarButton('segmentPolygon',true);
 		}
 	}
-	this.createRectangle = function(doSegment) {
+	this.createRectangle = function(type) {
 		_thisController.endEditing(true);
-		_editor.startCreateRectangle(doSegment);
-		if(doSegment){
-			_gui.selectToolBarButton('segmentRectangle',true);
-		}else{
-			_gui.selectToolBarButton('regionRectangle',true);
+
+		_editor.startCreateRectangle(type);
+		switch(type){
+			case 'segment':
+				_gui.selectToolBarButton('segmentRectangle',true);
+				break;
+			case 'region':
+				_gui.selectToolBarButton('regionRectangle',true);
+				break;
+			case 'ignore':
+				break;
+			case 'roi':
+				break;
 		}
 	}
 	this.createCut = function() {
@@ -238,9 +247,9 @@ function Controller(bookID, canvasID, specifiedColors) {
 			//moveLast instead of all maybe TODO
 			var moveID = _selected[_selected.length-1];
 			if (_selectType === "region") {
-				_editor.startMovePath(moveID,false);
+				_editor.startMovePath(moveID,'region');
 			} else if(_selectType === "segment"){
-				_editor.startMovePath(moveID,true);
+				_editor.startMovePath(moveID,'segment');
 			}else if(_selectType === "line"){
 				//TODO
 			}
@@ -253,9 +262,9 @@ function Controller(bookID, canvasID, specifiedColors) {
 			//moveLast instead of all maybe TODO
 			var moveID = _selected[_selected.length-1];
 			if (_selectType === "region") {
-				_editor.startScalePath(moveID,false);
+				_editor.startScalePath(moveID,'region');
 			} else if(_selectType === "segment"){
-				_editor.startScalePath(moveID,true);
+				_editor.startScalePath(moveID,'segment');
 			}else if(_selectType === "line"){
 				//TODO
 			}
@@ -315,27 +324,76 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 	this.createBorder = function(doSegment) {
 		_thisController.endEditing(true);
-		_editor.startCreateBorder(doSegment);
+		var type = doSegment ? 'segment' : 'region';
+		_editor.startCreateBorder(type);
 		if(doSegment){
 			//currently not in gui: _gui.selectToolBarButton('createSegmentBorder',true);
 		}else{
 			_gui.selectToolBarButton('regionBorder',true);
 		}
 	}
-	this.callbackNewRegion = function(regionpoints) {
+	this.callbackNewRegion = function(regionpoints,regiontype) {
 		var newID = "created" + _newPathCounter;
 		_newPathCounter++;
-		var type = _presentRegions[0];
-		if(!type){
-			type = "other";
+		if(!regiontype){
+			type = _presentRegions[0];
+			if(!type){
+				type = "other";
+			}
+		}else{
+			type = regiontype;
 		}
+
 		var actionAdd = new ActionAddRegion(newID, regionpoints, type,
 				_editor, _settings, _currentPage);
 
 		addAndExecuteAction(actionAdd);
-		_thisController.openContextMenu(false,newID);
+		if(!regiontype){
+			_thisController.openContextMenu(false,newID);
+		}
 		_gui.unselectAllToolBarButtons();
 	}
+
+	this.callbackNewRoI = function(regionpoints) {
+		var left = 1;
+		var right = 0;
+		var top = 1;
+		var down = 0;
+
+		$.each(regionpoints, function(index, point) {
+			if(point.x < left)
+				left = point.x;
+			if(point.x > right)
+				right = point.x;
+			if(point.y < top)
+				top = point.y;
+			if(point.y > down)
+				down = point.y;
+		});
+
+		var actions = [];
+
+		//Create 'inverted' ignore rectangle
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:0,y:0},{x:right,y:0},{x:right,y:top},{x:0,y:top}], 'ignore',
+				_editor, _settings, _currentPage));
+		_newPathCounter++;
+
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:0,y:top},{x:left,y:top},{x:left,y:1},{x:0,y:1}], 'ignore',
+				_editor, _settings, _currentPage));
+		_newPathCounter++;
+
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:left,y:down},{x:1,y:down},{x:1,y:1},{x:left,y:1}], 'ignore',
+				_editor, _settings, _currentPage));
+		_newPathCounter++;
+
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:right,y:0},{x:1,y:0},{x:1,y:down},{x:right,y:down}], 'ignore',
+				_editor, _settings, _currentPage));
+		_newPathCounter++;
+
+		addAndExecuteAction(new ActionMultiple(actions));
+		_gui.unselectAllToolBarButtons();
+	}
+
 	this.callbackNewFixedSegment = function(segmentpoints) {
 		var newID = "created" + _newPathCounter;
 		_newPathCounter++;

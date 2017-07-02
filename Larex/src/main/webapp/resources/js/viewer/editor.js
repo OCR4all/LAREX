@@ -4,7 +4,7 @@ function Editor(viewer,controller) {
 	var _viewer = viewer;
 	var _controller = controller;
 	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
-	var _tempPathIsSegment;
+	var _tempPathType;
 	var _tempPath;
 	var _tempPoint;
 	var _tempID;
@@ -30,11 +30,11 @@ function Editor(viewer,controller) {
 		this.removeSegment(regionID);
 	}
 
-	this.startCreatePolygon = function(doSegment) {
+	this.startCreatePolygon = function(type) {
 		if(_this.isEditing === false){
 			_editMode = 0;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 			document.body.style.cursor = "copy";
 
 			var tool = new paper.Tool();
@@ -87,7 +87,7 @@ function Editor(viewer,controller) {
 			if(_tempPath != null){
 				_tempPath.closed = true;
 				_tempPath.selected = false;
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
 				}else{
 					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
@@ -101,49 +101,12 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startCreateRectangle = function(doSegment) {
-		var imageCanvas = _this.getImageCanvas();
+	this.startCreateRectangle = function(type) {
 		if(_this.isEditing === false){
 			_editMode = 1;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
-			document.body.style.cursor = "copy";
-
-			var tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseDown = function(event) {
-				if(_this.isEditing === true){
-					var canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
-
-					if (!_tempPath) {
-						// Start path
-						_tempPoint = new paper.Point(canvasPoint);
-						_tempPath = new paper.Path();
-						_tempPath.add(_tempPoint); //Add Point for mouse movement
-						_tempPath.fillColor = 'grey';
-						_tempPath.opacity = 0.3;
-						_tempPath.closed = true;
-						_tempPath.selected = true;
-
-						tool.onMouseMove = function(event) {
-							if(_this.isEditing === true){
-								if (_tempPath) {
-									var point = _this.getPointInBounds(event.point, _this.getBoundaries());
-									var rectangle = new paper.Path.Rectangle(_tempPoint, point);
-
-									_tempPath.segments = rectangle.segments;
-								}
-							}
-						}
-						_this.getImageCanvas().addChild(_tempPath);
-					}else{
-						_this.endCreateRectangle();
-						this.remove();
-					}
-				}else{
-					this.remove();
-				}
-			}
+			_tempPathType = type;
+			createResponsiveRectangle(_this.endCreateRectangle);
 		}
 	}
 
@@ -153,10 +116,20 @@ function Editor(viewer,controller) {
 			if(_tempPath != null){
 				_tempPath.closed = true;
 				_tempPath.selected = false;
-				if(_tempPathIsSegment){
-					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
-				}else{
-					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
+				switch(_tempPathType){
+					case 'segment':
+						_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
+						break;
+					case 'region':
+						_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
+						break;
+					case 'ignore':
+						_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true),'ignore');
+						break;
+					case 'roi':
+					default:
+						_controller.callbackNewRoI(convertPointsPathToSegment(_tempPath,true));
+						break;
 				}
 				_tempPath.remove();
 				_tempPath = null;
@@ -218,11 +191,11 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startCreateBorder = function(doSegment) {
+	this.startCreateBorder = function(type) {
 		if(_this.isEditing === false){
 			_this.isEditing = true;
 			_editMode = 2;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 
 			var tool = new paper.Tool();
 			tool.activate();
@@ -305,7 +278,7 @@ function Editor(viewer,controller) {
 			_this.isEditing = false;
 
 			if(_tempPath != null){
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
 				}else{
 					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
@@ -318,11 +291,11 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startMovePath = function(pathID,doSegment) {
+	this.startMovePath = function(pathID,type) {
 		if(_this.isEditing === false){
 			_editMode = 4;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 			document.body.style.cursor = "copy";
 
 			// Create Copy of movable
@@ -397,7 +370,7 @@ function Editor(viewer,controller) {
 			_this.isEditing = false;
 
 			if(_tempPath != null){
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.transformSegment(_tempID,convertPointsPathToSegment(_tempPath,false));
 				}else{
 					_controller.transformRegion(_tempID,convertPointsPathToSegment(_tempPath,true));
@@ -414,11 +387,11 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startScalePath = function(pathID,doSegment) {
+	this.startScalePath = function(pathID,type) {
 		if(_this.isEditing === false){
 			_editMode = 5;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 
 			// Create Copy of movable
 			var boundaries = _this.getPath(pathID).bounds;
@@ -464,6 +437,47 @@ function Editor(viewer,controller) {
 				this.remove();
 			}
 		}
+	}
+
+	var createResponsiveRectangle = function(endFunction){
+			var imageCanvas = _this.getImageCanvas();
+			document.body.style.cursor = "copy";
+
+			var tool = new paper.Tool();
+			tool.activate();
+			tool.onMouseDown = function(event) {
+				if(_this.isEditing === true){
+					var canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
+
+					if (!_tempPath) {
+						// Start path
+						_tempPoint = new paper.Point(canvasPoint);
+						_tempPath = new paper.Path();
+						_tempPath.add(_tempPoint); //Add Point for mouse movement
+						_tempPath.fillColor = 'grey';
+						_tempPath.opacity = 0.3;
+						_tempPath.closed = true;
+						_tempPath.selected = true;
+
+						tool.onMouseMove = function(event) {
+							if(_this.isEditing === true){
+								if (_tempPath) {
+									var point = _this.getPointInBounds(event.point, _this.getBoundaries());
+									var rectangle = new paper.Path.Rectangle(_tempPoint, point);
+
+									_tempPath.segments = rectangle.segments;
+								}
+							}
+						}
+						_this.getImageCanvas().addChild(_tempPath);
+					}else{
+						endFunction();
+						this.remove();
+					}
+				}else{
+					this.remove();
+				}
+			}
 	}
 
 	var scalePath = function(path,mouseregion){
@@ -526,7 +540,7 @@ function Editor(viewer,controller) {
 				var path = new paper.Path(_this.getPath(_tempID).segments);
 				path.bounds = _tempPath.bounds;
 
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
 				}else{
 					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));
