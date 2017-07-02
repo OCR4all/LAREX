@@ -225,12 +225,13 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page){
 	}
 }
 
-function ActionRemoveSegment(segment,editor,segmentation,page){
+function ActionRemoveSegment(segment,editor,segmentation,page,deletedResultSegments){
 	var _isExecuted = false;
 	var _editor = editor;
 	var _segmentation = segmentation;
 	var _page = page;
 	var _segment = JSON.parse(JSON.stringify(segment));
+	var _deletedResultSegments = deletedResultSegments;
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -238,6 +239,13 @@ function ActionRemoveSegment(segment,editor,segmentation,page){
 
 			delete _segmentation.pages[_page].segments[_segment.id];
 			_editor.removeSegment(_segment.id);
+
+			if(_deletedResultSegments[_page] == null){
+				console.log("xxxx");
+				_deletedResultSegments[_page] = [];
+			}
+			_deletedResultSegments[_page].push(_segment.id);
+
 			console.log('Do - Remove: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}
@@ -247,6 +255,9 @@ function ActionRemoveSegment(segment,editor,segmentation,page){
 
 			_segmentation.pages[_page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			_editor.addSegment(_segment);
+			_deletedResultSegments[_page] = jQuery.grep(_deletedResultSegments[_page], function(value) {
+				return value != _segment.id;
+			});
 			console.log('Undo - Remove: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}

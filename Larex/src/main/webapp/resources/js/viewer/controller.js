@@ -13,6 +13,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _actions = [];
 	var _actionpointer = -1;
 	var _presentRegions = [];
+	var _deletedResultSegments = {};
 
 	var _gridIsActive = false;
 
@@ -193,7 +194,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.downloadPageXML = function(){
-		_communicator.prepareExport(_currentPage,segmentsToIgnore).done(function() {
+		if(_deletedResultSegments[_currentPage] == null){
+			_deletedResultSegments[_currentPage] = [];
+		}
+		_communicator.prepareExport(_currentPage,_deletedResultSegments[_currentPage]).done(function() {
 			window.open("exportXML");
 		});
 		_gui.highlightExportedPage(_currentPage);
@@ -287,10 +291,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
 				if(segment != null){
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage));
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_deletedResultSegments));
 				}else{
 					segment = _settings.pages[_currentPage].segments[_selected[i]];
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_deletedResultSegments));
 				}
 			}else if(_selectType === "line"){
 				var cut = _settings.pages[_currentPage].cuts[_selected[i]];

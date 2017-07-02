@@ -57,8 +57,6 @@ public class LarexFacade implements IFacade {
 	private Parameters parameters;
 	private boolean isInit = false;
 	private HashMap<Integer, larex.dataManagement.Page> segmentedLarexPages;
-	private BookSettings lastSegmentSettings;
-	
 	@Override
 	public void init(Book book, String resourcepath) {
 		this.book = book;
@@ -97,7 +95,6 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public BookSegmentation segmentAll(BookSettings settings) {
-		lastSegmentSettings = settings;
 		if (book == null || !(settings.getBookID() == book.getId())) {
 			System.err.println("Warning: Book and settings do not match.");
 		}
@@ -114,7 +111,6 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public BookSegmentation segmentPages(BookSettings settings, List<Integer> pages) {
-		lastSegmentSettings = settings;
 		if (book == null || !(settings.getBookID() == book.getId())) {
 			// TODO Error
 		}
@@ -142,7 +138,7 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public void prepareExport(ExportRequest exportRequest) {
-		exportPage = segmentLarex(lastSegmentSettings, book.getPage(exportRequest.getPage()));
+		exportPage = segmentedLarexPages.get(exportRequest.getPage()).clone();
 		SegmentationResult result = exportPage.getSegmentationResult();
 		
 		for(String segmentID: exportRequest.getSegmentsToIgnore()){

@@ -287,4 +287,17 @@ public class SegmentationResult {
 
 		this.readingOrder = readingOrder;
 	}
+	
+	/**
+	 * Creates a shallow copy of the SegmentationResult (ResultRegions will not be cloned)
+	 */
+	public SegmentationResult clone(){
+		SegmentationResult copy = new SegmentationResult(new ArrayList<ResultRegion>(regions), verticalResolution, scaleFactor);
+		copy.setFileName(fileName);
+		copy.setReadingOrder(new ArrayList<ResultRegion>(readingOrder));
+		copy.setScaleCorrectionDone(scaleCorrection);
+		copy.setScaleFactor(scaleFactor);
+		copy.setVerticalResolution(verticalResolution);
+		return copy;
+	}
 }

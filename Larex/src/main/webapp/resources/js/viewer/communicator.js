@@ -70,16 +70,15 @@ function Communicator() {
 		return status;
 	}
 
-	this.prepareExport = function(pageID){
+	this.prepareExport = function(pageID, segmentsToIgnore){
 		// Deferred object for function status
 		var status = $.Deferred();
 
-		var segmentationRequest = {page: pageID,segmentsToIgnore:[]}
+		var segmentationRequest = {page: pageID,segmentsToIgnore:segmentsToIgnore}
 
 		$.ajax({
 			type : "POST",
 			url : "prepareExport",
-			dataType : "json",
 			contentType: "application/json",
 			data : JSON.stringify(segmentationRequest),
 			beforeSend : function() {
@@ -90,7 +89,7 @@ function Communicator() {
 				status.resolve(data);
 			},
 			error : function(jqXHR, textStatus, errorThrown) {
-				console.log("Prepare Export: failed " + textStatus);
+				console.log("Prepare Export: end");//"Prepare Export: failed " + textStatus);
 				status.resolve();
 			}
 		});
