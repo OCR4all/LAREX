@@ -141,13 +141,13 @@ public class LarexTranslator {
 		return settings;
 	}
 
-	public static Polygon translateResultRegionToSegment(ResultRegion region, String segmentid) {
+	public static Polygon translateResultRegionToSegment(ResultRegion region) {
 		LinkedList<Point> points = new LinkedList<Point>();
 		for (org.opencv.core.Point regionPoint : region.getPoints().toList()) {
 			points.add(new Point(regionPoint.x, regionPoint.y));
 		}
 
-		Polygon segment = new Polygon(segmentid, region.getType(), points, false);
+		Polygon segment = new Polygon(region.getId(), region.getType(), points, false);
 		return segment;
 	}
 
@@ -156,7 +156,7 @@ public class LarexTranslator {
 
 		int idcount = 0;
 		for (ResultRegion region : regions) {
-			Polygon segment = translateResultRegionToSegment(region, pageid + "s" + idcount);
+			Polygon segment = translateResultRegionToSegment(region);
 			segments.put(segment.getId(), segment);
 			idcount++;
 		}

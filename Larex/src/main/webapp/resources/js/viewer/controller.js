@@ -193,7 +193,9 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.downloadPageXML = function(){
-		_communicator.downloadPageXML(_currentPage);
+		_communicator.prepareExport(_currentPage).done(function() {
+			window.open("exportXML");
+		});
 		_gui.highlightExportedPage(_currentPage);
 	}
 
