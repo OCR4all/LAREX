@@ -81,6 +81,11 @@ public class LarexTranslator {
 					Position position = new Position(topLeft.getX(), topLeft.getY(), bottomRight.getX(),
 							bottomRight.getY());
 					region.addPosition(position);
+
+					//Set Ignore Region to fixed
+					if(region.getType().equals(RegionType.ignore)){
+						position.setFixed(true);
+					}
 				}
 			}
 			

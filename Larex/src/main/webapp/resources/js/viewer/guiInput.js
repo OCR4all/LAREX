@@ -22,7 +22,15 @@ function GuiInput(navigationController, controller, gui){
 	});
 
 	$('.createRegionRectangle').click(function() {
-		_controller.createRectangle(false);
+		_controller.createRectangle('region');
+	});
+
+	$('.setRegionOfInterest').click(function() {
+		_controller.createRectangle('roi');
+	});
+
+	$('.createIgnore').click(function() {
+		_controller.createRectangle('ignore');
 	});
 
 	$('.createRegionBorder').click(function() {
@@ -34,7 +42,7 @@ function GuiInput(navigationController, controller, gui){
 	});
 
 	$('.createSegmentRectangle').click(function() {
-		_controller.createRectangle(true);
+		_controller.createRectangle('segment');
 	});
 
 	$('.createSegmentBorder').click(function() {

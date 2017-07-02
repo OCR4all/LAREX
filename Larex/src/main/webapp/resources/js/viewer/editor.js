@@ -4,7 +4,7 @@ function Editor(viewer,controller) {
 	var _viewer = viewer;
 	var _controller = controller;
 	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
-	var _tempPathIsSegment;
+	var _tempPathType;
 	var _tempPath;
 	var _tempPoint;
 	var _tempID;
@@ -30,11 +30,11 @@ function Editor(viewer,controller) {
 		this.removeSegment(regionID);
 	}
 
-	this.startCreatePolygon = function(doSegment) {
+	this.startCreatePolygon = function(type) {
 		if(_this.isEditing === false){
 			_editMode = 0;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 			document.body.style.cursor = "copy";
 
 			var tool = new paper.Tool();
@@ -87,7 +87,7 @@ function Editor(viewer,controller) {
 			if(_tempPath != null){
 				_tempPath.closed = true;
 				_tempPath.selected = false;
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
 				}else{
 					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
@@ -101,11 +101,11 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startCreateRectangle = function(doSegment) {
+	this.startCreateRectangle = function(type) {
 		if(_this.isEditing === false){
 			_editMode = 1;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 			createResponsiveRectangle(_this.endCreateRectangle);
 		}
 	}
@@ -116,10 +116,20 @@ function Editor(viewer,controller) {
 			if(_tempPath != null){
 				_tempPath.closed = true;
 				_tempPath.selected = false;
-				if(_tempPathIsSegment){
-					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
-				}else{
-					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
+				switch(_tempPathType){
+					case 'segment':
+						_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
+						break;
+					case 'region':
+						_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
+						break;
+					case 'ignore':
+						_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true),'ignore');
+						break;
+					case 'roi':
+					default:
+						_controller.callbackNewRoI(convertPointsPathToSegment(_tempPath,true));
+						break;
 				}
 				_tempPath.remove();
 				_tempPath = null;
@@ -181,11 +191,11 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startCreateBorder = function(doSegment) {
+	this.startCreateBorder = function(type) {
 		if(_this.isEditing === false){
 			_this.isEditing = true;
 			_editMode = 2;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 
 			var tool = new paper.Tool();
 			tool.activate();
@@ -268,7 +278,7 @@ function Editor(viewer,controller) {
 			_this.isEditing = false;
 
 			if(_tempPath != null){
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
 				}else{
 					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
@@ -281,11 +291,11 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startMovePath = function(pathID,doSegment) {
+	this.startMovePath = function(pathID,type) {
 		if(_this.isEditing === false){
 			_editMode = 4;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 			document.body.style.cursor = "copy";
 
 			// Create Copy of movable
@@ -360,7 +370,7 @@ function Editor(viewer,controller) {
 			_this.isEditing = false;
 
 			if(_tempPath != null){
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.transformSegment(_tempID,convertPointsPathToSegment(_tempPath,false));
 				}else{
 					_controller.transformRegion(_tempID,convertPointsPathToSegment(_tempPath,true));
@@ -377,11 +387,11 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.startScalePath = function(pathID,doSegment) {
+	this.startScalePath = function(pathID,type) {
 		if(_this.isEditing === false){
 			_editMode = 5;
 			_this.isEditing = true;
-			_tempPathIsSegment = doSegment;
+			_tempPathType = type;
 
 			// Create Copy of movable
 			var boundaries = _this.getPath(pathID).bounds;
@@ -530,7 +540,7 @@ function Editor(viewer,controller) {
 				var path = new paper.Path(_this.getPath(_tempID).segments);
 				path.bounds = _tempPath.bounds;
 
-				if(_tempPathIsSegment){
+				if(_tempPathType === 'segment'){
 					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
 				}else{
 					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));

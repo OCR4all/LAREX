@@ -5,9 +5,11 @@
 	<div class="select-regions">
 		<ul class="collection highlight">
 			<c:forEach var="type" items="${segmenttypes}">
-				<li class="collection-item contextTypeOption regionlegend" data-type="${type.key}">
-					<div class="legendicon ${type.key}"></div>${type.key}
-				</li>
+				<c:if test="${!(type.key eq 'ignore')}">
+					<li class="collection-item contextTypeOption regionlegend" data-type="${type.key}">
+						<div class="legendicon ${type.key}"></div>${type.key}
+					</li>
+				</c:if>
 			</c:forEach>
 		</ul>
 	</div>
