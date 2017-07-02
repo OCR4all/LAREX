@@ -193,7 +193,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.downloadPageXML = function(){
-		_communicator.prepareExport(_currentPage).done(function() {
+		_communicator.prepareExport(_currentPage,segmentsToIgnore).done(function() {
 			window.open("exportXML");
 		});
 		_gui.highlightExportedPage(_currentPage);
@@ -316,7 +316,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 					if(isFixedSegment){
 						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _settings, _currentPage));
 					}else{
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _segmentation, _currentPage));
+						//actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _segmentation, _currentPage));
 					}
 				}
 			}
@@ -616,11 +616,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_editor.movePoint(delta);
 	}
 	this.openContextMenu = function(doSelected,id){
-		if(doSelected && _selected != null && _selected.length > 0 && _selectType != 'cut'){
+		if(doSelected && _selected != null && _selected.length > 0 && _selectType === 'region' && _selectType === "fixed"){
 			_gui.openContextMenu(doSelected, id);
 		} else {
 			var polygonType = getPolygonMainType(id);
-			if(polygonType != null && polygonType != 'cut'){
+			if(polygonType === 'region' && polygonType === "fixed"){
 				_gui.openContextMenu(doSelected, id);
 			}
 		}
