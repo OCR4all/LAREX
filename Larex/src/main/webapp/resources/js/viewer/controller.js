@@ -620,11 +620,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_editor.movePoint(delta);
 	}
 	this.openContextMenu = function(doSelected,id){
-		if(doSelected && _selected != null && _selected.length > 0 && _selectType === 'region' && _selectType === "fixed"){
+		if(doSelected && _selected != null && _selected.length > 0 && (_selectType === 'region' || _selectType === "fixed")){
 			_gui.openContextMenu(doSelected, id);
 		} else {
 			var polygonType = getPolygonMainType(id);
-			if(polygonType === 'region' && polygonType === "fixed"){
+			if(polygonType === 'region' || polygonType === "fixed"){
 				_gui.openContextMenu(doSelected, id);
 			}
 		}
