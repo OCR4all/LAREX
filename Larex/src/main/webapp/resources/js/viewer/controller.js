@@ -374,19 +374,19 @@ function Controller(bookID, canvasID, specifiedColors) {
 		var actions = [];
 
 		//Create 'inverted' ignore rectangle
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:0,y:0},{x:right,y:0},{x:right,y:top},{x:0,y:top}], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:0,y:0},{x:1,y:0},{x:1,y:top},{x:0,y:top}], 'ignore',
 				_editor, _settings, _currentPage));
 		_newPathCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:0,y:top},{x:left,y:top},{x:left,y:1},{x:0,y:1}], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:0,y:0},{x:left,y:0},{x:left,y:1},{x:0,y:1}], 'ignore',
 				_editor, _settings, _currentPage));
 		_newPathCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:left,y:down},{x:1,y:down},{x:1,y:1},{x:left,y:1}], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:0,y:down},{x:1,y:down},{x:1,y:1},{x:0,y:1}], 'ignore',
 				_editor, _settings, _currentPage));
 		_newPathCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:right,y:0},{x:1,y:0},{x:1,y:down},{x:right,y:down}], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPathCounter, [{x:right,y:0},{x:1,y:0},{x:1,y:1},{x:right,y:1}], 'ignore',
 				_editor, _settings, _currentPage));
 		_newPathCounter++;
 
