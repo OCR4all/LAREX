@@ -108,6 +108,12 @@
 				</div>
 				<div id="edit" class="">
 					<div class="">
+						<t:menuIconCategory name="RoI" >
+							<t:menuIcon jsClass="setRegionOfInterest" icon="video_label"
+								tooltip="Set the Region of Interest (RoI)">RoI</t:menuIcon>
+							<t:menuIcon jsClass="createIgnore" icon="layers_clear"
+								tooltip="Create a ignore rectangle">Ignore</t:menuIcon> 
+						</t:menuIconCategory>
 						<t:menuIconCategory name="Region" >
 							<t:menuIcon jsClass="createRegionRectangle" icon="crop_5_4"
 								tooltip="Create a region rectangle (Shortcut: 1)">Rectangle</t:menuIcon>
@@ -130,12 +136,6 @@
 						<t:menuIcon jsClass="redo" icon="redo"
 							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 						<div class="menuIconDivider col"></div>
-						<t:menuIconCategory name="RoI" >
-							<t:menuIcon jsClass="setRegionOfInterest" icon="video_label"
-								tooltip="Set the Region of Interest (RoI)">RoI</t:menuIcon>
-							<t:menuIcon jsClass="createIgnore" icon="layers_clear"
-								tooltip="Create a ignore rectangle">Ignore</t:menuIcon> 
-						</t:menuIconCategory>
 					</div>
 				</div>
 			</div>
