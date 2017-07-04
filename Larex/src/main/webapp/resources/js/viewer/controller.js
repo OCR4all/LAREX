@@ -291,10 +291,13 @@ function Controller(bookID, canvasID, specifiedColors) {
 				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
 				if(segment != null){
+					if(!_exportSettings[_currentPage]){
+						initExportSettings(_currentPage);
+					}
 					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 				}else{
 					segment = _settings.pages[_currentPage].segments[_selected[i]];
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));
 				}
 			}else if(_selectType === "line"){
 				var cut = _settings.pages[_currentPage].cuts[_selected[i]];
@@ -320,7 +323,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 					if(isFixedSegment){
 						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _settings, _currentPage));
 					}else{
-						//actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _segmentation, _currentPage));
+						if(!_exportSettings[_currentPage]){
+							initExportSettings(_currentPage);
+						}
+						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _segmentation, _currentPage,_exportSettings));
 					}
 				}
 			}
@@ -462,7 +468,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 		var polygonType = getPolygonMainType(id);
 		if(polygonType === "result"){
 			if(_segmentation.pages[_currentPage].segments[id].type != type){
-				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _segmentation, _currentPage);
+				if(!_exportSettings[_currentPage]){
+					initExportSettings(_currentPage);
+				}
+				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _segmentation, _currentPage,_exportSettings);
 				addAndExecuteAction(actionChangeType);
 			}
 		}else if(polygonType === "fixed"){
@@ -620,11 +629,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_editor.movePoint(delta);
 	}
 	this.openContextMenu = function(doSelected,id){
-		if(doSelected && _selected != null && _selected.length > 0 && (_selectType === 'region' || _selectType === "fixed")){
+		if(doSelected && _selected != null && _selected.length > 0 && (_selectType === 'region' || _selectType === "fixed" || _selectType === "segment")){
 			_gui.openContextMenu(doSelected, id);
 		} else {
 			var polygonType = getPolygonMainType(id);
-			if(polygonType === 'region' || polygonType === "fixed"){
+			if(polygonType === 'region' || polygonType === "fixed" || polygonType === "segment"){
 				_gui.openContextMenu(doSelected, id);
 			}
 		}

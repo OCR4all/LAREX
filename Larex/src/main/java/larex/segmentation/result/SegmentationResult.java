@@ -49,13 +49,14 @@ public class SegmentationResult {
 		regions.remove(region);
 	}
 
-	public void removeRegionByID(String id){
+	public ResultRegion removeRegionByID(String id){
 		for (ResultRegion roRegion : regions) {
 			if (roRegion.getId().equals(id)) {
 				removeRegion(roRegion);
-				break;
+				return roRegion;
 			}
 		}
+		return null;
 	}
 	
 	public void calcROBinaries(Mat image) {
@@ -262,6 +263,9 @@ public class SegmentationResult {
 
 	public ArrayList<ResultRegion> getRegions() {
 		return regions;
+	}
+	public void addRegion(ResultRegion region){
+		this.regions.add(region);
 	}
 
 	public void setRegions(ArrayList<ResultRegion> regions) {

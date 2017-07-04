@@ -65,7 +65,7 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 	}
 }
 
-function ActionChangeTypeSegment(segmentID,newType,viewer,segmentation,page){
+function ActionChangeTypeSegment(segmentID,newType,viewer,segmentation,page,exportSettings){
 	var _isExecuted = false;
 	var _viewer = viewer;
 	var _segmentation = segmentation;
@@ -73,17 +73,21 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,segmentation,page){
 	var _segmentID = segmentID;
 	var _oldType = null;
 	var _newType = newType;
+	var _exportSettings = exportSettings;
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
 
-			var segment = segmentation.pages[page].segments[segmentID];
+			var segment = segmentation.pages[_page].segments[_segmentID];
 			if(_oldType == null){
 				_oldType = segment.type;
 			}
 			segment.type = _newType;
 			_viewer.updateSegment(segment);
+			if(_exportSettings){
+				_exportSettings[_page].changedTypes[_segmentID] = _newType;
+			}
 			console.log('Do - Change Type: {"id":"'+_segmentID+'","points":[..],"type":"'+_oldType+'->'+_newType+'"}');
 		}
 	}
@@ -91,9 +95,12 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,segmentation,page){
 		if(_isExecuted){
 			_isExecuted = false;
 
-			var segment = segmentation.pages[page].segments[segmentID];
+			var segment = segmentation.pages[_page].segments[_segmentID];
 			segment.type = _oldType;
 			_viewer.updateSegment(segment);
+			if(_exportSettings){
+				_exportSettings[_page].changedTypes[_segmentID] = _oldType;
+			}
 			console.log('Undo - Change Type: {"id":"'+_segmentID+'","points":[..],"type":"'+_oldType+'->'+_newType+'"}');
 		}
 	}
@@ -240,11 +247,9 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings){
 			delete _segmentation.pages[_page].segments[_segment.id];
 			_editor.removeSegment(_segment.id);
 
-			if(_exportSettings[_page].segmentsToIgnore == null){
-				_exportSettings[_page].segmentsToIgnore = [];
+			if(_exportSettings){
+				_exportSettings[_page].segmentsToIgnore.push(_segment.id);
 			}
-			_exportSettings[_page].segmentsToIgnore.push(_segment.id);
-
 			console.log('Do - Remove: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}
@@ -254,9 +259,11 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings){
 
 			_segmentation.pages[_page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			_editor.addSegment(_segment);
-			_exportSettings[_page].segmentsToIgnore = jQuery.grep(_exportSettings[_page].segmentsToIgnore, function(value) {
-				return value != _segment.id;
-			});
+			if(_exportSettings){
+				_exportSettings[_page].segmentsToIgnore = jQuery.grep(_exportSettings[_page].segmentsToIgnore, function(value) {
+					return value != _segment.id;
+				});
+			}
 			console.log('Undo - Remove: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}

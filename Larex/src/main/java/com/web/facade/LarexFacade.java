@@ -25,6 +25,7 @@ import com.web.model.Polygon;
 
 import larex.export.PageXMLWriter;
 import larex.regions.RegionManager;
+import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
@@ -138,11 +139,19 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public void prepareExport(ExportRequest exportRequest) {
+		//shallow clown page (ResultRegions are not cloned)
 		exportPage = segmentedLarexPages.get(exportRequest.getPage()).clone();
 		SegmentationResult result = exportPage.getSegmentationResult();
 		
 		for(String segmentID: exportRequest.getSegmentsToIgnore()){
 			result.removeRegionByID(segmentID);
+		}
+
+		for(Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()){
+			//clone ResultRegion before changing it
+			ResultRegion clone = result.removeRegionByID(changeType.getKey()).clone();
+			clone.setType(changeType.getValue());
+			result.addRegion(clone);
 		}
 	}
 	

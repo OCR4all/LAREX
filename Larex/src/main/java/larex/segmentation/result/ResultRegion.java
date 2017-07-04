@@ -281,4 +281,17 @@ public class ResultRegion implements Comparable {
 		this.containedPoints = containedPoints;
 	}
 
+	public ResultRegion clone(){
+		ResultRegion clone = new ResultRegion(type,imageHeight,new MatOfPoint(points));
+		clone.setActive(isActive);
+		clone.setAssigned(isAssigned);
+		clone.setColor(color);
+		//clone.setContainedPoints(new ArrayList<Point>(containedPoints));
+		clone.setReadingOrderIndex(readingOrderIndex);
+		clone.setRect(rect);
+		clone.setScaledCenterOfGravity(scaledCenterOfGravity);
+		clone.setScaledPolygon(scaledPolygon);
+		
+		return clone;
+	}
 }
