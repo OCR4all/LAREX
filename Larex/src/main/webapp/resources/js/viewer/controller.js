@@ -222,6 +222,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 			this.unSelect();
 			_actionpointer++;
 			_actions[_actionpointer].execute();
+
+			// Reset Downloadable
+			_currentPageDownloadable = false;
+			_gui.setDownloadable(_currentPageDownloadable);
 		}
 	}
 	this.undo = function() {
@@ -229,6 +233,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 			this.unSelect();
 			_actions[_actionpointer].undo();
 			_actionpointer--;
+
+
+			// Reset Downloadable
+			_currentPageDownloadable = false;
+			_gui.setDownloadable(_currentPageDownloadable);
 		}
 	}
 	this.createPolygon = function(doSegment) {
@@ -670,6 +679,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 		action.execute();
 		_actions.push(action);
 		_actionpointer++;
+
+		// Reset Downloadable
+		_currentPageDownloadable = false;
+		_gui.setDownloadable(_currentPageDownloadable);
 	}
 
 	var getRegionByID = function(id){
