@@ -4,6 +4,7 @@ import larex.geometry.Polygon;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.UUID;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -28,6 +29,8 @@ public class ResultRegion implements Comparable {
 	private int imageHeight;
 	private MatOfPoint points;
 
+	private String id;
+	
 	private Rect rect;
 	@Deprecated
 	private MatOfPoint scaledPoints;
@@ -51,6 +54,8 @@ public class ResultRegion implements Comparable {
 		setImageHeight(imageHeight);
 		setPoints(points);
 		setReadingOrderIndex(-1);
+		
+		id = UUID.randomUUID().toString();
 	}
 
 	// TODO
@@ -213,6 +218,10 @@ public class ResultRegion implements Comparable {
 		this.readingOrderIndex = readingOrderIndex;
 	}
 
+	public String getId() {
+		return id;
+	}
+	
 	@Deprecated
 	public boolean isActive() {
 		return isActive;
@@ -270,5 +279,19 @@ public class ResultRegion implements Comparable {
 	@Deprecated
 	public void setContainedPoints(ArrayList<Point> containedPoints) {
 		this.containedPoints = containedPoints;
+	}
+
+	public ResultRegion clone(){
+		ResultRegion clone = new ResultRegion(type,imageHeight,new MatOfPoint(points));
+		clone.setActive(isActive);
+		clone.setAssigned(isAssigned);
+		clone.setColor(color);
+		//clone.setContainedPoints(new ArrayList<Point>(containedPoints));
+		clone.setReadingOrderIndex(readingOrderIndex);
+		clone.setRect(rect);
+		clone.setScaledCenterOfGravity(scaledCenterOfGravity);
+		clone.setScaledPolygon(scaledPolygon);
+		
+		return clone;
 	}
 }

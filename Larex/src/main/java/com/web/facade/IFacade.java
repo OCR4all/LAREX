@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
+import com.web.communication.ExportRequest;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
@@ -35,7 +36,10 @@ public interface IFacade {
 	public BookSegmentation segmentPages(BookSettings settings, List<Integer> pages);
 	
 	public BookSegmentation segmentPage(BookSettings settings, int pageNr);
+	
+	//TODO Change to different class? (for low coupling
+	public void prepareExport(ExportRequest exportRequest);
 
-	public ResponseEntity<byte[]> getPageXML(int pageID);
+	public ResponseEntity<byte[]> getPageXML();
 
 }

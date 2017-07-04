@@ -49,6 +49,16 @@ public class SegmentationResult {
 		regions.remove(region);
 	}
 
+	public ResultRegion removeRegionByID(String id){
+		for (ResultRegion roRegion : regions) {
+			if (roRegion.getId().equals(id)) {
+				removeRegion(roRegion);
+				return roRegion;
+			}
+		}
+		return null;
+	}
+	
 	public void calcROBinaries(Mat image) {
 		for (ResultRegion result : regions) {
 			result.calcROBinary(image);
@@ -254,6 +264,9 @@ public class SegmentationResult {
 	public ArrayList<ResultRegion> getRegions() {
 		return regions;
 	}
+	public void addRegion(ResultRegion region){
+		this.regions.add(region);
+	}
 
 	public void setRegions(ArrayList<ResultRegion> regions) {
 		this.regions = regions;
@@ -277,5 +290,18 @@ public class SegmentationResult {
 		}
 
 		this.readingOrder = readingOrder;
+	}
+	
+	/**
+	 * Creates a shallow copy of the SegmentationResult (ResultRegions will not be cloned)
+	 */
+	public SegmentationResult clone(){
+		SegmentationResult copy = new SegmentationResult(new ArrayList<ResultRegion>(regions), verticalResolution, scaleFactor);
+		copy.setFileName(fileName);
+		copy.setReadingOrder(new ArrayList<ResultRegion>(readingOrder));
+		copy.setScaleCorrectionDone(scaleCorrection);
+		copy.setScaleFactor(scaleFactor);
+		copy.setVerticalResolution(verticalResolution);
+		return copy;
 	}
 }

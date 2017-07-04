@@ -190,4 +190,29 @@ public class Page {
 	public void setOriginalSize(Size originalSize) {
 		this.originalSize = originalSize;
 	}
+
+	/**
+	 * Creates a copy of the Page, with a shallow copy of SegmentationResult
+	 */
+	public Page clone(){
+		Page copy = new Page(imagePath, identifier);
+		copy.setAccepted(isAccepted);
+		if(binary != null)
+			copy.setBinary(binary.clone());
+		copy.setFileName(fileName);
+		copy.setIdentifier(identifier);
+		copy.setImagePath(imagePath);
+		if(original != null)
+			copy.setOriginal(original.clone());
+		if(originalSize != null)
+			copy.setOriginalSize(originalSize.clone());
+		if(resized != null)
+			copy.setResized(resized.clone());
+		if(result != null)
+			copy.setResult(result.clone());
+		copy.setScaleFactor(scaleFactor);
+		copy.setSegmentationResult(segmentationResult);
+		
+		return copy;
+	}
 }

@@ -70,8 +70,30 @@ function Communicator() {
 		return status;
 	}
 
-	this.downloadPageXML = function(pageID){
-		window.open("exportXML?page="+pageID);
+	this.prepareExport = function(pageID, exportSettings){
+		// Deferred object for function status
+		var status = $.Deferred();
+
+		var segmentationRequest = {page: pageID,segmentsToIgnore:exportSettings.segmentsToIgnore,changedTypes:exportSettings.changedTypes}
+
+		$.ajax({
+			type : "POST",
+			url : "prepareExport",
+			contentType: "application/json",
+			data : JSON.stringify(segmentationRequest),
+			beforeSend : function() {
+				console.log("Prepare Export: start");
+			},
+			success : function(data) {
+				console.log('Prepare Export: successful');
+				status.resolve(data);
+			},
+			error : function(jqXHR, textStatus, errorThrown) {
+				console.log("Prepare Export: end");//"Prepare Export: failed " + textStatus);
+				status.resolve();
+			}
+		});
+		return status;
 	}
 
 	this.debugConnection = function() {
@@ -103,7 +125,7 @@ function Communicator() {
 					return status;
 
 				});
-				}
+	}
 
 	var getTestQuerry = function() {
 		// Deferred object for function status

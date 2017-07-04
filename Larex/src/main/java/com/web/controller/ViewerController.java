@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.web.communication.ExportRequest;
 import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
 import com.web.communication.SegmentationResult;
@@ -91,9 +92,15 @@ public class ViewerController {
 		return result;
 	}
 
-	@RequestMapping(value = "/exportXML", method = RequestMethod.GET)//, headers = "Accept=*/*", consumes = "application/json"*/)
-	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("page") int pageID) {
-	    return segmenter.getPageXML(pageID);
+	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody String prepareExport(@RequestBody ExportRequest exportRequest) {
+		segmenter.prepareExport(exportRequest);
+		return "Export has been prepared";
+	}
+	
+	@RequestMapping(value = "/exportXML")//, method = RequestMethod.GET)//, headers = "Accept=*/*", consumes = "application/json"*/)
+	public @ResponseBody ResponseEntity<byte[]> exportXML() {
+	    return segmenter.getPageXML();
 	}
 	
 	private LarexFacade prepareSegmenter(int bookID) {
