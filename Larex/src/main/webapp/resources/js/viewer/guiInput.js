@@ -15,6 +15,9 @@ function GuiInput(navigationController, controller, gui){
 		_controller.doSegmentation();
 	});
 	$('.exportPageXML').click(function() {
+		_controller.exportPageXML();
+	});
+	$('.downloadPageXML').click(function() {
 		_controller.downloadPageXML();
 	});
 	$('.reload').click(function() {

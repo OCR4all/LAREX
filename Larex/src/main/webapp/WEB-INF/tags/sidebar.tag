@@ -99,6 +99,14 @@
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	
 	<a class="col s12 waves-effect waves-light btn exportPageXML">
-		Export PageXML 
+		Export PageXML
+		<div class="progress hide">
+    		<div class="indeterminate"></div>
+		</div>       
+	</a>
+	
+	
+	<a class="col s12 waves-effect waves-light btn downloadPageXML disabled">
+		Download PageXML     
 	</a>
 </div>

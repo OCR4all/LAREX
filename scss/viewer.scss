@@ -355,3 +355,13 @@ body{
     }
   }
 }
+
+.btn{
+  .progress{
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    pagging: 0;
+  }
+}

@@ -252,4 +252,18 @@ function GUI(canvas, viewer) {
 		$exportedPage.addClass('exported');
 		$exportedPage.find(".pageIconExported").removeClass('hide');
 	}
+	this.setDownloadable = function(isDownloadble){
+		if(isDownloadble){
+			$('.downloadPageXML').removeClass('disabled');
+		}else{
+			$('.downloadPageXML').addClass('disabled');
+		}
+	}
+	this.setExportingInProgress = function(isInProgress){
+		if(isInProgress){
+			$('.exportPageXML').find('.progress').removeClass('hide');
+		}else{
+			$('.exportPageXML').find('.progress').addClass('hide');
+		}
+	}
 }

@@ -14,6 +14,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _actionpointer = -1;
 	var _presentRegions = [];
 	var _exportSettings = {};
+	var _currentPageDownloadable = false;
 
 	var _gridIsActive = false;
 
@@ -136,6 +137,9 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
+
+				_currentPageDownloadable = false;
+				_gui.setDownloadable(_currentPageDownloadable);
 		}
 		_gui.selectPage(pageNr);
 	}
@@ -194,13 +198,22 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.downloadPageXML = function(){
+		if(_currentPageDownloadable){
+			window.open("exportXML");
+		}
+		_gui.highlightExportedPage(_currentPage);
+	}
+
+	this.exportPageXML = function(){
 		if(!_exportSettings[_currentPage]){
 			initExportSettings(_currentPage);
 		}
+		_gui.setExportingInProgress(true);
 		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(function() {
-			window.open("exportXML");
+			_currentPageDownloadable = true;
+			_gui.setDownloadable(_currentPageDownloadable);
+			_gui.setExportingInProgress(false);
 		});
-		_gui.highlightExportedPage(_currentPage);
 	}
 
 	// Actions
