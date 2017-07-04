@@ -70,11 +70,11 @@ function Communicator() {
 		return status;
 	}
 
-	this.prepareExport = function(pageID, segmentsToIgnore){
+	this.prepareExport = function(pageID, exportSettings){
 		// Deferred object for function status
 		var status = $.Deferred();
 
-		var segmentationRequest = {page: pageID,segmentsToIgnore:segmentsToIgnore}
+		var segmentationRequest = {page: pageID,segmentsToIgnore:exportSettings.segmentsToIgnore,changedTypes:exportSettings.changedTypes}
 
 		$.ajax({
 			type : "POST",

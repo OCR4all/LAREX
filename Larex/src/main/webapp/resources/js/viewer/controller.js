@@ -13,7 +13,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _actions = [];
 	var _actionpointer = -1;
 	var _presentRegions = [];
-	var _deletedResultSegments = {};
+	var _exportSettings = {};
 
 	var _gridIsActive = false;
 
@@ -194,10 +194,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.downloadPageXML = function(){
-		if(_deletedResultSegments[_currentPage] == null){
-			_deletedResultSegments[_currentPage] = [];
+		if(!_exportSettings[_currentPage]){
+			initExportSettings(_currentPage);
 		}
-		_communicator.prepareExport(_currentPage,_deletedResultSegments[_currentPage]).done(function() {
+		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(function() {
 			window.open("exportXML");
 		});
 		_gui.highlightExportedPage(_currentPage);
@@ -291,10 +291,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
 				if(segment != null){
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_deletedResultSegments));
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 				}else{
 					segment = _settings.pages[_currentPage].segments[_selected[i]];
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_deletedResultSegments));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings));
 				}
 			}else if(_selectType === "line"){
 				var cut = _settings.pages[_currentPage].cuts[_selected[i]];
@@ -694,5 +694,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 		$canvas.height(height);
 		$sidebars.height(height);
+	}
+
+	var initExportSettings = function(page){
+		_exportSettings[page] = {}
+		_exportSettings[page].segmentsToIgnore = [];
+		_exportSettings[page].changedTypes = {};
 	}
 }
