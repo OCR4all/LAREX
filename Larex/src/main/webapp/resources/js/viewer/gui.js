@@ -139,23 +139,8 @@ function GUI(canvas, viewer) {
 			}
 		});
 	}
-	this.forceUpdateRegionHide = function(visibleRegions){
-		var $allSwitchBoxes = $('.regionlegend');
-		var _visibleRegions = visibleRegions;
-		$allSwitchBoxes.each(function() {
-			var $this = $(this);
-			var $switchBox = $($this.find('input'));
-			var regionType = $this.data('type');
-
-			if(_visibleRegions[regionType]){
-				$switchBox.prop('checked',true);
-			}else{
-				$switchBox.prop('checked',false);
-			}
-		});
-	}
 	this.showUsedRegionLegends = function(presentRegions){
-		$('.regionlegend').each(function() {
+		$('.regionlegend,.contextregionlegend').each(function() {
 			var legendType = $(this).data('type');
 
 			if($.inArray(legendType, presentRegions) > -1){
