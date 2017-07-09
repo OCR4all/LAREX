@@ -3,6 +3,17 @@ function GuiInput(navigationController, controller, gui){
 	var _controller = controller;
 	var _gui = gui;
 
+	$(window).click(function() {
+		//Cancel viewer actions, if outside of viewer or a menu icon
+		$target = $(event.target);
+		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
+		&& !$target.is('.menuIcon') && !$target.parents(".menuIcon").is(".menuIcon")
+		&& !$target.is('.regionSettings') && !$target.parents(".regionSettings").is(".regionSettings")){
+			console.log($target);
+			_controller.escape();
+    }
+	});
+
 	// button registration
 	$( "#viewer" ).contextmenu(function() {
 		_controller.openContextMenu(true);
