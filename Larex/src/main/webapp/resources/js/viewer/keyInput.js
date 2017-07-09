@@ -41,8 +41,9 @@ function KeyInput(navigationController, controller, gui) {
 				break;
 			case 17: // CTRL
 				_controller.selectmultiple = true;
-
-				// _navigationController.moveCanvas(true);
+				break;
+			case 16: // Shift
+				_controller.selectinbewteen = true;
 				break;
 			case 89: // Y
 				if (event.ctrlKey) {
@@ -94,6 +95,8 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 18: // ALT
+				//document.body.style.cursor = "move";
+
 				_controller.applyGrid();
 				break;
 
@@ -115,10 +118,14 @@ function KeyInput(navigationController, controller, gui) {
 			var validKey = false;
 
 			switch (event.keyCode) {
+				case 16: // Shift
+					_controller.selectinbewteen = false;
+					break;
 				case 17: // CTRL
 					_controller.selectmultiple = false;
 					break;
 				case 18: // ALT
+					document.body.style.cursor = "auto";
 					_controller.removeGrid();
 					break;
 			}

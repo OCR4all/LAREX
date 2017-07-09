@@ -1,5 +1,6 @@
 function ViewerInput(controller) {
 	var _controller = controller;
+	var _mouseSelecting = false;
 
 	this.enterSection = function(sectionID, info) {
 		_controller.enterSegment(sectionID, true, info);
@@ -14,7 +15,23 @@ function ViewerInput(controller) {
 	}
 
 	this.dragImage = function(event){
-		_controller.moveImage(event.delta);
+		switch (event.event.button) {
+			// leftclick
+			case 0:
+				if(event.modifiers.alt){
+					_controller.moveImage(event.delta);
+				}else{
+					_controller.startRectangleSelect();
+				}
+				break;
+			// middleclick
+			case 1:
+				_controller.moveImage(event.delta);
+				break;
+			// rightclick
+			case 2:
+				break;
+		}
 	}
 
 	this.clickImage = function(event){

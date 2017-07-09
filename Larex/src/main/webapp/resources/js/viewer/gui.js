@@ -20,16 +20,6 @@ function GUI(canvas, viewer) {
 		$('.zoomvalue').text(zoom);
 	}
 
-	this.moveCanvas = function(doMove){
-		if(doMove){
-			document.body.style.cursor = "move";
-			_doMoveCanvas = true;
-		} else {
-			document.body.style.cursor = "auto";
-			_doMoveCanvas = false;
-		}
-	}
-
 	this.openContextMenu = function(doSelected,id){
 		var $contextmenu = $("#contextmenu");
 		$contextmenu.removeClass("hide");
@@ -47,33 +37,6 @@ function GUI(canvas, viewer) {
 
 	this.closeContextMenu = function(){
 		$("#contextmenu").addClass("hide");
-	}
-
-	this.displaySelected = function(selected){
-		var id = "";
-		var selectType = "";
-		var prevSelectType = "";
-
-		for(var i = 0, selectedsize = selected.length; i < selectedsize; i++ ){
-			id += selected[i].id;
-			if(i + 1 < selectedsize){
-				id += ", ";
-			}
-			if(prevSelectType === "" || prevSelectType === selected[i].type){
-				selectType = selected[i].type;
-				prevSelectType = selectType;
-			}else{
-				selectType = "diverse";
-			}
-		}
-
-		$(".selectID").text(id);
-		$(".selectID").val(id);
-		$(".selectType").html(selectType);
-		$(".selectType").val(selectType);
-
-		$("#selectTypes").material_select();
-		Materialize.updateTextFields();
 	}
 
 	this.resizeViewerHeight = function(){

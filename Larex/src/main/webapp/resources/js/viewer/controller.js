@@ -21,6 +21,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _thisController = this;
 	var _selected = [];
 	this.selectmultiple = false;
+	this.selectinbewteen = false;
+	var _isSelecting = false;
 	var _selectType;
 	var _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
 
@@ -542,7 +544,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	this.selectSegment = function(sectionID, info) {
 		var currentType = (info === null) ? "segment" : info.type;
 
-		if (!this.selectmultiple || currentType !== _selectType) {
+		if ((!this.selectmultiple && !this.selectinbewteen) || currentType !== _selectType) {
 			for (var i = 0, selectedsize = _selected.length; i < selectedsize; i++) {
 				_editor.selectSegment(_selected[i], false);
 			}
@@ -552,36 +554,47 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_editor.selectSegment(sectionID, true);
 		_selected.push(sectionID);
 
-		var selectedSegments = [];
-
-		for (var i = 0, selectedsize = _selected.length; i < selectedsize; i++) {
-			if (info === null || info.type === "segment") {
-				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
-				if(segment == null){
-					//is fixed segment
-					segment = _settings.pages[_currentPage].segments[_selected[i]];
+		if(this.selectinbewteen && _selected.length > 0){
+			var inbetween = _editor.getSegmentIDsBetweenSegments(_selected[0],sectionID);
+			$.each(inbetween, function( index, id ) {
+				var mainType = getPolygonMainType(id);
+				mainType = (mainType === 'result' || mainType === 'fixed') ? 'segment' : mainType;
+				if(mainType === currentType){
+					_selected.push(id);
+					_editor.selectSegment(id, true);
 				}
-				selectedSegments.push(segment);
-			} else if (info !== null && info.type === "region") {
-				var region = getRegionByID(_selected[i]);
-				if(region != null){
-					selectedSegments.push(region);
-				}
-			} else if (info !== null && info.type === "line") {
-				var line = _settings.pages[_currentPage].cuts[_selected[i]];
-				if(line != null){
-					selectedSegments.push(line);
-				}
-			}
+			});
 		}
-
-		_gui.displaySelected(selectedSegments);
 	}
 	this.unSelect = function(){
 		for (var i = 0, selectedsize = _selected.length; i < selectedsize; i++) {
 			_editor.selectSegment(_selected[i], false);
 		}
 		_selected = [];
+	}
+	this.startRectangleSelect = function(){
+		if(!_editor.isEditing){
+			if(!_isSelecting){
+				_editor.startRectangleSelect();
+			}
+
+			_isSelecting = true;
+		}
+	}
+	this.rectangleSelect = function(pointA,pointB) {
+		_thisController.unSelect();
+		var inbetween = _editor.getSegmentIDsBetweenPoints(pointA,pointB);
+
+		$.each(inbetween, function( index, id ) {
+			var mainType = getPolygonMainType(id);
+			mainType = (mainType === 'result' || mainType === 'fixed') ? 'segment' : mainType;
+			if(mainType === 'segment'){
+				_selected.push(id);
+				_editor.selectSegment(id, true);
+			}
+		});
+
+		_isSelecting = false;
 	}
 	this.toggleSegment = function(sectionID, isSelected, info) {
 		if(!_editor.isEditing){
@@ -602,14 +615,15 @@ function Controller(bookID, canvasID, specifiedColors) {
 		// Iterate over Regions-"Map" (Object in JS)
 		Object.keys(_settings.regions).forEach(function(key) {
 			var region = _settings.regions[key];
+			if(region.type !== 'ignore'){
+				// Iterate over all Polygons in Region
+				Object.keys(region.polygons).forEach(function(polygonKey) {
+					var polygon = region.polygons[polygonKey];
+					_editor.hideSegment(polygon.id,doHide);
+				});
 
-			// Iterate over all Polygons in Region
-			Object.keys(region.polygons).forEach(function(polygonKey) {
-				var polygon = region.polygons[polygonKey];
-				_editor.hideSegment(polygon.id,doHide);
-			});
-
-			_visibleRegions[region.type] = !doHide;
+				_visibleRegions[region.type] = !doHide;
+			}
 		});
 	}
 	this.hideRegion = function(regionType, doHide){
