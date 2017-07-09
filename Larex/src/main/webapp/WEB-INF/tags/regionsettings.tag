@@ -3,7 +3,7 @@
 
 
 
-<div id="regioneditor" class="card hide">
+<div id="regioneditor" class="card hide infocus">
 	<div id="regioneditor-settings">
 		<div id="regionTypeLegendIcon" class="legendicon"></div><span id="regionType">Test</span>
 		<div id="regioneditorSelect" class="select-regions hide">

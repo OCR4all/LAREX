@@ -7,8 +7,7 @@ function GuiInput(navigationController, controller, gui){
 		//Cancel viewer actions, if outside of viewer or a menu icon
 		$target = $(event.target);
 		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
-		&& !$target.is('.menuIcon') && !$target.parents(".menuIcon").is(".menuIcon")
-		&& !$target.is('.regionSettings') && !$target.parents(".regionSettings").is(".regionSettings")){
+		&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
 			_controller.escape();
     }
 	});
