@@ -602,14 +602,15 @@ function Controller(bookID, canvasID, specifiedColors) {
 		// Iterate over Regions-"Map" (Object in JS)
 		Object.keys(_settings.regions).forEach(function(key) {
 			var region = _settings.regions[key];
+			if(region.type !== 'ignore'){
+				// Iterate over all Polygons in Region
+				Object.keys(region.polygons).forEach(function(polygonKey) {
+					var polygon = region.polygons[polygonKey];
+					_editor.hideSegment(polygon.id,doHide);
+				});
 
-			// Iterate over all Polygons in Region
-			Object.keys(region.polygons).forEach(function(polygonKey) {
-				var polygon = region.polygons[polygonKey];
-				_editor.hideSegment(polygon.id,doHide);
-			});
-
-			_visibleRegions[region.type] = !doHide;
+				_visibleRegions[region.type] = !doHide;
+			}
 		});
 	}
 	this.hideRegion = function(regionType, doHide){
