@@ -20,16 +20,6 @@ function GUI(canvas, viewer) {
 		$('.zoomvalue').text(zoom);
 	}
 
-	this.moveCanvas = function(doMove){
-		if(doMove){
-			document.body.style.cursor = "move";
-			_doMoveCanvas = true;
-		} else {
-			document.body.style.cursor = "auto";
-			_doMoveCanvas = false;
-		}
-	}
-
 	this.openContextMenu = function(doSelected,id){
 		var $contextmenu = $("#contextmenu");
 		$contextmenu.removeClass("hide");
