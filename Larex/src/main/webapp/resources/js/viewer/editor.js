@@ -14,6 +14,37 @@ function Editor(viewer,controller) {
 	var _grid = {isActive:false};
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
+	this.startRectangleSelect = function() {
+		if(_this.isEditing === false){
+			_editMode = -1;
+			_this.isEditing = true;
+
+			var tool = new paper.Tool();
+			tool.activate();
+			var isActive = false;
+			tool.onMouseMove = function(event) {
+				if(!isActive){
+					isActive = true;
+					createResponsiveRectangle(_this.endRectangleSelect,event.point);
+				}
+				this.remove();
+			}
+		}
+	}
+
+	this.endRectangleSelect = function() {
+		if(_this.isEditing){
+			_this.isEditing = false;
+			if(_tempPath != null){
+				var selectBounds = _tempPath.bounds;
+				_controller.rectangleSelect(selectBounds.topLeft,selectBounds.bottomRight);
+
+				_tempPath.remove();
+				_tempPath = null;
+			}
+		}
+	}
+
 	this.addRegion = function(region){
 		this.drawPath(region, true, {type: 'region'});
 	}
@@ -106,7 +137,17 @@ function Editor(viewer,controller) {
 			_editMode = 1;
 			_this.isEditing = true;
 			_tempPathType = type;
-			createResponsiveRectangle(_this.endCreateRectangle);
+			document.body.style.cursor = "copy";
+
+			var tool = new paper.Tool();
+			tool.activate();
+			tool.onMouseDown = function(event) {
+				if(_this.isEditing === true){
+					createResponsiveRectangle(_this.endCreateRectangle,event.point);
+				}else{
+					this.remove();
+				}
+			}
 		}
 	}
 
@@ -439,44 +480,40 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	var createResponsiveRectangle = function(endFunction){
+	var createResponsiveRectangle = function(endFunction,startPoint){
 			var imageCanvas = _this.getImageCanvas();
-			document.body.style.cursor = "copy";
 
 			var tool = new paper.Tool();
 			tool.activate();
-			tool.onMouseDown = function(event) {
+
+			var canvasPoint = _this.getPointInBounds(startPoint, _this.getBoundaries());
+			// Start path
+			_tempPoint = new paper.Point(canvasPoint);
+			_tempPath = new paper.Path();
+			_tempPath.add(_tempPoint); //Add Point for mouse movement
+			_tempPath.fillColor = 'grey';
+			_tempPath.opacity = 0.3;
+			_tempPath.closed = true;
+			_tempPath.selected = true;
+
+			tool.onMouseMove = function(event) {
 				if(_this.isEditing === true){
-					var canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
+					if (_tempPath) {
+						var point = _this.getPointInBounds(event.point, _this.getBoundaries());
+						var rectangle = new paper.Path.Rectangle(_tempPoint, point);
 
-					if (!_tempPath) {
-						// Start path
-						_tempPoint = new paper.Point(canvasPoint);
-						_tempPath = new paper.Path();
-						_tempPath.add(_tempPoint); //Add Point for mouse movement
-						_tempPath.fillColor = 'grey';
-						_tempPath.opacity = 0.3;
-						_tempPath.closed = true;
-						_tempPath.selected = true;
-
-						tool.onMouseMove = function(event) {
-							if(_this.isEditing === true){
-								if (_tempPath) {
-									var point = _this.getPointInBounds(event.point, _this.getBoundaries());
-									var rectangle = new paper.Path.Rectangle(_tempPoint, point);
-
-									_tempPath.segments = rectangle.segments;
-								}
-							}
-						}
-						_this.getImageCanvas().addChild(_tempPath);
-					}else{
-						endFunction();
-						this.remove();
+						_tempPath.segments = rectangle.segments;
 					}
 				}else{
+					endFunction();
 					this.remove();
 				}
+			}
+			_this.getImageCanvas().addChild(_tempPath);
+
+			tool.onMouseUp = function(event) {
+				endFunction();
+				this.remove();
 			}
 	}
 

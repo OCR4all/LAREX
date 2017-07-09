@@ -1,5 +1,6 @@
 function ViewerInput(controller) {
 	var _controller = controller;
+	var _mouseSelecting = false;
 
 	this.enterSection = function(sectionID, info) {
 		_controller.enterSegment(sectionID, true, info);
@@ -19,6 +20,8 @@ function ViewerInput(controller) {
 			case 0:
 				if(event.modifiers.alt){
 					_controller.moveImage(event.delta);
+				}else{
+					_controller.startRectangleSelect();
 				}
 				break;
 			// middleclick

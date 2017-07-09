@@ -104,6 +104,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
 		var segmentIDs = [];
 		var rectangleAB = new paper.Rectangle(pointA,pointB);
+
 		$.each(_paths, function( id, path ) {
 			if(rectangleAB.contains(path.bounds)){
 				segmentIDs.push(id);

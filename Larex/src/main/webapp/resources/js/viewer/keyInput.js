@@ -95,7 +95,7 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 18: // ALT
-				document.body.style.cursor = "move";
+				//document.body.style.cursor = "move";
 
 				_controller.applyGrid();
 				break;

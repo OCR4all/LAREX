@@ -22,6 +22,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _selected = [];
 	this.selectmultiple = false;
 	this.selectinbewteen = false;
+	var _isSelecting = false;
 	var _selectType;
 	var _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
 
@@ -550,6 +551,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_selected = [];
 		}
 		_selectType = currentType;
+		_editor.selectSegment(sectionID, true);
+		_selected.push(sectionID);
 
 		if(this.selectinbewteen && _selected.length > 0){
 			var inbetween = _editor.getSegmentIDsBetweenSegments(_selected[0],sectionID);
@@ -562,14 +565,36 @@ function Controller(bookID, canvasID, specifiedColors) {
 				}
 			});
 		}
-		_editor.selectSegment(sectionID, true);
-		_selected.push(sectionID);
 	}
 	this.unSelect = function(){
 		for (var i = 0, selectedsize = _selected.length; i < selectedsize; i++) {
 			_editor.selectSegment(_selected[i], false);
 		}
 		_selected = [];
+	}
+	this.startRectangleSelect = function(){
+		if(!_editor.isEditing){
+			if(!_isSelecting){
+				_editor.startRectangleSelect();
+			}
+
+			_isSelecting = true;
+		}
+	}
+	this.rectangleSelect = function(pointA,pointB) {
+		_thisController.unSelect();
+		var inbetween = _editor.getSegmentIDsBetweenPoints(pointA,pointB);
+
+		$.each(inbetween, function( index, id ) {
+			var mainType = getPolygonMainType(id);
+			mainType = (mainType === 'result' || mainType === 'fixed') ? 'segment' : mainType;
+			if(mainType === 'segment'){
+				_selected.push(id);
+				_editor.selectSegment(id, true);
+			}
+		});
+
+		_isSelecting = false;
 	}
 	this.toggleSegment = function(sectionID, isSelected, info) {
 		if(!_editor.isEditing){
