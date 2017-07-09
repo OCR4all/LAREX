@@ -116,12 +116,12 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 						_editor.addRegion(polygon);
 
-						if(!_visibleRegions[region.type]){
+						if(!_visibleRegions[region.type] & region.type !== 'ignore'){
 							_editor.hideSegment(polygon.id,true);
 						}
 					});
 
-					if($.inArray(region.type, _presentRegions) < 0){
+					if(region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0){
 						//_presentRegions does not contains region.type
 						_presentRegions.push(region.type);
 					}
@@ -144,7 +144,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_gui.selectPage(pageNr);
 	}
 	this.addPresentRegions = function(regionType){
-		if($.inArray(regionType, _presentRegions) < 0){
+		if(region.type !== 'ignore' && $.inArray(regionType, _presentRegions) < 0){
 			//_presentRegions does not contains region.type
 			_presentRegions.push(regionType);
 		}

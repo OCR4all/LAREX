@@ -5,7 +5,7 @@
 <%@ attribute name="tooltip" required="true" %>
 <%@ attribute name="url" required="false" %>
 
-<a <c:if test="${not empty url}">href="${url}"</c:if> class="${jsClass} waves-effect waves-light menuIcon col tooltipped" 
+<a <c:if test="${not empty url}">href="${url}"</c:if> class="${jsClass} waves-effect waves-light menuIcon col tooltipped infocus" 
 	data-position="bottom" data-delay="50" data-tooltip="${tooltip}"> 
 	<span class="menuIconMain">
 		<i class="material-icons">${icon}</i>

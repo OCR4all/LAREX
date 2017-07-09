@@ -3,6 +3,15 @@ function GuiInput(navigationController, controller, gui){
 	var _controller = controller;
 	var _gui = gui;
 
+	$(window).click(function() {
+		//Cancel viewer actions, if outside of viewer or a menu icon
+		$target = $(event.target);
+		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
+		&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
+			_controller.escape();
+    }
+	});
+
 	// button registration
 	$( "#viewer" ).contextmenu(function() {
 		_controller.openContextMenu(true);
