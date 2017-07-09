@@ -101,6 +101,39 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 		}
 	}
 
+	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
+		var segmentIDs = [];
+		var rectangleAB = new paper.Rectangle(pointA,pointB);
+		$.each(_paths, function( id, path ) {
+			if(rectangleAB.contains(path.bounds)){
+				segmentIDs.push(id);
+			}
+		});
+		return segmentIDs;
+	}
+
+	this.getSegmentIDsBetweenSegments = function(pathAID,pathBID){
+		var segmentIDs = [];
+		var boundsTop = _paths[pathAID].bounds;
+		var boundsBottom = _paths[pathBID].bounds;
+		//check if boundsTop is above/before bounds bottom
+		if((boundsTop.top > boundsBottom.top) || (boundsTop.top == boundsBottom.top && boundsTop.left > boundsBottom.left)){
+			//switch bounds, because boundsBottom is before boundsTop
+			boundsTop = boundsBottom;
+			boundsBottom = _paths[pathAID].bounds;
+		}
+		//Select everything from left to right, top to bottom. Starting at boundsTop, ending at boundsBottom
+		$.each(_paths, function( id, path ) {
+			var pathBounds = path.bounds;
+			if((pathBounds.top > boundsTop.bottom && pathBounds.bottom < boundsBottom.top) ||
+				(pathBounds.top >= boundsTop.top && pathBounds.right > boundsTop.left && pathBounds.top < boundsBottom.top)||
+				(pathBounds.bottom <= boundsBottom.bottom && pathBounds.left < boundsBottom.right && pathBounds.top > boundsTop.bottom)){
+				segmentIDs.push(id);
+			}
+		});
+		return segmentIDs;
+	}
+
 	this.getBoundaries = function(){
 		return _imageCanvas.bounds;
 	}

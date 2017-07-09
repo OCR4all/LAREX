@@ -49,33 +49,6 @@ function GUI(canvas, viewer) {
 		$("#contextmenu").addClass("hide");
 	}
 
-	this.displaySelected = function(selected){
-		var id = "";
-		var selectType = "";
-		var prevSelectType = "";
-
-		for(var i = 0, selectedsize = selected.length; i < selectedsize; i++ ){
-			id += selected[i].id;
-			if(i + 1 < selectedsize){
-				id += ", ";
-			}
-			if(prevSelectType === "" || prevSelectType === selected[i].type){
-				selectType = selected[i].type;
-				prevSelectType = selectType;
-			}else{
-				selectType = "diverse";
-			}
-		}
-
-		$(".selectID").text(id);
-		$(".selectID").val(id);
-		$(".selectType").html(selectType);
-		$(".selectType").val(selectType);
-
-		$("#selectTypes").material_select();
-		Materialize.updateTextFields();
-	}
-
 	this.resizeViewerHeight = function(){
 		$canvas = $("#"+_canvas);
 		$sidebars = $('.sidebar');

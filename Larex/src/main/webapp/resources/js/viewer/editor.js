@@ -838,4 +838,10 @@ function Editor(viewer,controller) {
 	this.getImageCanvas = function(){
 		return _viewer.getImageCanvas();
 	}
+	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
+		return _viewer.getSegmentIDsBetweenPoints(pointA,pointB);
+	}
+	this.getSegmentIDsBetweenSegments = function(pathAID,pathBID){
+		return _viewer.getSegmentIDsBetweenSegments(pathAID,pathBID);
+	}
 }
