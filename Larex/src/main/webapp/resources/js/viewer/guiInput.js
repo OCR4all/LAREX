@@ -9,7 +9,6 @@ function GuiInput(navigationController, controller, gui){
 		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
 		&& !$target.is('.menuIcon') && !$target.parents(".menuIcon").is(".menuIcon")
 		&& !$target.is('.regionSettings') && !$target.parents(".regionSettings").is(".regionSettings")){
-			console.log($target);
 			_controller.escape();
     }
 	});
