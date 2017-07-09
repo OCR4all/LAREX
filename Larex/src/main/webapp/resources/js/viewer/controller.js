@@ -260,8 +260,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 				_gui.selectToolBarButton('regionRectangle',true);
 				break;
 			case 'ignore':
+				_gui.selectToolBarButton('ignore',true);
 				break;
 			case 'roi':
+				_gui.selectToolBarButton('roi',true);
 				break;
 		}
 	}

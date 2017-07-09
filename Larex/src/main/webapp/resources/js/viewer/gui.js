@@ -212,6 +212,12 @@ function GUI(canvas, viewer) {
 			case 'cut':
 				$button = $('.createCut');
 				break;
+			case 'roi':
+				$button = $('.setRegionOfInterest');
+				break;
+			case 'ignore':
+				$button = $('.createIgnore');
+				break;
 			default:
 				break;
 		}
