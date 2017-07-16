@@ -55,7 +55,6 @@ function ViewerInput(controller) {
 	}
 
 	this.clickBackground = function(event){
-		console.log("test");
 		_controller.unSelect();
 		_controller.closeContextMenu();
 	}

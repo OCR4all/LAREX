@@ -42,6 +42,10 @@ function Editor(viewer,controller) {
 				_tempPath.remove();
 				_tempPath = null;
 			}
+			if(_tempPoint != null){
+				_tempPoint.clear();
+				_tempPoint = null;
+			}
 		}
 	}
 
@@ -174,6 +178,10 @@ function Editor(viewer,controller) {
 				}
 				_tempPath.remove();
 				_tempPath = null;
+			}
+			if(_tempPoint != null){
+				_tempPoint.clear();
+				_tempPoint = null;
 			}
 			document.body.style.cursor = "auto";
 		}
