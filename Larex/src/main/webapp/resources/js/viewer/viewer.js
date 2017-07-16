@@ -19,29 +19,6 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 		_imageCanvas.bringToFront();
 	}
 
-	this.updateCanvas = function(){
-		// background
-		var canvasSize = paper.view.size;
-		if(_background){
-			_background.width = canvasSize.width;
-			_background.height = canvasSize.height;
-		}else{
-			_background = new paper.Path.Rectangle({
-		    point: [0, 0],
-		    size: [canvasSize.width, canvasSize.height],
-		    strokeColor: '#757575',
-				fillColor: '#757575'
-			});
-			_background.onClick = function(event){
-				_viewerInput.clickBackground(event);
-			}
-			_background.onMouseDrag = function(event){
-				_viewerInput.dragBackground(event);
-			}
-			_background.sendToBack();
-		}
-	}
-
 	this.addSegment = function(segment,isFixed){
 		this.drawPath(segment, false, null,isFixed);
 	}
@@ -52,7 +29,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 		_currentZoom = 1;
 		paper.view.draw();
 		_background = null;
-		_this.updateCanvas();
+		updateBackground();
 	}
 
 	this.updateSegment = function(segment){
@@ -360,8 +337,30 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 			_viewerInput.clickImage(event);
 		}
 		_imageCanvas.addChild(image);
-		_this.updateCanvas();
+		updateBackground();
 		return image;
+	}
+
+	var updateBackground = function(){
+		// background
+		var canvasSize = paper.view.size;
+
+		if(!_background){
+			_background = new paper.Path.Rectangle({
+		  	point: [0, 0],
+				//setting dynamic while resizing caused errors -> set to high value TODO
+		  	size: [1000000,1000000],
+		  	strokeColor: '#757575',
+				fillColor: '#757575'
+			});
+			_background.onClick = function(event){
+				_viewerInput.clickBackground(event);
+			}
+			_background.onMouseDrag = function(event){
+				_viewerInput.dragBackground(event);
+			}
+			_background.sendToBack();
+		}
 	}
 
 	var convetPointToCanvas = function(x,y){

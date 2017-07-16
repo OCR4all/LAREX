@@ -62,7 +62,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 							_gui = new GUI(canvasID, _editor);
 							_gui.setCanvasUITopRight();
 							_gui.resizeViewerHeight();
-							//_editor.updateCanvas();
 
 							_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
 							_gui.setRegionLegendColors(_segmentationtypes);
@@ -90,7 +89,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 							$(window).resize(function() {
 								_gui.setCanvasUITopRight();
 								_gui.resizeViewerHeight();
-								//_editor.updateCanvas();
 							});
 						});
 			});
