@@ -21,7 +21,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _thisController = this;
 	var _selected = [];
 	this.selectmultiple = false;
-	this.selectinbewteen = false;
 	var _isSelecting = false;
 	var _selectType;
 	var _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
@@ -544,24 +543,12 @@ function Controller(bookID, canvasID, specifiedColors) {
 	this.selectSegment = function(sectionID, info) {
 		var currentType = (info === null) ? "segment" : info.type;
 
-		if ((!this.selectmultiple && !this.selectinbewteen) || currentType !== _selectType) {
+		if (!this.selectmultiple || currentType !== _selectType) {
 			_thisController.unSelect();
 		}
 		_selectType = currentType;
 		_editor.selectSegment(sectionID, true);
 		_selected.push(sectionID);
-
-		if(this.selectinbewteen && _selected.length > 0){
-			var inbetween = _editor.getSegmentIDsBetweenSegments(_selected[0],sectionID);
-			$.each(inbetween, function( index, id ) {
-				var mainType = getPolygonMainType(id);
-				mainType = (mainType === 'result' || mainType === 'fixed') ? 'segment' : mainType;
-				if(mainType === currentType){
-					_selected.push(id);
-					_editor.selectSegment(id, true);
-				}
-			});
-		}
 	}
 	this.unSelect = function(){
 		for (var i = 0, selectedsize = _selected.length; i < selectedsize; i++) {

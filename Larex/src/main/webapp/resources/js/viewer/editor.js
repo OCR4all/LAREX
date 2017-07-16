@@ -878,7 +878,4 @@ function Editor(viewer,controller) {
 	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
 		return _viewer.getSegmentIDsBetweenPoints(pointA,pointB);
 	}
-	this.getSegmentIDsBetweenSegments = function(pathAID,pathBID){
-		return _viewer.getSegmentIDsBetweenSegments(pathAID,pathBID);
-	}
 }

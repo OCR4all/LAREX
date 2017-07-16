@@ -41,9 +41,9 @@ function KeyInput(navigationController, controller, gui) {
 				break;
 			case 17: // CTRL
 				_controller.selectmultiple = true;
+				validKey = true;
 				break;
 			case 16: // Shift
-				_controller.selectinbewteen = true;
 				break;
 			case 89: // Y
 				if (event.ctrlKey) {
@@ -119,14 +119,15 @@ function KeyInput(navigationController, controller, gui) {
 
 			switch (event.keyCode) {
 				case 16: // Shift
-					_controller.selectinbewteen = false;
 					break;
 				case 17: // CTRL
 					_controller.selectmultiple = false;
+					validKey = true;
 					break;
 				case 18: // ALT
 					document.body.style.cursor = "auto";
 					_controller.removeGrid();
+					validKey = true;
 					break;
 			}
 
