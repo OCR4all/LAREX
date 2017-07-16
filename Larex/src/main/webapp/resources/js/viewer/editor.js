@@ -492,9 +492,10 @@ function Editor(viewer,controller) {
 				var canvasPoint = _this.getPointInBounds(startPoint, _this.getBoundaries());
 			}
 
-
 			// Start path
-			_tempPoint = new paper.Point(canvasPoint);
+			_tempPoint = new paper.Path(canvasPoint);
+			_this.getImageCanvas().addChild(_tempPoint);
+
 			_tempPath = new paper.Path();
 			_tempPath.add(_tempPoint); //Add Point for mouse movement
 			_tempPath.fillColor = 'grey';
@@ -510,7 +511,7 @@ function Editor(viewer,controller) {
 						}else{
 							var point = _this.getPointInBounds(event.point, _this.getBoundaries());
 						}
-						var rectangle = new paper.Path.Rectangle(_tempPoint, point);
+						var rectangle = new paper.Path.Rectangle(_tempPoint.firstSegment.point, point);
 
 						_tempPath.segments = rectangle.segments;
 					}
@@ -887,8 +888,5 @@ function Editor(viewer,controller) {
 	}
 	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
 		return _viewer.getSegmentIDsBetweenPoints(pointA,pointB);
-	}
-	this.updateCanvas = function(){
-		return _viewer.updateCanvas();
 	}
 }
