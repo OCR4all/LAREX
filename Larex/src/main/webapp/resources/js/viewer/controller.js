@@ -31,7 +31,13 @@ function Controller(bookID, canvasID, specifiedColors) {
 	$(window).ready(function() {
 				// Init PaperJS
 				paper.setup(document.getElementById(canvasID));
-				resizeViewerHeight();
+
+				//set height before data is loaded //TODO rework
+				$canvas = $("canvas");
+				$sidebars = $('.sidebar');
+				var height = $(window).height() - $canvas.offset().top;
+				$canvas.height(height);
+				$sidebars.height(height);
 
 				_currentPage = 0;
 				_thisController.showPreloader(true);
@@ -56,6 +62,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 							_gui = new GUI(canvasID, _editor);
 							_gui.setCanvasUITopRight();
 							_gui.resizeViewerHeight();
+							//_editor.updateCanvas();
 
 							_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
 							_gui.setRegionLegendColors(_segmentationtypes);
@@ -83,6 +90,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 							$(window).resize(function() {
 								_gui.setCanvasUITopRight();
 								_gui.resizeViewerHeight();
+								//_editor.updateCanvas();
 							});
 						});
 			});
@@ -733,16 +741,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 		if(polygon != null){
 			return "cut";
 		}
-	}
-
-	//TODO replace
-	var resizeViewerHeight = function(){
-		$canvas = $("canvas");
-		$sidebars = $('.sidebar');
-		var height = $(window).height() - $canvas.offset().top;
-
-		$canvas.height(height);
-		$sidebars.height(height);
 	}
 
 	var initExportSettings = function(page){

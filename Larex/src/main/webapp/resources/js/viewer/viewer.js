@@ -4,6 +4,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	var _imageid;
 	var _paths = {};
 	var _imageCanvas = new paper.Group();
+	var _background;
 	var _currentZoom = 1;
 	var _specifiedColors = specifiedColors;
 	var _this = this;
@@ -14,6 +15,30 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 		drawImage();
 		_imageCanvas.onMouseDrag = function(event){
 			_viewerInput.dragImage(event);
+		}
+		_imageCanvas.bringToFront();
+	}
+
+	this.updateCanvas = function(){
+		// background
+		var canvasSize = paper.view.size;
+		if(_background){
+			_background.width = canvasSize.width;
+			_background.height = canvasSize.height;
+		}else{
+			_background = new paper.Path.Rectangle({
+		    point: [0, 0],
+		    size: [canvasSize.width, canvasSize.height],
+		    strokeColor: '#757575',
+				fillColor: '#757575'
+			});
+			_background.onClick = function(event){
+				_viewerInput.clickBackground(event);
+			}
+			_background.onMouseDrag = function(event){
+				_viewerInput.dragBackground(event);
+			}
+			_background.sendToBack();
 		}
 	}
 
@@ -26,6 +51,8 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 		paths = {};
 		_currentZoom = 1;
 		paper.view.draw();
+		_background = null;
+		_this.updateCanvas();
 	}
 
 	this.updateSegment = function(segment){
@@ -333,6 +360,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 			_viewerInput.clickImage(event);
 		}
 		_imageCanvas.addChild(image);
+		_this.updateCanvas();
 		return image;
 	}
 

@@ -878,4 +878,7 @@ function Editor(viewer,controller) {
 	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
 		return _viewer.getSegmentIDsBetweenPoints(pointA,pointB);
 	}
+	this.updateCanvas = function(){
+		return _viewer.updateCanvas();
+	}
 }

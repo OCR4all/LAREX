@@ -34,7 +34,29 @@ function ViewerInput(controller) {
 		}
 	}
 
+	this.dragBackground = function(event){
+		switch (event.event.button) {
+			// leftclick
+			case 0:
+				_controller.startRectangleSelect();
+				break;
+			// middleclick
+			case 1:
+				break;
+			// rightclick
+			case 2:
+				break;
+		}
+	}
+
 	this.clickImage = function(event){
+		_controller.unSelect();
+		_controller.closeContextMenu();
+	}
+
+	this.clickBackground = function(event){
+		console.log("test");
+		_controller.unSelect();
 		_controller.closeContextMenu();
 	}
 }
