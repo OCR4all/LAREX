@@ -545,10 +545,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		var currentType = (info === null) ? "segment" : info.type;
 
 		if ((!this.selectmultiple && !this.selectinbewteen) || currentType !== _selectType) {
-			for (var i = 0, selectedsize = _selected.length; i < selectedsize; i++) {
-				_editor.selectSegment(_selected[i], false);
-			}
-			_selected = [];
+			_thisController.unSelect();
 		}
 		_selectType = currentType;
 		_editor.selectSegment(sectionID, true);
@@ -582,7 +579,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 		}
 	}
 	this.rectangleSelect = function(pointA,pointB) {
-		_thisController.unSelect();
+		if ((!this.selectmultiple) || !(_selectType === 'fixed' || _selectType === 'segment')) {
+			_thisController.unSelect();
+		}
+
 		var inbetween = _editor.getSegmentIDsBetweenPoints(pointA,pointB);
 
 		$.each(inbetween, function( index, id ) {
@@ -594,6 +594,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 			}
 		});
 
+		_selectType = 'segment';
 		_isSelecting = false;
 	}
 	this.toggleSegment = function(sectionID, isSelected, info) {
