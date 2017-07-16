@@ -547,8 +547,18 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_thisController.unSelect();
 		}
 		_selectType = currentType;
-		_editor.selectSegment(sectionID, true);
-		_selected.push(sectionID);
+
+		// check if segment is already selected
+		var selectIndex = _selected.indexOf(sectionID);
+		if (selectIndex < 0) {
+			// add segment to selection
+			_editor.selectSegment(sectionID, true);
+			_selected.push(sectionID);
+		}else{
+			// unselect segment
+			_editor.selectSegment(sectionID, false);
+			_selected.splice(selectIndex,1);
+		}
 	}
 	this.unSelect = function(){
 		for (var i = 0, selectedsize = _selected.length; i < selectedsize; i++) {
