@@ -36,7 +36,7 @@
 								</span>
 							</li>
 						</c:forEach>
-						<li class="collection-item regionCreate">
+						<li class="collection-item regionCreate infocus">
 							<span>
 								--Create--
 							</span>
