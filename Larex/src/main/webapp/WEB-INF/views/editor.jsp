@@ -63,8 +63,8 @@
 			<div class="mainMenu">
 				<ul class="tabs">
 					<li class="tab"><a href="#file">File</a></li>
-					<li class="tab"><a class="active" href="#nav">Navigation</a></li>
-					<li class="tab"><a href="#edit">Edit</a></li>
+					<li class="tab"><a href="#nav">Navigation</a></li>
+					<li class="tab"><a class="active" href="#edit">Edit</a></li>
 				</ul>
 			</div>
 			<div class="secondMenu">
