@@ -25,7 +25,7 @@ function Editor(viewer,controller) {
 			tool.onMouseMove = function(event) {
 				if(!isActive){
 					isActive = true;
-					createResponsiveRectangle(_this.endRectangleSelect,event.point);
+					createResponsiveRectangle(_this.endRectangleSelect,event.point,true);
 				}
 				this.remove();
 			}
@@ -480,13 +480,19 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	var createResponsiveRectangle = function(endFunction,startPoint){
+	var createResponsiveRectangle = function(endFunction,startPoint,boundless){
 			var imageCanvas = _this.getImageCanvas();
 
 			var tool = new paper.Tool();
 			tool.activate();
 
-			var canvasPoint = _this.getPointInBounds(startPoint, _this.getBoundaries());
+			if(boundless){
+				var canvasPoint = startPoint;
+			}else{
+				var canvasPoint = _this.getPointInBounds(startPoint, _this.getBoundaries());
+			}
+
+
 			// Start path
 			_tempPoint = new paper.Point(canvasPoint);
 			_tempPath = new paper.Path();
@@ -499,7 +505,11 @@ function Editor(viewer,controller) {
 			tool.onMouseMove = function(event) {
 				if(_this.isEditing === true){
 					if (_tempPath) {
-						var point = _this.getPointInBounds(event.point, _this.getBoundaries());
+						if(boundless){
+							var point = event.point;
+						}else{
+							var point = _this.getPointInBounds(event.point, _this.getBoundaries());
+						}
 						var rectangle = new paper.Path.Rectangle(_tempPoint, point);
 
 						_tempPath.segments = rectangle.segments;
