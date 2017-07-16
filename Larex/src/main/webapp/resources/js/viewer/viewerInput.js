@@ -18,7 +18,7 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if(event.modifiers.alt){
+				if(event.modifiers.shift){
 					_controller.moveImage(event.delta);
 				}else{
 					_controller.startRectangleSelect();
