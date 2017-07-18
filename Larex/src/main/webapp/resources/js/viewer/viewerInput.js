@@ -19,14 +19,13 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if(event.modifiers.shift){
-					_controller.moveImage(event.delta);
+				_controller.startRectangleSelect();
 				}else{
-					_controller.startRectangleSelect();
+					_controller.moveImage(event.delta);
 				}
 				break;
 			// middleclick
 			case 1:
-				_controller.moveImage(event.delta);
 				break;
 			// rightclick
 			case 2:
@@ -38,7 +37,9 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				_controller.startRectangleSelect();
+				if(event.modifiers.shift){
+					_controller.startRectangleSelect();
+				}
 				break;
 			// middleclick
 			case 1:
