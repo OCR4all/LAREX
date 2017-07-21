@@ -3,6 +3,7 @@ package com.web.controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
@@ -27,6 +28,7 @@ import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
+import com.web.model.Polygon;
 import com.web.model.database.IDatabase;
 import com.web.model.database.FileDatabase;
 
@@ -92,6 +94,12 @@ public class ViewerController {
 		return result;
 	}
 
+	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody Polygon segment(@RequestParam List<String> segments, @RequestParam String pageNr) {
+		Polygon merged = segmenter.merge(segments, pageNr);
+		return merged;
+	}
+	
 	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody String prepareExport(@RequestBody ExportRequest exportRequest) {
 		segmenter.prepareExport(exportRequest);

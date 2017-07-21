@@ -24,6 +24,7 @@ import com.web.model.PageSegmentation;
 import com.web.model.Polygon;
 
 import larex.export.PageXMLWriter;
+import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
@@ -143,10 +144,26 @@ public class LarexFacade implements IFacade {
 		exportPage = segmentedLarexPages.get(exportRequest.getPage()).clone();
 		SegmentationResult result = exportPage.getSegmentationResult();
 		
+		//Deleted
 		for(String segmentID: exportRequest.getSegmentsToIgnore()){
 			result.removeRegionByID(segmentID);
 		}
 
+		//Merged
+		for(ArrayList<String> segmentIDsToMerge: exportRequest.getSegmentsToMerge()){
+			String id = "";
+			ArrayList<ResultRegion> regionsToMerge = new ArrayList<ResultRegion>();
+			
+			for(String segmentID: segmentIDsToMerge){
+				id += segmentID;
+				regionsToMerge.add(result.removeRegionByID(segmentID));
+			}
+			
+			ResultRegion mergedRegions = Merge.merge(regionsToMerge, exportPage.getBinary());
+			mergedRegions.setId(id);
+			result.addRegion(mergedRegions);
+		}
+		
 		for(Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()){
 			//clone ResultRegion before changing it
 			ResultRegion clone = result.removeRegionByID(changeType.getKey()).clone();
@@ -187,7 +204,20 @@ public class LarexFacade implements IFacade {
 			return null;
 		}
 	}
+	@Override
+	public Polygon merge(List<String> segments,String pageNr){
 
+		SegmentationResult resultPage = segmentedLarexPages.get(pageNr).getSegmentationResult();
+	
+		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
+		for(String segmentID : segments){
+			resultRegions.add(resultPage.getRegionByID(segmentID));
+		}
+		ResultRegion mergedRegion = Merge.merge(resultRegions, segmentedLarexPages.get(pageNr).getBinary());
+		
+		return LarexTranslator.translateResultRegionToSegment(mergedRegion);
+	}
+	
 	private PageSegmentation segment(BookSettings settings, Page page) {
 		PageSegmentation segmentation = null;
 		larex.dataManagement.Page currentLarexPage = segmentLarex(settings,page);
