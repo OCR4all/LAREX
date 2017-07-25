@@ -38,7 +38,7 @@ public interface IFacade {
 	
 	public BookSegmentation segmentPage(BookSettings settings, int pageNr);
 	
-	public Polygon merge(List<String> segments,String pageNr);
+	public Polygon merge(List<String> segments,int pageNr);
 	
 	//TODO Change to different class? (for low coupling
 	public void prepareExport(ExportRequest exportRequest);

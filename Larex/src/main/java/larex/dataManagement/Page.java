@@ -211,7 +211,9 @@ public class Page {
 		if(result != null)
 			copy.setResult(result.clone());
 		copy.setScaleFactor(scaleFactor);
-		copy.setSegmentationResult(segmentationResult.clone());
+		if(segmentationResult != null){
+			copy.setSegmentationResult(segmentationResult.clone());
+		}
 		
 		return copy;
 	}

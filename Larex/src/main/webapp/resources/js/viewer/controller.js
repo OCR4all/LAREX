@@ -339,6 +339,39 @@ function Controller(bookID, canvasID, specifiedColors) {
 		var multidelete = new ActionMultiple(actions);
 		addAndExecuteAction(multidelete);
 	}
+	this.mergeSelectedSegments = function() {
+		var actions = [];
+		var segmentIDs = [];
+		for (var i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
+			if(_selectType === "segment"){
+				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
+				//Check if result segment or fixed segment (null -> fixed segment)
+				if(segment != null){
+					if(!_exportSettings[_currentPage]){
+						initExportSettings(_currentPage);
+					}
+					segmentIDs.push(segment.id);
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
+				}else{
+					segment = _settings.pages[_currentPage].segments[_selected[i]];
+					segmentIDs.push(segment.id);
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));
+				}
+			}
+		}
+		if(segmentIDs.length > 0){
+			_communicator.requestMergedSegment(segmentIDs,_currentPage).done(function(data){
+				var mergedSegment = data;
+				actions.push(new ActionAddFixedSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
+						_editor, _settings, _currentPage));
+
+				this.unSelect();
+
+				var mergeAction = new ActionMultiple(actions);
+				addAndExecuteAction(mergeAction);
+			});
+		}
+	}
 	this.changeTypeSelected = function(newType) {
 		var selectedlength = _selected.length;
 		if(selectedlength != null || selectedlength > 0){

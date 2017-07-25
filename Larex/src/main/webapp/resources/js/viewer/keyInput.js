@@ -86,6 +86,10 @@ function KeyInput(navigationController, controller, gui) {
 				_controller.createCut();
 				validKey = true;
 				break;
+			case 67: // C
+				_controller.mergeSelectedSegments();
+				validKey = true;
+				break;
 			case 77: // M
 				_controller.moveSelected();
 				validKey = true;
@@ -101,7 +105,7 @@ function KeyInput(navigationController, controller, gui) {
 				break;
 
 			 //default: //Debug to get key codes
-			 //	alert(event.keyCode);
+			 	//alert(event.keyCode);
 
 			}
 

@@ -94,9 +94,9 @@ public class ViewerController {
 		return result;
 	}
 
-	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody Polygon segment(@RequestParam List<String> segments, @RequestParam String pageNr) {
-		Polygon merged = segmenter.merge(segments, pageNr);
+	@RequestMapping(value = "/merge", method = RequestMethod.POST)
+	public @ResponseBody Polygon segment(@RequestParam("segmentids[]") List<String> segmentIDs, @RequestParam("pageid") int pageID) {
+		Polygon merged = segmenter.merge(segmentIDs, pageID);
 		return merged;
 	}
 	
