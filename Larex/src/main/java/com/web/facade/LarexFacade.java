@@ -212,8 +212,8 @@ public class LarexFacade implements IFacade {
 		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
 		for(String segmentID : segments){
 			resultRegions.add(resultPage.getRegionByID(segmentID));
-			System.out.println(segmentID +" - ");
 		}
+		System.out.println(segmentedLarexPages.get(pageNr).getBinary() +" "+ segmentedLarexPages.get(pageNr).getOriginal());
 		ResultRegion mergedRegion = Merge.merge(resultRegions, segmentedLarexPages.get(pageNr).getBinary());
 		
 		return LarexTranslator.translateResultRegionToSegment(mergedRegion);

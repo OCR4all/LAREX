@@ -347,25 +347,28 @@ function Controller(bookID, canvasID, specifiedColors) {
 				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
 				if(segment != null){
-					if(!_exportSettings[_currentPage]){
-						initExportSettings(_currentPage);
+					//filter special case image (do not merge images)
+					if(segment.type !== 'image'){
+						if(!_exportSettings[_currentPage]){
+							initExportSettings(_currentPage);
+						}
+						segmentIDs.push(segment.id);
+						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 					}
-					segmentIDs.push(segment.id);
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 				}else{
-					segment = _settings.pages[_currentPage].segments[_selected[i]];
+					/*segment = _settings.pages[_currentPage].segments[_selected[i]];
 					segmentIDs.push(segment.id);
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));*/
 				}
 			}
 		}
-		if(segmentIDs.length > 0){
+		if(segmentIDs.length > 1){
 			_communicator.requestMergedSegment(segmentIDs,_currentPage).done(function(data){
 				var mergedSegment = data;
 				actions.push(new ActionAddFixedSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
 						_editor, _settings, _currentPage));
 
-				this.unSelect();
+				_thisController.unSelect();
 
 				var mergeAction = new ActionMultiple(actions);
 				addAndExecuteAction(mergeAction);
