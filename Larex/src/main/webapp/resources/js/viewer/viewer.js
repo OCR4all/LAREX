@@ -229,13 +229,13 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 
 		//Add listeners
 		path.onMouseEnter = function(event) {
-			_viewerInput.enterSection(segment.id,info);
+			_viewerInput.enterSection(segment.id,info,event);
 		}
 		path.onMouseLeave = function(event) {
-			_viewerInput.leaveSection(segment.id,info);
+			_viewerInput.leaveSection(segment.id,info,event);
 		}
 		path.onClick = function(event) {
-			_viewerInput.selectSection(segment.id,info);
+			_viewerInput.selectSection(segment.id,info,event);
 		}
 
 		//Add to canvas
@@ -269,13 +269,13 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 
 		//Add listeners
 		path.onMouseEnter = function(event) {
-			_viewerInput.enterSection(segment.id,{type:'line'});
+			_viewerInput.enterSection(segment.id,{type:'line'},event);
 		}
 		path.onMouseLeave = function(event) {
-			_viewerInput.leaveSection(segment.id,{type:'line'});
+			_viewerInput.leaveSection(segment.id,{type:'line'},event);
 		}
 		path.onMouseDown = function(event) {
-			_viewerInput.selectSection(segment.id,{type:'line'});
+			_viewerInput.selectSection(segment.id,{type:'line'},event);
 		}
 
 		//Add to canvas

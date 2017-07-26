@@ -2,16 +2,27 @@ function ViewerInput(controller) {
 	var _controller = controller;
 	var _mouseSelecting = false;
 
-	this.enterSection = function(sectionID, info) {
+	this.enterSection = function(sectionID, info,event) {
 		_controller.enterSegment(sectionID, true, info);
 	}
 
-	this.leaveSection = function(sectionID, info) {
+	this.leaveSection = function(sectionID, info,event) {
 		_controller.leaveSegment(sectionID, false, info);
 	}
 
-	this.selectSection = function(sectionID, info) {
-		_controller.selectSegment(sectionID, info);
+	this.selectSection = function(sectionID, info,event) {
+		switch (event.event.button) {
+			// leftclick
+			case 0:
+				_controller.selectSegment(sectionID, info);
+				break;
+			// middleclick
+			case 1:
+				break;
+			// rightclick
+			case 2:
+				break;
+		}
 	}
 
 	this.dragImage = function(event){
