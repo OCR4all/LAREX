@@ -372,6 +372,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 				var mergeAction = new ActionMultiple(actions);
 				addAndExecuteAction(mergeAction);
+				_thisController.selectSegment(mergedSegment.id);
+				_thisController.openContextMenu(true);
 			});
 		}
 	}
@@ -583,7 +585,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 	// Display
 	this.selectSegment = function(sectionID, info) {
-		var currentType = (info === null) ? "segment" : info.type;
+		var currentType = (!info) ? "segment" : info.type;
 
 		if (!this.selectmultiple || currentType !== _selectType) {
 			_thisController.unSelect();
