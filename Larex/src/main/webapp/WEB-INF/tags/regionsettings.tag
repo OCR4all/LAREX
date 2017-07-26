@@ -23,9 +23,9 @@
 					type="number" class="validate" size="4" />
 			</span>
 		</div>
-		<div class="col s12 regionSetting">
-			<span class="settings-input">maxOccurances</span>
-			<span class="settings-input">
+		<div class="col s12 regionSetting ">
+			<span class="settings-input hide">maxOccurence</span>
+			<span class="settings-input hide">
 				<input value="" id="regionMaxOccurances" class="input-number"
 					type="number" class="validate" size="4" />
 			</span>
