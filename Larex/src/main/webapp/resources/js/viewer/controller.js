@@ -587,6 +587,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	this.selectSegment = function(sectionID, info) {
 		var currentType = (!info) ? "segment" : info.type;
 
+		_thisController.closeContextMenu();
+
 		if (!this.selectmultiple || currentType !== _selectType) {
 			_thisController.unSelect();
 		}
@@ -609,6 +611,20 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_editor.selectSegment(_selected[i], false);
 		}
 		_selected = [];
+	}
+	this.hasSegmentsSelected = function(){
+		if(_selected && _selected.length > 0){
+			return true;
+		}else{
+			return false;
+		}
+	}
+	this.isSegmentSelected = function(segmentID){
+		if(_selected && $.inArray(segmentID, _selected) > -1){
+			return true;
+		}else{
+			return false;
+		}
 	}
 	this.startRectangleSelect = function(){
 		if(!_editor.isEditing){

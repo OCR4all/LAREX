@@ -21,6 +21,11 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
+				if(!_controller.isSegmentSelected(sectionID)){
+					_controller.unSelect();
+					_controller.selectSegment(sectionID, info);
+					_controller.openContextMenu(true);
+				}
 				break;
 		}
 	}
