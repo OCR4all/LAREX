@@ -5,6 +5,7 @@ import java.io.File;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.highgui.Highgui;
+import org.opencv.imgproc.Imgproc;
 
 import larex.segmentation.ImageProcessor;
 import larex.segmentation.result.SegmentationResult;
@@ -66,14 +67,18 @@ public class Page {
 	 */
 	public void initPage() {
 		Mat original = Highgui.imread(imagePath);
-//		Mat resized = ImageProcessor.resize(original, verticalResolution);
-		// TODO besser
-//		setScaleFactor((double) resized.height() / (double) original.height());
+
+		Mat binary = new Mat();
+		Mat gray = new Mat();
+		
+		Imgproc.cvtColor(original, gray, Imgproc.COLOR_BGR2GRAY);
+		Imgproc.threshold(gray, binary, -1, 255, Imgproc.THRESH_BINARY);
 
 		setOriginal(original);
 		setResized(resized);
 		setOriginalSize(original.size());
-
+		setBinary(binary);
+		
 		if (segmentationResult != null) {
 			visualizeSegmentation();
 		}
@@ -211,7 +216,9 @@ public class Page {
 		if(result != null)
 			copy.setResult(result.clone());
 		copy.setScaleFactor(scaleFactor);
-		copy.setSegmentationResult(segmentationResult);
+		if(segmentationResult != null){
+			copy.setSegmentationResult(segmentationResult.clone());
+		}
 		
 		return copy;
 	}

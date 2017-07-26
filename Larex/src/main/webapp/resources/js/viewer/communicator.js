@@ -70,6 +70,33 @@ function Communicator() {
 		return status;
 	}
 
+	this.requestMergedSegment = function(segmentIDs,pageID) {
+		// Deferred object for function status
+		var status = $.Deferred();
+
+		$.ajax({
+			type : "POST",
+			url : "merge",
+			dataType : "json",
+			data : {
+				segmentids : segmentIDs,
+				pageid : pageID
+			},
+			beforeSend : function() {
+				console.log("Merge load: start");
+			},
+			success : function(data) {
+				console.log('Merge load: successful');
+				status.resolve(data);
+			},
+			error : function(jqXHR, textStatus, errorThrown) {
+				console.log("Merge load: failed" + textStatus);
+				status.resolve();
+			}
+		});
+		return status;
+	}
+
 	this.prepareExport = function(pageID, exportSettings){
 		// Deferred object for function status
 		var status = $.Deferred();

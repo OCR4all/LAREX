@@ -222,6 +222,10 @@ public class ResultRegion implements Comparable {
 		return id;
 	}
 	
+	public void setId(String id) {
+		this.id = id;
+	}
+	
 	@Deprecated
 	public boolean isActive() {
 		return isActive;

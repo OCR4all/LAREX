@@ -17,10 +17,9 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import larex.positions.Position;
+import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
-import larex.segmentation.ImageProcessor;
-import larex.dataManagement.Page;
 
 public class SegmentationResult {
 
@@ -48,11 +47,19 @@ public class SegmentationResult {
 
 		regions.remove(region);
 	}
-
+	
 	public ResultRegion removeRegionByID(String id){
+		ResultRegion roRegion = getRegionByID(id);
+		if(roRegion != null){
+			removeRegion(roRegion);
+			return roRegion;
+		}
+		return null;
+	}
+	
+	public ResultRegion getRegionByID(String id){
 		for (ResultRegion roRegion : regions) {
 			if (roRegion.getId().equals(id)) {
-				removeRegion(roRegion);
 				return roRegion;
 			}
 		}
@@ -181,60 +188,6 @@ public class SegmentationResult {
 		}
 
 		return targetRegions;
-	}
-
-	public void mergeRegions(Position roi/*, Gui gui*/) {
-		Page page = null;//TODO gui.getGuiManager().getCurrentPage();
-
-		Mat resized = new Mat(
-				new Size(page.getOriginal().width() / page.getScaleFactor(), page.getOriginal().height() / scaleFactor),
-				CvType.CV_8U, new Scalar(0));
-
-		Rect rect = new Rect(
-				new Point(resized.width() * roi.getTopLeftXPercentage(),
-						resized.height() * roi.getTopLeftYPercentage()),
-				new Point(resized.width() * roi.getBottomRightXPercentage(),
-						resized.height() * roi.getBottomRightYPercentage()));
-
-		ArrayList<ResultRegion> targetRegions = detectSegmentsWithinRoI(rect);
-		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-		Point lastPoint = null;
-
-		if (targetRegions.size() > 0) {
-			ResultRegion leftRegion = targetRegions.get(0);
-
-			int leftX = Integer.MAX_VALUE;
-
-			for (ResultRegion region : targetRegions) {
-				contours.add(region.getPoints());
-				java.awt.Point tempCog = ImageProcessor.calcCenterOfGravity(region.getPoints());
-				Point cog = new Point(tempCog.getX(), tempCog.getY());
-
-				if (lastPoint != null) {
-					Core.line(resized, lastPoint, cog, new Scalar(255), 2);
-				}
-
-				lastPoint = cog;
-
-				Point tl = Imgproc.boundingRect(region.getPoints()).tl();
-
-				if (tl.x < leftX) {
-					leftX = (int) tl.x;
-					leftRegion = region;
-				}
-			}
-
-			Imgproc.drawContours(resized, contours, -1, new Scalar(255), -1);
-			contours = Contour.findContours(resized);
-
-			if (contours.size() > 0) {
-				ResultRegion newResult = new ResultRegion(leftRegion.getType(), leftRegion.getImageHeight(),
-						contours.get(0));
-				//TODO newResult.applyScaleCorrection(resized, gui.getPnlBackground().getMatImage());
-				regions.removeAll(targetRegions);
-				regions.add(newResult);
-			}
-		}
 	}
 
 	public String getFileName() {

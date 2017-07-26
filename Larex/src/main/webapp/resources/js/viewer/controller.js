@@ -339,6 +339,44 @@ function Controller(bookID, canvasID, specifiedColors) {
 		var multidelete = new ActionMultiple(actions);
 		addAndExecuteAction(multidelete);
 	}
+	this.mergeSelectedSegments = function() {
+		var actions = [];
+		var segmentIDs = [];
+		for (var i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
+			if(_selectType === "segment"){
+				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
+				//Check if result segment or fixed segment (null -> fixed segment)
+				if(segment != null){
+					//filter special case image (do not merge images)
+					if(segment.type !== 'image'){
+						if(!_exportSettings[_currentPage]){
+							initExportSettings(_currentPage);
+						}
+						segmentIDs.push(segment.id);
+						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
+					}
+				}else{
+					/*segment = _settings.pages[_currentPage].segments[_selected[i]];
+					segmentIDs.push(segment.id);
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));*/
+				}
+			}
+		}
+		if(segmentIDs.length > 1){
+			_communicator.requestMergedSegment(segmentIDs,_currentPage).done(function(data){
+				var mergedSegment = data;
+				actions.push(new ActionAddFixedSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
+						_editor, _settings, _currentPage));
+
+				_thisController.unSelect();
+
+				var mergeAction = new ActionMultiple(actions);
+				addAndExecuteAction(mergeAction);
+				_thisController.selectSegment(mergedSegment.id);
+				_thisController.openContextMenu(true);
+			});
+		}
+	}
 	this.changeTypeSelected = function(newType) {
 		var selectedlength = _selected.length;
 		if(selectedlength != null || selectedlength > 0){
@@ -547,7 +585,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 	// Display
 	this.selectSegment = function(sectionID, info) {
-		var currentType = (info === null) ? "segment" : info.type;
+		var currentType = (!info) ? "segment" : info.type;
 
 		if (!this.selectmultiple || currentType !== _selectType) {
 			_thisController.unSelect();
