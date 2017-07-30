@@ -90,12 +90,22 @@ function KeyInput(navigationController, controller, gui) {
 				_controller.mergeSelectedSegments();
 				validKey = true;
 				break;
+			case 69: // E
+				if (event.ctrlKey) {
+					_controller.exportPageXML();
+					validKey = true;
+				}
+				break;
 			case 77: // M
 				_controller.moveSelected();
 				validKey = true;
 				break;
 			case 83: // S
-				_controller.scaleSelected();
+				if (event.ctrlKey) {
+					_controller.downloadPageXML();
+				}else{
+					_controller.scaleSelected();
+				}
 				validKey = true;
 				break;
 			case 18: // ALT

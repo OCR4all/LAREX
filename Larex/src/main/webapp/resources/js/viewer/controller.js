@@ -5,6 +5,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _editor;
 	var _currentPage;
 	var _segmentedPages = [];
+	var _savedPages = [];
 	var _book;
 	var _segmentation;
 	var _settings;
@@ -96,7 +97,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	this.displayPage = function(pageNr) {
 		_currentPage = pageNr;
 
-		if (_segmentedPages.indexOf(_currentPage) < 0) {
+		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
 				requestSegmentation([_currentPage]);
 		}else{
 				_editor.clear();
@@ -171,7 +172,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 		// clone _settings
 		_activesettings = JSON.parse(JSON.stringify(_settings));
-		_segmentedPages = [];
+		_segmentedPages = _savedPages.slice(0); //clone saved Pages
+
 		requestSegmentation(pages);
 	}
 
@@ -220,6 +222,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_currentPageDownloadable = true;
 			_gui.setDownloadable(_currentPageDownloadable);
 			_gui.setExportingInProgress(false);
+			_gui.highlightSavedPage(_currentPage);
+			_savedPages.push(_currentPage);
 		});
 	}
 

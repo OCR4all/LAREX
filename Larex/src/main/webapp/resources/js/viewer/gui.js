@@ -201,6 +201,11 @@ function GUI(canvas, viewer) {
 			$errorPage.find('.pageIconError').removeClass('hide');
 		});
 	}
+	this.highlightSavedPage = function(savedPage){
+		var $savedPage = $('.pageImageContainer[data-page~="'+savedPage+'"]');
+		$savedPage.addClass('saved');
+		$savedPage.find(".pageIconSaved").removeClass('hide');
+	}
 	this.highlightExportedPage = function(exportedPage){
 		var $exportedPage = $('.pageImageContainer[data-page~="'+exportedPage+'"]');
 		$exportedPage.addClass('exported');

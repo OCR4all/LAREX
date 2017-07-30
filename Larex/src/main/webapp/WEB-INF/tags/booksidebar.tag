@@ -12,6 +12,8 @@
 				<div class="pagestatus">
 					<i class="material-icons pagestatusIcon pageIconExported circle tooltipped hide"
 						data-position="bottom" data-delay="50" data-tooltip="This page has been exported.">file_download</i>
+					<i class="material-icons pagestatusIcon pageIconSaved circle tooltipped hide"
+						data-position="bottom" data-delay="50" data-tooltip="There has has been saved.">lock</i>
 					<i class="material-icons pagestatusIcon pageIconError circle tooltipped hide"
 						data-position="bottom" data-delay="50" data-tooltip="There has been an error with this page. Reload the webpage to reslove.">error</i>
 				</div>
