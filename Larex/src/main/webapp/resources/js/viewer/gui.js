@@ -186,7 +186,17 @@ function GUI(canvas, viewer) {
 	this.selectPage = function(page){
 		$('.pageImageContainer').removeClass('selected');
 		$('.pageImageContainer[data-page~="'+page+'"]').addClass('selected');
+		this.scrollToPage(page);
 	}
+
+	this.scrollToPage = function(page){
+		$pagecontainer = $('#pagecontainer');
+
+		$pagecontainer.animate({
+        scrollTop: $('.pageImageContainer[data-page~="'+page+'"]').position().top - $pagecontainer.offset().top + $pagecontainer.scrollTop()
+    }, 2000);
+	}
+
 	this.highlightSegmentedPages = function(segmentedPages){
 		$('.pageImageContainer').removeClass('segmented');
 		segmentedPages.forEach(function(page) {

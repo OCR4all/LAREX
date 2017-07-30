@@ -148,8 +148,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 				_currentPageDownloadable = false;
 				_gui.setDownloadable(_currentPageDownloadable);
+				_gui.selectPage(pageNr);
 		}
-		_gui.selectPage(pageNr);
 	}
 	this.addPresentRegions = function(regionType){
 		if(region.type !== 'ignore' && $.inArray(regionType, _presentRegions) < 0){
