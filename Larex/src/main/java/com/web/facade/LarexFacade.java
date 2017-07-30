@@ -151,18 +151,20 @@ public class LarexFacade implements IFacade {
 
 		//Merged
 		Map<String,ArrayList<String>> segmentsToMerge = exportRequest.getSegmentsToMerge();
-		for(String mergedSegmentID: segmentsToMerge.keySet()){
-			String id = "";
-			ArrayList<ResultRegion> regionsToMerge = new ArrayList<ResultRegion>();
-			
-			for(String segmentID: exportRequest.getSegmentsToMerge().get(mergedSegmentID)){
-				id += segmentID;
-				regionsToMerge.add(result.removeRegionByID(segmentID));
+		if(segmentsToMerge != null){
+			for(String mergedSegmentID: segmentsToMerge.keySet()){
+				String id = "";
+				ArrayList<ResultRegion> regionsToMerge = new ArrayList<ResultRegion>();
+				
+				for(String segmentID: exportRequest.getSegmentsToMerge().get(mergedSegmentID)){
+					id += segmentID;
+					regionsToMerge.add(result.removeRegionByID(segmentID));
+				}
+				
+				ResultRegion mergedRegions = Merge.merge(regionsToMerge, exportPage.getBinary());
+				mergedRegions.setId(id);
+				result.addRegion(mergedRegions);
 			}
-			
-			ResultRegion mergedRegions = Merge.merge(regionsToMerge, exportPage.getBinary());
-			mergedRegions.setId(id);
-			result.addRegion(mergedRegions);
 		}
 		
 		for(Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()){
