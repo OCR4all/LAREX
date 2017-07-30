@@ -35,7 +35,7 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if(event.modifiers.shift){
-				_controller.startRectangleSelect();
+					_controller.startRectangleSelect();
 				}else{
 					_controller.moveImage(event.delta);
 				}
@@ -67,12 +67,16 @@ function ViewerInput(controller) {
 	}
 
 	this.clickImage = function(event){
-		_controller.unSelect();
+		if(!event.modifiers.control){
+			_controller.unSelect();
+		}
 		_controller.closeContextMenu();
 	}
 
 	this.clickBackground = function(event){
-		_controller.unSelect();
+		if(!event.modifiers.control){
+			_controller.unSelect();
+		}
 		_controller.closeContextMenu();
 	}
 }
