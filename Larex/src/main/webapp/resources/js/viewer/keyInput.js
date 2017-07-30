@@ -92,7 +92,7 @@ function KeyInput(navigationController, controller, gui) {
 				break;
 			case 69: // E
 				if (event.ctrlKey) {
-					_controller.exportPageXML();
+					_controller.downloadPageXML();
 					validKey = true;
 				}
 				break;
@@ -102,7 +102,7 @@ function KeyInput(navigationController, controller, gui) {
 				break;
 			case 83: // S
 				if (event.ctrlKey) {
-					_controller.downloadPageXML();
+					_controller.exportPageXML();
 				}else{
 					_controller.scaleSelected();
 				}
