@@ -44,7 +44,7 @@ run `mvn clean install -f LAREX/Larex/pom.xml`.
 
 #### Copy or link the created war file to tomcat
 Either:
-`sudo ln -s LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+`sudo ln -s $PWD/LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
 or
 
