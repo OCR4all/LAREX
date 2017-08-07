@@ -7,6 +7,9 @@ import java.util.Map;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
+import com.web.model.Polygon;
+import com.web.model.Region;
+
 import larex.regions.type.RegionType;
 
 /**
@@ -24,16 +27,20 @@ public class ExportRequest {
 	private Map<String,ArrayList<String>> segmentsToMerge;
 	@JsonProperty("changedTypes")
 	private Map<String,RegionType> changedTypes;
+	@JsonProperty("floatingRegions")
+	private List<Polygon> floatingSegments;
 
 	@JsonCreator
 	public ExportRequest(@JsonProperty("page") int page, 
 			@JsonProperty("segmentsToIgnore") List<String> segmentsToIgnore,
 			@JsonProperty("segmentsToMerge") Map<String,ArrayList<String>> segmentsToMerge,
-			@JsonProperty("changedTypes") Map<String,RegionType> changedTypes) {
+			@JsonProperty("changedTypes") Map<String,RegionType> changedTypes,
+			@JsonProperty("floatingRegions") List<Polygon> floatingSegments) {
 		this.page = page;
 		this.segmentsToIgnore = segmentsToIgnore;
 		this.segmentsToMerge = segmentsToMerge;
 		this.changedTypes = changedTypes;
+		this.floatingSegments = floatingSegments;
 	}
 
 	public int getPage() {
@@ -50,5 +57,9 @@ public class ExportRequest {
 	
 	public Map<String, RegionType> getChangedTypes() {
 		return changedTypes;
+	}
+	
+	public List<Polygon> getFloatingSegments() {
+		return floatingSegments;
 	}
 }

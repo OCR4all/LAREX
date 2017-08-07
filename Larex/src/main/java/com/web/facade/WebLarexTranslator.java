@@ -25,6 +25,7 @@ import larex.regions.type.RegionType;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
 
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
 
 /**
@@ -119,5 +120,19 @@ public class WebLarexTranslator {
 		}
 		
 		return manager;
+	}
+	
+	public static ResultRegion translateSegmentToResultRegion(Polygon segment) {
+		LinkedList<org.opencv.core.Point> points = new LinkedList<org.opencv.core.Point>();
+		
+		for(Point segmentPoint: segment.getPoints()){
+			points.add(new org.opencv.core.Point(segmentPoint.getX(),segmentPoint.getY()));
+		}
+		
+		MatOfPoint resultPoints = new MatOfPoint();
+		resultPoints.fromList(points);
+		
+		ResultRegion result = new ResultRegion(segment.getType(),0,resultPoints);
+		return result;
 	}
 }

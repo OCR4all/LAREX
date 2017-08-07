@@ -218,6 +218,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 			initExportSettings(_currentPage);
 		}
 		_gui.setExportingInProgress(true);
+		//TODO dynamic floating segments
+		if(_settings[_currentPage]){
+			_exportSettings[_currentPage].floatingSegments = _settings[_currentPage].segments;
+		}
 		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(function() {
 			_currentPageDownloadable = true;
 			_gui.setDownloadable(_currentPageDownloadable);
@@ -802,6 +806,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var initExportSettings = function(page){
 		_exportSettings[page] = {}
 		_exportSettings[page].segmentsToIgnore = [];
+		_exportSettings[page].segmentsToMerge = {};
 		_exportSettings[page].changedTypes = {};
+		_exportSettings[page].floatingSegments = [];
 	}
 }
