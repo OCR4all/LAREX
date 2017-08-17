@@ -185,12 +185,12 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 
 		_communicator.segmentBook(_activesettings,pages).done(function(data){
-				_segmentation = data.result;
 				var failedSegmentations = [];
 
 				pages.forEach(function(pageID) {
-					switch (_segmentation.pages[pageID].status) {
+					switch (data.result.pages[pageID].status) {
 						case 'SUCCESS':
+							_segmentation.pages[pageID] = data.result.pages[pageID];
 							break;
 						default:
 							failedSegmentations.push(pageID);
