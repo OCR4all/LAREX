@@ -108,8 +108,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach(function(key) {
 					var hasFixedSegmentCounterpart = false;
-					if(!pageFixedSegments[key]){
-						//has no fixedSegment counterpart
+					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
+						//has no fixedSegment counterpart and has not been deleted
 						_editor.addSegment(pageSegments[key]);
 					}
 				});
