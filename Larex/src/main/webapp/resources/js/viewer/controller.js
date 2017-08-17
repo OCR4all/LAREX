@@ -333,15 +333,15 @@ function Controller(bookID, canvasID, specifiedColors) {
 				var regionPolygon = getRegionByID(_selected[i]);
 				actions.push(new ActionRemoveRegion(regionPolygon, _editor, _settings, _currentPage,_thisController));
 			} else if(_selectType === "segment"){
-				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
-				//Check if result segment or fixed segment (null -> fixed segment)
 				if(!_exportSettings[_currentPage]){
 					initExportSettings(_currentPage);
 				}
-				if(segment != null){
+				var segment = _settings.pages[_currentPage].segments[_selected[i]];
+				//Check if result segment or fixed segment (null -> result region)
+				if(!segment){
+					segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 				}else{
-					segment = _settings.pages[_currentPage].segments[_selected[i]];
 					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings));
 				}
 			}else if(_selectType === "line"){
@@ -358,9 +358,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 		var segmentIDs = [];
 		for (var i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
 			if(_selectType === "segment"){
-				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
+				var segment = _settings.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
-				if(segment != null){
+				if(!segment){
+					segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 					//filter special case image (do not merge images)
 					if(segment.type !== 'image'){
 						if(!_exportSettings[_currentPage]){
@@ -792,14 +793,14 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	var getPolygonMainType = function(polygonID){
-		var polygon = _segmentation.pages[_currentPage].segments[polygonID];
-		if(polygon != null){
-			return "result";
-		}
-
-		polygon = _settings.pages[_currentPage].segments[polygonID];
+		var polygon = _settings.pages[_currentPage].segments[polygonID];
 		if(polygon != null){
 			return "fixed";
+		}
+
+		polygon = _segmentation.pages[_currentPage].segments[polygonID];
+		if(polygon != null){
+			return "result";
 		}
 
 		polygon = getRegionByID(polygonID);
