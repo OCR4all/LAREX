@@ -41,7 +41,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
-import org.w3c.dom.Node;
 
 /**
  * Segmenter using the Larex project/algorithm
@@ -135,7 +134,7 @@ public class LarexFacade implements IFacade {
 	public BookSettings getDefaultSettings(Book book) {
 		RegionManager regionmanager = new RegionManager();
 		Parameters parameters = new Parameters(regionmanager, 0);
-		return LarexTranslator.translateParametersToSettings(parameters, book);
+		return LarexWebTranslator.translateParametersToSettings(parameters, book);
 	}
 
 	@Override
@@ -149,7 +148,7 @@ public class LarexFacade implements IFacade {
 			result.removeRegionByID(segmentID);
 		}
 
-		//Merged
+		//Merged TODO delete?
 		Map<String,ArrayList<String>> segmentsToMerge = exportRequest.getSegmentsToMerge();
 		if(segmentsToMerge != null){
 			for(String mergedSegmentID: segmentsToMerge.keySet()){
@@ -166,12 +165,23 @@ public class LarexFacade implements IFacade {
 				result.addRegion(mergedRegions);
 			}
 		}
-		
+
+		//ChangedTypes
 		for(Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()){
 			//clone ResultRegion before changing it
 			ResultRegion clone = result.removeRegionByID(changeType.getKey()).clone();
 			clone.setType(changeType.getValue());
 			result.addRegion(clone);
+		}
+		
+		// FixedSegments
+		Map<String, Polygon> fixedSegments = exportRequest.getFixedRegions();
+		if(fixedSegments != null){
+			for(String fixedSegmentID: fixedSegments.keySet()){
+				//Replace Region with fixed Region if exists
+				result.removeRegionByID(fixedSegmentID);
+				result.addRegion(WebLarexTranslator.translateSegmentToResultRegion(fixedSegments.get(fixedSegmentID)));
+			}
 		}
 	}
 	
@@ -218,7 +228,7 @@ public class LarexFacade implements IFacade {
 		System.out.println(segmentedLarexPages.get(pageNr).getBinary() +" "+ segmentedLarexPages.get(pageNr).getOriginal());
 		ResultRegion mergedRegion = Merge.merge(resultRegions, segmentedLarexPages.get(pageNr).getBinary());
 		
-		return LarexTranslator.translateResultRegionToSegment(mergedRegion);
+		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
 	}
 	
 	private PageSegmentation segment(BookSettings settings, Page page) {
@@ -231,7 +241,7 @@ public class LarexFacade implements IFacade {
 
 			ArrayList<ResultRegion> regions = segmentationResult.getRegions();
 
-			segmentation = LarexTranslator.translateResultRegionsToSegmentation(regions, page.getId());			
+			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(regions, page.getId());			
 		}else{
 			segmentation = new PageSegmentation(page.getId(),new HashMap<String, Polygon>(),SegmentationStatus.MISSINGFILE);
 		}
@@ -252,9 +262,9 @@ public class LarexFacade implements IFacade {
 
 			Size pagesize = currentLarexPage.getOriginalSize();
 
-			parameters = LarexTranslator.translateSettingsToParameters(settings, parameters, page, pagesize);
+			parameters = WebLarexTranslator.translateSettingsToParameters(settings, parameters, page, pagesize);
 			parameters.getRegionManager()
-					.setPointListManager(LarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
+					.setPointListManager(WebLarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
 
 			if (segmenter == null) {
 				segmenter = new Segmenter(parameters);

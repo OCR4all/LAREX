@@ -103,11 +103,16 @@ function Controller(bookID, canvasID, specifiedColors) {
 				_editor.clear();
 				_editor.setImage(_book.pages[_currentPage].image);
 				var pageSegments = _segmentation.pages[_currentPage].segments;
+				var pageFixedSegments = _settings.pages[_currentPage].segments;
+
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach(function(key) {
-					_editor.addSegment(pageSegments[key]);
+					var hasFixedSegmentCounterpart = false;
+					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
+						//has no fixedSegment counterpart and has not been deleted
+						_editor.addSegment(pageSegments[key]);
+					}
 				});
-				var pageFixedSegments = _settings.pages[_currentPage].segments;
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
@@ -218,6 +223,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 			initExportSettings(_currentPage);
 		}
 		_gui.setExportingInProgress(true);
+		//TODO dynamic floating segments
+		if(_settings.pages[_currentPage]){
+			_exportSettings[_currentPage].fixedRegions = _settings.pages[_currentPage].segments;
+		}
+
 		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(function() {
 			_currentPageDownloadable = true;
 			_gui.setDownloadable(_currentPageDownloadable);
@@ -323,16 +333,16 @@ function Controller(bookID, canvasID, specifiedColors) {
 				var regionPolygon = getRegionByID(_selected[i]);
 				actions.push(new ActionRemoveRegion(regionPolygon, _editor, _settings, _currentPage,_thisController));
 			} else if(_selectType === "segment"){
-				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
-				//Check if result segment or fixed segment (null -> fixed segment)
-				if(segment != null){
-					if(!_exportSettings[_currentPage]){
-						initExportSettings(_currentPage);
-					}
+				if(!_exportSettings[_currentPage]){
+					initExportSettings(_currentPage);
+				}
+				var segment = _settings.pages[_currentPage].segments[_selected[i]];
+				//Check if result segment or fixed segment (null -> result region)
+				if(!segment){
+					segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 				}else{
-					segment = _settings.pages[_currentPage].segments[_selected[i]];
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings));
 				}
 			}else if(_selectType === "line"){
 				var cut = _settings.pages[_currentPage].cuts[_selected[i]];
@@ -348,9 +358,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 		var segmentIDs = [];
 		for (var i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
 			if(_selectType === "segment"){
-				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
+				var segment = _settings.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
-				if(segment != null){
+				if(!segment){
+					segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 					//filter special case image (do not merge images)
 					if(segment.type !== 'image'){
 						if(!_exportSettings[_currentPage]){
@@ -360,7 +371,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 					}
 				}else{
-					/*segment = _settings.pages[_currentPage].segments[_selected[i]];
+					/*//Fixed Segments can't be merged atm
+					segment = _settings.pages[_currentPage].segments[_selected[i]];
 					segmentIDs.push(segment.id);
 					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));*/
 				}
@@ -370,7 +382,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_communicator.requestMergedSegment(segmentIDs,_currentPage).done(function(data){
 				var mergedSegment = data;
 				actions.push(new ActionAddFixedSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-						_editor, _settings, _currentPage));
+						_editor, _settings, _currentPage, _exportSettings));
 
 				_thisController.unSelect();
 
@@ -486,8 +498,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 		if(!type){
 			type = "other";
 		}
+		if(!_exportSettings[_currentPage]){
+			initExportSettings(_currentPage);
+		}
 		var actionAdd = new ActionAddFixedSegment(newID, segmentpoints, type,
-				_editor, _settings, _currentPage);
+				_editor, _settings, _currentPage,_exportSettings);
 
 		addAndExecuteAction(actionAdd);
 		_thisController.openContextMenu(false,newID);
@@ -778,14 +793,14 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	var getPolygonMainType = function(polygonID){
-		var polygon = _segmentation.pages[_currentPage].segments[polygonID];
-		if(polygon != null){
-			return "result";
-		}
-
-		polygon = _settings.pages[_currentPage].segments[polygonID];
+		var polygon = _settings.pages[_currentPage].segments[polygonID];
 		if(polygon != null){
 			return "fixed";
+		}
+
+		polygon = _segmentation.pages[_currentPage].segments[polygonID];
+		if(polygon != null){
+			return "result";
 		}
 
 		polygon = getRegionByID(polygonID);
@@ -802,6 +817,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var initExportSettings = function(page){
 		_exportSettings[page] = {}
 		_exportSettings[page].segmentsToIgnore = [];
+		_exportSettings[page].segmentsToMerge = {};
 		_exportSettings[page].changedTypes = {};
+		_exportSettings[page].fixedRegions = [];
 	}
 }

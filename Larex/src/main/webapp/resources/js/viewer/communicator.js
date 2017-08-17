@@ -101,7 +101,11 @@ function Communicator() {
 		// Deferred object for function status
 		var status = $.Deferred();
 
-		var segmentationRequest = {page: pageID,segmentsToIgnore:exportSettings.segmentsToIgnore,changedTypes:exportSettings.changedTypes}
+		var segmentationRequest = {	page: pageID,
+																segmentsToIgnore:exportSettings.segmentsToIgnore,
+																changedTypes:exportSettings.changedTypes,
+																segmentsToMerge:exportSettings.segmentsToMerge,
+																fixedRegions:exportSettings.fixedRegions}
 
 		$.ajax({
 			type : "POST",

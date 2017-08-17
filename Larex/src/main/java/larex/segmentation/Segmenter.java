@@ -80,7 +80,7 @@ public class Segmenter {
 			if (pointList.isClosed()) {
 				parameters.getRegionManager();
 				ResultRegion result = new ResultRegion(pointList.getType(), parameters.getDesiredImageHeight(),
-						pointList.getOcvPoints());
+						pointList.getOcvPoints(),pointList.getId());
 				results.add(result);
 			}
 		}

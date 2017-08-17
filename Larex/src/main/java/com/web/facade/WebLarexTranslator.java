@@ -25,13 +25,14 @@ import larex.regions.type.RegionType;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
 
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
 
 /**
- * Helper Class to translate Larex Objects to GUI Objects and vise versa
+ * Helper Class to translate Web Objects to Larex Objects
  *
  */
-public class LarexTranslator {
+public class WebLarexTranslator {
 
 	public static Parameters translateSettingsToParameters(BookSettings settings,Parameters oldParameters, Page page, Size pagesize) {
 		// TODO Regions
@@ -94,75 +95,6 @@ public class LarexTranslator {
 		return parameters;
 	}
 
-	public static BookSettings translateParametersToSettings(Parameters parameters, Book book) {
-		// TODO Regions
-		BookSettings settings = new BookSettings(book);
-
-		Map<String, Integer> settingParameters = settings.getParameters();
-		settingParameters.put("binarythreash", parameters.getBinaryThresh());
-		settingParameters.put("textdilationX", parameters.getTextDilationX());
-		settingParameters.put("textdilationY", parameters.getTextDilationY());
-		settingParameters.put("imagedilationX", parameters.getImageRemovalDilationX());
-		settingParameters.put("imagedilationY", parameters.getImageRemovalDilationY());
-
-		settings.setCombine(parameters.isCombineImages());
-		settings.setImageSegType(parameters.getImageSegType());
-		
-		RegionManager regionManager = parameters.getRegionManager();
-		for (Region region : regionManager.getRegions()) {
-			/*List<Polygon> regions = translateRegionToGUIRegions(region);
-			for (Polygon segment : regions) {
-				settings.addRegion(segment);
-			}*/
-			
-			RegionType regionType = region.getType();
-			int minSize = region.getMinSize();
-			int maxOccurances = region.getMaxOccurances();
-			PriorityPosition priorityPosition = region.getPriorityPosition();
-			com.web.model.Region guiRegion = new com.web.model.Region(regionType,minSize,maxOccurances,priorityPosition);
-
-			int regionCount = 0;
-			for (Position position : region.getPositions()) {
-				LinkedList<Point> points = new LinkedList<Point>();
-				points.add(new Point(position.getTopLeftXPercentage(), position.getTopLeftYPercentage()));
-				points.add(new Point(position.getBottomRightXPercentage(), position.getTopLeftYPercentage()));
-				points.add(new Point(position.getBottomRightXPercentage(), position.getBottomRightYPercentage()));
-				points.add(new Point(position.getTopLeftXPercentage(), position.getBottomRightYPercentage()));
-
-				String id = regionType.toString() + regionCount;
-				guiRegion.addPolygon(new Polygon(id, regionType, points, true));
-				regionCount++;
-			}
-			
-			//TODO ? PointList -> Cut
-			
-			settings.addRegion(guiRegion);
-		}
-		return settings;
-	}
-
-	public static Polygon translateResultRegionToSegment(ResultRegion region) {
-		LinkedList<Point> points = new LinkedList<Point>();
-		for (org.opencv.core.Point regionPoint : region.getPoints().toList()) {
-			points.add(new Point(regionPoint.x, regionPoint.y));
-		}
-
-		Polygon segment = new Polygon(region.getId(), region.getType(), points, false);
-		return segment;
-	}
-
-	public static PageSegmentation translateResultRegionsToSegmentation(ArrayList<ResultRegion> regions, int pageid) {
-		Map<String, Polygon> segments = new HashMap<String, Polygon>();
-
-		int idcount = 0;
-		for (ResultRegion region : regions) {
-			Polygon segment = translateResultRegionToSegment(region);
-			segments.put(segment.getId(), segment);
-			idcount++;
-		}
-		return new PageSegmentation(pageid, segments);
-	}
-	
 	public static PointListManager translateSettingsToPointListManager(BookSettings settings, int pageid){
 		PointListManager manager = new PointListManager();
 		
@@ -172,21 +104,35 @@ public class LarexTranslator {
 			for(Point point: fixedSegment.getPoints()){
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			PointList fixedPointList = new PointList(points);
+			PointList fixedPointList = new PointList(points,fixedSegment.getId());
 			fixedPointList.setType(fixedSegment.getType());
 			fixedPointList.setClosed(true);
 			fixedSegments.add(fixedPointList);
-			manager.setPointLists(fixedSegments);
 		}
+		manager.setPointLists(fixedSegments);
 
 		for(Polygon cuts: settings.getPage(pageid).getCuts().values()){
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for(Point point: cuts.getPoints()){
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			manager.addPointList(points);
+			manager.addPointList(points, cuts.getId());
 		}
 		
 		return manager;
+	}
+	
+	public static ResultRegion translateSegmentToResultRegion(Polygon segment) {
+		LinkedList<org.opencv.core.Point> points = new LinkedList<org.opencv.core.Point>();
+		
+		for(Point segmentPoint: segment.getPoints()){
+			points.add(new org.opencv.core.Point(segmentPoint.getX(),segmentPoint.getY()));
+		}
+		
+		MatOfPoint resultPoints = new MatOfPoint();
+		resultPoints.fromList(points);
+		
+		ResultRegion result = new ResultRegion(segment.getType(),0,resultPoints);
+		return result;
 	}
 }

@@ -207,7 +207,7 @@ function ActionRemoveCompleteRegion(regionType,controller,editor,settings,contro
 	}
 }
 
-function ActionAddFixedSegment(id,points,type,editor,settings,page){
+function ActionAddFixedSegment(id,points,type,editor,settings,page,_exportSettings){
 	var _isExecuted = false;
 	var _segment = {id:id, points:points, type:type, isRelative:false};
 	var _editor = editor;
@@ -219,6 +219,11 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page){
 			_isExecuted = true;
 			_settings.pages[page].segments[_segment.id] = _segment;
 			_editor.addSegment(_segment,true);
+			if(_exportSettings){
+				_exportSettings[_page].segmentsToIgnore = jQuery.grep(_exportSettings[_page].segmentsToIgnore, function(value) {
+					return value != _segment.id;
+				});
+			}
 			console.log('Do - Add Region Polygon: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}
@@ -227,6 +232,9 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page){
 			_isExecuted = false;
 			delete _settings.pages[page].segments[_segment.id];
 			_editor.removeSegment(_segment.id);
+			if(_exportSettings){
+				_exportSettings[_page].segmentsToIgnore.push(_segment.id);
+			}
 			console.log('Undo - Add Region Polygon: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
 		}
 	}

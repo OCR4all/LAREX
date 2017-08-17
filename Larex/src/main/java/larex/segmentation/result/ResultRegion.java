@@ -48,16 +48,19 @@ public class ResultRegion implements Comparable {
 	private ArrayList<Point> containedPoints;
 
 	public ResultRegion(RegionType type, int imageHeight, MatOfPoint points) {
+		this(type,imageHeight,points,UUID.randomUUID().toString());
+	}
+
+	public ResultRegion(RegionType type, int imageHeight, MatOfPoint points, String id) {
 		setType(type);
 		Scalar color = RegionManager.getScalarByRegionType(type);
 		setColor(color);
 		setImageHeight(imageHeight);
 		setPoints(points);
 		setReadingOrderIndex(-1);
-		
-		id = UUID.randomUUID().toString();
+		this.id = id;
 	}
-
+	
 	// TODO
 	public void calcROBinary(Mat image) {
 		Mat binary = new Mat(image.size(), CvType.CV_8UC1, new Scalar(0));

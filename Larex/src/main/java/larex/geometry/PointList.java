@@ -19,15 +19,17 @@ public class PointList {
 	private RegionType type;
 	private MatOfPoint ocvPoints;
 	private Polygon polygon;
+	private String id;
 
 	/**
 	 * Constructor for a PointList element.
 	 * 
 	 * @param points A list of points.
 	 */
-	public PointList(ArrayList<Point> points) {
+	public PointList(ArrayList<Point> points, String id) {
 		setPoints(points);
 		setPolygon(new Polygon(points));
+		this.id = id;
 	}
 
 	/**
@@ -216,4 +218,8 @@ public class PointList {
 	public void setPolygon(Polygon polygon) {
 		this.polygon = polygon;
 	}	
+	
+	public String getId() {
+		return id;
+	}
 }
