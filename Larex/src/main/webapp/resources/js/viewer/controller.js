@@ -103,11 +103,16 @@ function Controller(bookID, canvasID, specifiedColors) {
 				_editor.clear();
 				_editor.setImage(_book.pages[_currentPage].image);
 				var pageSegments = _segmentation.pages[_currentPage].segments;
+				var pageFixedSegments = _settings.pages[_currentPage].segments;
+
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach(function(key) {
-					_editor.addSegment(pageSegments[key]);
+					var hasFixedSegmentCounterpart = false;
+					if(!pageFixedSegments[key]){
+						//has no fixedSegment counterpart
+						_editor.addSegment(pageSegments[key]);
+					}
 				});
-				var pageFixedSegments = _settings.pages[_currentPage].segments;
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
