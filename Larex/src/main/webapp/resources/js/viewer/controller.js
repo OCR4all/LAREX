@@ -330,14 +330,14 @@ function Controller(bookID, canvasID, specifiedColors) {
 			} else if(_selectType === "segment"){
 				var segment = _segmentation.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
+				if(!_exportSettings[_currentPage]){
+					initExportSettings(_currentPage);
+				}
 				if(segment != null){
-					if(!_exportSettings[_currentPage]){
-						initExportSettings(_currentPage);
-					}
 					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 				}else{
 					segment = _settings.pages[_currentPage].segments[_selected[i]];
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings));
 				}
 			}else if(_selectType === "line"){
 				var cut = _settings.pages[_currentPage].cuts[_selected[i]];
@@ -365,7 +365,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings));
 					}
 				}else{
-					/*segment = _settings.pages[_currentPage].segments[_selected[i]];
+					/*//Fixed Segments can't be merged atm
+					segment = _settings.pages[_currentPage].segments[_selected[i]];
 					segmentIDs.push(segment.id);
 					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));*/
 				}
@@ -375,7 +376,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_communicator.requestMergedSegment(segmentIDs,_currentPage).done(function(data){
 				var mergedSegment = data;
 				actions.push(new ActionAddFixedSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-						_editor, _settings, _currentPage));
+						_editor, _settings, _currentPage, _exportSettings));
 
 				_thisController.unSelect();
 
@@ -491,8 +492,11 @@ function Controller(bookID, canvasID, specifiedColors) {
 		if(!type){
 			type = "other";
 		}
+		if(!_exportSettings[_currentPage]){
+			initExportSettings(_currentPage);
+		}
 		var actionAdd = new ActionAddFixedSegment(newID, segmentpoints, type,
-				_editor, _settings, _currentPage);
+				_editor, _settings, _currentPage,_exportSettings);
 
 		addAndExecuteAction(actionAdd);
 		_thisController.openContextMenu(false,newID);

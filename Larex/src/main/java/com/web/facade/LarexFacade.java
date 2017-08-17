@@ -174,13 +174,13 @@ public class LarexFacade implements IFacade {
 			result.addRegion(clone);
 		}
 		
-		// FloatingSegments
-		Map<String, Polygon> floatingSegments = exportRequest.getFixedRegions();
-		if(floatingSegments != null){
-			for(String floatingSegmentID: floatingSegments.keySet()){
-				ResultRegion floatingSegment = WebLarexTranslator.translateSegmentToResultRegion(floatingSegments.get(floatingSegmentID));
-				System.out.println(floatingSegment + " --------");
-				result.addRegion(floatingSegment);
+		// FixedSegments
+		Map<String, Polygon> fixedSegments = exportRequest.getFixedRegions();
+		if(fixedSegments != null){
+			for(String fixedSegmentID: fixedSegments.keySet()){
+				//Replace Region with fixed Region if exists
+				result.removeRegionByID(fixedSegmentID);
+				result.addRegion(WebLarexTranslator.translateSegmentToResultRegion(fixedSegments.get(fixedSegmentID)));
 			}
 		}
 	}
