@@ -104,19 +104,19 @@ public class WebLarexTranslator {
 			for(Point point: fixedSegment.getPoints()){
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			PointList fixedPointList = new PointList(points);
+			PointList fixedPointList = new PointList(points,fixedSegment.getId());
 			fixedPointList.setType(fixedSegment.getType());
 			fixedPointList.setClosed(true);
 			fixedSegments.add(fixedPointList);
-			manager.setPointLists(fixedSegments);
 		}
+		manager.setPointLists(fixedSegments);
 
 		for(Polygon cuts: settings.getPage(pageid).getCuts().values()){
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for(Point point: cuts.getPoints()){
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			manager.addPointList(points);
+			manager.addPointList(points, cuts.getId());
 		}
 		
 		return manager;

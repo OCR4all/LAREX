@@ -130,8 +130,8 @@ public class PointListManager {
 		return distSquared;
 	}
 
-	public void addPointList(ArrayList<Point> points) {
-		pointLists.add(new PointList(points));
+	public void addPointList(ArrayList<Point> points, String id) {
+		pointLists.add(new PointList(points, id));
 	}
 
 	public ArrayList<PointList> getPointLists() {
