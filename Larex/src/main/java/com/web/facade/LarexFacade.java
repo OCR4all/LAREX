@@ -169,9 +169,11 @@ public class LarexFacade implements IFacade {
 		//ChangedTypes
 		for(Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()){
 			//clone ResultRegion before changing it
-			ResultRegion clone = result.removeRegionByID(changeType.getKey()).clone();
-			clone.setType(changeType.getValue());
-			result.addRegion(clone);
+			if(result.getRegionByID(changeType.getKey()) != null){
+				ResultRegion clone = result.removeRegionByID(changeType.getKey()).clone();
+				clone.setType(changeType.getValue());
+				result.addRegion(clone);
+			}
 		}
 		
 		// FixedSegments
