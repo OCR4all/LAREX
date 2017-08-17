@@ -105,7 +105,7 @@ function Communicator() {
 																segmentsToIgnore:exportSettings.segmentsToIgnore,
 																changedTypes:exportSettings.changedTypes,
 																segmentsToMerge:exportSettings.segmentsToMerge,
-																floatingRegions:exportSettings.floatingRegions}
+																fixedRegions:exportSettings.fixedRegions}
 
 		$.ajax({
 			type : "POST",

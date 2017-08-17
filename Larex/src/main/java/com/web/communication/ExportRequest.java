@@ -27,20 +27,20 @@ public class ExportRequest {
 	private Map<String,ArrayList<String>> segmentsToMerge;
 	@JsonProperty("changedTypes")
 	private Map<String,RegionType> changedTypes;
-	@JsonProperty("floatingRegions")
-	private List<Polygon> floatingSegments;
+	@JsonProperty("fixedRegions")
+	protected Map<String, Polygon> fixedRegions;
 
 	@JsonCreator
 	public ExportRequest(@JsonProperty("page") int page, 
 			@JsonProperty("segmentsToIgnore") List<String> segmentsToIgnore,
 			@JsonProperty("segmentsToMerge") Map<String,ArrayList<String>> segmentsToMerge,
 			@JsonProperty("changedTypes") Map<String,RegionType> changedTypes,
-			@JsonProperty("floatingRegions") List<Polygon> floatingSegments) {
+			@JsonProperty("fixedRegions") Map<String, Polygon> fixedRegions) {
 		this.page = page;
 		this.segmentsToIgnore = segmentsToIgnore;
 		this.segmentsToMerge = segmentsToMerge;
 		this.changedTypes = changedTypes;
-		this.floatingSegments = floatingSegments;
+		this.fixedRegions = fixedRegions;
 	}
 
 	public int getPage() {
@@ -59,7 +59,7 @@ public class ExportRequest {
 		return changedTypes;
 	}
 	
-	public List<Polygon> getFloatingSegments() {
-		return floatingSegments;
+	public Map<String, Polygon> getFixedRegions() {
+		return fixedRegions;
 	}
 }
