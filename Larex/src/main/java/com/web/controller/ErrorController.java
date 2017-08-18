@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import com.web.model.Library;
-import com.web.model.database.DemoDatabase;
 
 /**
  * Communication Controller to handle error pages
