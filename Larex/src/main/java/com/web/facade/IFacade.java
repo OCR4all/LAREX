@@ -44,5 +44,10 @@ public interface IFacade {
 	public void prepareExport(ExportRequest exportRequest);
 
 	public ResponseEntity<byte[]> getPageXML();
+	
+	public void prepareSettings(BookSettings settings);
+	
+	public ResponseEntity<byte[]> getSettingsXML();
+		
 
 }

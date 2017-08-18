@@ -16,6 +16,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _presentRegions = [];
 	var _exportSettings = {};
 	var _currentPageDownloadable = false;
+	var	_currentSettingsDownloadable = false;
 
 	var _gridIsActive = false;
 
@@ -223,7 +224,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 			initExportSettings(_currentPage);
 		}
 		_gui.setExportingInProgress(true);
-		//TODO dynamic floating segments
 		if(_settings.pages[_currentPage]){
 			_exportSettings[_currentPage].fixedRegions = _settings.pages[_currentPage].segments;
 		}
@@ -234,6 +234,22 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_gui.setExportingInProgress(false);
 			_gui.highlightSavedPage(_currentPage);
 			_savedPages.push(_currentPage);
+		});
+	}
+
+	this.downloadSettingsXML = function(){
+		if(_currentSettingsDownloadable){
+			window.open("downloadSettings");
+		}
+	}
+
+	this.saveSettingsXML = function(){
+		_gui.setSaveSettingsInProgress(true);
+
+		_communicator.prepareSettingsExport(_settings).done(function() {
+			_currentSettingsDownloadable = true;
+			_gui.setSettingsDownloadable(_currentSettingsDownloadable);
+			_gui.setSaveSettingsInProgress(false);
 		});
 	}
 

@@ -127,6 +127,32 @@ function Communicator() {
 		return status;
 	}
 
+	this.prepareSettingsExport = function(settings){
+		// Deferred object for function status
+		var status = $.Deferred();
+
+		var segmentationRequest = {settings: settings,pages:[]}
+
+		$.ajax({
+			type : "POST",
+			url : "saveSettings",
+			contentType: "application/json",
+			data : JSON.stringify(segmentationRequest),
+			beforeSend : function() {
+				console.log("Prepare Export Settings: start");
+			},
+			success : function(data) {
+				console.log('Prepare Export Settings: successful');
+				status.resolve(data);
+			},
+			error : function(jqXHR, textStatus, errorThrown) {
+				console.log("Prepare Export Settings: end");//"Prepare Export: failed " + textStatus);
+				status.resolve();
+			}
+		});
+		return status;
+	}
+
 	this.debugConnection = function() {
 				getTestQuerry().done(function(data){
 

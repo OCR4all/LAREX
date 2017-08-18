@@ -95,6 +95,17 @@
 					</div>
 				</div>
 			</div>
+			<a class="col s12 waves-effect waves-light btn saveSettingsXML">
+				Save Settings
+				<div class="progress hide">
+		    		<div class="indeterminate"></div>
+				</div>       
+			</a>
+			
+			
+			<a class="col s12 waves-effect waves-light btn downloadSettingsXML disabled">
+				Download Settings
+			</a>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	

@@ -29,6 +29,12 @@ function GuiInput(navigationController, controller, gui){
 	$('.downloadPageXML').click(function() {
 		_controller.downloadPageXML();
 	});
+	$('.saveSettingsXML').click(function() {
+		_controller.saveSettingsXML();
+	});
+	$('.downloadSettingsXML').click(function() {
+		_controller.downloadSettingsXML();
+	});
 	$('.reload').click(function() {
 		location.reload();
 	});

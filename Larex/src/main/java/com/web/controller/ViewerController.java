@@ -48,12 +48,12 @@ public class ViewerController {
 	@Autowired
 	private LarexFacade segmenter;
 	@Autowired
-	private FileController fileController;
+	private FileManager fileManager;
 	
 	@RequestMapping(value = "/viewer", method = RequestMethod.GET)
 	public String viewer(Model model, @RequestParam(value = "book", required = false) Integer bookID) throws IOException {
-		if(!fileController.isInit()){
-			fileController.init(servletContext);
+		if(!fileManager.isInit()){
+			fileManager.init(servletContext);
 		}
 		if(bookID == null){
 			return "redirect:/404";
@@ -70,7 +70,7 @@ public class ViewerController {
 		model.addAttribute("book", book);
 		model.addAttribute("segmenttypes", getSegmentTypes());
 		model.addAttribute("imageSegTypes",getImageSegmentTypes());
-		model.addAttribute("bookPath", fileController.getWebBooksPath());
+		model.addAttribute("bookPath", fileManager.getWebBooksPath());
 		
 		return "editor";
 	}
@@ -100,25 +100,14 @@ public class ViewerController {
 		return merged;
 	}
 	
-	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody String prepareExport(@RequestBody ExportRequest exportRequest) {
-		segmenter.prepareExport(exportRequest);
-		return "Export has been prepared";
-	}
-	
-	@RequestMapping(value = "/exportXML")//, method = RequestMethod.GET)//, headers = "Accept=*/*", consumes = "application/json"*/)
-	public @ResponseBody ResponseEntity<byte[]> exportXML() {
-	    return segmenter.getPageXML();
-	}
-	
 	private LarexFacade prepareSegmenter(int bookID) {
-		if(!fileController.isInit()){
-			fileController.init(servletContext);
+		if(!fileManager.isInit()){
+			fileManager.init(servletContext);
 		}
-		IDatabase database = new FileDatabase(new File(fileController.getBooksPath()));
+		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 
 		if (!segmenter.isInit()) {
-			String resourcepath = fileController.getBooksPath();
+			String resourcepath = fileManager.getBooksPath();
 			segmenter.init(database.getBook(bookID), resourcepath);
 		} else if (bookID != segmenter.getBook().getId()) {
 			segmenter.setBook(database.getBook(bookID));

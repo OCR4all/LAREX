@@ -25,7 +25,7 @@ public class LibraryController {
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
-	private FileController fileController;
+	private FileManager fileController;
 
 	@RequestMapping(value = "/")
 	public String home(Model model) throws IOException {
