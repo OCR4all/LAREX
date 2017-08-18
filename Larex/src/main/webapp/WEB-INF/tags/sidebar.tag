@@ -95,7 +95,7 @@
 					</div>
 				</div>
 			</div>
-			<a class="col s12 waves-effect waves-light btn saveSettingsXML">
+			<a class="col s9 waves-effect waves-light btn saveSettingsXML">
 				Save Settings
 				<div class="progress hide">
 		    		<div class="indeterminate"></div>
@@ -103,13 +103,13 @@
 			</a>
 			
 			
-			<a class="col s12 waves-effect waves-light btn downloadSettingsXML disabled">
-				Download Settings
+			<a class="col s3 waves-effect waves-light btn downloadSettingsXML disabled">
+				<i class="material-icons">file_download</i>
 			</a>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	
-	<a class="col s12 waves-effect waves-light btn exportPageXML">
+	<a class="col s9 waves-effect waves-light btn exportPageXML">
 		Save Result
 		<div class="progress hide">
     		<div class="indeterminate"></div>
@@ -117,7 +117,7 @@
 	</a>
 	
 	
-	<a class="col s12 waves-effect waves-light btn downloadPageXML disabled">
-		Export to PageXML     
+	<a class="col s3 waves-effect waves-light btn downloadPageXML disabled">
+		<i class="material-icons">file_download</i>
 	</a>
 </div>
