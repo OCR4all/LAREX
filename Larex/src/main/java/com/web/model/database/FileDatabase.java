@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import com.web.model.Book;
@@ -15,26 +16,34 @@ import com.web.model.Page;
  * Static demo database with specific books for the web view
  * 
  */
-public class FileDatabase implements IDatabase{
+public class FileDatabase implements IDatabase {
 
 	private Map<Integer, Book> books;
 	private File databaseFolder;
-	
-	public FileDatabase(File databaseFolder) {
+	private List<String> supportedFileExtensions;
+
+	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions) {
 		this.databaseFolder = databaseFolder;
 		this.books = new HashMap<Integer, Book>();
+		this.supportedFileExtensions = new ArrayList<String>(supportedFileExtensions);
+	}
+
+	public FileDatabase(File databaseFolder) {
+		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg"));
 	}
 
 	public Map<Integer, Book> getBooks() {
 		File[] files = databaseFolder.listFiles();
-		
-		//sort book files/folders
+
+		// sort book files/folders
 		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(files));
-		//sortedFiles.sort((f1,f2) -> f1.getName().compareTo(f2.getName())); //ArrayOutOfBounds exception ? 
-		sortedFiles.sort(new FileNameComparator());//Because lambda throws exception
-		
-		for(File bookFile: sortedFiles){
-			if(bookFile.isDirectory()){
+		// sortedFiles.sort((f1,f2) -> f1.getName().compareTo(f2.getName()));
+		// //ArrayOutOfBounds exception ?
+		sortedFiles.sort(new FileNameComparator());// Because lambda throws
+													// exception
+
+		for (File bookFile : sortedFiles) {
+			if (bookFile.isDirectory()) {
 				int bookHash = bookFile.getName().hashCode();
 				Book book = readBook(bookFile, bookHash);
 				books.put(bookHash, book);
@@ -44,7 +53,7 @@ public class FileDatabase implements IDatabase{
 	}
 
 	public Book getBook(int id) {
-		if(books == null || !books.containsKey(id)){
+		if (books == null || !books.containsKey(id)) {
 			getBooks();
 		}
 		return books.get(id);
@@ -54,34 +63,47 @@ public class FileDatabase implements IDatabase{
 		books.put(book.getId(), book);
 	}
 
-	private Book readBook(File bookFile, int bookID){
+	private Book readBook(File bookFile, int bookID) {
 		String bookName = bookFile.getName();
-		
+
 		LinkedList<Page> pages = new LinkedList<Page>();
 		int pageCounter = 0;
-		
+
 		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(bookFile.listFiles()));
 
-		//Because lambda throws exception
+		// Because lambda throws exception
 		sortedFiles.sort(new FileNameComparator());
-		for(File pageFile: sortedFiles){
-			if(pageFile.isFile()){
+		for (File pageFile : sortedFiles) {
+			if (pageFile.isFile()) {
 				String pageName = pageFile.getName();
-				pages.add(new Page(pageCounter, bookName + File.separator + pageName));
-				pageCounter++;
+				if (isValidImageFile(pageName)) {
+					pages.add(new Page(pageCounter, bookName + File.separator + pageName));
+					pageCounter++;
+				}
 			}
 		}
-		
-		Book book = new Book(bookID,bookName,pages);
+
+		Book book = new Book(bookID, bookName, pages);
 		return book;
 	}
-	
 
-	private class FileNameComparator implements Comparator<File>{
+	private Boolean isValidImageFile(String filepath) {
+		String[] extensionArray = filepath.split("\\.");
+		if (extensionArray.length > 0) {
+			String extension = extensionArray[extensionArray.length - 1];
+			for (String supportedExtension : supportedFileExtensions) {
+				if (extension.equals(supportedExtension)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private class FileNameComparator implements Comparator<File> {
 		@Override
 		public int compare(File o1, File o2) {
 			return o1.getName().compareTo(o2.getName());
 		}
-	};		
+	}
 }
-
