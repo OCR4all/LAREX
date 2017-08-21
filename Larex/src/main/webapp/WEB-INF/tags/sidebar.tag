@@ -106,6 +106,17 @@
 			<a class="col s3 waves-effect waves-light btn downloadSettingsXML disabled">
 				<i class="material-icons">file_download</i>
 			</a>
+			<form action="#">
+				<div class="file-field input-field">
+					<div class="btn">
+						<i class="material-icons">file_upload</i>
+						<input class="uploadSettings" type="file">
+					</div>
+					<div class="file-path-wrapper">
+						<input class="file-path validate" type="text" placeholder="Upload Settings XML file">
+					</div>
+				</div>
+			</form>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	

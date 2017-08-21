@@ -253,6 +253,10 @@ function Controller(bookID, canvasID, specifiedColors) {
 		});
 	}
 
+	this.uploadSettings = function(file){
+		_communicator.uploadSettings(file);
+	}
+
 	// Actions
 	this.redo = function() {
 		if (_actionpointer < _actions.length - 1) {

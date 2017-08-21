@@ -1,5 +1,6 @@
 package larex.export;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.util.ArrayList;
 
@@ -70,10 +71,10 @@ public class SettingsReader {
 			regionManager.addRegion(region);
 		}
 
-		PnlPostProcessing.updateItems(regionManager);
+		//PnlPostProcessing.updateItems(regionManager);
 	}
 
-	private static void extractParameters(Element parameterElement, PnlProcessParameters pnlParameters) {
+	private static void extractParameters(Element parameterElement/*, PnlProcessParameters pnlParameters*/) {/*
 		pnlParameters.getSpinBinaryThresh().setValue(Integer.parseInt(parameterElement.getAttribute("binaryThresh")));
 		pnlParameters.getSpinImageDilationX()
 				.setValue(Integer.parseInt(parameterElement.getAttribute("imageDilationX")));
@@ -82,10 +83,10 @@ public class SettingsReader {
 		pnlParameters.getSpinTextDilationX().setValue(Integer.parseInt(parameterElement.getAttribute("textDilationX")));
 		pnlParameters.getSpinTextDilationY().setValue(Integer.parseInt(parameterElement.getAttribute("textDilationY")));
 		pnlParameters.getSpinImageSize()
-				.setValue(Integer.parseInt(parameterElement.getAttribute("verticalResolution")));
+				.setValue(Integer.parseInt(parameterElement.getAttribute("verticalResolution")));*/
 	}
 
-	public static void loadSettings(String inputFolder) {
+	public static void loadSettings(String inputFolder,byte[] bytes) {
 		if (!inputFolder.endsWith(File.separator)) {
 			inputFolder += File.separator;
 		}
@@ -97,17 +98,17 @@ public class SettingsReader {
 			try {
 				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 				DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-				Document document = dBuilder.parse(inputFile);
+				Document document = dBuilder.parse(new ByteArrayInputStream(bytes));
 				document.getDocumentElement().normalize();
 
 				Element parameterElement = (Element) document.getElementsByTagName("parameters").item(0);
 
-				PnlProcessParameters pnlParameters = guiManager.getGui().getPnlProcessParameters();
+				/*PnlProcessParameters pnlParameters = guiManager.getGui().getPnlProcessParameters();
 				extractParameters(parameterElement, pnlParameters);
 
 				guiManager.getGui().getPnlRegionParameters().deleteAllRegions(guiManager.getGui());
 				NodeList regionNodes = document.getElementsByTagName("region");
-				extractRegions(regionNodes, guiManager.getRegionManager(), guiManager.getCurrentPage().getResized());
+				extractRegions(regionNodes, RegionManager, GetCurrentPage().getResized());*/
 			} catch (Exception e) {
 				e.printStackTrace();
 				System.out.println("Reading XML file failed!");

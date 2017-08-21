@@ -1,5 +1,9 @@
 package com.web.controller;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.http.ResponseEntity;
@@ -7,7 +11,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
@@ -44,5 +50,26 @@ public class FileController {
 	@RequestMapping(value = "/downloadSettings")//, method = RequestMethod.GET)//, headers = "Accept=*/*", consumes = "application/json"*/)
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings() {
 	    return facade.getSettingsXML();
+	}
+
+	/*@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
+	public @ResponseBody String uploadSettings(@RequestParam("file") String file) {
+		System.out.println(" \n"+ file);
+		return "Upload";
+	}*/
+	
+	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
+	public @ResponseBody String uploadSettings(@RequestParam("file") MultipartFile file) {
+
+		if (!file.isEmpty()) {
+			try {
+				byte[] bytes = file.getBytes();
+				return "File has been received";
+			} catch (Exception e) {
+				return "File could not been received " +  " => " + e.getMessage();
+			}
+		} else {
+			return "File is empty";
+		}
 	}
 }

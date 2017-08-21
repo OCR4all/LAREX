@@ -184,24 +184,34 @@ function Communicator() {
 				});
 	}
 
-	var getTestQuerry = function() {
+	this.uploadSettings = function(file) {
 		// Deferred object for function status
 		var status = $.Deferred();
+		var formData = new FormData();
+		formData.append("file", file);
 
-		$.ajax({
-			url : "getTestQuerry",
-			dataType : "json",
-			beforeSend : function() {
-				console.log("Book load: start");
-			},
-			success : function(data) {
-				console.log('Book load: successful');
-				status.resolve(data);
-			},
-			error : function(jqXHR, textStatus, errorThrown) {
-				console.log("Book load: failed" + textStatus);
-				status.resolve();
-			}
+		jQuery.ajax({
+		    url: 'uploadSettings',
+		    type: 'POST',
+		    data: formData,
+				dataType: 'json',
+		    cache: false,
+		    contentType: false,
+		    processData: false,
+		    success: function(data){
+		        alert(data);
+		    },
+				beforeSend : function() {
+					console.log("Settings upload: start");
+				},
+				success : function(data) {
+					console.log('Settings upload: successful');
+					status.resolve();
+				},
+				error : function(jqXHR, textStatus, errorThrown) {
+					console.log("Settings upload: failed" + textStatus);
+					status.resolve();
+				}
 		});
 		return status;
 	}

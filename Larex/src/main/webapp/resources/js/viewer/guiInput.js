@@ -35,6 +35,14 @@ function GuiInput(navigationController, controller, gui){
 	$('.downloadSettingsXML').click(function() {
 		_controller.downloadSettingsXML();
 	});
+	$(':file').on('change', function() {
+    var file = this.files[0];
+		if (file.size < 1024*1024) {
+			_controller.uploadSettings(file);
+		}else{
+			alert('max upload size is 1MB')
+    }
+  });
 	$('.reload').click(function() {
 		location.reload();
 	});
