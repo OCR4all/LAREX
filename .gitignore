@@ -20,3 +20,20 @@ Larex/src/main/webapp/WEB-INF/lib/opencv.dll
 
 #books 
 Larex/src/main/webapp/resources/books/
+
+#eclipse
+Larex/target/
+Larex/bin/
+Larex/tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+*.launch
+local.properties
+Larex/.settings/
+Larex/.loadpath
+Larex/.recommenders
+Larex/.target
+Larex/.classpath
+Larex/.project
