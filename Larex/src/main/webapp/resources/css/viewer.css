@@ -193,16 +193,18 @@ body {
     width: 100%; }
   .pageImageContainer .pagestatus {
     position: absolute;
-    padding: 0px;
-    margin: 0px;
+    padding: 0px !important;
+    margin: 0px !important;
     right: 2px;
     bottom: 2px; }
     .pageImageContainer .pagestatus .pagestatusIcon {
-      font-size: 18px; }
+      font-size: 18px;
+      padding: 2px;
+      margin: 0px; }
       .pageImageContainer .pagestatus .pagestatusIcon.pageIconError {
         color: #f5f5f5;
         background-color: red; }
-      .pageImageContainer .pagestatus .pagestatusIcon.pageIconExported {
+      .pageImageContainer .pagestatus .pagestatusIcon.pageIconExported, .pageImageContainer .pagestatus .pagestatusIcon.pageIconSaved {
         color: #f5f5f5;
         background-color: #8bc34a; }
 
