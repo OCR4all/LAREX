@@ -37,11 +37,14 @@ function GuiInput(navigationController, controller, gui){
 	});
 	$(':file').on('change', function() {
     var file = this.files[0];
-		if (file.size < 1024*1024) {
-			_controller.uploadSettings(file);
-		}else{
-			alert('max upload size is 1MB')
-    }
+		$(this).val("");
+		if(file){
+			if (file.size < 1024*1024) {
+				_controller.uploadSettings(file);
+			}else{
+				alert('max upload size is 1MB')
+	    }
+		}
   });
 	$('.reload').click(function() {
 		location.reload();

@@ -245,7 +245,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 	this.saveSettingsXML = function(){
 		_gui.setSaveSettingsInProgress(true);
-
+		_settings.parameters = _gui.getParameters();
 		_communicator.prepareSettingsExport(_settings).done(function() {
 			_currentSettingsDownloadable = true;
 			_gui.setSettingsDownloadable(_currentSettingsDownloadable);
@@ -254,7 +254,12 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.uploadSettings = function(file){
-		_communicator.uploadSettings(file);
+		_communicator.uploadSettings(file).done(function(settings){
+			if(settings){
+				_settings = settings;
+				_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
+			}
+		});
 	}
 
 	// Actions

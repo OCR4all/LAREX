@@ -1,8 +1,12 @@
 package com.web.controller;
 
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -14,10 +18,12 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.w3c.dom.Document;
 
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.facade.LarexFacade;
+import com.web.model.BookSettings;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.
@@ -59,17 +65,15 @@ public class FileController {
 	}*/
 	
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
-	public @ResponseBody String uploadSettings(@RequestParam("file") MultipartFile file) {
-
+	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file) {
+		BookSettings settings = facade.getDefaultSettings(facade.getBook());
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				return "File has been received";
+				settings = facade.readSettings(bytes);
 			} catch (Exception e) {
-				return "File could not been received " +  " => " + e.getMessage();
 			}
-		} else {
-			return "File is empty";
-		}
+		} 
+		return settings;
 	}
 }

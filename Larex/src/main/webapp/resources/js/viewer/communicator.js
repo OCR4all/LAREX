@@ -206,7 +206,7 @@ function Communicator() {
 				},
 				success : function(data) {
 					console.log('Settings upload: successful');
-					status.resolve();
+					status.resolve(data);
 				},
 				error : function(jqXHR, textStatus, errorThrown) {
 					console.log("Settings upload: failed" + textStatus);

@@ -1,12 +1,17 @@
 package com.web.facade;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -24,6 +29,7 @@ import com.web.model.PageSegmentation;
 import com.web.model.Polygon;
 
 import larex.export.PageXMLWriter;
+import larex.export.SettingsReader;
 import larex.export.SettingsWriter;
 import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
@@ -42,6 +48,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 
 /**
  * Segmenter using the Larex project/algorithm
@@ -281,7 +288,6 @@ public class LarexFacade implements IFacade {
 
 		if (new File(imagePath).exists()) {
 			String imageIdentifier = "" + page.getId();
-			// TODO Regionmanager + GUI ? Delete?
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath, imageIdentifier);
 
 			currentLarexPage.initPage();
@@ -307,5 +313,31 @@ public class LarexFacade implements IFacade {
 					"Warning: Image file could not be found. Segmentation result will be empty. File: " + imagePath);
 			return null;
 		}
+	}
+
+	@Override
+	public BookSettings readSettings(byte[] settingsFile) {
+		BookSettings settings = null;
+		try {
+			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+			Document document = dBuilder.parse(new ByteArrayInputStream(settingsFile));
+			
+			Page page = book.getPage(0);
+			String imageIdentifier = "" + page.getId();
+			String imagePath = resourcepath + File.separator + page.getImage();
+			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath, imageIdentifier);
+			currentLarexPage.initPage();
+			
+			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());
+			settings = LarexWebTranslator.translateParametersToSettings(parameters, book);
+		} catch (SAXException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (ParserConfigurationException e) {
+			e.printStackTrace();
+		}
+		return settings;
 	}
 }
