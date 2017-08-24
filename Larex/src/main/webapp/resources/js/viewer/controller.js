@@ -257,7 +257,19 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_communicator.uploadSettings(file).done(function(settings){
 			if(settings){
 				_settings = settings;
+				_presentRegions = [];
+				Object.keys(_settings.regions).forEach(function(regionType) {
+					if(regionType !== 'ignore'){
+						_presentRegions.push(regionType);
+					}
+				});
+				_gui.showUsedRegionLegends(_presentRegions);
 				_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
+
+				_thisController.displayPage(_currentPage);
+				_thisController.hideAllRegions(false);
+				_gui.forceUpdateRegionHide(_visibleRegions);
+				_actions = [];
 			}
 		});
 	}
