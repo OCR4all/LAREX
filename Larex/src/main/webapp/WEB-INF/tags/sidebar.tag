@@ -7,7 +7,7 @@
 			<div class="collapsible-header">
 				<i class="material-icons">import_export</i>
 				<span>
-					Import Export
+					Settings
 				</span>
 			</div>
 			<div id="import-export-settings" class="collapsible-body">
