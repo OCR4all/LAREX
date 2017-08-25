@@ -34,7 +34,7 @@ import org.opencv.core.Size;
  */
 public class WebLarexTranslator {
 
-	public static Parameters translateSettingsToParameters(BookSettings settings,Parameters oldParameters, Page page, Size pagesize) {
+	public static Parameters translateSettingsToParameters(BookSettings settings,Parameters oldParameters, Size pagesize) {
 		// TODO Regions
 		Parameters parameters = oldParameters;
 		if(parameters == null){

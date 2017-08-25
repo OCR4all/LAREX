@@ -16,6 +16,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _presentRegions = [];
 	var _exportSettings = {};
 	var _currentPageDownloadable = false;
+	var	_currentSettingsDownloadable = false;
 
 	var _gridIsActive = false;
 
@@ -223,7 +224,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 			initExportSettings(_currentPage);
 		}
 		_gui.setExportingInProgress(true);
-		//TODO dynamic floating segments
 		if(_settings.pages[_currentPage]){
 			_exportSettings[_currentPage].fixedRegions = _settings.pages[_currentPage].segments;
 		}
@@ -234,6 +234,43 @@ function Controller(bookID, canvasID, specifiedColors) {
 			_gui.setExportingInProgress(false);
 			_gui.highlightSavedPage(_currentPage);
 			_savedPages.push(_currentPage);
+		});
+	}
+
+	this.downloadSettingsXML = function(){
+		if(_currentSettingsDownloadable){
+			window.open("downloadSettings");
+		}
+	}
+
+	this.saveSettingsXML = function(){
+		_gui.setSaveSettingsInProgress(true);
+		_settings.parameters = _gui.getParameters();
+		_communicator.prepareSettingsExport(_settings).done(function() {
+			_currentSettingsDownloadable = true;
+			_gui.setSettingsDownloadable(_currentSettingsDownloadable);
+			_gui.setSaveSettingsInProgress(false);
+		});
+	}
+
+	this.uploadSettings = function(file){
+		_communicator.uploadSettings(file).done(function(settings){
+			if(settings){
+				_settings = settings;
+				_presentRegions = [];
+				Object.keys(_settings.regions).forEach(function(regionType) {
+					if(regionType !== 'ignore'){
+						_presentRegions.push(regionType);
+					}
+				});
+				_gui.showUsedRegionLegends(_presentRegions);
+				_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
+
+				_thisController.displayPage(_currentPage);
+				_thisController.hideAllRegions(false);
+				_gui.forceUpdateRegionHide(_visibleRegions);
+				_actions = [];
+			}
 		});
 	}
 

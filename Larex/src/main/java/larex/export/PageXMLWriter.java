@@ -23,11 +23,19 @@ import larex.dataManagement.Page;
 
 public class PageXMLWriter {
 
+	/**
+	 * PageXML 2013
+	 * 
+	 * @param document
+	 * @param coordsElement
+	 * @param pointMat
+	 * @param scaleFactor
+	 */
 	public static void addPoints(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
 		Point[] points = pointMat.toArray();
 		String pointCoords = "";
 
-		if(scaleFactor == 0) {
+		if (scaleFactor == 0) {
 			scaleFactor = 1;
 		}
 
@@ -42,13 +50,21 @@ public class PageXMLWriter {
 		coordsElement.setAttribute("points", pointCoords);
 	}
 
+	/**
+	 * PageXML 2010
+	 * 
+	 * @param document
+	 * @param coordsElement
+	 * @param pointMat
+	 * @param scaleFactor
+	 */
 	public static void addPointsOld(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
 		Point[] points = pointMat.toArray();
 
-		if(scaleFactor == 0) {
+		if (scaleFactor == 0) {
 			scaleFactor = 1;
 		}
-		
+
 		for (int i = 0; i < points.length; i++) {
 			Element pointElement = document.createElement("Point");
 			pointElement.setAttribute("x", "" + (int) (scaleFactor * points[i].x));
@@ -57,8 +73,8 @@ public class PageXMLWriter {
 		}
 	}
 
-	public static void addRegion(Document document, Element pageElement, Page page, ResultRegion region,
-			int regionCnt) {
+	public static void addRegion(Document document, Element pageElement, Page page, ResultRegion region, int regionCnt,
+			boolean useXML2010) {
 		Element regionElement = null;
 		String regionType = region.getType().toString().toLowerCase();
 		regionType = regionType.replace("_", "-");
@@ -68,7 +84,11 @@ public class PageXMLWriter {
 			regionElement.setAttribute("id", "r" + regionCnt);
 
 			Element coordsElement = document.createElement("Coords");
-			addPoints(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			if (useXML2010) {
+				addPointsOld(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			} else {
+				addPoints(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			}
 			regionElement.appendChild(coordsElement);
 			pageElement.appendChild(regionElement);
 		} else {
@@ -77,13 +97,17 @@ public class PageXMLWriter {
 			regionElement.setAttribute("id", "r" + regionCnt);
 
 			Element coordsElement = document.createElement("Coords");
-			addPoints(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			if (useXML2010) {
+				addPointsOld(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			} else {
+				addPoints(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			}
 			regionElement.appendChild(coordsElement);
 			pageElement.appendChild(regionElement);
 		}
 	}
 
-	public static void addRegions(Document document, Element pageElement, Page page) {
+	public static void addRegions(Document document, Element pageElement, Page page, boolean useXML2010) {
 		int regionCnt = 0;
 
 		ArrayList<ResultRegion> readingOrder = page.getSegmentationResult().getReadingOrder();
@@ -91,26 +115,26 @@ public class PageXMLWriter {
 		allRegions.removeAll(readingOrder);
 
 		for (ResultRegion region : readingOrder) {
-			addRegion(document, pageElement, page, region, regionCnt);
+			addRegion(document, pageElement, page, region, regionCnt, useXML2010);
 			regionCnt++;
 		}
 
 		for (ResultRegion region : allRegions) {
-			addRegion(document, pageElement, page, region, regionCnt);
+			addRegion(document, pageElement, page, region, regionCnt, useXML2010);
 			regionCnt++;
 		}
 	}
 
 	public static void writePageXML(Page page, String outputFolder, boolean tempResult) {
 		Document pageXML = getPageXML(page);
-		if(pageXML != null){
+		if (pageXML != null) {
 			saveDocument(pageXML, page.getFileName(), outputFolder);
 		}
 	}
-	
+
 	/**
-	 *  Get a pageXML document out of a page
-	 *  
+	 * Get a pageXML document out of a page
+	 * 
 	 * @param page
 	 * @param outputFolder
 	 * @param tempResult
@@ -121,7 +145,6 @@ public class PageXMLWriter {
 			DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
 			Document document = docBuilder.newDocument();
-			
 
 			Element rootElement = document.createElement("PcGts");
 			rootElement.setAttribute("xmlns", "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15");
@@ -177,16 +200,16 @@ public class PageXMLWriter {
 					orderedGroupElement.appendChild(regionRefElement);
 				}
 			}
-			
-			addRegions(document, pageElement, page);
-			
+
+			addRegions(document, pageElement, page,true);
+
 			return document;
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		return null;
 	}
-	
+
 	/**
 	 * Save a document in a outputFolder
 	 * 
@@ -195,7 +218,7 @@ public class PageXMLWriter {
 	 * @param outputFolder
 	 */
 	public static void saveDocument(Document document, String fileName, String outputFolder) {
-		try{
+		try {
 			// write content into xml file
 			TransformerFactory transformerFactory = TransformerFactory.newInstance();
 			Transformer transformer = transformerFactory.newTransformer();
@@ -213,10 +236,10 @@ public class PageXMLWriter {
 
 			StreamResult result = new StreamResult(new File(outputPath));
 			transformer.transform(source, result);
-			
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 }

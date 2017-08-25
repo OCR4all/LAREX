@@ -8,6 +8,7 @@ import com.web.communication.ExportRequest;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
+import com.web.model.Page;
 import com.web.model.Polygon;
 
 /**
@@ -44,5 +45,11 @@ public interface IFacade {
 	public void prepareExport(ExportRequest exportRequest);
 
 	public ResponseEntity<byte[]> getPageXML();
+	
+	public void prepareSettings(BookSettings settings);
+	
+	public ResponseEntity<byte[]> getSettingsXML();
+		
+	public BookSettings readSettings(byte[] settingsFile);
 
 }

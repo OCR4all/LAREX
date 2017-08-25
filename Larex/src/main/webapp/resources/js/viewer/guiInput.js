@@ -5,11 +5,13 @@ function GuiInput(navigationController, controller, gui){
 
 	$(window).click(function() {
 		//Cancel viewer actions, if outside of viewer or a menu icon
-		$target = $(event.target);
-		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
-		&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
-			_controller.escape();
-    }
+		if(event){
+			$target = $(event.target);
+			if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
+			&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
+				_controller.escape();
+	    }
+		}
 	});
 
 	// button registration
@@ -29,6 +31,23 @@ function GuiInput(navigationController, controller, gui){
 	$('.downloadPageXML').click(function() {
 		_controller.downloadPageXML();
 	});
+	$('.saveSettingsXML').click(function() {
+		_controller.saveSettingsXML();
+	});
+	$('.downloadSettingsXML').click(function() {
+		_controller.downloadSettingsXML();
+	});
+	$(':file').on('change', function() {
+    var file = this.files[0];
+		$(this).val("");
+		if(file){
+			if (file.size < 1024*1024) {
+				_controller.uploadSettings(file);
+			}else{
+				alert('max upload size is 1MB')
+	    }
+		}
+  });
 	$('.reload').click(function() {
 		location.reload();
 	});

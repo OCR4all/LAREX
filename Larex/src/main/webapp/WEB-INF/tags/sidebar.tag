@@ -5,6 +5,33 @@
 	<ul class="collapsible row" data-collapsible="accordion">
 		<li>
 			<div class="collapsible-header">
+				<i class="material-icons">import_export</i>
+				<span>
+					Settings
+				</span>
+			</div>
+			<div id="import-export-settings" class="collapsible-body">
+				<a class="col s9 waves-effect waves-light btn saveSettingsXML">
+					Save Settings
+					<div class="progress hide">
+			    		<div class="indeterminate"></div>
+					</div>       
+				</a>
+				
+				
+				<a class="col s3 waves-effect waves-light btn downloadSettingsXML disabled">
+					<i class="material-icons">file_download</i>
+				</a>
+				<form action="#">
+					<div class="btn col s12" onclick="$('#upload-input').click()">
+						Load Settings
+						<i class="material-icons right">file_upload</i></div>
+					<input id="upload-input" class="uploadSettings hide" type="file">
+				</form>
+			</div>
+		</li>
+		<li>
+			<div class="collapsible-header">
 				<i class="material-icons">dashboard</i>
 				<span>
 					Regions
@@ -95,10 +122,11 @@
 					</div>
 				</div>
 			</div>
+		</li>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	
-	<a class="col s12 waves-effect waves-light btn exportPageXML">
+	<a class="col s9 waves-effect waves-light btn exportPageXML">
 		Save Result
 		<div class="progress hide">
     		<div class="indeterminate"></div>
@@ -106,7 +134,7 @@
 	</a>
 	
 	
-	<a class="col s12 waves-effect waves-light btn downloadPageXML disabled">
-		Export to PageXML     
+	<a class="col s3 waves-effect waves-light btn downloadPageXML disabled">
+		<i class="material-icons">file_download</i>
 	</a>
 </div>

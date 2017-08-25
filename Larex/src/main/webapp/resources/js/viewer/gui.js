@@ -235,4 +235,18 @@ function GUI(canvas, viewer) {
 			$('.exportPageXML').find('.progress').addClass('hide');
 		}
 	}
+	this.setSettingsDownloadable = function(isDownloadble){
+		if(isDownloadble){
+			$('.downloadSettingsXML').removeClass('disabled');
+		}else{
+			$('.downloadSettingsXML').addClass('disabled');
+		}
+	}
+	this.setSaveSettingsInProgress = function(isInProgress){
+		if(isInProgress){
+			$('.saveSettingsXML').find('.progress').removeClass('hide');
+		}else{
+			$('.saveSettingsXML').find('.progress').addClass('hide');
+		}
+	}
 }
