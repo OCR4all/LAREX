@@ -122,7 +122,7 @@ function ActionAddRegion(id,points,type,editor,settings,page, controller){
 			if(_controller != null){
 				_controller.hideRegion(_region.type,false);
 			}
-			console.log('Do - Add Region Polygon: {"id":"'+_region.id+'","points":'+_region.points+',"type":"'+_region.type+'"}');
+			console.log('Do - Add Region Polygon: {"id":"'+_region.id+'","points":[..],"type":"'+_region.type+'"}');
 		}
 	}
 	this.undo = function(){
@@ -130,7 +130,7 @@ function ActionAddRegion(id,points,type,editor,settings,page, controller){
 			_isExecuted = false;
 			delete _settings.regions[type].polygons[_region.id];
 			_editor.removeRegion(_region.id);
-			console.log('Undo - Add Region Polygon: {"id":"'+_region.id+'","points":'+_region.points+',"type":"'+_region.type+'"}');
+			console.log('Undo - Add Region Polygon: {"id":"'+_region.id+'","points":[..],"type":"'+_region.type+'"}');
 		}
 	}
 }
@@ -149,7 +149,7 @@ function ActionRemoveRegion(regionPolygon,editor,settings,page,controller){
 
 			delete _settings.regions[_region.type].polygons[_region.id];
 			_editor.removeRegion(_region.id);
-			console.log('Do - Remove Region Polygon: {"id":"'+_region.id+'","points":'+_region.points+',"type":"'+_region.type+'"}');
+			console.log('Do - Remove Region Polygon: {"id":"'+_region.id+'","points":[..],"type":"'+_region.type+'"}');
 		}
 	}
 	this.undo = function(){
@@ -160,7 +160,7 @@ function ActionRemoveRegion(regionPolygon,editor,settings,page,controller){
 			if(_controller != null){
 				_controller.hideRegion(_region.type,false);
 			}
-			console.log('Undo - Remove Region Polygon: {"id":"'+_region.id+'","points":'+_region.points+',"type":"'+_region.type+'"}');
+			console.log('Undo - Remove Region Polygon: {"id":"'+_region.id+'","points":[..],"type":"'+_region.type+'"}');
 		}
 	}
 }
@@ -224,7 +224,7 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,_exportSettin
 					return value != _segment.id;
 				});
 			}
-			console.log('Do - Add Region Polygon: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
+			console.log('Do - Add Region Polygon: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
 	}
 	this.undo = function(){
@@ -235,7 +235,7 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,_exportSettin
 			if(_exportSettings){
 				_exportSettings[_page].segmentsToIgnore.push(_segment.id);
 			}
-			console.log('Undo - Add Region Polygon: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
+			console.log('Undo - Add Region Polygon: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
 	}
 }
@@ -258,7 +258,7 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings){
 			if(_exportSettings){
 				_exportSettings[_page].segmentsToIgnore.push(_segment.id);
 			}
-			console.log('Do - Remove: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
+			console.log('Do - Remove: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
 	}
 	this.undo = function(){
@@ -272,7 +272,7 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings){
 					return value != _segment.id;
 				});
 			}
-			console.log('Undo - Remove: {"id":"'+_segment.id+'","points":'+_segment.points+',"type":"'+_segment.type+'"}');
+			console.log('Undo - Remove: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
 	}
 }
@@ -289,7 +289,7 @@ function ActionAddCut(id,points,editor,settings,page){
 			_isExecuted = true;
 			_settings.pages[page].cuts[_cut.id] = _cut;
 			_editor.addLine(_cut);
-			console.log('Do - Add Cut: {"id":"'+_cut.id+'","points":'+_cut.points+'"}');
+			console.log('Do - Add Cut: {"id":"'+_cut.id+'","points":[..]"}');
 		}
 	}
 	this.undo = function(){
@@ -297,7 +297,7 @@ function ActionAddCut(id,points,editor,settings,page){
 			_isExecuted = false;
 			delete _settings.pages[page].cuts[_cut.id];
 			_editor.removeLine(_cut.id);
-			console.log('Undo - Add Cut: {"id":"'+_cut.id+'","points":'+_cut.points+'"}');
+			console.log('Undo - Add Cut: {"id":"'+_cut.id+'","points":[..]"}');
 		}
 	}
 }
@@ -315,7 +315,7 @@ function ActionRemoveCut(cut,editor,settings,page){
 
 			delete _settings.pages[_page].cuts[_cut.id];
 			_editor.removeSegment(_cut.id);
-			console.log('Do - Remove Cut: {"id":"'+_cut.id+'","points":'+_cut.points+',"type":"'+_cut.type+'"}');
+			console.log('Do - Remove Cut: {"id":"'+_cut.id+'","points":[..],"type":"'+_cut.type+'"}');
 		}
 	}
 	this.undo = function(){
@@ -324,7 +324,7 @@ function ActionRemoveCut(cut,editor,settings,page){
 
 			_settings.pages[_page].cuts[_cut.id] = JSON.parse(JSON.stringify(_cut));
 			_editor.addLine(_cut);
-			console.log('Undo - Remove Cut: {"id":"'+_cut.id+'","points":'+_cut.points+',"type":"'+_cut.type+'"}');
+			console.log('Undo - Remove Cut: {"id":"'+_cut.id+'","points":[..],"type":"'+_cut.type+'"}');
 		}
 	}
 }
