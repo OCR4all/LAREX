@@ -267,7 +267,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 				_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
 
 				_thisController.displayPage(_currentPage);
-				_thisController.hideAllRegions(false);
+				_thisController.hideAllRegions(true);
 				_gui.forceUpdateRegionHide(_visibleRegions);
 				_actions = [];
 			}
