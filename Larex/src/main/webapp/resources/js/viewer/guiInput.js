@@ -95,6 +95,22 @@ function GuiInput(navigationController, controller, gui){
 		_controller.createCut();
 	});
 
+	$('.combineSelected').click(function() {
+		_controller.mergeSelectedSegments();
+	});
+
+	$('.scaleSelected').click(function() {
+		_controller.scaleSelected();
+	});
+
+	$('.moveSelected').click(function() {
+		_controller.moveSelected();
+	});
+
+	$('.deleteSelected').click(function() {
+		_controller.deleteSelected();
+	});
+	
 	$('.editMode').click(function() {
 		//TODO
 		_controller.editLastSelected();

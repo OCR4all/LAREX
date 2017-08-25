@@ -136,6 +136,14 @@
 						<t:menuIcon jsClass="redo" icon="redo"
 							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 						<div class="menuIconDivider col"></div>
+						<t:menuIcon jsClass="deleteSelected" icon="delete"
+							tooltip="Delete selected items (Shortcut: DEL)">Delete</t:menuIcon>
+						<t:menuIcon jsClass="moveSelected" icon="open_with"
+							tooltip="Move selected items (Shortcut: M)">Move</t:menuIcon>
+						<t:menuIcon jsClass="scaleSelected" icon="photo_size_select_small"
+							tooltip="Scale selected items (Shortcut: S)">Scale</t:menuIcon>
+						<t:menuIcon jsClass="combineSelected" icon="add_circle"
+							tooltip="Combine selected Segments (Shortcut: C)">Combine</t:menuIcon>
 					</div>
 				</div>
 			</div>
