@@ -17,7 +17,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _exportSettings = {};
 	var _currentPageDownloadable = false;
 	var	_currentSettingsDownloadable = false;
-
+	var _pageXMLVersion = "2010-03-19";
 	var _gridIsActive = false;
 
 	var _thisController = this;
@@ -212,9 +212,13 @@ function Controller(bookID, canvasID, specifiedColors) {
 		});
 	}
 
+	this.setPageXMLVersion = function(pageXMLVersion){
+		_pageXMLVersion = pageXMLVersion;
+	}
+
 	this.downloadPageXML = function(){
 		if(_currentPageDownloadable){
-			window.open("exportXML");
+			window.open("exportXML?version="+_pageXMLVersion);
 		}
 		_gui.highlightExportedPage(_currentPage);
 	}

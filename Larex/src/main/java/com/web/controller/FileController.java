@@ -43,8 +43,8 @@ public class FileController {
 	}
 	
 	@RequestMapping(value = "/exportXML")//, method = RequestMethod.GET)//, headers = "Accept=*/*", consumes = "application/json"*/)
-	public @ResponseBody ResponseEntity<byte[]> exportXML() {
-	    return facade.getPageXML();
+	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("version") String version) {
+	    return facade.getPageXML(version);
 	}
 	
 	@RequestMapping(value = "/saveSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")

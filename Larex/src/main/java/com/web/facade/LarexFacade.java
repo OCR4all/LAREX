@@ -198,9 +198,9 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public ResponseEntity<byte[]> getPageXML() {
+	public ResponseEntity<byte[]> getPageXML(String version) {
 		if (exportPage != null) {
-			Document document = PageXMLWriter.getPageXML(exportPage);
+			Document document = PageXMLWriter.getPageXML(exportPage, version);
 			return convertDocumentToByte(document,exportPage.getFileName());
 		} else {
 			// TODO Error

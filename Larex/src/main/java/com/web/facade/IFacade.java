@@ -44,7 +44,7 @@ public interface IFacade {
 	//TODO Change to different class? (for low coupling
 	public void prepareExport(ExportRequest exportRequest);
 
-	public ResponseEntity<byte[]> getPageXML();
+	public ResponseEntity<byte[]> getPageXML(String version);
 	
 	public void prepareSettings(BookSettings settings);
 	

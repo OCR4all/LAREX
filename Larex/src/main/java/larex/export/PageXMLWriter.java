@@ -31,7 +31,7 @@ public class PageXMLWriter {
 	 * @param pointMat
 	 * @param scaleFactor
 	 */
-	public static void addPoints(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
+	public static void addPoints2013(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
 		Point[] points = pointMat.toArray();
 		String pointCoords = "";
 
@@ -58,7 +58,7 @@ public class PageXMLWriter {
 	 * @param pointMat
 	 * @param scaleFactor
 	 */
-	public static void addPointsOld(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
+	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
 		Point[] points = pointMat.toArray();
 
 		if (scaleFactor == 0) {
@@ -74,40 +74,34 @@ public class PageXMLWriter {
 	}
 
 	public static void addRegion(Document document, Element pageElement, Page page, ResultRegion region, int regionCnt,
-			boolean useXML2010) {
+			String pageXMLVersion) {
 		Element regionElement = null;
 		String regionType = region.getType().toString().toLowerCase();
 		regionType = regionType.replace("_", "-");
 
 		if (regionType.equals("image")) {
 			regionElement = document.createElement("ImageRegion");
-			regionElement.setAttribute("id", "r" + regionCnt);
-
-			Element coordsElement = document.createElement("Coords");
-			if (useXML2010) {
-				addPointsOld(document, coordsElement, region.getPoints(), page.getScaleFactor());
-			} else {
-				addPoints(document, coordsElement, region.getPoints(), page.getScaleFactor());
-			}
-			regionElement.appendChild(coordsElement);
-			pageElement.appendChild(regionElement);
 		} else {
 			regionElement = document.createElement("TextRegion");
 			regionElement.setAttribute("type", regionType);
-			regionElement.setAttribute("id", "r" + regionCnt);
-
-			Element coordsElement = document.createElement("Coords");
-			if (useXML2010) {
-				addPointsOld(document, coordsElement, region.getPoints(), page.getScaleFactor());
-			} else {
-				addPoints(document, coordsElement, region.getPoints(), page.getScaleFactor());
-			}
-			regionElement.appendChild(coordsElement);
-			pageElement.appendChild(regionElement);
 		}
+
+		regionElement.setAttribute("id", "r" + regionCnt);
+		Element coordsElement = document.createElement("Coords");
+		switch(pageXMLVersion){
+		case "2013-07-15":
+			addPoints2013(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			break;
+		case "2010-03-19":
+		default:
+			addPoints2010(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			break;
+		}
+		regionElement.appendChild(coordsElement);
+		pageElement.appendChild(regionElement);
 	}
 
-	public static void addRegions(Document document, Element pageElement, Page page, boolean useXML2010) {
+	public static void addRegions(Document document, Element pageElement, Page page, String pageXMLVersion) {
 		int regionCnt = 0;
 
 		ArrayList<ResultRegion> readingOrder = page.getSegmentationResult().getReadingOrder();
@@ -115,18 +109,18 @@ public class PageXMLWriter {
 		allRegions.removeAll(readingOrder);
 
 		for (ResultRegion region : readingOrder) {
-			addRegion(document, pageElement, page, region, regionCnt, useXML2010);
+			addRegion(document, pageElement, page, region, regionCnt, pageXMLVersion);
 			regionCnt++;
 		}
 
 		for (ResultRegion region : allRegions) {
-			addRegion(document, pageElement, page, region, regionCnt, useXML2010);
+			addRegion(document, pageElement, page, region, regionCnt, pageXMLVersion);
 			regionCnt++;
 		}
 	}
 
-	public static void writePageXML(Page page, String outputFolder, boolean tempResult) {
-		Document pageXML = getPageXML(page);
+	public static void writePageXML(Page page, String outputFolder, String pageXMLVersion) {
+		Document pageXML = getPageXML(page, pageXMLVersion);
 		if (pageXML != null) {
 			saveDocument(pageXML, page.getFileName(), outputFolder);
 		}
@@ -140,17 +134,20 @@ public class PageXMLWriter {
 	 * @param tempResult
 	 * @return pageXML document or null if parse error
 	 */
-	public static Document getPageXML(Page page) {
+	public static Document getPageXML(Page page, String pageXMLVersion) {
+		if(!pageXMLVersion.equals("2013-07-15") && !pageXMLVersion.equals("2010-03-19")){
+			pageXMLVersion = "2010-03-19";
+		}
 		try {
 			DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
 			Document document = docBuilder.newDocument();
 
 			Element rootElement = document.createElement("PcGts");
-			rootElement.setAttribute("xmlns", "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15");
+			rootElement.setAttribute("xmlns", "http://schema.primaresearch.org/PAGE/gts/pagecontent/"+pageXMLVersion);
 			rootElement.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
 			rootElement.setAttribute("xsi:schemaLocation",
-					"http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd");
+					"http://schema.primaresearch.org/PAGE/gts/pagecontent/"+pageXMLVersion+" http://schema.primaresearch.org/PAGE/gts/pagecontent/"+pageXMLVersion+"/pagecontent.xsd");
 
 			document.appendChild(rootElement);
 
@@ -201,7 +198,7 @@ public class PageXMLWriter {
 				}
 			}
 
-			addRegions(document, pageElement, page,true);
+			addRegions(document, pageElement, page, pageXMLVersion);
 
 			return document;
 		} catch (Exception e) {
