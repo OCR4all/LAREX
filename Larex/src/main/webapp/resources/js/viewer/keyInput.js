@@ -28,7 +28,11 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 32: // space
-				_navigationController.zoomFit();
+				if (!event.ctrlKey) {
+					_navigationController.zoomFit();
+				}else{
+					_controller.doSegmentation()
+				}
 				validKey = true;
 				break;
 			case 187: // +
