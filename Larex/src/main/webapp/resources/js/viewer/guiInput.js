@@ -31,6 +31,10 @@ function GuiInput(navigationController, controller, gui){
 	$('.downloadPageXML').click(function() {
 		_controller.downloadPageXML();
 	});
+	$('.pageXMLVersion').click(function() {
+		var version = $(this).data(version).version;
+		_controller.setPageXMLVersion(version);
+	});
 	$('.saveSettingsXML').click(function() {
 		_controller.saveSettingsXML();
 	});
@@ -110,7 +114,7 @@ function GuiInput(navigationController, controller, gui){
 	$('.deleteSelected').click(function() {
 		_controller.deleteSelected();
 	});
-	
+
 	$('.editMode').click(function() {
 		//TODO
 		_controller.editLastSelected();

@@ -213,6 +213,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.setPageXMLVersion = function(pageXMLVersion){
+		console.log(pageXMLVersion);
 		_pageXMLVersion = pageXMLVersion;
 	}
 
