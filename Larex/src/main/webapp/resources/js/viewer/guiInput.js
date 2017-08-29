@@ -33,7 +33,13 @@ function GuiInput(navigationController, controller, gui){
 	});
 	$('.pageXMLVersion').click(function() {
 		var version = $(this).data(version).version;
+		_gui.setPageXMLVersion(version);
+		$('#dropDownPageXML').dropdown('close');
 		_controller.setPageXMLVersion(version);
+	});
+	$('#dropDownPageXMLCorner').click(function(event) {
+    event.stopPropagation();
+		$('#dropDownPageXML').dropdown('open');
 	});
 	$('.saveSettingsXML').click(function() {
 		_controller.saveSettingsXML();

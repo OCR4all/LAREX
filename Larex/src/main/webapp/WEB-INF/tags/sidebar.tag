@@ -135,9 +135,11 @@
 	
 	
 	<a class="col s3 waves-effect waves-light btn downloadPageXML disabled">
+		<span id="pageXMLVersion">version</span>
 		<i class="material-icons">file_download</i>
+		<div id="dropDownPageXMLCorner"></div>
 	</a>
-	<a class='dropdown-button btn' href='#' data-activates='dropdownPageXMLVersion'>Version</a>
+	<div id="dropDownPageXML" href="#!"class='dropdown-button' data-activates='dropdownPageXMLVersion'></div>
 	<ul id='dropdownPageXMLVersion' class='dropdown-content'>
 		<li><a class="pageXMLVersion" data-version="2010-03-19">2010-03-19</a></li>
 		<li><a class="pageXMLVersion" data-version="2013-07-15">2013-07-15</a></li>

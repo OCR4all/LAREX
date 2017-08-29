@@ -69,6 +69,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 							_gui.setRegionLegendColors(_segmentationtypes);
 							_gui.highlightSegmentedPages(_segmentedPages);
 
+							_gui.setPageXMLVersion(_pageXMLVersion);
+
 							navigationController.setGUI(_gui);
 							navigationController.setViewer(_editor);
 							// setup paper again because of pre-resize bug
@@ -93,6 +95,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 								_gui.resizeViewerHeight();
 							});
 						});
+
 			});
 
 	this.displayPage = function(pageNr) {

@@ -235,6 +235,9 @@ function GUI(canvas, viewer) {
 			$('.exportPageXML').find('.progress').addClass('hide');
 		}
 	}
+	this.setPageXMLVersion = function(version){
+		$('#pageXMLVersion').text(version);
+	}
 	this.setSettingsDownloadable = function(isDownloadble){
 		if(isDownloadble){
 			$('.downloadSettingsXML').removeClass('disabled');

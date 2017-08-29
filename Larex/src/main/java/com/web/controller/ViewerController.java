@@ -71,7 +71,7 @@ public class ViewerController {
 		model.addAttribute("segmenttypes", getSegmentTypes());
 		model.addAttribute("imageSegTypes",getImageSegmentTypes());
 		model.addAttribute("bookPath", fileManager.getWebBooksPath());
-		
+			
 		return "editor";
 	}
 

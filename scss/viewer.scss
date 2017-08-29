@@ -359,6 +359,7 @@ body{
 }
 
 .btn{
+  overflow: hidden;
   .progress{
     position: absolute;
     bottom: 0;
@@ -366,4 +367,41 @@ body{
     margin: 0;
     pagging: 0;
   }
+}
+.downloadPageXML{
+  &.disabled {
+    pointer-events: auto !important;
+    #dropDownPageXMLCorner{
+      background-color: grey !important;
+    }
+    #pageXMLVersion{
+      color: grey !important;
+    }
+  }
+  #dropDownPageXMLCorner{
+    pointer-events: auto !important;
+    cursor: pointer;
+    background-color: white;
+    height:30px;
+    width:30px;
+    position: absolute;
+    right: -15px;
+    bottom: -15px;
+    transform: rotate(45deg);
+  }
+  #pageXMLVersion{
+    color: white;
+    padding: 0px !important;
+    margin: 0px !important;
+    height: 9px !important;
+    line-height: 110%;
+    font-size: 8px !important;
+    position: absolute !important;
+    top: 0px !important;
+    right: 0px !important;
+  }
+}
+#dropDownPageXML{
+  width: 100%;
+  height: 1px;
 }
