@@ -5,12 +5,10 @@ function GuiInput(navigationController, controller, gui){
 
 	$(window).click(function() {
 		//Cancel viewer actions, if outside of viewer or a menu icon
-		if(event){
-			$target = $(event.target);
-			if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
-			&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
-				_controller.escape();
-	    }
+		$target = $(event.target);
+		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
+		&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
+			_controller.escape();
 		}
 	});
 

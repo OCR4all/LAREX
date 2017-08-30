@@ -130,7 +130,7 @@ function GUI(canvas, viewer) {
 			$('#regioneditorSelect').addClass('hide');
 			$('.regionSetting').removeClass('hide');
 			$('#regioneditorSave').removeClass('hide');
-			if(regionType != 'image'){
+			if(regionType != 'image' && regionType != 'paragraph'){
 				$('.regionDelete').removeClass('hide');
 			}else{
 				$('.regionDelete').addClass('hide');

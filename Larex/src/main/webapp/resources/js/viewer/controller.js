@@ -188,7 +188,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 	var requestSegmentation = function(pages){
 		_thisController.showPreloader(true);
-		if(pages == null){
+		if(!pages){
 				pages = [_currentPage];
 		}
 
@@ -440,7 +440,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 	this.changeTypeSelected = function(newType) {
 		var selectedlength = _selected.length;
-		if(selectedlength != null || selectedlength > 0){
+		if(selectedlength || selectedlength > 0){
 			var actions = [];
 			for (var i = 0, selectedlength; i < selectedlength; i++) {
 				if(_selectType === "region"){
@@ -449,7 +449,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 					_thisController.hideRegion(newType,false);
 				} else if(_selectType === "segment"){
-					var isFixedSegment = (_settings.pages[_currentPage].segments[_selected[i]] != null);
+					var isFixedSegment = (_settings.pages[_currentPage].segments[_selected[i]]);
 					if(isFixedSegment){
 						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _settings, _currentPage));
 					}else{
@@ -619,7 +619,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 	this.openRegionSettings = function(regionType,doCreate){
 		var region = _settings.regions[regionType];
-		if(region == null){
+		if(!region){
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate);
@@ -684,7 +684,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		}
 	}
 	this.isSegmentSelected = function(segmentID){
-		if(_selected && $.inArray(segmentID, _selected) > -1){
+		if(_selected && $.inArray(segmentID, _selected) >= 0){
 			return true;
 		}else{
 			return false;
@@ -762,7 +762,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 	this.changeRegionSettings = function(regionType,minSize, maxOccurances){
 		var region = _settings.regions[regionType];
 		//create Region if not present
-		if(region == null){
+		if(!region){
 			region = {};
 			region.type = regionType;
 			region.polygons = {};
@@ -774,7 +774,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		region.maxOccurances = maxOccurances;
 	}
 	this.deleteRegionSettings = function(regionType){
-		if($.inArray(regionType, _presentRegions) > 0 && regionType != 'image'){
+		if($.inArray(regionType, _presentRegions) >= 0 && regionType != 'image' && regionType != 'paragraph'){
 			addAndExecuteAction(new ActionRemoveCompleteRegion(regionType,_thisController,_editor,_settings,_thisController));
 		}
 	}
@@ -789,7 +789,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		_editor.movePoint(delta);
 	}
 	this.openContextMenu = function(doSelected,id){
-		if(doSelected && _selected != null && _selected.length > 0 && (_selectType === 'region' || _selectType === "fixed" || _selectType === "segment")){
+		if(doSelected && _selected && _selected.length > 0 && (_selectType === 'region' || _selectType === "fixed" || _selectType === "segment")){
 			_gui.openContextMenu(doSelected, id);
 		} else {
 			var polygonType = getPolygonMainType(id);
@@ -829,7 +829,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 			var region = _settings.regions[key];
 
 			var polygon = region.polygons[id];
-			if(!(polygon == null || polygon == undefined)){
+			if(polygon){
 				regionPolygon = polygon;
 				return true;
 			}
@@ -839,22 +839,22 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 	var getPolygonMainType = function(polygonID){
 		var polygon = _settings.pages[_currentPage].segments[polygonID];
-		if(polygon != null){
+		if(polygon){
 			return "fixed";
 		}
 
 		polygon = _segmentation.pages[_currentPage].segments[polygonID];
-		if(polygon != null){
+		if(polygon){
 			return "result";
 		}
 
 		polygon = getRegionByID(polygonID);
-		if(polygon != null){
+		if(polygon){
 			return "region";
 		}
 
 		polygon = _settings.pages[_currentPage].cuts[polygonID];
-		if(polygon != null){
+		if(polygon){
 			return "cut";
 		}
 	}
