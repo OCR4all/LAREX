@@ -112,6 +112,15 @@ function GUI(canvas, viewer) {
 				$(this).addClass('hide');
 			}
 		});
+		$('.regioneditorSelectItem').each(function() {
+			var legendType = $(this).data('type');
+
+			if($.inArray(legendType, presentRegions) > -1){
+				$(this).addClass('hide');
+			}else{
+				$(this).removeClass('hide');
+			}
+		});
 	}
 
 	this.openRegionSettings = function(regionType,minSize,maxOccurances,priorityPosition,doCreate){

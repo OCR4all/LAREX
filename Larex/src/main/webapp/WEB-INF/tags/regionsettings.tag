@@ -9,7 +9,7 @@
 		<div id="regioneditorSelect" class="select-regions hide">
 			<ul class="collection highlight">
 				<c:forEach var="type" items="${segmenttypes}">
-					<li class="collection-item" data-type="${type.key}">
+					<li class="collection-item regioneditorSelectItem" data-type="${type.key}">
 						<div class="legendicon ${type.key}"></div>${type.key}
 					</li>
 				</c:forEach>
