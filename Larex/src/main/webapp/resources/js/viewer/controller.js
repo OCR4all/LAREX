@@ -774,7 +774,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		region.maxOccurances = maxOccurances;
 	}
 	this.deleteRegionSettings = function(regionType){
-		if($.inArray(regionType, _presentRegions) > 0){
+		if($.inArray(regionType, _presentRegions) > 0 && regionType != 'image'){
 			addAndExecuteAction(new ActionRemoveCompleteRegion(regionType,_thisController,_editor,_settings,_thisController));
 		}
 	}

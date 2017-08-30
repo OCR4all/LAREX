@@ -130,7 +130,11 @@ function GUI(canvas, viewer) {
 			$('#regioneditorSelect').addClass('hide');
 			$('.regionSetting').removeClass('hide');
 			$('#regioneditorSave').removeClass('hide');
-			$('.regionDelete').removeClass('hide');
+			if(regionType != 'image'){
+				$('.regionDelete').removeClass('hide');
+			}else{
+				$('.regionDelete').addClass('hide');
+			}
 		}
 		//$('#regioneditor').modal('open');
 		$settingsOffset = $('#sidebarRegions').offset();
