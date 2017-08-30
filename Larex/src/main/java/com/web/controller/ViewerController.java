@@ -2,15 +2,15 @@ package com.web.controller;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import javax.servlet.ServletContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.web.communication.ExportRequest;
 import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
 import com.web.communication.SegmentationResult;
@@ -29,8 +28,8 @@ import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
 import com.web.model.Polygon;
-import com.web.model.database.IDatabase;
 import com.web.model.database.FileDatabase;
+import com.web.model.database.IDatabase;
 
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.ImageSegType;
@@ -116,7 +115,14 @@ public class ViewerController {
 	}
 
 	private Map<RegionType, Integer> getSegmentTypes() {
-		Map<RegionType, Integer> segmentTypes = new HashMap<RegionType, Integer>();
+		//Comparator<RegionType> compareAlphabetically = (RegionType o1, RegionType o2)->o1.toString().compareTo(o2.toString());
+		Comparator<RegionType> compareAlphabetically = new Comparator<RegionType>() {
+			@Override
+			public int compare(RegionType o1, RegionType o2) {
+				return o1.toString().toLowerCase().compareTo(o2.toString().toLowerCase());
+			}
+		};
+		Map<RegionType, Integer> segmentTypes = new TreeMap<RegionType, Integer>(compareAlphabetically);
 
 		int i = 0;
 		for (RegionType type : RegionType.values()) {
@@ -127,7 +133,8 @@ public class ViewerController {
 	}
 	
 	private Map<ImageSegType, String> getImageSegmentTypes() {
-		Map<ImageSegType, String> segmentTypes = new HashMap<ImageSegType, String>();
+		//Comparator<ImageSegType> compareAlphabetically = (ImageSegType o1, ImageSegType o2)->o1.toString().compareTo(o2.toString());
+		Map<ImageSegType, String> segmentTypes = new TreeMap<ImageSegType, String>();
 		segmentTypes.put(ImageSegType.NONE, "None");
 		segmentTypes.put(ImageSegType.CONTOUR_ONLY, "Contour only");
 		segmentTypes.put(ImageSegType.STRAIGHT_RECT, "Straight rectangle");
