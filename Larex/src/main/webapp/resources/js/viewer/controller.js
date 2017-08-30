@@ -1,4 +1,4 @@
-function Controller(bookID, canvasID, specifiedColors) {
+function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _bookID = bookID;
 	var _communicator = new Communicator();
 	var _gui;
@@ -28,6 +28,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
 
 	var _newPathCounter = 0;
+	var _specifiedColors = specifiedColors;
+	var _colors = colors;
 
 	// main method
 	$(window).ready(function() {
@@ -58,7 +60,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 							// Inheritance Editor extends Viewer
 							_editor = new Editor(new Viewer(
-									_segmentationtypes, viewerInput,specifiedColors),
+									_segmentationtypes, viewerInput,specifiedColors,colors),
 									_thisController);
 
 							_gui = new GUI(canvasID, _editor);
@@ -80,7 +82,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 							_thisController.displayPage(0);
 
 							_thisController.showPreloader(false);
-
+							console.log(_thisController.getAviableColorIndexes());
 							// Init inputs
 							var keyInput = new KeyInput(navigationController,
 									_thisController, _gui);
@@ -623,6 +625,23 @@ function Controller(bookID, canvasID, specifiedColors) {
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate);
+	}
+
+	this.setRegionColor = function(regionType,colorIndex){
+		_specifiedColors[regionType] = _colors[colorIndex];
+	}
+
+	this.getAviableColorIndexes = function(){
+		var freeColorIndexes = Array.apply(null, {length: _colors.length}).map(Number.call, Number);
+
+		for (var regionType in _specifiedColors) {
+			var index = _colors.indexOf(_specifiedColors[regionType]);
+			console.log(index,_specifiedColors[regionType]);
+			if (index > -1) {
+		    freeColorIndexes.splice(index, 1);
+			}
+		}
+		return freeColorIndexes;
 	}
 
 	this.changeImageMode = function(imageMode){

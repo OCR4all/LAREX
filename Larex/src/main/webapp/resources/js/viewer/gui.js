@@ -127,7 +127,6 @@ function GUI(canvas, viewer) {
 		$('#regionType').text(regionType);
 		$('#regionMinSize').val(minSize);
 		$('#regionMaxOccurances').val(maxOccurances);
-		//TODO color	$('#regionTypeLegendIcon').css("background-color", getColor(regionType).toCSS());
 		if(doCreate != null && doCreate == true){
 			$('#regionType').addClass('hide');
 			$('#regioneditorSelect').removeClass('hide');

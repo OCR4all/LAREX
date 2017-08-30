@@ -292,7 +292,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	this.getColor = function(segmentType){
 		var color = _specifiedColors[segmentType];
 
-		if(color != null){
+		if(color){
 			return color;
 		}else{
 			var id = _segmenttypes[segmentType]
