@@ -1,4 +1,4 @@
-function Viewer(segmenttypes, viewerInput, specifiedColors) {
+function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 	var _segmenttypes = segmenttypes;
 	var _viewerInput = viewerInput;
 	var _imageid;
@@ -6,6 +6,7 @@ function Viewer(segmenttypes, viewerInput, specifiedColors) {
 	var _imageCanvas = new paper.Group();
 	var _background;
 	var _currentZoom = 1;
+	var _colors = colors;
 	var _specifiedColors = specifiedColors;
 	var _this = this;
 

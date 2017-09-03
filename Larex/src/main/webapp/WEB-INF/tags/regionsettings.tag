@@ -30,6 +30,15 @@
 					type="number" class="validate" size="4" />
 			</span>
 		</div>
+		<div class="col s12 regionSetting">
+		<div id="regionTypeLegendIcon" class="legendicon"></div>
+			<div class="legendicon regionColorIcon"></div>
+			<span id="regionColor" data-color="">color</span>
+			<div id="regioneditorColorSelect" class="select-regions hide">
+				<ul class="collection highlight">
+				</ul>
+			</div>
+		</div>
 	</div>
 	<a href="#!" id="regioneditorSave"
 		class="waves-effect waves-green btn-flat">Save</a>
