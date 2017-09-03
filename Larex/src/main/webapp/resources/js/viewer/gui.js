@@ -131,6 +131,7 @@ function GUI(canvas, viewer) {
 			$('#regionType').addClass('hide');
 			$('#regioneditorSelect').removeClass('hide');
 			$('#regioneditorColorSelect').addClass('hide');
+			$('.regionColorSettings').addClass('hide');
 			$('.regionSetting').addClass('hide');
 			$('#regioneditorSave').addClass('hide');
 			$('.regionDelete').addClass('hide');
@@ -138,6 +139,7 @@ function GUI(canvas, viewer) {
 			$('#regionType').removeClass('hide');
 			$('#regioneditorSelect').addClass('hide');
 			$('#regioneditorColorSelect').addClass('hide');
+			$('.regionColorSettings').removeClass('hide');
 			$('.regionSetting').removeClass('hide');
 			$('#regioneditorSave').removeClass('hide');
 			if(regionType != 'image' && regionType != 'paragraph'){
@@ -277,12 +279,19 @@ function GUI(canvas, viewer) {
 	}
 	this.setAllRegionColors = function(colors){
 			var $collection = $('#regioneditorColorSelect .collection');
-			colors.forEach(function(color) {
-				var $colorItem = $('<li class="collection-item regioneditorColorSelectItem"></li>');
+			for(var index = 0; index < colors.length; index++){
+				var color = colors[index];
+				var $colorItem = $('<li class="collection-item regioneditorColorSelectItem color'+index+'"></li>');
 				var $icon = $('<div class="legendicon" style="background-color:'+color.toCSS()+';"></div>');
 				$colorItem.data('color',color);
 				$colorItem.append($icon);
 				$collection.append($colorItem);
+			}
+		}
+		this.updateAvailableColors = function(availableColorsIndexes){
+			$('.regioneditorColorSelectItem').addClass("hide");
+			availableColorsIndexes.forEach(function(index) {
+				$('.regioneditorColorSelectItem.color'+index).removeClass("hide");
 			});
 		}
 }

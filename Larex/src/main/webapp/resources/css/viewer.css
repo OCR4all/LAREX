@@ -215,6 +215,14 @@ body {
     #regioneditor #regioneditor-settings #regionType, #regioneditor #regioneditor-settings #regionType * {
       cursor: pointer;
       font-weight: bold; }
+  #regioneditor #regioneditorColorSelect {
+    width: 250px; }
+    #regioneditor #regioneditorColorSelect ul {
+      padding: 0px;
+      margin: 0px; }
+    #regioneditor #regioneditorColorSelect li {
+      padding: 3px 10px !important;
+      min-height: 0px; }
   #regioneditor .select-regions {
     height: 160px;
     overflow-y: scroll; }
@@ -317,5 +325,16 @@ body {
 #dropDownPageXML {
   width: 100%;
   height: 1px; }
+
+.matrixCollection {
+  list-style: none;
+  margin-left: 0;
+  overflow: hidden;
+  /* Clear floats */ }
+  .matrixCollection li {
+    float: left;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box; }
 
 /*# sourceMappingURL=viewer.css.map */

@@ -10,7 +10,7 @@
 			<ul class="collection highlight">
 				<c:forEach var="type" items="${segmenttypes}">
 					<li class="collection-item regioneditorSelectItem" data-type="${type.key}">
-						<div class="legendicon ${type.key}"></div>${type.key}
+						${type.key}
 					</li>
 				</c:forEach>
 			</ul>
@@ -30,12 +30,11 @@
 					type="number" class="validate" size="4" />
 			</span>
 		</div>
-		<div class="col s12 regionSetting">
-		<div id="regionTypeLegendIcon" class="legendicon"></div>
+		<div class="col s12 regionSetting regionColorSettings">
 			<div class="legendicon regionColorIcon"></div>
 			<span id="regionColor" data-color="">color</span>
-			<div id="regioneditorColorSelect" class="select-regions hide">
-				<ul class="collection highlight">
+			<div id="regioneditorColorSelect" class="hide">
+				<ul class="matrixCollection collection highlight">
 				</ul>
 			</div>
 		</div>

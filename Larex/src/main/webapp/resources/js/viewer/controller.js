@@ -74,6 +74,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 							_gui.setPageXMLVersion(_pageXMLVersion);
 
 							_gui.setAllRegionColors(colors);
+							_gui.updateAvailableColors(_thisController.getAvailableColorIndexes());
 
 							navigationController.setGUI(_gui);
 							navigationController.setViewer(_editor);
@@ -625,7 +626,14 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		if(!region){
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
-		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate,_editor.getColor(regionType));
+		var color;
+		if(_specifiedColors[regionType]){
+			color = _specifiedColors[regionType];
+		}else{
+			color = _colors[_thisController.getAvailableColorIndexes()[0]];
+		}
+		
+		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate,color);
 	}
 
 	this.getColor = function(colorID){
@@ -672,6 +680,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			}
 		});
 		_gui.setRegionLegendColors(_segmentationtypes);
+		_gui.updateAvailableColors(_thisController.getAvailableColorIndexes());
 	}
 
 	this.getAvailableColorIndexes = function(){
@@ -820,7 +829,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
-	this.changeRegionSettings = function(regionType,minSize, maxOccurances){
+	this.changeRegionSettings = function(regionType, minSize, maxOccurances){
 		var region = _settings.regions[regionType];
 		//create Region if not present
 		if(!region){
