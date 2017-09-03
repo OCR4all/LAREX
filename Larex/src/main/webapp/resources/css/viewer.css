@@ -215,6 +215,10 @@ body {
     #regioneditor #regioneditor-settings #regionType, #regioneditor #regioneditor-settings #regionType * {
       cursor: pointer;
       font-weight: bold; }
+  #regioneditor #regionColor, #regioneditor .regionColorIcon {
+    cursor: pointer; }
+    #regioneditor #regionColor i, #regioneditor .regionColorIcon i {
+      font-size: 14px; }
   #regioneditor #regioneditorColorSelect {
     width: 250px; }
     #regioneditor #regioneditorColorSelect ul {

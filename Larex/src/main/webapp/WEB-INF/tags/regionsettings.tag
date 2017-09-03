@@ -32,7 +32,7 @@
 		</div>
 		<div class="col s12 regionSetting regionColorSettings">
 			<div class="legendicon regionColorIcon"></div>
-			<span id="regionColor" data-color="">color</span>
+			<span id="regionColor" data-color="">color <i class="material-icons">arrow_drop_down</i></span>
 			<div id="regioneditorColorSelect" class="hide">
 				<ul class="matrixCollection collection highlight">
 				</ul>

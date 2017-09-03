@@ -245,8 +245,12 @@ function GuiInput(navigationController, controller, gui){
 			$('#regioneditorSelect').removeClass('hide');
 	});
 	$('#regioneditor #regionColor').click(function(){
-			var $regioneditor = $('#regioneditor');
-			$('#regioneditorColorSelect').removeClass('hide');
+			var $regioneditorColorSelect = $('#regioneditorColorSelect');
+			if($regioneditorColorSelect.hasClass('hide')){
+				$('#regioneditorColorSelect').removeClass('hide');
+			}else{
+				$('#regioneditorColorSelect').addClass('hide');
+			}
 	});
 
 	$('.regioneditorColorSelectItem').click(function() {
