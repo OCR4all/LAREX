@@ -10,7 +10,7 @@
 			<ul class="collection highlight">
 				<c:forEach var="type" items="${segmenttypes}">
 					<li class="collection-item regioneditorSelectItem" data-type="${type.key}">
-						<div class="legendicon ${type.key}"></div>${type.key}
+						${type.key}
 					</li>
 				</c:forEach>
 			</ul>
@@ -29,6 +29,14 @@
 				<input value="" id="regionMaxOccurances" class="input-number"
 					type="number" class="validate" size="4" />
 			</span>
+		</div>
+		<div class="col s12 regionSetting regionColorSettings">
+			<div class="legendicon regionColorIcon"></div>
+			<span id="regionColor" data-color="">color <i class="material-icons">arrow_drop_down</i></span>
+			<div id="regioneditorColorSelect" class="hide">
+				<ul class="matrixCollection collection highlight">
+				</ul>
+			</div>
 		</div>
 	</div>
 	<a href="#!" id="regioneditorSave"

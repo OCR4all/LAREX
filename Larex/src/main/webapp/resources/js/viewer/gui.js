@@ -123,20 +123,23 @@ function GUI(canvas, viewer) {
 		});
 	}
 
-	this.openRegionSettings = function(regionType,minSize,maxOccurances,priorityPosition,doCreate){
+	this.openRegionSettings = function(regionType,minSize,maxOccurances,priorityPosition,doCreate,regionColor){
 		$('#regionType').text(regionType);
 		$('#regionMinSize').val(minSize);
 		$('#regionMaxOccurances').val(maxOccurances);
-		//TODO color	$('#regionTypeLegendIcon').css("background-color", getColor(regionType).toCSS());
 		if(doCreate != null && doCreate == true){
 			$('#regionType').addClass('hide');
 			$('#regioneditorSelect').removeClass('hide');
+			$('#regioneditorColorSelect').addClass('hide');
+			$('.regionColorSettings').addClass('hide');
 			$('.regionSetting').addClass('hide');
 			$('#regioneditorSave').addClass('hide');
 			$('.regionDelete').addClass('hide');
 		}else{
 			$('#regionType').removeClass('hide');
 			$('#regioneditorSelect').addClass('hide');
+			$('#regioneditorColorSelect').addClass('hide');
+			$('.regionColorSettings').removeClass('hide');
 			$('.regionSetting').removeClass('hide');
 			$('#regioneditorSave').removeClass('hide');
 			if(regionType != 'image' && regionType != 'paragraph'){
@@ -144,12 +147,21 @@ function GUI(canvas, viewer) {
 			}else{
 				$('.regionDelete').addClass('hide');
 			}
+			if(regionColor){
+				_gui.setRegionColor(regionColor);
+			}
 		}
 		//$('#regioneditor').modal('open');
 		$settingsOffset = $('#sidebarRegions').offset();
 		$regioneditor = $('#regioneditor');
 		$regioneditor.removeClass('hide');
 		$regioneditor.css({top: $settingsOffset.top, left: $settingsOffset.left-$regioneditor.width()});
+	}
+
+	this.setRegionColor = function(color){
+		var $regioneditor = $('#regioneditor');
+		$regioneditor.find('.regionColorIcon').css("background-color", color.toCSS());
+		$regioneditor.find('#regionColor').data('color',color);
 	}
 	this.closeRegionSettings = function(){
 		$('#regioneditor').addClass('hide');
@@ -265,4 +277,21 @@ function GUI(canvas, viewer) {
 			$('.saveSettingsXML').find('.progress').addClass('hide');
 		}
 	}
+	this.setAllRegionColors = function(colors){
+			var $collection = $('#regioneditorColorSelect .collection');
+			for(var index = 0; index < colors.length; index++){
+				var color = colors[index];
+				var $colorItem = $('<li class="collection-item regioneditorColorSelectItem color'+index+'"></li>');
+				var $icon = $('<div class="legendicon" style="background-color:'+color.toCSS()+';"></div>');
+				$colorItem.data('color',color);
+				$colorItem.append($icon);
+				$collection.append($colorItem);
+			}
+		}
+		this.updateAvailableColors = function(availableColorsIndexes){
+			$('.regioneditorColorSelectItem').addClass("hide");
+			availableColorsIndexes.forEach(function(index) {
+				$('.regioneditorColorSelectItem.color'+index).removeClass("hide");
+			});
+		}
 }

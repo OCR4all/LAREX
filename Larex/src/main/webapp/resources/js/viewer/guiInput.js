@@ -231,7 +231,10 @@ function GuiInput(navigationController, controller, gui){
 			var regionType = $regioneditor.find('#regionType').text();
 			var minSize = $regioneditor.find('#regionMinSize').val();
 			var maxOccurances = $regioneditor.find('#regionMaxOccurances').val();
+			var color = $regioneditor.find('#regionColor').data('color');
+			color = new paper.Color(color.red,color.green,color.blue);
 			_controller.changeRegionSettings(regionType, minSize,maxOccurances);
+			_controller.setRegionColor(regionType,_controller.getColorID(color));
 			_gui.closeRegionSettings();
 	});
 	$('#regioneditorCancel').click(function(){
@@ -240,5 +243,19 @@ function GuiInput(navigationController, controller, gui){
 	$('#regioneditor #regionType').click(function(){
 			var $regioneditor = $('#regioneditor');
 			$('#regioneditorSelect').removeClass('hide');
+	});
+	$('#regioneditor #regionColor').click(function(){
+			var $regioneditorColorSelect = $('#regioneditorColorSelect');
+			if($regioneditorColorSelect.hasClass('hide')){
+				$('#regioneditorColorSelect').removeClass('hide');
+			}else{
+				$('#regioneditorColorSelect').addClass('hide');
+			}
+	});
+
+	$('.regioneditorColorSelectItem').click(function() {
+			var color = $(this).data('color');
+			color = new paper.Color(color.red,color.green,color.blue);
+			_gui.setRegionColor(color);
 	});
 }

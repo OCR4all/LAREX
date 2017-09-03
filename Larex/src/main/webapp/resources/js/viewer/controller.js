@@ -1,4 +1,4 @@
-function Controller(bookID, canvasID, specifiedColors) {
+function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _bookID = bookID;
 	var _communicator = new Communicator();
 	var _gui;
@@ -28,6 +28,8 @@ function Controller(bookID, canvasID, specifiedColors) {
 	var _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
 
 	var _newPathCounter = 0;
+	var _specifiedColors = specifiedColors;
+	var _colors = colors;
 
 	// main method
 	$(window).ready(function() {
@@ -58,7 +60,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 
 							// Inheritance Editor extends Viewer
 							_editor = new Editor(new Viewer(
-									_segmentationtypes, viewerInput,specifiedColors),
+									_segmentationtypes, viewerInput,colors,specifiedColors),
 									_thisController);
 
 							_gui = new GUI(canvasID, _editor);
@@ -70,6 +72,9 @@ function Controller(bookID, canvasID, specifiedColors) {
 							_gui.highlightSegmentedPages(_segmentedPages);
 
 							_gui.setPageXMLVersion(_pageXMLVersion);
+
+							_gui.setAllRegionColors(colors);
+							_gui.updateAvailableColors(_thisController.getAvailableColorIndexes());
 
 							navigationController.setGUI(_gui);
 							navigationController.setViewer(_editor);
@@ -216,7 +221,6 @@ function Controller(bookID, canvasID, specifiedColors) {
 	}
 
 	this.setPageXMLVersion = function(pageXMLVersion){
-		console.log(pageXMLVersion);
 		_pageXMLVersion = pageXMLVersion;
 	}
 
@@ -622,7 +626,73 @@ function Controller(bookID, canvasID, specifiedColors) {
 		if(!region){
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
-		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate);
+		var color;
+		if(_specifiedColors[regionType]){
+			color = _specifiedColors[regionType];
+		}else{
+			color = _colors[_thisController.getAvailableColorIndexes()[0]];
+		}
+		
+		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate,color);
+	}
+
+	this.getColor = function(colorID){
+		return colors[colorID];
+	}
+
+	this.getColorID = function(color){
+		var id = 0;
+		for(id = 0; id < _colors.length; id++){
+			if(color.toCSS() === _colors[id].toCSS()){
+				return id;
+			}
+		}
+		return -1;
+	}
+
+	this.setRegionColor = function(regionType,colorID){
+		_specifiedColors[regionType] = _colors[colorID];
+
+		var pageSegments = _segmentation.pages[_currentPage].segments;
+		var pageFixedSegments = _settings.pages[_currentPage].segments;
+		Object.keys(pageSegments).forEach(function(key) {
+			if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
+				var segment = pageSegments[key];
+				if(segment.type === regionType){
+					_editor.updateSegment(segment);
+				}
+			}
+		});
+		// Iterate over FixedSegment-"Map" (Object in JS)
+		Object.keys(pageFixedSegments).forEach(function(key) {
+			var segment = pageSegments[key];
+			if(segment.type === regionType){
+				_editor.updateSegment(segment);
+			}
+		});
+
+		var region = _settings.regions[regionType];
+		// Iterate over all Polygons in Region
+		Object.keys(region.polygons).forEach(function(polygonKey) {
+			var polygon = region.polygons[polygonKey];
+			if(polygon.type === regionType){
+				_editor.updateSegment(polygon);
+			}
+		});
+		_gui.setRegionLegendColors(_segmentationtypes);
+		_gui.updateAvailableColors(_thisController.getAvailableColorIndexes());
+	}
+
+	this.getAvailableColorIndexes = function(){
+		var freeColorIndexes = Array.apply(null, {length: _colors.length}).map(Number.call, Number);
+
+		for (var regionType in _specifiedColors) {
+			var index = _colors.indexOf(_specifiedColors[regionType]);
+			if (index > -1) {
+		    freeColorIndexes.splice(freeColorIndexes.indexOf(index), 1);
+			}
+		}
+		return freeColorIndexes;
 	}
 
 	this.changeImageMode = function(imageMode){
@@ -759,7 +829,7 @@ function Controller(bookID, canvasID, specifiedColors) {
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
-	this.changeRegionSettings = function(regionType,minSize, maxOccurances){
+	this.changeRegionSettings = function(regionType, minSize, maxOccurances){
 		var region = _settings.regions[regionType];
 		//create Region if not present
 		if(!region){
