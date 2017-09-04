@@ -3,6 +3,7 @@ package larex.imageProcessing;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
@@ -14,6 +15,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
@@ -396,5 +398,51 @@ public class ImageProcessor {
 				mat = null;
 			}
 		}
+	}
+	
+
+	public static Point calcCenterOfGravityOCV(MatOfPoint input,
+			boolean forceCogInContour) {
+		Point[] points = input.toArray();
+
+		double sumX = 0;
+		double sumY = 0;
+
+		for (int i = 0; i < points.length; i++) {
+			sumX += points[i].x;
+			sumY += points[i].y;
+		}
+
+		double avgX = sumX / points.length;
+		double avgY = sumY / points.length;
+
+		Point cog = new Point(Math.round(avgX), Math.round(avgY));
+
+		if (forceCogInContour) {
+			if (Imgproc.pointPolygonTest(new MatOfPoint2f(input.toArray()),
+					cog, false) < 0) {
+				ArrayList<Point> candidates = new ArrayList<Point>();
+
+				for (Point point : points) {
+					if (point.x == cog.x || point.y == cog.y) {
+						candidates.add(point);
+					}
+				}
+
+				double minDist = Double.MAX_VALUE;
+
+				for (Point candidate : candidates) {
+					double dist = Math.pow(cog.x - candidate.x, 2)
+							+ Math.pow(cog.y - candidate.y, 2);
+
+					if (dist < minDist) {
+						minDist = dist;
+						cog = candidate;
+					}
+				}
+			}
+		}
+
+		return cog;
 	}
 }
