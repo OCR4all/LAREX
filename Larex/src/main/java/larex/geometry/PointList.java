@@ -9,8 +9,6 @@ import larex.regions.type.RegionType;
 
 public class PointList {
 
-	private static final int OPTIMIZING_DISTANCE = 3;
-
 	private ArrayList<Point> points;
 	private boolean isClosed;
 	private boolean isOptimized;

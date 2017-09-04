@@ -8,7 +8,6 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.web.model.Polygon;
-import com.web.model.Region;
 
 import larex.regions.type.RegionType;
 
