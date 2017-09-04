@@ -43,7 +43,7 @@ public class RegionClassifier {
 			Rect rect = candidate.getBoundingRect();
 
 			if (rect.area() > region.getMinSize() && isWithinRegion(rect, region)) {
-				ResultRegion newResult = new ResultRegion(region.getType(), binary.height(), candidate.getContour());
+				ResultRegion newResult = new ResultRegion(region.getType(), candidate.getContour());
 				results.add(newResult);
 				remainingCandidates.remove(candidate);
 			}
@@ -56,7 +56,7 @@ public class RegionClassifier {
 		Candidate candidate = MaxOccOneFinder.findMaxOccOne(candidates, region);
 
 		if (candidate != null) {
-			ResultRegion newResult = new ResultRegion(region.getType(), binary.height(), candidate.getContour());
+			ResultRegion newResult = new ResultRegion(region.getType(), candidate.getContour());
 			results.add(newResult);
 
 			candidates.remove(candidate);

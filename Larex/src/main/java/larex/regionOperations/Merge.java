@@ -30,8 +30,7 @@ public class Merge {
 		for (ResultRegion region : toMerge) {
 			contours.add(region.getPoints());
 
-			Point cog = ImageProcessor.calcCenterOfGravityOCV(region
-					.getPoints(), true);
+			Point cog = ImageProcessor.calcCenterOfGravityOCV(region.getPoints(), true);
 			cogs.add(cog);
 		}
 
@@ -72,9 +71,8 @@ public class Merge {
 		contours = Contour.findContours(temp);
 
 		if (contours.size() > 0) {
-			//TODO: Typvergabe!
-			ResultRegion newResult = new ResultRegion(toMerge.get(0).getType(),
-					binary.height(), contours.get(0));
+			// TODO: Typvergabe!
+			ResultRegion newResult = new ResultRegion(toMerge.get(0).getType(), contours.get(0));
 
 			return newResult;
 		}
@@ -82,16 +80,13 @@ public class Merge {
 		return null;
 	}
 
-	public static ResultRegion mergeFromRect(Rect rect,
-			ArrayList<ResultRegion> allRegions, Mat binary) {
-		ArrayList<ResultRegion> toMerge = detectSegmentsWithinRoI(rect,
-				allRegions);
+	public static ResultRegion mergeFromRect(Rect rect, ArrayList<ResultRegion> allRegions, Mat binary) {
+		ArrayList<ResultRegion> toMerge = detectSegmentsWithinRoI(rect, allRegions);
 
 		return merge(toMerge, binary);
 	}
 
-	private static ArrayList<ResultRegion> detectSegmentsWithinRoI(Rect rect,
-			ArrayList<ResultRegion> regions) {
+	private static ArrayList<ResultRegion> detectSegmentsWithinRoI(Rect rect, ArrayList<ResultRegion> regions) {
 		ArrayList<ResultRegion> targetRegions = new ArrayList<ResultRegion>();
 
 		for (ResultRegion region : regions) {

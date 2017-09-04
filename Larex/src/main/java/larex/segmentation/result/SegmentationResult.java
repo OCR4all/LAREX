@@ -1,39 +1,22 @@
 package larex.segmentation.result;
 
-import larex.imageProcessing.Contour;
-
-import java.awt.Color;
 import java.util.ArrayList;
 
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
-import org.opencv.core.Point;
 import org.opencv.core.Rect;
-import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-import larex.positions.Position;
-import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
 
 public class SegmentationResult {
 
-	private String fileName;
-	private int verticalResolution;
-	private double scaleFactor;
 	private ArrayList<ResultRegion> regions;
-	private boolean scaleCorrection;
 	private ArrayList<ResultRegion> readingOrder;
 
-	public SegmentationResult(ArrayList<ResultRegion> regions, int verticalResolution, double scaleFactor) {
+	public SegmentationResult(ArrayList<ResultRegion> regions) {
 		setRegions(regions);
-		setVerticalResolution(verticalResolution);
-		setScaleFactor(scaleFactor);
 		setReadingOrder(new ArrayList<ResultRegion>());
 	}
 
@@ -120,30 +103,6 @@ public class SegmentationResult {
 		regions.addAll(keep);
 	}
 
-	public String getFileName() {
-		return fileName;
-	}
-
-	public void setFileName(String fileName) {
-		this.fileName = fileName;
-	}
-
-	public int getVerticalResolution() {
-		return verticalResolution;
-	}
-
-	public void setVerticalResolution(int verticalResolution) {
-		this.verticalResolution = verticalResolution;
-	}
-
-	public double getScaleFactor() {
-		return scaleFactor;
-	}
-
-	public void setScaleFactor(double scaleFactor) {
-		this.scaleFactor = scaleFactor;
-	}
-
 	public ArrayList<ResultRegion> getRegions() {
 		return regions;
 	}
@@ -155,23 +114,11 @@ public class SegmentationResult {
 		this.regions = regions;
 	}
 
-	public boolean scaleCorrectionIsDone() {
-		return scaleCorrection;
-	}
-
-	public void setScaleCorrectionDone(boolean scaleCorrection) {
-		this.scaleCorrection = scaleCorrection;
-	}
-
 	public ArrayList<ResultRegion> getReadingOrder() {
 		return readingOrder;
 	}
 
 	public void setReadingOrder(ArrayList<ResultRegion> readingOrder) {
-		for (int i = 0; i < readingOrder.size(); i++) {
-			readingOrder.get(i).setReadingOrderIndex(i);
-		}
-
 		this.readingOrder = readingOrder;
 	}
 	
@@ -179,12 +126,8 @@ public class SegmentationResult {
 	 * Creates a shallow copy of the SegmentationResult (ResultRegions will not be cloned)
 	 */
 	public SegmentationResult clone(){
-		SegmentationResult copy = new SegmentationResult(new ArrayList<ResultRegion>(regions), verticalResolution, scaleFactor);
-		copy.setFileName(fileName);
+		SegmentationResult copy = new SegmentationResult(new ArrayList<ResultRegion>(regions));
 		copy.setReadingOrder(new ArrayList<ResultRegion>(readingOrder));
-		copy.setScaleCorrectionDone(scaleCorrection);
-		copy.setScaleFactor(scaleFactor);
-		copy.setVerticalResolution(verticalResolution);
 		return copy;
 	}
 }

@@ -31,7 +31,8 @@ public class PageXMLWriter {
 	 * @param pointMat
 	 * @param scaleFactor
 	 */
-	public static void addPoints2013(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
+	public static void addPoints2013(Document document, Element coordsElement, MatOfPoint pointMat,
+			double scaleFactor) {
 		Point[] points = pointMat.toArray();
 		String pointCoords = "";
 
@@ -58,7 +59,8 @@ public class PageXMLWriter {
 	 * @param pointMat
 	 * @param scaleFactor
 	 */
-	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat, double scaleFactor) {
+	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat,
+			double scaleFactor) {
 		Point[] points = pointMat.toArray();
 
 		if (scaleFactor == 0) {
@@ -88,8 +90,8 @@ public class PageXMLWriter {
 
 		regionElement.setAttribute("id", "r" + regionCnt);
 		Element coordsElement = document.createElement("Coords");
-		
-		switch(pageXMLVersion){
+
+		switch (pageXMLVersion) {
 		case "2013-07-15":
 			addPoints2013(document, coordsElement, region.getPoints(), page.getScaleFactor());
 			break;
@@ -136,7 +138,7 @@ public class PageXMLWriter {
 	 * @return pageXML document or null if parse error
 	 */
 	public static Document getPageXML(Page page, String pageXMLVersion) {
-		if(!pageXMLVersion.equals("2013-07-15") && !pageXMLVersion.equals("2010-03-19")){
+		if (!pageXMLVersion.equals("2013-07-15") && !pageXMLVersion.equals("2010-03-19")) {
 			pageXMLVersion = "2010-03-19";
 		}
 		try {
@@ -145,10 +147,12 @@ public class PageXMLWriter {
 			Document document = docBuilder.newDocument();
 
 			Element rootElement = document.createElement("PcGts");
-			rootElement.setAttribute("xmlns", "http://schema.primaresearch.org/PAGE/gts/pagecontent/"+pageXMLVersion);
+			rootElement.setAttribute("xmlns", "http://schema.primaresearch.org/PAGE/gts/pagecontent/" + pageXMLVersion);
 			rootElement.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
 			rootElement.setAttribute("xsi:schemaLocation",
-					"http://schema.primaresearch.org/PAGE/gts/pagecontent/"+pageXMLVersion+" http://schema.primaresearch.org/PAGE/gts/pagecontent/"+pageXMLVersion+"/pagecontent.xsd");
+					"http://schema.primaresearch.org/PAGE/gts/pagecontent/" + pageXMLVersion
+							+ " http://schema.primaresearch.org/PAGE/gts/pagecontent/" + pageXMLVersion
+							+ "/pagecontent.xsd");
 
 			document.appendChild(rootElement);
 
@@ -191,10 +195,11 @@ public class PageXMLWriter {
 				orderedGroupElement.setAttribute("id", "ro" + System.currentTimeMillis());
 				readingOrderElement.appendChild(orderedGroupElement);
 
-				for (ResultRegion region : page.getSegmentationResult().getReadingOrder()) {
+				ArrayList<ResultRegion> readingOrder = page.getSegmentationResult().getReadingOrder();
+				for (int index = 0; index < readingOrder.size(); index++) {
 					Element regionRefElement = document.createElement("RegionRefIndexed");
-					regionRefElement.setAttribute("regionRef", "r" + region.getReadingOrderIndex());
-					regionRefElement.setAttribute("index", "" + region.getReadingOrderIndex());
+					regionRefElement.setAttribute("regionRef", "r" + index);
+					regionRefElement.setAttribute("index", "" + index);
 					orderedGroupElement.appendChild(regionRefElement);
 				}
 			}

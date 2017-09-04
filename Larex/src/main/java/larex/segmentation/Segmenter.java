@@ -52,20 +52,20 @@ public class Segmenter {
 		ArrayList<ResultRegion> results = classifyText(texts);
 
 		for (MatOfPoint image : images) {
-			ResultRegion result = new ResultRegion(RegionType.image, parameters.getDesiredImageHeight(), image);
+			ResultRegion result = new ResultRegion(RegionType.image, image);
 			results.add(result);
 		}
 
 		addFixedPointsLists(results);
-		double scaleFactor = (double) parameters.getDesiredImageHeight()/(double) original.height();
-		applyScalecorrection(results, scaleFactor);
-		SegmentationResult segResult = new SegmentationResult(results, parameters.getDesiredImageHeight(), scaleFactor);
+		double scaleFactor = (double) parameters.getDesiredImageHeight() / (double) original.height();
+		applyScaleCorrection(results, scaleFactor);
+		SegmentationResult segResult = new SegmentationResult(results);
 		segResult.removeImagesWithinText();
 
 		return segResult;
 	}
 
-	private void applyScalecorrection(ArrayList<ResultRegion> results, double scaleFactor) {
+	private void applyScaleCorrection(ArrayList<ResultRegion> results, double scaleFactor) {
 		for (ResultRegion result : results) {
 			result.rescale(scaleFactor);
 		}
@@ -77,8 +77,8 @@ public class Segmenter {
 		for (PointList pointList : pointsLists) {
 			if (pointList.isClosed()) {
 				parameters.getRegionManager();
-				ResultRegion result = new ResultRegion(pointList.getType(), parameters.getDesiredImageHeight(),
-						pointList.getOcvPoints(),pointList.getId());
+				ResultRegion result = new ResultRegion(pointList.getType(), pointList.getOcvPoints(),
+						pointList.getId());
 				results.add(result);
 			}
 		}
@@ -86,7 +86,7 @@ public class Segmenter {
 
 	private void fillFixedPointsLists(Mat original) {
 		ArrayList<PointList> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
-		int verticalRes = original.height();//parameters.getRegionManager().getPointListManager().getVerticalResolution();
+		int verticalRes = original.height();
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 
 		for (PointList pointList : pointsLists) {
@@ -111,7 +111,8 @@ public class Segmenter {
 		if (parameters.getTextDilationX() == 0 || parameters.getTextDilationY() == 0) {
 			dilate = binary.clone();
 		} else {
-			dilate = ImageProcessor.dilate(binary, new Size(parameters.getTextDilationX(), parameters.getTextDilationY()));
+			dilate = ImageProcessor.dilate(binary,
+					new Size(parameters.getTextDilationX(), parameters.getTextDilationY()));
 		}
 
 		// draw user defined lines

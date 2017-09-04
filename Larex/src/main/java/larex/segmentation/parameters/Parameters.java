@@ -1,7 +1,5 @@
 package larex.segmentation.parameters;
 
-import org.opencv.core.Mat;
-
 import larex.regions.RegionManager;
 
 public class Parameters {
@@ -35,9 +33,8 @@ public class Parameters {
 	private boolean combineImages;
 
 	public Parameters(RegionManager regionManager, int originalHeight) {
-		//TODO Readable not Default
 		setRegionManager(regionManager);
-		
+
 		setDesiredImageHeight(DEFAULT_Parameters.getImageHeightDefault());
 		setBinaryThresh(DEFAULT_Parameters.getBinaryThreshDefault());
 
@@ -47,27 +44,11 @@ public class Parameters {
 		setTextDilationX(DEFAULT_Parameters.getTextRemovalDilationXDefault());
 		setTextDilationY(DEFAULT_Parameters.getTextRemovalDilationYDefault());
 
-		//TODO Real Image scale
+		// TODO Real Image scale
 		setScaleFactor((double) desiredImageHeight / originalHeight);
-		
-		//TODO is Default Value
-		String modeString = "Straight Rect";
-		
-		if(modeString.equals("Rotated Rect")) {
-			setImageSegType(ImageSegType.ROTATED_RECT);
-			//TODO is Default Value
-			setCombineImages(true);
-		} else if(modeString.equals("Straight Rect")) {
-			setImageSegType(ImageSegType.STRAIGHT_RECT);
-			//TODO is Default Value
-			setCombineImages(true);
-		} else if(modeString.equals("Contour Only")) {
-			setImageSegType(ImageSegType.CONTOUR_ONLY);
-			setCombineImages(false);
-		} else {
-			setImageSegType(ImageSegType.NONE);
-			setCombineImages(false);
-		}
+
+		setImageSegType(ImageSegType.STRAIGHT_RECT);
+		setCombineImages(true);
 	}
 
 	public RegionManager getRegionManager() {
@@ -212,5 +193,5 @@ public class Parameters {
 
 	public void setCombineImages(boolean combineImages) {
 		this.combineImages = combineImages;
-	}	
+	}
 }
