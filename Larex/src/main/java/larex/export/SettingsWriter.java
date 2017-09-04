@@ -42,7 +42,6 @@ public class SettingsWriter {
 				Element regionElement = document.createElement("region");
 
 				regionElement.setAttribute("type", region.getType().toString());
-				regionElement.setAttribute("color", region.getColor().getName());
 				regionElement.setAttribute("minSize", "" + region.getMinSize());
 				regionElement.setAttribute("maxOccurances", "" + region.getMaxOccurances());
 				

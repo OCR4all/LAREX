@@ -2,7 +2,6 @@ package larex.regions;
 
 import larex.helper.TypeConverter;
 
-import java.awt.Color;
 import java.util.ArrayList;
 
 import org.opencv.core.Mat;
@@ -10,38 +9,25 @@ import org.opencv.core.Rect;
 
 import larex.positions.Position;
 import larex.positions.PriorityPosition;
-import larex.regions.colors.RegionColor;
-import larex.regions.colors.RegionColors;
 import larex.regions.type.RegionType;
 
 public class Region {
-
-	private static final int ALPHA_STANDARD = 80;
-	private static final int ALPHA_ACTIVE = 150;
-
 	private RegionType type;
 	private String pageXmlIdentifier;
 	private int minSize;
 
 	private ArrayList<Position> positions;
 
-	private boolean isVisible;
-
 	private int maxOccurances;
 	private PriorityPosition priorityPosition;
 
-	private RegionColor regionColor;
-	private Color standardColor;
-	private Color activeColor;
-
 	private static Mat activeMat;
 
-	public Region(RegionType type, int minSize, RegionColor color, int maxOccurances, PriorityPosition priorityPosition,
+	public Region(RegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
 			ArrayList<Position> positions) {
 		setType(type);
 		setPageXmlIdentifier(type);
 		setMinSize(minSize);
-		setColor(color);
 		setMaxOccurances(maxOccurances);
 		setPriorityPosition(priorityPosition);
 
@@ -53,9 +39,9 @@ public class Region {
 		}
 	}
 
-	public Region(String typeString, int minSize, String colorString, int maxOccurances, String priorityString,
+	public Region(String typeString, int minSize, int maxOccurances, String priorityString,
 			ArrayList<Position> positions) {
-		this(TypeConverter.stringToType(typeString), minSize, RegionColors.getColorByName(colorString), maxOccurances,
+		this(TypeConverter.stringToType(typeString), minSize, maxOccurances,
 				calcPriorityPosition(maxOccurances, priorityString), positions);
 	}
 
@@ -104,13 +90,7 @@ public class Region {
 	public void initRegions() {
 		ArrayList<Position> positions = new ArrayList<Position>();
 
-		/*if (type.equals(RegionType.image)) {
-			Position position = new Position(0, 0, 1, 1);
-			positions.add(position);
-		}else if (type.equals(RegionType.ignore)) {
-			Position position = new Position(0, 0, 0, 0);
-			positions.add(position);
-		}else */if (type.equals(RegionType.paragraph)) {
+		if (type.equals(RegionType.paragraph)) {
 			Position position = new Position(0, 0, 1, 1);
 			positions.add(position);
 		} else if (type.equals(RegionType.marginalia)) {
@@ -136,21 +116,10 @@ public class Region {
 		setPositions(positions);
 	}
 
-	public void setColor(RegionColor regionColor) {
-		setRegionColor(regionColor);
-		Color color = regionColor.getColor();
-		setStandardColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), ALPHA_STANDARD));
-		setActiveColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), ALPHA_ACTIVE));
-	}
-
 	public void addPosition(Position position) {
 		positions.add(position);
 		position.calcPercentages(activeMat);
 		calcPositionRects();
-	}
-
-	public RegionColor getColor() {
-		return regionColor;
 	}
 
 	public RegionType getType() {
@@ -190,14 +159,6 @@ public class Region {
 		this.positions = positions;
 	}
 
-	public boolean isVisible() {
-		return isVisible;
-	}
-
-	public void setVisible(boolean isVisible) {
-		this.isVisible = isVisible;
-	}
-
 	public int getMaxOccurances() {
 		return maxOccurances;
 	}
@@ -212,30 +173,6 @@ public class Region {
 
 	public void setPriorityPosition(PriorityPosition priorityPosition) {
 		this.priorityPosition = priorityPosition;
-	}
-
-	public Color getStandardColor() {
-		return standardColor;
-	}
-
-	public void setStandardColor(Color standardColor) {
-		this.standardColor = standardColor;
-	}
-
-	public Color getActiveColor() {
-		return activeColor;
-	}
-
-	public void setActiveColor(Color activeColor) {
-		this.activeColor = activeColor;
-	}
-
-	public RegionColor getRegionColor() {
-		return regionColor;
-	}
-
-	public void setRegionColor(RegionColor regionColor) {
-		this.regionColor = regionColor;
 	}
 
 	public void addPositionRect(Rect rect) {

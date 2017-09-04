@@ -1,6 +1,5 @@
 package com.web.facade;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -19,7 +18,6 @@ import larex.positions.Position;
 import larex.positions.PriorityPosition;
 import larex.regions.Region;
 import larex.regions.RegionManager;
-import larex.regions.colors.RegionColor;
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
@@ -62,7 +60,7 @@ public class WebLarexTranslator {
 
 			Region region = regionmanager.getRegionByType(regionType);
 			if(region == null){
-				region = new Region(regionType, minSize, new RegionColor("green", Color.GREEN), maxOccurances,
+				region = new Region(regionType, minSize, maxOccurances,
 						priorityPosition, new ArrayList<Position>());
 				
 				regionmanager.addRegion(region);

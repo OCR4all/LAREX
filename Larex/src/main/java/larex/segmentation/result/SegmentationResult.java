@@ -66,69 +66,12 @@ public class SegmentationResult {
 		return null;
 	}
 	
-	public void calcROBinaries(Mat image) {
-		for (ResultRegion result : regions) {
-			result.calcROBinary(image);
-		}
-	}
-
-	public ResultRegion identifyResult(Point point) {
-		for (ResultRegion result : regions) {
-			if (Imgproc.pointPolygonTest(new MatOfPoint2f(result.getScaledPoints().toArray()), point, false) >= 0) {
-				return result;
-			}
-		}
-
-		return null;
-	}
-
-	public ResultRegion identifyResultBinary(Point point) {
-
-		for (ResultRegion result : regions) {
-			if (result.getContainedPoints().contains(point)) {
-				return result;
-			}
-		}
-
-		return null;
-	}
-
 	public void changeRegionType(MatOfPoint segment, RegionType type, RegionManager regionManager) {
 		for (ResultRegion region : regions) {
 			if (region.getPoints().equals(segment)) {
-				Color color = RegionManager.getColorByRegionType(type);
-				region.setColor(new Scalar(color.getBlue(), color.getGreen(), color.getRed()));
 				region.setType(type);
 			}
 		}
-	}
-
-	public void applyScaleCorrection(Mat result, Mat resized) {
-		for (ResultRegion region : regions) {
-			region.applyScaleCorrection(result, resized);
-		}
-	}
-
-	//TODO Delete
-	@Deprecated
-	public Mat drawResult(Mat result, Mat resized) {
-		if (!scaleCorrectionIsDone()) {
-
-			applyScaleCorrection(result, resized);
-			setScaleCorrectionDone(true);
-		}
-
-		for (ResultRegion region : regions) {
-			ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-			contours.add(region.getScaledPoints());
-			resized = Contour.drawContours(resized, contours, region.getColor(), 2);
-		}
-
-		// TODO
-		// result = Contour.drawContours(result,
-		// regionList.getRegions(), regionList.getColor(), 15);
-
-		return resized;
 	}
 
 	private ArrayList<ResultRegion> identifyImageList() {
@@ -175,19 +118,6 @@ public class SegmentationResult {
 
 		regions.removeAll(imageList);
 		regions.addAll(keep);
-	}
-
-	private ArrayList<ResultRegion> detectSegmentsWithinRoI(Rect rect) {
-		ArrayList<ResultRegion> targetRegions = new ArrayList<ResultRegion>();
-
-		for (ResultRegion region : regions) {
-			Rect toCheck = Imgproc.boundingRect(region.getPoints());
-			if (rect.contains(toCheck.tl()) && rect.contains(toCheck.br())) {
-				targetRegions.add(region);
-			}
-		}
-
-		return targetRegions;
 	}
 
 	public String getFileName() {
