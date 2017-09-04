@@ -8,7 +8,6 @@ import com.web.communication.ExportRequest;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
-import com.web.model.Page;
 import com.web.model.Polygon;
 
 /**

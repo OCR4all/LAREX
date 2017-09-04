@@ -2,17 +2,16 @@ package com.web.facade;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import com.web.model.Book;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.Size;
+
 import com.web.model.BookSettings;
-import com.web.model.Page;
 import com.web.model.Point;
 import com.web.model.Polygon;
-import com.web.model.PageSegmentation;
 
 import larex.geometry.PointList;
 import larex.geometry.PointListManager;
@@ -24,9 +23,6 @@ import larex.regions.colors.RegionColor;
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
-
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.Size;
 
 /**
  * Helper Class to translate Web Objects to Larex Objects

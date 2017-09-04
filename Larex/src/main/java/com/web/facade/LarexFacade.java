@@ -19,6 +19,17 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import org.apache.tomcat.util.http.fileupload.ByteArrayOutputStream;
+import org.opencv.core.Size;
+import org.springframework.context.annotation.Scope;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Component;
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
+
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationStatus;
 import com.web.model.Book;
@@ -38,17 +49,6 @@ import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
 import larex.segmentation.result.SegmentationResult;
-
-import org.apache.tomcat.util.http.fileupload.ByteArrayOutputStream;
-import org.opencv.core.Size;
-import org.springframework.context.annotation.Scope;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
-import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
 
 /**
  * Segmenter using the Larex project/algorithm
@@ -287,12 +287,11 @@ public class LarexFacade implements IFacade {
 		String imagePath = resourcepath + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
-			String imageIdentifier = "" + page.getId();
-			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath, imageIdentifier);
+			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
 
 			currentLarexPage.initPage();
 
-			Size pagesize = currentLarexPage.getOriginalSize();
+			Size pagesize = currentLarexPage.getOriginal().size();
 
 			parameters = WebLarexTranslator.translateSettingsToParameters(settings, parameters, pagesize);
 			parameters.getRegionManager().setPointListManager(
@@ -324,9 +323,8 @@ public class LarexFacade implements IFacade {
 			Document document = dBuilder.parse(new ByteArrayInputStream(settingsFile));
 			
 			Page page = book.getPage(0);
-			String imageIdentifier = "" + page.getId();
 			String imagePath = resourcepath + File.separator + page.getImage();
-			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath, imageIdentifier);
+			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
 			currentLarexPage.initPage();
 			
 			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());

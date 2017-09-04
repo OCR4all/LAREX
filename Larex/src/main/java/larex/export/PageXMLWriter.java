@@ -88,6 +88,7 @@ public class PageXMLWriter {
 
 		regionElement.setAttribute("id", "r" + regionCnt);
 		Element coordsElement = document.createElement("Coords");
+		
 		switch(pageXMLVersion){
 		case "2013-07-15":
 			addPoints2013(document, coordsElement, region.getPoints(), page.getScaleFactor());
@@ -177,8 +178,8 @@ public class PageXMLWriter {
 			pageElement.setAttribute("imageFilename",
 					page.getImagePath().substring(page.getImagePath().lastIndexOf(File.separator) + 1));
 
-			pageElement.setAttribute("imageWidth", "" + (int) page.getOriginalSize().width);
-			pageElement.setAttribute("imageHeight", "" + (int) page.getOriginalSize().height);
+			pageElement.setAttribute("imageWidth", "" + (int) page.getOriginal().size().width);
+			pageElement.setAttribute("imageHeight", "" + (int) page.getOriginal().size().height);
 			rootElement.appendChild(pageElement);
 
 			// ReadingOrder
