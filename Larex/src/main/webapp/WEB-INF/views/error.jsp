@@ -17,7 +17,7 @@
 					<p>
 						<i class="material-icons">error_outline</i> Ooopps!
 					</p>
-					<p>That should not have been happened!</>
+					<p>That should not have happened!</>
 				</div>
 				<div id="error_text" class="col s12">
 					<p>
