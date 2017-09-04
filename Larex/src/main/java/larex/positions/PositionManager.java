@@ -19,10 +19,6 @@ public class PositionManager {
 				region.getPositions().remove(position);
 			}
 		}
-		
-		if (regionManager.getTempRegion().getPositions().contains(position)) {
-			regionManager.getTempRegion().getPositions().remove(position);
-		}
 	}
 
 	public void manageActivePositions(Position newActivePosition) {

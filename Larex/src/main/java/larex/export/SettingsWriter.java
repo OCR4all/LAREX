@@ -57,7 +57,6 @@ public class SettingsWriter {
 					positionElement.setAttribute("x2", "" + position.getBottomRightXPercentage());
 					positionElement.setAttribute("y2", "" + position.getBottomRightYPercentage());
 					positionElement.setAttribute("fixed", "" + position.isFixed());
-					positionElement.setAttribute("permanent", "" + position.isPermanent());
 
 					regionElement.appendChild(positionElement);
 				}

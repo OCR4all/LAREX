@@ -75,18 +75,6 @@ public class Region {
 		}
 	}
 
-	public void removeNonPermanentFixedPositions() {
-		ArrayList<Position> nonPermanentFixedPositions = new ArrayList<Position>();
-
-		for (Position position : positions) {
-			if (position.isFixed() && !position.isPermanent()) {
-				nonPermanentFixedPositions.add(position);
-			}
-		}
-
-		positions.removeAll(nonPermanentFixedPositions);
-	}
-
 	public void initRegions() {
 		ArrayList<Position> positions = new ArrayList<Position>();
 

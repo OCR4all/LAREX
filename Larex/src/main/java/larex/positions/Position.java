@@ -15,7 +15,6 @@ public class Position {
 
 	private boolean isActive;
 	private boolean isFixed;
-	private boolean isPermanent;
 
 	private boolean roundedUpTopLeftX;
 	private boolean roundedUpTopLeftY;
@@ -234,14 +233,6 @@ public class Position {
 
 	public void setFixed(boolean isFixed) {
 		this.isFixed = isFixed;
-	}
-
-	public boolean isPermanent() {
-		return isPermanent;
-	}
-
-	public void setPermanent(boolean isPermanent) {
-		this.isPermanent = isPermanent;
 	}
 
 	public Rectangle2D getDrawingRect() {

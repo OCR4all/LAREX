@@ -20,17 +20,11 @@ public class SettingsReader {
 			Element positionElement = (Element) positionElements.item(i);
 
 			String fixed = positionElement.getAttribute("fixed");
-			String permanent = positionElement.getAttribute("permanent");
 
 			boolean isFixed = false;
-			boolean isPermanent = false;
 
 			if (fixed.equals("true")) {
 				isFixed = true;
-			}
-
-			if (permanent.equals("true")) {
-				isPermanent = true;
 			}
 
 			double x1 = Double.parseDouble(positionElement.getAttribute("x1"));
@@ -40,7 +34,6 @@ public class SettingsReader {
 
 			Position position = new Position(x1, y1, x2, y2);
 			position.setFixed(isFixed);
-			position.setPermanent(isPermanent);
 			position.updateRect(position.calcRect(resized), resized);
 			positions.add(position);
 		}
