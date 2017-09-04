@@ -104,8 +104,6 @@ public class RegionManager {
 			}
 			region.calcPositionRects(image);
 		}
-
-		pointListManager.setVerticalResolution(image.height());
 	}
 
 	public Region getRegionByPosition(Position position) {

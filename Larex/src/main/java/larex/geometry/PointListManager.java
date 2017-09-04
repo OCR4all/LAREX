@@ -10,7 +10,6 @@ import org.opencv.core.Scalar;
 public class PointListManager {
 
 	private ArrayList<PointList> pointLists;
-	private int verticalResolution;
 
 	public PointListManager() {
 		setPointLists(new ArrayList<PointList>());
@@ -61,75 +60,6 @@ public class PointListManager {
 		return allPoints;
 	}
 
-	public boolean removePointListByPoint(Point point, int radius) {
-		PointList toRemove = identifyPointList(point, radius);
-
-		if (toRemove != null) {
-			pointLists.remove(toRemove);
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	public boolean removePointListByArea(Point point) {
-		PointList toRemove = identifyPointListByArea(point);
-
-		if (toRemove != null) {
-			pointLists.remove(toRemove);
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	public PointList identifyPointListByArea(Point toIdentify) {
-		for (PointList list : pointLists) {
-			if (list.isClosed()) {
-				if (list.getPolygon().getPolyAwt().contains(toIdentify)) {
-					return list;
-				}
-			}
-		}
-
-		return null;
-	}
-
-	public PointList identifyPointList(Point toIdentify, int radius) {
-		int r_squared = radius * radius;
-
-		for (PointList list : pointLists) {
-			for (Point point : list.getPoints()) {
-				if (calcDistSquared(point, toIdentify) < r_squared) {
-					return list;
-				}
-			}
-		}
-
-		return null;
-	}
-
-	public Point identifyPoint(Point toIdentify, PointList pointList, int radius) {
-		int r_squared = radius * radius;
-
-		for (Point point : pointList.getPoints()) {
-			if (calcDistSquared(point, toIdentify) < r_squared) {
-				return point;
-			}
-		}
-
-		return null;
-	}
-
-	public int calcDistSquared(Point point1, Point point2) {
-		int dx = point1.x - point2.x;
-		int dy = point1.y - point2.y;
-
-		int distSquared = dx * dx + dy * dy;
-
-		return distSquared;
-	}
-
 	public void addPointList(ArrayList<Point> points, String id) {
 		pointLists.add(new PointList(points, id));
 	}
@@ -140,13 +70,5 @@ public class PointListManager {
 
 	public void setPointLists(ArrayList<PointList> pointLists) {
 		this.pointLists = pointLists;
-	}
-
-	public int getVerticalResolution() {
-		return verticalResolution;
-	}
-
-	public void setVerticalResolution(int verticalResolution) {
-		this.verticalResolution = verticalResolution;
 	}
 }
