@@ -1,6 +1,4 @@
-package larex.segmentation;
-
-import larex.imageProcessing.ImageContainerOLD;
+package larex.imageProcessing;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -24,7 +22,8 @@ import org.opencv.core.Size;
 import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
-public class ImageProcessor {
+@Deprecated
+public class ImageProcessorOLD {
 
 	@Deprecated
 	public static void initImage(ImageContainerOLD imageContainer, int desiredHeight) {

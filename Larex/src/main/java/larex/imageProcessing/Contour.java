@@ -10,16 +10,6 @@ import org.opencv.imgproc.Imgproc;
 
 public class Contour {
 	
-	public static Mat deletePointsWithinContour(Mat binary, MatOfPoint contour) {
-		Mat result = binary.clone();
-
-		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-		contours.add(contour);
-		Core.fillPoly(result, contours, new Scalar(0));
-
-		return result;
-	}
-	
 	public static Mat drawContours(Mat original, ArrayList<MatOfPoint> contours, Scalar color, int thickness) {
 		Mat result = original.clone();
 

@@ -1,6 +1,7 @@
 package larex.regionOperations;
 
 import larex.imageProcessing.Contour;
+import larex.imageProcessing.ImageProcessorOLD;
 
 import java.util.ArrayList;
 
@@ -14,7 +15,6 @@ import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
 import larex.regions.type.RegionType;
-import larex.segmentation.ImageProcessor;
 import larex.segmentation.result.ResultRegion;
 
 public class Merge {
@@ -31,7 +31,7 @@ public class Merge {
 		for (ResultRegion region : toMerge) {
 			contours.add(region.getPoints());
 
-			Point cog = ImageProcessor.calcCenterOfGravityOCV(region
+			Point cog = ImageProcessorOLD.calcCenterOfGravityOCV(region
 					.getPoints(), true);
 			cogs.add(cog);
 		}

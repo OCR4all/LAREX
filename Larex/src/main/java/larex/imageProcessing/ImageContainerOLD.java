@@ -6,7 +6,6 @@ import org.opencv.core.Mat;
 public class ImageContainerOLD {
 	private Mat original;
 	
-	@Deprecated
 	private Mat resized;
 	private Mat binary;
 	private Mat gray;

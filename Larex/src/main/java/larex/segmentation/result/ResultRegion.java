@@ -1,6 +1,7 @@
 package larex.segmentation.result;
 
 import larex.geometry.Polygon;
+import larex.imageProcessing.ImageProcessorOLD;
 
 import java.awt.Color;
 import java.util.ArrayList;
@@ -17,7 +18,6 @@ import org.opencv.imgproc.Imgproc;
 
 import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
-import larex.segmentation.ImageProcessor;
 
 @SuppressWarnings("rawtypes")
 public class ResultRegion implements Comparable {
@@ -115,7 +115,7 @@ public class ResultRegion implements Comparable {
 
 		setScaledPoints(contours.get(0));
 		setScaledPolygon(new Polygon(contours.get(0)));
-		setScaledCenterOfGravity(ImageProcessor.calcCenterOfGravity(scaledPoints));
+		setScaledCenterOfGravity(ImageProcessorOLD.calcCenterOfGravity(scaledPoints));
 	}
 
 	// TODO: -.-

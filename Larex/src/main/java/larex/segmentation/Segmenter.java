@@ -2,6 +2,7 @@ package larex.segmentation;
 
 import larex.geometry.PointList;
 import larex.imageProcessing.ImageContainerOLD;
+import larex.imageProcessing.ImageProcessorOLD;
 import larex.imageProcessing.Rectangle;
 
 import java.util.ArrayList;
@@ -119,7 +120,7 @@ public class Segmenter {
 		if (parameters.getTextDilationX() == 0 || parameters.getTextDilationY() == 0) {
 			dilate = binary.clone();
 		} else {
-			dilate = ImageProcessor.dilate(binary,
+			dilate = ImageProcessorOLD.dilate(binary,
 					new Size(parameters.getTextDilationX(), parameters.getTextDilationY()));
 		}
 
@@ -150,7 +151,7 @@ public class Segmenter {
 		if (parameters.getImageRemovalDilationX() == 0 || parameters.getImageRemovalDilationY() == 0) {
 			dilate = binary.clone();
 		} else {
-			dilate = ImageProcessor.dilate(binary,
+			dilate = ImageProcessorOLD.dilate(binary,
 					new Size(parameters.getImageRemovalDilationX(), parameters.getImageRemovalDilationY()));
 		}
 
@@ -226,7 +227,7 @@ public class Segmenter {
 		// resize
 		//TODO ImageContainerOLD
 		ImageContainerOLD image = new ImageContainerOLD(original);
-		ImageProcessor.initImage(image, parameters.getDesiredImageHeight());
+		ImageProcessorOLD.initImage(image, parameters.getDesiredImageHeight());
 
 		// calculate region size
 		calcTrueRegionSize(image.getResized(), parameters.getRegionManager().getRegions());
@@ -236,12 +237,12 @@ public class Segmenter {
 		Mat binary = new Mat();
 
 		if (binaryThresh == -1) {
-			binary = ImageProcessor.calcBinary(image.getGray());
+			binary = ImageProcessorOLD.calcBinary(image.getGray());
 		} else {
-			binary = ImageProcessor.calcBinaryFromThresh(image.getGray(), binaryThresh);
+			binary = ImageProcessorOLD.calcBinaryFromThresh(image.getGray(), binaryThresh);
 		}
 
-		binary = ImageProcessor.invertImage(binary);
+		binary = ImageProcessorOLD.invertImage(binary);
 		setBinary(binary);
 	}
 
