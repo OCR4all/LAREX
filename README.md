@@ -77,7 +77,7 @@ Go to `localhost:8080/Larex`.
 ### Using your own images
 You can add your own books by copying them to src/webapp/resources/books.
 
-.tif support and the PageXML export will be added in the very near future.
+.tif support will be added in the very near future.
 
 ## Related Publications:
 Reul, C., Springmann, U., and Puppe, F.: LAREX - A semi-automatic open-source Tool for Layout
