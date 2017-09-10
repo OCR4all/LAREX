@@ -73,7 +73,7 @@
 			</div>
 		</li>
 		<li>
-			<div class="collapsible-header">
+			<div id="reading-order-header" class="collapsible-header">
 				<i class="material-icons">reorder</i>Reading Order
 			</div>
 			<div class="collapsible-body">

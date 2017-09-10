@@ -20,6 +20,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var	_currentSettingsDownloadable = false;
 	var _pageXMLVersion = "2010-03-19";
 	var _gridIsActive = false;
+	var _displayReadingOrder = false;
 
 	var _thisController = this;
 	var _selected = [];
@@ -179,7 +180,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				}
 				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
 				_guiInput.addDynamicListeners();
-				_thisController.displayReadingOrder(true);
+				_thisController.displayReadingOrder(_displayReadingOrder);
 				_gui.setRegionLegendColors(_segmentationtypes);
 
 				_currentPageDownloadable = false;
@@ -736,10 +737,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		if(doUpdateGUI){
 			_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
 		}
-		_thisController.displayReadingOrder(true);
+		_thisController.displayReadingOrder(_displayReadingOrder);
 	}
 
 	this.displayReadingOrder = function(doDisplay){
+		_displayReadingOrder = doDisplay;
 		if(doDisplay){
 			_editor.displayReadingOrder(_exportSettings[_currentPage].readingOrder);
 		}else{

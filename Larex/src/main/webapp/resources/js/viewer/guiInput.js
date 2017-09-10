@@ -260,6 +260,14 @@ function GuiInput(navigationController, controller, gui){
 			_gui.setRegionColor(color);
 	});
 
+	$('.collapsible-header').click(function() {
+			if($(this).is('#reading-order-header')){
+				_controller.displayReadingOrder(true);
+			}else{
+				_controller.displayReadingOrder(false);
+			}
+	});
+
 	this.addDynamicListeners = function(){
 		$('.reading-order-segment').mouseover(function(){
 				var $this = $(this);
