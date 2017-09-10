@@ -123,6 +123,17 @@
 				</div>
 			</div>
 		</li>
+		<li>
+			<div class="collapsible-header active">
+				<i class="material-icons">settings</i>Reading Order
+			</div>
+			<div class="collapsible-body">
+				<div class="reading-order">
+				  	<ul id="reading-order-list" class="collection">
+				  	</ul>
+			  	</div>
+			</div>
+		</li>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	

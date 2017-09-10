@@ -167,6 +167,20 @@ function GUI(canvas, viewer) {
 		$('#regioneditor').addClass('hide');
 	}
 
+	this.setReadingOrder = function(readingOrder){
+		$readingOrderList = $('#reading-order-list');
+		$readingOrderList.empty();
+		for(var index = 0; index < readingOrder.length; index++){
+			var segment = readingOrder[index];
+			var $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'"></li>');
+			var $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
+			$collectionItem.append($legendTypeIcon);
+			$collectionItem.append(segment.type);
+			$readingOrderList.append($collectionItem);
+
+		}
+	}
+
 	this.selectToolBarButton = function(option, doSelect){
 		var $button = null;
 		switch(option){

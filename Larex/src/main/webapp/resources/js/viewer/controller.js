@@ -123,13 +123,13 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 						//has no fixedSegment counterpart and has not been deleted
 						_editor.addSegment(pageSegments[key]);
-						_presentSegments.push(key);
+						_presentSegments.push(pageSegments[key]);
 					}
 				});
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
-					_presentSegments.push(key);
+					_presentSegments.push(pageSegments[key]);
 				});
 
 				var regions = _settings.regions;
@@ -164,6 +164,8 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
+				_gui.setReadingOrder(_presentSegments);
+				_gui.setRegionLegendColors(_segmentationtypes);
 
 				_currentPageDownloadable = false;
 				_gui.setDownloadable(_currentPageDownloadable);

@@ -258,4 +258,16 @@ function GuiInput(navigationController, controller, gui){
 			color = new paper.Color(color.red,color.green,color.blue);
 			_gui.setRegionColor(color);
 	});
+
+	$('.reading-order-segment').mouseover(function(){
+		  var $this = $(this);
+			var segmentID = $this.data('segmentid');
+			_controller.enterSegment(segmentID);
+	});
+
+	$('.reading-order-segment').mouseleave(function(){
+		  var $this = $(this);
+			var segmentID = $this.data('segmentid');
+			_controller.leaveSegment(segmentID);
+	});
 }
