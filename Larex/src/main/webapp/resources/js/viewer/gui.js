@@ -180,6 +180,14 @@ function GUI(canvas, viewer) {
 		}
 	}
 
+	this.highlightSegment = function(segmentID, doHighlight){
+		if(doHighlight){
+			$(".reading-order-segment[data-segmentid='"+segmentID+"']").addClass('highlighted');
+		}else {
+			$(".reading-order-segment[data-segmentid='"+segmentID+"']").removeClass('highlighted');
+		}
+	}
+
 	this.setBeforeInReadingOrder = function(segment1ID,segment2ID){
 		$segment1 = $(".reading-order-segment[data-segmentid='"+segment1ID+"']");
 		$segment2 = $(".reading-order-segment[data-segmentid='"+segment2ID+"']");

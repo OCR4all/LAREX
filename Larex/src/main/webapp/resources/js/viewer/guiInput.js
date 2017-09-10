@@ -288,8 +288,11 @@ function GuiInput(navigationController, controller, gui){
 	});
 
 	$('.reading-order-segment').on('dragenter', function (event) {
-			$(this).addClass('dragedOver');
-      event.preventDefault();
+				var $this = $(this);
+				$this.addClass('dragedOver');
+				if(_draggedObject){
+					_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),false);
+				}
       return true;
 	});
 
@@ -297,7 +300,7 @@ function GuiInput(navigationController, controller, gui){
 			var $this = $(this);
 			$this.removeClass('dragedOver');
 			if(_draggedObject){
-				_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'));
+				_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),true);
 			}
 	});
 }

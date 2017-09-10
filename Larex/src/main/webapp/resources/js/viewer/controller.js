@@ -114,8 +114,13 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				var pageSegments = _segmentation.pages[_currentPage].segments;
 				var pageFixedSegments = _settings.pages[_currentPage].segments;
 
+				var readingOrderIsEmpty = false;
 				if(!_exportSettings[_currentPage]){
 					initExportSettings(_currentPage);
+					readingOrderIsEmpty = true;
+				}
+				if(_exportSettings[_currentPage].readingOrder.length == 0){
+					readingOrderIsEmpty = true;
 				}
 
 				// Iterate over Segment-"Map" (Object in JS)
@@ -124,13 +129,17 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 						//has no fixedSegment counterpart and has not been deleted
 						_editor.addSegment(pageSegments[key]);
-						_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
+						if(readingOrderIsEmpty){
+							_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
+						}
 					}
 				});
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
-					_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
+					if(readingOrderIsEmpty){
+						_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
+					}
 				});
 
 				var regions = _settings.regions;
@@ -165,13 +174,16 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
+				if(readingOrderIsEmpty){
+					_exportSettings[_currentPage].readingOrder = _editor.getSortedReadingOrder(_exportSettings[_currentPage].readingOrder);
+				}
 				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
+				_thisController.displayReadingOrder(true);
 				_gui.setRegionLegendColors(_segmentationtypes);
 
 				_currentPageDownloadable = false;
 				_gui.setDownloadable(_currentPageDownloadable);
 				_gui.selectPage(pageNr);
-				_thisController.displayReadingOrder(true);
 		}
 	}
 	this.addPresentRegions = function(regionType){
@@ -704,7 +716,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		return freeColorIndexes;
 	}
 
-	this.setBeforeInReadingOrder = function(segment1ID,segment2ID){
+	this.setBeforeInReadingOrder = function(segment1ID,segment2ID,doUpdateGUI){
 		var readingOrder = _exportSettings[_currentPage].readingOrder;
 		var index1;
 		var segment1;
@@ -720,7 +732,9 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 		readingOrder.splice(index1,1);
 		readingOrder.splice(readingOrder.indexOf(segment2), 0, segment1);
-		_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
+		if(doUpdateGUI){
+			_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
+		}
 		_thisController.displayReadingOrder(true);
 	}
 
@@ -828,16 +842,19 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	this.toggleSegment = function(sectionID, isSelected, info) {
 		if(!_editor.isEditing){
 			_editor.selectSegment(sectionID, isSelected);
+			_gui.highlightSegment(sectionID, isSelected);
 		}
 	}
 	this.enterSegment = function(sectionID, info) {
 		if(!_editor.isEditing){
 			_editor.highlightSegment(sectionID, true);
+			_gui.highlightSegment(sectionID, true);
 		}
 	}
 	this.leaveSegment = function(sectionID, info) {
 		if(!_editor.isEditing){
 			_editor.highlightSegment(sectionID, false);
+			_gui.highlightSegment(sectionID,false);
 		}
 	}
 	this.hideAllRegions = function(doHide){

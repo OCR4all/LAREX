@@ -95,7 +95,7 @@ body{
         }
         .collection-item{
             cursor: pointer;
-            &:hover{
+            &:hover, &.highlighted{
               background-color: $color3;
               color: $color2;
             }

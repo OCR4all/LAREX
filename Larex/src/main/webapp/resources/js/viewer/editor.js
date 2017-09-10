@@ -792,6 +792,27 @@ function Editor(viewer,controller) {
 		}
 	}
 
+	this.getSortedReadingOrder = function(readingOrder){
+		var centers = {};
+		for(var index = 0; index < readingOrder.length; index++){
+			var id = readingOrder[index].id;
+			centers[id] = _this.getPath(id).bounds.center;
+		}
+
+		readingOrder.sort(function(a,b){
+			var centerA = centers[a.id];
+			var centerB = centers[b.id];
+			var delta = centerA.y - centerB.y;
+			if(delta != 0){
+				return delta;
+			}else{
+				return centerA.x - centerB.x;
+			}
+		});
+
+		return readingOrder;
+	}
+
 	// Private Helper methods
 	var convertPointsPathToSegment = function(path,isRelative){
 		var points = [];
