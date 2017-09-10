@@ -175,7 +175,7 @@ function GUI(canvas, viewer) {
 			var $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'" draggable="true"></li>');
 			var $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
 			$collectionItem.append($legendTypeIcon);
-			$collectionItem.append(segment.type);
+			$collectionItem.append(segment.type+"-"+segment.id.substring(0,4));
 			$readingOrderList.append($collectionItem);
 		}
 	}
