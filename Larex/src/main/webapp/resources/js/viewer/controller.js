@@ -13,6 +13,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _segmentationtypes;
 	var _actions = [];
 	var _actionpointer = -1;
+	var _presentSegments = [];
 	var _presentRegions = [];
 	var _exportSettings = {};
 	var _currentPageDownloadable = false;
@@ -114,17 +115,21 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				var pageSegments = _segmentation.pages[_currentPage].segments;
 				var pageFixedSegments = _settings.pages[_currentPage].segments;
 
+				_presentSegments = [];
+
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach(function(key) {
 					var hasFixedSegmentCounterpart = false;
 					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 						//has no fixedSegment counterpart and has not been deleted
 						_editor.addSegment(pageSegments[key]);
+						_presentSegments.push(key);
 					}
 				});
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
+					_presentSegments.push(key);
 				});
 
 				var regions = _settings.regions;
@@ -632,7 +637,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}else{
 			color = _colors[_thisController.getAvailableColorIndexes()[0]];
 		}
-		
+
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate,color);
 	}
 
@@ -935,5 +940,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		_exportSettings[page].segmentsToMerge = {};
 		_exportSettings[page].changedTypes = {};
 		_exportSettings[page].fixedRegions = [];
+		_exportSettings[page].readingOrder = [];
 	}
 }

@@ -195,6 +195,13 @@ public class LarexFacade implements IFacade {
 				result.addRegion(WebLarexTranslator.translateSegmentToResultRegion(fixedSegments.get(fixedSegmentID)));
 			}
 		}
+		
+		// Reading Order
+		ArrayList<ResultRegion> readingOrder = new ArrayList<ResultRegion>();
+		List<String> readingOrderStrings = exportRequest.getReadingOrder();
+		for(String regionID : readingOrderStrings) {
+			readingOrder.add(result.getRegionByID(regionID));
+		}
 	}
 
 	@Override
