@@ -2,6 +2,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _bookID = bookID;
 	var _communicator = new Communicator();
 	var _gui;
+	var _guiInput;
 	var _editor;
 	var _currentPage;
 	var _segmentedPages = [];
@@ -82,17 +83,16 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 							// (streched)
 							paper.setup(document.getElementById(canvasID));
 
-							_thisController.displayPage(0);
-
-							_thisController.showPreloader(false);
 
 							// Init inputs
 							var keyInput = new KeyInput(navigationController,
 									_thisController, _gui);
 							$("#"+canvasID).mouseover(function(){keyInput.isActive = true;});
 							$("#"+canvasID).mouseleave(function(){keyInput.isActive = false;});
-							var guiInput = new GuiInput(navigationController,
-									_thisController, _gui);
+							_guiInput = new GuiInput(navigationController, _thisController, _gui);
+
+							_thisController.displayPage(0);
+							_thisController.showPreloader(false);
 
 							// on resize
 							$(window).resize(function() {
@@ -178,6 +178,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					_exportSettings[_currentPage].readingOrder = _editor.getSortedReadingOrder(_exportSettings[_currentPage].readingOrder);
 				}
 				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
+				_guiInput.addDynamicListeners();
 				_thisController.displayReadingOrder(true);
 				_gui.setRegionLegendColors(_segmentationtypes);
 

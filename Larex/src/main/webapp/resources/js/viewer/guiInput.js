@@ -260,47 +260,49 @@ function GuiInput(navigationController, controller, gui){
 			_gui.setRegionColor(color);
 	});
 
-	$('.reading-order-segment').mouseover(function(){
-		  var $this = $(this);
-			var segmentID = $this.data('segmentid');
-			_controller.enterSegment(segmentID);
-	});
-
-	$('.reading-order-segment').mouseleave(function(){
-		  var $this = $(this);
-			var segmentID = $this.data('segmentid');
-			_controller.leaveSegment(segmentID);
-	});
-
-	$('.reading-order-segment').on('dragstart', function (event) {
-			var $this = $(this);
-			_draggedObject = $this;
-	});
-
-	$('.reading-order-segment').on('dragover', function (event) {
-      return false;
-	});
-
-	$('.reading-order-segment').on('dragleave', function (event) {
-			$(this).removeClass('dragedOver');
-      event.preventDefault();
-	    return false;
-	});
-
-	$('.reading-order-segment').on('dragenter', function (event) {
+	this.addDynamicListeners = function(){
+		$('.reading-order-segment').mouseover(function(){
 				var $this = $(this);
-				$this.addClass('dragedOver');
-				if(_draggedObject){
-					_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),false);
-				}
-      return true;
-	});
+				var segmentID = $this.data('segmentid');
+				_controller.enterSegment(segmentID);
+		});
 
-	$('.reading-order-segment').on('drop', function (event) {
-			var $this = $(this);
-			$this.removeClass('dragedOver');
-			if(_draggedObject){
-				_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),true);
-			}
-	});
+		$('.reading-order-segment').mouseleave(function(){
+				var $this = $(this);
+				var segmentID = $this.data('segmentid');
+				_controller.leaveSegment(segmentID);
+		});
+
+		$('.reading-order-segment').on('dragstart', function (event) {
+				var $this = $(this);
+				_draggedObject = $this;
+		});
+
+		$('.reading-order-segment').on('dragover', function (event) {
+				return false;
+		});
+
+		$('.reading-order-segment').on('dragleave', function (event) {
+				$(this).removeClass('dragedOver');
+				event.preventDefault();
+				return false;
+		});
+
+		$('.reading-order-segment').on('dragenter', function (event) {
+					var $this = $(this);
+					$this.addClass('dragedOver');
+					if(_draggedObject){
+						_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),false);
+					}
+				return true;
+		});
+
+		$('.reading-order-segment').on('drop', function (event) {
+				var $this = $(this);
+				$this.removeClass('dragedOver');
+				if(_draggedObject){
+					_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),true);
+				}
+		});
+	}
 }

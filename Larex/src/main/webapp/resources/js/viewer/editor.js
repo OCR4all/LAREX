@@ -775,9 +775,8 @@ function Editor(viewer,controller) {
 			_readingOrder = new paper.Path();
 			_readingOrder.strokeColor = 'black';
 			_readingOrder.strokeWidth = 2;
-
-			_this.getImageCanvas().addChild(_readingOrder);
 		}
+		_this.getImageCanvas().addChild(_readingOrder);
 		_readingOrder.visible = true;
 		_readingOrder.removeSegments();
 
