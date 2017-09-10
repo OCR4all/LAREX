@@ -269,6 +269,8 @@ function GuiInput(navigationController, controller, gui){
 	});
 
 	this.addDynamicListeners = function(){
+		var _hasBeenDropped = false;
+
 		$('.reading-order-segment').mouseover(function(){
 				var $this = $(this);
 				var segmentID = $this.data('segmentid');
@@ -284,6 +286,7 @@ function GuiInput(navigationController, controller, gui){
 		$('.reading-order-segment').on('dragstart', function (event) {
 				var $this = $(this);
 				_draggedObject = $this;
+				_hasBeenDropped = false;
 		});
 
 		$('.reading-order-segment').on('dragover', function (event) {
@@ -310,6 +313,13 @@ function GuiInput(navigationController, controller, gui){
 				$this.removeClass('dragedOver');
 				if(_draggedObject){
 					_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),true);
+				}
+				_hasBeenDropped = true;
+		});
+
+		$('.reading-order-segment').on('dragend', function (event) {
+				if(!_hasBeenDropped){
+					_controller.forceUpdateReadingOrder();
 				}
 		});
 	}

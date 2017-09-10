@@ -194,6 +194,14 @@ function GUI(canvas, viewer) {
 		$($segment1).insertBefore($segment2);
 	}
 
+	this.forceUpdateReadingOrder = function(readingOrder){
+		$readingOrderListItems = $('#reading-order-list');
+
+		for(var index = 0; index < readingOrder.length; index++){
+			$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index].id+"']"));
+		}
+	}
+
 	this.selectToolBarButton = function(option, doSelect){
 		var $button = null;
 		switch(option){

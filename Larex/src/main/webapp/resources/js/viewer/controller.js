@@ -749,6 +749,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 	}
 
+	this.forceUpdateReadingOrder = function(){
+		_gui.forceUpdateReadingOrder(_exportSettings[_currentPage].readingOrder);
+		_thisController.displayReadingOrder(_displayReadingOrder);
+	}
+
 	this.changeImageMode = function(imageMode){
 		_settings.imageSegType = imageMode;
 	}
