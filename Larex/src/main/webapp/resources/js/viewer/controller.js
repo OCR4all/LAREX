@@ -13,7 +13,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _segmentationtypes;
 	var _actions = [];
 	var _actionpointer = -1;
-	var _presentSegments = [];
 	var _presentRegions = [];
 	var _exportSettings = {};
 	var _currentPageDownloadable = false;
@@ -115,7 +114,9 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				var pageSegments = _segmentation.pages[_currentPage].segments;
 				var pageFixedSegments = _settings.pages[_currentPage].segments;
 
-				_presentSegments = [];
+				if(!_exportSettings[_currentPage]){
+					initExportSettings(_currentPage);
+				}
 
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach(function(key) {
@@ -123,13 +124,13 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 						//has no fixedSegment counterpart and has not been deleted
 						_editor.addSegment(pageSegments[key]);
-						_presentSegments.push(pageSegments[key]);
+						_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
 					}
 				});
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
-					_presentSegments.push(pageSegments[key]);
+					_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
 				});
 
 				var regions = _settings.regions;
@@ -164,7 +165,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
-				_gui.setReadingOrder(_presentSegments);
+				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
 				_gui.setRegionLegendColors(_segmentationtypes);
 
 				_currentPageDownloadable = false;
@@ -700,6 +701,25 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			}
 		}
 		return freeColorIndexes;
+	}
+
+	this.setBeforeInReadingOrder = function(segment1ID,segment2ID){
+		var readingOrder = _exportSettings[_currentPage].readingOrder;
+		var index1;
+		var segment1;
+		var segment2;
+		for(var index = 0; index < readingOrder.length; index++){
+			var currentSegment = readingOrder[index];
+			if(currentSegment.id === segment1ID){
+				index1 = index;
+				segment1 = currentSegment;
+			}else if(currentSegment.id === segment2ID){
+				segment2 = currentSegment;
+			}
+		}
+		readingOrder.splice(index1,1);
+		readingOrder.splice(readingOrder.indexOf(segment2), 0, segment1);
+		_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
 	}
 
 	this.changeImageMode = function(imageMode){

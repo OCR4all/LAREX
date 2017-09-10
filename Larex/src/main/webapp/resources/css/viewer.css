@@ -65,6 +65,8 @@ body {
       width: 15px; }
     .sidebar .settings-regions li, .sidebar .reading-order li {
       padding: 3px 10px !important; }
+    .sidebar .settings-regions .dragedOver, .sidebar .reading-order .dragedOver {
+      border-top: 2px solid #333333; }
     .sidebar .settings-regions .collection-item, .sidebar .reading-order .collection-item {
       cursor: pointer; }
       .sidebar .settings-regions .collection-item:hover, .sidebar .reading-order .collection-item:hover {

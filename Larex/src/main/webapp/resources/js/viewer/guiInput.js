@@ -2,6 +2,7 @@ function GuiInput(navigationController, controller, gui){
 	var _navigationController = navigationController;
 	var _controller = controller;
 	var _gui = gui;
+	var _draggedObject = null;
 
 	$(window).click(function() {
 		//Cancel viewer actions, if outside of viewer or a menu icon
@@ -269,5 +270,34 @@ function GuiInput(navigationController, controller, gui){
 		  var $this = $(this);
 			var segmentID = $this.data('segmentid');
 			_controller.leaveSegment(segmentID);
+	});
+
+	$('.reading-order-segment').on('dragstart', function (event) {
+			var $this = $(this);
+			_draggedObject = $this;
+	});
+
+	$('.reading-order-segment').on('dragover', function (event) {
+      return false;
+	});
+
+	$('.reading-order-segment').on('dragleave', function (event) {
+			$(this).removeClass('dragedOver');
+      event.preventDefault();
+	    return false;
+	});
+
+	$('.reading-order-segment').on('dragenter', function (event) {
+			$(this).addClass('dragedOver');
+      event.preventDefault();
+      return true;
+	});
+
+	$('.reading-order-segment').on('drop', function (event) {
+			var $this = $(this);
+			$this.removeClass('dragedOver');
+			if(_draggedObject){
+				_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'));
+			}
 	});
 }

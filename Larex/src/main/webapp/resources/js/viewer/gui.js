@@ -172,13 +172,18 @@ function GUI(canvas, viewer) {
 		$readingOrderList.empty();
 		for(var index = 0; index < readingOrder.length; index++){
 			var segment = readingOrder[index];
-			var $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'"></li>');
+			var $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'" draggable="true"></li>');
 			var $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
 			$collectionItem.append($legendTypeIcon);
 			$collectionItem.append(segment.type);
 			$readingOrderList.append($collectionItem);
-
 		}
+	}
+
+	this.setBeforeInReadingOrder = function(segment1ID,segment2ID){
+		$segment1 = $(".reading-order-segment[data-segmentid='"+segment1ID+"']");
+		$segment2 = $(".reading-order-segment[data-segmentid='"+segment2ID+"']");
+		$($segment1).insertBefore($segment2);
 	}
 
 	this.selectToolBarButton = function(option, doSelect){

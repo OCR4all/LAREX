@@ -90,6 +90,9 @@ body{
         li{
           padding: 3px 10px !important;
         }
+        .dragedOver{
+          border-top: 2px solid $color1;
+        }
         .collection-item{
             cursor: pointer;
             &:hover{
