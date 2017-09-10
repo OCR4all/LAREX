@@ -773,7 +773,7 @@ function Editor(viewer,controller) {
 	this.displayReadingOrder = function(readingOrder){
 		if(!_readingOrder){
 			_readingOrder = new paper.Path();
-			_readingOrder.strokeColor = 'black';
+			_readingOrder.strokeColor = 'indigo';
 			_readingOrder.strokeWidth = 2;
 		}
 		_this.getImageCanvas().addChild(_readingOrder);
