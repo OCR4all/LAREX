@@ -73,6 +73,17 @@
 			</div>
 		</li>
 		<li>
+			<div class="collapsible-header">
+				<i class="material-icons">reorder</i>Reading Order
+			</div>
+			<div class="collapsible-body">
+				<div class="reading-order">
+				  	<ul id="reading-order-list" class="collection">
+				  	</ul>
+			  	</div>
+			</div>
+		</li>
+		<li>
 			<div class="collapsible-header active">
 				<i class="material-icons">settings</i>Parameters
 			</div>
@@ -121,17 +132,6 @@
 						</div>
 					</div>
 				</div>
-			</div>
-		</li>
-		<li>
-			<div class="collapsible-header active">
-				<i class="material-icons">settings</i>Reading Order
-			</div>
-			<div class="collapsible-body">
-				<div class="reading-order">
-				  	<ul id="reading-order-list" class="collection">
-				  	</ul>
-			  	</div>
 			</div>
 		</li>
 	</ul>
