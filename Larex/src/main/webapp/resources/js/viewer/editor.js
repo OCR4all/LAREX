@@ -12,6 +12,7 @@ function Editor(viewer,controller) {
 	var _tempEndCircle;
 	var _this = this;
 	var _grid = {isActive:false};
+	var _readingOrder;
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
 	this.startRectangleSelect = function() {
@@ -766,6 +767,28 @@ function Editor(viewer,controller) {
 			}
 		}else{
 			return point;
+		}
+	}
+
+	this.displayReadingOrder = function(readingOrder){
+		if(!_readingOrder){
+			_readingOrder = new paper.Path();
+			_readingOrder.strokeColor = 'black';
+			_readingOrder.strokeWidth = 2;
+
+			_this.getImageCanvas().addChild(_readingOrder);
+		}
+		_readingOrder.visible = true;
+		_readingOrder.removeSegments();
+
+		for(var index = 0; index < readingOrder.length; index++){
+			_readingOrder.add(new paper.Segment(_this.getPath(readingOrder[index].id).bounds.center));
+		}
+	}
+
+	this.hideReadingOrder = function(){
+		if(_readingOrder){
+			_readingOrder.visible = false;
 		}
 	}
 
