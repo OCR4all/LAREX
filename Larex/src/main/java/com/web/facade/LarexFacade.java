@@ -202,6 +202,7 @@ public class LarexFacade implements IFacade {
 		for(String regionID : readingOrderStrings) {
 			readingOrder.add(result.getRegionByID(regionID));
 		}
+		result.setReadingOrder(readingOrder);
 	}
 
 	@Override
