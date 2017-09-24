@@ -394,3 +394,33 @@ function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
 		}
 	}
 }
+
+function ActionChangeReadingOrder(oldReadingOrder,newReadingOrder,controller,settings,page){
+	var _isExecuted = false;
+	var _oldReadingOrder = oldReadingOrder;
+	var _newReadingOrder = newReadingOrder;
+	var _settings = settings;
+	var _controller = controller;
+	var _page = page;
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+
+			_settings[_page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+			_controller.forceUpdateReadingOrder();
+
+			console.log('Do - Change Reading order');
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+
+			_settings[_page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+			_controller.forceUpdateReadingOrder();
+
+			console.log('Undo - Change Reading order');
+		}
+	}
+}

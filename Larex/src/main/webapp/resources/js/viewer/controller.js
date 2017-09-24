@@ -21,6 +21,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _pageXMLVersion = "2010-03-19";
 	var _gridIsActive = false;
 	var _displayReadingOrder = false;
+	var _tempReadingOrder = null;
 
 	var _thisController = this;
 	var _selected = [];
@@ -719,7 +720,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	this.setBeforeInReadingOrder = function(segment1ID,segment2ID,doUpdateGUI){
-		var readingOrder = _exportSettings[_currentPage].readingOrder;
+		if(!_tempReadingOrder){
+			_tempReadingOrder = JSON.parse(JSON.stringify(_exportSettings[_currentPage].readingOrder));
+		}
+		
+		var readingOrder = _tempReadingOrder;
 		var index1;
 		var segment1;
 		var segment2;
@@ -736,6 +741,8 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		readingOrder.splice(readingOrder.indexOf(segment2), 0, segment1);
 		if(doUpdateGUI){
 			_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
+			
+			addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,_tempReadingOrder,_thisController,_exportSettings,_currentPage));
 		}
 		_thisController.displayReadingOrder(_displayReadingOrder);
 	}
