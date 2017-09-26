@@ -233,6 +233,9 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 						default:
 							failedSegmentations.push(pageID);
 						}
+					
+					// reset export Settings
+					initExportSettings(pageID);
 				});
 				_segmentedPages.push.apply(_segmentedPages,pages);
 
