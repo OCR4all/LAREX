@@ -13,6 +13,7 @@ function Editor(viewer,controller) {
 	var _this = this;
 	var _grid = {isActive:false};
 	var _readingOrder;
+	var _guiOverlay = new paper.Group();
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
 	this.startRectangleSelect = function() {
@@ -778,16 +779,40 @@ function Editor(viewer,controller) {
 		}
 		_this.getImageCanvas().addChild(_readingOrder);
 		_readingOrder.visible = true;
+		_guiOverlay.visible = true;
 		_readingOrder.removeSegments();
+		_guiOverlay.removeChildren();
 
 		for(var index = 0; index < readingOrder.length; index++){
-			_readingOrder.add(new paper.Segment(_this.getPath(readingOrder[index].id).bounds.center));
+			var segment = _this.getPath(readingOrder[index].id);
+			_readingOrder.add(new paper.Segment(segment.bounds.center));
+			var text = new paper.PointText({
+				point: segment.bounds.center,
+				content: index,
+				fillColor: 'white',
+				strokeColor: 'black',
+				fontFamily: 'Courier New',
+				fontWeight: 'bold',
+				fontSize: '16pt',
+				strokeWidth: 1
+			});
+
+			/*var rectangle = new paper.Path.Rectangle(text.bounds);
+			rectangle.style = {
+				fillColor: 'blue',
+				strokeColor: 'red',
+				strokeWidth: 5
+			};
+			rectangle.applyMatrix = false;
+			_guiOverlay.addChild(rectangle);*/
+			_guiOverlay.addChild(text);
 		}
 	}
 
 	this.hideReadingOrder = function(){
 		if(_readingOrder){
 			_readingOrder.visible = false;
+			_guiOverlay.visible = false;
 		}
 	}
 
@@ -865,9 +890,17 @@ function Editor(viewer,controller) {
 		}
 	}
 
+	var fixGuiTextSize = function(){
+		_guiOverlay.children.forEach(function(element) {
+			element.scaling = new paper.Point(1,1);
+		}, this);
+		_guiOverlay.bringToFront();
+	}
+
 	//***Inherintent functions***
 	this.setImage = function(id){
 		_viewer.setImage(id);
+		_this.getImageCanvas().addChild(_guiOverlay);
 	}
 	this.addSegment = function(segment,isFixed){
 		_viewer.addSegment(segment,isFixed);
@@ -899,17 +932,25 @@ function Editor(viewer,controller) {
 	this.getZoom = function(){
 		return _viewer.getZoom();
 	}
-	this.setZoom = function(zoomfactor,paper) {
-		_viewer.setZoom(zoomfactor,paper);
+	this.setZoom = function(zoomfactor,point) {
+		_viewer.setZoom(zoomfactor,point);
+
+		fixGuiTextSize();
 	}
-	this.zoomIn = function(zoomfactor,paper) {
-		_viewer.zoomIn(zoomfactor,paper);
+	this.zoomIn = function(zoomfactor,point) {
+		_viewer.zoomIn(zoomfactor,point);
+
+		fixGuiTextSize();
 	}
-	this.zoomOut = function(zoomfactor,paper) {
-		_viewer.zoomOut(zoomfactor,paper);
+	this.zoomOut = function(zoomfactor,point) {
+		_viewer.zoomOut(zoomfactor,point);
+
+		fixGuiTextSize();
 	}
 	this.zoomFit = function() {
 		_viewer.zoomFit();
+
+		fixGuiTextSize();
 	}
 	this.movePoint = function(delta) {
 		if(!_this.isEditing){
