@@ -397,8 +397,8 @@ function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
 
 function ActionChangeReadingOrder(oldReadingOrder,newReadingOrder,controller,settings,page){
 	var _isExecuted = false;
-	var _oldReadingOrder = oldReadingOrder;
-	var _newReadingOrder = newReadingOrder;
+	var _oldReadingOrder = JSON.parse(JSON.stringify(oldReadingOrder));
+	var _newReadingOrder = JSON.parse(JSON.stringify(newReadingOrder));
 	var _settings = settings;
 	var _controller = controller;
 	var _page = page;
