@@ -12,8 +12,8 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _settings;
 	var _activesettings;
 	var _segmentationtypes;
-	var _actions = [];
-	var _actionpointer = -1;
+	var _actions = {};
+	var _actionpointers = {};
 	var _presentRegions = [];
 	var _exportSettings = {};
 	var _currentPageDownloadable = false;
@@ -308,17 +308,19 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_thisController.displayPage(_currentPage);
 				_thisController.hideAllRegions(true);
 				_gui.forceUpdateRegionHide(_visibleRegions);
-				_actions = [];
+				_thisController.resetActions();
 			}
 		});
 	}
 
 	// Actions
 	this.redo = function() {
-		if (_actionpointer < _actions.length - 1) {
+		var pageActions = _actions[_currentPage];
+		var pageActionpointer = _actionpointers[_currentPage];
+		if (pageActions && pageActionpointer < pageActions.length - 1) {
 			this.unSelect();
-			_actionpointer++;
-			_actions[_actionpointer].execute();
+			_actionpointers[_currentPage]++;
+			pageActions[_actionpointers[_currentPage]].execute();
 
 			// Reset Downloadable
 			_currentPageDownloadable = false;
@@ -326,16 +328,21 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 	}
 	this.undo = function() {
-		if (_actionpointer >= 0) {
+		var pageActions = _actions[_currentPage];
+		var pageActionpointer = _actionpointers[_currentPage];
+		if (pageActions && pageActionpointer >= 0) {
 			this.unSelect();
-			_actions[_actionpointer].undo();
-			_actionpointer--;
-
+			pageActions[pageActionpointer].undo();
+			_actionpointers[_currentPage]--;
 
 			// Reset Downloadable
 			_currentPageDownloadable = false;
 			_gui.setDownloadable(_currentPageDownloadable);
 		}
+	}
+	this.resetActions = function(){
+		_actions[_currentPage] = [];
+		_actionpointers[_currentPage] = -1;
 	}
 	this.createPolygon = function(doSegment) {
 		_thisController.endEditing(true);
@@ -754,7 +761,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		_displayReadingOrder = doDisplay;
 		if(doDisplay){
 			var readingOrder = doUseTempReadingOrder? _tempReadingOrder : _exportSettings[_currentPage].readingOrder;
-			console.log(readingOrder === _tempReadingOrder, readingOrder === _exportSettings[_currentPage].readingOrder);
 			_editor.displayReadingOrder(readingOrder);
 		}else{
 			_editor.hideReadingOrder();
@@ -970,15 +976,21 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	var addAndExecuteAction = function(action) {
+		var pageActions = _actions[_currentPage];
+
+		if(!pageActions){
+			_thisController.resetActions();
+			pageActions = _actions[_currentPage];
+		}
 		// Remove old undone actions
-		if (_actions.length > 0)
-			_actions = _actions.slice(0, _actionpointer + 1);
+		if (pageActions.length > 0)
+			pageActions = pageActions.slice(0, _actionpointers[_currentPage] + 1);
 
 		// Execute and add new Action
 		action.execute();
-		_actions.push(action);
-		_actionpointer++;
-
+		_actions[_currentPage].push(action);
+		_actionpointers[_currentPage]++;
+	
 		// Reset Downloadable
 		_currentPageDownloadable = false;
 		_gui.setDownloadable(_currentPageDownloadable);
