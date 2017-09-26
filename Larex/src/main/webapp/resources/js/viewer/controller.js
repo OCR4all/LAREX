@@ -719,7 +719,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		return freeColorIndexes;
 	}
 
-	this.setBeforeInReadingOrder = function(segment1ID,segment2ID,doUpdateGUI){
+	this.setBeforeInReadingOrder = function(segment1ID,segment2ID,doUpdate){
 		if(!_tempReadingOrder){
 			_tempReadingOrder = JSON.parse(JSON.stringify(_exportSettings[_currentPage].readingOrder));
 		}
@@ -739,18 +739,22 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 		readingOrder.splice(index1,1);
 		readingOrder.splice(readingOrder.indexOf(segment2), 0, segment1);
-		if(doUpdateGUI){
+		if(doUpdate){
 			_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
 			
 			addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,_tempReadingOrder,_thisController,_exportSettings,_currentPage));
 		}
-		_thisController.displayReadingOrder(_displayReadingOrder);
+		_thisController.displayReadingOrder(_displayReadingOrder,true);
 	}
 
-	this.displayReadingOrder = function(doDisplay){
+	this.displayReadingOrder = function(doDisplay,doUseTempReadingOrder){
 		_displayReadingOrder = doDisplay;
 		if(doDisplay){
-			_editor.displayReadingOrder(_exportSettings[_currentPage].readingOrder);
+			if(!doUseTempReadingOrder){
+				_editor.displayReadingOrder(_exportSettings[_currentPage].readingOrder);
+			}else{
+				_editor.displayReadingOrder(_tempReadingOrder);
+			}
 		}else{
 			_editor.hideReadingOrder();
 		}
