@@ -194,11 +194,15 @@ function GUI(canvas, viewer) {
 		$($segment1).insertBefore($segment2);
 	}
 
-	this.forceUpdateReadingOrder = function(readingOrder){
-		$readingOrderListItems = $('#reading-order-list');
+	this.forceUpdateReadingOrder = function(readingOrder,forceHard){
+		if(forceHard){
+			_gui.setReadingOrder(readingOrder);
+		}else{
+			$readingOrderListItems = $('#reading-order-list');
 
-		for(var index = 0; index < readingOrder.length; index++){
-			$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index].id+"']"));
+			for(var index = 0; index < readingOrder.length; index++){
+				$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index].id+"']"));
+			}
 		}
 	}
 

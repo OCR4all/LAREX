@@ -65,9 +65,10 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 	}
 }
 
-function ActionChangeTypeSegment(segmentID,newType,viewer,segmentation,page,exportSettings){
+function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentation,page,exportSettings){
 	var _isExecuted = false;
 	var _viewer = viewer;
+	var _controller = controller;
 	var _segmentation = segmentation;
 	var _page = page;
 	var _segmentID = segmentID;
@@ -85,6 +86,7 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,segmentation,page,expo
 			}
 			segment.type = _newType;
 			_viewer.updateSegment(segment);
+			_controller.forceUpdateReadingOrder(true); //TODO try not to force to update all for changing type
 			if(_exportSettings){
 				_exportSettings[_page].changedTypes[_segmentID] = _newType;
 			}
@@ -98,6 +100,7 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,segmentation,page,expo
 			var segment = segmentation.pages[_page].segments[_segmentID];
 			segment.type = _oldType;
 			_viewer.updateSegment(segment);
+			_controller.forceUpdateReadingOrder(true);
 			if(_exportSettings){
 				_exportSettings[_page].changedTypes[_segmentID] = _oldType;
 			}
@@ -207,12 +210,13 @@ function ActionRemoveCompleteRegion(regionType,controller,editor,settings,contro
 	}
 }
 
-function ActionAddFixedSegment(id,points,type,editor,settings,page,_exportSettings){
+function ActionAddFixedSegment(id,points,type,editor,settings,page,_exportSettings,controller){
 	var _isExecuted = false;
 	var _segment = {id:id, points:points, type:type, isRelative:false};
 	var _editor = editor;
 	var _settings = settings;
 	var _page = page;
+	var _actionAddToReadingOrder = new ActionAddToReadingOrder(_segment,page,_exportSettings,controller);
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -223,6 +227,7 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,_exportSettin
 				_exportSettings[_page].segmentsToIgnore = jQuery.grep(_exportSettings[_page].segmentsToIgnore, function(value) {
 					return value != _segment.id;
 				});
+				_actionAddToReadingOrder.execute();
 			}
 			console.log('Do - Add Region Polygon: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
@@ -234,19 +239,21 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,_exportSettin
 			_editor.removeSegment(_segment.id);
 			if(_exportSettings){
 				_exportSettings[_page].segmentsToIgnore.push(_segment.id);
+				_actionAddToReadingOrder.undo();
 			}
 			console.log('Undo - Add Region Polygon: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
 	}
 }
 
-function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings){
+function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,controller){
 	var _isExecuted = false;
 	var _editor = editor;
 	var _segmentation = segmentation;
 	var _page = page;
 	var _segment = JSON.parse(JSON.stringify(segment));
 	var _exportSettings = exportSettings;
+	var _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id,page,exportSettings,controller);
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -257,6 +264,7 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings){
 
 			if(_exportSettings){
 				_exportSettings[_page].segmentsToIgnore.push(_segment.id);
+				_actionRemoveFromReadingOrder.execute();
 			}
 			console.log('Do - Remove: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
@@ -271,6 +279,7 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings){
 				_exportSettings[_page].segmentsToIgnore = jQuery.grep(_exportSettings[_page].segmentsToIgnore, function(value) {
 					return value != _segment.id;
 				});
+				_actionRemoveFromReadingOrder.undo();
 			}
 			console.log('Undo - Remove: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
@@ -421,6 +430,79 @@ function ActionChangeReadingOrder(oldReadingOrder,newReadingOrder,controller,set
 			_controller.forceUpdateReadingOrder();
 
 			console.log('Undo - Change Reading order');
+		}
+	}
+}
+
+function ActionRemoveFromReadingOrder(segmentID,page,exportSettings,controller){
+	var _isExecuted = false;
+	var _segmentID = segmentID;
+	var _exportSettings = exportSettings;
+	var _oldReadingOrder = JSON.parse(JSON.stringify(_exportSettings[page].readingOrder));
+	var _newReadingOrder;
+	var _controller = controller;
+	var _page = page;
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+
+			if(!_newReadingOrder){
+				var _newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+				for(var index = 0; index < _newReadingOrder.length; index++){
+					if(_newReadingOrder[index].id === _segmentID){
+						_newReadingOrder.splice(index,1);
+						break;
+					}
+				}
+			}
+			
+			_exportSettings[_page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+			_controller.forceUpdateReadingOrder(true);
+			console.log('Do - Remove from Reading Order: {"id":"'+_segmentID+'","points":[..],"type":..}');
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+			
+			_exportSettings[_page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+			_controller.forceUpdateReadingOrder(true);
+			console.log('Undo - Remove from Reading Order: {"id":"'+_segmentID+'","points":[..],"type":..}');
+		}
+	}
+}
+
+function ActionAddToReadingOrder(segment,page,exportSettings,controller){
+	var _isExecuted = false;
+	var _segment = segment;
+	var _exportSettings = exportSettings;
+	var _oldReadingOrder = JSON.parse(JSON.stringify(_exportSettings[page].readingOrder));
+	var _newReadingOrder;
+	var _controller = controller;
+	var _page = page;
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+
+			if(!_newReadingOrder){
+				var _newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+				_newReadingOrder.push(_segment);
+			}
+			
+			_exportSettings[_page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+			_controller.forceUpdateReadingOrder(true);
+			console.log('Do - Add to Reading Order: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+			
+			_exportSettings[_page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+			_controller.forceUpdateReadingOrder(true);
+			console.log('Undo - Add to Reading Order: {"id":"'+_segment.id+'","points":[..],"type":"'+_segment.type+'"}');
 		}
 	}
 }
