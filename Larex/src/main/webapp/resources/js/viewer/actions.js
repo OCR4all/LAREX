@@ -72,23 +72,30 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 	var _segmentation = segmentation;
 	var _page = page;
 	var _segmentID = segmentID;
-	var _oldType = null;
+	var _segment = segmentation.pages[_page].segments[_segmentID];
+	var _oldType = _segment.type;
 	var _newType = newType;
 	var _exportSettings = exportSettings;
-
+	var _actionReadingOrder = null;
+	console.log(_newType,_oldType);
+	if(_oldType === 'image'){
+		_actionReadingOrder = new ActionAddToReadingOrder(_segment,_page,_exportSettings,_controller);
+	}else if(_newType === 'image'){
+		_actionReadingOrder = new ActionRemoveFromReadingOrder(_segmentID,_page,_exportSettings,_controller);
+	}
+	
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
 
-			var segment = segmentation.pages[_page].segments[_segmentID];
-			if(_oldType == null){
-				_oldType = segment.type;
-			}
-			segment.type = _newType;
-			_viewer.updateSegment(segment);
+			_segment.type = _newType;
+			_viewer.updateSegment(_segment);
 			_controller.forceUpdateReadingOrder(true); //TODO try not to force to update all for changing type
 			if(_exportSettings){
 				_exportSettings[_page].changedTypes[_segmentID] = _newType;
+				if(_actionReadingOrder){
+					_actionReadingOrder.execute();
+				}
 			}
 			console.log('Do - Change Type: {"id":"'+_segmentID+'","points":[..],"type":"'+_oldType+'->'+_newType+'"}');
 		}
@@ -97,12 +104,14 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 		if(_isExecuted){
 			_isExecuted = false;
 
-			var segment = segmentation.pages[_page].segments[_segmentID];
-			segment.type = _oldType;
-			_viewer.updateSegment(segment);
+			_segment.type = _oldType;
+			_viewer.updateSegment(_segment);
 			_controller.forceUpdateReadingOrder(true);
 			if(_exportSettings){
 				_exportSettings[_page].changedTypes[_segmentID] = _oldType;
+				if(_actionReadingOrder){
+					_actionReadingOrder.undo();
+				}
 			}
 			console.log('Undo - Change Type: {"id":"'+_segmentID+'","points":[..],"type":"'+_oldType+'->'+_newType+'"}');
 		}
@@ -483,7 +492,7 @@ function ActionAddToReadingOrder(segment,page,exportSettings,controller){
 	var _page = page;
 
 	this.execute = function(){
-		if(!_isExecuted){
+		if(!_isExecuted && _segment.type !== 'image'){
 			_isExecuted = true;
 
 			if(!_newReadingOrder){
@@ -497,7 +506,7 @@ function ActionAddToReadingOrder(segment,page,exportSettings,controller){
 		}
 	}
 	this.undo = function(){
-		if(_isExecuted){
+		if(_isExecuted && _segment.type !== 'image'){
 			_isExecuted = false;
 			
 			_exportSettings[_page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));

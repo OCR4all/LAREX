@@ -132,7 +132,10 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 						//has no fixedSegment counterpart and has not been deleted
 						_editor.addSegment(pageSegments[key]);
 						if(readingOrderIsEmpty){
-							_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
+							var segment = pageSegments[key];
+							if(segment.type !== 'image'){
+								_exportSettings[_currentPage].readingOrder.push(segment);
+							}
 						}
 					}
 				});
@@ -140,7 +143,10 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
 					if(readingOrderIsEmpty){
-						_exportSettings[_currentPage].readingOrder.push(pageSegments[key]);
+						var segment = pageSegments[key];
+						if(segment.type !== 'image'){
+							_exportSettings[_currentPage].readingOrder.push(segment);
+						}
 					}
 				});
 
@@ -321,7 +327,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			this.unSelect();
 			_actionpointers[_currentPage]++;
 			pageActions[_actionpointers[_currentPage]].execute();
-
+			
 			// Reset Downloadable
 			_currentPageDownloadable = false;
 			_gui.setDownloadable(_currentPageDownloadable);
@@ -785,10 +791,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		readingOrder.splice(readingOrder.indexOf(segment2), 0, segment1);
 	}
 
-	this.addToReadgingOrder = function(segment){
-		readingOrder.push(segment);
-	}
-
 	this.changeImageMode = function(imageMode){
 		_settings.imageSegType = imageMode;
 	}
@@ -988,7 +990,8 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 		// Execute and add new Action
 		action.execute();
-		_actions[_currentPage].push(action);
+		pageActions.push(action);
+		_actions[_currentPage] = pageActions;
 		_actionpointers[_currentPage]++;
 	
 		// Reset Downloadable
