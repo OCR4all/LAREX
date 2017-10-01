@@ -193,6 +193,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_currentPageDownloadable = false;
 				_gui.setDownloadable(_currentPageDownloadable);
 				_gui.selectPage(pageNr);
+				_tempReadingOrder = null;
 		}
 	}
 	this.addPresentRegions = function(regionType){
