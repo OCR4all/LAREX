@@ -177,6 +177,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_gui.setDownloadable(_currentPageDownloadable);
 				_gui.selectPage(pageNr);
 				_tempReadingOrder = null;
+				_thisController.endCreateReadingOrder();
 		}
 	}
 	this.addPresentRegions = function(regionType){
@@ -758,10 +759,12 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	this.createReadingOrder = function(){
 		addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,[],_thisController,_exportSettings,_currentPage));
 		_editReadingOrder = true;
+		_gui.doEditReadingOrder(true);
 	}
 
 	this.endCreateReadingOrder = function(){
 		_editReadingOrder = false;
+		_gui.doEditReadingOrder(false);
 	}
 	
 	this.setBeforeInReadingOrder = function(segment1ID,segment2ID,doUpdate){
@@ -800,6 +803,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}else{
 			_editor.hideReadingOrder();
 		}
+		_gui.displayReadingOrder(doDisplay);
 	}
 
 	this.forceUpdateReadingOrder = function(forceHard){

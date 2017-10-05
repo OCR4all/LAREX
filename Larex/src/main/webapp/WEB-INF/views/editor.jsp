@@ -150,6 +150,15 @@
 							tooltip="Scale selected items (Shortcut: S)">Scale</t:menuIcon>
 						<t:menuIcon jsClass="combineSelected" icon="add_circle"
 							tooltip="Combine selected Segments (Shortcut: C)">Combine</t:menuIcon>
+						<div class="menuIconDivider col"></div>
+						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
+							<t:menuIcon jsClass="createReadingOrder" icon="timeline"
+								tooltip="Set a reading order">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="saveReadingOrder hide" icon="save"
+								tooltip="Save the current reading order">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
+								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
+						</t:menuIconCategory>
 					</div>
 				</div>
 			</div>

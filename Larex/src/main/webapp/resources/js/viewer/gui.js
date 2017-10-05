@@ -167,6 +167,13 @@ function GUI(canvas, viewer) {
 		$('#regioneditor').addClass('hide');
 	}
 
+	this.displayReadingOrder = function(doDisplay){
+		if(doDisplay){
+			$('.readingOrderCategory').removeClass("hide");
+		}else{
+			$('.readingOrderCategory').addClass("hide");
+		}
+	}
 	this.setReadingOrder = function(readingOrder){
 		$readingOrderList = $('#reading-order-list');
 		$readingOrderList.empty();
@@ -205,6 +212,16 @@ function GUI(canvas, viewer) {
 			for(var index = 0; index < readingOrder.length; index++){
 				$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index].id+"']"));
 			}
+		}
+	}
+
+	this.doEditReadingOrder = function(doEdit){
+		if(doEdit){
+			$('.createReadingOrder').addClass("hide");
+			$('.saveReadingOrder').removeClass("hide");	
+		}else{
+			$('.saveReadingOrder').addClass("hide");
+			$('.createReadingOrder').removeClass("hide");	
 		}
 	}
 

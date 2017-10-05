@@ -328,12 +328,16 @@ function GuiInput(navigationController, controller, gui){
 				_controller.removeFromReadingOrder(segmentID);
 		});
 
-		$('.autoGenerateReagingOrder').click(function(){
+		$('.autoGenerateReadingOrder').click(function(){
 			_controller.autoGenerateReadingOrder();
 		});
 
-		$('.createReagingOrder').click(function(){
+		$('.createReadingOrder').click(function(){
 			_controller.createReadingOrder();
+		});
+		
+		$('.saveReadingOrder').click(function(){
+			_controller.endCreateReadingOrder();
 		});
 	}
 }

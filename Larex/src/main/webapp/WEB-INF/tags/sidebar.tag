@@ -78,18 +78,6 @@
 			</div>
 			<div class="collapsible-body">
 				<div class="reading-order">
-				  	<ul class="collection">
-						<li class="collection-item createReagingOrder">
-							<span>
-								--Create--
-							</span>
-						</li>
-						<li class="collection-item autoGenerateReagingOrder">
-							<span>
-								--Auto Generate--
-							</span>
-						</li>
-				  	</ul>
 				  	<ul id="reading-order-list" class="collection">
 				  	</ul>
 			  	</div>
