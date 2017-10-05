@@ -155,7 +155,7 @@
 							<t:menuIcon jsClass="createReadingOrder" icon="timeline"
 								tooltip="Set a reading order">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="saveReadingOrder hide" icon="save"
-								tooltip="Save the current reading order">readingOrder</t:menuIcon>
+								tooltip="Save the current reading order (Shortcut: right click)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
