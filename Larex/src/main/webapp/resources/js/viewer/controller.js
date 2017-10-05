@@ -782,14 +782,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	this.removeFromReadingOrder = function(segmentID){
-		var readingOrder = JSON.parse(JSON.stringify(_exportSettings[_currentPage].readingOrder));
-		var index1;
-		for(var index = 0; index < readingOrder.length; index++){
-			if(readingOrder[index] === segment1ID){
-				readingOrder.splice(index,1);
-			}
-		}
-		readingOrder.splice(readingOrder.indexOf(segment2), 0, segment1);
+		addAndExecuteAction(new ActionRemoveFromReadingOrder(segmentID,_currentPage,_exportSettings,_thisController));
 	}
 
 	this.changeImageMode = function(imageMode){

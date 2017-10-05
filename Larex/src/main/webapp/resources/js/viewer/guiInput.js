@@ -322,5 +322,10 @@ function GuiInput(navigationController, controller, gui){
 					_controller.forceUpdateReadingOrder();
 				}
 		});
+		$('.delete-reading-order-segment').click(function(){
+				var $this = $(this);
+				var segmentID = $this.data('segmentid');
+				_controller.removeFromReadingOrder(segmentID);
+		});
 	}
 }

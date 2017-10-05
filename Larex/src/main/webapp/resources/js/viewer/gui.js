@@ -174,8 +174,10 @@ function GUI(canvas, viewer) {
 			var segment = readingOrder[index];
 			var $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'" draggable="true"></li>');
 			var $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
+			var $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="'+segment.id+'">delete</i>');
 			$collectionItem.append($legendTypeIcon);
 			$collectionItem.append(segment.type+"-"+segment.id.substring(0,4));
+			$collectionItem.append($deleteReadingOrderSegment);
 			$readingOrderList.append($collectionItem);
 		}
 	}
