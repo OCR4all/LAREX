@@ -64,9 +64,7 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 	var _segment = segmentation.pages[page].segments[segmentID];
 	var _oldType = _segment.type;
 	var _actionReadingOrder = null;
-	if(_oldType === 'image'){
-		_actionReadingOrder = new ActionAddToReadingOrder(_segment,page,exportSettings,controller);
-	}else if(newType === 'image'){
+	if(newType === 'image'){
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(segmentID,page,exportSettings,controller);
 	}
 	
@@ -196,7 +194,6 @@ function ActionRemoveCompleteRegion(regionType,controller,editor,settings,contro
 function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSettings,controller){
 	var _isExecuted = false;
 	var _segment = {id:id, points:points, type:type, isRelative:false};
-	var _actionAddToReadingOrder = new ActionAddToReadingOrder(_segment,page,exportSettings,controller);
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -207,7 +204,6 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSetting
 				exportSettings[page].segmentsToIgnore = jQuery.grep(exportSettings[page].segmentsToIgnore, function(value) {
 					return value != _segment.id;
 				});
-				_actionAddToReadingOrder.execute();
 			}
 			console.log('Do - Add Region Polygon: {id:"'+_segment.id+'",[..],type:"'+_segment.type+'"}');
 		}
@@ -219,7 +215,6 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSetting
 			editor.removeSegment(_segment.id);
 			if(exportSettings){
 				exportSettings[page].segmentsToIgnore.push(_segment.id);
-				_actionAddToReadingOrder.undo();
 			}
 			console.log('Undo - Add Region Polygon: {id:"'+_segment.id+'",[..],type:"'+_segment.type+'"}');
 		}

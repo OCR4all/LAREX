@@ -233,7 +233,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_thisController.showPreloader(false);
 				_gui.highlightSegmentedPages(_segmentedPages);
 				_gui.highlightPagesAsError(failedSegmentations);
-
 		});
 	}
 
@@ -479,7 +478,10 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				} else if(_selectType === "segment"){
 					var isFixedSegment = (_settings.pages[_currentPage].segments[_selected[i]]);
 					if(isFixedSegment){
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _settings, _currentPage));
+						if(!_exportSettings[_currentPage]){
+							initExportSettings(_currentPage);
+						}
+						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _settings, _currentPage,_exportSettings));
 					}else{
 						if(!_exportSettings[_currentPage]){
 							initExportSettings(_currentPage);
@@ -638,7 +640,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}else if(polygonType === "fixed"){
 			//segment is fixed segment not result segment
 			if(_settings.pages[_currentPage].segments[id].type != type){
-				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage);
+				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage,_exportSettings);
 				addAndExecuteAction(actionChangeType);
 			}
 		}
