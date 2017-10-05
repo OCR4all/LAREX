@@ -23,23 +23,27 @@ public class ExportRequest {
 	@JsonProperty("segmentsToIgnore")
 	private List<String> segmentsToIgnore;
 	@JsonProperty("segmentsToMerge")
-	private Map<String,ArrayList<String>> segmentsToMerge;
+	private Map<String, ArrayList<String>> segmentsToMerge;
 	@JsonProperty("changedTypes")
-	private Map<String,RegionType> changedTypes;
+	private Map<String, RegionType> changedTypes;
 	@JsonProperty("fixedRegions")
 	protected Map<String, Polygon> fixedRegions;
+	@JsonProperty("readingOrder")
+	protected List<String> readingOrder;
 
 	@JsonCreator
-	public ExportRequest(@JsonProperty("page") int page, 
+	public ExportRequest(@JsonProperty("page") int page,
 			@JsonProperty("segmentsToIgnore") List<String> segmentsToIgnore,
-			@JsonProperty("segmentsToMerge") Map<String,ArrayList<String>> segmentsToMerge,
-			@JsonProperty("changedTypes") Map<String,RegionType> changedTypes,
-			@JsonProperty("fixedRegions") Map<String, Polygon> fixedRegions) {
+			@JsonProperty("segmentsToMerge") Map<String, ArrayList<String>> segmentsToMerge,
+			@JsonProperty("changedTypes") Map<String, RegionType> changedTypes,
+			@JsonProperty("fixedRegions") Map<String, Polygon> fixedRegions,
+			@JsonProperty("readingOrder") List<String> readingOrder) {
 		this.page = page;
 		this.segmentsToIgnore = segmentsToIgnore;
 		this.segmentsToMerge = segmentsToMerge;
 		this.changedTypes = changedTypes;
 		this.fixedRegions = fixedRegions;
+		this.readingOrder = readingOrder;
 	}
 
 	public int getPage() {
@@ -49,16 +53,20 @@ public class ExportRequest {
 	public List<String> getSegmentsToIgnore() {
 		return segmentsToIgnore;
 	}
-	
-	public Map<String,ArrayList<String>> getSegmentsToMerge() {
+
+	public Map<String, ArrayList<String>> getSegmentsToMerge() {
 		return segmentsToMerge;
 	}
-	
+
 	public Map<String, RegionType> getChangedTypes() {
 		return changedTypes;
 	}
-	
+
 	public Map<String, Polygon> getFixedRegions() {
 		return fixedRegions;
+	}
+
+	public List<String> getReadingOrder() {
+		return readingOrder;
 	}
 }

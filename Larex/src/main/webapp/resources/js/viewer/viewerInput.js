@@ -26,6 +26,7 @@ function ViewerInput(controller) {
 					_controller.selectSegment(sectionID, info);
 					_controller.openContextMenu(true);
 				}
+				_controller.endCreateReadingOrder();
 				break;
 		}
 	}
@@ -45,6 +46,7 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
+				_controller.endCreateReadingOrder();
 				break;
 		}
 	}
@@ -62,11 +64,24 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
+				_controller.endCreateReadingOrder();
 				break;
 		}
 	}
 
 	this.clickImage = function(event){
+		switch (event.event.button) {
+			// leftclick
+			case 0:
+				break;
+			// middleclick
+			case 1:
+				break;
+			// rightclick
+			case 2:
+				_controller.endCreateReadingOrder();
+				break;
+		}
 		if(!event.modifiers.control){
 			_controller.unSelect();
 		}
@@ -74,6 +89,18 @@ function ViewerInput(controller) {
 	}
 
 	this.clickBackground = function(event){
+		switch (event.event.button) {
+			// leftclick
+			case 0:
+				break;
+			// middleclick
+			case 1:
+				break;
+			// rightclick
+			case 2:
+				_controller.endCreateReadingOrder();
+				break;
+		}
 		if(!event.modifiers.control){
 			_controller.unSelect();
 		}

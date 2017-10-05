@@ -167,6 +167,64 @@ function GUI(canvas, viewer) {
 		$('#regioneditor').addClass('hide');
 	}
 
+	this.displayReadingOrder = function(doDisplay){
+		if(doDisplay){
+			$('.readingOrderCategory').removeClass("hide");
+		}else{
+			$('.readingOrderCategory').addClass("hide");
+		}
+	}
+	this.setReadingOrder = function(readingOrder){
+		$readingOrderList = $('#reading-order-list');
+		$readingOrderList.empty();
+		for(var index = 0; index < readingOrder.length; index++){
+			var segment = readingOrder[index];
+			var $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'" draggable="true"></li>');
+			var $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
+			var $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="'+segment.id+'">delete</i>');
+			$collectionItem.append($legendTypeIcon);
+			$collectionItem.append(segment.type+"-"+segment.id.substring(0,4));
+			$collectionItem.append($deleteReadingOrderSegment);
+			$readingOrderList.append($collectionItem);
+		}
+	}
+
+	this.highlightSegment = function(segmentID, doHighlight){
+		if(doHighlight){
+			$(".reading-order-segment[data-segmentid='"+segmentID+"']").addClass('highlighted');
+		}else {
+			$(".reading-order-segment[data-segmentid='"+segmentID+"']").removeClass('highlighted');
+		}
+	}
+
+	this.setBeforeInReadingOrder = function(segment1ID,segment2ID){
+		$segment1 = $(".reading-order-segment[data-segmentid='"+segment1ID+"']");
+		$segment2 = $(".reading-order-segment[data-segmentid='"+segment2ID+"']");
+		$($segment1).insertBefore($segment2);
+	}
+
+	this.forceUpdateReadingOrder = function(readingOrder,forceHard){
+		if(forceHard){
+			_gui.setReadingOrder(readingOrder);
+		}else{
+			$readingOrderListItems = $('#reading-order-list');
+
+			for(var index = 0; index < readingOrder.length; index++){
+				$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index].id+"']"));
+			}
+		}
+	}
+
+	this.doEditReadingOrder = function(doEdit){
+		if(doEdit){
+			$('.createReadingOrder').addClass("hide");
+			$('.saveReadingOrder').removeClass("hide");	
+		}else{
+			$('.saveReadingOrder').addClass("hide");
+			$('.createReadingOrder').removeClass("hide");	
+		}
+	}
+
 	this.selectToolBarButton = function(option, doSelect){
 		var $button = null;
 		switch(option){

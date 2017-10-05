@@ -2,6 +2,7 @@ function GuiInput(navigationController, controller, gui){
 	var _navigationController = navigationController;
 	var _controller = controller;
 	var _gui = gui;
+	var _draggedObject = null;
 
 	$(window).click(function() {
 		//Cancel viewer actions, if outside of viewer or a menu icon
@@ -258,4 +259,85 @@ function GuiInput(navigationController, controller, gui){
 			color = new paper.Color(color.red,color.green,color.blue);
 			_gui.setRegionColor(color);
 	});
+
+	$('.collapsible-header').click(function() {
+			if($(this).is('#reading-order-header')){
+				_controller.displayReadingOrder(true);
+			}else{
+				_controller.displayReadingOrder(false);
+			}
+	});
+
+	this.addDynamicListeners = function(){
+		var _hasBeenDropped = false;
+
+		$('.reading-order-segment').mouseover(function(){
+				var $this = $(this);
+				var segmentID = $this.data('segmentid');
+				_controller.enterSegment(segmentID);
+		});
+
+		$('.reading-order-segment').mouseleave(function(){
+				var $this = $(this);
+				var segmentID = $this.data('segmentid');
+				_controller.leaveSegment(segmentID);
+		});
+
+		$('.reading-order-segment').on('dragstart', function (event) {
+				var $this = $(this);
+				_draggedObject = $this;
+				_hasBeenDropped = false;
+		});
+
+		$('.reading-order-segment').on('dragover', function (event) {
+				return false;
+		});
+
+		$('.reading-order-segment').on('dragleave', function (event) {
+				$(this).removeClass('dragedOver');
+				event.preventDefault();
+				return false;
+		});
+
+		$('.reading-order-segment').on('dragenter', function (event) {
+					var $this = $(this);
+					$this.addClass('dragedOver');
+					if(_draggedObject){
+						_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),false);
+					}
+				return true;
+		});
+
+		$('.reading-order-segment').on('drop', function (event) {
+				var $this = $(this);
+				$this.removeClass('dragedOver');
+				if(_draggedObject){
+					_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),true);
+				}
+				_hasBeenDropped = true;
+		});
+
+		$('.reading-order-segment').on('dragend', function (event) {
+				if(!_hasBeenDropped){
+					_controller.forceUpdateReadingOrder();
+				}
+		});
+		$('.delete-reading-order-segment').click(function(){
+				var $this = $(this);
+				var segmentID = $this.data('segmentid');
+				_controller.removeFromReadingOrder(segmentID);
+		});
+
+		$('.autoGenerateReadingOrder').click(function(){
+			_controller.autoGenerateReadingOrder();
+		});
+
+		$('.createReadingOrder').click(function(){
+			_controller.createReadingOrder();
+		});
+		
+		$('.saveReadingOrder').click(function(){
+			_controller.endCreateReadingOrder();
+		});
+	}
 }

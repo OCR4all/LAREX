@@ -49,12 +49,6 @@ public class FileController {
 	    return facade.getSettingsXML();
 	}
 
-	/*@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
-	public @ResponseBody String uploadSettings(@RequestParam("file") String file) {
-		System.out.println(" \n"+ file);
-		return "Upload";
-	}*/
-	
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
 	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file) {
 		BookSettings settings = facade.getDefaultSettings(facade.getBook());

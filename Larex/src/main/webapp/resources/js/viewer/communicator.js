@@ -101,11 +101,17 @@ function Communicator() {
 		// Deferred object for function status
 		var status = $.Deferred();
 
+		var readingOrder = [];
+		for(var i = 0; i < exportSettings.readingOrder.length; i++){
+			readingOrder.push(exportSettings.readingOrder[i].id);
+		}
+
 		var segmentationRequest = {	page: pageID,
 																segmentsToIgnore:exportSettings.segmentsToIgnore,
 																changedTypes:exportSettings.changedTypes,
 																segmentsToMerge:exportSettings.segmentsToMerge,
-																fixedRegions:exportSettings.fixedRegions}
+																fixedRegions:exportSettings.fixedRegions,
+															  readingOrder:readingOrder}
 
 		$.ajax({
 			type : "POST",

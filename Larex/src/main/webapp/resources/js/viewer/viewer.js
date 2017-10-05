@@ -173,7 +173,7 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		var scaleHeight = viewSize.height / imageSize.height;
 		var scaleFit = (scaleWidth < scaleHeight ? scaleWidth : scaleHeight);
 		scaleFit *= 0.9;
-
+		
 		_imageCanvas.scale(scaleFit);
 		_currentZoom = scaleFit;
 	}

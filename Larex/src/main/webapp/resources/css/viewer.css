@@ -47,27 +47,29 @@ body {
   .sidebar .settings-input {
     margin: 2px;
     padding: 0px; }
-  .sidebar .settings-regions {
+  .sidebar .settings-regions, .sidebar .reading-order {
     height: 210px;
     overflow-y: scroll; }
-    .sidebar .settings-regions * {
+    .sidebar .settings-regions *, .sidebar .reading-order * {
       font-size: 10px; }
-    .sidebar .settings-regions .legendicon {
+    .sidebar .settings-regions .legendicon, .sidebar .reading-order .legendicon {
       height: 10px;
       width: 10px;
       display: inline-block;
       margin-right: 4px; }
-    .sidebar .settings-regions .lever {
+    .sidebar .settings-regions .lever, .sidebar .reading-order .lever {
       height: 10px;
       width: 30px; }
-    .sidebar .settings-regions .lever::after {
+    .sidebar .settings-regions .lever::after, .sidebar .reading-order .lever::after {
       height: 15px;
       width: 15px; }
-    .sidebar .settings-regions li {
+    .sidebar .settings-regions li, .sidebar .reading-order li {
       padding: 3px 10px !important; }
-    .sidebar .settings-regions .collection-item {
+    .sidebar .settings-regions .dragedOver, .sidebar .reading-order .dragedOver {
+      border-top: 2px solid #333333; }
+    .sidebar .settings-regions .collection-item, .sidebar .reading-order .collection-item {
       cursor: pointer; }
-      .sidebar .settings-regions .collection-item:hover {
+      .sidebar .settings-regions .collection-item:hover, .sidebar .settings-regions .collection-item.highlighted, .sidebar .reading-order .collection-item:hover, .sidebar .reading-order .collection-item.highlighted {
         background-color: #757575;
         color: white; }
   .sidebar .settings-image-mode, .sidebar .settings-combine-image {

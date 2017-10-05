@@ -67,7 +67,7 @@ body{
         margin: 2px;
         padding: 0px;
     }
-    .settings-regions{
+    .settings-regions, .reading-order{
         height: 210px;
         overflow-y: scroll;
         *{
@@ -90,9 +90,12 @@ body{
         li{
           padding: 3px 10px !important;
         }
+        .dragedOver{
+          border-top: 2px solid $color1;
+        }
         .collection-item{
             cursor: pointer;
-            &:hover{
+            &:hover, &.highlighted{
               background-color: $color3;
               color: $color2;
             }
