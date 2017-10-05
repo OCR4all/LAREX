@@ -119,10 +119,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				var readingOrderIsEmpty = false;
 				if(!_exportSettings[_currentPage]){
 					initExportSettings(_currentPage);
-					readingOrderIsEmpty = true;
-				}
-				if(_exportSettings[_currentPage].readingOrder.length == 0){
-					readingOrderIsEmpty = true;
 				}
 
 				// Iterate over Segment-"Map" (Object in JS)
@@ -131,23 +127,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 						//has no fixedSegment counterpart and has not been deleted
 						_editor.addSegment(pageSegments[key]);
-						if(readingOrderIsEmpty){
-							var segment = pageSegments[key];
-							if(segment.type !== 'image'){
-								_exportSettings[_currentPage].readingOrder.push(segment);
-							}
-						}
 					}
 				});
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach(function(key) {
 					_editor.addSegment(pageFixedSegments[key],true);
-					if(readingOrderIsEmpty){
-						var segment = pageSegments[key];
-						if(segment.type !== 'image'){
-							_exportSettings[_currentPage].readingOrder.push(segment);
-						}
-					}
 				});
 
 				var regions = _settings.regions;
@@ -182,9 +166,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
-				if(readingOrderIsEmpty){
-					_exportSettings[_currentPage].readingOrder = _editor.getSortedReadingOrder(_exportSettings[_currentPage].readingOrder);
-				}
 				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
 				_guiInput.addDynamicListeners();
 				_thisController.displayReadingOrder(_displayReadingOrder);
@@ -736,6 +717,39 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		return freeColorIndexes;
 	}
 
+	this.autoGenerateReadingOrder = function(){
+		if(!_exportSettings[_currentPage]){
+			initExportSettings(_currentPage);
+		}
+		var readingOrder = [];
+		var pageSegments = _segmentation.pages[_currentPage].segments;
+		var pageFixedSegments = _settings.pages[_currentPage].segments;
+		
+		// Iterate over Segment-"Map" (Object in JS)
+		Object.keys(pageSegments).forEach(function(key) {
+			var hasFixedSegmentCounterpart = false;
+			if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
+				//has no fixedSegment counterpart and has not been deleted
+				var segment = pageSegments[key];
+				if(segment.type !== 'image'){
+					readingOrder.push(segment);
+				}
+			}
+		});
+		// Iterate over FixedSegment-"Map" (Object in JS)
+		Object.keys(pageFixedSegments).forEach(function(key) {
+			if(readingOrderIsEmpty){
+				var segment = pageFixedSegments[key];
+				if(segment.type !== 'image'){
+					readingOrder.push(segment);
+				}
+			}
+		});
+		readingOrder = _editor.getSortedReadingOrder(readingOrder);
+		console.log(_exportSettings[_currentPage].readingOrder);
+		addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,readingOrder,_thisController,_exportSettings,_currentPage));
+	}
+	
 	this.setBeforeInReadingOrder = function(segment1ID,segment2ID,doUpdate){
 		if(!_tempReadingOrder){
 			_tempReadingOrder = JSON.parse(JSON.stringify(_exportSettings[_currentPage].readingOrder));

@@ -327,5 +327,9 @@ function GuiInput(navigationController, controller, gui){
 				var segmentID = $this.data('segmentid');
 				_controller.removeFromReadingOrder(segmentID);
 		});
+
+		$('.autoGenerateReagingOrder').click(function(){
+			_controller.autoGenerateReadingOrder();
+		});
 	}
 }
