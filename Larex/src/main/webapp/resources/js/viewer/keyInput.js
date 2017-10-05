@@ -68,6 +68,7 @@ function KeyInput(navigationController, controller, gui) {
 
 			case 27: // ESC
 				_controller.escape();
+				_controller.endCreateReadingOrder();
 				validKey = true;
 				break;
 			case 49: // 1

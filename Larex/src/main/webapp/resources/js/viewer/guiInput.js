@@ -331,5 +331,9 @@ function GuiInput(navigationController, controller, gui){
 		$('.autoGenerateReagingOrder').click(function(){
 			_controller.autoGenerateReadingOrder();
 		});
+
+		$('.createReagingOrder').click(function(){
+			_controller.createReadingOrder();
+		});
 	}
 }

@@ -377,7 +377,7 @@ function ActionChangeReadingOrder(oldReadingOrder,newReadingOrder,controller,set
 			_isExecuted = true;
 
 			settings[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
-			controller.forceUpdateReadingOrder();
+			controller.forceUpdateReadingOrder(true);
 
 			console.log('Do - Change Reading order');
 		}
@@ -387,7 +387,7 @@ function ActionChangeReadingOrder(oldReadingOrder,newReadingOrder,controller,set
 			_isExecuted = false;
 
 			settings[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-			controller.forceUpdateReadingOrder();
+			controller.forceUpdateReadingOrder(true);
 
 			console.log('Undo - Change Reading order');
 		}

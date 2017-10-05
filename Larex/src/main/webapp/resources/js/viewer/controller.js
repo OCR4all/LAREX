@@ -30,6 +30,8 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _selectType;
 	var _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
 
+	var _editReadingOrder = false;
+
 	var _newPathCounter = 0;
 	var _specifiedColors = specifiedColors;
 	var _colors = colors;
@@ -718,6 +720,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	this.autoGenerateReadingOrder = function(){
+		_thisController.endCreateReadingOrder();
 		if(!_exportSettings[_currentPage]){
 			initExportSettings(_currentPage);
 		}
@@ -748,6 +751,15 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		readingOrder = _editor.getSortedReadingOrder(readingOrder);
 		console.log(_exportSettings[_currentPage].readingOrder);
 		addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,readingOrder,_thisController,_exportSettings,_currentPage));
+	}
+
+	this.createReadingOrder = function(){
+		addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,[],_thisController,_exportSettings,_currentPage));
+		_editReadingOrder = true;
+	}
+
+	this.endCreateReadingOrder = function(){
+		_editReadingOrder = false;
 	}
 	
 	this.setBeforeInReadingOrder = function(segment1ID,segment2ID,doUpdate){
@@ -821,27 +833,43 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 	}
 
+	var readingOrderContains = function(segmentID){
+		var readingOrder = _exportSettings[_currentPage].readingOrder;
+		for(var i = 0; i < readingOrder.length; i++){
+			if(readingOrder[i].id === segmentID){
+				return true;
+			}
+		}
+		return false;
+	}
 	// Display
 	this.selectSegment = function(sectionID, info) {
 		var currentType = (!info) ? "segment" : info.type;
 
-		_thisController.closeContextMenu();
+		if(_editReadingOrder && currentType === 'segment'){
+			var segment = getPolygon(sectionID);
+			if(!readingOrderContains(sectionID)){
+				addAndExecuteAction(new ActionAddToReadingOrder(segment,_currentPage,_exportSettings,_thisController));
+			}
+		} else {
+			_thisController.closeContextMenu();
 
-		if (!this.selectmultiple || currentType !== _selectType) {
-			_thisController.unSelect();
-		}
-		_selectType = currentType;
+			if (!this.selectmultiple || currentType !== _selectType) {
+				_thisController.unSelect();
+			}
+			_selectType = currentType;
 
-		// check if segment is already selected
-		var selectIndex = _selected.indexOf(sectionID);
-		if (selectIndex < 0) {
-			// add segment to selection
-			_editor.selectSegment(sectionID, true);
-			_selected.push(sectionID);
-		}else{
-			// unselect segment
-			_editor.selectSegment(sectionID, false);
-			_selected.splice(selectIndex,1);
+			// check if segment is already selected
+			var selectIndex = _selected.indexOf(sectionID);
+			if (selectIndex < 0) {
+				// add segment to selection
+				_editor.selectSegment(sectionID, true);
+				_selected.push(sectionID);
+			}else{
+				// unselect segment
+				_editor.selectSegment(sectionID, false);
+				_selected.splice(selectIndex,1);
+			}
 		}
 	}
 	this.unSelect = function(){
@@ -1042,6 +1070,29 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			return "cut";
 		}
 	}
+
+	var getPolygon = function(polygonID){
+		var polygon = _settings.pages[_currentPage].segments[polygonID];
+		if(polygon){
+			return polygon;
+		}
+
+		polygon = _segmentation.pages[_currentPage].segments[polygonID];
+		if(polygon){
+			return polygon;
+		}
+
+		polygon = getRegionByID(polygonID);
+		if(polygon){
+			return polygon;
+		}
+
+		polygon = _settings.pages[_currentPage].cuts[polygonID];
+		if(polygon){
+			return polygon;
+		}
+	}
+
 
 	var initExportSettings = function(page){
 		_exportSettings[page] = {}
