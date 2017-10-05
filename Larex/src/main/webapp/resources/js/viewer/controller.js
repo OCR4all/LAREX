@@ -744,11 +744,9 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		});
 		// Iterate over FixedSegment-"Map" (Object in JS)
 		Object.keys(pageFixedSegments).forEach(function(key) {
-			if(readingOrderIsEmpty){
-				var segment = pageFixedSegments[key];
-				if(segment.type !== 'image'){
-					readingOrder.push(segment);
-				}
+			var segment = pageFixedSegments[key];
+			if(segment.type !== 'image'){
+				readingOrder.push(segment);
 			}
 		});
 		readingOrder = _editor.getSortedReadingOrder(readingOrder);
