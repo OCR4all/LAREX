@@ -1,3 +1,60 @@
+function ActionController(controller){
+	var _controller = controller;
+	var _this = this;
+	var _actions = {};
+	var _actionpointers = {};
+
+	this.redo = function(page) {
+		var pageActions = _actions[page];
+		var pageActionpointer = _actionpointers[page];
+		if (pageActions && pageActionpointer < pageActions.length - 1) {
+			_controller.unSelect();
+			_actionpointers[page]++;
+			pageActions[_actionpointers[page]].execute();
+			
+			// Reset Downloadable
+			_controller.setPageDownloadable(page,false);
+		}
+	}
+	this.undo = function(page) {
+		var pageActions = _actions[page];
+		var pageActionpointer = _actionpointers[page];
+		if (pageActions && pageActionpointer >= 0) {
+			_controller.unSelect();
+			pageActions[pageActionpointer].undo();
+			_actionpointers[page]--;
+
+			// Reset Downloadable
+			_controller.setPageDownloadable(page,false);
+		}
+	}
+	this.resetActions = function(page){
+		_actions[page] = [];
+		_actionpointers[page] = -1;
+	}
+	this.addAndExecuteAction = function(action,page) {
+		var pageActions = _actions[page];
+
+		if(!pageActions){
+			_this.resetActions(page);
+			pageActions = _actions[page];
+		}
+		// Remove old undone actions
+		if (pageActions.length > 0)
+			pageActions = pageActions.slice(0, _actionpointers[page] + 1);
+
+		// Execute and add new Action
+		action.execute();
+		pageActions.push(action);
+		_actions[page] = pageActions;
+		_actionpointers[page]++;
+		
+		// Reset Downloadable
+		_controller.setPageDownloadable(page,false);
+	}
+
+}
+
 //"Interface" for actions
 function Action(){
 	var _isExecuted = false;

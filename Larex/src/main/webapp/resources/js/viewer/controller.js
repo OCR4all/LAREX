@@ -1,5 +1,6 @@
 function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _bookID = bookID;
+	var _actionController = new ActionController(this);
 	var _communicator = new Communicator();
 	var _gui;
 	var _guiInput;
@@ -12,8 +13,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _settings;
 	var _activesettings;
 	var _segmentationtypes;
-	var _actions = {};
-	var _actionpointers = {};
 	var _presentRegions = [];
 	var _exportSettings = {};
 	var _currentPageDownloadable = false;
@@ -173,13 +172,20 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_thisController.displayReadingOrder(_displayReadingOrder);
 				_gui.setRegionLegendColors(_segmentationtypes);
 
-				_currentPageDownloadable = false;
-				_gui.setDownloadable(_currentPageDownloadable);
+				_thisController.setPageDownloadable(_currentPage,false);
 				_gui.selectPage(pageNr);
 				_tempReadingOrder = null;
 				_thisController.endCreateReadingOrder();
 		}
 	}
+
+	this.redo = function() {
+		_actionController.redo(_currentPage);
+	}
+	this.undo = function() {
+		_actionController.undo(_currentPage);
+	}
+
 	this.addPresentRegions = function(regionType){
 		if(region.type !== 'ignore' && $.inArray(regionType, _presentRegions) < 0){
 			//_presentRegions does not contains region.type
@@ -258,8 +264,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 
 		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(function() {
-			_currentPageDownloadable = true;
-			_gui.setDownloadable(_currentPageDownloadable);
+			_thisController.setPageDownloadable(_currentPage,true);
 			_gui.setExportingInProgress(false);
 			_gui.highlightSavedPage(_currentPage);
 			_savedPages.push(_currentPage);
@@ -298,42 +303,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_thisController.displayPage(_currentPage);
 				_thisController.hideAllRegions(true);
 				_gui.forceUpdateRegionHide(_visibleRegions);
-				_thisController.resetActions();
+				_actionController.resetActions(_currentPage);
 			}
 		});
 	}
 
-	// Actions
-	this.redo = function() {
-		var pageActions = _actions[_currentPage];
-		var pageActionpointer = _actionpointers[_currentPage];
-		if (pageActions && pageActionpointer < pageActions.length - 1) {
-			this.unSelect();
-			_actionpointers[_currentPage]++;
-			pageActions[_actionpointers[_currentPage]].execute();
-			
-			// Reset Downloadable
-			_currentPageDownloadable = false;
-			_gui.setDownloadable(_currentPageDownloadable);
-		}
-	}
-	this.undo = function() {
-		var pageActions = _actions[_currentPage];
-		var pageActionpointer = _actionpointers[_currentPage];
-		if (pageActions && pageActionpointer >= 0) {
-			this.unSelect();
-			pageActions[pageActionpointer].undo();
-			_actionpointers[_currentPage]--;
-
-			// Reset Downloadable
-			_currentPageDownloadable = false;
-			_gui.setDownloadable(_currentPageDownloadable);
-		}
-	}
-	this.resetActions = function(){
-		_actions[_currentPage] = [];
-		_actionpointers[_currentPage] = -1;
-	}
 	this.createPolygon = function(doSegment) {
 		_thisController.endEditing(true);
 		var type = doSegment ? 'segment' : 'region';
@@ -424,7 +398,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 		this.unSelect();
 		var multidelete = new ActionMultiple(actions);
-		addAndExecuteAction(multidelete);
+		_actionController.addAndExecuteAction(multidelete,_currentPage);
 	}
 	this.mergeSelectedSegments = function() {
 		var actions = [];
@@ -460,7 +434,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_thisController.unSelect();
 
 				var mergeAction = new ActionMultiple(actions);
-				addAndExecuteAction(mergeAction);
+				_actionController.addAndExecuteAction(mergeAction,_currentPage);
 				_thisController.selectSegment(mergedSegment.id);
 				_thisController.openContextMenu(true);
 			});
@@ -492,7 +466,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				}
 			}
 			var multiChange = new ActionMultiple(actions);
-			addAndExecuteAction(multiChange);
+			_actionController.addAndExecuteAction(multiChange,_currentPage);
 		}
 	}
 	this.createBorder = function(doSegment) {
@@ -520,7 +494,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		var actionAdd = new ActionAddRegion(newID, regionpoints, type,
 				_editor, _settings, _currentPage);
 
-		addAndExecuteAction(actionAdd);
+		_actionController.addAndExecuteAction(actionAdd,_currentPage);
 		if(!regiontype){
 			_thisController.openContextMenu(false,newID);
 		}
@@ -563,7 +537,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_editor, _settings, _currentPage));
 		_newPathCounter++;
 
-		addAndExecuteAction(new ActionMultiple(actions));
+		_actionController.addAndExecuteAction(new ActionMultiple(actions),_currentPage);
 		_gui.unselectAllToolBarButtons();
 	}
 
@@ -580,7 +554,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		var actionAdd = new ActionAddFixedSegment(newID, segmentpoints, type,
 				_editor, _settings, _currentPage,_exportSettings,_thisController);
 
-		addAndExecuteAction(actionAdd);
+		_actionController.addAndExecuteAction(actionAdd,_currentPage);
 		_thisController.openContextMenu(false,newID);
 		_gui.unselectAllToolBarButtons();
 	}
@@ -591,7 +565,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		var actionAdd = new ActionAddCut(newID, segmentpoints,
 				_editor, _settings, _currentPage);
 
-		addAndExecuteAction(actionAdd);
+		_actionController.addAndExecuteAction(actionAdd,_currentPage);
 		_gui.unselectAllToolBarButtons();
 	}
 
@@ -599,7 +573,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		var polygonType = getPolygonMainType(segmentID);
 		if(polygonType === "fixed"){
 			var actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_settings,_currentPage);
-			addAndExecuteAction(actionTransformSegment);
+			_actionController.addAndExecuteAction(actionTransformSegment,_currentPage);
 		}
 	}
 
@@ -608,7 +582,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		if(polygonType === "region"){
 			var regionType = getRegionByID(regionID).type;
 			var actionTransformRegion = new ActionTransformRegion(regionID,regionSegments,regionType, _editor, _settings, _currentPage,_thisController);
-			addAndExecuteAction(actionTransformRegion);
+			_actionController.addAndExecuteAction(actionTransformRegion,_currentPage);
 			_thisController.hideRegion(regionType,false);
 		}
 	}
@@ -619,7 +593,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			var regionPolygon = getRegionByID(id);
 			if(regionPolygon.type != type){
 				var actionChangeType = new ActionChangeTypeRegionPolygon(regionPolygon, type, _editor, _settings, _currentPage,_thisController);
-				addAndExecuteAction(actionChangeType);
+				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 			_thisController.hideRegion(type,false);
 		}else if(polygonType === "segment" || polygonType === "fixed"){
@@ -636,13 +610,13 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					initExportSettings(_currentPage);
 				}
 				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _segmentation, _currentPage,_exportSettings);
-				addAndExecuteAction(actionChangeType);
+				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}else if(polygonType === "fixed"){
 			//segment is fixed segment not result segment
 			if(_settings.pages[_currentPage].segments[id].type != type){
 				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage,_exportSettings);
-				addAndExecuteAction(actionChangeType);
+				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}
 
@@ -751,11 +725,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		});
 		readingOrder = _editor.getSortedReadingOrder(readingOrder);
 		console.log(_exportSettings[_currentPage].readingOrder);
-		addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,readingOrder,_thisController,_exportSettings,_currentPage));
+		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,readingOrder,_thisController,_exportSettings,_currentPage),_currentPage);
 	}
 
 	this.createReadingOrder = function(){
-		addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,[],_thisController,_exportSettings,_currentPage));
+		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,[],_thisController,_exportSettings,_currentPage),_currentPage);
 		_editReadingOrder = true;
 		_gui.doEditReadingOrder(true);
 	}
@@ -788,7 +762,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		if(doUpdate){
 			_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
 			
-			addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,_tempReadingOrder,_thisController,_exportSettings,_currentPage));
+			_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,_tempReadingOrder,_thisController,_exportSettings,_currentPage),_currentPage);
 		}
 		_thisController.displayReadingOrder(_displayReadingOrder,true);
 	}
@@ -812,7 +786,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	this.removeFromReadingOrder = function(segmentID){
-		addAndExecuteAction(new ActionRemoveFromReadingOrder(segmentID,_currentPage,_exportSettings,_thisController));
+		_actionController.addAndExecuteAction(new ActionRemoveFromReadingOrder(segmentID,_currentPage,_exportSettings,_thisController),_currentPage);
 	}
 
 	this.changeImageMode = function(imageMode){
@@ -853,7 +827,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		if(_editReadingOrder && currentType === 'segment'){
 			var segment = getPolygon(sectionID);
 			if(!readingOrderContains(sectionID)){
-				addAndExecuteAction(new ActionAddToReadingOrder(segment,_currentPage,_exportSettings,_thisController));
+				_actionController.addAndExecuteAction(new ActionAddToReadingOrder(segment,_currentPage,_exportSettings,_thisController),_currentPage);
 			}
 		} else {
 			_thisController.closeContextMenu();
@@ -984,7 +958,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 	this.deleteRegionSettings = function(regionType){
 		if($.inArray(regionType, _presentRegions) >= 0 && regionType != 'image' && regionType != 'paragraph'){
-			addAndExecuteAction(new ActionRemoveCompleteRegion(regionType,_thisController,_editor,_settings,_thisController));
+			_actionController.addAndExecuteAction(new ActionRemoveCompleteRegion(regionType,_thisController,_editor,_settings,_thisController),_currentPage);
 		}
 	}
 	this.showPreloader = function(doShow){
@@ -1017,28 +991,13 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			_gui.closeRegionSettings();
 	}
 
-	var addAndExecuteAction = function(action) {
-		var pageActions = _actions[_currentPage];
-
-		if(!pageActions){
-			_thisController.resetActions();
-			pageActions = _actions[_currentPage];
+	this.setPageDownloadable = function(page,isDownloadable){
+		if(page === _currentPage){
+			// Reset Downloadable
+			_currentPageDownloadable = isDownloadable;
+			_gui.setDownloadable(_currentPageDownloadable);
 		}
-		// Remove old undone actions
-		if (pageActions.length > 0)
-			pageActions = pageActions.slice(0, _actionpointers[_currentPage] + 1);
-
-		// Execute and add new Action
-		action.execute();
-		pageActions.push(action);
-		_actions[_currentPage] = pageActions;
-		_actionpointers[_currentPage]++;
-	
-		// Reset Downloadable
-		_currentPageDownloadable = false;
-		_gui.setDownloadable(_currentPageDownloadable);
 	}
-
 	var getRegionByID = function(id){
 		var regionPolygon;
 		Object.keys(_settings.regions).some(function(key) {
@@ -1096,7 +1055,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			return polygon;
 		}
 	}
-
 
 	var initExportSettings = function(page){
 		_exportSettings[page] = {}
