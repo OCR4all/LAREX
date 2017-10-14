@@ -459,7 +459,7 @@ function Editor(viewer,controller) {
 			tool.onMouseMove = function(event) {
 				if(_this.isEditing === true){
 					if(_tempPath){
-						var mouseregion = _this.getMouseRegion(_tempPath.bounds,event.point,0.1);
+						var mouseregion = _this.getMouseRegion(_tempPath.bounds,event.point,0.1,10);
 						_tempMouseregion = mouseregion;
 
 						switch(mouseregion){
@@ -612,24 +612,43 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.getMouseRegion = function(bounds,mousepos,percentarea){
+	this.getMouseRegion = function(bounds,mousepos,percentarea,minarea){
+		minarea = minarea? minarea : 0;
+
 		var width = bounds.width;
 		var height = bounds.height;
 		if(percentarea == null){
 			percentarea = 0.4;
 		}
+		//Calculate the height and width delta from the borders inwards to the center with minarea and percentarea 
+		var widthDelta = width*percentarea;
+		if(widthDelta < minarea){
+			if(minarea < width*0.5){
+				widthDelta = minarea;
+			}else{
+				widthDelta = width*0.5;
+			}
+		}
+		var heightDelta = height*percentarea;
+		if(heightDelta < minarea){
+			if(minarea < height*0.5){
+				heightDelta = minarea;
+			}else{
+				heightDelta = height*0.5;
+			}
+		}
 
 		var leftmin = bounds.left;
-		var leftmax = leftmin + (width*percentarea);
+		var leftmax = leftmin + widthDelta;
 
 		var rightmax = bounds.right;
-		var rightmin = rightmax- (width*percentarea);
+		var rightmin = rightmax - widthDelta;
 
 		var topmin = bounds.top;
-		var topmax = topmin + (height*percentarea);
+		var topmax = topmin + heightDelta;
 
 		var bottommax = bounds.bottom;
-		var bottommin = bottommax - (height*percentarea);
+		var bottommin = bottommax - heightDelta;
 		if(mousepos.x < leftmin || mousepos.x > rightmax || mousepos.y < topmin || mousepos.y > bottommax){
 			return this.mouseregions.OUTSIDE;
 		}else{
