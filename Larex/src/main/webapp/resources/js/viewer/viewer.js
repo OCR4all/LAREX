@@ -46,10 +46,10 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 			var alphaFill = path.fillColor.alpha;
 			var alphaStroke = path.strokeColor.alpha;
 			var dashArray = path.dashArray;
-			var oldAlpha = path.fillColor.oldAlpha;
+			var mainAlpha = path.fillColor.mainAlpha;
 			path.fillColor = new paper.Color(color);//color;
 			path.fillColor.alpha = alphaFill;
-			path.fillColor.oldAlpha = oldAlpha;
+			path.fillColor.mainAlpha = mainAlpha;
 			path.strokeColor = color;
 			path.strokeColor.alpha = alphaStroke;
 			path.dashArray = dashArray;
@@ -81,11 +81,9 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		if(path){
 			if(path.fillColor != null){
 				if(doHighlight){
-					path.fillColor.oldAlpha = path.fillColor.alpha;
 					path.fillColor.alpha = 0.6;
-
 				}else{
-					path.fillColor.alpha = path.fillColor.oldAlpha;
+					path.fillColor.alpha = path.fillColor.mainAlpha;
 				}
 			}
 		}
@@ -212,7 +210,7 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		if(isFixed){
 			path.dashArray = [5, 3];
 		}
-		path.fillColor.oldAlpha = path.fillColor.alpha;
+		path.fillColor.mainAlpha = path.fillColor.alpha;
 
 		//Convert segment points to current canvas coordinates
 		var imagePosition = _imageCanvas.bounds;
