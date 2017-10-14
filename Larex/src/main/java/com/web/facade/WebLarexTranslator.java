@@ -126,7 +126,7 @@ public class WebLarexTranslator {
 		MatOfPoint resultPoints = new MatOfPoint();
 		resultPoints.fromList(points);
 		
-		ResultRegion result = new ResultRegion(segment.getType(),resultPoints);
+		ResultRegion result = new ResultRegion(segment.getType(),resultPoints,segment.getId());
 		return result;
 	}
 }

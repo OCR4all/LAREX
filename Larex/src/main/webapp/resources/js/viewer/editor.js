@@ -785,27 +785,29 @@ function Editor(viewer,controller) {
 
 		for(var index = 0; index < readingOrder.length; index++){
 			var segment = _this.getPath(readingOrder[index].id);
-			_readingOrder.add(new paper.Segment(segment.bounds.center));
-			var text = new paper.PointText({
-				point: segment.bounds.center,
-				content: index,
-				fillColor: 'white',
-				strokeColor: 'black',
-				fontFamily: 'Courier New',
-				fontWeight: 'bold',
-				fontSize: '16pt',
-				strokeWidth: 1
-			});
+			if(segment){
+				_readingOrder.add(new paper.Segment(segment.bounds.center));
+				var text = new paper.PointText({
+					point: segment.bounds.center,
+					content: index,
+					fillColor: 'white',
+					strokeColor: 'black',
+					fontFamily: 'Courier New',
+					fontWeight: 'bold',
+					fontSize: '16pt',
+					strokeWidth: 1
+				});
 
-			/*var rectangle = new paper.Path.Rectangle(text.bounds);
-			rectangle.style = {
-				fillColor: 'blue',
-				strokeColor: 'red',
-				strokeWidth: 5
-			};
-			rectangle.applyMatrix = false;
-			_guiOverlay.addChild(rectangle);*/
-			_guiOverlay.addChild(text);
+				/*var rectangle = new paper.Path.Rectangle(text.bounds);
+				rectangle.style = {
+					fillColor: 'blue',
+					strokeColor: 'red',
+					strokeWidth: 5
+				};
+				rectangle.applyMatrix = false;
+				_guiOverlay.addChild(rectangle);*/
+				_guiOverlay.addChild(text);
+			}
 		}
 	}
 
