@@ -974,14 +974,10 @@ function Editor(viewer,controller) {
 		fixGuiTextSize();
 	}
 	this.movePoint = function(delta) {
-		if(!_this.isEditing){
 			_viewer.movePoint(delta);
-		}
 	}
 	this.move = function(x, y) {
-		if(!_this.isEditing){
 			_viewer.move(x, y);
-		}
 	}
 	this.getColor = function(segmentType){
 		return _viewer.getColor(segmentType);

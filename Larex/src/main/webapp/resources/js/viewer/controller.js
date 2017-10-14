@@ -969,7 +969,9 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 	}
 	this.moveImage = function(delta){
-		_editor.movePoint(delta);
+		if(!_editor.isEditing){
+			_editor.movePoint(delta);
+		}
 	}
 	this.openContextMenu = function(doSelected,id){
 		if(doSelected && _selected && _selected.length > 0 && (_selectType === 'region' || _selectType === "fixed" || _selectType === "segment")){
