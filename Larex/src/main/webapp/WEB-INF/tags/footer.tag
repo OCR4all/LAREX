@@ -23,7 +23,7 @@
 					<li><b>Nico Balbach, B. Sc.</b></li>
 					<li><i>Web Developer</i></li>
 					<li><i>Student Research Assistant</i></li>
-					<li>Email: <a href="mailto:nico.balbach@uni-wuerzburg.de">nico.balbach@uni-wuerzburg.de</a></li>
+					<li>Email: <a href="mailto:nico.balbach@informatik.uni-wuerzburg.de">nico.balbach@informatik.uni-wuerzburg.de</a></li>
 				</ul>
 			</div>
 			<div class="col l6 s12">
