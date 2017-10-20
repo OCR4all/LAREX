@@ -13,7 +13,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
+import com.web.communication.SegmentationResult;
+import com.web.communication.SegmentationStatus;
 import com.web.facade.LarexFacade;
+import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
 
 /**
@@ -26,6 +29,20 @@ import com.web.model.BookSettings;
 public class FileController {
 	@Autowired
 	private LarexFacade facade;
+	
+	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
+	public @ResponseBody SegmentationResult uploadSegmentation(@RequestParam("file") MultipartFile file, @RequestParam("pageNr") int pageNr) {
+		SegmentationResult result  = null;
+		if (!file.isEmpty()) {
+			try {
+				byte[] bytes = file.getBytes();	
+				BookSegmentation segmentation = facade.readPageXML(bytes, pageNr);
+				result = new SegmentationResult(segmentation, SegmentationStatus.SUCCESS);
+			} catch (Exception e) {
+			}
+		} 
+		return result;
+	}
 	
 	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody String prepareExport(@RequestBody ExportRequest exportRequest) {

@@ -171,4 +171,10 @@
 		<li><a class="pageXMLVersion" data-version="2010-03-19">2010-03-19</a></li>
 		<li><a class="pageXMLVersion" data-version="2013-07-15">2013-07-15</a></li>
 	</ul>
+	<form action="#">
+	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="bottom" data-delay="50" data-tooltip="Upload and load existing segmentations">
+		Load Result
+		<i class="material-icons right">file_upload</i></div>
+		<input id="upload-segmentation-input" class="uploadSegmentation hide" type="file">
+	</form>
 </div>

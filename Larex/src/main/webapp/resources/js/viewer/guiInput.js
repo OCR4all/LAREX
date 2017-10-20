@@ -46,7 +46,7 @@ function GuiInput(navigationController, controller, gui){
 	$('.downloadSettingsXML').click(function() {
 		_controller.downloadSettingsXML();
 	});
-	$(':file').on('change', function() {
+	$('#upload-input:file').on('change', function() {
     var file = this.files[0];
 		$(this).val("");
 		if(file){
@@ -56,7 +56,18 @@ function GuiInput(navigationController, controller, gui){
 				alert('max upload size is 1MB')
 	    }
 		}
-  });
+	});
+	$('#upload-segmentation-input:file').on('change', function() {
+    var file = this.files[0];
+		$(this).val("");
+		if(file){
+			if (file.size < 1024*1024) {
+				_controller.uploadExistingSegmentation(file);
+			}else{
+				alert('max upload size is 1MB')
+	    }
+		}
+  	});
 	$('.reload').click(function() {
 		location.reload();
 	});

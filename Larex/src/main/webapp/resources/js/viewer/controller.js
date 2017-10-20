@@ -222,6 +222,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 		requestSegmentation(null,true);
 	}
+	
+	this.uploadExistingSegmentation = function(file){
+		_segmentedPages = _savedPages.slice(0); //clone saved Pages
+		uploadSegmentation(file,_currentPage);
+	}
 
 	var requestSegmentation = function(pages, allowLoadLocal){
 		_thisController.showPreloader(true);
@@ -268,6 +273,47 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		});
 	}
 
+	var uploadSegmentation = function(file,pageNr){
+		_thisController.showPreloader(true);
+		if(!pageNr){
+			pageNr = _currentPage;
+		}
+		_communicator.uploadPageXML(file,pageNr).done(function(data){
+				var failedSegmentations = [];
+				var missingRegions = [];
+				var page = data.result.pages[pageNr];
+				switch (page.status) {
+					case 'SUCCESS':
+						_segmentation.pages[pageNr] = page;
+						//check if all necessary regions are available
+						
+						// Iterate over FixedSegment-"Map" (Object in JS)
+						Object.keys(page.segments).forEach(function(segmentID) {
+							var segment = page.segments[segmentID];
+							if($.inArray(segment.type,_presentRegions) == -1){
+								//TODO as Action
+								_thisController.changeRegionSettings(segment.type,0,0);	
+								missingRegions.push(segment.type);
+							}
+						});
+						break;
+					default:
+						failedSegmentations.push(pageNr);
+					}
+					
+				// reset export Settings
+				initExportSettings(pageNr);
+				_segmentedPages.push(pageNr);
+				if(missingRegions.length > 0){
+					_gui.displayWarning('Warning: Some regions were missing and have been added.');
+				}
+
+				_thisController.displayPage(pageNr);
+				_thisController.showPreloader(false);
+				_gui.highlightSegmentedPages(_segmentedPages);
+				_gui.highlightPagesAsError(failedSegmentations);
+		});
+	}
 	this.setPageXMLVersion = function(pageXMLVersion){
 		_pageXMLVersion = pageXMLVersion;
 	}

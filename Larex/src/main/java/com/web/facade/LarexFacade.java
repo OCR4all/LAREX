@@ -152,17 +152,17 @@ public class LarexFacade implements IFacade {
 
 		// TODO Settings changed?
 		// bookSegment = new BookSegmentation(book.getId());
-			Page page = book.getPage(pageNr);
-			String imagePath = resourcepath + File.separator + page.getImage();
-			String xmlPath = imagePath.substring(0, imagePath.lastIndexOf('.')) + ".xml";
+		Page page = book.getPage(pageNr);
+		String imagePath = resourcepath + File.separator + page.getImage();
+		String xmlPath = imagePath.substring(0, imagePath.lastIndexOf('.')) + ".xml";
 
-			if (allowLocalResults && new File(xmlPath).exists()) {
-				PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(
-						PageXMLReader.loadSegmentationResultFromDisc(xmlPath).getRegions(), page.getId());
-				bookSegment.setPage(pageSegmentation, page.getId());
-			} else {
-				bookSegment.setPage(segment(settings, page), page.getId());
-			}
+		if (allowLocalResults && new File(xmlPath).exists()) {
+			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(
+					PageXMLReader.loadSegmentationResultFromDisc(xmlPath).getRegions(), page.getId());
+			bookSegment.setPage(pageSegmentation, page.getId());
+		} else {
+			bookSegment.setPage(segment(settings, page), page.getId());
+		}
 		return bookSegment;
 	}
 
@@ -371,5 +371,26 @@ public class LarexFacade implements IFacade {
 			e.printStackTrace();
 		}
 		return settings;
+	}
+
+	@Override
+	public BookSegmentation readPageXML(byte[] pageXML, int pageNr) {
+		try {
+			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+			Document document = dBuilder.parse(new ByteArrayInputStream(pageXML));
+			Page page = book.getPage(pageNr);
+
+			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(
+					PageXMLReader.getSegmentationResult(document).getRegions(), page.getId());
+			bookSegment.setPage(pageSegmentation, page.getId());
+		} catch (SAXException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (ParserConfigurationException e) {
+			e.printStackTrace();
+		}
+		return bookSegment;
 	}
 }

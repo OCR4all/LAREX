@@ -107,11 +107,11 @@ function Communicator() {
 		}
 
 		var segmentationRequest = {	page: pageID,
-																segmentsToIgnore:exportSettings.segmentsToIgnore,
-																changedTypes:exportSettings.changedTypes,
-																segmentsToMerge:exportSettings.segmentsToMerge,
-																fixedRegions:exportSettings.fixedRegions,
-															  readingOrder:readingOrder}
+									segmentsToIgnore:exportSettings.segmentsToIgnore,
+									changedTypes:exportSettings.changedTypes,
+									segmentsToMerge:exportSettings.segmentsToMerge,
+									fixedRegions:exportSettings.fixedRegions,
+									 readingOrder:readingOrder}
 
 		$.ajax({
 			type : "POST",
@@ -159,37 +159,6 @@ function Communicator() {
 		return status;
 	}
 
-	this.debugConnection = function() {
-				getTestQuerry().done(function(data){
-
-				// Deferred object for function status
-					var status = $.Deferred();
-
-					$.ajax({
-						type : "POST",
-						url : "testConnection",
-						dataType : "json",
-						contentType: "application/json",
-						//data : JSON.stringify({test1:'blub',test2:'blub2',test3:{}}),
-						data : JSON.stringify(data),
-						beforeSend : function() {
-							console.log("Debug send: start");
-						},
-						success : function(data) {
-							alert(JSON.stringify(data));
-							console.log('Debug send: successful');
-							status.resolve(data);
-						},
-						error : function(jqXHR, textStatus, errorThrown) {
-							console.log("Debug send: failed " + textStatus);
-							status.resolve();
-						}
-					});
-					return status;
-
-				});
-	}
-
 	this.uploadSettings = function(file) {
 		// Deferred object for function status
 		var status = $.Deferred();
@@ -207,21 +176,53 @@ function Communicator() {
 		    success: function(data){
 		        alert(data);
 		    },
-				beforeSend : function() {
-					console.log("Settings upload: start");
-				},
-				success : function(data) {
-					console.log('Settings upload: successful');
-					status.resolve(data);
-				},
-				error : function(jqXHR, textStatus, errorThrown) {
-					console.log("Settings upload: failed" + textStatus);
-					status.resolve();
-				}
+			beforeSend : function() {
+				console.log("Settings upload: start");
+			},
+			success : function(data) {
+				console.log('Settings upload: successful');
+				status.resolve(data);
+			},
+			error : function(jqXHR, textStatus, errorThrown) {
+				console.log("Settings upload: failed" + textStatus);
+				status.resolve();
+			}
 		});
 		return status;
 	}
 
+	this.uploadPageXML = function(file,pageNr) {
+		// Deferred object for function status
+		var status = $.Deferred();
+		var formData = new FormData();
+		formData.append("file", file);
+		formData.append("pageNr", pageNr);
+
+		jQuery.ajax({
+		    url: 'uploadSegmentation',
+		    type: 'POST',
+		    data: formData,
+				dataType: 'json',
+		    cache: false,
+		    contentType: false,
+		    processData: false,
+		    success: function(data){
+		        alert(data);
+		    },
+			beforeSend : function() {
+				console.log("Segmentation upload: start");
+			},
+			success : function(data) {
+				console.log('Segmentation upload: successful');
+				status.resolve(data);
+			},
+			error : function(jqXHR, textStatus, errorThrown) {
+				console.log("Segmentation upload: failed" + textStatus);
+				status.resolve();
+			}
+		});
+		return status;
+	}
 	this.loadSegmentTypes = function() {
 		// Deferred object for function status
 		var status = $.Deferred();

@@ -38,6 +38,8 @@ public interface IFacade {
 	
 	public BookSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults);
 	
+	public BookSegmentation readPageXML(byte[] pageXML,int pageNr);
+	
 	public Polygon merge(List<String> segments,int pageNr);
 	
 	//TODO Change to different class? (for low coupling)
