@@ -18,12 +18,16 @@ public class SegmentationRequest {
 	private BookSettings settings;
 	@JsonProperty("pages")
 	private List<Integer> pages;
+	@JsonProperty("allowLoadLocal")
+	private boolean allowToLoadLocal;
 
 	@JsonCreator
 	public SegmentationRequest(@JsonProperty("settings") BookSettings settings,
-			@JsonProperty("pages") List<Integer> pages) {
+			@JsonProperty("pages") List<Integer> pages,
+			@JsonProperty("allowLoadLocal") boolean allowToLoadLocal) {
 		this.pages = pages;
 		this.settings = settings;
+		this.allowToLoadLocal = allowToLoadLocal;
 	}
 
 	public List<Integer> getPages() {
@@ -32,5 +36,9 @@ public class SegmentationRequest {
 
 	public BookSettings getSettings() {
 		return settings;
+	}
+	
+	public boolean isAllowToLoadLocal() {
+		return allowToLoadLocal;
 	}
 }
