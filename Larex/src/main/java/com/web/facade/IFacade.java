@@ -36,7 +36,7 @@ public interface IFacade {
 	
 	public BookSegmentation segmentPages(BookSettings settings, List<Integer> pages, boolean allowLocalResults);
 	
-	public BookSegmentation segmentPage(BookSettings settings, int pageNr);
+	public BookSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults);
 	
 	public Polygon merge(List<String> segments,int pageNr);
 	

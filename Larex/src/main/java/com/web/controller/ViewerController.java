@@ -79,7 +79,7 @@ public class ViewerController {
 		prepareSegmenter(bookID);
 		Book book = segmenter.getBook();
 		BookSettings settings = segmenter.getDefaultSettings(book);
-		BookSegmentation segmentation = segmenter.segmentPage(settings, pageID);
+		BookSegmentation segmentation = segmenter.segmentPage(settings, pageID,true);
 
 		FullBookResponse bookview = new FullBookResponse(book, segmentation, settings);
 		return bookview;

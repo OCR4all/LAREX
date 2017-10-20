@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -146,8 +145,25 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public BookSegmentation segmentPage(BookSettings settings, int pageNr) {
-		return segmentPages(settings, Arrays.asList(pageNr), true);
+	public BookSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults) {
+		if (book == null || !(settings.getBookID() == book.getId())) {
+			// TODO Error
+		}
+
+		// TODO Settings changed?
+		// bookSegment = new BookSegmentation(book.getId());
+			Page page = book.getPage(pageNr);
+			String imagePath = resourcepath + File.separator + page.getImage();
+			String xmlPath = imagePath.substring(0, imagePath.lastIndexOf('.')) + ".xml";
+
+			if (allowLocalResults && new File(xmlPath).exists()) {
+				PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(
+						PageXMLReader.loadSegmentationResultFromDisc(xmlPath).getRegions(), page.getId());
+				bookSegment.setPage(pageSegmentation, page.getId());
+			} else {
+				bookSegment.setPage(segment(settings, page), page.getId());
+			}
+		return bookSegment;
 	}
 
 	@Override

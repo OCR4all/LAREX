@@ -221,11 +221,23 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 		_communicator.segmentBook(_activesettings,pages).done(function(data){
 				var failedSegmentations = [];
-
+				var missingRegions = [];
 				pages.forEach(function(pageID) {
-					switch (data.result.pages[pageID].status) {
+					var page = data.result.pages[pageID];
+					switch (page.status) {
 						case 'SUCCESS':
-							_segmentation.pages[pageID] = data.result.pages[pageID];
+							_segmentation.pages[pageID] = page;
+							//check if all necessary regions are available
+							
+							// Iterate over FixedSegment-"Map" (Object in JS)
+							Object.keys(page.segments).forEach(function(segmentID) {
+								var segment = page.segments[segmentID];
+								if($.inArray(segment.type,_presentRegions) == -1){
+									//TODO as Action
+									_thisController.changeRegionSettings(segment.type,0,0);	
+									missingRegions.push(segment.type);
+								}
+							});
 							break;
 						default:
 							failedSegmentations.push(pageID);
@@ -235,6 +247,9 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					initExportSettings(pageID);
 				});
 				_segmentedPages.push.apply(_segmentedPages,pages);
+				if(missingRegions.length > 0){
+					_gui.displayWarning('Warning: Some regions were missing and have been added.');
+				}
 
 				_thisController.displayPage(pages[0]);
 				_thisController.showPreloader(false);
