@@ -172,7 +172,7 @@
 		<li><a class="pageXMLVersion" data-version="2013-07-15">2013-07-15</a></li>
 	</ul>
 	<form action="#">
-	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="bottom" data-delay="50" data-tooltip="Upload and load existing segmentations">
+	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="bottom" data-delay="50" data-tooltip="Supports PageXML v2010-03-19 and v2013-07-15">
 		Load Result
 		<i class="material-icons right">file_upload</i></div>
 		<input id="upload-segmentation-input" class="uploadSegmentation hide" type="file">
