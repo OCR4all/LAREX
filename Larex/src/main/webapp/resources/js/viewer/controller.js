@@ -21,7 +21,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _gridIsActive = false;
 	var _displayReadingOrder = false;
 	var _tempReadingOrder = null;
-
+	var _allowLoadLocal = false;
 	var _thisController = this;
 	var _selected = [];
 	this.selectmultiple = false;
@@ -165,7 +165,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_editor.center();
 				_editor.zoomFit();
 
-				_gui.updateZoom();
+				_gui.updateZoom();true
 				_gui.showUsedRegionLegends(_presentRegions);
 				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
 				_guiInput.addDynamicListeners();
@@ -219,7 +219,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		}
 
 
-		_communicator.segmentBook(_activesettings,pages).done(function(data){
+		_communicator.segmentBook(_activesettings,pages,_allowLoadLocal).done(function(data){
 				var failedSegmentations = [];
 				var missingRegions = [];
 				pages.forEach(function(pageID) {
@@ -1015,6 +1015,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			_gui.setDownloadable(_currentPageDownloadable);
 		}
 	}
+	
+	this.allowToLoadExistingSegmentation = function(allowLoadLocal){
+		_allowLoadLocal = allowLoadLocal;
+	}
+
 	var getRegionByID = function(id){
 		var regionPolygon;
 		Object.keys(_settings.regions).some(function(key) {

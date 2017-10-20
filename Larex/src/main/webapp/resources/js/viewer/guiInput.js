@@ -267,6 +267,12 @@ function GuiInput(navigationController, controller, gui){
 				_controller.displayReadingOrder(false);
 			}
 	});
+	
+	$('.settings-load-existing-xml').click(function() {
+			var $this = $(this);
+			var $switchBox = $this.find('input');
+			_controller.allowToLoadExistingSegmentation($switchBox.prop('checked'));
+	});
 
 	this.addDynamicListeners = function(){
 		var _hasBeenDropped = false;

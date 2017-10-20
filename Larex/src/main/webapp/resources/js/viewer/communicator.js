@@ -40,11 +40,11 @@ function Communicator() {
 		return status;
 	}
 
-	this.segmentBook = function(settings,pages) {
+	this.segmentBook = function(settings,pages,allowLoadLocal) {
 		// Deferred object for function status
 		var status = $.Deferred();
 
-		var segmentationRequest = {settings: settings,pages:pages,allowLoadLocal:true}
+		var segmentationRequest = {settings: settings,pages:pages,allowLoadLocal:allowLoadLocal}
 
 		$.ajax({
 			type : "POST",

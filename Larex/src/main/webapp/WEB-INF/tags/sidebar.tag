@@ -28,6 +28,21 @@
 						<i class="material-icons right">file_upload</i></div>
 					<input id="upload-input" class="uploadSettings hide" type="file">
 				</form>
+
+				<div class="row">
+					<div class="col s12">
+						<span class="settings-header">Additional Settings</span>
+					</div>
+					<div class="col s12">
+						<span class="settings-load-existing-xml switch"> 
+							<label>
+								Load existing segmentations
+								<input type="checkbox"> 
+									<span class="lever"></span>
+							</label>
+						</span>	
+					</div>
+				</div>
 			</div>
 		</li>
 		<li>
