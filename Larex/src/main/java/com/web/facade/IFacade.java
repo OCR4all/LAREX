@@ -34,13 +34,13 @@ public interface IFacade {
 	
 	public BookSegmentation segmentAll(BookSettings settings);
 	
-	public BookSegmentation segmentPages(BookSettings settings, List<Integer> pages);
+	public BookSegmentation segmentPages(BookSettings settings, List<Integer> pages, boolean allowLocalResults);
 	
 	public BookSegmentation segmentPage(BookSettings settings, int pageNr);
 	
 	public Polygon merge(List<String> segments,int pageNr);
 	
-	//TODO Change to different class? (for low coupling
+	//TODO Change to different class? (for low coupling)
 	public void prepareExport(ExportRequest exportRequest);
 
 	public ResponseEntity<byte[]> getPageXML(String version);
