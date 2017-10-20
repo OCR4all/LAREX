@@ -79,7 +79,7 @@ public class ViewerController {
 		prepareSegmenter(bookID);
 		Book book = segmenter.getBook();
 		BookSettings settings = segmenter.getDefaultSettings(book);
-		BookSegmentation segmentation = segmenter.segmentPage(settings, pageID);
+		BookSegmentation segmentation = segmenter.segmentPage(settings, pageID,true);
 
 		FullBookResponse bookview = new FullBookResponse(book, segmentation, settings);
 		return bookview;
@@ -88,7 +88,7 @@ public class ViewerController {
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody SegmentationResult segment(@RequestBody SegmentationRequest segmentationRequest) {
 		
-		BookSegmentation segmentation = segmenter.segmentPages(segmentationRequest.getSettings(), segmentationRequest.getPages());
+		BookSegmentation segmentation = segmenter.segmentPages(segmentationRequest.getSettings(), segmentationRequest.getPages(),segmentationRequest.isAllowToLoadLocal());
 		SegmentationResult result = new SegmentationResult(segmentation, SegmentationStatus.SUCCESS);
 		return result;
 	}

@@ -345,11 +345,15 @@ function GUI(canvas, viewer) {
 				$colorItem.append($icon);
 				$collection.append($colorItem);
 			}
-		}
-		this.updateAvailableColors = function(availableColorsIndexes){
-			$('.regioneditorColorSelectItem').addClass("hide");
-			availableColorsIndexes.forEach(function(index) {
-				$('.regioneditorColorSelectItem.color'+index).removeClass("hide");
-			});
-		}
+	}
+	this.updateAvailableColors = function(availableColorsIndexes){
+		$('.regioneditorColorSelectItem').addClass("hide");
+		availableColorsIndexes.forEach(function(index) {
+			$('.regioneditorColorSelectItem.color'+index).removeClass("hide");
+		});
+	}
+	this.displayWarning = function(text){
+		Materialize.toast(text, 4000);
+		console.warn(text);
+	}
 }

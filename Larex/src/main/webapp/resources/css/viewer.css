@@ -343,4 +343,7 @@ body {
     -moz-box-sizing: border-box;
     box-sizing: border-box; }
 
+#import-export-settings .loadExistingSegmentation {
+  margin-top: 5px; }
+
 /*# sourceMappingURL=viewer.css.map */

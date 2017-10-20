@@ -28,6 +28,22 @@
 						<i class="material-icons right">file_upload</i></div>
 					<input id="upload-input" class="uploadSettings hide" type="file">
 				</form>
+
+				<div class="row">
+					<div class="col s12">
+						<span class="settings-header">Advanced Settings</span>
+					</div>
+					<div class="col s12">
+						<span class="settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable"> 
+							<label>
+								<input type="checkbox"> 
+									<span class="lever"></span>
+								Load existing segmentations
+							</label>
+						</span>	
+					</div>
+					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if avaiable">Load now</a>
+				</div>
 			</div>
 		</li>
 		<li>
@@ -155,4 +171,10 @@
 		<li><a class="pageXMLVersion" data-version="2010-03-19">2010-03-19</a></li>
 		<li><a class="pageXMLVersion" data-version="2013-07-15">2013-07-15</a></li>
 	</ul>
+	<form action="#">
+	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="bottom" data-delay="50" data-tooltip="Supports PageXML v2010-03-19 and v2013-07-15">
+		Load Result
+		<i class="material-icons right">file_upload</i></div>
+		<input id="upload-segmentation-input" class="uploadSegmentation hide" type="file">
+	</form>
 </div>

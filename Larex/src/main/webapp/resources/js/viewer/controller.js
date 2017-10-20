@@ -21,7 +21,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	var _gridIsActive = false;
 	var _displayReadingOrder = false;
 	var _tempReadingOrder = null;
-
+	var _allowLoadLocal = false;
 	var _thisController = this;
 	var _selected = [];
 	this.selectmultiple = false;
@@ -110,7 +110,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		_currentPage = pageNr;
 
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-				requestSegmentation([_currentPage]);
+				requestSegmentation([_currentPage],_allowLoadLocal);
 		}else{
 				_editor.clear();
 				_editor.setImage(_book.pages[_currentPage].image);
@@ -165,7 +165,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				_editor.center();
 				_editor.zoomFit();
 
-				_gui.updateZoom();
+				_gui.updateZoom();true
 				_gui.showUsedRegionLegends(_presentRegions);
 				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
 				_guiInput.addDynamicListeners();
@@ -201,7 +201,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	// New Segmentation with different Settings
-	this.doSegmentation = function(pages) {
+	this.doSegmentation = function(pages){
 		var parameters = _gui.getParameters();
 		_settings.parameters = parameters;
 
@@ -209,23 +209,50 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
-		requestSegmentation(pages);
+		requestSegmentation(pages,false);
 	}
 
-	var requestSegmentation = function(pages){
+	this.loadExistingSegmentation = function(){
+		var parameters = _gui.getParameters();
+		_settings.parameters = parameters;
+
+		// clone _settings
+		_activesettings = JSON.parse(JSON.stringify(_settings));
+		_segmentedPages = _savedPages.slice(0); //clone saved Pages
+
+		requestSegmentation(null,true);
+	}
+	
+	this.uploadExistingSegmentation = function(file){
+		_segmentedPages = _savedPages.slice(0); //clone saved Pages
+		uploadSegmentation(file,_currentPage);
+	}
+
+	var requestSegmentation = function(pages, allowLoadLocal){
 		_thisController.showPreloader(true);
 		if(!pages){
 				pages = [_currentPage];
 		}
 
-
-		_communicator.segmentBook(_activesettings,pages).done(function(data){
+		_communicator.segmentBook(_activesettings,pages,allowLoadLocal).done(function(data){
 				var failedSegmentations = [];
-
+				var missingRegions = [];
 				pages.forEach(function(pageID) {
-					switch (data.result.pages[pageID].status) {
+					var page = data.result.pages[pageID];
+					switch (page.status) {
 						case 'SUCCESS':
-							_segmentation.pages[pageID] = data.result.pages[pageID];
+							_segmentation.pages[pageID] = page;
+							//check if all necessary regions are available
+							
+							// Iterate over FixedSegment-"Map" (Object in JS)
+							Object.keys(page.segments).forEach(function(segmentID) {
+								var segment = page.segments[segmentID];
+								if($.inArray(segment.type,_presentRegions) == -1){
+									//TODO as Action
+									_thisController.changeRegionSettings(segment.type,0,0);	
+									missingRegions.push(segment.type);
+								}
+							});
 							break;
 						default:
 							failedSegmentations.push(pageID);
@@ -235,6 +262,9 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 					initExportSettings(pageID);
 				});
 				_segmentedPages.push.apply(_segmentedPages,pages);
+				if(missingRegions.length > 0){
+					_gui.displayWarning('Warning: Some regions were missing and have been added.');
+				}
 
 				_thisController.displayPage(pages[0]);
 				_thisController.showPreloader(false);
@@ -243,6 +273,47 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		});
 	}
 
+	var uploadSegmentation = function(file,pageNr){
+		_thisController.showPreloader(true);
+		if(!pageNr){
+			pageNr = _currentPage;
+		}
+		_communicator.uploadPageXML(file,pageNr).done(function(data){
+				var failedSegmentations = [];
+				var missingRegions = [];
+				var page = data.result.pages[pageNr];
+				switch (page.status) {
+					case 'SUCCESS':
+						_segmentation.pages[pageNr] = page;
+						//check if all necessary regions are available
+						
+						// Iterate over FixedSegment-"Map" (Object in JS)
+						Object.keys(page.segments).forEach(function(segmentID) {
+							var segment = page.segments[segmentID];
+							if($.inArray(segment.type,_presentRegions) == -1){
+								//TODO as Action
+								_thisController.changeRegionSettings(segment.type,0,0);	
+								missingRegions.push(segment.type);
+							}
+						});
+						break;
+					default:
+						failedSegmentations.push(pageNr);
+					}
+					
+				// reset export Settings
+				initExportSettings(pageNr);
+				_segmentedPages.push(pageNr);
+				if(missingRegions.length > 0){
+					_gui.displayWarning('Warning: Some regions were missing and have been added.');
+				}
+
+				_thisController.displayPage(pageNr);
+				_thisController.showPreloader(false);
+				_gui.highlightSegmentedPages(_segmentedPages);
+				_gui.highlightPagesAsError(failedSegmentations);
+		});
+	}
 	this.setPageXMLVersion = function(pageXMLVersion){
 		_pageXMLVersion = pageXMLVersion;
 	}
@@ -1000,6 +1071,11 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			_gui.setDownloadable(_currentPageDownloadable);
 		}
 	}
+	
+	this.allowToLoadExistingSegmentation = function(allowLoadLocal){
+		_allowLoadLocal = allowLoadLocal;
+	}
+
 	var getRegionByID = function(id){
 		var regionPolygon;
 		Object.keys(_settings.regions).some(function(key) {
