@@ -274,6 +274,10 @@ function GuiInput(navigationController, controller, gui){
 			_controller.allowToLoadExistingSegmentation($switchBox.prop('checked'));
 	});
 
+	$('.loadExistingSegmentation').click(function() {
+			_controller.loadExistingSegmentation();
+	});
+
 	this.addDynamicListeners = function(){
 		var _hasBeenDropped = false;
 

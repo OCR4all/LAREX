@@ -31,17 +31,18 @@
 
 				<div class="row">
 					<div class="col s12">
-						<span class="settings-header">Additional Settings</span>
+						<span class="settings-header">Advanced Settings</span>
 					</div>
 					<div class="col s12">
-						<span class="settings-load-existing-xml switch"> 
+						<span class="settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable"> 
 							<label>
-								Load existing segmentations
 								<input type="checkbox"> 
 									<span class="lever"></span>
+								Load existing segmentations
 							</label>
 						</span>	
 					</div>
+					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if avaiable">Load now</a>
 				</div>
 			</div>
 		</li>

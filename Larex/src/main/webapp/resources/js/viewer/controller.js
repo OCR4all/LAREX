@@ -110,7 +110,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		_currentPage = pageNr;
 
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-				requestSegmentation([_currentPage]);
+				requestSegmentation([_currentPage],_allowLoadLocal);
 		}else{
 				_editor.clear();
 				_editor.setImage(_book.pages[_currentPage].image);
@@ -201,7 +201,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	// New Segmentation with different Settings
-	this.doSegmentation = function(pages) {
+	this.doSegmentation = function(pages){
 		var parameters = _gui.getParameters();
 		_settings.parameters = parameters;
 
@@ -209,17 +209,27 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
-		requestSegmentation(pages);
+		requestSegmentation(pages,false);
 	}
 
-	var requestSegmentation = function(pages){
+	this.loadExistingSegmentation = function(){
+		var parameters = _gui.getParameters();
+		_settings.parameters = parameters;
+
+		// clone _settings
+		_activesettings = JSON.parse(JSON.stringify(_settings));
+		_segmentedPages = _savedPages.slice(0); //clone saved Pages
+
+		requestSegmentation(null,true);
+	}
+
+	var requestSegmentation = function(pages, allowLoadLocal){
 		_thisController.showPreloader(true);
 		if(!pages){
 				pages = [_currentPage];
 		}
 
-
-		_communicator.segmentBook(_activesettings,pages,_allowLoadLocal).done(function(data){
+		_communicator.segmentBook(_activesettings,pages,allowLoadLocal).done(function(data){
 				var failedSegmentations = [];
 				var missingRegions = [];
 				pages.forEach(function(pageID) {
