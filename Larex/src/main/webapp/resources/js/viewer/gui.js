@@ -275,9 +275,12 @@ function GUI(canvas, viewer) {
 	this.scrollToPage = function(page){
 		$pagecontainer = $('#pagecontainer');
 
+		//Stop any running animations on pagecontainer
+		$pagecontainer.stop(true);
+		//Start scroll animation
 		$pagecontainer.animate({
-        scrollTop: $('.pageImageContainer[data-page~="'+page+'"]').position().top - $pagecontainer.offset().top + $pagecontainer.scrollTop()
-    }, 2000);
+			scrollTop: $('.pageImageContainer[data-page~="'+page+'"]').position().top - $pagecontainer.offset().top + $pagecontainer.scrollTop()
+		}, 2000);
 	}
 
 	this.highlightSegmentedPages = function(segmentedPages){
