@@ -288,6 +288,18 @@ function GuiInput(navigationController, controller, gui){
 	$('.loadExistingSegmentation').click(function() {
 			_controller.loadExistingSegmentation();
 	});
+	
+	$('.autoGenerateReadingOrder').click(function(){
+		_controller.autoGenerateReadingOrder();
+	});
+
+	$('.createReadingOrder').click(function(){
+		_controller.createReadingOrder();
+	});
+		
+	$('.saveReadingOrder').click(function(){
+		_controller.endCreateReadingOrder();
+	});
 
 	this.addDynamicListeners = function(){
 		var _hasBeenDropped = false;
@@ -347,18 +359,6 @@ function GuiInput(navigationController, controller, gui){
 				var $this = $(this);
 				var segmentID = $this.data('segmentid');
 				_controller.removeFromReadingOrder(segmentID);
-		});
-
-		$('.autoGenerateReadingOrder').click(function(){
-			_controller.autoGenerateReadingOrder();
-		});
-
-		$('.createReadingOrder').click(function(){
-			_controller.createReadingOrder();
-		});
-		
-		$('.saveReadingOrder').click(function(){
-			_controller.endCreateReadingOrder();
 		});
 	}
 }

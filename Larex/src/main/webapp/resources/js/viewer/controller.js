@@ -795,7 +795,6 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			}
 		});
 		readingOrder = _editor.getSortedReadingOrder(readingOrder);
-		console.log(_exportSettings[_currentPage].readingOrder);
 		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,readingOrder,_thisController,_exportSettings,_currentPage),_currentPage);
 	}
 
