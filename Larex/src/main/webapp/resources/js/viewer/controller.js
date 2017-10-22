@@ -253,6 +253,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 									missingRegions.push(segment.type);
 								}
 							});
+							_actionController.resetActions(pageID);
 							break;
 						default:
 							failedSegmentations.push(pageID);
@@ -296,6 +297,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 								missingRegions.push(segment.type);
 							}
 						});
+						_actionController.resetActions(pageNr);
 						break;
 					default:
 						failedSegmentations.push(pageNr);
