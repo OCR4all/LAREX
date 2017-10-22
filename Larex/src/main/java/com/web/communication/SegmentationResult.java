@@ -16,7 +16,7 @@ public class SegmentationResult {
 	private BookSegmentation result;
 	@JsonProperty("status")
 	private SegmentationStatus status;
-
+	
 	@JsonCreator
 	public SegmentationResult(@JsonProperty("result") BookSegmentation result,
 			@JsonProperty("status") SegmentationStatus status) {

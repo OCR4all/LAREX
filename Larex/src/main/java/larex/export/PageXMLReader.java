@@ -42,9 +42,13 @@ public class PageXMLReader {
 
 		segResult = new SegmentationResult(resRegions);
 		ArrayList<ResultRegion> readingOrder = new ArrayList<ResultRegion>();
-		for (ResultRegion region : resRegions) {
-			if (!region.getType().equals(RegionType.image)) {
-				readingOrder.add(region);
+		NodeList readingOrderXML = document.getElementsByTagName("ReadingOrder");
+		//TODO
+		if(readingOrderXML.getLength() > 0) {
+			for (ResultRegion region : resRegions) {
+				if (!region.getType().equals(RegionType.image)) {
+					readingOrder.add(region);
+				}
 			}
 		}
 		segResult.setReadingOrder(readingOrder);

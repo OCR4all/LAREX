@@ -1,6 +1,8 @@
 package com.web.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.codehaus.jackson.annotate.JsonCreator;
@@ -19,23 +21,26 @@ public class PageSegmentation {
 	private int pageNr;
 	@JsonProperty("segments")
 	private Map<String, Polygon> segments;
+	@JsonProperty("readingOrder")
+	private List<String> readingOrder;
 	@JsonProperty("status")
 	private SegmentationStatus status;
 
 	public PageSegmentation(int pageNr) {
-		this(pageNr, new HashMap<String, Polygon>(), SegmentationStatus.UNSEGMENTED);
+		this(pageNr, new HashMap<String, Polygon>(), SegmentationStatus.UNSEGMENTED,new ArrayList<String>());
 	}
 	@JsonCreator
 	public PageSegmentation(int pageNr, Map<String, Polygon> segments) {
-		this(pageNr,segments,SegmentationStatus.SUCCESS);
+		this(pageNr,segments,SegmentationStatus.SUCCESS,new ArrayList<String>());
 	}
 	
 	@JsonCreator
 	public PageSegmentation(@JsonProperty("page") int pageNr, @JsonProperty("segments") Map<String, Polygon> segments,
-			@JsonProperty("status") SegmentationStatus status) {
+			@JsonProperty("status") SegmentationStatus status, @JsonProperty("readingOrder") List<String> readingOrder) {
 		this.pageNr = pageNr;
 		this.segments = segments;
 		this.status = status;
+		this.readingOrder = readingOrder;
 	}
 
 	public void addSegment(Polygon segment) {
@@ -52,5 +57,12 @@ public class PageSegmentation {
 	
 	public SegmentationStatus getStatus() {
 		return status;
+	}
+	
+	public List<String> getReadingOrder() {
+		return new ArrayList<String>(readingOrder);
+	}
+	public void setReadingOrder(List<String> readingOrder) {
+		this.readingOrder = readingOrder;
 	}
 }

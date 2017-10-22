@@ -239,12 +239,14 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				var missingRegions = [];
 				pages.forEach(function(pageID) {
 					var page = data.result.pages[pageID];
+					// reset export Settings
+					initExportSettings(pageID);
 					switch (page.status) {
 						case 'SUCCESS':
 							_segmentation.pages[pageID] = page;
+
+							_actionController.resetActions(pageID);
 							//check if all necessary regions are available
-							
-							// Iterate over FixedSegment-"Map" (Object in JS)
 							Object.keys(page.segments).forEach(function(segmentID) {
 								var segment = page.segments[segmentID];
 								if($.inArray(segment.type,_presentRegions) == -1){
@@ -253,14 +255,16 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 									missingRegions.push(segment.type);
 								}
 							});
-							_actionController.resetActions(pageID);
+							var readingOrder = [];
+							page.readingOrder.forEach(function(segmentID) {
+								readingOrder.push(page.segments[segmentID]);
+							});
+							_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[pageID].readingOrder,readingOrder,_thisController,_exportSettings,pageID),pageID);
 							break;
 						default:
 							failedSegmentations.push(pageID);
 						}
 					
-					// reset export Settings
-					initExportSettings(pageID);
 				});
 				_segmentedPages.push.apply(_segmentedPages,pages);
 				if(missingRegions.length > 0){
@@ -283,12 +287,16 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 				var failedSegmentations = [];
 				var missingRegions = [];
 				var page = data.result.pages[pageNr];
+				// reset export Settings
+				initExportSettings(pageNr);
+				
 				switch (page.status) {
 					case 'SUCCESS':
 						_segmentation.pages[pageNr] = page;
-						//check if all necessary regions are available
 						
-						// Iterate over FixedSegment-"Map" (Object in JS)
+						_actionController.resetActions(pageNr);
+
+						//check if all necessary regions are available
 						Object.keys(page.segments).forEach(function(segmentID) {
 							var segment = page.segments[segmentID];
 							if($.inArray(segment.type,_presentRegions) == -1){
@@ -297,14 +305,19 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 								missingRegions.push(segment.type);
 							}
 						});
-						_actionController.resetActions(pageNr);
+						var readingOrder = [];
+
+						page.readingOrder.forEach(function(segmentID) {
+							readingOrder.push(page.segments[segmentID]);
+						});
+						_actionController.addAndExecuteAction(
+							new ActionChangeReadingOrder(_exportSettings[pageNr].readingOrder,readingOrder,_thisController,_exportSettings,pageNr)
+							,pageNr);
 						break;
 					default:
 						failedSegmentations.push(pageNr);
 					}
 					
-				// reset export Settings
-				initExportSettings(pageNr);
 				_segmentedPages.push(pageNr);
 				if(missingRegions.length > 0){
 					_gui.displayWarning('Warning: Some regions were missing and have been added.');

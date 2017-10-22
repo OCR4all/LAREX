@@ -310,7 +310,7 @@ public class LarexFacade implements IFacade {
 			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(regions, page.getId());
 		} else {
 			segmentation = new PageSegmentation(page.getId(), new HashMap<String, Polygon>(),
-					SegmentationStatus.MISSINGFILE);
+					SegmentationStatus.MISSINGFILE,new ArrayList<String>());
 		}
 
 		return segmentation;
@@ -381,8 +381,15 @@ public class LarexFacade implements IFacade {
 			Document document = dBuilder.parse(new ByteArrayInputStream(pageXML));
 			Page page = book.getPage(pageNr);
 
-			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(
-					PageXMLReader.getSegmentationResult(document).getRegions(), page.getId());
+			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
+			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(result.getRegions(), page.getId());
+			
+			List<String> readingOrder = new ArrayList<String>();
+			for(ResultRegion region: result.getReadingOrder()) {
+				readingOrder.add(region.getId());
+			}
+			pageSegmentation.setReadingOrder(readingOrder);
+			
 			bookSegment.setPage(pageSegmentation, page.getId());
 		} catch (SAXException e) {
 			e.printStackTrace();
