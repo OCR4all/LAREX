@@ -335,9 +335,14 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 
 	this.downloadPageXML = function(){
 		if(_currentPageDownloadable){
-			window.open("exportXML?version="+_pageXMLVersion);
+			var popup_download = window.open("exportXML?version="+_pageXMLVersion);
 		}
-		_gui.highlightExportedPage(_currentPage);
+		try {
+			popup_download.focus();
+		} catch(e){
+			_gui.displayWarning("Download was blocked. Please disable the Pop-up Blocker for this website.");
+			_gui.highlightExportedPage(_currentPage);
+		}
 	}
 
 	this.exportPageXML = function(){
@@ -354,12 +359,18 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			_gui.setExportingInProgress(false);
 			_gui.highlightSavedPage(_currentPage);
 			_savedPages.push(_currentPage);
+			_thisController.downloadPageXML();
 		});
 	}
 
 	this.downloadSettingsXML = function(){
 		if(_currentSettingsDownloadable){
-			window.open("downloadSettings");
+			var popup_download = window.open("downloadSettings");
+			try {
+				popup_download.focus();
+			} catch(e){
+				_gui.displayWarning("Download was blocked. Please disable the Pop-up Blocker for this website.");
+			}
 		}
 	}
 
@@ -370,6 +381,7 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 			_currentSettingsDownloadable = true;
 			_gui.setSettingsDownloadable(_currentSettingsDownloadable);
 			_gui.setSaveSettingsInProgress(false);
+			_thisController.downloadSettingsXML();
 		});
 	}
 
