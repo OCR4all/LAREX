@@ -4,7 +4,7 @@ function GuiInput(navigationController, controller, gui){
 	var _gui = gui;
 	var _draggedObject = null;
 
-	$(window).click(function() {
+	$(window).click(function(event) {
 		//Cancel viewer actions, if outside of viewer or a menu icon
 		$target = $(event.target);
 		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
