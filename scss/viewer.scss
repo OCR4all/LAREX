@@ -388,7 +388,7 @@ body{
     pagging: 0;
   }
 }
-.downloadPageXML{
+.downloadPageXML, .exportPageXML{
   &.disabled {
     pointer-events: auto !important;
     #dropDownPageXMLCorner{

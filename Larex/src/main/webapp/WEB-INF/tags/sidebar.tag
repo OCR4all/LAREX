@@ -11,17 +11,14 @@
 				</span>
 			</div>
 			<div id="import-export-settings" class="collapsible-body">
-				<a class="col s9 waves-effect waves-light btn saveSettingsXML">
+				<a class="col s12 waves-effect waves-light btn saveSettingsXML">
 					Save Settings
 					<div class="progress hide">
 			    		<div class="indeterminate"></div>
 					</div>       
+					<i class="material-icons right">file_download</i>
 				</a>
-				
-				
-				<a class="col s3 waves-effect waves-light btn downloadSettingsXML disabled">
-					<i class="material-icons">file_download</i>
-				</a>
+
 				<form action="#">
 					<div class="btn col s12" onclick="$('#upload-input').click()">
 						Load Settings
@@ -153,19 +150,16 @@
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
 	
-	<a class="col s9 waves-effect waves-light btn exportPageXML">
+	<a class="col s12 waves-effect waves-light btn exportPageXML">
 		Save Result
 		<div class="progress hide">
     		<div class="indeterminate"></div>
 		</div>       
-	</a>
-	
-	
-	<a class="col s3 waves-effect waves-light btn downloadPageXML disabled">
 		<span id="pageXMLVersion">version</span>
-		<i class="material-icons">file_download</i>
+		<i class="material-icons right">file_download</i>
 		<div id="dropDownPageXMLCorner"></div>
 	</a>
+	
 	<div id="dropDownPageXML" href="#!"class='dropdown-button' data-activates='dropdownPageXMLVersion'></div>
 	<ul id='dropdownPageXMLVersion' class='dropdown-content'>
 		<li><a class="pageXMLVersion" data-version="2010-03-19">2010-03-19</a></li>
