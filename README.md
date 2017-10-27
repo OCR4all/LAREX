@@ -16,48 +16,22 @@ Nevertheless, feel free to start testing right away but please keep in mind that
 
 ## Installing
 
-### OpenCV
-To run LAREX the image processing library [OpenCV](http://opencv.org/) including java bindings is required. We recommend using version 2.4.9. 
-The usage of newer versions (3.X) is possible but some adapations within the code will be necessary.
-LAREX expects the corresponding .jar to be located in /src/main/WEB-INF/lib and to be called "opencv.jar".
-
 ### Linux (Ubuntu)
 #### Packages
 `apt-get install tomcat7` (or use tomcat8)
 
 `apt-get install maven`
 
-`apt-get install libopencv-dev`
-
 `apt-get install openjdk-8-jdk`
 
 #### Clone Repository
 `git clone https://github.com/chreul/LAREX.git`
 
-#### Link the opencv.jar
-`mkdir LAREX/Larex/src/main/webapp/WEB-INF/lib`
-
-`ln -s /usr/share/java/opencv.jar LAREX/Larex/src/main/webapp/WEB-INF/lib/opencv.jar`
-
 #### Compile
 run `mvn clean install -f LAREX/Larex/pom.xml`.
 
-#### Copy or link the created war file to tomcat
-Either:
-`sudo ln -s $PWD/LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
-
-or
-
-`cp LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
-
-#### If you had to compile OpenCV on your own
-set `LD_LIBRARY_PATH` to `$CMAKE_INSTALL_PREFIX/share/OpenCV/java` when starting the Tomcat server.
-
 ### Windows
 It is recommended to use Eclipse.
-
-#### OpenCV
-Rename your .jar to "opencv.jar" and the corresponding .ddl to "opencv.dll" and copy it to /src/main/WEB-INF/lib.
 
 #### Java EE for Web Developer
 In Eclipse go to Help -> Install New Software -> Work with neon -> Install Web, XML, Java EE and OSGi Enterprise Development
