@@ -28,17 +28,8 @@ public class MvcConfiguration extends WebMvcConfigurerAdapter {
 	 * Systemlibrary for openCV 
 	 */
 	static {
-		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-
-		try {
-            String path = getPath();
-            if(new File(path).exists()){
-            	System.load(path);
-            }
-		} catch (UnsupportedEncodingException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-        }
+		nu.pattern.OpenCV.loadShared();
+		System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);
 	}
 
 
@@ -62,13 +53,4 @@ public class MvcConfiguration extends WebMvcConfigurerAdapter {
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
 		registry.addResourceHandler("/resources/**").addResourceLocations("/resources/");
 	}
-
-    public static String getPath() throws UnsupportedEncodingException {
-        String path = new MvcConfiguration().getClass().getClassLoader().getResource("").getPath();
-        String fullPath = URLDecoder.decode(path, "UTF-8");
-        String pathArr[] = fullPath.split("/classes/");
-        fullPath = pathArr[0] + "/lib/opencv.dll";
-
-        return fullPath;
-    }
 }
