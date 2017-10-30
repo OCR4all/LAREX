@@ -30,6 +30,11 @@ Nevertheless, feel free to start testing right away but please keep in mind that
 #### Compile
 run `mvn clean install -f LAREX/Larex/pom.xml`.
 
+#### Copy or link the created war file to tomcat
+Either: `sudo ln -s $PWD/LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+
+or `cp LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+
 ### Windows
 It is recommended to use Eclipse.
 
