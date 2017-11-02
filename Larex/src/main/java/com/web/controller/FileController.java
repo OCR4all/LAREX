@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.Calendar;
 
 import javax.imageio.ImageIO;
+import javax.servlet.ServletContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -28,6 +29,7 @@ import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.communication.SegmentationResult;
 import com.web.communication.SegmentationStatus;
+import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
@@ -42,12 +44,19 @@ import com.web.model.BookSettings;
 public class FileController {
 	@Autowired
 	private LarexFacade facade;
+	@Autowired
+	private ServletContext servletContext;
+	@Autowired
+	private FileManager fileManager;
+	@Autowired
+	private FileConfiguration config;
 
 	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
 			@PathVariable("image") final String image) throws IOException {
 		// Find file with image name
-		File directory = new File("/home/nico/Git/LAREX/Larex/src/main/webapp/resources/books/" + book + "/");
+		init();
+		File directory = new File(fileManager.getBooksPath() +File.separator+ book);
 		File[] matchingFiles = directory.listFiles(new FilenameFilter() {
 			public boolean accept(File dir, String name) {
 				return name.startsWith(image) && (name.endsWith("png") || name.endsWith("jpg") || name.endsWith("jpeg")
@@ -124,5 +133,18 @@ public class FileController {
 			}
 		}
 		return settings;
+	}
+	
+	private void init() {
+		if(!fileManager.isInit()){
+			fileManager.init(servletContext);
+		}
+		if(!config.isInitiated()) {
+			config.read(new File(fileManager.getConfigurationFile()));
+			String bookFolder = config.getSetting("bookpath");
+			if(!bookFolder.equals("")) {
+				fileManager.setBooksPath(bookFolder);
+			}
+		}
 	}
 }

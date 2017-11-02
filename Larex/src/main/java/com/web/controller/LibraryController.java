@@ -11,6 +11,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import com.web.config.FileConfiguration;
 import com.web.model.Library;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
@@ -25,15 +26,23 @@ public class LibraryController {
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
-	private FileManager fileController;
+	private FileManager fileManager;
+	@Autowired
+	private FileConfiguration config;
 
 	@RequestMapping(value = "/")
 	public String home(Model model) throws IOException {
-		if(!fileController.isInit()){
-			fileController.init(servletContext);
+		if (!fileManager.isInit()) {
+			fileManager.init(servletContext);
 		}
-		
-		File bookPath = new File(fileController.getBooksPath());
+		if (!config.isInitiated()) {
+			config.read(new File(fileManager.getConfigurationFile()));
+			String bookFolder = config.getSetting("bookpath");
+			if (!bookFolder.equals("")) {
+				fileManager.setBooksPath(bookFolder);
+			}
+		}		
+		File bookPath = new File(fileManager.getBooksPath());
 		bookPath.isDirectory();
 		IDatabase database = new FileDatabase(bookPath);
 		Library lib = new Library(database);

@@ -29,7 +29,7 @@ public class FileDatabase implements IDatabase {
 	}
 
 	public FileDatabase(File databaseFolder) {
-		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg"));
+		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg","tif","tiff"));
 	}
 
 	public Map<Integer, Book> getBooks() {

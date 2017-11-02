@@ -13,10 +13,12 @@ public class FileManager {
 
 	private boolean isInit = false;
 	private ServletContext servletContext;
+	private String booksPath;
 
 	public void init(ServletContext servletContext) {
 		this.isInit = true;
 		this.servletContext = servletContext;
+		booksPath = servletContext.getRealPath("resources"+File.separator+"books");
 	}
 
 	public String getWebResourcesPath() {
@@ -24,7 +26,7 @@ public class FileManager {
 	}
 
 	public String getWebBooksPath() {
-		return "resources" + File.separator
+		return "images" + File.separator
 				+ "books" + File.separator;
 	}
 
@@ -33,11 +35,19 @@ public class FileManager {
 	}
 
 	public String getBooksPath() {
-		return convertWebPathToRealPath(getWebBooksPath());
+		return booksPath;
 	}
 
 	public String convertWebPathToRealPath(String path) {
 		return servletContext.getRealPath(path);
+	}
+	
+	public String getConfigurationFile() {
+		return servletContext.getRealPath("WEB-INF"+File.separator+"larex.config");
+	}
+	
+	public void setBooksPath(String booksPath) {
+		this.booksPath = booksPath;
 	}
 
 	public boolean isInit() {
