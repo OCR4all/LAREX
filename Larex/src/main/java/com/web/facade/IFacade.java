@@ -47,6 +47,8 @@ public interface IFacade {
 
 	public ResponseEntity<byte[]> getPageXML(String version);
 	
+	public void savePageXMLLocal(String saveDir, String version);
+	
 	public void prepareSettings(BookSettings settings);
 	
 	public ResponseEntity<byte[]> getSettingsXML();

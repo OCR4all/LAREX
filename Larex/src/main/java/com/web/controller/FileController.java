@@ -56,16 +56,17 @@ public class FileController {
 			@PathVariable("image") final String image) throws IOException {
 		// Find file with image name
 		init();
-		File directory = new File(fileManager.getBooksPath() +File.separator+ book);
+		File directory = new File(fileManager.getBooksPath() + File.separator + book);
 		File[] matchingFiles = directory.listFiles(new FilenameFilter() {
 			public boolean accept(File dir, String name) {
 				return name.startsWith(image) && (name.endsWith("png") || name.endsWith("jpg") || name.endsWith("jpeg")
 						|| name.endsWith("tif") || name.endsWith("tiff"));
 			}
 		});
-		
-		if(matchingFiles.length == 0)throw new IOException("File does not exist");
-		
+
+		if (matchingFiles.length == 0)
+			throw new IOException("File does not exist");
+
 		BufferedImage bufferedImage = ImageIO.read(matchingFiles[0]);
 
 		// Convert to png
@@ -104,9 +105,26 @@ public class FileController {
 		return "Export has been prepared";
 	}
 
-	@RequestMapping(value = "/exportXML") // , method = RequestMethod.GET)//, headers = "Accept=*/*", consumes =
-											// "application/json"*/)
+	@RequestMapping(value = "/exportXML")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("version") String version) {
+		init();
+		String localsave = config.getSetting("localsave");
+		switch (localsave) {
+		case "bookpath":
+			facade.savePageXMLLocal(fileManager.getBooksPath()+File.separator+facade.getBook().getName(), version);
+			System.out.println(fileManager.getBooksPath()+File.separator+facade.getBook().getName());
+			break;
+		case "savedir":
+			String savedir = config.getSetting("savedir");
+			if (savedir != null && !savedir.equals("")) {
+				facade.savePageXMLLocal(savedir, version);
+			} else {
+				System.err.println("Warning: Save dir is not set. File could not been saved.:w");
+			}
+			break;
+		case "none":
+		case "default":
+		}
 		return facade.getPageXML(version);
 	}
 
@@ -116,8 +134,7 @@ public class FileController {
 		return "Export has been prepared";
 	}
 
-	@RequestMapping(value = "/downloadSettings") // , method = RequestMethod.GET)//, headers = "Accept=*/*", consumes =
-													// "application/json"*/)
+	@RequestMapping(value = "/downloadSettings")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings() {
 		return facade.getSettingsXML();
 	}
@@ -134,15 +151,15 @@ public class FileController {
 		}
 		return settings;
 	}
-	
+
 	private void init() {
-		if(!fileManager.isInit()){
+		if (!fileManager.isInit()) {
 			fileManager.init(servletContext);
 		}
-		if(!config.isInitiated()) {
+		if (!config.isInitiated()) {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
-			if(!bookFolder.equals("")) {
+			if (!bookFolder.equals("")) {
 				fileManager.setBooksPath(bookFolder);
 			}
 		}
