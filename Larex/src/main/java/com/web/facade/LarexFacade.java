@@ -184,24 +184,6 @@ public class LarexFacade implements IFacade {
 			result.removeRegionByID(segmentID);
 		}
 
-		// Merged TODO delete?
-		Map<String, ArrayList<String>> segmentsToMerge = exportRequest.getSegmentsToMerge();
-		if (segmentsToMerge != null) {
-			for (String mergedSegmentID : segmentsToMerge.keySet()) {
-				String id = "";
-				ArrayList<ResultRegion> regionsToMerge = new ArrayList<ResultRegion>();
-
-				for (String segmentID : exportRequest.getSegmentsToMerge().get(mergedSegmentID)) {
-					id += segmentID;
-					regionsToMerge.add(result.removeRegionByID(segmentID));
-				}
-
-				ResultRegion mergedRegions = Merge.merge(regionsToMerge, exportPage.getBinary());
-				mergedRegions.setId(id);
-				result.addRegion(mergedRegions);
-			}
-		}
-
 		// ChangedTypes
 		for (Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()) {
 			// clone ResultRegion before changing it
@@ -226,7 +208,10 @@ public class LarexFacade implements IFacade {
 		ArrayList<ResultRegion> readingOrder = new ArrayList<ResultRegion>();
 		List<String> readingOrderStrings = exportRequest.getReadingOrder();
 		for (String regionID : readingOrderStrings) {
-			readingOrder.add(result.getRegionByID(regionID));
+			ResultRegion region = result.getRegionByID(regionID);
+			if(region != null) {
+				readingOrder.add(region);
+			}
 		}
 		result.setReadingOrder(readingOrder);
 	}
@@ -383,6 +368,11 @@ public class LarexFacade implements IFacade {
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
 			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(result.getRegions(), page.getId());
+			
+			// set pageXML as segmented page
+			larex.dataManagement.Page larexPage = segmentedLarexPages.get(pageNr).clone();
+			larexPage.setSegmentationResult(result);
+			segmentedLarexPages.put(pageNr, larexPage);
 			
 			List<String> readingOrder = new ArrayList<String>();
 			for(ResultRegion region: result.getReadingOrder()) {
