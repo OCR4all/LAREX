@@ -10,6 +10,8 @@ import java.util.Calendar;
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
 
+import org.opencv.core.Mat;
+import org.opencv.highgui.Highgui;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.http.HttpHeaders;
@@ -67,7 +69,9 @@ public class FileController {
 		if (matchingFiles.length == 0)
 			throw new IOException("File does not exist");
 
-		BufferedImage bufferedImage = ImageIO.read(matchingFiles[0]);
+		// load Mat
+		Mat imageMat = Highgui.imread(matchingFiles[0].getAbsolutePath());
+		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
 
 		// Convert to png
 		ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
@@ -162,5 +166,24 @@ public class FileController {
 				fileManager.setBooksPath(bookFolder);
 			}
 		}
+	}
+	
+	private BufferedImage convertMatToBufferedImage(Mat imageMat) {
+		BufferedImage bufferedImage = null;
+		int imageHeight = imageMat.rows();
+		int imageWidth = imageMat.cols();
+        byte[] data = new byte[imageHeight * imageWidth * (int)imageMat.elemSize()];
+        int type;
+        imageMat.get(0, 0, data);
+
+        if(imageMat.channels() == 1)
+            type = BufferedImage.TYPE_BYTE_GRAY;
+        else
+            type = BufferedImage.TYPE_3BYTE_BGR;
+        
+        bufferedImage = new BufferedImage(imageWidth, imageHeight, type);
+
+        bufferedImage.getRaster().setDataElements(0, 0, imageWidth, imageHeight, data);
+        return bufferedImage;
 	}
 }
