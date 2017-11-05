@@ -112,8 +112,19 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
 				requestSegmentation([_currentPage],_allowLoadLocal);
 		}else{
+				var imageId = _book.pages[_currentPage].id+"image";
+				// Check if image is loaded
+				var image = $('#'+imageId);
+				if(!image[0].complete){
+					// break untill image is loaded
+					image.load(function() {
+						_thisController.displayPage(pageNr);
+					});
+					return false;
+				}
+
 				_editor.clear();
-				_editor.setImage(_book.pages[_currentPage].image);
+				_editor.setImage(imageId);
 				var pageSegments = _segmentation.pages[_currentPage].segments;
 				var pageFixedSegments = _settings.pages[_currentPage].segments;
 
