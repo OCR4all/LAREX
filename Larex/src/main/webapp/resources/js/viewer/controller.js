@@ -1,7 +1,8 @@
-function Controller(bookID, canvasID, specifiedColors, colors) {
+function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	var _bookID = bookID;
 	var _actionController = new ActionController(this);
 	var _communicator = new Communicator();
+	var _globalSettings = globalSettings;
 	var _gui;
 	var _guiInput;
 	var _editor;
@@ -345,13 +346,18 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	this.downloadPageXML = function(){
-		if(_currentPageDownloadable){
-			var popup_download = window.open("exportXML?version="+_pageXMLVersion);
-		}
-		try {
-			popup_download.focus();
-		} catch(e){
-			_gui.displayWarning("Download was blocked. Please disable the Pop-up Blocker for this website.");
+		if(_globalSettings.downloadPage){
+			if(_currentPageDownloadable){
+				var popup_download = window.open("exportXML?version="+_pageXMLVersion);
+			}
+			try {
+				popup_download.focus();
+			} catch(e){
+				_gui.displayWarning("Download was blocked. Please disable the Pop-up Blocker for this website.");
+				_gui.highlightExportedPage(_currentPage);
+			}
+		}else{
+			$.get("exportXML?version="+_pageXMLVersion);
 			_gui.highlightExportedPage(_currentPage);
 		}
 	}

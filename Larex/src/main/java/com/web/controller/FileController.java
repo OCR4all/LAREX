@@ -112,7 +112,6 @@ public class FileController {
 		switch (localsave) {
 		case "bookpath":
 			facade.savePageXMLLocal(fileManager.getBooksPath()+File.separator+facade.getBook().getName(), version);
-			System.out.println(fileManager.getBooksPath()+File.separator+facade.getBook().getName());
 			break;
 		case "savedir":
 			String savedir = config.getSetting("savedir");
