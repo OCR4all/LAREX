@@ -95,8 +95,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							$("#"+canvasID).mouseleave(function(){keyInput.isActive = false;});
 							_guiInput = new GuiInput(navigationController, _thisController, _gui);
 
-							_thisController.displayPage(0);
 							_thisController.showPreloader(false);
+							_thisController.displayPage(0);
 
 							// on resize
 							$(window).resize(function() {
@@ -110,12 +110,20 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.displayPage = function(pageNr) {
 		_currentPage = pageNr;
 
+		_thisController.showPreloader(true);
+
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
 				requestSegmentation([_currentPage],_allowLoadLocal);
 		}else{
 				var imageId = _book.pages[_currentPage].id+"image";
 				// Check if image is loaded
 				var image = $('#'+imageId);
+				if(!image[0]){
+					_communicator.loadImage(_book.pages[_currentPage].image,imageId).done(function(){
+						_thisController.displayPage(pageNr);
+					});
+					return false;
+				}
 				if(!image[0].complete){
 					// break untill image is loaded
 					image.load(function() {
@@ -188,6 +196,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				_gui.selectPage(pageNr);
 				_tempReadingOrder = null;
 				_thisController.endCreateReadingOrder();
+				_thisController.showPreloader(false);
 		}
 	}
 
@@ -241,7 +250,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	var requestSegmentation = function(pages, allowLoadLocal){
-		_thisController.showPreloader(true);
 		if(!pages){
 				pages = [_currentPage];
 		}
@@ -284,7 +292,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				}
 
 				_thisController.displayPage(pages[0]);
-				_thisController.showPreloader(false);
 				_gui.highlightSegmentedPages(_segmentedPages);
 				_gui.highlightPagesAsError(failedSegmentations);
 		});

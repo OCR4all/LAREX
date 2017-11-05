@@ -11,7 +11,9 @@ import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
 
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.opencv.highgui.Highgui;
+import org.opencv.imgproc.Imgproc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.http.HttpHeaders;
@@ -55,7 +57,8 @@ public class FileController {
 
 	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
-			@PathVariable("image") final String image) throws IOException {
+			@PathVariable("image") final String image, @RequestParam(value= "resize", defaultValue = "false") boolean doResize) throws IOException {
+		System.out.println(doResize);
 		// Find file with image name
 		init();
 		File directory = new File(fileManager.getBooksPath() + File.separator + book);
@@ -71,9 +74,20 @@ public class FileController {
 
 		// load Mat
 		Mat imageMat = Highgui.imread(matchingFiles[0].getAbsolutePath());
-		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
 
+		// resize
+		if(doResize) {
+			Mat resizeImage = new Mat();
+			int width = 300;
+			int height = (int) (imageMat.rows()*((width*1.0)/imageMat.cols()));
+			Size sz = new Size(width,height);
+			Imgproc.resize(imageMat, resizeImage, sz );
+			imageMat.release();
+			imageMat = resizeImage;
+		}
+		
 		// Convert to png
+		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
 		ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
 		ImageIO.write(bufferedImage, "png", byteArrayOut);
 		byte[] pngImageBytes = byteArrayOut.toByteArray();

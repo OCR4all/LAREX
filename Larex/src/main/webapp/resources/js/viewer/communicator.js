@@ -276,4 +276,15 @@ function Communicator() {
 
 		return status;
 	}
+	this.loadImage = function(image, id){
+		// Deferred object for function status
+		var status = $.Deferred();
+		
+		var img = $("<img />").attr('src', "images/books/"+image).on('load', function() {
+			img.attr('id', id);
+			$('body').append(img);
+			status.resolve();
+		});
+		return status;
+	}
 }
