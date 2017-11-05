@@ -1,7 +1,8 @@
-function Controller(bookID, canvasID, specifiedColors, colors) {
+function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	var _bookID = bookID;
 	var _actionController = new ActionController(this);
 	var _communicator = new Communicator();
+	var _globalSettings = globalSettings;
 	var _gui;
 	var _guiInput;
 	var _editor;
@@ -112,8 +113,19 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
 				requestSegmentation([_currentPage],_allowLoadLocal);
 		}else{
+				var imageId = _book.pages[_currentPage].id+"image";
+				// Check if image is loaded
+				var image = $('#'+imageId);
+				if(!image[0].complete){
+					// break untill image is loaded
+					image.load(function() {
+						_thisController.displayPage(pageNr);
+					});
+					return false;
+				}
+
 				_editor.clear();
-				_editor.setImage(_book.pages[_currentPage].image);
+				_editor.setImage(imageId);
 				var pageSegments = _segmentation.pages[_currentPage].segments;
 				var pageFixedSegments = _settings.pages[_currentPage].segments;
 
@@ -334,13 +346,18 @@ function Controller(bookID, canvasID, specifiedColors, colors) {
 	}
 
 	this.downloadPageXML = function(){
-		if(_currentPageDownloadable){
-			var popup_download = window.open("exportXML?version="+_pageXMLVersion);
-		}
-		try {
-			popup_download.focus();
-		} catch(e){
-			_gui.displayWarning("Download was blocked. Please disable the Pop-up Blocker for this website.");
+		if(_globalSettings.downloadPage){
+			if(_currentPageDownloadable){
+				var popup_download = window.open("exportXML?version="+_pageXMLVersion);
+			}
+			try {
+				popup_download.focus();
+			} catch(e){
+				_gui.displayWarning("Download was blocked. Please disable the Pop-up Blocker for this website.");
+				_gui.highlightExportedPage(_currentPage);
+			}
+		}else{
+			$.get("exportXML?version="+_pageXMLVersion);
 			_gui.highlightExportedPage(_currentPage);
 		}
 	}

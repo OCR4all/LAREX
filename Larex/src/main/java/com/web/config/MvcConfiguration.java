@@ -1,10 +1,5 @@
 package com.web.config;
 
-import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
-
-import org.opencv.core.Core;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -25,7 +20,7 @@ import org.springframework.web.servlet.view.InternalResourceViewResolver;
 public class MvcConfiguration extends WebMvcConfigurerAdapter {
 
 	/*
-	 * Systemlibrary for openCV 
+	 * System library for openCV 
 	 */
 	static {
 		nu.pattern.OpenCV.loadShared();

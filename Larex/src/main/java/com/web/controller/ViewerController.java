@@ -23,6 +23,7 @@ import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
 import com.web.communication.SegmentationResult;
 import com.web.communication.SegmentationStatus;
+import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
@@ -48,12 +49,12 @@ public class ViewerController {
 	private LarexFacade segmenter;
 	@Autowired
 	private FileManager fileManager;
+	@Autowired
+	private FileConfiguration config;
 	
 	@RequestMapping(value = "/viewer", method = RequestMethod.GET)
 	public String viewer(Model model, @RequestParam(value = "book", required = false) Integer bookID) throws IOException {
-		if(!fileManager.isInit()){
-			fileManager.init(servletContext);
-		}
+		init();
 		if(bookID == null){
 			return "redirect:/404";
 		}
@@ -70,6 +71,7 @@ public class ViewerController {
 		model.addAttribute("segmenttypes", getSegmentTypes());
 		model.addAttribute("imageSegTypes",getImageSegmentTypes());
 		model.addAttribute("bookPath", fileManager.getWebBooksPath());
+		model.addAttribute("globalSettings", config);
 			
 		return "editor";
 	}
@@ -100,9 +102,7 @@ public class ViewerController {
 	}
 	
 	private LarexFacade prepareSegmenter(int bookID) {
-		if(!fileManager.isInit()){
-			fileManager.init(servletContext);
-		}
+		init();
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 
 		if (!segmenter.isInit()) {
@@ -133,17 +133,24 @@ public class ViewerController {
 	}
 	
 	private Map<ImageSegType, String> getImageSegmentTypes() {
-		//Comparator<ImageSegType> compareAlphabetically = (ImageSegType o1, ImageSegType o2)->o1.toString().compareTo(o2.toString());
 		Map<ImageSegType, String> segmentTypes = new TreeMap<ImageSegType, String>();
 		segmentTypes.put(ImageSegType.NONE, "None");
 		segmentTypes.put(ImageSegType.CONTOUR_ONLY, "Contour only");
 		segmentTypes.put(ImageSegType.STRAIGHT_RECT, "Straight rectangle");
 		segmentTypes.put(ImageSegType.ROTATED_RECT, "Rotated rectangle");
-		/*int i = 0;
-		for (ImageSegType type : ImageSegType.values()) {
-			segmentTypes.put(type, i);
-			i++;
-		}*/
 		return segmentTypes;
+	}
+	
+	private void init() {
+		if(!fileManager.isInit()){
+			fileManager.init(servletContext);
+		}
+		if(!config.isInitiated()) {
+			config.read(new File(fileManager.getConfigurationFile()));
+			String bookFolder = config.getSetting("bookpath");
+			if(!bookFolder.equals("")) {
+				fileManager.setBooksPath(bookFolder);
+			}
+		}
 	}
 }

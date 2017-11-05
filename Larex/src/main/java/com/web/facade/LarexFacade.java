@@ -228,6 +228,14 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
+	public void savePageXMLLocal(String saveDir, String version) {
+		if(exportPage != null) {
+			Document document = PageXMLWriter.getPageXML(exportPage, version);
+			PageXMLWriter.saveDocument(document, exportPage.getFileName(), saveDir);
+		}
+	}
+	
+	@Override
 	public void prepareSettings(BookSettings settings) {
 		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, null, new Size());
 		exportSettings = SettingsWriter.getSettingsXML(parameters);
