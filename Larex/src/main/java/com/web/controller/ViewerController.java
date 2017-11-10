@@ -3,6 +3,7 @@ package com.web.controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -21,13 +22,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
-import com.web.communication.SegmentationResult;
-import com.web.communication.SegmentationStatus;
 import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
 import com.web.model.Book;
-import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
+import com.web.model.PageSegmentation;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
@@ -81,18 +80,16 @@ public class ViewerController {
 		prepareSegmenter(bookID);
 		Book book = segmenter.getBook();
 		BookSettings settings = segmenter.getDefaultSettings(book);
-		BookSegmentation segmentation = segmenter.segmentPage(settings, pageID,true);
+		Map<Integer, PageSegmentation> segmentations = new HashMap<Integer, PageSegmentation>();
+		segmentations.put(pageID, segmenter.segmentPage(settings, pageID,true));
 
-		FullBookResponse bookview = new FullBookResponse(book, segmentation, settings);
+		FullBookResponse bookview = new FullBookResponse(book, segmentations, settings);
 		return bookview;
 	}
 
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody SegmentationResult segment(@RequestBody SegmentationRequest segmentationRequest) {
-		
-		BookSegmentation segmentation = segmenter.segmentPages(segmentationRequest.getSettings(), segmentationRequest.getPages(),segmentationRequest.isAllowToLoadLocal());
-		SegmentationResult result = new SegmentationResult(segmentation, SegmentationStatus.SUCCESS);
-		return result;
+	public @ResponseBody PageSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
+		return segmenter.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),segmentationRequest.isAllowToLoadLocal());
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST)

@@ -8,6 +8,7 @@ import com.web.communication.ExportRequest;
 import com.web.model.Book;
 import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
+import com.web.model.PageSegmentation;
 import com.web.model.Polygon;
 
 /**
@@ -36,7 +37,7 @@ public interface IFacade {
 	
 	public BookSegmentation segmentPages(BookSettings settings, List<Integer> pages, boolean allowLocalResults);
 	
-	public BookSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults);
+	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults);
 	
 	public BookSegmentation readPageXML(byte[] pageXML,int pageNr);
 	
