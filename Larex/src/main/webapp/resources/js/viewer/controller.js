@@ -299,10 +299,9 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(!pageNr){
 			pageNr = _currentPage;
 		}
-		_communicator.uploadPageXML(file,pageNr).done(function(data){
+		_communicator.uploadPageXML(file,pageNr).done(function(page){
 				var failedSegmentations = [];
 				var missingRegions = [];
-				var page = data.result.pages[pageNr];
 				// reset export Settings
 				initExportSettings(pageNr);
 				
@@ -728,13 +727,13 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				if(!_exportSettings[_currentPage]){
 					initExportSettings(_currentPage);
 				}
-				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _segmentation, _currentPage,_exportSettings);
+				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _segmentation, _currentPage,_exportSettings,false);
 				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}else if(polygonType === "fixed"){
 			//segment is fixed segment not result segment
 			if(_settings.pages[_currentPage].segments[id].type != type){
-				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage,_exportSettings);
+				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage,_exportSettings,true);
 				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}

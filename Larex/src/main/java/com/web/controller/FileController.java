@@ -31,12 +31,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
-import com.web.communication.SegmentationResult;
-import com.web.communication.SegmentationStatus;
 import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
-import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
+import com.web.model.PageSegmentation;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.
@@ -99,18 +97,21 @@ public class FileController {
 		headers.setContentType(MediaType.IMAGE_PNG);
 		headers.setContentLength(pngImageBytes.length);
 
+		// Remove Garbage
+		imageMat.release();
+		System.gc();
+		
 		return new ResponseEntity<byte[]>(pngImageBytes, headers, HttpStatus.OK);
 	}
 
 	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
-	public @ResponseBody SegmentationResult uploadSegmentation(@RequestParam("file") MultipartFile file,
+	public @ResponseBody PageSegmentation uploadSegmentation(@RequestParam("file") MultipartFile file,
 			@RequestParam("pageNr") int pageNr) {
-		SegmentationResult result = null;
+		PageSegmentation result = null;
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				BookSegmentation segmentation = facade.readPageXML(bytes, pageNr);
-				result = new SegmentationResult(segmentation, SegmentationStatus.SUCCESS);
+				result = facade.readPageXML(bytes, pageNr);
 			} catch (Exception e) {
 			}
 		}

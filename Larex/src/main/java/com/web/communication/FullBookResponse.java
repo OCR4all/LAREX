@@ -7,7 +7,6 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.web.model.Book;
-import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
 

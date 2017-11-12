@@ -137,7 +137,7 @@ function Communicator() {
 		// Deferred object for function status
 		var status = $.Deferred();
 
-		var segmentationRequest = {settings: settings,pages:[]}
+		var segmentationRequest = {settings: settings,page:0}
 
 		$.ajax({
 			type : "POST",

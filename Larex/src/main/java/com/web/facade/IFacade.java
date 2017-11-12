@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 
 import com.web.communication.ExportRequest;
 import com.web.model.Book;
-import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
 import com.web.model.Polygon;
@@ -33,13 +32,9 @@ public interface IFacade {
 	
 	public BookSettings getDefaultSettings(Book book);
 	
-	public BookSegmentation segmentAll(BookSettings settings);
-	
-	public BookSegmentation segmentPages(BookSettings settings, List<Integer> pages, boolean allowLocalResults);
-	
 	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults);
 	
-	public BookSegmentation readPageXML(byte[] pageXML,int pageNr);
+	public PageSegmentation readPageXML(byte[] pageXML,int pageNr);
 	
 	public Polygon merge(List<String> segments,int pageNr);
 	
