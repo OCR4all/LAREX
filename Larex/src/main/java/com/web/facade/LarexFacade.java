@@ -131,6 +131,7 @@ public class LarexFacade implements IFacade {
 	@Override
 	public void prepareExport(ExportRequest exportRequest) {
 		// shallow clown page (ResultRegions are not cloned)
+		System.out.println(segmentedLarexPages.size());
 		exportPage = segmentedLarexPages.get(exportRequest.getPage()).clone();
 		SegmentationResult result = exportPage.getSegmentationResult();
 
@@ -287,6 +288,22 @@ public class LarexFacade implements IFacade {
 			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
 			currentLarexPage.setSegmentationResult(segmentationResult);
 
+			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
+			return currentLarexPage;
+		} else {
+			System.err.println(
+					"Warning: Image file could not be found. Segmentation result will be empty. File: " + imagePath);
+			return null;
+		}
+	}
+	
+	private larex.dataManagement.Page setPageResult(Page page, SegmentationResult result){
+		String imagePath = resourcepath + File.separator + page.getImage();
+
+		if (new File(imagePath).exists()) {
+			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
+			currentLarexPage.initPage();
+			currentLarexPage.setSegmentationResult(result);
 			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
 			return currentLarexPage;
 		} else {
