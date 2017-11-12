@@ -241,7 +241,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
-		requestSegmentation(null,true);
+		requestSegmentation(_currentPage,true);
 	}
 	
 	this.uploadExistingSegmentation = function(file){
