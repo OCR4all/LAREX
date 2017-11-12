@@ -96,8 +96,10 @@ public class LarexFacade implements IFacade {
 		this.segmenter = null;
 		this.parameters = null;
 		this.isInit = false;
-		for(int pageNr :segmentedLarexPages.keySet()) {
-			this.segmentedLarexPages.get(pageNr).clean();
+		if(segmentedLarexPages != null) {
+			for(int pageNr :segmentedLarexPages.keySet()) {
+				this.segmentedLarexPages.get(pageNr).clean();
+			}
 		}
 		this.segmentedLarexPages = null;
 	}
