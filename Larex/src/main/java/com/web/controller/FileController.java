@@ -11,7 +11,9 @@ import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
 
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.opencv.highgui.Highgui;
+import org.opencv.imgproc.Imgproc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.http.HttpHeaders;
@@ -29,12 +31,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
-import com.web.communication.SegmentationResult;
-import com.web.communication.SegmentationStatus;
 import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
-import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
+import com.web.model.PageSegmentation;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.
@@ -55,7 +55,8 @@ public class FileController {
 
 	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
-			@PathVariable("image") final String image) throws IOException {
+			@PathVariable("image") final String image, @RequestParam(value= "resize", defaultValue = "false") boolean doResize) throws IOException {
+		System.out.println(doResize);
 		// Find file with image name
 		init();
 		File directory = new File(fileManager.getBooksPath() + File.separator + book);
@@ -71,9 +72,20 @@ public class FileController {
 
 		// load Mat
 		Mat imageMat = Highgui.imread(matchingFiles[0].getAbsolutePath());
-		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
 
+		// resize
+		if(doResize) {
+			Mat resizeImage = new Mat();
+			int width = 300;
+			int height = (int) (imageMat.rows()*((width*1.0)/imageMat.cols()));
+			Size sz = new Size(width,height);
+			Imgproc.resize(imageMat, resizeImage, sz );
+			imageMat.release();
+			imageMat = resizeImage;
+		}
+		
 		// Convert to png
+		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
 		ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
 		ImageIO.write(bufferedImage, "png", byteArrayOut);
 		byte[] pngImageBytes = byteArrayOut.toByteArray();
@@ -85,18 +97,21 @@ public class FileController {
 		headers.setContentType(MediaType.IMAGE_PNG);
 		headers.setContentLength(pngImageBytes.length);
 
+		// Remove Garbage
+		imageMat.release();
+		System.gc();
+		
 		return new ResponseEntity<byte[]>(pngImageBytes, headers, HttpStatus.OK);
 	}
 
 	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
-	public @ResponseBody SegmentationResult uploadSegmentation(@RequestParam("file") MultipartFile file,
+	public @ResponseBody PageSegmentation uploadSegmentation(@RequestParam("file") MultipartFile file,
 			@RequestParam("pageNr") int pageNr) {
-		SegmentationResult result = null;
+		PageSegmentation result = null;
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				BookSegmentation segmentation = facade.readPageXML(bytes, pageNr);
-				result = new SegmentationResult(segmentation, SegmentationStatus.SUCCESS);
+				result = facade.readPageXML(bytes, pageNr);
 			} catch (Exception e) {
 			}
 		}

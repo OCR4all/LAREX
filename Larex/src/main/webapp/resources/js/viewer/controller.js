@@ -95,8 +95,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							$("#"+canvasID).mouseleave(function(){keyInput.isActive = false;});
 							_guiInput = new GuiInput(navigationController, _thisController, _gui);
 
-							_thisController.displayPage(0);
 							_thisController.showPreloader(false);
+							_thisController.displayPage(0);
 
 							// on resize
 							$(window).resize(function() {
@@ -110,12 +110,20 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.displayPage = function(pageNr) {
 		_currentPage = pageNr;
 
+		_thisController.showPreloader(true);
+
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-				requestSegmentation([_currentPage],_allowLoadLocal);
+				requestSegmentation(_currentPage,_allowLoadLocal);
 		}else{
 				var imageId = _book.pages[_currentPage].id+"image";
 				// Check if image is loaded
 				var image = $('#'+imageId);
+				if(!image[0]){
+					_communicator.loadImage(_book.pages[_currentPage].image,imageId).done(function(){
+						_thisController.displayPage(pageNr);
+					});
+					return false;
+				}
 				if(!image[0].complete){
 					// break untill image is loaded
 					image.load(function() {
@@ -126,7 +134,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 				_editor.clear();
 				_editor.setImage(imageId);
-				var pageSegments = _segmentation.pages[_currentPage].segments;
+				var pageSegments = _segmentation[_currentPage].segments;
 				var pageFixedSegments = _settings.pages[_currentPage].segments;
 
 				var readingOrderIsEmpty = false;
@@ -188,6 +196,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				_gui.selectPage(pageNr);
 				_tempReadingOrder = null;
 				_thisController.endCreateReadingOrder();
+				_thisController.showPreloader(false);
 		}
 	}
 
@@ -213,7 +222,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	// New Segmentation with different Settings
-	this.doSegmentation = function(pages){
+	this.doSegmentation = function(pageID){
 		var parameters = _gui.getParameters();
 		_settings.parameters = parameters;
 
@@ -221,7 +230,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
-		requestSegmentation(pages,false);
+		requestSegmentation(pageID,false);
 	}
 
 	this.loadExistingSegmentation = function(){
@@ -232,7 +241,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
-		requestSegmentation(null,true);
+		requestSegmentation(_currentPage,true);
 	}
 	
 	this.uploadExistingSegmentation = function(file){
@@ -240,51 +249,46 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		uploadSegmentation(file,_currentPage);
 	}
 
-	var requestSegmentation = function(pages, allowLoadLocal){
-		_thisController.showPreloader(true);
-		if(!pages){
-				pages = [_currentPage];
+	var requestSegmentation = function(pageID, allowLoadLocal){
+		if(!pageID){
+				pageID = _currentPage;
 		}
 
-		_communicator.segmentBook(_activesettings,pages,allowLoadLocal).done(function(data){
+		_communicator.segmentBook(_activesettings,pageID,allowLoadLocal).done(function(result){
 				var failedSegmentations = [];
 				var missingRegions = [];
-				pages.forEach(function(pageID) {
-					var page = data.result.pages[pageID];
-					// reset export Settings
-					initExportSettings(pageID);
-					switch (page.status) {
-						case 'SUCCESS':
-							_segmentation.pages[pageID] = page;
+				// reset export Settings
+				initExportSettings(pageID);
+				switch (result.status) {
+					case 'SUCCESS':
+						_segmentation[pageID] = result;
 
-							_actionController.resetActions(pageID);
-							//check if all necessary regions are available
-							Object.keys(page.segments).forEach(function(segmentID) {
-								var segment = page.segments[segmentID];
-								if($.inArray(segment.type,_presentRegions) == -1){
-									//TODO as Action
-									_thisController.changeRegionSettings(segment.type,0,0);	
-									missingRegions.push(segment.type);
-								}
-							});
-							var readingOrder = [];
-							page.readingOrder.forEach(function(segmentID) {
-								readingOrder.push(page.segments[segmentID]);
-							});
-							_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[pageID].readingOrder,readingOrder,_thisController,_exportSettings,pageID),pageID);
-							break;
-						default:
-							failedSegmentations.push(pageID);
-						}
+						_actionController.resetActions(pageID);
+						//check if all necessary regions are available
+						Object.keys(result.segments).forEach(function(segmentID) {
+							var segment = result.segments[segmentID];
+							if($.inArray(segment.type,_presentRegions) == -1){
+								//TODO as Action
+								_thisController.changeRegionSettings(segment.type,0,0);	
+								missingRegions.push(segment.type);
+							}
+						});
+						var readingOrder = [];
+						result.readingOrder.forEach(function(segmentID) {
+							readingOrder.push(result.segments[segmentID]);
+						});
+						_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[pageID].readingOrder,readingOrder,_thisController,_exportSettings,pageID),pageID);
+						break;
+					default:
+						failedSegmentations.push(pageID);
+				}
 					
-				});
-				_segmentedPages.push.apply(_segmentedPages,pages);
+				_segmentedPages.push(pageID);
 				if(missingRegions.length > 0){
 					_gui.displayWarning('Warning: Some regions were missing and have been added.');
 				}
 
-				_thisController.displayPage(pages[0]);
-				_thisController.showPreloader(false);
+				_thisController.displayPage(pageID);
 				_gui.highlightSegmentedPages(_segmentedPages);
 				_gui.highlightPagesAsError(failedSegmentations);
 		});
@@ -295,16 +299,15 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(!pageNr){
 			pageNr = _currentPage;
 		}
-		_communicator.uploadPageXML(file,pageNr).done(function(data){
+		_communicator.uploadPageXML(file,pageNr).done(function(page){
 				var failedSegmentations = [];
 				var missingRegions = [];
-				var page = data.result.pages[pageNr];
 				// reset export Settings
 				initExportSettings(pageNr);
 				
 				switch (page.status) {
 					case 'SUCCESS':
-						_segmentation.pages[pageNr] = page;
+						_segmentation[pageNr] = page;
 						
 						_actionController.resetActions(pageNr);
 
@@ -501,10 +504,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				var segment = _settings.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> result region)
 				if(!segment){
-					segment = _segmentation.pages[_currentPage].segments[_selected[i]];
+					segment = _segmentation[_currentPage].segments[_selected[i]];
 					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,_thisController));
 				}else{
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings,_thisController));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings,_thisController,true));
 				}
 			}else if(_selectType === "line"){
 				var cut = _settings.pages[_currentPage].cuts[_selected[i]];
@@ -523,7 +526,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				var segment = _settings.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> fixed segment)
 				if(!segment){
-					segment = _segmentation.pages[_currentPage].segments[_selected[i]];
+					segment = _segmentation[_currentPage].segments[_selected[i]];
 					//filter special case image (do not merge images)
 					if(segment.type !== 'image'){
 						if(!_exportSettings[_currentPage]){
@@ -571,12 +574,12 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 						if(!_exportSettings[_currentPage]){
 							initExportSettings(_currentPage);
 						}
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _settings, _currentPage,_exportSettings));
+						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _settings, _currentPage,_exportSettings,isFixedSegment));
 					}else{
 						if(!_exportSettings[_currentPage]){
 							initExportSettings(_currentPage);
 						}
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _segmentation, _currentPage,_exportSettings));
+						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _segmentation, _currentPage,_exportSettings,isFixedSegment));
 					}
 				}
 			}
@@ -720,17 +723,17 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.changeSegmentType = function(id, type){
 		var polygonType = getPolygonMainType(id);
 		if(polygonType === "result"){
-			if(_segmentation.pages[_currentPage].segments[id].type != type){
+			if(_segmentation[_currentPage].segments[id].type != type){
 				if(!_exportSettings[_currentPage]){
 					initExportSettings(_currentPage);
 				}
-				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _segmentation, _currentPage,_exportSettings);
+				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _segmentation, _currentPage,_exportSettings,false);
 				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}else if(polygonType === "fixed"){
 			//segment is fixed segment not result segment
 			if(_settings.pages[_currentPage].segments[id].type != type){
-				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage,_exportSettings);
+				var actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage,_exportSettings,true);
 				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}
@@ -769,7 +772,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.setRegionColor = function(regionType,colorID){
 		_specifiedColors[regionType] = _colors[colorID];
 
-		var pageSegments = _segmentation.pages[_currentPage].segments;
+		var pageSegments = _segmentation[_currentPage].segments;
 		var pageFixedSegments = _settings.pages[_currentPage].segments;
 		Object.keys(pageSegments).forEach(function(key) {
 			if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
@@ -817,7 +820,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			initExportSettings(_currentPage);
 		}
 		var readingOrder = [];
-		var pageSegments = _segmentation.pages[_currentPage].segments;
+		var pageSegments = _segmentation[_currentPage].segments;
 		var pageFixedSegments = _settings.pages[_currentPage].segments;
 		
 		// Iterate over Segment-"Map" (Object in JS)
@@ -1139,7 +1142,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			return "fixed";
 		}
 
-		polygon = _segmentation.pages[_currentPage].segments[polygonID];
+		polygon = _segmentation[_currentPage].segments[polygonID];
 		if(polygon){
 			return "result";
 		}
@@ -1161,7 +1164,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			return polygon;
 		}
 
-		polygon = _segmentation.pages[_currentPage].segments[polygonID];
+		polygon = _segmentation[_currentPage].segments[polygonID];
 		if(polygon){
 			return polygon;
 		}

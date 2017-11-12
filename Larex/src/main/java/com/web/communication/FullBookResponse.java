@@ -7,14 +7,15 @@ import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.web.model.Book;
-import com.web.model.BookSegmentation;
 import com.web.model.BookSettings;
+import com.web.model.PageSegmentation;
 
 import larex.regions.type.RegionType;
 
 /**
  * A communication object for the controller to parse a complete book response.
- * Contains a book, settings for segmentation and a (potentially uncompleted) segmentation.
+ * Contains a book, settings for segmentation and a (potentially uncompleted)
+ * segmentation.
  * 
  */
 public class FullBookResponse {
@@ -22,15 +23,15 @@ public class FullBookResponse {
 	@JsonProperty("book")
 	private Book book;
 	@JsonProperty("segmentation")
-	private BookSegmentation segmentation;
+	private Map<Integer, PageSegmentation> segmentation;
 	@JsonProperty("settings")
 	private BookSettings settings;
 	@JsonProperty("segmenttypes")
 	protected Map<RegionType, Integer> segmentTypes;
 
 	@JsonCreator
-	public FullBookResponse(@JsonProperty("book") Book book, 
-			@JsonProperty("segmentation") BookSegmentation segmentation,
+	public FullBookResponse(@JsonProperty("book") Book book,
+			@JsonProperty("segmentation") Map<Integer, PageSegmentation> segmentation,
 			@JsonProperty("settings") BookSettings settings) {
 		this.book = book;
 		this.segmentation = segmentation;
@@ -41,7 +42,7 @@ public class FullBookResponse {
 		return book;
 	}
 
-	public BookSegmentation getSegmentation() {
+	public Map<Integer, PageSegmentation> getSegmentation() {
 		return segmentation;
 	}
 

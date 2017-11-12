@@ -7,8 +7,8 @@
 				<img class="pageImage"
 					alt="${bookpage.getImage()}"
 					title="${bookpage.getImage()}"
-					src="${bookPath}${bookpage.getImage()}"
-					id="${bookpage.getId()}image" />
+					src="${bookPath}${bookpage.getImage()}?resize=true"
+					id="${bookpage.getId()}previewImage" />
 				<div class="pagestatus">
 					<i class="material-icons pagestatusIcon pageIconExported circle tooltipped hide"
 						data-position="bottom" data-delay="50" data-tooltip="This page has been exported.">file_download</i>

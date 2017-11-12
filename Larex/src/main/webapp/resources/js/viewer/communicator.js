@@ -40,11 +40,11 @@ function Communicator() {
 		return status;
 	}
 
-	this.segmentBook = function(settings,pages,allowLoadLocal) {
+	this.segmentBook = function(settings,page,allowLoadLocal) {
 		// Deferred object for function status
 		var status = $.Deferred();
 
-		var segmentationRequest = {settings: settings,pages:pages,allowLoadLocal:allowLoadLocal}
+		var segmentationRequest = {settings: settings,page:page,allowLoadLocal:allowLoadLocal}
 
 		$.ajax({
 			type : "POST",
@@ -137,7 +137,7 @@ function Communicator() {
 		// Deferred object for function status
 		var status = $.Deferred();
 
-		var segmentationRequest = {settings: settings,pages:[]}
+		var segmentationRequest = {settings: settings,page:0}
 
 		$.ajax({
 			type : "POST",
@@ -274,6 +274,17 @@ function Communicator() {
 			console.log("Segmentation load: complete");
 		});
 
+		return status;
+	}
+	this.loadImage = function(image, id){
+		// Deferred object for function status
+		var status = $.Deferred();
+		
+		var img = $("<img />").attr('src', "images/books/"+image).on('load', function() {
+			img.attr('id', id);
+			$('body').append(img);
+			status.resolve();
+		});
 		return status;
 	}
 }

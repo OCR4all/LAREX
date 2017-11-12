@@ -116,9 +116,14 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 	}
 }
 
-function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentation,page,exportSettings){
+function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentation,page,exportSettings,isFixedSegment){
 	var _isExecuted = false;
-	var _segment = segmentation.pages[page].segments[segmentID];
+	var _segment;
+	if(isFixedSegment){
+		_segment = segmentation.pages[page].segments[segmentID];
+	}else{
+		_segment = segmentation[page].segments[segmentID];
+	}
 	var _oldType = _segment.type;
 	var _actionReadingOrder = null;
 	if(newType === 'image'){
@@ -278,7 +283,7 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSetting
 	}
 }
 
-function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,controller){
+function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,controller,isFixedSegment){
 	var _isExecuted = false;
 	var _segment = JSON.parse(JSON.stringify(segment));
 	var _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id,page,exportSettings,controller);
@@ -286,8 +291,11 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,con
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-
-			delete segmentation.pages[page].segments[_segment.id];
+			if(isFixedSegment){
+				delete segmentation.pages[page].segments[_segment.id]; 
+			}else{
+				delete segmentation[page].segments[_segment.id]; 
+			}
 			editor.removeSegment(_segment.id);
 
 			if(exportSettings){
@@ -300,8 +308,11 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,con
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
-
-			segmentation.pages[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
+			if(isFixedSegment){
+				segmentation.pages[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
+			}else{
+				segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
+			}
 			editor.addSegment(_segment);
 			if(exportSettings){
 				exportSettings[page].segmentsToIgnore = jQuery.grep(exportSettings[page].segmentsToIgnore, function(value) {
