@@ -81,7 +81,7 @@ public class ViewerController {
 		Book book = segmenter.getBook();
 		BookSettings settings = segmenter.getDefaultSettings(book);
 		Map<Integer, PageSegmentation> segmentations = new HashMap<Integer, PageSegmentation>();
-		segmentations.put(pageID, segmenter.segmentPage(settings, pageID,true));
+		segmentations.put(pageID, segmenter.segmentPage(settings, pageID,false));
 
 		FullBookResponse bookview = new FullBookResponse(book, segmentations, settings);
 		return bookview;
