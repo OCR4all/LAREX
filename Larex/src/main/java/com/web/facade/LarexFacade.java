@@ -96,8 +96,8 @@ public class LarexFacade implements IFacade {
 		this.segmenter = null;
 		this.parameters = null;
 		this.isInit = false;
-		if(segmentedLarexPages != null) {
-			for(int pageNr :segmentedLarexPages.keySet()) {
+		if (segmentedLarexPages != null) {
+			for (int pageNr : segmentedLarexPages.keySet()) {
 				this.segmentedLarexPages.get(pageNr).clean();
 			}
 		}
@@ -114,8 +114,9 @@ public class LarexFacade implements IFacade {
 		String xmlPath = imagePath.substring(0, imagePath.lastIndexOf('.')) + ".xml";
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
-			return LarexWebTranslator.translateResultRegionsToSegmentation(
-					PageXMLReader.loadSegmentationResultFromDisc(xmlPath).getRegions(), page.getId());
+			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
+			setPageResult(page, loadedResult);
+			return LarexWebTranslator.translateResultRegionsToSegmentation(loadedResult.getRegions(), page.getId());
 		} else {
 			return segment(settings, page);
 		}
@@ -131,7 +132,6 @@ public class LarexFacade implements IFacade {
 	@Override
 	public void prepareExport(ExportRequest exportRequest) {
 		// shallow clown page (ResultRegions are not cloned)
-		System.out.println(segmentedLarexPages.size());
 		exportPage = segmentedLarexPages.get(exportRequest.getPage()).clone();
 		SegmentationResult result = exportPage.getSegmentationResult();
 
@@ -239,8 +239,6 @@ public class LarexFacade implements IFacade {
 		for (String segmentID : segments) {
 			resultRegions.add(resultPage.getRegionByID(segmentID));
 		}
-		System.out.println(
-				segmentedLarexPages.get(pageNr).getBinary() + " " + segmentedLarexPages.get(pageNr).getOriginal());
 		ResultRegion mergedRegion = Merge.merge(resultRegions, segmentedLarexPages.get(pageNr).getBinary());
 
 		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
@@ -296,8 +294,8 @@ public class LarexFacade implements IFacade {
 			return null;
 		}
 	}
-	
-	private larex.dataManagement.Page setPageResult(Page page, SegmentationResult result){
+
+	private larex.dataManagement.Page setPageResult(Page page, SegmentationResult result) {
 		String imagePath = resourcepath + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
