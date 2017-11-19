@@ -24,14 +24,14 @@ import larex.dataManagement.Page;
 public class PageXMLWriter {
 
 	/**
-	 * PageXML 2013
+	 * PageXML 2017
 	 * 
 	 * @param document
 	 * @param coordsElement
 	 * @param pointMat
 	 * @param scaleFactor
 	 */
-	public static void addPoints2013(Document document, Element coordsElement, MatOfPoint pointMat,
+	public static void addPoints2017(Document document, Element coordsElement, MatOfPoint pointMat,
 			double scaleFactor) {
 		Point[] points = pointMat.toArray();
 		String pointCoords = "";
@@ -92,8 +92,8 @@ public class PageXMLWriter {
 		Element coordsElement = document.createElement("Coords");
 
 		switch (pageXMLVersion) {
-		case "2013-07-15":
-			addPoints2013(document, coordsElement, region.getPoints(), page.getScaleFactor());
+		case "2017-07-15":
+			addPoints2017(document, coordsElement, region.getPoints(), page.getScaleFactor());
 			break;
 		case "2010-03-19":
 		default:
@@ -138,7 +138,7 @@ public class PageXMLWriter {
 	 * @return pageXML document or null if parse error
 	 */
 	public static Document getPageXML(Page page, String pageXMLVersion) {
-		if (!pageXMLVersion.equals("2013-07-15") && !pageXMLVersion.equals("2010-03-19")) {
+		if (!pageXMLVersion.equals("2017-07-15") && !pageXMLVersion.equals("2010-03-19")) {
 			pageXMLVersion = "2010-03-19";
 		}
 		try {

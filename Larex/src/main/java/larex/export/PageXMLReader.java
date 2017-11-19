@@ -87,7 +87,7 @@ public class PageXMLReader {
 		if (!coords.hasAttribute("points")) {
 			points = extractPoints2010(coords);
 		} else {
-			points = extractPoints2013(coords);
+			points = extractPoints2017(coords);
 		}
 
 		ResultRegion region = new ResultRegion(type, points);
@@ -114,7 +114,7 @@ public class PageXMLReader {
 		return points;
 	}
 
-	private static MatOfPoint extractPoints2013(Element coords) {
+	private static MatOfPoint extractPoints2017(Element coords) {
 		String pointsString = coords.getAttribute("points");
 		ArrayList<Point> pointList = new ArrayList<Point>();
 
