@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.web.communication.DirectRequest;
 import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
@@ -50,38 +51,56 @@ public class ViewerController {
 	private FileManager fileManager;
 	@Autowired
 	private FileConfiguration config;
-	
+
 	@RequestMapping(value = "/viewer", method = RequestMethod.GET)
-	public String viewer(Model model, @RequestParam(value = "book", required = false) Integer bookID) throws IOException {
+	public String viewer(Model model, @RequestParam(value = "book", required = false) Integer bookID)
+			throws IOException {
 		init();
-		if(bookID == null){
+		if (bookID == null) {
 			return "redirect:/404";
 		}
-		
+
 		segmenter.clear();
 		prepareSegmenter(bookID);
 		Book book = segmenter.getBook();
-		
-		if(book == null){
+
+		if (book == null) {
 			return "redirect:/404";
 		}
-		
+
 		model.addAttribute("book", book);
 		model.addAttribute("segmenttypes", getSegmentTypes());
-		model.addAttribute("imageSegTypes",getImageSegmentTypes());
+		model.addAttribute("imageSegTypes", getImageSegmentTypes());
 		model.addAttribute("bookPath", fileManager.getWebBooksPath());
 		model.addAttribute("globalSettings", config);
-			
+
 		return "editor";
 	}
 
+	@RequestMapping(value = "/direct", method = RequestMethod.POST)
+	public String direct(Model model, @RequestParam("direct") DirectRequest request)
+			throws IOException {
+			System.out.println("test1");
+		init();
+			System.out.println("test1");
+		if (!config.getSetting("directrequest").equals("allow")) {
+			System.out.println("test");
+			return "redirect:/403";
+		}
+		fileManager.setBooksPath(request.getBookpath());
+		int bookID = request.getBookname().hashCode();
+
+		return viewer(model, bookID);
+	}
+
 	@RequestMapping(value = "/book", method = RequestMethod.POST)
-	public @ResponseBody FullBookResponse getBook(@RequestParam("bookid") int bookID, @RequestParam("pageid") int pageID ) {
+	public @ResponseBody FullBookResponse getBook(@RequestParam("bookid") int bookID,
+			@RequestParam("pageid") int pageID) {
 		prepareSegmenter(bookID);
 		Book book = segmenter.getBook();
 		BookSettings settings = segmenter.getDefaultSettings(book);
 		Map<Integer, PageSegmentation> segmentations = new HashMap<Integer, PageSegmentation>();
-		segmentations.put(pageID, segmenter.segmentPage(settings, pageID,false));
+		segmentations.put(pageID, segmenter.segmentPage(settings, pageID, false));
 
 		FullBookResponse bookview = new FullBookResponse(book, segmentations, settings);
 		return bookview;
@@ -89,15 +108,17 @@ public class ViewerController {
 
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
-		return segmenter.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),segmentationRequest.isAllowToLoadLocal());
+		return segmenter.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
+				segmentationRequest.isAllowToLoadLocal());
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST)
-	public @ResponseBody Polygon segment(@RequestParam("segmentids[]") List<String> segmentIDs, @RequestParam("pageid") int pageID) {
+	public @ResponseBody Polygon segment(@RequestParam("segmentids[]") List<String> segmentIDs,
+			@RequestParam("pageid") int pageID) {
 		Polygon merged = segmenter.merge(segmentIDs, pageID);
 		return merged;
 	}
-	
+
 	private LarexFacade prepareSegmenter(int bookID) {
 		init();
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
@@ -112,7 +133,8 @@ public class ViewerController {
 	}
 
 	private Map<RegionType, Integer> getSegmentTypes() {
-		//Comparator<RegionType> compareAlphabetically = (RegionType o1, RegionType o2)->o1.toString().compareTo(o2.toString());
+		// Comparator<RegionType> compareAlphabetically = (RegionType o1, RegionType
+		// o2)->o1.toString().compareTo(o2.toString());
 		Comparator<RegionType> compareAlphabetically = new Comparator<RegionType>() {
 			@Override
 			public int compare(RegionType o1, RegionType o2) {
@@ -128,7 +150,7 @@ public class ViewerController {
 		}
 		return segmentTypes;
 	}
-	
+
 	private Map<ImageSegType, String> getImageSegmentTypes() {
 		Map<ImageSegType, String> segmentTypes = new TreeMap<ImageSegType, String>();
 		segmentTypes.put(ImageSegType.NONE, "None");
@@ -137,15 +159,15 @@ public class ViewerController {
 		segmentTypes.put(ImageSegType.ROTATED_RECT, "Rotated rectangle");
 		return segmentTypes;
 	}
-	
+
 	private void init() {
-		if(!fileManager.isInit()){
+		if (!fileManager.isInit()) {
 			fileManager.init(servletContext);
 		}
-		if(!config.isInitiated()) {
+		if (!config.isInitiated()) {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
-			if(!bookFolder.equals("")) {
+			if (!bookFolder.equals("")) {
 				fileManager.setBooksPath(bookFolder);
 			}
 		}

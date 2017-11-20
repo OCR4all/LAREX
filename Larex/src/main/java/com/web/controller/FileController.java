@@ -56,7 +56,6 @@ public class FileController {
 	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
 			@PathVariable("image") final String image, @RequestParam(value= "resize", defaultValue = "false") boolean doResize) throws IOException {
-		System.out.println(doResize);
 		// Find file with image name
 		init();
 		File directory = new File(fileManager.getBooksPath() + File.separator + book);
