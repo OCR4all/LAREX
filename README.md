@@ -54,8 +54,80 @@ Select the web perspective and add the Tomcat server.
 Go to `localhost:8080/Larex`.
 
 ### Using your own images
-You can add your own books by copying them to src/webapp/resources/books.
+You can add your own books by copying them to src/webapp/resources/books
 
+(Or an alternative direction set in the config file. See *Configuration* for more information).
+
+## Configuration ##
+Larex contains a configuration file under the direction src/webapp/WEB-INF/larex.config with a few settings that can be set before opening the application.
+
+### bookpath ###
+The setting *bookpath* sets the file path of the books folder.
+
+e.g. bookpath:/home/user/books (Linux)
+
+e.g. bookpath:C:\Users\user\Documents\books (Windows)
+
+Larex will load the books off of this folder.
+
+[default <Larex>/src/main/webapp/resources/books]
+
+### localsave ###
+The setting *localsave* tells the application how to handle results locally when saved.
+
+\<mode\>=[bookpath|savedir|none]
+
+bookpath: save the result in the bookpath
+
+savedir: save the result in a defined savedir
+
+none: do not save the result locally [default]
+
+e.g. localsave:bookpath
+
+### savedir ###
+The setting *savedir* is needed if localsave mode is set to "savedir".
+
+e.g. savedir:/home/user/save (Linux)
+
+e.g. savedir:C:\Users\user\Documents\save (Windows)
+
+### websave ###
+The setting *websave* tells the application how to handle results on the browser side when saved.
+
+\<value\>=[true|false]
+
+true: download the result after saving [default]
+
+false: no action after saving
+
+e.g. websave:true
+
+### directrequest ###
+This setting enables or disables the direct open feature.
+
+\<value\>=[enable|disable]
+
+This feature allows users to load a book from everywhere on the servers drive aswell as to alter the options *websave* and *localsave*.
+
+enable: enable direct request
+
+disable: disable direct request [default]
+
+e.g. directrequest:enable
+
+This feature should be used with caution but is very useful when using Larex in a workflow with other web applications. (e.g. in docker)
+
+The easiest direct request would be via a html form with the values *bookpath*, *bookname*, *websave* (optional) and *localsave* (optional).
+```html
+<form action="http://localhost:8080/Larex/direct" method="POST">
+	bookpath: <input type="text" name="bookpath"/><br>
+	bookname: <input type="text" name="bookname"/><br>
+	websave: <input type="text" name="websave"/><br>
+	localsave: <input type="text" name="localsave"/><br>
+	<input type="submit"/>
+</form>
+```
 
 ## Related Publications:
 Reul, C., Springmann, U., and Puppe, F.: LAREX - A semi-automatic open-source Tool for Layout
