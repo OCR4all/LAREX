@@ -81,7 +81,7 @@ public class ViewerController {
 			@RequestParam(value = "bookname", required = true) String bookname)
 			throws IOException {
 		init();
-		if (!config.getSetting("directrequest").equals("allow")) {
+		if (!config.getSetting("directrequest").equals("enable")) {
 			return "redirect:/403";
 		}
 		if(!new File(bookpath+File.separator+bookname).exists()) {
