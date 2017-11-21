@@ -84,6 +84,9 @@ public class ViewerController {
 		if (!config.getSetting("directrequest").equals("allow")) {
 			return "redirect:/403";
 		}
+		if(!new File(bookpath+File.separator+bookname).exists()) {
+			return "redirect:/400";
+		}
 		fileManager.setBooksPath(bookpath);
 		int bookID = bookname.hashCode();
 

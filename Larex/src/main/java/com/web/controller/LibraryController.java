@@ -32,10 +32,8 @@ public class LibraryController {
 
 	@RequestMapping(value = "/")
 	public String home(Model model) throws IOException {
-		if (!fileManager.isInit()) {
-			fileManager.init(servletContext);
-		}
 		// Reset config
+		fileManager.init(servletContext);
 		config.read(new File(fileManager.getConfigurationFile()));
 		String bookFolder = config.getSetting("bookpath");
 		if (!bookFolder.equals("")) {

@@ -15,7 +15,7 @@ public class ErrorController {
 
 	@RequestMapping(value = "/400")
 	public String error400(Model model) {
-		model.addAttribute("message", "We can't seem understand which page you're looking for.");
+		model.addAttribute("message", "We can't seem understand your request.");
 		model.addAttribute("code", "400");
 		return "error";
 	}
