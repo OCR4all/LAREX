@@ -35,13 +35,12 @@ public class LibraryController {
 		if (!fileManager.isInit()) {
 			fileManager.init(servletContext);
 		}
-		if (!config.isInitiated()) {
-			config.read(new File(fileManager.getConfigurationFile()));
-			String bookFolder = config.getSetting("bookpath");
-			if (!bookFolder.equals("")) {
-				fileManager.setBooksPath(bookFolder);
-			}
-		}		
+		// Reset config
+		config.read(new File(fileManager.getConfigurationFile()));
+		String bookFolder = config.getSetting("bookpath");
+		if (!bookFolder.equals("")) {
+			fileManager.setBooksPath(bookFolder);
+		}
 		File bookPath = new File(fileManager.getBooksPath());
 		bookPath.isDirectory();
 		IDatabase database = new FileDatabase(bookPath);

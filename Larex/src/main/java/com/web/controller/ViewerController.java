@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.web.communication.DirectRequest;
 import com.web.communication.FullBookResponse;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
@@ -78,17 +77,15 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/direct", method = RequestMethod.POST)
-	public String direct(Model model, @RequestParam("direct") DirectRequest request)
+	public String direct(Model model, @RequestParam(value = "bookpath", required = true) String bookpath,
+			@RequestParam(value = "bookname", required = true) String bookname)
 			throws IOException {
-			System.out.println("test1");
 		init();
-			System.out.println("test1");
 		if (!config.getSetting("directrequest").equals("allow")) {
-			System.out.println("test");
 			return "redirect:/403";
 		}
-		fileManager.setBooksPath(request.getBookpath());
-		int bookID = request.getBookname().hashCode();
+		fileManager.setBooksPath(bookpath);
+		int bookID = bookname.hashCode();
 
 		return viewer(model, bookID);
 	}
