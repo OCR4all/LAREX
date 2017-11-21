@@ -15,14 +15,14 @@ public class ErrorController {
 
 	@RequestMapping(value = "/400")
 	public String error400(Model model) {
-		model.addAttribute("message", "We can't seem understand your request.");
+		model.addAttribute("message", "We can't understand the request.");
 		model.addAttribute("code", "400");
 		return "error";
 	}
 	
 	@RequestMapping(value = "/403")
 	public String error403(Model model) {
-		model.addAttribute("message", "We are sorry but you are not authorized to use your requested page.");
+		model.addAttribute("message", "We are sorry but you are not authorized to use the requested page.");
 		model.addAttribute("code", "403");
 		return "error";
 	}
