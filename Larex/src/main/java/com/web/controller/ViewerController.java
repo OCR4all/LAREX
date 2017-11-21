@@ -78,7 +78,9 @@ public class ViewerController {
 
 	@RequestMapping(value = "/direct", method = RequestMethod.POST)
 	public String direct(Model model, @RequestParam(value = "bookpath", required = true) String bookpath,
-			@RequestParam(value = "bookname", required = true) String bookname)
+			@RequestParam(value = "bookname", required = true) String bookname,
+			@RequestParam(value = "localsave", required = false) String localsave,
+			@RequestParam(value = "websave", required = false) String websave)
 			throws IOException {
 		init();
 		if (!config.getSetting("directrequest").equals("enable")) {
@@ -90,6 +92,12 @@ public class ViewerController {
 		fileManager.setBooksPath(bookpath);
 		int bookID = bookname.hashCode();
 
+		if(localsave != null) {
+			config.setSetting("localsave", localsave);
+		}
+		if(websave != null) {
+			config.setSetting("websave", websave);
+		}
 		return viewer(model, bookID);
 	}
 
@@ -133,8 +141,6 @@ public class ViewerController {
 	}
 
 	private Map<RegionType, Integer> getSegmentTypes() {
-		// Comparator<RegionType> compareAlphabetically = (RegionType o1, RegionType
-		// o2)->o1.toString().compareTo(o2.toString());
 		Comparator<RegionType> compareAlphabetically = new Comparator<RegionType>() {
 			@Override
 			public int compare(RegionType o1, RegionType o2) {

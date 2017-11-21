@@ -63,6 +63,14 @@ public class FileConfiguration {
 		}
 	}
 
+	public void setSetting(String setting, String value) {
+		if (!isInitiated()) {
+			System.err.println("Configuration file has not been read.");
+			this.configurations = new HashMap<String, String>();
+		}
+		configurations.put(setting, value);
+	}
+	
 	public Map<String, String> getConfigurationMap() {
 		if (isInitiated()) {
 			return new HashMap<String, String>(configurations);
