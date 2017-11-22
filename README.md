@@ -108,7 +108,7 @@ This setting enables or disables the direct open feature.
 
 \<value\>=[enable|disable]
 
-This feature allows users to load a book from everywhere on the servers drive aswell as to alter the options *websave* and *localsave*.
+This feature allows users to load a book from everywhere on the servers drive aswell as to alter the options *websave*,  *localsave* and *savedir*.
 
 enable: enable direct request
 
@@ -118,13 +118,14 @@ e.g. directrequest:enable
 
 This feature should be used with caution but is very useful when using Larex in a workflow with other web applications. (e.g. in docker)
 
-The easiest direct request would be via a html form with the values *bookpath*, *bookname*, *websave* (optional) and *localsave* (optional).
+The easiest direct request would be via a html form with the values *bookpath*, *bookname*, *websave* (optional),  *localsave* (optional) and *savedir* (optional).
 ```html
 <form action="http://localhost:8080/Larex/direct" method="POST">
 	bookpath: <input type="text" name="bookpath"/><br>
 	bookname: <input type="text" name="bookname"/><br>
 	websave: <input type="text" name="websave"/><br>
 	localsave: <input type="text" name="localsave"/><br>
+	savedir: <input type="text" name="savedir"/><br>
 	<input type="submit"/>
 </form>
 ```

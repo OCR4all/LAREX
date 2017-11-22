@@ -80,6 +80,7 @@ public class ViewerController {
 	public String direct(Model model, @RequestParam(value = "bookpath", required = true) String bookpath,
 			@RequestParam(value = "bookname", required = true) String bookname,
 			@RequestParam(value = "localsave", required = false) String localsave,
+			@RequestParam(value = "savedir", required = false) String savedir,
 			@RequestParam(value = "websave", required = false) String websave)
 			throws IOException {
 		init();
@@ -94,6 +95,9 @@ public class ViewerController {
 
 		if(localsave != null) {
 			config.setSetting("localsave", localsave);
+		}
+		if(savedir != null) {
+			config.setSetting("savedir", savedir);
 		}
 		if(websave != null) {
 			config.setSetting("websave", websave);
