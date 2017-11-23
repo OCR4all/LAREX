@@ -17,8 +17,10 @@ Nevertheless, feel free to start testing right away but please keep in mind that
 ## Installing
 
 ### Linux (Ubuntu)
+For this guide tomcat version 7 is used.
+
 #### Packages
-`apt-get install tomcat7` (or use tomcat8)
+`apt-get install tomcat7`
 
 `apt-get install maven`
 
@@ -34,6 +36,13 @@ run `mvn clean install -f LAREX/Larex/pom.xml`.
 Either: `sudo ln -s $PWD/LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
 or `cp LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+
+#### Start Tomcat
+`systemctl start tomcat7`
+
+to restart `systemctl restart tomcat7`
+
+to start automatically at system boot `systemctl enable tomcat7`
 
 ### Windows
 It is recommended to use Eclipse.
@@ -59,7 +68,7 @@ You can add your own books by copying them to src/webapp/resources/books
 (Or an alternative direction set in the config file. See *Configuration* for more information).
 
 ## Configuration ##
-Larex contains a configuration file under the direction src/webapp/WEB-INF/larex.config with a few settings that can be set before opening the application.
+Larex contains a configuration file (src/webapp/WEB-INF/larex.config) with a few settings that can be set before running the application.
 
 ### bookpath ###
 The setting *bookpath* sets the file path of the books folder.
@@ -68,7 +77,7 @@ e.g. bookpath:/home/user/books (Linux)
 
 e.g. bookpath:C:\Users\user\Documents\books (Windows)
 
-Larex will load the books off of this folder.
+Larex will load the books from this folder.
 
 [default <Larex>/src/main/webapp/resources/books]
 
@@ -131,10 +140,6 @@ The easiest direct request would be via a html form with the values *bookpath*, 
 ```
 
 ## Related Publications:
-Reul, C., Springmann, U., and Puppe, F.: LAREX - A semi-automatic open-source Tool for Layout
-Analysis and Region Extraction on Early Printed Books. Accepted for oral presentation at [DATeCH 2017](http://ddays.digitisation.eu/). 
-Draft available at [arXiv](https://arxiv.org/abs/1701.07396).
+Reul, Christian; Springmann, Uwe; Puppe, Frank: LAREX – A semi-automatic open-source Tool for Layout Analysis and Region Extraction on Early Printed Books. In Proceedings of the 2nd International Conference on Digital Access to Textual Cultural Heritage (2017). [ACM](https://dl.acm.org/citation.cfm?id=3078097). Draft available at [arXiv](https://arxiv.org/abs/1701.07396).
 
-Reul, C., Dittrich, M., and Gruner, M.: Case Study of a highly automated Layout Analysis and OCR of an incunabulum: 
-‘Der Heiligen Leben’ (1488).. Accepted for oral presentation at [DATeCH 2017](http://ddays.digitisation.eu/). 
-Draft available at [arXiv](https://arxiv.org/abs/1701.07395).
+Reul, Christian; Dittrich, Marco; Gruner, Martin: Case Study of a highly automated Layout Analysis and OCR of an incunabulum: ‘Der Heiligen Leben’ (1488). In Proceedings of the 2nd International Conference on Digital Access to Textual Cultural Heritage (2017). [ACM](https://dl.acm.org/citation.cfm?id=3078098). Draft available at [arXiv](https://arxiv.org/abs/1701.07395).
