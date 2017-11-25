@@ -108,6 +108,7 @@ public class LarexFacade implements IFacade {
 	@Override
 	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults) {
 		if (book == null || !(settings.getBookID() == book.getId())) {
+			throw new IllegalArgumentException("Booksettings do not fit the book");
 		}
 
 		Page page = book.getPage(pageNr);
@@ -181,8 +182,7 @@ public class LarexFacade implements IFacade {
 			exportPage.clean();
 			return convertDocumentToByte(document, exportPage.getFileName());
 		} else {
-			// TODO Error
-			return null;
+			throw new IllegalStateException("PageXML can't be returned. No Page has been prepared for export.");
 		}
 	}
 
@@ -207,8 +207,7 @@ public class LarexFacade implements IFacade {
 		if (exportSettings != null) {
 			return convertDocumentToByte(exportSettings, "settings_" + book.getName());
 		} else {
-			// TODO Error
-			return null;
+			throw new IllegalStateException("Setting can't be returned. No Setting has been prepared for export.");
 		}
 	}
 
