@@ -5,7 +5,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.util.Calendar;
 
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
@@ -71,7 +70,7 @@ public class FileController {
 
 		// load Mat
 		Mat imageMat = Highgui.imread(matchingFiles[0].getAbsolutePath());
-
+		
 		// resize
 		if(doResize) {
 			Mat resizeImage = new Mat();
@@ -91,7 +90,8 @@ public class FileController {
 
 		// Create header to display the image
 		HttpHeaders headers = new HttpHeaders();
-		headers.setLastModified(Calendar.getInstance().getTime().getTime());
+		
+		headers.setLastModified(matchingFiles[0].lastModified()/*Calendar.getInstance().getTime().getTime()*/);
 		headers.setCacheControl("no-cache");
 		headers.setContentType(MediaType.IMAGE_PNG);
 		headers.setContentLength(pngImageBytes.length);

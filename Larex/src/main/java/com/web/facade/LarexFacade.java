@@ -102,6 +102,7 @@ public class LarexFacade implements IFacade {
 			}
 		}
 		this.segmentedLarexPages = null;
+		System.gc();
 	}
 
 	@Override
@@ -175,7 +176,9 @@ public class LarexFacade implements IFacade {
 	@Override
 	public ResponseEntity<byte[]> getPageXML(String version) {
 		if (exportPage != null) {
+			exportPage.initPage();
 			Document document = PageXMLWriter.getPageXML(exportPage, version);
+			exportPage.clean();
 			return convertDocumentToByte(document, exportPage.getFileName());
 		} else {
 			// TODO Error
@@ -186,7 +189,9 @@ public class LarexFacade implements IFacade {
 	@Override
 	public void savePageXMLLocal(String saveDir, String version) {
 		if (exportPage != null) {
+			exportPage.initPage();
 			Document document = PageXMLWriter.getPageXML(exportPage, version);
+			exportPage.clean();
 			PageXMLWriter.saveDocument(document, exportPage.getFileName(), saveDir);
 		}
 	}
@@ -239,7 +244,11 @@ public class LarexFacade implements IFacade {
 		for (String segmentID : segments) {
 			resultRegions.add(resultPage.getRegionByID(segmentID));
 		}
-		ResultRegion mergedRegion = Merge.merge(resultRegions, segmentedLarexPages.get(pageNr).getBinary());
+		larex.dataManagement.Page page = segmentedLarexPages.get(pageNr);
+		page.initPage();
+		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary());
+		page.clean();
+		System.gc();
 
 		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
 	}
@@ -259,17 +268,14 @@ public class LarexFacade implements IFacade {
 			segmentation = new PageSegmentation(page.getId(), new HashMap<String, Polygon>(),
 					SegmentationStatus.MISSINGFILE, new ArrayList<String>());
 		}
-
 		return segmentation;
 	}
 
 	private larex.dataManagement.Page segmentLarex(BookSettings settings, Page page) {
-		// TODO Performance
 		String imagePath = resourcepath + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
-			currentLarexPage.clean();
 			currentLarexPage.initPage();
 
 			Size pagesize = currentLarexPage.getOriginal().size();
@@ -286,7 +292,11 @@ public class LarexFacade implements IFacade {
 			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
 			currentLarexPage.setSegmentationResult(segmentationResult);
 
+			currentLarexPage.clean();
+
 			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
+
+			System.gc();
 			return currentLarexPage;
 		} else {
 			System.err.println(
@@ -300,7 +310,6 @@ public class LarexFacade implements IFacade {
 
 		if (new File(imagePath).exists()) {
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
-			currentLarexPage.initPage();
 			currentLarexPage.setSegmentationResult(result);
 			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
 			return currentLarexPage;
@@ -326,7 +335,9 @@ public class LarexFacade implements IFacade {
 
 			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());
 			settings = LarexWebTranslator.translateParametersToSettings(parameters, book);
+
 			currentLarexPage.clean();
+			System.gc();
 		} catch (SAXException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
