@@ -180,14 +180,6 @@
 			<t:sidebar/>
 			</div>
 		</div>
-<!-- 	<div id="toprightUI" class="canvasUI">
-			<t:menuIcon jsClass="zoomout" icon="zoom_out"
-				tooltip="Zoom the image out (Shortcut: - or scroll wheel)"></t:menuIcon>
-			<t:menuIcon jsClass="zoomin" icon="zoom_in"
-				tooltip="Zoom the image in (Shortcut: + or scroll wheel)"></t:menuIcon>
-			<t:menuIcon jsClass="zoomfit" icon="zoom_out_map"
-				tooltip="Zooms image to fit the screen (Shortcut: space)"></t:menuIcon>
-		</div> -->
 
 		<t:preloader/>
 		<t:regionsettings/>

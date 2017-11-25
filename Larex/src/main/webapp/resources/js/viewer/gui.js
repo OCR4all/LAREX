@@ -32,7 +32,6 @@ function GUI(canvas, viewer) {
 		}
 		$contextmenu.data('doSelected',doSelected);
 		$contextmenu.data('polygonID',id);
-
 	}
 
 	this.closeContextMenu = function(){
@@ -46,11 +45,6 @@ function GUI(canvas, viewer) {
 
 		$canvas.height(height);
 		$sidebars.height(height);
-	}
-
-	this.setCanvasUITopRight = function(){
-		var positionCanvas = $("#"+_canvas).offset();
-		$("#toprightUI").offset({ top: positionCanvas.top, left: positionCanvas.left });
 	}
 
 	this.setParameters = function(parameters,imageMode,combineMode){
@@ -174,6 +168,7 @@ function GUI(canvas, viewer) {
 			$('.readingOrderCategory').addClass("hide");
 		}
 	}
+
 	this.setReadingOrder = function(readingOrder){
 		$readingOrderList = $('#reading-order-list');
 		$readingOrderList.empty();

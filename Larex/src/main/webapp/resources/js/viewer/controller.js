@@ -69,7 +69,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 									_thisController);
 
 							_gui = new GUI(canvasID, _editor);
-							_gui.setCanvasUITopRight();
 							_gui.resizeViewerHeight();
 
 							_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
@@ -100,7 +99,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 							// on resize
 							$(window).resize(function() {
-								_gui.setCanvasUITopRight();
 								_gui.resizeViewerHeight();
 							});
 						});
