@@ -782,7 +782,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		});
 		// Iterate over FixedSegment-"Map" (Object in JS)
 		Object.keys(pageFixedSegments).forEach(function(key) {
-			var segment = pageSegments[key];
+			var segment = pageFixedSegments[key];
 			if(segment.type === regionType){
 				_editor.updateSegment(segment);
 			}
