@@ -52,6 +52,7 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 			path.fillColor.mainAlpha = mainAlpha;
 			path.strokeColor = color;
 			path.strokeColor.alpha = alphaStroke;
+			path.defaultStrokeColor = new paper.Color(path.strokeColor);
 			path.dashArray = dashArray;
 
 			//Convert segment points to current canvas coordinates
@@ -98,9 +99,15 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 
 	this.selectSegment = function(id, doSelect){
 		if(doSelect){
-			_paths[id].selected = true;
+			var path = _paths[id];
+			path.strokeColor = new paper.Color('#1e88e5');
+			path.strokeWidth = 2;
+			//_paths[id].selected = true;
 		}else{
-			_paths[id].selected = false;
+			var path = _paths[id];
+			path.strokeColor = new paper.Color(path.defaultStrokeColor);
+			path.strokeWidth = 1;
+			//_paths[id].selected = false;
 		}
 	}
 
@@ -207,6 +214,7 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 			path.strokeColor.alpha = 1;
 			path.strokeWidth = 2;
 		}
+		path.defaultStrokeColor = new paper.Color(path.strokeColor);
 		if(isFixed){
 			path.dashArray = [5, 3];
 		}
