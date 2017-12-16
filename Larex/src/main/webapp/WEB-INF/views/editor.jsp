@@ -4,7 +4,7 @@
 <t:webpage>
 	<t:head>
 		<!-- Load the Paper.js library -->
-		<script type="text/javascript" src="resources/js/paper-core.min.js"></script>
+		<script type="text/javascript" src="resources/js/paper.js"></script>
 
 		<!-- Viewer scripts -->
 		<script type="text/javascript" src="resources/js/viewer/actions.js"></script>
