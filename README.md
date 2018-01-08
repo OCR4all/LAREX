@@ -66,6 +66,37 @@ Download the most recent version under http://tomcat.apache.org/download-90.cgi.
 
 Select the web perspective and add the Tomcat server.
 
+### Mac OS X
+
+#### Homebrew
+Install homebrew (see https://brew.sh/).
+
+Afterwards install all required packages (Tomcat, git, and maven):
+
+`brew install tomcat git maven`
+
+To verify the Tomcat installation use homebrew’s services utility. Tomcat should now be listed here:
+`brew services list`
+
+#### Clone Repository
+Run in your desired project directory
+`git clone https://github.com/chreul/LAREX.git`
+to clone the repository.
+
+#### Compile
+run `mvn clean install -f LAREX/Larex/pom.xml`.
+
+#### Copy or link the created war file to tomcat
+Either: `sudo ln -s $PWD/LAREX/Larex/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
+
+or `cp LAREX/Larex/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
+
+#### Start Tomcat
+`brew services start tomcat`
+
+to restart `brew services restart tomcat`
+
+
 ## Running
 ### Access in browser
 Go to `localhost:8080/Larex`.
