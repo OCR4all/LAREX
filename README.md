@@ -71,8 +71,8 @@ Select the web perspective and add the Tomcat server.
 #### Homebrew
 Install homebrew (see https://brew.sh/).
 
-Afterwards install all required packages (Tomcat, git, and maven):
-
+Afterwards install all required packages (java, Tomcat, git, and maven):
+`brew cask install java`
 `brew install tomcat git maven`
 
 To verify the Tomcat installation use homebrew’s services utility. Tomcat should now be listed here:
