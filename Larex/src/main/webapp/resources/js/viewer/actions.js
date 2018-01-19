@@ -1,12 +1,12 @@
 function ActionController(controller){
-	var _controller = controller;
-	var _this = this;
-	var _actions = {};
-	var _actionpointers = {};
+	const _controller = controller;
+	const _this = this;
+	let _actions = {};
+	let _actionpointers = {};
 
 	this.redo = function(page) {
-		var pageActions = _actions[page];
-		var pageActionpointer = _actionpointers[page];
+		let pageActions = _actions[page];
+		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer < pageActions.length - 1) {
 			_controller.unSelect();
 			_actionpointers[page]++;
@@ -17,8 +17,8 @@ function ActionController(controller){
 		}
 	}
 	this.undo = function(page) {
-		var pageActions = _actions[page];
-		var pageActionpointer = _actionpointers[page];
+		let pageActions = _actions[page];
+		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer >= 0) {
 			_controller.unSelect();
 			pageActions[pageActionpointer].undo();
@@ -33,7 +33,7 @@ function ActionController(controller){
 		_actionpointers[page] = -1;
 	}
 	this.addAndExecuteAction = function(action,page) {
-		var pageActions = _actions[page];
+		let pageActions = _actions[page];
 
 		if(!pageActions){
 			_this.resetActions(page);
@@ -57,18 +57,18 @@ function ActionController(controller){
 
 //"Interface" for actions
 function Action(){
-	var _isExecuted = false;
+	let _isExecuted = false;
 	this.execute = function(){}
 	this.undo = function(){}
 }
 
 function ActionMultiple(actions){
-	var _isExecuted = false;
+	let _isExecuted = false;
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			for(var i = 0, actioncount = actions.length; i < actioncount; i++){
+			for(let i = 0, actioncount = actions.length; i < actioncount; i++){
 				actions[i].execute();
 			}
 		}
@@ -76,7 +76,7 @@ function ActionMultiple(actions){
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
-			for(var i = 0, actioncount = actions.length; i < actioncount; i++){
+			for(let i = 0, actioncount = actions.length; i < actioncount; i++){
 				actions[i].undo();
 			}
 		}
@@ -84,8 +84,8 @@ function ActionMultiple(actions){
 }
 
 function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,page, controller){
-	var _isExecuted = false;
-	var _oldType = regionPolygon.type;
+	let _isExecuted = false;
+	const _oldType = regionPolygon.type;
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -117,15 +117,15 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 }
 
 function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentation,page,exportSettings,isFixedSegment){
-	var _isExecuted = false;
-	var _segment;
+	let _isExecuted = false;
+	let _segment;
 	if(isFixedSegment){
 		_segment = segmentation.pages[page].segments[segmentID];
 	}else{
 		_segment = segmentation[page].segments[segmentID];
 	}
-	var _oldType = _segment.type;
-	var _actionReadingOrder = null;
+	const _oldType = _segment.type;
+	let _actionReadingOrder = null;
 	if(newType === 'image'){
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(segmentID,page,exportSettings,controller);
 	}
@@ -165,8 +165,8 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 }
 
 function ActionAddRegion(id,points,type,editor,settings,page, controller){
-	var _isExecuted = false;
-	var _region = {id:id, points:points, type:type, isRelative:true};
+	let _isExecuted = false;
+	const _region = {id:id, points:points, type:type, isRelative:true};
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -190,8 +190,8 @@ function ActionAddRegion(id,points,type,editor,settings,page, controller){
 }
 
 function ActionRemoveRegion(regionPolygon,editor,settings,page,controller){
-	var _isExecuted = false;
-	var _region = regionPolygon;
+	let _isExecuted = false;
+	const _region = regionPolygon;
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -216,14 +216,14 @@ function ActionRemoveRegion(regionPolygon,editor,settings,page,controller){
 }
 
 function ActionRemoveCompleteRegion(regionType,controller,editor,settings,controller){
-	var _isExecuted = false;
-	var _region = JSON.parse(JSON.stringify(settings.regions[regionType]));
+	let _isExecuted = false;
+	const _region = JSON.parse(JSON.stringify(settings.regions[regionType]));
 
 	//TODO redo after undo does not work
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			var region = settings.regions[_region.type];
+			let region = settings.regions[_region.type];
 			controller.removePresentRegions(_region.type);
 
 			// Iterate over all Polygons in Region
@@ -254,8 +254,8 @@ function ActionRemoveCompleteRegion(regionType,controller,editor,settings,contro
 }
 
 function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSettings,controller){
-	var _isExecuted = false;
-	var _segment = {id:id, points:points, type:type, isRelative:false};
+	let _isExecuted = false;
+	const _segment = {id:id, points:points, type:type, isRelative:false};
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -284,9 +284,9 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSetting
 }
 
 function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,controller,isFixedSegment){
-	var _isExecuted = false;
-	var _segment = JSON.parse(JSON.stringify(segment));
-	var _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id,page,exportSettings,controller);
+	let _isExecuted = false;
+	const _segment = JSON.parse(JSON.stringify(segment));
+	const _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id,page,exportSettings,controller);
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -326,8 +326,8 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,con
 }
 
 function ActionAddCut(id,points,editor,settings,page){
-	var _isExecuted = false;
-	var _cut = {id:id, points:points, type:'other', isRelative:false};
+	let _isExecuted = false;
+	const _cut = {id:id, points:points, type:'other', isRelative:false};
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -348,8 +348,8 @@ function ActionAddCut(id,points,editor,settings,page){
 }
 
 function ActionRemoveCut(cut,editor,settings,page){
-	var _isExecuted = false;
-	var _cut = JSON.parse(JSON.stringify(cut));
+	let _isExecuted = false;
+	const _cut = JSON.parse(JSON.stringify(cut));
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -372,16 +372,16 @@ function ActionRemoveCut(cut,editor,settings,page){
 }
 
 function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,controller){
-	var _isExecuted = false;
-	var _id = id;
-	var _regionType = regionType;
-	var _newRegionPoints = JSON.parse(JSON.stringify(regionPolygon));
-	var _oldRegionPoints = JSON.parse(JSON.stringify(settings.regions[_regionType].polygons[_id].points));
+	let _isExecuted = false;
+	const _id = id;
+	const _regionType = regionType;
+	const _newRegionPoints = JSON.parse(JSON.stringify(regionPolygon));
+	const _oldRegionPoints = JSON.parse(JSON.stringify(settings.regions[_regionType].polygons[_id].points));
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			var region = settings.regions[_regionType].polygons[_id];
+			let region = settings.regions[_regionType].polygons[_id];
 			region.points = _newRegionPoints;
 			viewer.updateSegment(region);
 			if(controller != null){
@@ -393,7 +393,7 @@ function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
-			var region = settings.regions[_regionType].polygons[_id];
+			let region = settings.regions[_regionType].polygons[_id];
 			region.points = _oldRegionPoints;
 			viewer.updateSegment(region);
 			if(controller != null){
@@ -405,15 +405,15 @@ function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,
 }
 
 function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
-	var _isExecuted = false;
-	var _id = id;
-	var _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
-	var _oldRegionPoints = JSON.parse(JSON.stringify(settings.pages[page].segments[_id].points));
+	let _isExecuted = false;
+	const _id = id;
+	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
+	const _oldRegionPoints = JSON.parse(JSON.stringify(settings.pages[page].segments[_id].points));
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			var segment = settings.pages[page].segments[_id];
+			let segment = settings.pages[page].segments[_id];
 			segment.points = _newRegionPoints;
 			viewer.updateSegment(segment);
 			console.log('Do - Transform Segment: {id:"'+_id+' [..]}');
@@ -422,7 +422,7 @@ function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
-			var segment = settings.pages[page].segments[_id];
+			let segment = settings.pages[page].segments[_id];
 			segment.points = _oldRegionPoints;
 			viewer.updateSegment(segment);
 			console.log('Undo - Transform Segment: {id:"'+_id+' [..]}');
@@ -431,9 +431,9 @@ function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
 }
 
 function ActionChangeReadingOrder(oldReadingOrder,newReadingOrder,controller,settings,page){
-	var _isExecuted = false;
-	var _oldReadingOrder = JSON.parse(JSON.stringify(oldReadingOrder));
-	var _newReadingOrder = JSON.parse(JSON.stringify(newReadingOrder));
+	let _isExecuted = false;
+	const _oldReadingOrder = JSON.parse(JSON.stringify(oldReadingOrder));
+	const _newReadingOrder = JSON.parse(JSON.stringify(newReadingOrder));
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -458,17 +458,17 @@ function ActionChangeReadingOrder(oldReadingOrder,newReadingOrder,controller,set
 }
 
 function ActionRemoveFromReadingOrder(segmentID,page,exportSettings,controller){
-	var _isExecuted = false;
-	var _oldReadingOrder = JSON.parse(JSON.stringify(exportSettings[page].readingOrder));
-	var _newReadingOrder;
+	let _isExecuted = false;
+	const _oldReadingOrder = JSON.parse(JSON.stringify(exportSettings[page].readingOrder));
+	let _newReadingOrder;
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
 
 			if(!_newReadingOrder){
-				var _newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-				for(var index = 0; index < _newReadingOrder.length; index++){
+				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+				for(let index = 0; index < _newReadingOrder.length; index++){
 					if(_newReadingOrder[index].id === segmentID){
 						_newReadingOrder.splice(index,1);
 						break;
@@ -493,16 +493,16 @@ function ActionRemoveFromReadingOrder(segmentID,page,exportSettings,controller){
 }
 
 function ActionAddToReadingOrder(segment,page,exportSettings,controller){
-	var _isExecuted = false;
-	var _oldReadingOrder = JSON.parse(JSON.stringify(exportSettings[page].readingOrder));
-	var _newReadingOrder;
+	let _isExecuted = false;
+	const _oldReadingOrder = JSON.parse(JSON.stringify(exportSettings[page].readingOrder));
+	let _newReadingOrder;
 
 	this.execute = function(){
 		if(!_isExecuted && segment.type !== 'image'){
 			_isExecuted = true;
 
 			if(!_newReadingOrder){
-				var _newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 				_newReadingOrder.push(segment);
 			}
 			
