@@ -114,7 +114,7 @@ class Viewer{
 		const segmentIDs = [];
 		const rectangleAB = new paper.Rectangle(pointA,pointB);
 
-		$.each(this._paths, function( id, path ) {
+		$.each(this._paths, (id, path) => {
 			if(rectangleAB.contains(path.bounds)){
 				segmentIDs.push(id);
 			}
