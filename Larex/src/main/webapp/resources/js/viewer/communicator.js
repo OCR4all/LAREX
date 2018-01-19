@@ -5,10 +5,8 @@ function Communicator() {
 		const status = $.Deferred();
 		const dataloader = this;
 
-		this.loadSegmentTypes().done(function() {
-			dataloader.loadSegments().done(function() {
-				status.resolve();
-			});
+		this.loadSegmentTypes().done(() => {
+			dataloader.loadSegments().done(() => status.resolve());
 		});
 		return status;
 	}
@@ -25,14 +23,12 @@ function Communicator() {
 				bookid : bookID,
 				pageid : pageID
 			},
-			beforeSend : function() {
-				console.log("Book load: start");
-			},
-			success : function(data) {
+			beforeSend : () => console.log("Book load: start"),
+			success : (data) => {
 				console.log('Book load: successful');
 				status.resolve(data);
 			},
-			error : function(jqXHR, textStatus, errorThrown) {
+			error : (jqXHR, textStatus, errorThrown) => {
 				console.log("Book load: failed" + textStatus);
 				status.resolve();
 			}
@@ -55,14 +51,12 @@ function Communicator() {
 				settings : JSON.stringify(settings),
 				pageid : pageID
 			}*/,
-			beforeSend : function() {
-				console.log("Segmentation load: start");
-			},
-			success : function(data) {
+			beforeSend : () => console.log("Segmentation load: start"),
+			success : (data) => {
 				console.log('Segmentation load: successful');
 				status.resolve(data);
 			},
-			error : function(jqXHR, textStatus, errorThrown) {
+			error : (jqXHR, textStatus, errorThrown) => {
 				console.log("Segmentation load: failed " + textStatus);
 				status.resolve();
 			}
@@ -82,14 +76,12 @@ function Communicator() {
 				segmentids : segmentIDs,
 				pageid : pageID
 			},
-			beforeSend : function() {
-				console.log("Merge load: start");
-			},
-			success : function(data) {
+			beforeSend : () => console.log("Merge load: start"),
+			success : (data) => {
 				console.log('Merge load: successful');
 				status.resolve(data);
 			},
-			error : function(jqXHR, textStatus, errorThrown) {
+			error : (jqXHR, textStatus, errorThrown) => {
 				console.log("Merge load: failed" + textStatus);
 				status.resolve();
 			}
@@ -118,14 +110,12 @@ function Communicator() {
 			url : "prepareExport",
 			contentType: "application/json",
 			data : JSON.stringify(segmentationRequest),
-			beforeSend : function() {
-				console.log("Prepare Export: start");
-			},
-			success : function(data) {
+			beforeSend : () => console.log("Prepare Export: start"),
+			success : (data) => {
 				console.log('Prepare Export: successful');
 				status.resolve(data);
 			},
-			error : function(jqXHR, textStatus, errorThrown) {
+			error : (jqXHR, textStatus, errorThrown) => {
 				console.log("Prepare Export: end");//"Prepare Export: failed " + textStatus);
 				status.resolve();
 			}
@@ -144,14 +134,12 @@ function Communicator() {
 			url : "saveSettings",
 			contentType: "application/json",
 			data : JSON.stringify(segmentationRequest),
-			beforeSend : function() {
-				console.log("Prepare Export Settings: start");
-			},
-			success : function(data) {
+			beforeSend : () => console.log("Prepare Export Settings: start"),
+			success : (data) => {
 				console.log('Prepare Export Settings: successful');
 				status.resolve(data);
 			},
-			error : function(jqXHR, textStatus, errorThrown) {
+			error : (jqXHR, textStatus, errorThrown) => {
 				console.log("Prepare Export Settings: end");//"Prepare Export: failed " + textStatus);
 				status.resolve();
 			}
@@ -176,14 +164,12 @@ function Communicator() {
 		    success: function(data){
 		        alert(data);
 		    },
-			beforeSend : function() {
-				console.log("Settings upload: start");
-			},
-			success : function(data) {
+			beforeSend : () => console.log("Settings upload: start"),
+			success : (data) => {
 				console.log('Settings upload: successful');
 				status.resolve(data);
 			},
-			error : function(jqXHR, textStatus, errorThrown) {
+			error : (jqXHR, textStatus, errorThrown) => {
 				console.log("Settings upload: failed" + textStatus);
 				status.resolve();
 			}
@@ -206,17 +192,13 @@ function Communicator() {
 		    cache: false,
 		    contentType: false,
 		    processData: false,
-		    success: function(data){
-		        alert(data);
-		    },
-			beforeSend : function() {
-				console.log("Segmentation upload: start");
-			},
-			success : function(data) {
+		    success: (data) => alert(data),
+			beforeSend : () => console.log("Segmentation upload: start"),
+			success : (data) => {
 				console.log('Segmentation upload: successful');
 				status.resolve(data);
 			},
-			error : function(jqXHR, textStatus, errorThrown) {
+			error : (jqXHR, textStatus, errorThrown) => {
 				console.log("Segmentation upload: failed" + textStatus);
 				status.resolve();
 			}
@@ -229,20 +211,12 @@ function Communicator() {
 		$.ajax({
 			dataType : "json",
 			url : "SegmentTypes",
-			beforeSend : function() {
-				console.log("SegmentTypes load: start");
-			}
-		}).done(function(data) {
-			//_state.segmenttypes = data;
-
+			beforeSend : () => console.log("SegmentTypes load: start")
+		}).done((data) => {
 			status.resolve();
-
 			console.log("SegmentTypes load: successful");
-		}).fail(function() {
-			console.log("SegmentTypes load: failed");
-		}).always(function() {
-			console.log("SegmentTypes load: complete");
-		});
+		}).fail(() => console.log("SegmentTypes load: failed")
+		).always(() => console.log("SegmentTypes load: complete"));
 
 		return status;
 	}
@@ -257,8 +231,7 @@ function Communicator() {
 			beforeSend : function() {
 				console.log("Segmentation load: start");
 			}
-		}).done(
-				function(data) {
+		}).done((data) => {
 					const pictureSegmentation = data;
 
 					pictureSegmentation.segments.forEach(function(segment) {
@@ -268,11 +241,8 @@ function Communicator() {
 					status.resolve();
 
 					console.log("Segmentation load: successful");
-				}).fail(function() {
-			console.log("Segmentation load: failed");
-		}).always(function() {
-			console.log("Segmentation load: complete");
-		});
+			}).fail(() => console.log("Segmentation load: failed")
+			).always(() => console.log("Segmentation load: complete"));
 
 		return status;
 	}
@@ -280,7 +250,7 @@ function Communicator() {
 		// Deferred object for function status
 		const status = $.Deferred();
 		
-		const img = $("<img />").attr('src', "images/books/"+image).on('load', function() {
+		const img = $("<img />").attr('src', "images/books/"+image).on('load', () => {
 			img.attr('id', id);
 			$('body').append(img);
 			status.resolve();

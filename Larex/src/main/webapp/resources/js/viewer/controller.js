@@ -23,7 +23,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _displayReadingOrder = false;
 	let _tempReadingOrder = null;
 	let _allowLoadLocal = false;
-	let _thisController = this;
 	let _selected = [];
 	this.selectmultiple = false;
 	let _isSelecting = false;
@@ -37,7 +36,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _colors = colors;
 
 	// main method
-	$(window).ready(function() {
+	$(window).ready(() => {
 				// Init PaperJS
 				paper.setup(document.getElementById(canvasID));
 
@@ -49,8 +48,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				$sidebars.height(height);
 
 				_currentPage = 0;
-				_thisController.showPreloader(true);
-				_communicator.loadBook(_bookID,_currentPage).done(function(data) {
+				this.showPreloader(true);
+				_communicator.loadBook(_bookID,_currentPage).done((data) => {
 							_book = data.book;
 							_segmentation = data.segmentation;
 							_segmentationtypes = data.segmenttypes;
@@ -61,10 +60,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 							// Init the viewer
 							const navigationController = new NavigationController();
-							const viewerInput = new ViewerInput(_thisController);
+							const viewerInput = new ViewerInput(this);
 
 							// Inheritance Editor extends Viewer
-							_editor = new Editor(_segmentationtypes, viewerInput,colors,specifiedColors,_thisController);
+							_editor = new Editor(_segmentationtypes, viewerInput,colors,specifiedColors,this);
 
 							_gui = new GUI(canvasID, _editor);
 							_gui.resizeViewerHeight();
@@ -76,7 +75,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							_gui.setPageXMLVersion(_pageXMLVersion);
 
 							_gui.setAllRegionColors(colors);
-							_gui.updateAvailableColors(_thisController.getAvailableColorIndexes());
+							_gui.updateAvailableColors(this.getAvailableColorIndexes());
 
 							navigationController.setGUI(_gui);
 							navigationController.setViewer(_editor);
@@ -87,18 +86,16 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 							// Init inputs
 							const keyInput = new KeyInput(navigationController,
-									_thisController, _gui);
-							$("#"+canvasID).mouseover(function(){keyInput.isActive = true;});
-							$("#"+canvasID).mouseleave(function(){keyInput.isActive = false;});
-							_guiInput = new GuiInput(navigationController, _thisController, _gui);
+									this, _gui);
+							$("#"+canvasID).mouseover(() => keyInput.isActive = true);
+							$("#"+canvasID).mouseleave(() => keyInput.isActive = false);
+							_guiInput = new GuiInput(navigationController, this, _gui);
 
-							_thisController.showPreloader(false);
-							_thisController.displayPage(0);
+							this.showPreloader(false);
+							this.displayPage(0);
 
 							// on resize
-							$(window).resize(function() {
-								_gui.resizeViewerHeight();
-							});
+							$(window).resize(() => _gui.resizeViewerHeight());
 						});
 
 			});
@@ -106,25 +103,21 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.displayPage = function(pageNr) {
 		_currentPage = pageNr;
 
-		_thisController.showPreloader(true);
+		this.showPreloader(true);
 
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-				requestSegmentation(_currentPage,_allowLoadLocal);
+				this._requestSegmentation(_currentPage,_allowLoadLocal);
 		}else{
 				const imageId = _book.pages[_currentPage].id+"image";
 				// Check if image is loadedreadingOrder
 				const image = $('#'+imageId);
 				if(!image[0]){
-					_communicator.loadImage(_book.pages[_currentPage].image,imageId).done(function(){
-						_thisController.displayPage(pageNr);
-					});
+					_communicator.loadImage(_book.pages[_currentPage].image,imageId).done(() => this.displayPage(pageNr));
 					return false;
 				}
 				if(!image[0].complete){
 					// break until image is loaded
-					image.load(function() {
-						_thisController.displayPage(pageNr);
-					});
+					image.load(() => this.displayPage(pageNr));
 					return false;
 				}
 
@@ -135,11 +128,11 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 				let readingOrderIsEmpty = false;
 				if(!_exportSettings[_currentPage]){
-					initExportSettings(_currentPage);
+					this._initExportSettings(_currentPage);
 				}
 
 				// Iterate over Segment-"Map" (Object in JS)
-				Object.keys(pageSegments).forEach(function(key) {
+				Object.keys(pageSegments).forEach((key) => {
 					let hasFixedSegmentCounterpart = false;
 					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 						//has no fixedSegment counterpart and has not been deleted
@@ -147,19 +140,16 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 					}
 				});
 				// Iterate over FixedSegment-"Map" (Object in JS)
-				Object.keys(pageFixedSegments).forEach(function(key) {
-					_editor.addSegment(pageFixedSegments[key],true);
-				});
+				Object.keys(pageFixedSegments).forEach((key) => _editor.addSegment(pageFixedSegments[key],true));
 
 				const regions = _settings.regions;
 				// Iterate over Regions-"Map" (Object in JS)
-				Object.keys(regions).forEach(function(key) {
+				Object.keys(regions).forEach((key) => {
 					const region = regions[key];
 
 					// Iterate over all Polygons in Region
-					Object.keys(region.polygons).forEach(function(polygonKey) {
+					Object.keys(region.polygons).forEach((polygonKey) => {
 						let polygon = region.polygons[polygonKey];
-
 						_editor.addRegion(polygon);
 
 						if(!_visibleRegions[region.type] & region.type !== 'ignore'){
@@ -175,24 +165,22 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 				const pageCuts = _settings.pages[_currentPage].cuts;
 				// Iterate over FixedSegment-"Map" (Object in JS)
-				Object.keys(pageCuts).forEach(function(key) {
-					_editor.addLine(pageCuts[key]);
-				});
+				Object.keys(pageCuts).forEach((key) => _editor.addLine(pageCuts[key]));
 				_editor.center();
 				_editor.zoomFit();
 
-				_gui.updateZoom();true
+				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
 				_gui.setReadingOrder(_exportSettings[_currentPage].readingOrder);
 				_guiInput.addDynamicListeners();
-				_thisController.displayReadingOrder(_displayReadingOrder);
+				this.displayReadingOrder(_displayReadingOrder);
 				_gui.setRegionLegendColors(_segmentationtypes);
 
-				_thisController.setPageDownloadable(_currentPage,false);
+				this.setPageDownloadable(_currentPage,false);
 				_gui.selectPage(pageNr);
 				_tempReadingOrder = null;
-				_thisController.endCreateReadingOrder();
-				_thisController.showPreloader(false);
+				this.endCreateReadingOrder();
+				this.showPreloader(false);
 		}
 	}
 
@@ -211,9 +199,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_gui.showUsedRegionLegends(_presentRegions);
 	}
 	this.removePresentRegions = function(regionType){
-		_presentRegions = jQuery.grep(_presentRegions, function(value) {
-  		return value != regionType;
-		});
+		_presentRegions = jQuery.grep(_presentRegions, (value) => value != regionType);
 		_gui.showUsedRegionLegends(_presentRegions);
 	}
 
@@ -225,7 +211,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
-		requestSegmentation(pageID,false);
+		this._requestSegmentation(pageID,false);
 	}
 
 	this.loadExistingSegmentation = function(){
@@ -235,43 +221,41 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
-		requestSegmentation(_currentPage,true);
+		this._requestSegmentation(_currentPage,true);
 	}
 	
 	this.uploadExistingSegmentation = function(file){
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
-		uploadSegmentation(file,_currentPage);
+		this._uploadSegmentation(file,_currentPage);
 	}
 
-	let requestSegmentation = function(pageID, allowLoadLocal){
+	this._requestSegmentation = function(pageID, allowLoadLocal){
 		if(!pageID){
 				pageID = _currentPage;
 		}
 
-		_communicator.segmentBook(_activesettings,pageID,allowLoadLocal).done(function(result){
+		_communicator.segmentBook(_activesettings,pageID,allowLoadLocal).done((result) => {
 				const failedSegmentations = [];
 				const missingRegions = [];
 				// reset export Settings
-				initExportSettings(pageID);
+				this._initExportSettings(pageID);
 				switch (result.status) {
 					case 'SUCCESS':
 						_segmentation[pageID] = result;
 
 						_actionController.resetActions(pageID);
 						//check if all necessary regions are available
-						Object.keys(result.segments).forEach(function(segmentID) {
+						Object.keys(result.segments).forEach((segmentID) => {
 							let segment = result.segments[segmentID];
 							if($.inArray(segment.type,_presentRegions) == -1){
 								//TODO as Action
-								_thisController.changeRegionSettings(segment.type,0,0);	
+								this.changeRegionSettings(segment.type,0,0);	
 								missingRegions.push(segment.type);
 							}
 						});
 						let readingOrder = [];
-						result.readingOrder.forEach(function(segmentID) {
-							readingOrder.push(result.segments[segmentID]);
-						});
-						_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[pageID].readingOrder,readingOrder,_thisController,_exportSettings,pageID),pageID);
+						result.readingOrder.forEach((segmentID) => readingOrder.push(result.segments[segmentID]));
+						_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[pageID].readingOrder,readingOrder,this,_exportSettings,pageID),pageID);
 						break;
 					default:
 						failedSegmentations.push(pageID);
@@ -282,22 +266,22 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 					_gui.displayWarning('Warning: Some regions were missing and have been added.');
 				}
 
-				_thisController.displayPage(pageID);
+				this.displayPage(pageID);
 				_gui.highlightSegmentedPages(_segmentedPages);
 				_gui.highlightPagesAsError(failedSegmentations);
 		});
 	}
 
-	let uploadSegmentation = function(file,pageNr){
-		_thisController.showPreloader(true);
+	this._uploadSegmentation = function(file,pageNr){
+		this.showPreloader(true);
 		if(!pageNr){
 			pageNr = _currentPage;
 		}
-		_communicator.uploadPageXML(file,pageNr).done(function(page){
+		_communicator.uploadPageXML(file,pageNr).done((page) => {
 				const failedSegmentations = [];
 				const missingRegions = [];
 				// reset export Settings
-				initExportSettings(pageNr);
+				this._initExportSettings(pageNr);
 				
 				switch (page.status) {
 					case 'SUCCESS':
@@ -306,21 +290,19 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 						_actionController.resetActions(pageNr);
 
 						//check if all necessary regions are available
-						Object.keys(page.segments).forEach(function(segmentID) {
+						Object.keys(page.segments).forEach((segmentID) => {
 							let segment = page.segments[segmentID];
 							if($.inArray(segment.type,_presentRegions) == -1){
 								//TODO as Action
-								_thisController.changeRegionSettings(segment.type,0,0);	
+								this.changeRegionSettings(segment.type,0,0);	
 								missingRegions.push(segment.type);
 							}
 						});
 						let readingOrder = [];
 
-						page.readingOrder.forEach(function(segmentID) {
-							readingOrder.push(page.segments[segmentID]);
-						});
+						page.readingOrder.forEach((segmentID) => readingOrder.push(page.segments[segmentID]));
 						_actionController.addAndExecuteAction(
-							new ActionChangeReadingOrder(_exportSettings[pageNr].readingOrder,readingOrder,_thisController,_exportSettings,pageNr)
+							new ActionChangeReadingOrder(_exportSettings[pageNr].readingOrder,readingOrder,this,_exportSettings,pageNr)
 							,pageNr);
 						break;
 					default:
@@ -332,8 +314,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 					_gui.displayWarning('Warning: Some regions were missing and have been added.');
 				}
 
-				_thisController.displayPage(pageNr);
-				_thisController.showPreloader(false);
+				this.displayPage(pageNr);
+				this.showPreloader(false);
 				_gui.highlightSegmentedPages(_segmentedPages);
 				_gui.highlightPagesAsError(failedSegmentations);
 		});
@@ -361,19 +343,19 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 	this.exportPageXML = function(){
 		if(!_exportSettings[_currentPage]){
-			initExportSettings(_currentPage);
+			this._initExportSettings(_currentPage);
 		}
 		_gui.setExportingInProgress(true);
 		if(_settings.pages[_currentPage]){
 			_exportSettings[_currentPage].fixedRegions = _settings.pages[_currentPage].segments;
 		}
 
-		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(function() {
-			_thisController.setPageDownloadable(_currentPage,true);
+		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(() => {
+			this.setPageDownloadable(_currentPage,true);
 			_gui.setExportingInProgress(false);
 			_gui.highlightSavedPage(_currentPage);
 			_savedPages.push(_currentPage);
-			_thisController.downloadPageXML();
+			this.downloadPageXML();
 		});
 	}
 
@@ -391,20 +373,20 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.saveSettingsXML = function(){
 		_gui.setSaveSettingsInProgress(true);
 		_settings.parameters = _gui.getParameters();
-		_communicator.prepareSettingsExport(_settings).done(function() {
+		_communicator.prepareSettingsExport(_settings).done(() => {
 			_currentSettingsDownloadable = true;
 			_gui.setSettingsDownloadable(_currentSettingsDownloadable);
 			_gui.setSaveSettingsInProgress(false);
-			_thisController.downloadSettingsXML();
+			this.downloadSettingsXML();
 		});
 	}
 
 	this.uploadSettings = function(file){
-		_communicator.uploadSettings(file).done(function(settings){
+		_communicator.uploadSettings(file).done((settings) => {
 			if(settings){
 				_settings = settings;
 				_presentRegions = [];
-				Object.keys(_settings.regions).forEach(function(regionType) {
+				Object.keys(_settings.regions).forEach((regionType) => {
 					if(regionType !== 'ignore'){
 						_presentRegions.push(regionType);
 					}
@@ -412,8 +394,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				_gui.showUsedRegionLegends(_presentRegions);
 				_gui.setParameters(_settings.parameters,_settings.imageSegType,_settings.combine);
 
-				_thisController.displayPage(_currentPage);
-				_thisController.hideAllRegions(true);
+				this.displayPage(_currentPage);
+				this.hideAllRegions(true);
 				_gui.forceUpdateRegionHide(_visibleRegions);
 				_actionController.resetActions(_currentPage);
 			}
@@ -421,7 +403,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.createPolygon = function(doSegment) {
-		_thisController.endEditing(true);
+		this.endEditing(true);
 		const type = doSegment ? 'segment' : 'region';
 		_editor.startCreatePolygon(type);
 		if(doSegment){
@@ -429,7 +411,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		}
 	}
 	this.createRectangle = function(type) {
-		_thisController.endEditing(true);
+		this.endEditing(true);
 
 		_editor.startCreateRectangle(type);
 		switch(type){
@@ -448,7 +430,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		}
 	}
 	this.createCut = function() {
-		_thisController.endEditing(true);
+		this.endEditing(true);
 		_editor.startCreateLine();
 		_gui.selectToolBarButton('cut',true);
 	}
@@ -489,18 +471,18 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		const actions = [];
 		for (let i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
 			if (_selectType === "region") {
-				actions.push(new ActionRemoveRegion(getRegionByID(_selected[i]), _editor, _settings, _currentPage,_thisController));
+				actions.push(new ActionRemoveRegion(this._getRegionByID(_selected[i]), _editor, _settings, _currentPage,this));
 			} else if(_selectType === "segment"){
 				if(!_exportSettings[_currentPage]){
-					initExportSettings(_currentPage);
+					this._initExportSettings(_currentPage);
 				}
 				let segment = _settings.pages[_currentPage].segments[_selected[i]];
 				//Check if result segment or fixed segment (null -> result region)
 				if(!segment){
 					segment = _segmentation[_currentPage].segments[_selected[i]];
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,_thisController));
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,this));
 				}else{
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings,_thisController,true));
+					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings,this,true));
 				}
 			}else if(_selectType === "line"){
 				let cut = _settings.pages[_currentPage].cuts[_selected[i]];
@@ -523,10 +505,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 					//filter special case image (do not merge images)
 					if(segment.type !== 'image'){
 						if(!_exportSettings[_currentPage]){
-							initExportSettings(_currentPage);
+							this._initExportSettings(_currentPage);
 						}
 						segmentIDs.push(segment.id);
-						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,_thisController));
+						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,this));
 					}
 				}else{
 					/*//Fixed Segments can't be merged atm
@@ -537,17 +519,17 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			}
 		}
 		if(segmentIDs.length > 1){
-			_communicator.requestMergedSegment(segmentIDs,_currentPage).done(function(data){
+			_communicator.requestMergedSegment(segmentIDs,_currentPage).done((data) => {
 				const mergedSegment = data;
 				actions.push(new ActionAddFixedSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-						_editor, _settings, _currentPage, _exportSettings,_thisController));
+						_editor, _settings, _currentPage, _exportSettings,this));
 
-				_thisController.unSelect();
+				this.unSelect();
 
 				let mergeAction = new ActionMultiple(actions);
 				_actionController.addAndExecuteAction(mergeAction,_currentPage);
-				_thisController.selectSegment(mergedSegment.id);
-				_thisController.openContextMenu(true);
+				this.selectSegment(mergedSegment.id);
+				this.openContextMenu(true);
 			});
 		}
 	}
@@ -557,22 +539,22 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			const actions = [];
 			for (let i = 0; i < selectedlength; i++) {
 				if(_selectType === "region"){
-					const regionPolygon = getRegionByID(_selected[i]);
-					actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings,_currentPage,_thisController));
+					const regionPolygon = this._getRegionByID(_selected[i]);
+					actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings,_currentPage,this));
 
-					_thisController.hideRegion(newType,false);
+					this.hideRegion(newType,false);
 				} else if(_selectType === "segment"){
 					const isFixedSegment = (_settings.pages[_currentPage].segments[_selected[i]]);
 					if(isFixedSegment){
 						if(!_exportSettings[_currentPage]){
-							initExportSettings(_currentPage);
+							this._initExportSettings(_currentPage);
 						}
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _settings, _currentPage,_exportSettings,isFixedSegment));
+						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, this, _settings, _currentPage,_exportSettings,isFixedSegment));
 					}else{
 						if(!_exportSettings[_currentPage]){
-							initExportSettings(_currentPage);
+							this._initExportSettings(_currentPage);
 						}
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, _thisController, _segmentation, _currentPage,_exportSettings,isFixedSegment));
+						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, this, _segmentation, _currentPage,_exportSettings,isFixedSegment));
 					}
 				}
 			}
@@ -581,7 +563,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		}
 	}
 	this.createBorder = function(doSegment) {
-		_thisController.endEditing(true);
+		this.endEditing(true);
 		const type = doSegment ? 'segment' : 'region';
 		_editor.startCreateBorder(type);
 		if(doSegment){
@@ -607,7 +589,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 		_actionController.addAndExecuteAction(actionAdd,_currentPage);
 		if(!regiontype){
-			_thisController.openContextMenu(false,newID);
+			this.openContextMenu(false,newID);
 		}
 		_gui.unselectAllToolBarButtons();
 	}
@@ -660,13 +642,13 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			type = "other";
 		}
 		if(!_exportSettings[_currentPage]){
-			initExportSettings(_currentPage);
+			this._initExportSettings(_currentPage);
 		}
 		const actionAdd = new ActionAddFixedSegment(newID, segmentpoints, type,
-				_editor, _settings, _currentPage,_exportSettings,_thisController);
+				_editor, _settings, _currentPage,_exportSettings,this);
 
 		_actionController.addAndExecuteAction(actionAdd,_currentPage);
-		_thisController.openContextMenu(false,newID);
+		this.openContextMenu(false,newID);
 		_gui.unselectAllToolBarButtons();
 	}
 	this.callbackNewCut = function(segmentpoints) {
@@ -681,7 +663,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.transformSegment = function(segmentID,segmentPoints){
-		const polygonType = getPolygonMainType(segmentID);
+		const polygonType = this._getMainType(segmentID);
 		if(polygonType === "fixed"){
 			const actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_settings,_currentPage);
 			_actionController.addAndExecuteAction(actionTransformSegment,_currentPage);
@@ -689,44 +671,44 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.transformRegion = function(regionID,regionSegments){
-		const polygonType = getPolygonMainType(regionID);
+		const polygonType = this._getMainType(regionID);
 		if(polygonType === "region"){
-			let regionType = getRegionByID(regionID).type;
-			let actionTransformRegion = new ActionTransformRegion(regionID,regionSegments,regionType, _editor, _settings, _currentPage,_thisController);
+			let regionType = this._getRegionByID(regionID).type;
+			let actionTransformRegion = new ActionTransformRegion(regionID,regionSegments,regionType, _editor, _settings, _currentPage,this);
 			_actionController.addAndExecuteAction(actionTransformRegion,_currentPage);
-			_thisController.hideRegion(regionType,false);
+			this.hideRegion(regionType,false);
 		}
 	}
 
 	this.changeRegionType = function(id, type){
-		const polygonType = getPolygonMainType(id);
+		const polygonType = this._getMainType(id);
 		if(polygonType === "region"){
-			const regionPolygon = getRegionByID(id);
+			const regionPolygon = this._getRegionByID(id);
 			if(regionPolygon.type != type){
-				let actionChangeType = new ActionChangeTypeRegionPolygon(regionPolygon, type, _editor, _settings, _currentPage,_thisController);
+				let actionChangeType = new ActionChangeTypeRegionPolygon(regionPolygon, type, _editor, _settings, _currentPage,this);
 				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
-			_thisController.hideRegion(type,false);
+			this.hideRegion(type,false);
 		}else if(polygonType === "segment" || polygonType === "fixed"){
 			// is Segment
-			_thisController.changeSegmentType(id,type);
+			this.changeSegmentType(id,type);
 		}
 	}
 
 	this.changeSegmentType = function(id, type){
-		const polygonType = getPolygonMainType(id);
+		const polygonType = this._getMainType(id);
 		if(polygonType === "result"){
 			if(_segmentation[_currentPage].segments[id].type != type){
 				if(!_exportSettings[_currentPage]){
-					initExportSettings(_currentPage);
+					this._initExportSettings(_currentPage);
 				}
-				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _segmentation, _currentPage,_exportSettings,false);
+				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage,_exportSettings,false);
 				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}else if(polygonType === "fixed"){
 			//segment is fixed segment not result segment
 			if(_settings.pages[_currentPage].segments[id].type != type){
-				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _thisController, _settings, _currentPage,_exportSettings,true);
+				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _settings, _currentPage,_exportSettings,true);
 				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 			}
 		}
@@ -742,7 +724,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(_specifiedColors[regionType]){
 			color = _specifiedColors[regionType];
 		}else{
-			color = _colors[_thisController.getAvailableColorIndexes()[0]];
+			color = _colors[this.getAvailableColorIndexes()[0]];
 		}
 
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate,color);
@@ -766,7 +748,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 		const pageSegments = _segmentation[_currentPage].segments;
 		const pageFixedSegments = _settings.pages[_currentPage].segments;
-		Object.keys(pageSegments).forEach(function(key) {
+		Object.keys(pageSegments).forEach((key) => {
 			if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 				let segment = pageSegments[key];
 				if(segment.type === regionType){
@@ -775,7 +757,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			}
 		});
 		// Iterate over FixedSegment-"Map" (Object in JS)
-		Object.keys(pageFixedSegments).forEach(function(key) {
+		Object.keys(pageFixedSegments).forEach((key) => {
 			const segment = pageFixedSegments[key];
 			if(segment.type === regionType){
 				_editor.updateSegment(segment);
@@ -784,14 +766,14 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
-		Object.keys(region.polygons).forEach(function(polygonKey) {
+		Object.keys(region.polygons).forEach((polygonKey) => {
 			let polygon = region.polygons[polygonKey];
 			if(polygon.type === regionType){
 				_editor.updateSegment(polygon);
 			}
 		});
 		_gui.setRegionLegendColors(_segmentationtypes);
-		_gui.updateAvailableColors(_thisController.getAvailableColorIndexes());
+		_gui.updateAvailableColors(this.getAvailableColorIndexes());
 	}
 
 	this.getAvailableColorIndexes = function(){
@@ -807,16 +789,16 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.autoGenerateReadingOrder = function(){
-		_thisController.endCreateReadingOrder();
+		this.endCreateReadingOrder();
 		if(!_exportSettings[_currentPage]){
-			initExportSettings(_currentPage);
+			this._initExportSettings(_currentPage);
 		}
 		let readingOrder = [];
 		const pageSegments = _segmentation[_currentPage].segments;
 		const pageFixedSegments = _settings.pages[_currentPage].segments;
 		
 		// Iterate over Segment-"Map" (Object in JS)
-		Object.keys(pageSegments).forEach(function(key) {
+		Object.keys(pageSegments).forEach((key) => {
 			let hasFixedSegmentCounterpart = false;
 			if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
 				//has no fixedSegment counterpart and has not been deleted
@@ -827,18 +809,18 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			}
 		});
 		// Iterate over FixedSegment-"Map" (Object in JS)
-		Object.keys(pageFixedSegments).forEach(function(key) {
+		Object.keys(pageFixedSegments).forEach((key) => {
 			const segment = pageFixedSegments[key];
 			if(segment.type !== 'image'){
 				readingOrder.push(segment);
 			}
 		});
 		readingOrder = _editor.getSortedReadingOrder(readingOrder);
-		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,readingOrder,_thisController,_exportSettings,_currentPage),_currentPage);
+		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,readingOrder,this,_exportSettings,_currentPage),_currentPage);
 	}
 
 	this.createReadingOrder = function(){
-		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,[],_thisController,_exportSettings,_currentPage),_currentPage);
+		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,[],this,_exportSettings,_currentPage),_currentPage);
 		_editReadingOrder = true;
 		_gui.doEditReadingOrder(true);
 	}
@@ -871,9 +853,9 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(doUpdate){
 			_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
 			
-			_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,_tempReadingOrder,_thisController,_exportSettings,_currentPage),_currentPage);
+			_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_exportSettings[_currentPage].readingOrder,_tempReadingOrder,this,_exportSettings,_currentPage),_currentPage);
 		}
-		_thisController.displayReadingOrder(_displayReadingOrder,true);
+		this.displayReadingOrder(_displayReadingOrder,true);
 	}
 
 	this.displayReadingOrder = function(doDisplay,doUseTempReadingOrder){
@@ -891,11 +873,11 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_gui.forceUpdateReadingOrder(_exportSettings[_currentPage].readingOrder,forceHard);
 		_gui.setRegionLegendColors(_segmentationtypes);
 		_guiInput.addDynamicListeners();
-		_thisController.displayReadingOrder(_displayReadingOrder);
+		this.displayReadingOrder(_displayReadingOrder);
 	}
 
 	this.removeFromReadingOrder = function(segmentID){
-		_actionController.addAndExecuteAction(new ActionRemoveFromReadingOrder(segmentID,_currentPage,_exportSettings,_thisController),_currentPage);
+		_actionController.addAndExecuteAction(new ActionRemoveFromReadingOrder(segmentID,_currentPage,_exportSettings,this),_currentPage);
 	}
 
 	this.changeImageMode = function(imageMode){
@@ -920,7 +902,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		}
 	}
 
-	let readingOrderContains = function(segmentID){
+	this._readingOrderContains = function(segmentID){
 		const readingOrder = _exportSettings[_currentPage].readingOrder;
 		for(let i = 0; i < readingOrder.length; i++){
 			if(readingOrder[i].id === segmentID){
@@ -934,15 +916,15 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		const currentType = (!info) ? "segment" : info.type;
 
 		if(_editReadingOrder && currentType === 'segment'){
-			const segment = getPolygon(sectionID);
-			if(!readingOrderContains(sectionID)){
-				_actionController.addAndExecuteAction(new ActionAddToReadingOrder(segment,_currentPage,_exportSettings,_thisController),_currentPage);
+			const segment = this._getPolygon(sectionID);
+			if(!this._readingOrderContains(sectionID)){
+				_actionController.addAndExecuteAction(new ActionAddToReadingOrder(segment,_currentPage,_exportSettings,this),_currentPage);
 			}
 		} else {
-			_thisController.closeContextMenu();
+			this.closeContextMenu();
 
 			if (!this.selectmultiple || currentType !== _selectType) {
-				_thisController.unSelect();
+				this.unSelect();
 			}
 			_selectType = currentType;
 
@@ -990,13 +972,13 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 	this.rectangleSelect = function(pointA,pointB) {
 		if ((!this.selectmultiple) || !(_selectType === 'fixed' || _selectType === 'segment')) {
-			_thisController.unSelect();
+			this.unSelect();
 		}
 
 		const inbetween = _editor.getSegmentIDsBetweenPoints(pointA,pointB);
 
 		$.each(inbetween, function( index, id ) {
-			let mainType = getPolygonMainType(id);
+			let mainType = this._getMainType(id);
 			mainType = (mainType === 'result' || mainType === 'fixed') ? 'segment' : mainType;
 			if(mainType === 'segment'){
 				_selected.push(id);
@@ -1027,11 +1009,11 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 	this.hideAllRegions = function(doHide){
 		// Iterate over Regions-"Map" (Object in JS)
-		Object.keys(_settings.regions).forEach(function(key) {
+		Object.keys(_settings.regions).forEach((key) => {
 			const region = _settings.regions[key];
 			if(region.type !== 'ignore'){
 				// Iterate over all Polygons in Region
-				Object.keys(region.polygons).forEach(function(polygonKey) {
+				Object.keys(region.polygons).forEach((polygonKey) => {
 					let polygon = region.polygons[polygonKey];
 					_editor.hideSegment(polygon.id,doHide);
 				});
@@ -1045,7 +1027,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
-		Object.keys(region.polygons).forEach(function(polygonKey) {
+		Object.keys(region.polygons).forEach((polygonKey) => {
 			let polygon = region.polygons[polygonKey];
 			_editor.hideSegment(polygon.id,doHide);
 		});
@@ -1067,7 +1049,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 	this.deleteRegionSettings = function(regionType){
 		if($.inArray(regionType, _presentRegions) >= 0 && regionType != 'image' && regionType != 'paragraph'){
-			_actionController.addAndExecuteAction(new ActionRemoveCompleteRegion(regionType,_thisController,_editor,_settings,_thisController),_currentPage);
+			_actionController.addAndExecuteAction(new ActionRemoveCompleteRegion(regionType,this,_editor,_settings,this),_currentPage);
 		}
 	}
 	this.showPreloader = function(doShow){
@@ -1086,7 +1068,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(doSelected && _selected && _selected.length > 0 && (_selectType === 'region' || _selectType === "fixed" || _selectType === "segment")){
 			_gui.openContextMenu(doSelected, id);
 		} else {
-			let polygonType = getPolygonMainType(id);
+			let polygonType = this._getMainType(id);
 			if(polygonType === 'region' || polygonType === "fixed" || polygonType === "segment"){
 				_gui.openContextMenu(doSelected, id);
 			}
@@ -1096,9 +1078,9 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_gui.closeContextMenu();
 	}
 	this.escape = function(){
-			_thisController.unSelect();
-			_thisController.closeContextMenu();
-			_thisController.endEditing(true);
+			this.unSelect();
+			this.closeContextMenu();
+			this.endEditing(true);
 			_gui.closeRegionSettings();
 	}
 
@@ -1114,9 +1096,9 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_allowLoadLocal = allowLoadLocal;
 	}
 
-	let getRegionByID = function(id){
+	this._getRegionByID = function(id){
 		let regionPolygon;
-		Object.keys(_settings.regions).some(function(key) {
+		Object.keys(_settings.regions).some((key) => {
 			let region = _settings.regions[key];
 
 			let polygon = region.polygons[id];
@@ -1128,7 +1110,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		return regionPolygon;
 	}
 
-	let getPolygonMainType = function(polygonID){
+	this._getMainType = function(polygonID){
 		let polygon = _settings.pages[_currentPage].segments[polygonID];
 		if(polygon){
 			return "fixed";
@@ -1139,7 +1121,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			return "result";
 		}
 
-		polygon = getRegionByID(polygonID);
+		polygon = this._getRegionByID(polygonID);
 		if(polygon){
 			return "region";
 		}
@@ -1150,7 +1132,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		}
 	}
 
-	let getPolygon = function(polygonID){
+	this._getPolygon = function(polygonID){
 		let polygon = _settings.pages[_currentPage].segments[polygonID];
 		if(polygon){
 			return polygon;
@@ -1161,7 +1143,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			return polygon;
 		}
 
-		polygon = getRegionByID(polygonID);
+		polygon = this._getRegionByID(polygonID);
 		if(polygon){
 			return polygon;
 		}
@@ -1172,7 +1154,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		}
 	}
 
-	let initExportSettings = function(page){
+	this._initExportSettings = function(page){
 		_exportSettings[page] = {}
 		_exportSettings[page].segmentsToIgnore = [];
 		_exportSettings[page].segmentsToMerge = {};
