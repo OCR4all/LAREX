@@ -2,8 +2,8 @@ function Communicator() {
 
 	this.load = function() {
 		// Deferred object for function status
-		var status = $.Deferred();
-		var dataloader = this;
+		const status = $.Deferred();
+		const dataloader = this;
 
 		this.loadSegmentTypes().done(function() {
 			dataloader.loadSegments().done(function() {
@@ -15,7 +15,7 @@ function Communicator() {
 
 	this.loadBook = function(bookID,pageID) {
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 
 		$.ajax({
 			type : "POST",
@@ -42,9 +42,9 @@ function Communicator() {
 
 	this.segmentBook = function(settings,page,allowLoadLocal) {
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 
-		var segmentationRequest = {settings: settings,page:page,allowLoadLocal:allowLoadLocal}
+		const segmentationRequest = {settings: settings,page:page,allowLoadLocal:allowLoadLocal}
 
 		$.ajax({
 			type : "POST",
@@ -72,7 +72,7 @@ function Communicator() {
 
 	this.requestMergedSegment = function(segmentIDs,pageID) {
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 
 		$.ajax({
 			type : "POST",
@@ -99,14 +99,14 @@ function Communicator() {
 
 	this.prepareExport = function(pageID, exportSettings){
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 
-		var readingOrder = [];
-		for(var i = 0; i < exportSettings.readingOrder.length; i++){
+		const readingOrder = [];
+		for(const i = 0; i < exportSettings.readingOrder.length; i++){
 			readingOrder.push(exportSettings.readingOrder[i].id);
 		}
 
-		var segmentationRequest = {	page: pageID,
+		const segmentationRequest = {	page: pageID,
 									segmentsToIgnore:exportSettings.segmentsToIgnore,
 									changedTypes:exportSettings.changedTypes,
 									segmentsToMerge:exportSettings.segmentsToMerge,
@@ -135,9 +135,9 @@ function Communicator() {
 
 	this.prepareSettingsExport = function(settings){
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 
-		var segmentationRequest = {settings: settings,page:0}
+		const segmentationRequest = {settings: settings,page:0}
 
 		$.ajax({
 			type : "POST",
@@ -161,8 +161,8 @@ function Communicator() {
 
 	this.uploadSettings = function(file) {
 		// Deferred object for function status
-		var status = $.Deferred();
-		var formData = new FormData();
+		const status = $.Deferred();
+		const formData = new FormData();
 		formData.append("file", file);
 
 		jQuery.ajax({
@@ -193,8 +193,8 @@ function Communicator() {
 
 	this.uploadPageXML = function(file,pageNr) {
 		// Deferred object for function status
-		var status = $.Deferred();
-		var formData = new FormData();
+		const status = $.Deferred();
+		const formData = new FormData();
 		formData.append("file", file);
 		formData.append("pageNr", pageNr);
 
@@ -225,7 +225,7 @@ function Communicator() {
 	}
 	this.loadSegmentTypes = function() {
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 		$.ajax({
 			dataType : "json",
 			url : "SegmentTypes",
@@ -249,7 +249,7 @@ function Communicator() {
 
 	this.loadSegments = function() {
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 
 		$.ajax({
 			dataType : 'json',
@@ -259,7 +259,7 @@ function Communicator() {
 			}
 		}).done(
 				function(data) {
-					var pictureSegmentation = data;
+					const pictureSegmentation = data;
 
 					pictureSegmentation.segments.forEach(function(segment) {
 						//_state.addSegment(segment.id, JSON.stringify(segment.points), segment.type);
@@ -278,9 +278,9 @@ function Communicator() {
 	}
 	this.loadImage = function(image, id){
 		// Deferred object for function status
-		var status = $.Deferred();
+		const status = $.Deferred();
 		
-		var img = $("<img />").attr('src', "images/books/"+image).on('load', function() {
+		const img = $("<img />").attr('src', "images/books/"+image).on('load', function() {
 			img.attr('id', id);
 			$('body').append(img);
 			status.resolve();
