@@ -1,19 +1,19 @@
 // Editor extends viewer
 function Editor(viewer,controller) {
 	this.isEditing = false;
-	var _viewer = viewer;
-	var _controller = controller;
-	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
-	var _tempPathType;
-	var _tempPath;
-	var _tempPoint;
-	var _tempID;
-	var _tempMouseregion;
-	var _tempEndCircle;
-	var _this = this;
-	var _grid = {isActive:false};
-	var _readingOrder;
-	var _guiOverlay = new paper.Group();
+	const _viewer = viewer;
+	const _controller = controller;
+	let _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
+	let _tempPathType;
+	let _tempPath;
+	let _tempPoint;
+	let _tempID;
+	let _tempMouseregion;
+	let _tempEndCircle;
+	const _this = this;
+	let _grid = {isActive:false};
+	let _readingOrder;
+	const _guiOverlay = new paper.Group();
 	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
 
 	this.startRectangleSelect = function() {
@@ -21,9 +21,9 @@ function Editor(viewer,controller) {
 			_editMode = -1;
 			_this.isEditing = true;
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
-			var isActive = false;
+			let isActive = false;
 			tool.onMouseMove = function(event) {
 				if(!isActive){
 					isActive = true;
@@ -38,7 +38,7 @@ function Editor(viewer,controller) {
 		if(_this.isEditing){
 			_this.isEditing = false;
 			if(_tempPath != null){
-				var selectBounds = _tempPath.bounds;
+				const selectBounds = _tempPath.bounds;
 				_controller.rectangleSelect(selectBounds.topLeft,selectBounds.bottomRight);
 
 				_tempPath.remove();
@@ -74,7 +74,7 @@ function Editor(viewer,controller) {
 			_tempPathType = type;
 			document.body.style.cursor = "copy";
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 			tool.onMouseMove = function(event) {
 				if(_tempPath){
@@ -85,7 +85,7 @@ function Editor(viewer,controller) {
 
 			tool.onMouseDown = function(event) {
 				if(_this.isEditing === true){
-					var canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
+					const canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
 
 					if (!_tempPath) {
 						// Start path
@@ -106,7 +106,7 @@ function Editor(viewer,controller) {
 							this.remove();
 						}
 
-						var imageCanvas = _this.getImageCanvas();
+						let imageCanvas = _this.getImageCanvas();
 						imageCanvas.addChild(_tempPath);
 						imageCanvas.addChild(_tempEndCircle);
 					}
@@ -145,7 +145,7 @@ function Editor(viewer,controller) {
 			_tempPathType = type;
 			document.body.style.cursor = "copy";
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 			tool.onMouseDown = function(event) {
 				if(_this.isEditing === true){
@@ -195,7 +195,7 @@ function Editor(viewer,controller) {
 			_this.isEditing = true;
 			document.body.style.cursor = "copy";
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 			tool.onMouseMove = function(event) {
 				if(_tempPath){
@@ -206,7 +206,7 @@ function Editor(viewer,controller) {
 
 			tool.onMouseDown = function(event) {
 				if(_this.isEditing === true){
-					var canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
+					const canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
 
 					if (!_tempPath) {
 						// Start path
@@ -248,7 +248,7 @@ function Editor(viewer,controller) {
 			_editMode = 2;
 			_tempPathType = type;
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 
 			if (!_tempPath) {
@@ -264,44 +264,45 @@ function Editor(viewer,controller) {
 				tool.onMouseMove = function(event) {
 					if(_this.isEditing === true){
 						if (_tempPath) {
-							var boundaries = _viewer.getBoundaries();
-							var mouseregion = _this.getMouseRegion(boundaries,event.point);
+							const boundaries = _viewer.getBoundaries();
+							const mouseregion = _this.getMouseRegion(boundaries,event.point);
 							_tempMouseregion = mouseregion;
 
+							let topleft, topright, rectangle, bottommouse, mouseright;
 							switch(mouseregion){
 							case _this.mouseregions.LEFT:
 								document.body.style.cursor = "col-resize";
 
-								var topleft = new paper.Point(boundaries.left,boundaries.top);
-								var bottommouse = new paper.Point(event.point.x, boundaries.bottom);
-								var rectangle = new paper.Path.Rectangle(topleft, bottommouse);
+								topleft = new paper.Point(boundaries.left,boundaries.top);
+								bottommouse = new paper.Point(event.point.x, boundaries.bottom);
+								rectangle = new paper.Path.Rectangle(topleft, bottommouse);
 
 								_tempPath.segments = rectangle.segments;
 								break;
 							case _this.mouseregions.RIGHT:
 								document.body.style.cursor = "col-resize";
 
-								var topright = new paper.Point(boundaries.right,boundaries.top);
-								var bottommouse = new paper.Point(event.point.x, boundaries.bottom);
-								var rectangle = new paper.Path.Rectangle(topright, bottommouse);
+								topright = new paper.Point(boundaries.right,boundaries.top);
+								bottommouse = new paper.Point(event.point.x, boundaries.bottom);
+								rectangle = new paper.Path.Rectangle(topright, bottommouse);
 
 								_tempPath.segments = rectangle.segments;
 								break;
 							case _this.mouseregions.TOP:
 								document.body.style.cursor = "row-resize";
 
-								var topleft = new paper.Point(boundaries.left,boundaries.top);
-								var mouseright = new paper.Point(boundaries.right, event.point.y);
-								var rectangle = new paper.Path.Rectangle(topleft, mouseright);
+								topleft = new paper.Point(boundaries.left,boundaries.top);
+								mouseright = new paper.Point(boundaries.right, event.point.y);
+								rectangle = new paper.Path.Rectangle(topleft, mouseright);
 
 								_tempPath.segments = rectangle.segments;
 								break;
 							case _this.mouseregions.BOTTOM:
 								document.body.style.cursor = "row-resize";
 
-								var bottomleft = new paper.Point(boundaries.left,boundaries.bottom);
-								var mouseright = new paper.Point(boundaries.right, event.point.y);
-								var rectangle = new paper.Path.Rectangle(bottomleft, mouseright);
+								bottomleft = new paper.Point(boundaries.left,boundaries.bottom);
+								mouseright = new paper.Point(boundaries.right, event.point.y);
+								rectangle = new paper.Path.Rectangle(bottomleft, mouseright);
 
 								_tempPath.segments = rectangle.segments;
 								break;
@@ -351,7 +352,6 @@ function Editor(viewer,controller) {
 
 			// Create Copy of movable
 			_tempPath = new paper.Path(_this.getPath(pathID).segments);
-			//_tempPath = _this.getPath(pathID).clone();
 			_tempID = pathID;
 			_tempPath.fillColor = 'grey';
 			_tempPath.opacity = 0.3;
@@ -362,12 +362,12 @@ function Editor(viewer,controller) {
 			// Set Grid
 			_this.setGrid(_tempPath.position);
 
-			// Position variables between old and new path position
+			// Position letiables between old and new path position
 			_tempPoint = new paper.Point(0,0);
-			var oldPosition = new paper.Point(_tempPath.position);
-			var oldMouse = null;
+			const oldPosition = new paper.Point(_tempPath.position);
+			let oldMouse = null;
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 			tool.onMouseMove = function(event) {
 				if(_this.isEditing === true){
@@ -386,9 +386,9 @@ function Editor(viewer,controller) {
 					_tempPath.position = _tempPoint;
 
 					// Correct to stay in viewer bounds
-					var tempPathBounds = _tempPath.bounds;
-					var pictureBounds = _this.getBoundaries();
-					var correctionPoint = new paper.Point(0,0);
+					const tempPathBounds = _tempPath.bounds;
+					const pictureBounds = _this.getBoundaries();
+					let correctionPoint = new paper.Point(0,0);
 					if(tempPathBounds.left < pictureBounds.left){
 						correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
 					}
@@ -445,7 +445,7 @@ function Editor(viewer,controller) {
 			_tempPathType = type;
 
 			// Create Copy of movable
-			var boundaries = _this.getPath(pathID).bounds;
+			const boundaries = _this.getPath(pathID).bounds;
 			_tempPath = new paper.Path.Rectangle(boundaries);
 			_tempID = pathID;
 			_tempPath.fillColor = 'grey';
@@ -454,12 +454,12 @@ function Editor(viewer,controller) {
 			_tempPath.strokeColor = 'black';
 			_tempPath.dashArray = [5, 3];
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 			tool.onMouseMove = function(event) {
 				if(_this.isEditing === true){
 					if(_tempPath){
-						var mouseregion = _this.getMouseRegion(_tempPath.bounds,event.point,0.1,10);
+						const mouseregion = _this.getMouseRegion(_tempPath.bounds,event.point,0.1,10);
 						_tempMouseregion = mouseregion;
 
 						switch(mouseregion){
@@ -490,21 +490,17 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	var createResponsiveRectangle = function(endFunction,startPoint,boundless){
-			var imageCanvas = _this.getImageCanvas();
+	let createResponsiveRectangle = function(endFunction,startPoint,boundless){
+			const imageCanvas = _this.getImageCanvas();
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 
-			if(boundless){
-				var canvasPoint = startPoint;
-			}else{
-				var canvasPoint = _this.getPointInBounds(startPoint, _this.getBoundaries());
-			}
 
+			const canvasPoint = boundless ? startPoint: _this.getPointInBounds(startPoint, _this.getBoundaries());
 			// Start path
 			_tempPoint = new paper.Path(canvasPoint);
-			_this.getImageCanvas().addChild(_tempPoint);
+			imageCanvas.addChild(_tempPoint);
 
 			_tempPath = new paper.Path();
 			_tempPath.add(_tempPoint); //Add Point for mouse movement
@@ -516,12 +512,8 @@ function Editor(viewer,controller) {
 			tool.onMouseMove = function(event) {
 				if(_this.isEditing === true){
 					if (_tempPath) {
-						if(boundless){
-							var point = event.point;
-						}else{
-							var point = _this.getPointInBounds(event.point, _this.getBoundaries());
-						}
-						var rectangle = new paper.Path.Rectangle(_tempPoint.firstSegment.point, point);
+						const point = boundless ? event.point : _this.getPointInBounds(event.point, _this.getBoundaries());
+						let rectangle = new paper.Path.Rectangle(_tempPoint.firstSegment.point, point);
 
 						_tempPath.segments = rectangle.segments;
 					}
@@ -530,7 +522,7 @@ function Editor(viewer,controller) {
 					this.remove();
 				}
 			}
-			_this.getImageCanvas().addChild(_tempPath);
+			imageCanvas.addChild(_tempPath);
 
 			tool.onMouseUp = function(event) {
 				endFunction();
@@ -538,13 +530,13 @@ function Editor(viewer,controller) {
 			}
 	}
 
-	var scalePath = function(path,mouseregion){
-		var tool = new paper.Tool();
+	let scalePath = function(path,mouseregion){
+		const tool = new paper.Tool();
 		tool.activate();
 		tool.onMouseMove = function(event) {
 			if(_this.isEditing === true){
 				if(_tempPath){
-					var mouseinbound = _this.getPointInBounds(event.point,_viewer.getBoundaries());
+					const mouseinbound = _this.getPointInBounds(event.point,_viewer.getBoundaries());
 
 					switch(mouseregion){
 					case _this.mouseregions.LEFT:
@@ -595,7 +587,7 @@ function Editor(viewer,controller) {
 			_this.isEditing = false;
 
 			if(_tempPath != null){
-				var path = new paper.Path(_this.getPath(_tempID).segments);
+				const path = new paper.Path(_this.getPath(_tempID).segments);
 				path.bounds = _tempPath.bounds;
 
 				if(_tempPathType === 'segment'){
@@ -615,13 +607,13 @@ function Editor(viewer,controller) {
 	this.getMouseRegion = function(bounds,mousepos,percentarea,minarea){
 		minarea = minarea? minarea : 0;
 
-		var width = bounds.width;
-		var height = bounds.height;
+		const width = bounds.width;
+		const height = bounds.height;
 		if(percentarea == null){
 			percentarea = 0.4;
 		}
 		//Calculate the height and width delta from the borders inwards to the center with minarea and percentarea 
-		var widthDelta = width*percentarea;
+		let widthDelta = width*percentarea;
 		if(widthDelta < minarea){
 			if(minarea < width*0.5){
 				widthDelta = minarea;
@@ -629,7 +621,7 @@ function Editor(viewer,controller) {
 				widthDelta = width*0.5;
 			}
 		}
-		var heightDelta = height*percentarea;
+		let heightDelta = height*percentarea;
 		if(heightDelta < minarea){
 			if(minarea < height*0.5){
 				heightDelta = minarea;
@@ -638,17 +630,17 @@ function Editor(viewer,controller) {
 			}
 		}
 
-		var leftmin = bounds.left;
-		var leftmax = leftmin + widthDelta;
+		const leftmin = bounds.left;
+		const leftmax = leftmin + widthDelta;
 
-		var rightmax = bounds.right;
-		var rightmin = rightmax - widthDelta;
+		const rightmax = bounds.right;
+		const rightmin = rightmax - widthDelta;
 
-		var topmin = bounds.top;
-		var topmax = topmin + heightDelta;
+		const topmin = bounds.top;
+		const topmax = topmin + heightDelta;
 
-		var bottommax = bounds.bottom;
-		var bottommin = bottommax - heightDelta;
+		const bottommax = bounds.bottom;
+		const bottommin = bottommax - heightDelta;
 		if(mousepos.x < leftmin || mousepos.x > rightmax || mousepos.y < topmin || mousepos.y > bottommax){
 			return this.mouseregions.OUTSIDE;
 		}else{
@@ -714,7 +706,7 @@ function Editor(viewer,controller) {
 
 	this.getPointInBounds = function(point, bounds){
 		if(!bounds.contains(point)){
-			var boundPoint = point;
+			let boundPoint = point;
 			if(point.x < bounds.left){
 				boundPoint.x = bounds.left;
 			}else if(point.x > bounds.right){
@@ -746,7 +738,7 @@ function Editor(viewer,controller) {
 			_grid.horizontal.strokeColor = 'black';
 			_grid.horizontal.dashArray = [3, 3];
 		}
-		var bounds = paper.view.bounds;
+		const bounds = paper.view.bounds;
 		_grid.vertical.removeSegments();
 		_grid.vertical.add(new paper.Point(point.x,bounds.top));
 		_grid.vertical.add(new paper.Point(point.x,bounds.bottom));
@@ -775,11 +767,8 @@ function Editor(viewer,controller) {
 
 	this.getPointFixedToGrid = function(point){
 		if(_grid.isActive && _grid.vertical !=  null && _grid.horizontal != null){
-			var verticalFixedPoint = new paper.Point(_grid.vertical.getPointAt(0).x,point.y);
-			var horizontalFixedPoint = new paper.Point(point.x,_grid.horizontal.getPointAt(0).y);
-			/*The following should have worked...
-			var verticalFixedPoint = _grid.vertical.getNearestLocation(event.point).point;
-			var horizontalFixedPoint = _grid.horizontal.getNearestLocation(event.point).point;*/
+			const verticalFixedPoint = new paper.Point(_grid.vertical.getPointAt(0).x,point.y);
+			const horizontalFixedPoint = new paper.Point(point.x,_grid.horizontal.getPointAt(0).y);
 			if(verticalFixedPoint.getDistance(point) < horizontalFixedPoint.getDistance(point)){
 				return verticalFixedPoint;
 			}else{
@@ -802,11 +791,11 @@ function Editor(viewer,controller) {
 		_readingOrder.removeSegments();
 		_guiOverlay.removeChildren();
 
-		for(var index = 0; index < readingOrder.length; index++){
-			var segment = _this.getPath(readingOrder[index].id);
+		for(let index = 0; index < readingOrder.length; index++){
+			const segment = _this.getPath(readingOrder[index].id);
 			if(segment){
 				_readingOrder.add(new paper.Segment(segment.bounds.center));
-				var text = new paper.PointText({
+				const text = new paper.PointText({
 					point: segment.bounds.center,
 					content: index,
 					fillColor: 'white',
@@ -817,14 +806,6 @@ function Editor(viewer,controller) {
 					strokeWidth: 1
 				});
 
-				/*var rectangle = new paper.Path.Rectangle(text.bounds);
-				rectangle.style = {
-					fillColor: 'blue',
-					strokeColor: 'red',
-					strokeWidth: 5
-				};
-				rectangle.applyMatrix = false;
-				_guiOverlay.addChild(rectangle);*/
 				_guiOverlay.addChild(text);
 			}
 		}
@@ -838,16 +819,16 @@ function Editor(viewer,controller) {
 	}
 
 	this.getSortedReadingOrder = function(readingOrder){
-		var centers = {};
-		for(var index = 0; index < readingOrder.length; index++){
-			var id = readingOrder[index].id;
+		const centers = {};
+		for(let index = 0; index < readingOrder.length; index++){
+			const id = readingOrder[index].id;
 			centers[id] = _this.getPath(id).bounds.center;
 		}
 
 		readingOrder.sort(function(a,b){
-			var centerA = centers[a.id];
-			var centerB = centers[b.id];
-			var delta = centerA.y - centerB.y;
+			const centerA = centers[a.id];
+			const centerB = centers[b.id];
+			const delta = centerA.y - centerB.y;
 			if(delta != 0){
 				return delta;
 			}else{
@@ -859,10 +840,10 @@ function Editor(viewer,controller) {
 	}
 
 	// Private Helper methods
-	var convertPointsPathToSegment = function(path,isRelative){
-		var points = [];
-		for(var pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
-			var point = path.segments[pointItr].point;
+	let convertPointsPathToSegment = function(path,isRelative){
+		const points = [];
+		for(let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
+			const point = path.segments[pointItr].point;
 			if(isRelative){
 				points.push(getPercentPointFromCanvas(point.x, point.y));
 			}else{
@@ -873,27 +854,27 @@ function Editor(viewer,controller) {
 		return points;
 	}
 
-	var getPointFromCanvas = function(canvasX, canvasY){
-		var canvasPoint = _this.getPointInBounds(new paper.Point(canvasX, canvasY), _this.getBoundaries());
-		var imagePosition = _this.getBoundaries();
-		var x = (canvasPoint.x - imagePosition.x) / _this.getZoom();
-		var y = (canvasPoint.y - imagePosition.y) / _this.getZoom();
+	let getPointFromCanvas = function(canvasX, canvasY){
+		const canvasPoint = _this.getPointInBounds(new paper.Point(canvasX, canvasY), _this.getBoundaries());
+		const imagePosition = _this.getBoundaries();
+		const x = (canvasPoint.x - imagePosition.x) / _this.getZoom();
+		const y = (canvasPoint.y - imagePosition.y) / _this.getZoom();
 
 		return {"x":x,"y":y};
 	}
 
-	var getPercentPointFromCanvas = function(canvasX, canvasY){
-		var canvasPoint = _this.getPointInBounds(new paper.Point(canvasX, canvasY), _this.getBoundaries());
-		var imagePosition = _this.getBoundaries();
-		var x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
-		var y = (canvasPoint.y - imagePosition.y) / imagePosition.height;
+	let getPercentPointFromCanvas = function(canvasX, canvasY){
+		const canvasPoint = _this.getPointInBounds(new paper.Point(canvasX, canvasY), _this.getBoundaries());
+		const imagePosition = _this.getBoundaries();
+		const x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
+		const y = (canvasPoint.y - imagePosition.y) / imagePosition.height;
 
 		return {"x":x,"y":y};
 	}
 
 	this.getPointInBounds = function(point, bounds){
 		if(!bounds.contains(point)){
-			var boundPoint = point;
+			const boundPoint = point;
 			if(point.x < bounds.left){
 				boundPoint.x = bounds.left;
 			}else if(point.x > bounds.right){
@@ -911,7 +892,7 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	var fixGuiTextSize = function(){
+	let fixGuiTextSize = function(){
 		_guiOverlay.children.forEach(function(element) {
 			element.scaling = new paper.Point(1,1);
 		}, this);
