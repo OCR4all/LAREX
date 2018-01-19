@@ -1,40 +1,42 @@
-function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
-	const _segmenttypes = segmenttypes;
-	const _viewerInput = viewerInput;
-	let _imageid;
-	let _paths = {};
-	let _imageCanvas = new paper.Group();
-	let _background;
-	let _currentZoom = 1;
-	const _colors = colors;
-	const _specifiedColors = specifiedColors;
-	const _this = this;
-
-	this.setImage = function(id){
-		_imageCanvas = new paper.Group();
-		_imageid = id;
-		drawImage();
-		_imageCanvas.onMouseDrag = function(event){
-			_viewerInput.dragImage(event);
-		}
-		_imageCanvas.bringToFront();
+class Viewer{
+	constructor(segmenttypes, viewerInput, colors, specifiedColors) {
+		this._segmenttypes = segmenttypes;
+		this._viewerInput = viewerInput;
+		this._imageID;
+		this._paths = {};
+		this._imageCanvas = new paper.Group();
+		this._background;
+		this._currentZoom = 1;
+		this._colors = colors;
+		this._specifiedColors = specifiedColors;
 	}
 
-	this.addSegment = function(segment,isFixed){
+	setImage(id){
+		this._imageCanvas = new paper.Group();
+		this._imageID = id;
+		this._drawImage();
+		const _viewer = this;
+		this._imageCanvas.onMouseDrag = function(event){
+			_viewer._viewerInput.dragImage(event);
+		}
+		this._imageCanvas.bringToFront();
+	}
+
+	addSegment(segment,isFixed){
 		this.drawPath(segment, false, null,isFixed);
 	}
 
-	this.clear = function() {
+	clear() {
 		paper.project.activeLayer.removeChildren();
-		paths = {};
-		_currentZoom = 1;
+		this._paths = {};
+		this._currentZoom = 1;
 		paper.view.draw();
-		_background = null;
-		updateBackground();
+		this._background = null;
+		this._updateBackground();
 	}
 
-	this.updateSegment = function(segment){
-		const path = _paths[segment.id];
+	updateSegment(segment){
+		const path = this._paths[segment.id];
 		if(path === undefined || path === null){
 			this.addSegment(segment);
 		}else{
@@ -56,29 +58,29 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 			path.dashArray = dashArray;
 
 			//Convert segment points to current canvas coordinates
-			const imagePosition = _imageCanvas.bounds;
+			const imagePosition = this._imageCanvas.bounds;
 
 			if(!segment.isRelative){
 				for ( const key in segment.points) {
-					const point = convetPointToCanvas(segment.points[key].x, segment.points[key].y);
+					const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
 					path.add(new paper.Point(point.x, point.y));
 				}
 			} else {
 				for ( const key in segment.points) {
-					const point = convetPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
+					const point = this._convertPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
 					path.add(new paper.Point(point.x, point.y));
 				}
 			}
 		}
 	}
 
-	this.removeSegment = function(id){
-		_paths[id].remove();
-		delete _paths[id];
+	removeSegment(id){
+		this._paths[id].remove();
+		delete this._paths[id];
 	}
 
-	this.highlightSegment = function(id, doHighlight){
-		const path = _paths[id];
+	highlightSegment(id, doHighlight){
+		const path = this._paths[id];
 		if(path){
 			if(path.fillColor != null){
 				if(doHighlight){
@@ -90,32 +92,32 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		}
 	}
 
-	this.hideSegment = function(id, doHide){
-		const path = _paths[id];
+	hideSegment(id, doHide){
+		const path = this._paths[id];
 		if(path !== null){
 			path.visible = !doHide;
 		}
 	}
 
-	this.selectSegment = function(id, doSelect){
+	selectSegment(id, doSelect){
 		if(doSelect){
-			const path = _paths[id];
+			const path = this._paths[id];
 			path.strokeColor = new paper.Color('#1e88e5');
 			path.strokeWidth = 2;
-			//_paths[id].selected = true;
+			//this._paths[id].selected = true;
 		}else{
-			const path = _paths[id];
+			const path = this._paths[id];
 			path.strokeColor = new paper.Color(path.defaultStrokeColor);
 			path.strokeWidth = 1;
-			//_paths[id].selected = false;
+			//this._paths[id].selected = false;
 		}
 	}
 
-	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
+	getSegmentIDsBetweenPoints(pointA,pointB){
 		const segmentIDs = [];
 		const rectangleAB = new paper.Rectangle(pointA,pointB);
 
-		$.each(_paths, function( id, path ) {
+		$.each(this._paths, function( id, path ) {
 			if(rectangleAB.contains(path.bounds)){
 				segmentIDs.push(id);
 			}
@@ -123,55 +125,55 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		return segmentIDs;
 	}
 
-	this.getBoundaries = function(){
-		return _imageCanvas.bounds;
+	getBoundaries(){
+		return this._imageCanvas.bounds;
 	}
 
 	// Navigation
-	this.center = function() {
-		_imageCanvas.position = paper.view.center;
+	center() {
+		this._imageCanvas.position = paper.view.center;
 	}
 
-	this.getZoom = function(){
-		return _currentZoom;
+	getZoom(){
+		return this._currentZoom;
 	}
 
-	this.setZoom = function(zoomfactor, point) {
-		_imageCanvas.scale(1 / _currentZoom);
+	setZoom(zoomfactor, point) {
+		this._imageCanvas.scale(1 / this._currentZoom);
 		if(point != null){
-			_imageCanvas.scale(zoomfactor, point);
+			this._imageCanvas.scale(zoomfactor, point);
 		}else{
-			_imageCanvas.scale(zoomfactor);
+			this._imageCanvas.scale(zoomfactor);
 		}
-		_currentZoom = zoomfactor;
+		this._currentZoom = zoomfactor;
 	}
 
-	this.zoomIn = function(zoomfactor, point) {
+	zoomIn(zoomfactor, point) {
 		const zoom = 1 + zoomfactor;
 		if(point != null){
-			_imageCanvas.scale(zoom, point);
+			this._imageCanvas.scale(zoom, point);
 		}else{
-			_imageCanvas.scale(zoom);
+			this._imageCanvas.scale(zoom);
 		}
-		_currentZoom *= zoom;
+		this._currentZoom *= zoom;
 	}
 
-	this.zoomOut = function(zoomfactor, point) {
+	zoomOut(zoomfactor, point) {
 		const zoom = 1 - zoomfactor;
 		if(point != null){
-			_imageCanvas.scale(zoom, point);
+			this._imageCanvas.scale(zoom, point);
 		}else{
-			_imageCanvas.scale(zoom);
+			this._imageCanvas.scale(zoom);
 		}
-		_currentZoom *= zoom;
+		this._currentZoom *= zoom;
 	}
 
-	this.zoomFit = function() {
+	zoomFit() {
 		// reset zoom
-		_imageCanvas.scale(1 / _currentZoom);
+		this._imageCanvas.scale(1 / this._currentZoom);
 
 		const viewSize = paper.view.viewSize;
-		const imageSize = _imageCanvas.bounds.size;
+		const imageSize = this._imageCanvas.bounds.size;
 
 		// calculate best ratios/scales
 		const scaleWidth = viewSize.width / imageSize.width;
@@ -179,25 +181,25 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		let scaleFit = (scaleWidth < scaleHeight ? scaleWidth : scaleHeight);
 		scaleFit *= 0.9;
 		
-		_imageCanvas.scale(scaleFit);
-		_currentZoom = scaleFit;
+		this._imageCanvas.scale(scaleFit);
+		this._currentZoom = scaleFit;
 	}
 
-	this.movePoint = function(delta) {
-		_imageCanvas.position = _imageCanvas.position.add(delta);
+	movePoint(delta) {
+		this._imageCanvas.position = this._imageCanvas.position.add(delta);
 	}
 
-	this.move = function(x, y) {
+	move(x, y) {
 		const delta = new paper.Point(x, y);
 		this.movePoint(delta);
 	}
 
-	this.getImageCanvas = function(){
+	getImageCanvas(){
 		return imageCanvas;
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	this.drawPath = function(segment, doFill, info, isFixed){
+	drawPath(segment, doFill, info, isFixed){
 		//Construct path from segment
 		const path = new paper.Path();
 		const color = this.getColor(segment.type);
@@ -223,39 +225,39 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		//Convert segment points to current canvas coordinates
 		if(!segment.isRelative){
 			for ( const key in segment.points) {
-				const point = convetPointToCanvas(segment.points[key].x, segment.points[key].y);
+				const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
 				path.add(new paper.Point(point.x, point.y));
 			}
 		} else {
 			for ( const key in segment.points) {
-				const point = convetPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
+				const point = this._convertPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
 				path.add(new paper.Point(point.x, point.y));
 			}
 		}
 
+		const _viewer = this;
 		//Add listeners
 		path.onMouseEnter = function(event) {
-			_viewerInput.enterSection(segment.id,info,event);
+			_viewer._viewerInput.enterSection(segment.id,info,event);
 		}
 		path.onMouseLeave = function(event) {
-			_viewerInput.leaveSection(segment.id,info,event);
+			_viewer._viewerInput.leaveSection(segment.id,info,event);
 		}
 		path.onClick = function(event) {
-			_viewerInput.selectSection(segment.id,info,event);
+			_viewer._viewerInput.selectSection(segment.id,info,event);
 		}
 
 		//Add to canvas
-		_imageCanvas.addChild(path);
-		_paths[segment.id] = path;
+		this._imageCanvas.addChild(path);
+		this._paths[segment.id] = path;
 
 		return path;
 	}
 
-	//Protected Functions (are public but should bee seen as protected)
-	this.getPath = function(id){
-		return _paths[id];
+	getPath(id){
+		return this._paths[id];
 	}
-	this.drawPathLine = function(segment){
+	drawPathLine(segment){
 		//Construct path from segment
 		const path = new paper.Path();
 		const color = new paper.Color(1,0,1);
@@ -268,39 +270,40 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 
 		//Convert segment points to current canvas coordinates
 		for ( const key in segment.points) {
-			const point = convetPointToCanvas(segment.points[key].x, segment.points[key].y);
+			const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
 			path.add(new paper.Point(point.x, point.y));
 		}
 
+		const _viewer = this;
 		//Add listeners
 		path.onMouseEnter = function(event) {
-			_viewerInput.enterSection(segment.id,{type:'line'},event);
+			_viewer._viewerInput.enterSection(segment.id,{type:'line'},event);
 		}
 		path.onMouseLeave = function(event) {
-			_viewerInput.leaveSection(segment.id,{type:'line'},event);
+			_viewer._viewerInput.leaveSection(segment.id,{type:'line'},event);
 		}
 		path.onMouseDown = function(event) {
-			_viewerInput.selectSection(segment.id,{type:'line'},event);
+			_viewer._viewerInput.selectSection(segment.id,{type:'line'},event);
 		}
 
 		//Add to canvas
-		_imageCanvas.addChild(path);
-		_paths[segment.id] = path;
+		this._imageCanvas.addChild(path);
+		this._paths[segment.id] = path;
 
 		return path;
 	}
 
-	this.getImageCanvas = function(){
-		return _imageCanvas;
+	getImageCanvas(){
+		return this._imageCanvas;
 	}
 
-	this.getColor = function(segmentType){
-		let color = _specifiedColors[segmentType];
+	getColor(segmentType){
+		let color = this._specifiedColors[segmentType];
 
 		if(color){
 			return color;
 		}else{
-			const id = _segmenttypes[segmentType]
+			const id = this._segmenttypes[segmentType]
 			const counter = 6;
 			const modifier1 = (id +6) % counter;
 			const modifier2 = Math.floor(((id-6)/counter));
@@ -326,8 +329,8 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 	}
 
 	// private helper functions
-	const drawImage = function() {
-		const image = new paper.Raster(_imageid);
+	_drawImage() {
+		const image = new paper.Raster(this._imageID);
 		image.style = {
 			shadowColor : new paper.Color(0, 0, 0),
 			// Set the shadow blur radius to 12:
@@ -338,43 +341,45 @@ function Viewer(segmenttypes, viewerInput, colors, specifiedColors) {
 		let position = new paper.Point(0, 0);
 		position = position.add([ image.width * 0.5, image.height * 0.5 ]);
 		image.position = position;
+		const _viewer = this;
 		image.onClick = function(event){
-			_viewerInput.clickImage(event);
+			_viewer._viewerInput.clickImage(event);
 		}
-		_imageCanvas.addChild(image);
-		updateBackground();
+		this._imageCanvas.addChild(image);
+		this._updateBackground();
 		return image;
 	}
 
-	const updateBackground = function(){
+	_updateBackground(){
 		// background
-		if(!_background){
-			_background = new paper.Path.Rectangle({
+		if(!this._background){
+			this._background = new paper.Path.Rectangle({
 		  	point: [0, 0],
 				//setting dynamic while resizing caused errors -> set to high value TODO
 		  	size: [1000000,1000000],
 		  	strokeColor: '#757575',
 				fillColor: '#757575'
 			});
-			_background.onClick = function(event){
-				_viewerInput.clickBackground(event);
+			const _viewer = this;
+			this._background.onClick = function(event){
+				_viewer._viewerInput.clickBackground(event);
 			}
-			_background.onMouseDrag = function(event){
-				_viewerInput.dragBackground(event);
+			this._background.onMouseDrag = function(event){
+				_viewer._viewerInput.dragBackground(event);
 			}
-			_background.sendToBack();
+			this._background.sendToBack();
 		}
 	}
 
-	const convetPointToCanvas = function(x,y){
-		const imagePosition = _imageCanvas.bounds;
-		const canvasX = x * _currentZoom + imagePosition.x;
-		const canvasY = y * _currentZoom + imagePosition.y;
+	_convertPointToCanvas(x,y){
+		const imagePosition = this._imageCanvas.bounds;
+		const canvasX = x * this._currentZoom + imagePosition.x;
+		const canvasY = y * this._currentZoom + imagePosition.y;
 
 		return {"x":canvasX,"y":canvasY};
 	}
-	const convetPercentPointToCanvas = function(x,y){
-		const imagePosition = _imageCanvas.bounds;
+	_convertPercentPointToCanvas(x,y){
+		const imagePosition = this._imageCanvas.bounds;
 		const canvasX = (x * imagePosition.width) + imagePosition.x;
 		const canvasY = (y * imagePosition.height) + imagePosition.y;
 

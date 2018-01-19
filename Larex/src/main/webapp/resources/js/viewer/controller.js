@@ -64,9 +64,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							const viewerInput = new ViewerInput(_thisController);
 
 							// Inheritance Editor extends Viewer
-							_editor = new Editor(new Viewer(
-									_segmentationtypes, viewerInput,colors,specifiedColors),
-									_thisController);
+							_editor = new Editor(_segmentationtypes, viewerInput,colors,specifiedColors,_thisController);
 
 							_gui = new GUI(canvasID, _editor);
 							_gui.resizeViewerHeight();
