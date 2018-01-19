@@ -2,12 +2,9 @@ function GUI(canvas, viewer) {
 	const _viewer = viewer;
 	let _canvas = canvas;
 	let _doMoveCanvas = false;
-	const _gui = this;
 	let _mouse;
 
-	$(document).mousemove(function( event ) {
-	  _mouse = {x:event.pageX,y:event.pageY};
-	});
+	$(document).mousemove((event) => _mouse = {x:event.pageX,y:event.pageY});
 
 	this.setCanvas = function(id){
 		_canvas = id;
@@ -75,7 +72,7 @@ function GUI(canvas, viewer) {
 
 	this.setRegionLegendColors = function(segmenttypes){
 		// Iterate over Segmenttype-"Map" (Object in JS)
-		Object.keys(segmenttypes).forEach(function(key) {
+		Object.keys(segmenttypes).forEach((key) => {
 			const color = _viewer.getColor(key);
 			$(".legendicon."+key).css("background-color", color.toCSS());
 		});
@@ -84,7 +81,7 @@ function GUI(canvas, viewer) {
 	this.forceUpdateRegionHide = function(visibleRegions){
 		const $allSwitchBoxes = $('.regionlegend');
 		const _visibleRegions = visibleRegions;
-		$allSwitchBoxes.each(function() {
+		$allSwitchBoxes.each(function(){
 			const $this = $(this);
 			const $switchBox = $($this.find('input'));
 			const regionType = $this.data('type');
@@ -98,21 +95,23 @@ function GUI(canvas, viewer) {
 	}
 	this.showUsedRegionLegends = function(presentRegions){
 		$('.regionlegend,.contextregionlegend').each(function() {
-			const legendType = $(this).data('type');
+			const $this = $(this);
+			const legendType = $this.data('type');
 
 			if($.inArray(legendType, presentRegions) > -1){
-				$(this).removeClass('hide');
+				$this.removeClass('hide');
 			}else{
-				$(this).addClass('hide');
+				$this.addClass('hide');
 			}
 		});
 		$('.regioneditorSelectItem').each(function() {
-			const legendType = $(this).data('type');
+			const $this = $(this);
+			const legendType = $this.data('type');
 
 			if($.inArray(legendType, presentRegions) > -1){
-				$(this).addClass('hide');
+				$this.addClass('hide');
 			}else{
-				$(this).removeClass('hide');
+				$this.removeClass('hide');
 			}
 		});
 	}
@@ -142,10 +141,9 @@ function GUI(canvas, viewer) {
 				$('.regionDelete').addClass('hide');
 			}
 			if(regionColor){
-				_gui.setRegionColor(regionColor);
+				this.setRegionColor(regionColor);
 			}
 		}
-		//$('#regioneditor').modal('open');
 		$settingsOffset = $('#sidebarRegions').offset();
 		$regioneditor = $('#regioneditor');
 		$regioneditor.removeClass('hide');
@@ -200,7 +198,7 @@ function GUI(canvas, viewer) {
 
 	this.forceUpdateReadingOrder = function(readingOrder,forceHard){
 		if(forceHard){
-			_gui.setReadingOrder(readingOrder);
+			this.setReadingOrder(readingOrder);
 		}else{
 			$readingOrderListItems = $('#reading-order-list');
 
@@ -280,13 +278,13 @@ function GUI(canvas, viewer) {
 
 	this.highlightSegmentedPages = function(segmentedPages){
 		$('.pageImageContainer').removeClass('segmented');
-		segmentedPages.forEach(function(page) {
+		segmentedPages.forEach((page) => {
 			$('.pageImageContainer[data-page~="'+page+'"]').addClass('segmented');
 		});
 	}
 	this.highlightPagesAsError = function(errorPages){
 		$('.pageIconError').addClass('hide');
-		errorPages.forEach(function(page) {
+		errorPages.forEach((page) => {
 			const $errorPage = $('.pageImageContainer[data-page~="'+page+'"]');
 			$errorPage.addClass('segmentError');
 			$errorPage.find('.pageIconError').removeClass('hide');
@@ -346,7 +344,7 @@ function GUI(canvas, viewer) {
 	}
 	this.updateAvailableColors = function(availableColorsIndexes){
 		$('.regioneditorColorSelectItem').addClass("hide");
-		availableColorsIndexes.forEach(function(index) {
+		availableColorsIndexes.forEach((index) => {
 			$('.regioneditorColorSelectItem.color'+index).removeClass("hide");
 		});
 	}
