@@ -1,7 +1,7 @@
 class Viewer{
 	constructor(segmenttypes, viewerInput, colors, specifiedColors) {
 		this._segmenttypes = segmenttypes;
-		this._viewerInput = viewerInput;
+		this.thisInput = viewerInput;
 		this._imageID;
 		this._paths = {};
 		this._imageCanvas = new paper.Group();
@@ -15,10 +15,7 @@ class Viewer{
 		this._imageCanvas = new paper.Group();
 		this._imageID = id;
 		this._drawImage();
-		const _viewer = this;
-		this._imageCanvas.onMouseDrag = function(event){
-			_viewer._viewerInput.dragImage(event);
-		}
+		this._imageCanvas.onMouseDrag = (event) => this.thisInput.dragImage(event);
 		this._imageCanvas.bringToFront();
 	}
 
@@ -235,17 +232,10 @@ class Viewer{
 			}
 		}
 
-		const _viewer = this;
 		//Add listeners
-		path.onMouseEnter = function(event) {
-			_viewer._viewerInput.enterSection(segment.id,info,event);
-		}
-		path.onMouseLeave = function(event) {
-			_viewer._viewerInput.leaveSection(segment.id,info,event);
-		}
-		path.onClick = function(event) {
-			_viewer._viewerInput.selectSection(segment.id,info,event);
-		}
+		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id,info,event);
+		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id,info,event);
+		path.onClick = (event) => this.thisInput.selectSection(segment.id,info,event);
 
 		//Add to canvas
 		this._imageCanvas.addChild(path);
@@ -274,17 +264,10 @@ class Viewer{
 			path.add(new paper.Point(point.x, point.y));
 		}
 
-		const _viewer = this;
 		//Add listeners
-		path.onMouseEnter = function(event) {
-			_viewer._viewerInput.enterSection(segment.id,{type:'line'},event);
-		}
-		path.onMouseLeave = function(event) {
-			_viewer._viewerInput.leaveSection(segment.id,{type:'line'},event);
-		}
-		path.onMouseDown = function(event) {
-			_viewer._viewerInput.selectSection(segment.id,{type:'line'},event);
-		}
+		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id,{type:'line'},event);
+		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id,{type:'line'},event);
+		path.onMouseDown = (event) => this.thisInput.selectSection(segment.id,{type:'line'},event);
 
 		//Add to canvas
 		this._imageCanvas.addChild(path);
@@ -341,10 +324,8 @@ class Viewer{
 		let position = new paper.Point(0, 0);
 		position = position.add([ image.width * 0.5, image.height * 0.5 ]);
 		image.position = position;
-		const _viewer = this;
-		image.onClick = function(event){
-			_viewer._viewerInput.clickImage(event);
-		}
+		image.onClick = (event) => this.thisInput.clickImage(event);
+
 		this._imageCanvas.addChild(image);
 		this._updateBackground();
 		return image;
@@ -360,13 +341,8 @@ class Viewer{
 		  	strokeColor: '#757575',
 				fillColor: '#757575'
 			});
-			const _viewer = this;
-			this._background.onClick = function(event){
-				_viewer._viewerInput.clickBackground(event);
-			}
-			this._background.onMouseDrag = function(event){
-				_viewer._viewerInput.dragBackground(event);
-			}
+			this._background.onClick = (event) => this.thisInput.clickBackground(event);
+			this._background.onMouseDrag = (event) => this.thisInput.dragBackground(event);
 			this._background.sendToBack();
 		}
 	}
