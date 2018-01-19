@@ -1,6 +1,6 @@
 function ViewerInput(controller) {
-	var _controller = controller;
-	var _mouseSelecting = false;
+	const _controller = controller;
+	let _mouseSelecting = false;
 
 	this.enterSection = function(sectionID, info,event) {
 		_controller.enterSegment(sectionID, true, info);

@@ -1,14 +1,14 @@
 function KeyInput(navigationController, controller, gui) {
 	this.isActive = true;
-	var _navigationController = navigationController;
-	var _controller = controller;
-	var _gui = gui;
-	var _this = this;
-	var _mousePosition;
+	const _navigationController = navigationController;
+	const _controller = controller;
+	const _gui = gui;
+	const _this = this;
+	let _mousePosition;
 
 	document.onkeydown = function(event) {
 		if (_this.isActive) {
-			var validKey = false;
+			let validKey = false;
 
 			switch (event.keyCode) {
 			case 37: // left
@@ -134,7 +134,7 @@ function KeyInput(navigationController, controller, gui) {
 
 	document.onkeyup = function(event) {
 		if (_this.isActive) {
-			var validKey = false;
+			let validKey = false;
 
 			switch (event.keyCode) {
 				case 16: // Shift
@@ -158,11 +158,11 @@ function KeyInput(navigationController, controller, gui) {
 		}
 	}
 
-	var wheelEvent = 'onwheel' in document ? 'wheel': 'mousewheel DOMMouseScroll';
+	const wheelEvent = 'onwheel' in document ? 'wheel': 'mousewheel DOMMouseScroll';
 	$("canvas").bind(wheelEvent, function(event) {
 		if (_this.isActive) {
-			var canvasOffset = $(this).offset();
-			var scrollDirection; //positive => down, negative => up
+			const canvasOffset = $(this).offset();
+			let scrollDirection; //positive => down, negative => up
 
 			switch(event.type){
 				case 'wheel': //Modern Browser is used
@@ -176,7 +176,7 @@ function KeyInput(navigationController, controller, gui) {
 					break;
 			}
 
-			var mousepoint = new paper.Point(event.originalEvent.pageX-canvasOffset.left,
+			const mousepoint = new paper.Point(event.originalEvent.pageX-canvasOffset.left,
 																				event.originalEvent.pageY-canvasOffset.top);
 			if (scrollDirection < 0) {
 				_navigationController.zoomIn(0.1, mousepoint);
@@ -186,13 +186,13 @@ function KeyInput(navigationController, controller, gui) {
 		}
 	});
 
-	var lastPositionX;
-	var lastPositionY;
+	let lastPositionX;
+	let lastPositionY;
 
 	$(window).mousemove(function(event) {
 		if (_this.isActive) {
-			var deltaX = event.pageX - lastPositionX;
-			var deltaY = event.pageY - lastPositionY;
+			const deltaX = event.pageX - lastPositionX;
+			const deltaY = event.pageY - lastPositionY;
 
 			if (_gui.doMoveCanvas) {
 				if (deltaX && deltaY)
