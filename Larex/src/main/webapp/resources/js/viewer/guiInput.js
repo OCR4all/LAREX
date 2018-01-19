@@ -1,12 +1,12 @@
 function GuiInput(navigationController, controller, gui){
-	var _navigationController = navigationController;
-	var _controller = controller;
-	var _gui = gui;
-	var _draggedObject = null;
+	const _navigationController = navigationController;
+	const _controller = controller;
+	const _gui = gui;
+	let _draggedObject = null;
 
 	$(window).click(function(event) {
 		//Cancel viewer actions, if outside of viewer or a menu icon
-		$target = $(event.target);
+		const $target = $(event.target);
 		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
 		&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
 			_controller.escape();
@@ -31,7 +31,7 @@ function GuiInput(navigationController, controller, gui){
 		_controller.downloadPageXML();
 	});
 	$('.pageXMLVersion').click(function() {
-		var version = $(this).data(version).version;
+		const version = $(this).data(version).version;
 		_gui.setPageXMLVersion(version);
 		$('#dropDownPageXML').dropdown('close');
 		_controller.setPageXMLVersion(version);
@@ -47,7 +47,7 @@ function GuiInput(navigationController, controller, gui){
 		_controller.downloadSettingsXML();
 	});
 	$('#upload-input:file').on('change', function() {
-    var file = this.files[0];
+    const file = this.files[0];
 		$(this).val("");
 		if(file){
 			if (file.size < 1024*1024) {
@@ -58,7 +58,7 @@ function GuiInput(navigationController, controller, gui){
 		}
 	});
 	$('#upload-segmentation-input:file').on('change', function() {
-    var file = this.files[0];
+    const file = this.files[0];
 		$(this).val("");
 		if(file){
 			if (file.size < 1024*1024) {
@@ -78,7 +78,7 @@ function GuiInput(navigationController, controller, gui){
 	})
 
 	$('.settings-combine-image').on('change', function() {
-		var doCombine = $(this).find('input').prop('checked');
+		const doCombine = $(this).find('input').prop('checked');
 		if(doCombine !== undefined){
 		  _controller.changeImageCombine(doCombine);
 		}
@@ -198,13 +198,13 @@ function GuiInput(navigationController, controller, gui){
 		  _controller.changeTypeSelected(this.value);
 	});
 	$('.regionlegend').click(function() {
-			var $this = $(this);
-			var $switchBox = $this.find('input');
+			const $this = $(this);
+			const $switchBox = $this.find('input');
 			_controller.hideRegion($this.data('type'), !$switchBox.prop('checked'));
 	});
 	$('.regionlegendAll').click(function() {
-			var $switchBox = $(this).find('input');
-			var $allSwitchBoxes = $('.regionlegend').find('input');
+			const $switchBox = $(this).find('input');
+			const $allSwitchBoxes = $('.regionlegend').find('input');
 			$allSwitchBoxes.prop('checked',$switchBox.prop('checked'))
 
 			_controller.hideAllRegions(!$switchBox.prop('checked'));
@@ -219,31 +219,31 @@ function GuiInput(navigationController, controller, gui){
 		_gui.closeRegionSettings();
 	});
 	$('.regionDelete').click(function() {
-			var regionType = $('#regioneditor').find('#regionType').text();
+			const regionType = $('#regioneditor').find('#regionType').text();
 			_controller.deleteRegionSettings(regionType);
 			_gui.closeRegionSettings();
 	});
 	$('.contextTypeOption').click(function(){
-			var $this = $(this);
-			var $contextmenu = $("#contextmenu");
-			var doSelected = $contextmenu.data('doSelected');
-			var regionType = $this.data('type');
+			const $this = $(this);
+			const $contextmenu = $("#contextmenu");
+			const doSelected = $contextmenu.data('doSelected');
+			const regionType = $this.data('type');
 
 			if(doSelected){
 				_controller.changeTypeSelected(regionType);
 			}else{
-				var polygonID = $contextmenu.data('polygonID');
+				const polygonID = $contextmenu.data('polygonID');
 				_controller.changeRegionType(polygonID,regionType);
 			}
 			_gui.closeContextMenu();
 	});
 	$('#regioneditorSave').click(function(){
-			var $regioneditor = $('#regioneditor');
+			const $regioneditor = $('#regioneditor');
 
-			var regionType = $regioneditor.find('#regionType').text();
-			var minSize = $regioneditor.find('#regionMinSize').val();
-			var maxOccurances = $regioneditor.find('#regionMaxOccurances').val();
-			var color = $regioneditor.find('#regionColor').data('color');
+			const regionType = $regioneditor.find('#regionType').text();
+			const minSize = $regioneditor.find('#regionMinSize').val();
+			const maxOccurances = $regioneditor.find('#regionMaxOccurances').val();
+			let color = $regioneditor.find('#regionColor').data('color');
 			color = new paper.Color(color.red,color.green,color.blue);
 			_controller.changeRegionSettings(regionType, minSize,maxOccurances);
 			_controller.setRegionColor(regionType,_controller.getColorID(color));
@@ -253,11 +253,11 @@ function GuiInput(navigationController, controller, gui){
 			_gui.closeRegionSettings();
 	});
 	$('#regioneditor #regionType').click(function(){
-			var $regioneditor = $('#regioneditor');
+			const $regioneditor = $('#regioneditor');
 			$('#regioneditorSelect').removeClass('hide');
 	});
 	$('#regioneditor #regionColor').click(function(){
-			var $regioneditorColorSelect = $('#regioneditorColorSelect');
+			const $regioneditorColorSelect = $('#regioneditorColorSelect');
 			if($regioneditorColorSelect.hasClass('hide')){
 				$('#regioneditorColorSelect').removeClass('hide');
 			}else{
@@ -266,7 +266,7 @@ function GuiInput(navigationController, controller, gui){
 	});
 
 	$('.regioneditorColorSelectItem').click(function() {
-			var color = $(this).data('color');
+			let color = $(this).data('color');
 			color = new paper.Color(color.red,color.green,color.blue);
 			_gui.setRegionColor(color);
 	});
@@ -280,8 +280,8 @@ function GuiInput(navigationController, controller, gui){
 	});
 	
 	$('.settings-load-existing-xml').click(function() {
-			var $this = $(this);
-			var $switchBox = $this.find('input');
+			const $this = $(this);
+			const $switchBox = $this.find('input');
 			_controller.allowToLoadExistingSegmentation($switchBox.prop('checked'));
 	});
 
@@ -302,22 +302,22 @@ function GuiInput(navigationController, controller, gui){
 	});
 
 	this.addDynamicListeners = function(){
-		var _hasBeenDropped = false;
+		let _hasBeenDropped = false;
 
 		$('.reading-order-segment').mouseover(function(){
-				var $this = $(this);
-				var segmentID = $this.data('segmentid');
+				const $this = $(this);
+				const segmentID = $this.data('segmentid');
 				_controller.enterSegment(segmentID);
 		});
 
 		$('.reading-order-segment').mouseleave(function(){
-				var $this = $(this);
-				var segmentID = $this.data('segmentid');
+				const $this = $(this);
+				const segmentID = $this.data('segmentid');
 				_controller.leaveSegment(segmentID);
 		});
 
 		$('.reading-order-segment').on('dragstart', function (event) {
-				var $this = $(this);
+				const $this = $(this);
 				_draggedObject = $this;
 				_hasBeenDropped = false;
 		});
@@ -333,7 +333,7 @@ function GuiInput(navigationController, controller, gui){
 		});
 
 		$('.reading-order-segment').on('dragenter', function (event) {
-					var $this = $(this);
+					const $this = $(this);
 					$this.addClass('dragedOver');
 					if(_draggedObject){
 						_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),false);
@@ -342,7 +342,7 @@ function GuiInput(navigationController, controller, gui){
 		});
 
 		$('.reading-order-segment').on('drop', function (event) {
-				var $this = $(this);
+				const $this = $(this);
 				$this.removeClass('dragedOver');
 				if(_draggedObject){
 					_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),true);
@@ -356,8 +356,8 @@ function GuiInput(navigationController, controller, gui){
 				}
 		});
 		$('.delete-reading-order-segment').click(function(){
-				var $this = $(this);
-				var segmentID = $this.data('segmentid');
+				const $this = $(this);
+				const segmentID = $this.data('segmentid');
 				_controller.removeFromReadingOrder(segmentID);
 		});
 	}

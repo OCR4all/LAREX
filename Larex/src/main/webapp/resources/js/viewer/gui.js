@@ -1,9 +1,9 @@
 function GUI(canvas, viewer) {
-	var _viewer = viewer;
-	var _canvas = canvas;
-	var _doMoveCanvas = false;
-	var _gui = this;
-	var _mouse;
+	const _viewer = viewer;
+	let _canvas = canvas;
+	let _doMoveCanvas = false;
+	const _gui = this;
+	let _mouse;
 
 	$(document).mousemove(function( event ) {
 	  _mouse = {x:event.pageX,y:event.pageY};
@@ -14,16 +14,16 @@ function GUI(canvas, viewer) {
 	}
 
 	this.updateZoom = function(){
-		var zoom = _viewer.getZoom();
+		let zoom = _viewer.getZoom();
 		zoom = Math.round(zoom*10000)/100;
 
 		$('.zoomvalue').text(zoom);
 	}
 
 	this.openContextMenu = function(doSelected,id){
-		var $contextmenu = $("#contextmenu");
+		const $contextmenu = $("#contextmenu");
 		$contextmenu.removeClass("hide");
-		var fitsInWindow = _mouse.y+$contextmenu.height() < $(window).height();
+		const fitsInWindow = _mouse.y+$contextmenu.height() < $(window).height();
 
 		if(fitsInWindow){
 			$contextmenu.css({top: _mouse.y-5, left: _mouse.x-5});
@@ -39,9 +39,9 @@ function GUI(canvas, viewer) {
 	}
 
 	this.resizeViewerHeight = function(){
-		$canvas = $("#"+_canvas);
-		$sidebars = $('.sidebar');
-		var height = $(window).height() - $canvas.offset().top;
+		const $canvas = $("#"+_canvas);
+		const $sidebars = $('.sidebar');
+		const height = $(window).height() - $canvas.offset().top;
 
 		$canvas.height(height);
 		$sidebars.height(height);
@@ -54,7 +54,7 @@ function GUI(canvas, viewer) {
 		$("#imagedilationX").val(parameters['imagedilationX']);
 		$("#imagedilationY").val(parameters['imagedilationY']);
 
-		var $imageMode = $('.settings-image-mode');
+		const $imageMode = $('.settings-image-mode');
 		$imageMode.find('option').removeAttr('selected');
 		$imageMode.find('option[value="'+imageMode+'"]').attr('selected','selected');
 		//reinitialize dropdown
@@ -64,7 +64,7 @@ function GUI(canvas, viewer) {
 	}
 
 	this.getParameters = function(){
-			var parameters = {};
+			const parameters = {};
 			parameters['binarythreash'] = $("#binarythreash").val();
 			parameters['textdilationX'] = $("#textdilationX").val();
 			parameters['textdilationY'] = $("#textdilationY").val();
@@ -76,18 +76,18 @@ function GUI(canvas, viewer) {
 	this.setRegionLegendColors = function(segmenttypes){
 		// Iterate over Segmenttype-"Map" (Object in JS)
 		Object.keys(segmenttypes).forEach(function(key) {
-			var color = _viewer.getColor(key);
+			const color = _viewer.getColor(key);
 			$(".legendicon."+key).css("background-color", color.toCSS());
 		});
 	}
 
 	this.forceUpdateRegionHide = function(visibleRegions){
-		var $allSwitchBoxes = $('.regionlegend');
-		var _visibleRegions = visibleRegions;
+		const $allSwitchBoxes = $('.regionlegend');
+		const _visibleRegions = visibleRegions;
 		$allSwitchBoxes.each(function() {
-			var $this = $(this);
-			var $switchBox = $($this.find('input'));
-			var regionType = $this.data('type');
+			const $this = $(this);
+			const $switchBox = $($this.find('input'));
+			const regionType = $this.data('type');
 
 			if(_visibleRegions[regionType]){
 				$switchBox.prop('checked',true);
@@ -98,7 +98,7 @@ function GUI(canvas, viewer) {
 	}
 	this.showUsedRegionLegends = function(presentRegions){
 		$('.regionlegend,.contextregionlegend').each(function() {
-			var legendType = $(this).data('type');
+			const legendType = $(this).data('type');
 
 			if($.inArray(legendType, presentRegions) > -1){
 				$(this).removeClass('hide');
@@ -107,7 +107,7 @@ function GUI(canvas, viewer) {
 			}
 		});
 		$('.regioneditorSelectItem').each(function() {
-			var legendType = $(this).data('type');
+			const legendType = $(this).data('type');
 
 			if($.inArray(legendType, presentRegions) > -1){
 				$(this).addClass('hide');
@@ -153,7 +153,7 @@ function GUI(canvas, viewer) {
 	}
 
 	this.setRegionColor = function(color){
-		var $regioneditor = $('#regioneditor');
+		const $regioneditor = $('#regioneditor');
 		$regioneditor.find('.regionColorIcon').css("background-color", color.toCSS());
 		$regioneditor.find('#regionColor').data('color',color);
 	}
@@ -172,11 +172,11 @@ function GUI(canvas, viewer) {
 	this.setReadingOrder = function(readingOrder){
 		$readingOrderList = $('#reading-order-list');
 		$readingOrderList.empty();
-		for(var index = 0; index < readingOrder.length; index++){
-			var segment = readingOrder[index];
-			var $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'" draggable="true"></li>');
-			var $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
-			var $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="'+segment.id+'">delete</i>');
+		for(let index = 0; index < readingOrder.length; index++){
+			const segment = readingOrder[index];
+			const $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'" draggable="true"></li>');
+			const $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
+			const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="'+segment.id+'">delete</i>');
 			$collectionItem.append($legendTypeIcon);
 			$collectionItem.append(segment.type+"-"+segment.id.substring(0,4));
 			$collectionItem.append($deleteReadingOrderSegment);
@@ -193,8 +193,8 @@ function GUI(canvas, viewer) {
 	}
 
 	this.setBeforeInReadingOrder = function(segment1ID,segment2ID){
-		$segment1 = $(".reading-order-segment[data-segmentid='"+segment1ID+"']");
-		$segment2 = $(".reading-order-segment[data-segmentid='"+segment2ID+"']");
+		const $segment1 = $(".reading-order-segment[data-segmentid='"+segment1ID+"']");
+		const $segment2 = $(".reading-order-segment[data-segmentid='"+segment2ID+"']");
 		$($segment1).insertBefore($segment2);
 	}
 
@@ -204,7 +204,7 @@ function GUI(canvas, viewer) {
 		}else{
 			$readingOrderListItems = $('#reading-order-list');
 
-			for(var index = 0; index < readingOrder.length; index++){
+			for(let index = 0; index < readingOrder.length; index++){
 				$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index].id+"']"));
 			}
 		}
@@ -221,7 +221,7 @@ function GUI(canvas, viewer) {
 	}
 
 	this.selectToolBarButton = function(option, doSelect){
-		var $button = null;
+		let $button = null;
 		switch(option){
 			case 'regionRectangle':
 				$button = $('.createRegionRectangle');
@@ -257,7 +257,7 @@ function GUI(canvas, viewer) {
 	}
 
 	this.unselectAllToolBarButtons = function(){
-		var $buttons = $('.menuIcon');
+		const $buttons = $('.menuIcon');
 		$buttons.removeClass('invert');
 	}
 
@@ -268,7 +268,7 @@ function GUI(canvas, viewer) {
 	}
 
 	this.scrollToPage = function(page){
-		$pagecontainer = $('#pagecontainer');
+		const $pagecontainer = $('#pagecontainer');
 
 		//Stop any running animations on pagecontainer
 		$pagecontainer.stop(true);
@@ -287,18 +287,18 @@ function GUI(canvas, viewer) {
 	this.highlightPagesAsError = function(errorPages){
 		$('.pageIconError').addClass('hide');
 		errorPages.forEach(function(page) {
-			var $errorPage = $('.pageImageContainer[data-page~="'+page+'"]');
+			const $errorPage = $('.pageImageContainer[data-page~="'+page+'"]');
 			$errorPage.addClass('segmentError');
 			$errorPage.find('.pageIconError').removeClass('hide');
 		});
 	}
 	this.highlightSavedPage = function(savedPage){
-		var $savedPage = $('.pageImageContainer[data-page~="'+savedPage+'"]');
+		const $savedPage = $('.pageImageContainer[data-page~="'+savedPage+'"]');
 		$savedPage.addClass('saved');
 		$savedPage.find(".pageIconSaved").removeClass('hide');
 	}
 	this.highlightExportedPage = function(exportedPage){
-		var $exportedPage = $('.pageImageContainer[data-page~="'+exportedPage+'"]');
+		const $exportedPage = $('.pageImageContainer[data-page~="'+exportedPage+'"]');
 		$exportedPage.addClass('exported');
 		$exportedPage.find(".pageIconExported").removeClass('hide');
 	}
@@ -334,11 +334,11 @@ function GUI(canvas, viewer) {
 		}
 	}
 	this.setAllRegionColors = function(colors){
-			var $collection = $('#regioneditorColorSelect .collection');
-			for(var index = 0; index < colors.length; index++){
-				var color = colors[index];
-				var $colorItem = $('<li class="collection-item regioneditorColorSelectItem color'+index+'"></li>');
-				var $icon = $('<div class="legendicon" style="background-color:'+color.toCSS()+';"></div>');
+			const $collection = $('#regioneditorColorSelect .collection');
+			for(let index = 0; index < colors.length; index++){
+				const color = colors[index];
+				const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color'+index+'"></li>');
+				const $icon = $('<div class="legendicon" style="background-color:'+color.toCSS()+';"></div>');
 				$colorItem.data('color',color);
 				$colorItem.append($icon);
 				$collection.append($colorItem);
