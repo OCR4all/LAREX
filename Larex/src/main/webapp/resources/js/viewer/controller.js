@@ -977,7 +977,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 		const inbetween = _editor.getSegmentIDsBetweenPoints(pointA,pointB);
 
-		$.each(inbetween, function( index, id ) {
+		$.each(inbetween, (index, id) => {
 			let mainType = this._getMainType(id);
 			mainType = (mainType === 'result' || mainType === 'fixed') ? 'segment' : mainType;
 			if(mainType === 'segment'){
