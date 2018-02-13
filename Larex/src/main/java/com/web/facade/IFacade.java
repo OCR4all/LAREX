@@ -36,10 +36,10 @@ public interface IFacade {
 	
 	public PageSegmentation readPageXML(byte[] pageXML,int pageNr);
 	
-	public Polygon merge(List<String> segments,int pageNr);
+	public Polygon merge(List<Polygon> segments, int pageNr);
 	
 	//TODO Change to different class? (for low coupling)
-	public void prepareExport(ExportRequest exportRequest);
+	public void prepareExport(PageSegmentation segmentation);
 
 	public ResponseEntity<byte[]> getPageXML(String version);
 	

@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
@@ -116,13 +115,13 @@ public class FileController {
 		}
 		return result;
 	}
-
+	
 	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody String prepareExport(@RequestBody ExportRequest exportRequest) {
-		facade.prepareExport(exportRequest);
+	public @ResponseBody String prepareExport(@RequestBody PageSegmentation segmentation) {
+		facade.prepareExport(segmentation);
 		return "Export has been prepared";
 	}
-
+	
 	@RequestMapping(value = "/exportXML")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("version") String version) {
 		init();

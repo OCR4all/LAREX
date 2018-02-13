@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -21,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.communication.FullBookResponse;
+import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
@@ -112,7 +112,7 @@ public class ViewerController {
 		Book book = segmenter.getBook();
 		BookSettings settings = segmenter.getDefaultSettings(book);
 		Map<Integer, PageSegmentation> segmentations = new HashMap<Integer, PageSegmentation>();
-		segmentations.put(pageID, segmenter.segmentPage(settings, pageID, false));
+		//segmentations.put(pageID, segmenter.segmentPage(settings, pageID, false));
 
 		FullBookResponse bookview = new FullBookResponse(book, segmentations, settings);
 		return bookview;
@@ -123,14 +123,12 @@ public class ViewerController {
 		return segmenter.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
 				segmentationRequest.isAllowToLoadLocal());
 	}
-
-	@RequestMapping(value = "/merge", method = RequestMethod.POST)
-	public @ResponseBody Polygon segment(@RequestParam("segmentids[]") List<String> segmentIDs,
-			@RequestParam("pageid") int pageID) {
-		Polygon merged = segmenter.merge(segmentIDs, pageID);
-		return merged;
+	
+	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody Polygon merge(@RequestBody MergeRequest mergeRequest) {
+		return segmenter.merge(mergeRequest.getSegments(), mergeRequest.getPage());
 	}
-
+	
 	private LarexFacade prepareSegmenter(int bookID) {
 		init();
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));

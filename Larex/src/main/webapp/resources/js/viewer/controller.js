@@ -123,22 +123,24 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 				_editor.clear();
 				_editor.setImage(imageId);
-				const pageSegments = _segmentation[_currentPage].segments;
-				const pageFixedSegments = _settings.pages[_currentPage].segments;
 
-				let readingOrderIsEmpty = false;
 				if(!_exportSettings[_currentPage]){
 					this._initExportSettings(_currentPage);
 				}
+				const pageFixedSegments = _settings.pages[_currentPage].segments;
+				const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
-				// Iterate over Segment-"Map" (Object in JS)
-				Object.keys(pageSegments).forEach((key) => {
-					let hasFixedSegmentCounterpart = false;
-					if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
-						//has no fixedSegment counterpart and has not been deleted
-						_editor.addSegment(pageSegments[key]);
-					}
-				});
+				if(pageSegments){
+					// Iterate over Segment-"Map" (Object in JS)
+					Object.keys(pageSegments).forEach((key) => {
+						let hasFixedSegmentCounterpart = false;
+						if(!pageFixedSegments[key] && !(_exportSettings[_currentPage] && $.inArray(key,_exportSettings[_currentPage].segmentsToIgnore) >= 0)){
+							//has no fixedSegment counterpart and has not been deleted
+							_editor.addSegment(pageSegments[key]);
+						}
+					});
+				}
+
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageFixedSegments).forEach((key) => _editor.addSegment(pageFixedSegments[key],true));
 
@@ -350,7 +352,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			_exportSettings[_currentPage].fixedRegions = _settings.pages[_currentPage].segments;
 		}
 
-		_communicator.prepareExport(_currentPage,_exportSettings[_currentPage]).done(() => {
+		_communicator.prepareExport(_segmentation[_currentPage]).done(() => {
 			this.setPageDownloadable(_currentPage,true);
 			_gui.setExportingInProgress(false);
 			_gui.highlightSavedPage(_currentPage);
@@ -507,7 +509,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 						if(!_exportSettings[_currentPage]){
 							this._initExportSettings(_currentPage);
 						}
-						segmentIDs.push(segment.id);
+						segmentIDs.push(segment);
 						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,this));
 					}
 				}else{

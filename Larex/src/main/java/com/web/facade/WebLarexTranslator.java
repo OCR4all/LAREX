@@ -9,6 +9,7 @@ import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
 
 import com.web.model.BookSettings;
+import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
 
@@ -21,6 +22,7 @@ import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.SegmentationResult;
 
 /**
  * Helper Class to translate Web Objects to Larex Objects
@@ -28,20 +30,21 @@ import larex.segmentation.result.ResultRegion;
  */
 public class WebLarexTranslator {
 
-	public static Parameters translateSettingsToParameters(BookSettings settings,Parameters oldParameters, Size pagesize) {
+	public static Parameters translateSettingsToParameters(BookSettings settings, Parameters oldParameters,
+			Size pagesize) {
 		// TODO Regions
 		Parameters parameters = oldParameters;
-		if(parameters == null){
-			parameters = new Parameters(new RegionManager(),(int) pagesize.height);
+		if (parameters == null) {
+			parameters = new Parameters(new RegionManager(), (int) pagesize.height);
 		}
-		
+
 		parameters.setScaleFactor((double) parameters.getDesiredImageHeight() / pagesize.height);
 		RegionManager regionmanager = parameters.getRegionManager();
-		
-		for(Region region: regionmanager.getRegions()){
+
+		for (Region region : regionmanager.getRegions()) {
 			region.setPositions(new ArrayList<Position>());
 		}
-		
+
 		Map<String, Integer> settingParameters = settings.getParameters();
 		parameters.setBinaryThresh(settingParameters.get("binarythreash"));
 		parameters.setTextDilationX(settingParameters.get("textdilationX"));
@@ -50,7 +53,6 @@ public class WebLarexTranslator {
 		parameters.setImageRemovalDilationY(settingParameters.get("imagedilationY"));
 		parameters.setImageSegType(settings.getImageSegType());
 		parameters.setCombineImages(settings.isCombine());
-		
 
 		for (com.web.model.Region guiRegion : settings.getRegions().values()) {
 			RegionType regionType = guiRegion.getType();
@@ -59,16 +61,15 @@ public class WebLarexTranslator {
 			PriorityPosition priorityPosition = guiRegion.getPriorityPosition();
 
 			Region region = regionmanager.getRegionByType(regionType);
-			if(region == null){
-				region = new Region(regionType, minSize, maxOccurances,
-						priorityPosition, new ArrayList<Position>());
-				
+			if (region == null) {
+				region = new Region(regionType, minSize, maxOccurances, priorityPosition, new ArrayList<Position>());
+
 				regionmanager.addRegion(region);
-			}else{
+			} else {
 				region.setMinSize(minSize);
 				region.setMaxOccurances(maxOccurances);
 			}
-			
+
 			for (Polygon polygon : guiRegion.getPolygons().values()) {
 				List<Point> points = polygon.getPoints();
 				if (points.size() == 4) {
@@ -78,55 +79,77 @@ public class WebLarexTranslator {
 							bottomRight.getY());
 					region.addPosition(position);
 
-					//Set Ignore Region to fixed
-					if(region.getType().equals(RegionType.ignore)){
+					// Set Ignore Region to fixed
+					if (region.getType().equals(RegionType.ignore)) {
 						position.setFixed(true);
 					}
 				}
 			}
-			
+
 		}
 		return parameters;
 	}
 
-	public static PointListManager translateSettingsToPointListManager(BookSettings settings, int pageid){
+	public static PointListManager translateSettingsToPointListManager(BookSettings settings, int pageid) {
 		PointListManager manager = new PointListManager();
-		
+
 		ArrayList<PointList> fixedSegments = new ArrayList<PointList>();
-		for(Polygon fixedSegment: settings.getPage(pageid).getFixedSegments().values()){
+		for (Polygon fixedSegment : settings.getPage(pageid).getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
-			for(Point point: fixedSegment.getPoints()){
+			for (Point point : fixedSegment.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			PointList fixedPointList = new PointList(points,fixedSegment.getId());
+			PointList fixedPointList = new PointList(points, fixedSegment.getId());
 			fixedPointList.setType(fixedSegment.getType());
 			fixedPointList.setClosed(true);
 			fixedSegments.add(fixedPointList);
 		}
 		manager.setPointLists(fixedSegments);
 
-		for(Polygon cuts: settings.getPage(pageid).getCuts().values()){
+		for (Polygon cuts : settings.getPage(pageid).getCuts().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
-			for(Point point: cuts.getPoints()){
+			for (Point point : cuts.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
 			manager.addPointList(points, cuts.getId());
 		}
-		
+
 		return manager;
 	}
-	
+
+	public static SegmentationResult translateSegmentationToSegmentationResult(PageSegmentation segmentation) {
+		ArrayList<ResultRegion> regions = new ArrayList<ResultRegion>();
+
+		for (String poly : segmentation.getSegments().keySet()) {
+			Polygon polygon = segmentation.getSegments().get(poly);
+			regions.add(translateSegmentToResultRegion(polygon));
+		}
+		SegmentationResult result = new SegmentationResult(regions);
+		
+		// Reading Order
+		ArrayList<ResultRegion> readingOrder = new ArrayList<ResultRegion>();
+		List<String> readingOrderStrings = segmentation.getReadingOrder();
+		for (String regionID : readingOrderStrings) {
+			ResultRegion region = result.getRegionByID(regionID);
+			if (region != null) {
+				readingOrder.add(region);
+			}
+		}
+		result.setReadingOrder(readingOrder);
+		return result;
+	}
+
 	public static ResultRegion translateSegmentToResultRegion(Polygon segment) {
 		LinkedList<org.opencv.core.Point> points = new LinkedList<org.opencv.core.Point>();
-		
-		for(Point segmentPoint: segment.getPoints()){
-			points.add(new org.opencv.core.Point(segmentPoint.getX(),segmentPoint.getY()));
+
+		for (Point segmentPoint : segment.getPoints()) {
+			points.add(new org.opencv.core.Point(segmentPoint.getX(), segmentPoint.getY()));
 		}
-		
+
 		MatOfPoint resultPoints = new MatOfPoint();
 		resultPoints.fromList(points);
-		
-		ResultRegion result = new ResultRegion(segment.getType(),resultPoints,segment.getId());
+
+		ResultRegion result = new ResultRegion(segment.getType(), resultPoints, segment.getId());
 		return result;
 	}
 }

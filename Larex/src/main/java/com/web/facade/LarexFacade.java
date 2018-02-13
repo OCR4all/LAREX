@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -29,7 +28,6 @@ import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
-import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationStatus;
 import com.web.model.Book;
 import com.web.model.BookSettings;
@@ -43,7 +41,6 @@ import larex.export.SettingsReader;
 import larex.export.SettingsWriter;
 import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
-import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
@@ -64,14 +61,12 @@ public class LarexFacade implements IFacade {
 	private Parameters parameters;
 	private Document exportSettings;
 	private boolean isInit = false;
-	private HashMap<Integer, larex.dataManagement.Page> segmentedLarexPages;
 
 	@Override
 	public void init(Book book, String resourcepath) {
 		this.book = book;
 		this.resourcepath = resourcepath;
 		this.isInit = true;
-		this.segmentedLarexPages = new HashMap<Integer, larex.dataManagement.Page>();
 	}
 
 	@Override
@@ -96,13 +91,6 @@ public class LarexFacade implements IFacade {
 		this.segmenter = null;
 		this.parameters = null;
 		this.isInit = false;
-		if (segmentedLarexPages != null) {
-			for (int pageNr : segmentedLarexPages.keySet()) {
-				this.segmentedLarexPages.get(pageNr).clean();
-			}
-		}
-		this.segmentedLarexPages = null;
-		System.gc();
 	}
 
 	@Override
@@ -132,48 +120,11 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public void prepareExport(ExportRequest exportRequest) {
-		// shallow clown page (ResultRegions are not cloned)
-		exportPage = segmentedLarexPages.get(exportRequest.getPage()).clone();
-		SegmentationResult result = exportPage.getSegmentationResult();
-
-		// Deleted
-		for (String segmentID : exportRequest.getSegmentsToIgnore()) {
-			result.removeRegionByID(segmentID);
-		}
-
-		// ChangedTypes
-		for (Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()) {
-			// clone ResultRegion before changing it
-			if (result.getRegionByID(changeType.getKey()) != null) {
-				ResultRegion clone = result.removeRegionByID(changeType.getKey()).clone();
-				clone.setType(changeType.getValue());
-				result.addRegion(clone);
-			}
-		}
-
-		// FixedSegments
-		Map<String, Polygon> fixedSegments = exportRequest.getFixedRegions();
-		if (fixedSegments != null) {
-			for (String fixedSegmentID : fixedSegments.keySet()) {
-				// Replace Region with fixed Region if exists
-				result.removeRegionByID(fixedSegmentID);
-				result.addRegion(WebLarexTranslator.translateSegmentToResultRegion(fixedSegments.get(fixedSegmentID)));
-			}
-		}
-
-		// Reading Order
-		ArrayList<ResultRegion> readingOrder = new ArrayList<ResultRegion>();
-		List<String> readingOrderStrings = exportRequest.getReadingOrder();
-		for (String regionID : readingOrderStrings) {
-			ResultRegion region = result.getRegionByID(regionID);
-			if (region != null) {
-				readingOrder.add(region);
-			}
-		}
-		result.setReadingOrder(readingOrder);
+	public void prepareExport(PageSegmentation segmentation) {
+		exportPage = getLarexPage(book.getPage(segmentation.getPage()));
+		exportPage.setSegmentationResult(WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation));
 	}
-
+	
 	@Override
 	public ResponseEntity<byte[]> getPageXML(String version) {
 		if (exportPage != null) {
@@ -234,16 +185,14 @@ public class LarexFacade implements IFacade {
 
 		return new ResponseEntity<byte[]>(documentbytes, headers, HttpStatus.OK);
 	}
-
+	
 	@Override
-	public Polygon merge(List<String> segments, int pageNr) {
-		SegmentationResult resultPage = segmentedLarexPages.get(pageNr).getSegmentationResult();
-
+	public Polygon merge(List<Polygon> segments, int pageNr) {
 		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
-		for (String segmentID : segments) {
-			resultRegions.add(resultPage.getRegionByID(segmentID));
-		}
-		larex.dataManagement.Page page = segmentedLarexPages.get(pageNr);
+		for(Polygon segment: segments)
+			resultRegions.add(WebLarexTranslator.translateSegmentToResultRegion(segment));
+
+		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr));
 		page.initPage();
 		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary());
 		page.clean();
@@ -251,7 +200,7 @@ public class LarexFacade implements IFacade {
 
 		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
 	}
-
+	
 	private PageSegmentation segment(BookSettings settings, Page page) {
 		PageSegmentation segmentation = null;
 		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page);
@@ -293,8 +242,6 @@ public class LarexFacade implements IFacade {
 
 			currentLarexPage.clean();
 
-			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
-
 			System.gc();
 			return currentLarexPage;
 		} else {
@@ -310,7 +257,6 @@ public class LarexFacade implements IFacade {
 		if (new File(imagePath).exists()) {
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
 			currentLarexPage.setSegmentationResult(result);
-			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
 			return currentLarexPage;
 		} else {
 			System.err.println(
@@ -319,6 +265,15 @@ public class LarexFacade implements IFacade {
 		}
 	}
 
+	private larex.dataManagement.Page getLarexPage(Page page){
+		String imagePath = resourcepath + File.separator + page.getImage();
+
+		if (new File(imagePath).exists()) {
+			return new larex.dataManagement.Page(imagePath);
+		}
+		return null;
+	}
+	
 	@Override
 	public BookSettings readSettings(byte[] settingsFile) {
 		BookSettings settings = null;
@@ -358,11 +313,6 @@ public class LarexFacade implements IFacade {
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
 			PageSegmentation pageSegmentation = LarexWebTranslator
 					.translateResultRegionsToSegmentation(result.getRegions(), page.getId());
-
-			// set pageXML as segmented page
-			larex.dataManagement.Page larexPage = segmentedLarexPages.get(pageNr);
-			larexPage.setSegmentationResult(result);
-			segmentedLarexPages.put(pageNr, larexPage);
 
 			List<String> readingOrder = new ArrayList<String>();
 			for (ResultRegion region : result.getReadingOrder()) {

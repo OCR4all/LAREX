@@ -64,18 +64,18 @@ function Communicator() {
 		return status;
 	}
 
-	this.requestMergedSegment = function(segmentIDs,pageID) {
+	this.requestMergedSegment = function(segments,pageID) {
 		// Deferred object for function status
 		const status = $.Deferred();
+
+		const mergeRequest = {segments : segments, pageid: pageID}
 
 		$.ajax({
 			type : "POST",
 			url : "merge",
 			dataType : "json",
-			data : {
-				segmentids : segmentIDs,
-				pageid : pageID
-			},
+			contentType: "application/json",
+			data : JSON.stringify(mergeRequest),
 			beforeSend : () => console.log("Merge load: start"),
 			success : (data) => {
 				console.log('Merge load: successful');
@@ -89,27 +89,15 @@ function Communicator() {
 		return status;
 	}
 
-	this.prepareExport = function(pageID, exportSettings){
+	this.prepareExport = function(segmentation){
 		// Deferred object for function status
 		const status = $.Deferred();
-
-		const readingOrder = [];
-		for(const i = 0; i < exportSettings.readingOrder.length; i++){
-			readingOrder.push(exportSettings.readingOrder[i].id);
-		}
-
-		const segmentationRequest = {	page: pageID,
-									segmentsToIgnore:exportSettings.segmentsToIgnore,
-									changedTypes:exportSettings.changedTypes,
-									segmentsToMerge:exportSettings.segmentsToMerge,
-									fixedRegions:exportSettings.fixedRegions,
-									 readingOrder:readingOrder}
 
 		$.ajax({
 			type : "POST",
 			url : "prepareExport",
 			contentType: "application/json",
-			data : JSON.stringify(segmentationRequest),
+			data : JSON.stringify(segmentation),
 			beforeSend : () => console.log("Prepare Export: start"),
 			success : (data) => {
 				console.log('Prepare Export: successful');
@@ -232,17 +220,10 @@ function Communicator() {
 				console.log("Segmentation load: start");
 			}
 		}).done((data) => {
-					const pictureSegmentation = data;
-
-					pictureSegmentation.segments.forEach(function(segment) {
-						//_state.addSegment(segment.id, JSON.stringify(segment.points), segment.type);
-					});
-
-					status.resolve();
-
-					console.log("Segmentation load: successful");
-			}).fail(() => console.log("Segmentation load: failed")
-			).always(() => console.log("Segmentation load: complete"));
+			status.resolve();
+			console.log("Segmentation load: successful");
+		}).fail(() => console.log("Segmentation load: failed")
+		).always(() => console.log("Segmentation load: complete"));
 
 		return status;
 	}
