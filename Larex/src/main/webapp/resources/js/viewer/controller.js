@@ -478,14 +478,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				if(!_exportSettings[_currentPage]){
 					this._initExportSettings(_currentPage);
 				}
-				let segment = _settings.pages[_currentPage].segments[_selected[i]];
-				//Check if result segment or fixed segment (null -> result region)
-				if(!segment){
-					segment = _segmentation[_currentPage].segments[_selected[i]];
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,this));
-				}else{
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage,_exportSettings,this,true));
-				}
+				let segment = _segmentation[_currentPage].segments[_selected[i]];
+				actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,this));
 			}else if(_selectType === "line"){
 				let cut = _settings.pages[_currentPage].cuts[_selected[i]];
 				actions.push(new ActionRemoveCut(cut,_editor,_settings,_currentPage));
@@ -500,31 +494,22 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		const segmentIDs = [];
 		for (let i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
 			if(_selectType === "segment"){
-				let segment = _settings.pages[_currentPage].segments[_selected[i]];
-				//Check if result segment or fixed segment (null -> fixed segment)
-				if(!segment){
-					segment = _segmentation[_currentPage].segments[_selected[i]];
-					//filter special case image (do not merge images)
-					if(segment.type !== 'image'){
-						if(!_exportSettings[_currentPage]){
-							this._initExportSettings(_currentPage);
-						}
-						segmentIDs.push(segment);
-						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,this));
+				let segment = _segmentation[_currentPage].segments[_selected[i]];
+				//filter special case image (do not merge images)
+				if(segment.type !== 'image'){
+					if(!_exportSettings[_currentPage]){
+						this._initExportSettings(_currentPage);
 					}
-				}else{
-					/*//Fixed Segments can't be merged atm
-					segment = _settings.pages[_currentPage].segments[_selected[i]];
-					segmentIDs.push(segment.id);
-					actions.push(new ActionRemoveSegment(segment,_editor,_settings,_currentPage));*/
+					segmentIDs.push(segment);
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,_exportSettings,this));
 				}
 			}
 		}
 		if(segmentIDs.length > 1){
 			_communicator.requestMergedSegment(segmentIDs,_currentPage).done((data) => {
 				const mergedSegment = data;
-				actions.push(new ActionAddFixedSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-						_editor, _settings, _currentPage, _exportSettings,this));
+				actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
+						_editor, _segmentation, _currentPage, _exportSettings,this));
 
 				this.unSelect();
 
@@ -546,18 +531,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 					this.hideRegion(newType,false);
 				} else if(_selectType === "segment"){
-					const isFixedSegment = (_settings.pages[_currentPage].segments[_selected[i]]);
-					if(isFixedSegment){
-						if(!_exportSettings[_currentPage]){
-							this._initExportSettings(_currentPage);
-						}
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, this, _settings, _currentPage,_exportSettings,isFixedSegment));
-					}else{
-						if(!_exportSettings[_currentPage]){
-							this._initExportSettings(_currentPage);
-						}
-						actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, this, _segmentation, _currentPage,_exportSettings,isFixedSegment));
+					if(!_exportSettings[_currentPage]){
+						this._initExportSettings(_currentPage);
 					}
+					actions.push(new ActionChangeTypeSegment(_selected[i], newType, _editor, this, _segmentation, _currentPage,_exportSettings,false));
 				}
 			}
 			const multiChange = new ActionMultiple(actions);
@@ -646,8 +623,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(!_exportSettings[_currentPage]){
 			this._initExportSettings(_currentPage);
 		}
-		const actionAdd = new ActionAddFixedSegment(newID, segmentpoints, type,
-				_editor, _settings, _currentPage,_exportSettings,this);
+		const actionAdd = new ActionAddSegment(newID, segmentpoints, type,
+				_editor, _segmentation, _currentPage,_exportSettings,this);
 
 		_actionController.addAndExecuteAction(actionAdd,_currentPage);
 		this.openContextMenu(false,newID);
@@ -665,11 +642,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.transformSegment = function(segmentID,segmentPoints){
-		const polygonType = this._getMainType(segmentID);
-		if(polygonType === "fixed"){
-			const actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_settings,_currentPage);
-			_actionController.addAndExecuteAction(actionTransformSegment,_currentPage);
-		}
+		const actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_segmentation,_currentPage);
+		_actionController.addAndExecuteAction(actionTransformSegment,_currentPage);
 	}
 
 	this.transformRegion = function(regionID,regionSegments){
@@ -698,23 +672,13 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.changeSegmentType = function(id, type){
-		const polygonType = this._getMainType(id);
-		if(polygonType === "result"){
-			if(_segmentation[_currentPage].segments[id].type != type){
-				if(!_exportSettings[_currentPage]){
-					this._initExportSettings(_currentPage);
-				}
-				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage,_exportSettings,false);
-				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
+		if(_segmentation[_currentPage].segments[id].type != type){
+			if(!_exportSettings[_currentPage]){
+				this._initExportSettings(_currentPage);
 			}
-		}else if(polygonType === "fixed"){
-			//segment is fixed segment not result segment
-			if(_settings.pages[_currentPage].segments[id].type != type){
-				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _settings, _currentPage,_exportSettings,true);
-				_actionController.addAndExecuteAction(actionChangeType,_currentPage);
-			}
+			const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage,_exportSettings,false);
+			_actionController.addAndExecuteAction(actionChangeType,_currentPage);
 		}
-
 	}
 
 	this.openRegionSettings = function(regionType,doCreate){
@@ -769,7 +733,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
 		Object.keys(region.polygons).forEach((polygonKey) => {
-			let polygon = region.polygons[polygonKey];
+			let polygon = region.polygonssegmentation[polygonKey];
 			if(polygon.type === regionType){
 				_editor.updateSegment(polygon);
 			}

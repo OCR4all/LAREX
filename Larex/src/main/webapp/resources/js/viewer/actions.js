@@ -118,12 +118,7 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 
 function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentation,page,exportSettings,isFixedSegment){
 	let _isExecuted = false;
-	let _segment;
-	if(isFixedSegment){
-		_segment = segmentation.pages[page].segments[segmentID];
-	}else{
-		_segment = segmentation[page].segments[segmentID];
-	}
+	let _segment = segmentation[page].segments[segmentID];
 	const _oldType = _segment.type;
 	let _actionReadingOrder = null;
 	if(newType === 'image'){
@@ -253,14 +248,14 @@ function ActionRemoveCompleteRegion(regionType,controller,editor,settings,contro
 	}
 }
 
-function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSettings,controller){
+function ActionAddSegment(id,points,type,editor,segmentation,page,exportSettings,controller){
 	let _isExecuted = false;
 	const _segment = {id:id, points:points, type:type, isRelative:false};
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			settings.pages[page].segments[_segment.id] = _segment;
+			segmentation[page].segments[_segment.id] = _segment;
 			editor.addSegment(_segment,true);
 			if(exportSettings){
 				exportSettings[page].segmentsToIgnore = jQuery.grep(exportSettings[page].segmentsToIgnore, function(value) {
@@ -273,7 +268,7 @@ function ActionAddFixedSegment(id,points,type,editor,settings,page,exportSetting
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
-			delete settings.pages[page].segments[_segment.id];
+			delete segmentation[page].segments[_segment.id];
 			editor.removeSegment(_segment.id);
 			if(exportSettings){
 				exportSettings[page].segmentsToIgnore.push(_segment.id);
@@ -291,11 +286,7 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,con
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			if(isFixedSegment){
-				delete segmentation.pages[page].segments[_segment.id]; 
-			}else{
-				delete segmentation[page].segments[_segment.id]; 
-			}
+			delete segmentation[page].segments[_segment.id]; 
 			editor.removeSegment(_segment.id);
 
 			if(exportSettings){
@@ -308,11 +299,7 @@ function ActionRemoveSegment(segment,editor,segmentation,page,exportSettings,con
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
-			if(isFixedSegment){
-				segmentation.pages[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
-			}else{
-				segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
-			}
+			segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			editor.addSegment(_segment);
 			if(exportSettings){
 				exportSettings[page].segmentsToIgnore = jQuery.grep(exportSettings[page].segmentsToIgnore, function(value) {
@@ -404,16 +391,16 @@ function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,
 	}
 }
 
-function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
+function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page){
 	let _isExecuted = false;
 	const _id = id;
 	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
-	const _oldRegionPoints = JSON.parse(JSON.stringify(settings.pages[page].segments[_id].points));
+	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[_id].points));
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			let segment = settings.pages[page].segments[_id];
+			let segment = segmentation[page].segments[_id];
 			segment.points = _newRegionPoints;
 			viewer.updateSegment(segment);
 			console.log('Do - Transform Segment: {id:"'+_id+' [..]}');
@@ -422,7 +409,7 @@ function ActionTransformSegment(id,segmentPoints,viewer,settings,page){
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
-			let segment = settings.pages[page].segments[_id];
+			let segment = segmentation[page].segments[_id];
 			segment.points = _oldRegionPoints;
 			viewer.updateSegment(segment);
 			console.log('Undo - Transform Segment: {id:"'+_id+' [..]}');
