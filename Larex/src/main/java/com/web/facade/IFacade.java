@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 
-import com.web.communication.ExportRequest;
 import com.web.model.Book;
 import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;

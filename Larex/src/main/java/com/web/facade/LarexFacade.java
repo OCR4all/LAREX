@@ -194,7 +194,7 @@ public class LarexFacade implements IFacade {
 
 		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr));
 		page.initPage();
-		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary());
+		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary().size());
 		page.clean();
 		System.gc();
 

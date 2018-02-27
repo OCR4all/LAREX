@@ -9,6 +9,7 @@ import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import larex.imageProcessing.Contour;
@@ -18,12 +19,12 @@ import larex.segmentation.result.ResultRegion;
 
 public class Merge {
 
-	public static ResultRegion merge(ArrayList<ResultRegion> toMerge, Mat binary) {
+	public static ResultRegion merge(ArrayList<ResultRegion> toMerge, Size binarySize) {
 		if (toMerge.size() < 2) {
 			return null;
 		}
 
-		Mat temp = new Mat(binary.size(), CvType.CV_8UC1, new Scalar(0));
+		Mat temp = new Mat(binarySize, CvType.CV_8UC1, new Scalar(0));
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		ArrayList<Point> cogs = new ArrayList<Point>();
 
@@ -70,6 +71,7 @@ public class Merge {
 
 		contours = Contour.findContours(temp);
 
+		temp.release();
 		if (contours.size() > 0) {
 			// TODO: Typvergabe!
 			ResultRegion newResult = new ResultRegion(toMerge.get(0).getType(), contours.get(0));
@@ -80,10 +82,10 @@ public class Merge {
 		return null;
 	}
 
-	public static ResultRegion mergeFromRect(Rect rect, ArrayList<ResultRegion> allRegions, Mat binary) {
+	public static ResultRegion mergeFromRect(Rect rect, ArrayList<ResultRegion> allRegions, Size binarySize) {
 		ArrayList<ResultRegion> toMerge = detectSegmentsWithinRoI(rect, allRegions);
 
-		return merge(toMerge, binary);
+		return merge(toMerge, binarySize);
 	}
 
 	private static ArrayList<ResultRegion> detectSegmentsWithinRoI(Rect rect, ArrayList<ResultRegion> regions) {
