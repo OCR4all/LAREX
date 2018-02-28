@@ -240,7 +240,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 						_segmentation[pageID] = result;
 
 						_actionController.resetActions(pageID);
-						//check if all necessary regions are availablecurrentLarexPage
+						//check if all necessary regions are available
 						Object.keys(result.segments).forEach((segmentID) => {
 							let segment = result.segments[segmentID];
 							if($.inArray(segment.type,_presentRegions) == -1){

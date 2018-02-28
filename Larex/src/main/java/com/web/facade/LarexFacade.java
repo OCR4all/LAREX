@@ -60,7 +60,6 @@ public class LarexFacade implements IFacade {
 
 	private FileManager fileManager;
 	private Map<Integer, larex.dataManagement.Page> exportPages = new HashMap<Integer, larex.dataManagement.Page>();
-	private Segmenter segmenter;
 	private Map<Integer, Document> exportSettings = new HashMap<Integer, Document>();
 	private boolean isInit = false;
 
@@ -77,7 +76,6 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public void clear() {
-		this.segmenter = null;
 		this.isInit = false;
 	}
 
@@ -91,7 +89,6 @@ public class LarexFacade implements IFacade {
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			setPageResult(page, loadedResult);
 			return LarexWebTranslator.translateResultRegionsToSegmentation(loadedResult.getRegions(), page.getId());
 		} else {
 			return segment(settings, page);
@@ -145,7 +142,7 @@ public class LarexFacade implements IFacade {
 	@Override
 	public ResponseEntity<byte[]> getSettingsXML(int bookID) {
 		if (exportSettings != null) {
-			return convertDocumentToByte(exportSettings.get(bookID), "settings_"+getBook(bookID).getName());
+			return convertDocumentToByte(exportSettings.get(bookID), "settings_" + getBook(bookID).getName());
 		} else {
 			throw new IllegalStateException("Setting can't be returned. No Setting has been prepared for export.");
 		}
@@ -222,31 +219,13 @@ public class LarexFacade implements IFacade {
 			parameters.getRegionManager().setPointListManager(
 					WebLarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
 
-			if (segmenter == null) {
-				segmenter = new Segmenter(parameters);
-			} else {
-				segmenter.setParameters(parameters);
-			}
+			Segmenter segmenter = new Segmenter(parameters);
 			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
 			currentLarexPage.setSegmentationResult(segmentationResult);
 
 			currentLarexPage.clean();
 
 			System.gc();
-			return currentLarexPage;
-		} else {
-			System.err.println(
-					"Warning: Image file could not be found. Segmentation result will be empty. File: " + imagePath);
-			return null;
-		}
-	}
-
-	private larex.dataManagement.Page setPageResult(Page page, SegmentationResult result) {
-		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
-
-		if (new File(imagePath).exists()) {
-			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
-			currentLarexPage.setSegmentationResult(result);
 			return currentLarexPage;
 		} else {
 			System.err.println(
