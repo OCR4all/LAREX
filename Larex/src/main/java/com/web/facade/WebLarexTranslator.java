@@ -30,14 +30,10 @@ import larex.segmentation.result.SegmentationResult;
  */
 public class WebLarexTranslator {
 
-	public static Parameters translateSettingsToParameters(BookSettings settings, Parameters oldParameters,
+	public static Parameters translateSettingsToParameters(BookSettings settings,
 			Size pagesize) {
-		// TODO Regions
-		Parameters parameters = oldParameters;
-		if (parameters == null) {
-			parameters = new Parameters(new RegionManager(), (int) pagesize.height);
-		}
-
+		Parameters parameters = new Parameters(new RegionManager(), (int) pagesize.height);
+		
 		parameters.setScaleFactor((double) parameters.getDesiredImageHeight() / pagesize.height);
 		RegionManager regionmanager = parameters.getRegionManager();
 

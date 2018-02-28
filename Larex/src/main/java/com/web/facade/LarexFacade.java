@@ -59,9 +59,8 @@ import larex.segmentation.result.SegmentationResult;
 public class LarexFacade implements IFacade {
 
 	private FileManager fileManager;
-	private Map<Integer,larex.dataManagement.Page> exportPages = new HashMap<Integer, larex.dataManagement.Page>();
+	private Map<Integer, larex.dataManagement.Page> exportPages = new HashMap<Integer, larex.dataManagement.Page>();
 	private Segmenter segmenter;
-	private Parameters parameters;
 	private Document exportSettings;
 	private boolean isInit = false;
 
@@ -79,7 +78,6 @@ public class LarexFacade implements IFacade {
 	@Override
 	public void clear() {
 		this.segmenter = null;
-		this.parameters = null;
 		this.isInit = false;
 	}
 
@@ -140,7 +138,7 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public void prepareSettings(BookSettings settings) {
-		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, null, new Size());
+		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
 		exportSettings = SettingsWriter.getSettingsXML(parameters);
 	}
 
@@ -221,7 +219,7 @@ public class LarexFacade implements IFacade {
 
 			Size pagesize = currentLarexPage.getOriginal().size();
 
-			parameters = WebLarexTranslator.translateSettingsToParameters(settings, parameters, pagesize);
+			Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, pagesize);
 			parameters.getRegionManager().setPointListManager(
 					WebLarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
 
@@ -275,7 +273,7 @@ public class LarexFacade implements IFacade {
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(new ByteArrayInputStream(settingsFile));
 
-			Book book = getBook(bookID);			
+			Book book = getBook(bookID);
 			Page page = book.getPage(0);
 			String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
