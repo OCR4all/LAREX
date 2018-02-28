@@ -46,7 +46,7 @@ public interface IFacade {
 
 	public void prepareSettings(BookSettings settings);
 
-	public ResponseEntity<byte[]> getSettingsXML();
+	public ResponseEntity<byte[]> getSettingsXML(int bookID);
 
 	public BookSettings readSettings(byte[] settingsFile, int bookID);
 

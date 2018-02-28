@@ -155,17 +155,22 @@ public class FileController {
 	}
 
 	@RequestMapping(value = "/downloadSettings")
-	public @ResponseBody ResponseEntity<byte[]> downloadSettings() {
-		return facade.getSettingsXML();
+	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestParam("bookID") Integer bookID) {
+		return facade.getSettingsXML(bookID);
 	}
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
-	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file) {
-		BookSettings settings = null;/*
-										 * facade.getDefaultSettings(facade.getBook()); if (!file.isEmpty()) { try {
-										 * byte[] bytes = file.getBytes(); settings = facade.readSettings(bytes); }
-										 * catch (Exception e) { } }
-										 */
+	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,@RequestParam("bookID") int bookID) {
+		BookSettings settings = null;
+		facade.getDefaultSettings(facade.getBook(bookID));
+		if (!file.isEmpty()) {
+			try {
+				byte[] bytes = file.getBytes();
+				settings = facade.readSettings(bytes,bookID);
+			} catch (Exception e) {
+			}
+		}
+
 		return settings;
 	}
 

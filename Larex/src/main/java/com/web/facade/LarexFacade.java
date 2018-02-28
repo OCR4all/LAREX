@@ -61,7 +61,7 @@ public class LarexFacade implements IFacade {
 	private FileManager fileManager;
 	private Map<Integer, larex.dataManagement.Page> exportPages = new HashMap<Integer, larex.dataManagement.Page>();
 	private Segmenter segmenter;
-	private Document exportSettings;
+	private Map<Integer, Document> exportSettings = new HashMap<Integer, Document>();
 	private boolean isInit = false;
 
 	@Override
@@ -139,14 +139,13 @@ public class LarexFacade implements IFacade {
 	@Override
 	public void prepareSettings(BookSettings settings) {
 		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
-		exportSettings = SettingsWriter.getSettingsXML(parameters);
+		exportSettings.put(settings.getBookID(), SettingsWriter.getSettingsXML(parameters));
 	}
 
 	@Override
-	public ResponseEntity<byte[]> getSettingsXML() {
+	public ResponseEntity<byte[]> getSettingsXML(int bookID) {
 		if (exportSettings != null) {
-			// TODO Bookname?
-			return convertDocumentToByte(exportSettings, "book_settings");
+			return convertDocumentToByte(exportSettings.get(bookID), "settings_"+getBook(bookID).getName());
 		} else {
 			throw new IllegalStateException("Setting can't be returned. No Setting has been prepared for export.");
 		}

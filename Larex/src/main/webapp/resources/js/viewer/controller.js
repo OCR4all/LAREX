@@ -349,7 +349,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 	this.downloadSettingsXML = function(){
 		if(_currentSettingsDownloadable){
-			const popup_download = window.open("downloadSettings");
+			const popup_download = window.open("downloadSettings?bookID="+bookID);
 			try {
 				popup_download.focus();
 			} catch(e){
@@ -370,7 +370,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.uploadSettings = function(file){
-		_communicator.uploadSettings(file).done((settings) => {
+		_communicator.uploadSettings(file, bookID).done((settings) => {
 			if(settings){
 				_settings = settings;
 				_presentRegions = [];

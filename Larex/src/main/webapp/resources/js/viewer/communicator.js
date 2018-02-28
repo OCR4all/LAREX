@@ -136,11 +136,12 @@ function Communicator() {
 		return status;
 	}
 
-	this.uploadSettings = function(file) {
+	this.uploadSettings = function(file, bookID) {
 		// Deferred object for function status
 		const status = $.Deferred();
 		const formData = new FormData();
 		formData.append("file", file);
+		formData.append("bookID", bookID)
 
 		jQuery.ajax({
 		    url: 'uploadSettings',
