@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
@@ -53,7 +54,8 @@ public class FileController {
 
 	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
-			@PathVariable("image") final String image, @RequestParam(value= "resize", defaultValue = "false") boolean doResize) throws IOException {
+			@PathVariable("image") final String image,
+			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
 		// Find file with image name
 		init();
 		File directory = new File(fileManager.getBooksPath() + File.separator + book);
@@ -69,18 +71,18 @@ public class FileController {
 
 		// load Mat
 		Mat imageMat = Highgui.imread(matchingFiles[0].getAbsolutePath());
-		
+
 		// resize
-		if(doResize) {
+		if (doResize) {
 			Mat resizeImage = new Mat();
 			int width = 300;
-			int height = (int) (imageMat.rows()*((width*1.0)/imageMat.cols()));
-			Size sz = new Size(width,height);
-			Imgproc.resize(imageMat, resizeImage, sz );
+			int height = (int) (imageMat.rows() * ((width * 1.0) / imageMat.cols()));
+			Size sz = new Size(width, height);
+			Imgproc.resize(imageMat, resizeImage, sz);
 			imageMat.release();
 			imageMat = resizeImage;
 		}
-		
+
 		// Convert to png
 		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
 		ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
@@ -89,8 +91,8 @@ public class FileController {
 
 		// Create header to display the image
 		HttpHeaders headers = new HttpHeaders();
-		
-		headers.setLastModified(matchingFiles[0].lastModified()/*Calendar.getInstance().getTime().getTime()*/);
+
+		headers.setLastModified(matchingFiles[0].lastModified()/* Calendar.getInstance().getTime().getTime() */);
 		headers.setCacheControl("no-cache");
 		headers.setContentType(MediaType.IMAGE_PNG);
 		headers.setContentLength(pngImageBytes.length);
@@ -98,42 +100,44 @@ public class FileController {
 		// Remove Garbage
 		imageMat.release();
 		System.gc();
-		
+
 		return new ResponseEntity<byte[]>(pngImageBytes, headers, HttpStatus.OK);
 	}
 
 	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
 	public @ResponseBody PageSegmentation uploadSegmentation(@RequestParam("file") MultipartFile file,
-			@RequestParam("pageNr") int pageNr) {
+			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
 		PageSegmentation result = null;
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				result = facade.readPageXML(bytes, pageNr);
+				result = facade.readPageXML(bytes, pageNr, bookID);
 			} catch (Exception e) {
 			}
 		}
 		return result;
 	}
-	
+
 	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody String prepareExport(@RequestBody PageSegmentation segmentation) {
-		facade.prepareExport(segmentation);
+	public @ResponseBody String prepareExport(@RequestBody ExportRequest request) {
+		facade.prepareExport(request.getSegmentation(), request.getBookid());
 		return "Export has been prepared";
 	}
-	
+
 	@RequestMapping(value = "/exportXML")
-	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("version") String version) {
+	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("version") String version,
+			@RequestParam("bookID") Integer bookID) {
 		init();
 		String localsave = config.getSetting("localsave");
 		switch (localsave) {
 		case "bookpath":
-			facade.savePageXMLLocal(fileManager.getBooksPath()+File.separator+facade.getBook().getName(), version);
+			facade.savePageXMLLocal(fileManager.getBooksPath() + File.separator + facade.getBook(bookID).getName(),
+					version, bookID);
 			break;
 		case "savedir":
 			String savedir = config.getSetting("savedir");
 			if (savedir != null && !savedir.equals("")) {
-				facade.savePageXMLLocal(savedir, version);
+				facade.savePageXMLLocal(savedir, version, bookID);
 			} else {
 				System.err.println("Warning: Save dir is not set. File could not been saved.:w");
 			}
@@ -141,7 +145,7 @@ public class FileController {
 		case "none":
 		case "default":
 		}
-		return facade.getPageXML(version);
+		return facade.getPageXML(version, bookID);
 	}
 
 	@RequestMapping(value = "/saveSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
@@ -157,14 +161,11 @@ public class FileController {
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
 	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file) {
-		BookSettings settings = facade.getDefaultSettings(facade.getBook());
-		if (!file.isEmpty()) {
-			try {
-				byte[] bytes = file.getBytes();
-				settings = facade.readSettings(bytes);
-			} catch (Exception e) {
-			}
-		}
+		BookSettings settings = null;/*
+										 * facade.getDefaultSettings(facade.getBook()); if (!file.isEmpty()) { try {
+										 * byte[] bytes = file.getBytes(); settings = facade.readSettings(bytes); }
+										 * catch (Exception e) { } }
+										 */
 		return settings;
 	}
 
@@ -180,23 +181,23 @@ public class FileController {
 			}
 		}
 	}
-	
+
 	private BufferedImage convertMatToBufferedImage(Mat imageMat) {
 		BufferedImage bufferedImage = null;
 		int imageHeight = imageMat.rows();
 		int imageWidth = imageMat.cols();
-        byte[] data = new byte[imageHeight * imageWidth * (int)imageMat.elemSize()];
-        int type;
-        imageMat.get(0, 0, data);
+		byte[] data = new byte[imageHeight * imageWidth * (int) imageMat.elemSize()];
+		int type;
+		imageMat.get(0, 0, data);
 
-        if(imageMat.channels() == 1)
-            type = BufferedImage.TYPE_BYTE_GRAY;
-        else
-            type = BufferedImage.TYPE_3BYTE_BGR;
-        
-        bufferedImage = new BufferedImage(imageWidth, imageHeight, type);
+		if (imageMat.channels() == 1)
+			type = BufferedImage.TYPE_BYTE_GRAY;
+		else
+			type = BufferedImage.TYPE_3BYTE_BGR;
 
-        bufferedImage.getRaster().setDataElements(0, 0, imageWidth, imageHeight, data);
-        return bufferedImage;
+		bufferedImage = new BufferedImage(imageWidth, imageHeight, type);
+
+		bufferedImage.getRaster().setDataElements(0, 0, imageWidth, imageHeight, data);
+		return bufferedImage;
 	}
 }

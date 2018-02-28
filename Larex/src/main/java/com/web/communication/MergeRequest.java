@@ -5,7 +5,6 @@ import java.util.List;
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import com.web.model.BookSettings;
 import com.web.model.Polygon;
 
 /**
@@ -14,13 +13,17 @@ import com.web.model.Polygon;
  */
 public class MergeRequest {
 
+	@JsonProperty("bookid")
+	private Integer bookid;
 	@JsonProperty("pageid")
 	private Integer page;
 	@JsonProperty("segments")
 	private List<Polygon> segments;
 
 	@JsonCreator
-	public MergeRequest(@JsonProperty("pageid") Integer page, @JsonProperty("segments") List<Polygon> segments) {
+	public MergeRequest(@JsonProperty("bookid") Integer bookid, @JsonProperty("pageid") Integer page,
+			@JsonProperty("segments") List<Polygon> segments) {
+		this.bookid = bookid;
 		this.page = page;
 		this.segments = segments;
 	}
@@ -32,4 +35,8 @@ public class MergeRequest {
 	public List<Polygon> getSegments() {
 		return segments;
 	}
+
+	public Integer getBookid() {
+		return bookid;
+}
 }

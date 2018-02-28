@@ -1,72 +1,33 @@
 package com.web.communication;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-
 import org.codehaus.jackson.annotate.JsonCreator;
 import org.codehaus.jackson.annotate.JsonProperty;
 
-import com.web.model.Polygon;
-
-import larex.regions.type.RegionType;
+import com.web.model.PageSegmentation;
 
 /**
- * Communication object for the gui to request an export of a specifit page.
- * Contains the export settings and the page number to export.
+ * Communication object for the gui to request a export of a segmentation
  * 
  */
 public class ExportRequest {
 
-	@JsonProperty("page")
-	private int page;
-	@JsonProperty("segmentsToIgnore")
-	private List<String> segmentsToIgnore;
-	@JsonProperty("segmentsToMerge")
-	private Map<String, ArrayList<String>> segmentsToMerge;
-	@JsonProperty("changedTypes")
-	private Map<String, RegionType> changedTypes;
-	@JsonProperty("fixedRegions")
-	protected Map<String, Polygon> fixedRegions;
-	@JsonProperty("readingOrder")
-	protected List<String> readingOrder;
+	@JsonProperty("bookid")
+	private Integer bookid;
+	@JsonProperty("segmentation")
+	private PageSegmentation segmentation;
 
 	@JsonCreator
-	public ExportRequest(@JsonProperty("page") int page,
-			@JsonProperty("segmentsToIgnore") List<String> segmentsToIgnore,
-			@JsonProperty("segmentsToMerge") Map<String, ArrayList<String>> segmentsToMerge,
-			@JsonProperty("changedTypes") Map<String, RegionType> changedTypes,
-			@JsonProperty("fixedRegions") Map<String, Polygon> fixedRegions,
-			@JsonProperty("readingOrder") List<String> readingOrder) {
-		this.page = page;
-		this.segmentsToIgnore = segmentsToIgnore;
-		this.segmentsToMerge = segmentsToMerge;
-		this.changedTypes = changedTypes;
-		this.fixedRegions = fixedRegions;
-		this.readingOrder = readingOrder;
+	public ExportRequest(@JsonProperty("bookid") Integer bookid,
+			@JsonProperty("segmentation") PageSegmentation segmentation) {
+		this.bookid = bookid;
+		this.segmentation = segmentation;
 	}
 
-	public int getPage() {
-		return page;
+	public Integer getBookid() {
+		return bookid;
 	}
 
-	public List<String> getSegmentsToIgnore() {
-		return segmentsToIgnore;
-	}
-
-	public Map<String, ArrayList<String>> getSegmentsToMerge() {
-		return segmentsToMerge;
-	}
-
-	public Map<String, RegionType> getChangedTypes() {
-		return changedTypes;
-	}
-
-	public Map<String, Polygon> getFixedRegions() {
-		return fixedRegions;
-	}
-
-	public List<String> getReadingOrder() {
-		return readingOrder;
+	public PageSegmentation getSegmentation() {
+		return segmentation;
 	}
 }

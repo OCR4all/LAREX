@@ -64,11 +64,11 @@ function Communicator() {
 		return status;
 	}
 
-	this.requestMergedSegment = function(segments,pageID) {
+	this.requestMergedSegment = function(segments,pageID,bookID) {
 		// Deferred object for function status
 		const status = $.Deferred();
 
-		const mergeRequest = {segments : segments, pageid: pageID}
+		const mergeRequest = {segments : segments, pageid: pageID, bookid: bookID}
 
 		$.ajax({
 			type : "POST",
@@ -89,7 +89,8 @@ function Communicator() {
 		return status;
 	}
 
-	this.prepareExport = function(segmentation){
+	this.prepareExport = function(segmentation,bookID){
+		const exportRequest = {bookid: bookID, segmentation: segmentation}
 		// Deferred object for function status
 		const status = $.Deferred();
 
@@ -97,7 +98,7 @@ function Communicator() {
 			type : "POST",
 			url : "prepareExport",
 			contentType: "application/json",
-			data : JSON.stringify(segmentation),
+			data : JSON.stringify(exportRequest),
 			beforeSend : () => console.log("Prepare Export: start"),
 			success : (data) => {
 				console.log('Prepare Export: successful');
