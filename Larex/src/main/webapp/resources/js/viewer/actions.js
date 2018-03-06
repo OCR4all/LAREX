@@ -250,7 +250,7 @@ function ActionAddSegment(id,points,type,editor,segmentation,page,controller){
 		if(!_isExecuted){
 			_isExecuted = true;
 			segmentation[page].segments[_segment.id] = _segment;
-			editor.addSegment(_segment,true);
+			editor.addSegment(_segment,false);
 			console.log('Do - Add Region Polygon: {id:"'+_segment.id+'",[..],type:"'+_segment.type+'"}');
 		}
 	}
@@ -483,6 +483,25 @@ function ActionAddToReadingOrder(segment,page,segmentation,controller){
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 			controller.forceUpdateReadingOrder(true);
 			console.log('Undo - Add to Reading Order: {id:"'+segment.id+'",[..],type:"'+segment.type+'"}');
+		}
+	}
+}
+function ActionFixSegment(segmentID,controller,doFix = true){
+	let _isExecuted = false;
+
+	this.execute = function(){
+		if(!_isExecuted){
+			_isExecuted = true;
+			controller.fixSegment(segmentID,doFix);
+			console.log('Do - Fix Segment '+segmentID);
+		}
+	}
+	this.undo = function(){
+		if(_isExecuted){
+			_isExecuted = false;
+			
+			controller.fixSegment(segmentID,!doFix);
+			console.log('Undo - Fix Segment '+segmentID);
 		}
 	}
 }

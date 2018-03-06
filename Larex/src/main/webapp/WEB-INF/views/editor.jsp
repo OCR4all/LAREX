@@ -154,6 +154,8 @@
 							tooltip="Scale selected items (Shortcut: S)">Scale</t:menuIcon>
 						<t:menuIcon jsClass="combineSelected" icon="add_circle"
 							tooltip="Combine selected Segments (Shortcut: C)">Combine</t:menuIcon>
+						<t:menuIcon jsClass="fixSelected" icon="lock"
+							tooltip="Fix/unfix Segments (Shortcut: F)">Fix</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="createReadingOrder" icon="timeline"

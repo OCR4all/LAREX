@@ -125,7 +125,7 @@ class Editor extends Viewer{
 				this._tempPath.closed = true;
 				this._tempPath.selected = false;
 				if(this._tempPathType === 'segment'){
-					this._controller.callbackNewFixedSegment(this._convertPointsPathToSegment(this._tempPath,false));
+					this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath,false));
 				}else{
 					this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath,true));
 				}
@@ -164,7 +164,7 @@ class Editor extends Viewer{
 				this._tempPath.selected = false;
 				switch(this._tempPathType){
 					case 'segment':
-						this._controller.callbackNewFixedSegment(this._convertPointsPathToSegment(this._tempPath,false));
+						this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath,false));
 						break;
 					case 'region':
 						this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath,true));
@@ -329,7 +329,7 @@ class Editor extends Viewer{
 
 			if(this._tempPath != null){
 				if(this._tempPathType === 'segment'){
-					this._controller.callbackNewFixedSegment(this._convertPointsPathToSegment(this._tempPath,false));
+					this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath,false));
 				}else{
 					this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath,true));
 				}

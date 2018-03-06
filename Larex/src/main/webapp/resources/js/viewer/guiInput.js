@@ -82,6 +82,7 @@ function GuiInput(navigationController, controller, gui){
 	$('.scaleSelected').click(() => _controller.scaleSelected());
 	$('.moveSelected').click(() => _controller.moveSelected());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
+	$('.fixSelected').click(() => _controller.fixSelected());
 
 	$('.editMode').click(() => _controller.editLastSelected());
 

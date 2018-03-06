@@ -23,6 +23,14 @@ class Viewer{
 		this.drawPath(segment, false, null,isFixed);
 	}
 
+	fixSegment(segmentID,doFix = true){
+		if(doFix){
+			this._paths[segmentID].dashArray = [5, 3];
+		}else{
+			this._paths[segmentID].dashArray = [];
+		}
+	}
+
 	clear() {
 		paper.project.activeLayer.removeChildren();
 		this._paths = {};

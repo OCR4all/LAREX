@@ -101,6 +101,10 @@ function KeyInput(navigationController, controller, gui) {
 					validKey = true;
 				}
 				break;
+			case 70: // F
+				_controller.fixSelected();
+				validKey = true;
+				break;
 			case 77: // M
 				_controller.moveSelected();
 				validKey = true;

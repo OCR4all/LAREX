@@ -27,7 +27,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _isSelecting = false;
 	let _selectType;
 	let _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
-
+	let _fixedSegments = [];
 	let _editReadingOrder = false;
 
 	let _newPathCounter = 0;
@@ -85,7 +85,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 							navigationController.setGUI(_gui);
 							navigationController.setViewer(_editor);
-							// setup paper again because of pre-resize bug
+							// setup paper again because of pre-resize bugcallbackNewFixedSegment
 							// (streched)
 							paper.setup(document.getElementById(canvasID));
 
@@ -136,16 +136,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				if(pageSegments){
 					// Iterate over Segment-"Map" (Object in JS)
 					Object.keys(pageSegments).forEach((key) => {
-						let hasFixedSegmentCounterpart = false;
-						if(!pageFixedSegments[key]){
-							//has no fixedSegment counterpart and has not been deleted
-							_editor.addSegment(pageSegments[key]);
-						}
+						let isFixed = ($.inArray(key,_fixedSegments) !== -1); 
+						_editor.addSegment(pageSegments[key], isFixed);
 					});
 				}
-
-				// Iterate over FixedSegment-"Map" (Object in JS)
-				Object.keys(pageFixedSegments).forEach((key) => _editor.addSegment(pageFixedSegments[key],true));
 
 				const regions = _settings.regions;
 				// Iterate over Regions-"Map" (Object in JS)
@@ -238,6 +232,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(!pageID){
 				pageID = _currentPage;
 		}
+
+		//Add fixed Segments to settings
+		_activesettings.pages[pageID].segments = {};
+		_fixedSegments.forEach(s => _activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
 
 		_communicator.segmentBook(_activesettings,pageID,allowLoadLocal).done((result) => {
 				const failedSegmentations = [];
@@ -398,6 +396,17 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		});
 	}
 
+	this.fixSegment = function(segmentID,doFix = true){
+		let arrayPosition = $.inArray(segmentID,_fixedSegments);
+		if(doFix && arrayPosition < 0){
+			_fixedSegments.push(segmentID)
+		}else if(!doFix && arrayPosition > -1){
+			//remove from _fixedSegments
+			_fixedSegments.splice(arrayPosition,1);
+		}
+		_editor.fixSegment(segmentID,doFix);
+	}
+
 	this.createPolygon = function(doSegment) {
 		this.endEditing(true);
 		const type = doSegment ? 'segment' : 'region';
@@ -430,6 +439,22 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_editor.startCreateLine();
 		_gui.selectToolBarButton('cut',true);
 	}
+	
+	this.fixSelected = function() {
+		const actions = [];
+		for (let i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
+			if (_selectType === "region") {
+			} else if(_selectType === "segment"){
+				let wasFixed = $.inArray(_selected[i],_fixedSegments) > -1;
+				actions.push(new ActionFixSegment(_selected[i],this,!wasFixed));
+			}else if(_selectType === "line"){
+			}
+		}
+		this.unSelect();
+		let multiFix = new ActionMultiple(actions);
+		_actionController.addAndExecuteAction(multiFix,_currentPage);
+	}
+
 	this.moveSelected = function() {
 		if(_selected.length > 0){
 			//moveLast instead of all maybe TODO
@@ -598,7 +623,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_gui.unselectAllToolBarButtons();
 	}
 
-	this.callbackNewFixedSegment = function(segmentpoints) {
+	this.callbackNewSegment = function(segmentpoints) {
 		const newID = "created" + _newPathCounter;
 		_newPathCounter++;
 		let type = _presentRegions[0];
