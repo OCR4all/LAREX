@@ -55,7 +55,15 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							_settings = data.settings;
 							// clone _settings
 							_activesettings = JSON.parse(JSON.stringify(_settings));
+							
+							const regions = _settings.regions;
+							Object.keys(regions).forEach((key) => {
+								const region = regions[key];
 
+								if(region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0){
+									_presentRegions.push(region.type);
+								}
+							});
 							// Init the viewer
 							const navigationController = new NavigationController();
 							const viewerInput = new ViewerInput(this);
