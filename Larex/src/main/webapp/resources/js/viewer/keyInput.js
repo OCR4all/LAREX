@@ -57,7 +57,11 @@ function KeyInput(navigationController, controller, gui) {
 				break;
 			case 90: // Z
 				if (event.ctrlKey) {
-					_controller.undo();
+					if(event.shiftKey){
+						_controller.redo();
+					}else{
+						_controller.undo();
+					}
 					validKey = true;
 				}
 				break;
