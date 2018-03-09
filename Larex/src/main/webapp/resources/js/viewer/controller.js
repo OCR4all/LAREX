@@ -27,7 +27,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _isSelecting = false;
 	let _selectType;
 	let _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
-	let _fixedSegments = [];
+	let _fixedSegments = {};
 	let _editReadingOrder = false;
 
 	let _newPathCounter = 0;
@@ -136,7 +136,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				if(pageSegments){
 					// Iterate over Segment-"Map" (Object in JS)
 					Object.keys(pageSegments).forEach((key) => {
-						let isFixed = ($.inArray(key,_fixedSegments) !== -1); 
+						if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
+						let isFixed = ($.inArray(key,_fixedSegments[_currentPage]) !== -1); 
 						_editor.addSegment(pageSegments[key], isFixed);
 					});
 				}
@@ -235,7 +236,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 		//Add fixed Segments to settings
 		_activesettings.pages[pageID].segments = {};
-		_fixedSegments.forEach(s => _activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
+		if(!_fixedSegments[pageID]) _fixedSegments[pageID] = [];
+		_fixedSegments[pageID].forEach(s => _activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
 
 		_communicator.segmentBook(_activesettings,pageID,allowLoadLocal).done((result) => {
 				const failedSegmentations = [];
@@ -397,12 +399,13 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.fixSegment = function(segmentID,doFix = true){
-		let arrayPosition = $.inArray(segmentID,_fixedSegments);
+		if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
+		let arrayPosition = $.inArray(segmentID,_fixedSegments[_currentPage]);
 		if(doFix && arrayPosition < 0){
-			_fixedSegments.push(segmentID)
+			_fixedSegments[_currentPage].push(segmentID)
 		}else if(!doFix && arrayPosition > -1){
 			//remove from _fixedSegments
-			_fixedSegments.splice(arrayPosition,1);
+			_fixedSegments[_currentPage].splice(arrayPosition,1);
 		}
 		_editor.fixSegment(segmentID,doFix);
 	}
@@ -445,7 +448,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		for (let i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
 			if (_selectType === "region") {
 			} else if(_selectType === "segment"){
-				let wasFixed = $.inArray(_selected[i],_fixedSegments) > -1;
+				if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
+				let wasFixed = $.inArray(_selected[i],_fixedSegments[_currentPage]) > -1;
 				actions.push(new ActionFixSegment(_selected[i],this,!wasFixed));
 			}else if(_selectType === "line"){
 			}
