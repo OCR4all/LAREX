@@ -802,7 +802,7 @@ class Editor extends Viewer{
 		this._guiOverlay.removeChildren();
 
 		for(let index = 0; index < readingOrder.length; index++){
-			const segment = this.getPath(readingOrder[index].id);
+			const segment = this.getPath(readingOrder[index]);
 			if(segment){
 				this._readingOrder.add(new paper.Segment(segment.bounds.center));
 				const text = new paper.PointText({
@@ -831,13 +831,13 @@ class Editor extends Viewer{
 	getSortedReadingOrder(readingOrder){
 		const centers = {};
 		for(let index = 0; index < readingOrder.length; index++){
-			const id = readingOrder[index].id;
+			const id = readingOrder[index];
 			centers[id] = this.getPath(id).bounds.center;
 		}
 
 		readingOrder.sort(function(a,b){
-			const centerA = centers[a.id];
-			const centerB = centers[b.id];
+			const centerA = centers[a];
+			const centerB = centers[b];
 			const delta = centerA.y - centerB.y;
 			if(delta != 0){
 				return delta;

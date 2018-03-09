@@ -434,7 +434,7 @@ function ActionRemoveFromReadingOrder(segmentID,page,segmentation,controller){
 			if(!_newReadingOrder){
 				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 				for(let index = 0; index < _newReadingOrder.length; index++){
-					if(_newReadingOrder[index].id === segmentID){
+					if(_newReadingOrder[index] === segmentID){
 						_newReadingOrder.splice(index,1);
 						break;
 					}
@@ -468,7 +468,7 @@ function ActionAddToReadingOrder(segment,page,segmentation,controller){
 
 			if(!_newReadingOrder){
 				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-				_newReadingOrder.push(segment);
+				_newReadingOrder.push(segment.id);
 			}
 			
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));

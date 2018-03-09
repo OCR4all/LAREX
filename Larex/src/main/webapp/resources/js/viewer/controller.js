@@ -171,7 +171,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
-				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder);
+				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder,_segmentation[_currentPage].segments);
 				_guiInput.addDynamicListeners();
 				this.displayReadingOrder(_displayReadingOrder);
 				_gui.setRegionLegendColors(_segmentationtypes);
@@ -258,7 +258,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							}
 						});
 						let readingOrder = [];
-						result.readingOrder.forEach((segmentID) => readingOrder.push(result.segments[segmentID]));
+						result.readingOrder.forEach((segmentID) => readingOrder.push(segmentID));
 						_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[pageID].readingOrder,readingOrder,this,_segmentation,pageID),pageID);
 						break;
 					default:
@@ -302,7 +302,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 						});
 						let readingOrder = [];
 
-						page.readingOrder.forEach((segmentID) => readingOrder.push(page.segments[segmentID]));
+						page.readingOrder.forEach((segmentID) => readingOrder.push(segmentID));
 						_actionController.addAndExecuteAction(
 							new ActionChangeReadingOrder(_segmentation[pageNr].readingOrder,readingOrder,this,_segmentation,pageNr)
 							,pageNr);
@@ -771,7 +771,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		Object.keys(pageSegments).forEach((key) => {
 			let segment = pageSegments[key];
 			if(segment.type !== 'image'){
-				readingOrder.push(segment);
+				readingOrder.push(segment.id);
 			}
 		});
 		readingOrder = _editor.getSortedReadingOrder(readingOrder);
@@ -799,16 +799,16 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		let segment1;
 		let segment2;
 		for(let index = 0; index < readingOrder.length; index++){
-			const currentSegment = readingOrder[index];
-			if(currentSegment.id === segment1ID){
+			const currentSegmentID = readingOrder[index];
+			if(currentSegmentID === segment1ID){
 				index1 = index;
-				segment1 = currentSegment;
-			}else if(currentSegment.id === segment2ID){
-				segment2 = currentSegment;
+				segment1ID = currentSegmentID;
+			}else if(currentSegmentID === segment2ID){
+				segment2ID = currentSegmentID;
 			}
 		}
 		readingOrder.splice(index1,1);
-		readingOrder.splice(readingOrder.indexOf(segment2), 0, segment1);
+		readingOrder.splice(readingOrder.indexOf(segment2ID), 0, segment1ID);
 		if(doUpdate){
 			_gui.setBeforeInReadingOrder(segment1ID,segment2ID);
 			
@@ -829,7 +829,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.forceUpdateReadingOrder = function(forceHard){
-		_gui.forceUpdateReadingOrder(_segmentation[_currentPage].readingOrder,forceHard);
+		_gui.forceUpdateReadingOrder(_segmentation[_currentPage].readingOrder,forceHard,_segmentation[_currentPage].segments);
 		_gui.setRegionLegendColors(_segmentationtypes);
 		_guiInput.addDynamicListeners();
 		this.displayReadingOrder(_displayReadingOrder);
@@ -864,7 +864,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this._readingOrderContains = function(segmentID){
 		const readingOrder = _segmentation[_currentPage].readingOrder;
 		for(let i = 0; i < readingOrder.length; i++){
-			if(readingOrder[i].id === segmentID){
+			if(readingOrder[i] === segmentID){
 				return true;
 			}
 		}

@@ -167,11 +167,11 @@ function GUI(canvas, viewer) {
 		}
 	}
 
-	this.setReadingOrder = function(readingOrder){
+	this.setReadingOrder = function(readingOrder,segments){
 		$readingOrderList = $('#reading-order-list');
 		$readingOrderList.empty();
 		for(let index = 0; index < readingOrder.length; index++){
-			const segment = readingOrder[index];
+			const segment = segments[readingOrder[index]];
 			const $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="'+segment.id+'" draggable="true"></li>');
 			const $legendTypeIcon = $('<div class="legendicon '+segment.type+'"></div>');
 			const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="'+segment.id+'">delete</i>');
@@ -196,14 +196,14 @@ function GUI(canvas, viewer) {
 		$($segment1).insertBefore($segment2);
 	}
 
-	this.forceUpdateReadingOrder = function(readingOrder,forceHard){
+	this.forceUpdateReadingOrder = function(readingOrder,forceHard,segments){
 		if(forceHard){
-			this.setReadingOrder(readingOrder);
+			this.setReadingOrder(readingOrder,segments);
 		}else{
 			$readingOrderListItems = $('#reading-order-list');
 
 			for(let index = 0; index < readingOrder.length; index++){
-				$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index].id+"']"));
+				$readingOrderListItems.append($(".reading-order-segment[data-segmentid='"+readingOrder[index]+"']"));
 			}
 		}
 	}
