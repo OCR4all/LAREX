@@ -253,7 +253,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							let segment = result.segments[segmentID];
 							if($.inArray(segment.type,_presentRegions) == -1){
 								//TODO as Action
-								this.changeRegionSettings(segment.type,0,0);	
+								this.changeRegionSettings(segment.type,0,-1);	
 								missingRegions.push(segment.type);
 							}
 						});
@@ -296,7 +296,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 							let segment = page.segments[segmentID];
 							if($.inArray(segment.type,_presentRegions) == -1){
 								//TODO as Action
-								this.changeRegionSettings(segment.type,0,0);	
+								this.changeRegionSettings(segment.type,0,-1);	
 								missingRegions.push(segment.type);
 							}
 						});
