@@ -576,7 +576,7 @@ class Editor extends Viewer{
 					case this.mouseregions.MIDDLE:
 					default:
 						document.body.style.cursor = "auto";
-						this.remove();
+						tool.remove();
 						break;
 					}
 				}

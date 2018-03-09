@@ -766,22 +766,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		this.endCreateReadingOrder();
 		let readingOrder = [];
 		const pageSegments = _segmentation[_currentPage].segments;
-		const pageFixedSegments = _settings.pages[_currentPage].segments;
 		
 		// Iterate over Segment-"Map" (Object in JS)
 		Object.keys(pageSegments).forEach((key) => {
-			let hasFixedSegmentCounterpart = false;
-			if(!pageFixedSegments[key]){
-				//has no fixedSegment counterpart and has not been deleted
-				let segment = pageSegments[key];
-				if(segment.type !== 'image'){
-					readingOrder.push(segment);
-				}
-			}
-		});
-		// Iterate over FixedSegment-"Map" (Object in JS)
-		Object.keys(pageFixedSegments).forEach((key) => {
-			const segment = pageFixedSegments[key];
+			let segment = pageSegments[key];
 			if(segment.type !== 'image'){
 				readingOrder.push(segment);
 			}
@@ -1083,45 +1071,26 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 	this._getMainType = function(polygonID){
 		let polygon = _settings.pages[_currentPage].segments[polygonID];
-		if(polygon){
-			return "fixed";
-		}
+		if(polygon)	return "fixed";
 
 		polygon = _segmentation[_currentPage].segments[polygonID];
-		if(polygon){
-			return "result";
-		}
+		if(polygon) return "result";
 
 		polygon = this._getRegionByID(polygonID);
-		if(polygon){
-			return "region";
-		}
+		if(polygon) return "region";
 
 		polygon = _settings.pages[_currentPage].cuts[polygonID];
-		if(polygon){
-			return "cut";
-		}
+		if(polygon) return "cut";
 	}
 
 	this._getPolygon = function(polygonID){
-		let polygon = _settings.pages[_currentPage].segments[polygonID];
-		if(polygon){
-			return polygon;
-		}
-
-		polygon = _segmentation[_currentPage].segments[polygonID];
-		if(polygon){
-			return polygon;
-		}
+		let polygon = _segmentation[_currentPage].segments[polygonID];
+		if(polygon)	return polygon;
 
 		polygon = this._getRegionByID(polygonID);
-		if(polygon){
-			return polygon;
-		}
+		if(polygon)	return polygon;
 
 		polygon = _settings.pages[_currentPage].cuts[polygonID];
-		if(polygon){
-			return polygon;
-		}
+		if(polygon)	return polygon;
 	}
 }
