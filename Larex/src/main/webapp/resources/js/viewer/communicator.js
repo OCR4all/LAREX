@@ -167,12 +167,13 @@ function Communicator() {
 		return status;
 	}
 
-	this.uploadPageXML = function(file,pageNr) {
+	this.uploadPageXML = function(file,pageNr,bookID) {
 		// Deferred object for function status
 		const status = $.Deferred();
 		const formData = new FormData();
 		formData.append("file", file);
 		formData.append("pageNr", pageNr);
+		formData.append("bookID", bookID);
 
 		jQuery.ajax({
 		    url: 'uploadSegmentation',

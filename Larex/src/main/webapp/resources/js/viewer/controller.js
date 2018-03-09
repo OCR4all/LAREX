@@ -279,7 +279,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(!pageNr){
 			pageNr = _currentPage;
 		}
-		_communicator.uploadPageXML(file,pageNr).done((page) => {
+		_communicator.uploadPageXML(file,pageNr,bookID).done((page) => {
 				const failedSegmentations = [];
 				const missingRegions = [];
 				
