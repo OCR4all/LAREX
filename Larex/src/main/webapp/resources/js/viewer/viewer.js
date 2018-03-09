@@ -9,6 +9,9 @@ class Viewer{
 		this._currentZoom = 1;
 		this._colors = colors;
 		this._specifiedColors = specifiedColors;
+		document.addEventListener('visibilitychange', () => {
+			if(!document.hidden) this.forceUpdate();	
+		});
 	}
 
 	setImage(id){
@@ -29,6 +32,12 @@ class Viewer{
 		}else{
 			this._paths[segmentID].dashArray = [];
 		}
+	}
+
+	forceUpdate() {
+		// highlight segments to force paperjs/canvas to redraw everything
+		if(this._paths)	
+			Object.keys(this._paths).forEach((id) => this.highlightSegment(id,false));
 	}
 
 	clear() {
