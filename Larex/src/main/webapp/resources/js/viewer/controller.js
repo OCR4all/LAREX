@@ -745,7 +745,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
 		Object.keys(region.polygons).forEach((polygonKey) => {
-			let polygon = region.polygonssegmentation[polygonKey];
+			let polygon = region.polygons[polygonKey];
 			if(polygon.type === regionType){
 				_editor.updateSegment(polygon);
 			}
