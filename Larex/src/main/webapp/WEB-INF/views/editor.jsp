@@ -14,13 +14,13 @@
 		<script type="text/javascript"
 			src="resources/js/viewer/viewerInput.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/keyInput.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/controller.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/communicator.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/gui.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/viewer.js"
 			canvas="viewerCanvas"></script>
 		<script type="text/javascript" src="resources/js/viewer/editor.js"
 			canvas="viewerCanvas"></script>
+		<script type="text/javascript" src="resources/js/viewer/controller.js"></script>
 
 		<!-- Main Method -->
 		<script>
@@ -154,6 +154,8 @@
 							tooltip="Scale selected items (Shortcut: S)">Scale</t:menuIcon>
 						<t:menuIcon jsClass="combineSelected" icon="add_circle"
 							tooltip="Combine selected Segments (Shortcut: C)">Combine</t:menuIcon>
+						<t:menuIcon jsClass="fixSelected" icon="lock"
+							tooltip="Fix/unfix Segments (Shortcut: F)">Fix</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="createReadingOrder" icon="timeline"

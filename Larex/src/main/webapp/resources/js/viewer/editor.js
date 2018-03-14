@@ -1,394 +1,392 @@
 // Editor extends viewer
-function Editor(viewer,controller) {
-	this.isEditing = false;
-	var _viewer = viewer;
-	var _controller = controller;
-	var _editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
-	var _tempPathType;
-	var _tempPath;
-	var _tempPoint;
-	var _tempID;
-	var _tempMouseregion;
-	var _tempEndCircle;
-	var _this = this;
-	var _grid = {isActive:false};
-	var _readingOrder;
-	var _guiOverlay = new paper.Group();
-	this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
+class Editor extends Viewer{
+	constructor(segmenttypes, viewerInput, colors, specifiedColors, controller) {
+		super(segmenttypes,viewerInput,constructor,specifiedColors);
+		this.isEditing = false;
+		this._controller = controller;
+		this._editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
+		this._tempPathType;
+		this._tempPath;
+		this._tempPoint;
+		this._tempID;
+		this._tempMouseregion;
+		this._tempEndCircle;
+		this._grid = {isActive:false};
+		this._readingOrder;
+		this._guiOverlay = new paper.Group();
+		this.mouseregions = {TOP:0,BOTTOM:1,LEFT:2,RIGHT:3,MIDDLE:4,OUTSIDE:5};
+	}
+	startRectangleSelect() {
+		if(this.isEditing === false){
+			this._editMode = -1;
+			this.isEditing = true;
 
-	this.startRectangleSelect = function() {
-		if(_this.isEditing === false){
-			_editMode = -1;
-			_this.isEditing = true;
-
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
-			var isActive = false;
-			tool.onMouseMove = function(event) {
+			let isActive = false;
+			tool.onMouseMove = (event) => {
 				if(!isActive){
 					isActive = true;
-					createResponsiveRectangle(_this.endRectangleSelect,event.point,true);
+					this.createResponsiveRectangle("endRectangleSelect",event.point,true);
 				}
-				this.remove();
+				tool.remove();
 			}
 		}
 	}
 
-	this.endRectangleSelect = function() {
-		if(_this.isEditing){
-			_this.isEditing = false;
-			if(_tempPath != null){
-				var selectBounds = _tempPath.bounds;
-				_controller.rectangleSelect(selectBounds.topLeft,selectBounds.bottomRight);
+	endRectangleSelect() {
+		if(this.isEditing){
+			this.isEditing = false;
+			if(this._tempPath != null){
+				const selectBounds = this._tempPath.bounds;
+				this._controller.rectangleSelect(selectBounds.topLeft,selectBounds.bottomRight);
 
-				_tempPath.remove();
-				_tempPath = null;
+				this._tempPath.remove();
+				this._tempPath = null;
 			}
-			if(_tempPoint != null){
-				_tempPoint.clear();
-				_tempPoint = null;
+			if(this._tempPoint != null){
+				this._tempPoint.clear();
+				this._tempPoint = null;
 			}
 		}
 	}
 
-	this.addRegion = function(region){
+	addRegion(region){
 		this.drawPath(region, true, {type: 'region'});
 	}
 
-	this.addLine = function(line){
-		_this.drawPathLine(line);
+	addLine(line){
+		this.drawPathLine(line);
 	}
 
-	this.removeLine = function(lineID){
+	removeLine(lineID){
 		this.removeSegment(lineID);
 	}
 
-	this.removeRegion = function(regionID){
+	removeRegion(regionID){
 		this.removeSegment(regionID);
 	}
 
-	this.startCreatePolygon = function(type) {
-		if(_this.isEditing === false){
-			_editMode = 0;
-			_this.isEditing = true;
-			_tempPathType = type;
+	startCreatePolygon(type) {
+		if(this.isEditing === false){
+			this._editMode = 0;
+			this.isEditing = true;
+			this._tempPathType = type;
 			document.body.style.cursor = "copy";
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
-			tool.onMouseMove = function(event) {
-				if(_tempPath){
-					_tempPath.removeSegment(_tempPath.segments.length - 1);
-					_tempPath.add(_this.getPointInBounds(event.point, _this.getBoundaries()));
+			tool.onMouseMove = (event) => {
+				if(this._tempPath){
+					this._tempPath.removeSegment(this._tempPath.segments.length - 1);
+					this._tempPath.add(this.getPointInBounds(event.point, this.getBoundaries()));
 				}
 			}
 
-			tool.onMouseDown = function(event) {
-				if(_this.isEditing === true){
-					var canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
+			tool.onMouseDown = (event) => {
+				if(this.isEditing === true){
+					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
-					if (!_tempPath) {
+					if (!this._tempPath) {
 						// Start path
-						_tempPath = new paper.Path();
-						_tempPath.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
-						_tempPath.fillColor = 'grey';
-						_tempPath.opacity = 0.3;
-						_tempPath.closed = false;
-						_tempPath.selected = true;
+						this._tempPath = new paper.Path();
+						this._tempPath.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
+						this._tempPath.fillColor = 'grey';
+						this._tempPath.opacity = 0.3;
+						this._tempPath.closed = false;
+						this._tempPath.selected = true;
 
 						// circle to end the path
-						_tempEndCircle = new paper.Path.Circle(canvasPoint, 5);
-						_tempEndCircle.strokeColor = 'black';
-						_tempEndCircle.fillColor = 'grey';
-						_tempEndCircle.opacity = 0.5;
-						_tempEndCircle.onMouseDown = function(event) {
-							_this.endCreatePolygon();
+						this._tempEndCircle = new paper.Path.Circle(canvasPoint, 5);
+						this._tempEndCircle.strokeColor = 'black';
+						this._tempEndCircle.fillColor = 'grey';
+						this._tempEndCircle.opacity = 0.5;
+						this._tempEndCircle.onMouseDown = function(event) {
+							this.endCreatePolygon();
 							this.remove();
 						}
 
-						var imageCanvas = _this.getImageCanvas();
-						imageCanvas.addChild(_tempPath);
-						imageCanvas.addChild(_tempEndCircle);
+						let imageCanvas = this.getImageCanvas();
+						imageCanvas.addChild(this._tempPath);
+						imageCanvas.addChild(this._tempEndCircle);
 					}
-					_tempPath.add(new paper.Point(canvasPoint));
+					this._tempPath.add(new paper.Point(canvasPoint));
 				}else{
-					this.remove();
+					tool.remove();
 				}
 			}
 		}
 	}
 
-	this.endCreatePolygon = function() {
-		if(_this.isEditing){
-			_this.isEditing = false;
-			if(_tempPath != null){
-				_tempPath.closed = true;
-				_tempPath.selected = false;
-				if(_tempPathType === 'segment'){
-					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
+	endCreatePolygon() {
+		if(this.isEditing){
+			this.isEditing = false;
+			if(this._tempPath != null){
+				this._tempPath.closed = true;
+				this._tempPath.selected = false;
+				if(this._tempPathType === 'segment'){
+					this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath,false));
 				}else{
-					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
+					this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath,true));
 				}
-				_tempPath.remove();
-				_tempPath = null;
-				_tempEndCircle.remove();
-				_temPath = null;
+				this._tempPath.remove();
+				this._tempPath = null;
+				this._tempEndCircle.remove();
 			}
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	this.startCreateRectangle = function(type) {
-		if(_this.isEditing === false){
-			_editMode = 1;
-			_this.isEditing = true;
-			_tempPathType = type;
+	startCreateRectangle(type) {
+		if(this.isEditing === false){
+			this._editMode = 1;
+			this.isEditing = true;
+			this._tempPathType = type;
 			document.body.style.cursor = "copy";
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
-			tool.onMouseDown = function(event) {
-				if(_this.isEditing === true){
-					createResponsiveRectangle(_this.endCreateRectangle,event.point);
+			tool.onMouseDown = (event) => {
+				if(this.isEditing === true){
+					this.createResponsiveRectangle("endCreateRectangle",event.point);
 				}else{
-					this.remove();
+					tool.remove();
 				}
 			}
 		}
 	}
 
-	this.endCreateRectangle = function() {
-		if(_this.isEditing){
-			_this.isEditing = false;
-			if(_tempPath != null){
-				_tempPath.closed = true;
-				_tempPath.selected = false;
-				switch(_tempPathType){
+	endCreateRectangle() {
+		if(this.isEditing){
+			this.isEditing = false;
+			if(this._tempPath != null){
+				this._tempPath.closed = true;
+				this._tempPath.selected = false;
+				switch(this._tempPathType){
 					case 'segment':
-						_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
+						this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath,false));
 						break;
 					case 'region':
-						_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
+						this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath,true));
 						break;
 					case 'ignore':
-						_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true),'ignore');
+						this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath,true),'ignore');
 						break;
 					case 'roi':
 					default:
-						_controller.callbackNewRoI(convertPointsPathToSegment(_tempPath,true));
+						this._controller.callbackNewRoI(this._convertPointsPathToSegment(this._tempPath,true));
 						break;
 				}
-				_tempPath.remove();
-				_tempPath = null;
+				this._tempPath.remove();
+				this._tempPath = null;
 			}
-			if(_tempPoint != null){
-				_tempPoint.clear();
-				_tempPoint = null;
+			if(this._tempPoint != null){
+				this._tempPoint.clear();
+				this._tempPoint = null;
 			}
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	this.startCreateLine = function() {
-		if(_this.isEditing === false){
-			_editMode = 3;
-			_this.isEditing = true;
+	startCreateLine() {
+		if(this.isEditing === false){
+			this._editMode = 3;
+			this.isEditing = true;
 			document.body.style.cursor = "copy";
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
-			tool.onMouseMove = function(event) {
-				if(_tempPath){
-					_tempPath.removeSegment(_tempPath.segments.length - 1);
-					_tempPath.add(_this.getPointInBounds(event.point, _this.getBoundaries()));
+			tool.onMouseMove = (event) => {
+				if(this._tempPath){
+					this._tempPath.removeSegment(this._tempPath.segments.length - 1);
+					this._tempPath.add(this.getPointInBounds(event.point, this.getBoundaries()));
 				}
 			}
 
-			tool.onMouseDown = function(event) {
-				if(_this.isEditing === true){
-					var canvasPoint = _this.getPointInBounds(event.point, _this.getBoundaries());
+			tool.onMouseDown = (event) => {
+				if(this.isEditing === true){
+					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
-					if (!_tempPath) {
+					if (!this._tempPath) {
 						// Start path
-						_tempPath = new paper.Path();
-						_tempPath.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
-						_tempPath.strokeColor = new paper.Color(0,0,0);
-						_tempPath.closed = false;
-						_tempPath.selected = true;
+						this._tempPath = new paper.Path();
+						this._tempPath.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
+						this._tempPath.strokeColor = new paper.Color(0,0,0);
+						this._tempPath.closed = false;
+						this._tempPath.selected = true;
 
-						_this.getImageCanvas().addChild(_tempPath);
+						this.getImageCanvas().addChild(this._tempPath);
 					}
-					_tempPath.add(new paper.Point(canvasPoint));
+					this._tempPath.add(new paper.Point(canvasPoint));
 				}else{
-					this.remove();
+					tool.remove();
 				}
 			}
 		}
 	}
 
-	this.endCreateLine = function() {
-		if(_this.isEditing){
-			_this.isEditing = false;
+	endCreateLine() {
+		if(this.isEditing){
+			this.isEditing = false;
 
-			if(_tempPath != null){
-				_tempPath.closed = false;
-				_tempPath.selected = false;
-				_controller.callbackNewCut(convertPointsPathToSegment(_tempPath,false));
+			if(this._tempPath != null){
+				this._tempPath.closed = false;
+				this._tempPath.selected = false;
+				this._controller.callbackNewCut(this._convertPointsPathToSegment(this._tempPath,false));
 
-				_tempPath.remove();
-				_tempPath = null;
+				this._tempPath.remove();
+				this._tempPath = null;
 			}
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	this.startCreateBorder = function(type) {
-		if(_this.isEditing === false){
-			_this.isEditing = true;
-			_editMode = 2;
-			_tempPathType = type;
+	startCreateBorder(type) {
+		if(this.isEditing === false){
+			this.isEditing = true;
+			this._editMode = 2;
+			this._tempPathType = type;
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 
-			if (!_tempPath) {
+			if (!this._tempPath) {
 				// Start path
-				_tempPath = new paper.Path();
-				_tempPath.fillColor = 'grey';
-				_tempPath.opacity = 0.5;
-				_tempPath.closed = true;
-				//_tempPath.selected = true;
+				this._tempPath = new paper.Path();
+				this._tempPath.fillColor = 'grey';
+				this._tempPath.opacity = 0.5;
+				this._tempPath.closed = true;
+				//this._tempPath.selected = true;
 
-				_this.getImageCanvas().addChild(_tempPath);
+				this.getImageCanvas().addChild(this._tempPath);
+				tool.onMouseMove = (event) => {
+					if(this.isEditing === true){
+						if (this._tempPath) {
+							const boundaries = this.getBoundaries();
+							const mouseregion = this.getMouseRegion(boundaries,event.point);
+							this._tempMouseregion = mouseregion;
 
-				tool.onMouseMove = function(event) {
-					if(_this.isEditing === true){
-						if (_tempPath) {
-							var boundaries = _viewer.getBoundaries();
-							var mouseregion = _this.getMouseRegion(boundaries,event.point);
-							_tempMouseregion = mouseregion;
-
+							let topleft, topright, rectangle, bottommouse, mouseright;
 							switch(mouseregion){
-							case _this.mouseregions.LEFT:
+							case this.mouseregions.LEFT:
 								document.body.style.cursor = "col-resize";
 
-								var topleft = new paper.Point(boundaries.left,boundaries.top);
-								var bottommouse = new paper.Point(event.point.x, boundaries.bottom);
-								var rectangle = new paper.Path.Rectangle(topleft, bottommouse);
+								topleft = new paper.Point(boundaries.left,boundaries.top);
+								bottommouse = new paper.Point(event.point.x, boundaries.bottom);
+								rectangle = new paper.Path.Rectangle(topleft, bottommouse);
 
-								_tempPath.segments = rectangle.segments;
+								this._tempPath.segments = rectangle.segments;
 								break;
-							case _this.mouseregions.RIGHT:
+							case this.mouseregions.RIGHT:
 								document.body.style.cursor = "col-resize";
 
-								var topright = new paper.Point(boundaries.right,boundaries.top);
-								var bottommouse = new paper.Point(event.point.x, boundaries.bottom);
-								var rectangle = new paper.Path.Rectangle(topright, bottommouse);
+								topright = new paper.Point(boundaries.right,boundaries.top);
+								bottommouse = new paper.Point(event.point.x, boundaries.bottom);
+								rectangle = new paper.Path.Rectangle(topright, bottommouse);
 
-								_tempPath.segments = rectangle.segments;
+								this._tempPath.segments = rectangle.segments;
 								break;
-							case _this.mouseregions.TOP:
+							case this.mouseregions.TOP:
 								document.body.style.cursor = "row-resize";
 
-								var topleft = new paper.Point(boundaries.left,boundaries.top);
-								var mouseright = new paper.Point(boundaries.right, event.point.y);
-								var rectangle = new paper.Path.Rectangle(topleft, mouseright);
+								topleft = new paper.Point(boundaries.left,boundaries.top);
+								mouseright = new paper.Point(boundaries.right, event.point.y);
+								rectangle = new paper.Path.Rectangle(topleft, mouseright);
 
-								_tempPath.segments = rectangle.segments;
+								this._tempPath.segments = rectangle.segments;
 								break;
-							case _this.mouseregions.BOTTOM:
+							case this.mouseregions.BOTTOM:
 								document.body.style.cursor = "row-resize";
 
-								var bottomleft = new paper.Point(boundaries.left,boundaries.bottom);
-								var mouseright = new paper.Point(boundaries.right, event.point.y);
-								var rectangle = new paper.Path.Rectangle(bottomleft, mouseright);
+								bottomleft = new paper.Point(boundaries.left,boundaries.bottom);
+								mouseright = new paper.Point(boundaries.right, event.point.y);
+								rectangle = new paper.Path.Rectangle(bottomleft, mouseright);
 
-								_tempPath.segments = rectangle.segments;
+								this._tempPath.segments = rectangle.segments;
 								break;
-							case _this.mouseregions.MIDDLE:
+							case this.mouseregions.MIDDLE:
 							default:
-								_tempPath.removeSegments();
+								this._tempPath.removeSegments();
 								document.body.style.cursor = "copy";
 								break;
 							}
 						}
 					}
 				}
-				tool.onMouseDown = function(event) {
-					if(_tempPath){
-						_this.endCreateBorder();
-						this.remove();
+				tool.onMouseDown = (event) => {
+					if(this._tempPath){
+						this.endCreateBorder();
+						tool.remove();
 					}
 				}
 			}
 		}
 	}
 
-	this.endCreateBorder = function() {
-		if(_this.isEditing){
-			_this.isEditing = false;
+	endCreateBorder() {
+		if(this.isEditing){
+			this.isEditing = false;
 
-			if(_tempPath != null){
-				if(_tempPathType === 'segment'){
-					_controller.callbackNewFixedSegment(convertPointsPathToSegment(_tempPath,false));
+			if(this._tempPath != null){
+				if(this._tempPathType === 'segment'){
+					this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath,false));
 				}else{
-					_controller.callbackNewRegion(convertPointsPathToSegment(_tempPath,true));
+					this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath,true));
 				}
 
-				_tempPath.remove();
-				_tempPath = null;
+				this._tempPath.remove();
+				this._tempPath = null;
 			}
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	this.startMovePath = function(pathID,type) {
-		if(_this.isEditing === false){
-			_editMode = 4;
-			_this.isEditing = true;
-			_tempPathType = type;
+	startMovePath(pathID,type) {
+		if(this.isEditing === false){
+			this._editMode = 4;
+			this.isEditing = true;
+			this._tempPathType = type;
 			document.body.style.cursor = "copy";
 
 			// Create Copy of movable
-			_tempPath = new paper.Path(_this.getPath(pathID).segments);
-			//_tempPath = _this.getPath(pathID).clone();
-			_tempID = pathID;
-			_tempPath.fillColor = 'grey';
-			_tempPath.opacity = 0.3;
-			_tempPath.closed = true;
-			_tempPath.strokeColor = 'black';
-			_tempPath.dashArray = [5, 3];
+			this._tempPath = new paper.Path(this.getPath(pathID).segments);
+			this._tempID = pathID;
+			this._tempPath.fillColor = 'grey';
+			this._tempPath.opacity = 0.3;
+			this._tempPath.closed = true;
+			this._tempPath.strokeColor = 'black';
+			this._tempPath.dashArray = [5, 3];
 
 			// Set Grid
-			_this.setGrid(_tempPath.position);
+			this.setGrid(this._tempPath.position);
 
-			// Position variables between old and new path position
-			_tempPoint = new paper.Point(0,0);
-			var oldPosition = new paper.Point(_tempPath.position);
-			var oldMouse = null;
+			// Position letiables between old and new path position
+			this._tempPoint = new paper.Point(0,0);
+			const oldPosition = new paper.Point(this._tempPath.position);
+			let oldMouse = null;
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
-			tool.onMouseMove = function(event) {
-				if(_this.isEditing === true){
+			tool.onMouseMove = (event) => {
+				if(this.isEditing === true){
 					if(oldMouse === null){
 						oldMouse = event.point;
 					}
-					_tempPoint = oldPosition.add(event.point.subtract(oldMouse));
-					if(!_grid.isActive){
-						_grid.vertical.visible = false;
-						_grid.horizontal.visible = false;
+					this._tempPoint = oldPosition.add(event.point.subtract(oldMouse));
+					if(!this._grid.isActive){
+						this._grid.vertical.visible = false;
+						this._grid.horizontal.visible = false;
 					}else{
-						_tempPoint = _this.getPointFixedToGrid(_tempPoint);
-						_grid.vertical.visible = true;
-						_grid.horizontal.visible = true;
+						this._tempPoint = this.getPointFixedToGrid(this._tempPoint);
+						this._grid.vertical.visible = true;
+						this._grid.horizontal.visible = true;
 					}
-					_tempPath.position = _tempPoint;
+					this._tempPath.position = this._tempPoint;
 
 					// Correct to stay in viewer bounds
-					var tempPathBounds = _tempPath.bounds;
-					var pictureBounds = _this.getBoundaries();
-					var correctionPoint = new paper.Point(0,0);
+					const tempPathBounds = this._tempPath.bounds;
+					const pictureBounds = this.getBoundaries();
+					let correctionPoint = new paper.Point(0,0);
 					if(tempPathBounds.left < pictureBounds.left){
 						correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
 					}
@@ -401,227 +399,231 @@ function Editor(viewer,controller) {
 					if(tempPathBounds.bottom > pictureBounds.bottom){
 						correctionPoint = correctionPoint.subtract(new paper.Point(0,(tempPathBounds.bottom-pictureBounds.bottom)));
 					}
-					_tempPoint = _tempPoint.add(correctionPoint);
-					_tempPath.position = _tempPoint;
+					this._tempPoint = this._tempPoint.add(correctionPoint);
+					this._tempPath.position = this._tempPoint;
 				}else{
-					this.remove();
+					tool.remove();
 				}
 			}
-			tool.onMouseDown = function(event) {
-				if(_this.isEditing === true){
-					_this.endMovePath();
+			tool.onMouseDown = (event) => {
+				if(this.isEditing === true){
+					this.endMovePath();
 				}
-				this.remove();
+				tool.remove();
 			}
 		}
 	}
 
-	this.endMovePath = function() {
-		if(_this.isEditing){
-			_this.isEditing = false;
+	endMovePath() {
+		if(this.isEditing){
+			this.isEditing = false;
 
-			if(_tempPath != null){
-				if(_tempPathType === 'segment'){
-					_controller.transformSegment(_tempID,convertPointsPathToSegment(_tempPath,false));
+			if(this._tempPath != null){
+				if(this._tempPathType === 'segment'){
+					this._controller.transformSegment(this._tempID,this._convertPointsPathToSegment(this._tempPath,false));
 				}else{
-					_controller.transformRegion(_tempID,convertPointsPathToSegment(_tempPath,true));
+					this._controller.transformRegion(this._tempID,this._convertPointsPathToSegment(this._tempPath,true));
 				}
 
-				_tempPath.remove();
-				_tempPath = null;
+				this._tempPath.remove();
+				this._tempPath = null;
 			}
 			//hide grid
-			_grid.vertical.visible = false;
-			_grid.horizontal.visible = false;
+			this._grid.vertical.visible = false;
+			this._grid.horizontal.visible = false;
 
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	this.startScalePath = function(pathID,type) {
-		if(_this.isEditing === false){
-			_editMode = 5;
-			_this.isEditing = true;
-			_tempPathType = type;
+	startScalePath(pathID,type) {
+		if(this.isEditing === false){
+			this._editMode = 5;
+			this.isEditing = true;
+			this._tempPathType = type;
 
 			// Create Copy of movable
-			var boundaries = _this.getPath(pathID).bounds;
-			_tempPath = new paper.Path.Rectangle(boundaries);
-			_tempID = pathID;
-			_tempPath.fillColor = 'grey';
-			_tempPath.opacity = 0.3;
-			_tempPath.closed = true;
-			_tempPath.strokeColor = 'black';
-			_tempPath.dashArray = [5, 3];
+			const boundaries = this.getPath(pathID).bounds;
+			this._tempPath = new paper.Path.Rectangle(boundaries);
+			this._tempID = pathID;
+			this._tempPath.fillColor = 'grey';
+			this._tempPath.opacity = 0.3;
+			this._tempPath.closed = true;
+			this._tempPath.strokeColor = 'black';
+			this._tempPath.dashArray = [5, 3];
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
-			tool.onMouseMove = function(event) {
-				if(_this.isEditing === true){
-					if(_tempPath){
-						var mouseregion = _this.getMouseRegion(_tempPath.bounds,event.point,0.1,10);
-						_tempMouseregion = mouseregion;
+			tool.onMouseMove = (event) => {
+				if(this.isEditing === true){
+					if(this._tempPath){
+						const mouseregion = this.getMouseRegion(this._tempPath.bounds,event.point,0.1,10);
+						this._tempMouseregion = mouseregion;
 
 						switch(mouseregion){
-						case _this.mouseregions.LEFT:
-						case _this.mouseregions.RIGHT:
+						case this.mouseregions.LEFT:
+						case this.mouseregions.RIGHT:
 							document.body.style.cursor = "col-resize";
 							break;
-						case _this.mouseregions.TOP:
-						case _this.mouseregions.BOTTOM:
+						case this.mouseregions.TOP:
+						case this.mouseregions.BOTTOM:
 							document.body.style.cursor = "row-resize";
 							break;
-						case _this.mouseregions.MIDDLE:
+						case this.mouseregions.MIDDLE:
 						default:
 							document.body.style.cursor = "auto";
 							break;
 						}
 					}
 				}else{
-					this.remove();
+					tool.remove();
 				}
 			}
-			tool.onMouseDown = function(event) {
-				if(_this.isEditing === true){
-					scalePath(_tempPath,_tempMouseregion);
+			tool.onMouseDown = (event) => {
+				if(this.isEditing === true){
+					this.scalePath(this._tempPath,this._tempMouseregion);
 				}
-				this.remove();
+				tool.remove();
 			}
 		}
 	}
 
-	var createResponsiveRectangle = function(endFunction,startPoint,boundless){
-			var imageCanvas = _this.getImageCanvas();
+	createResponsiveRectangle(endFunction,startPoint,boundless){
+			const imageCanvas = this.getImageCanvas();
 
-			var tool = new paper.Tool();
+			const tool = new paper.Tool();
 			tool.activate();
 
-			if(boundless){
-				var canvasPoint = startPoint;
-			}else{
-				var canvasPoint = _this.getPointInBounds(startPoint, _this.getBoundaries());
-			}
-
+			const canvasPoint = boundless ? startPoint: this.getPointInBounds(startPoint, this.getBoundaries());
 			// Start path
-			_tempPoint = new paper.Path(canvasPoint);
-			_this.getImageCanvas().addChild(_tempPoint);
+			this._tempPoint = new paper.Path(canvasPoint);
+			imageCanvas.addChild(this._tempPoint);
+			this._tempPath = new paper.Path();
+			this._tempPath.add(this._tempPoint); //Add Point for mouse movement
+			this._tempPath.fillColor = 'grey';
+			this._tempPath.opacity = 0.3;
+			this._tempPath.closed = true;
+			this._tempPath.selected = true;
 
-			_tempPath = new paper.Path();
-			_tempPath.add(_tempPoint); //Add Point for mouse movement
-			_tempPath.fillColor = 'grey';
-			_tempPath.opacity = 0.3;
-			_tempPath.closed = true;
-			_tempPath.selected = true;
+			tool.onMouseMove = (event) => {
+				if(this.isEditing === true){
+					if (this._tempPath) {
+						const point = boundless ? event.point : this.getPointInBounds(event.point, this.getBoundaries());
+						let rectangle = new paper.Path.Rectangle(this._tempPoint.firstSegment.point, point);
 
-			tool.onMouseMove = function(event) {
-				if(_this.isEditing === true){
-					if (_tempPath) {
-						if(boundless){
-							var point = event.point;
-						}else{
-							var point = _this.getPointInBounds(event.point, _this.getBoundaries());
-						}
-						var rectangle = new paper.Path.Rectangle(_tempPoint.firstSegment.point, point);
-
-						_tempPath.segments = rectangle.segments;
+						this._tempPath.segments = rectangle.segments;
 					}
 				}else{
-					endFunction();
-					this.remove();
+					switch(endFunction){
+						case "endRectangleSelect":
+							this.endRectangleSelect();
+							break;
+						case "endCreateRectangle":
+							this.endCreateRectangle();
+							break;
+					}
+					tool.remove();
 				}
 			}
-			_this.getImageCanvas().addChild(_tempPath);
+			imageCanvas.addChild(this._tempPath);
 
-			tool.onMouseUp = function(event) {
-				endFunction();
-				this.remove();
+			tool.onMouseUp = (event) => {
+				switch(endFunction){
+					case "endRectangleSelect":
+						this.endRectangleSelect();
+						break;
+					case "endCreateRectangle":
+						this.endCreateRectangle();
+						break;
+				}
+				tool.remove();
 			}
 	}
 
-	var scalePath = function(path,mouseregion){
-		var tool = new paper.Tool();
+	scalePath(path,mouseregion){
+		const tool = new paper.Tool();
 		tool.activate();
-		tool.onMouseMove = function(event) {
-			if(_this.isEditing === true){
-				if(_tempPath){
-					var mouseinbound = _this.getPointInBounds(event.point,_viewer.getBoundaries());
+		tool.onMouseMove = (event) => {
+			if(this.isEditing === true){
+				if(this._tempPath){
+					const mouseinbound = this.getPointInBounds(event.point,this.getBoundaries());
 
 					switch(mouseregion){
-					case _this.mouseregions.LEFT:
+					case this.mouseregions.LEFT:
 						if(mouseinbound.x < path.bounds.right){
 							path.bounds.left = mouseinbound.x;
 							document.body.style.cursor = "col-resize";
 						}
 						break;
-					case _this.mouseregions.RIGHT:
+					case this.mouseregions.RIGHT:
 						if(mouseinbound.x > path.bounds.left){
 							path.bounds.right = mouseinbound.x;
 							document.body.style.cursor = "col-resize";
 						}
 						break;
-					case _this.mouseregions.TOP:
+					case this.mouseregions.TOP:
 						if(mouseinbound.y < path.bounds.bottom){
 							path.bounds.top = mouseinbound.y;
 							document.body.style.cursor = "row-resize";
 						}
 						break;
-					case _this.mouseregions.BOTTOM:
+					case this.mouseregions.BOTTOM:
 						if(mouseinbound.y > path.bounds.top){
 							path.bounds.bottom = mouseinbound.y;
 							document.body.style.cursor = "row-resize";
 						}
 						break;
-					case _this.mouseregions.MIDDLE:
+					case this.mouseregions.MIDDLE:
 					default:
 						document.body.style.cursor = "auto";
-						this.remove();
+						tool.remove();
 						break;
 					}
 				}
 			}else{
-				this.remove();
+				tool.remove();
 			}
 		}
-		tool.onMouseUp = function(event) {
-			if(_this.isEditing === true){
-				_this.endScalePath();
+		tool.onMouseUp = (event) => {
+			if(this.isEditing === true){
+				this.endScalePath();
 			}
-			this.remove();
+			tool.remove();
 		}
 	}
 
-	this.endScalePath = function() {
-		if(_this.isEditing){
-			_this.isEditing = false;
+	endScalePath() {
+		if(this.isEditing){
+			this.isEditing = false;
 
-			if(_tempPath != null){
-				var path = new paper.Path(_this.getPath(_tempID).segments);
-				path.bounds = _tempPath.bounds;
+			if(this._tempPath != null){
+				const path = new paper.Path(this.getPath(this._tempID).segments);
+				path.bounds = this._tempPath.bounds;
 
-				if(_tempPathType === 'segment'){
-					_controller.transformSegment(_tempID,convertPointsPathToSegment(path,false));
+				if(this._tempPathType === 'segment'){
+					this._controller.transformSegment(this._tempID,this._convertPointsPathToSegment(path,false));
 				}else{
-					_controller.transformRegion(_tempID,convertPointsPathToSegment(path,true));
+					this._controller.transformRegion(this._tempID,this._convertPointsPathToSegment(path,true));
 				}
 
-				_tempPath.remove();
-				_tempPath = null;
+				this._tempPath.remove();
+				this._tempPath = null;
 			}
 
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	this.getMouseRegion = function(bounds,mousepos,percentarea,minarea){
+	getMouseRegion(bounds,mousepos,percentarea,minarea){
 		minarea = minarea? minarea : 0;
 
-		var width = bounds.width;
-		var height = bounds.height;
+		const width = bounds.width;
+		const height = bounds.height;
 		if(percentarea == null){
 			percentarea = 0.4;
 		}
 		//Calculate the height and width delta from the borders inwards to the center with minarea and percentarea 
-		var widthDelta = width*percentarea;
+		let widthDelta = width*percentarea;
 		if(widthDelta < minarea){
 			if(minarea < width*0.5){
 				widthDelta = minarea;
@@ -629,7 +631,7 @@ function Editor(viewer,controller) {
 				widthDelta = width*0.5;
 			}
 		}
-		var heightDelta = height*percentarea;
+		let heightDelta = height*percentarea;
 		if(heightDelta < minarea){
 			if(minarea < height*0.5){
 				heightDelta = minarea;
@@ -638,17 +640,17 @@ function Editor(viewer,controller) {
 			}
 		}
 
-		var leftmin = bounds.left;
-		var leftmax = leftmin + widthDelta;
+		const leftmin = bounds.left;
+		const leftmax = leftmin + widthDelta;
 
-		var rightmax = bounds.right;
-		var rightmin = rightmax - widthDelta;
+		const rightmax = bounds.right;
+		const rightmin = rightmax - widthDelta;
 
-		var topmin = bounds.top;
-		var topmax = topmin + heightDelta;
+		const topmin = bounds.top;
+		const topmax = topmin + heightDelta;
 
-		var bottommax = bounds.bottom;
-		var bottommin = bottommax - heightDelta;
+		const bottommax = bounds.bottom;
+		const bottommin = bottommax - heightDelta;
 		if(mousepos.x < leftmin || mousepos.x > rightmax || mousepos.y < topmin || mousepos.y > bottommax){
 			return this.mouseregions.OUTSIDE;
 		}else{
@@ -667,54 +669,54 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.endEditing = function(doAbbord){
+	endEditing(doAbbord){
 		if(!doAbbord){
-			if(_this.isEditing){
-				switch(_editMode){
+			if(this.isEditing){
+				switch(this._editMode){
 					case 0:
-						_this.endCreatePolygon();
+						this.endCreatePolygon();
 						break;
 					case 1:
-						_this.endCreateRectangle();
+						this.endCreateRectangle();
 						break;
 					case 2:
-						_this.endCreateBorder();
+						this.endCreateBorder();
 						break;
 					case 3:
-						_this.endCreateLine();
+						this.endCreateLine();
 						break;
 					case 4:
-						_this.endMovePath();
+						this.endMovePath();
 						break;
 					case 5:
-						_this.endMovePath();
+						this.endMovePath();
 						break;
 					default:
 						break;
 				}
 			}
 		}else{
-			_this.isEditing = false;
+			this.isEditing = false;
 
-			_tempID = null;
-			if(_tempPath != null){
-				_tempPath.remove();
-				_tempPath = null;
+			this._tempID = null;
+			if(this._tempPath != null){
+				this._tempPath.remove();
+				this._tempPath = null;
 			}
-			_tempPoint = null;
+			this._tempPoint = null;
 
-			if(_tempEndCircle){
-				_tempEndCircle.remove();
-				_tempEndCircle = null;
+			if(this._tempEndCircle){
+				this._tempEndCircle.remove();
+				this._tempEndCircle = null;
 			}
 
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	this.getPointInBounds = function(point, bounds){
+	getPointInBounds(point, bounds){
 		if(!bounds.contains(point)){
-			var boundPoint = point;
+			let boundPoint = point;
 			if(point.x < bounds.left){
 				boundPoint.x = bounds.left;
 			}else if(point.x > bounds.right){
@@ -732,54 +734,51 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.addGrid = function(){
-		_grid.isActive = true;
+	addGrid(){
+		this._grid.isActive = true;
 	}
 
-	this.setGrid = function(point){
-		if(_grid.vertical ==  null || _grid.horizontal == null){
-			_grid.vertical = new paper.Path.Line();
-			_grid.vertical.strokeColor = 'black';
-			_grid.vertical.dashArray = [3, 3];
+	setGrid(point){
+		if(this._grid.vertical ==  null || this._grid.horizontal == null){
+			this._grid.vertical = new paper.Path.Line();
+			this._grid.vertical.strokeColor = 'black';
+			this._grid.vertical.dashArray = [3, 3];
 
-			_grid.horizontal = new paper.Path.Line();
-			_grid.horizontal.strokeColor = 'black';
-			_grid.horizontal.dashArray = [3, 3];
+			this._grid.horizontal = new paper.Path.Line();
+			this._grid.horizontal.strokeColor = 'black';
+			this._grid.horizontal.dashArray = [3, 3];
 		}
-		var bounds = paper.view.bounds;
-		_grid.vertical.removeSegments();
-		_grid.vertical.add(new paper.Point(point.x,bounds.top));
-		_grid.vertical.add(new paper.Point(point.x,bounds.bottom));
+		const bounds = paper.view.bounds;
+		this._grid.vertical.removeSegments();
+		this._grid.vertical.add(new paper.Point(point.x,bounds.top));
+		this._grid.vertical.add(new paper.Point(point.x,bounds.bottom));
 
-		_grid.horizontal.removeSegments();
-		_grid.horizontal.add(new paper.Point(bounds.left,point.y));
-		_grid.horizontal.add(new paper.Point(bounds.right,point.y));
+		this._grid.horizontal.removeSegments();
+		this._grid.horizontal.add(new paper.Point(bounds.left,point.y));
+		this._grid.horizontal.add(new paper.Point(bounds.right,point.y));
 
 		//visibility
-		if(!_grid.isActive){
-			_grid.vertical.visible = false;
-			_grid.horizontal.visible = false;
+		if(!this._grid.isActive){
+			this._grid.vertical.visible = false;
+			this._grid.horizontal.visible = false;
 		}else{
-			_grid.vertical.visible = true;
-			_grid.horizontal.visible = true;
+			this._grid.vertical.visible = true;
+			this._grid.horizontal.visible = true;
 		}
 	}
 
-	this.removeGrid = function(point){
-		if(_grid.vertical !=  null && _grid.horizontal != null){
-			_grid.vertical.visible = false;
-			_grid.horizontal.visible = false;
+	removeGrid(point){
+		if(this._grid.vertical !=  null && this._grid.horizontal != null){
+			this._grid.vertical.visible = false;
+			this._grid.horizontal.visible = false;
 		}
-		_grid.isActive = false;
+		this._grid.isActive = false;
 	}
 
-	this.getPointFixedToGrid = function(point){
-		if(_grid.isActive && _grid.vertical !=  null && _grid.horizontal != null){
-			var verticalFixedPoint = new paper.Point(_grid.vertical.getPointAt(0).x,point.y);
-			var horizontalFixedPoint = new paper.Point(point.x,_grid.horizontal.getPointAt(0).y);
-			/*The following should have worked...
-			var verticalFixedPoint = _grid.vertical.getNearestLocation(event.point).point;
-			var horizontalFixedPoint = _grid.horizontal.getNearestLocation(event.point).point;*/
+	getPointFixedToGrid(point){
+		if(this._grid.isActive && this._grid.vertical !=  null && this._grid.horizontal != null){
+			const verticalFixedPoint = new paper.Point(this._grid.vertical.getPointAt(0).x,point.y);
+			const horizontalFixedPoint = new paper.Point(point.x,this._grid.horizontal.getPointAt(0).y);
 			if(verticalFixedPoint.getDistance(point) < horizontalFixedPoint.getDistance(point)){
 				return verticalFixedPoint;
 			}else{
@@ -790,23 +789,23 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	this.displayReadingOrder = function(readingOrder){
-		if(!_readingOrder){
-			_readingOrder = new paper.Path();
-			_readingOrder.strokeColor = 'indigo';
-			_readingOrder.strokeWidth = 2;
+	displayReadingOrder(readingOrder){
+		if(!this._readingOrder){
+			this._readingOrder = new paper.Path();
+			this._readingOrder.strokeColor = 'indigo';
+			this._readingOrder.strokeWidth = 2;
 		}
-		_this.getImageCanvas().addChild(_readingOrder);
-		_readingOrder.visible = true;
-		_guiOverlay.visible = true;
-		_readingOrder.removeSegments();
-		_guiOverlay.removeChildren();
+		this.getImageCanvas().addChild(this._readingOrder);
+		this._readingOrder.visible = true;
+		this._guiOverlay.visible = true;
+		this._readingOrder.removeSegments();
+		this._guiOverlay.removeChildren();
 
-		for(var index = 0; index < readingOrder.length; index++){
-			var segment = _this.getPath(readingOrder[index].id);
+		for(let index = 0; index < readingOrder.length; index++){
+			const segment = this.getPath(readingOrder[index]);
 			if(segment){
-				_readingOrder.add(new paper.Segment(segment.bounds.center));
-				var text = new paper.PointText({
+				this._readingOrder.add(new paper.Segment(segment.bounds.center));
+				const text = new paper.PointText({
 					point: segment.bounds.center,
 					content: index,
 					fillColor: 'white',
@@ -817,37 +816,29 @@ function Editor(viewer,controller) {
 					strokeWidth: 1
 				});
 
-				/*var rectangle = new paper.Path.Rectangle(text.bounds);
-				rectangle.style = {
-					fillColor: 'blue',
-					strokeColor: 'red',
-					strokeWidth: 5
-				};
-				rectangle.applyMatrix = false;
-				_guiOverlay.addChild(rectangle);*/
-				_guiOverlay.addChild(text);
+				this._guiOverlay.addChild(text);
 			}
 		}
 	}
 
-	this.hideReadingOrder = function(){
-		if(_readingOrder){
-			_readingOrder.visible = false;
-			_guiOverlay.visible = false;
+	hideReadingOrder(){
+		if(this._readingOrder){
+			this._readingOrder.visible = false;
+			this._guiOverlay.visible = false;
 		}
 	}
 
-	this.getSortedReadingOrder = function(readingOrder){
-		var centers = {};
-		for(var index = 0; index < readingOrder.length; index++){
-			var id = readingOrder[index].id;
-			centers[id] = _this.getPath(id).bounds.center;
+	getSortedReadingOrder(readingOrder){
+		const centers = {};
+		for(let index = 0; index < readingOrder.length; index++){
+			const id = readingOrder[index];
+			centers[id] = this.getPath(id).bounds.center;
 		}
 
 		readingOrder.sort(function(a,b){
-			var centerA = centers[a.id];
-			var centerB = centers[b.id];
-			var delta = centerA.y - centerB.y;
+			const centerA = centers[a];
+			const centerB = centers[b];
+			const delta = centerA.y - centerB.y;
 			if(delta != 0){
 				return delta;
 			}else{
@@ -859,41 +850,41 @@ function Editor(viewer,controller) {
 	}
 
 	// Private Helper methods
-	var convertPointsPathToSegment = function(path,isRelative){
-		var points = [];
-		for(var pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
-			var point = path.segments[pointItr].point;
+	_convertPointsPathToSegment(path,isRelative){
+		const points = [];
+		for(let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
+			const point = path.segments[pointItr].point;
 			if(isRelative){
-				points.push(getPercentPointFromCanvas(point.x, point.y));
+				points.push(this._getPercentPointFromCanvas(point.x, point.y));
 			}else{
-				points.push(getPointFromCanvas(point.x, point.y));
+				points.push(this._getPointFromCanvas(point.x, point.y));
 			}
 		}
 
 		return points;
 	}
 
-	var getPointFromCanvas = function(canvasX, canvasY){
-		var canvasPoint = _this.getPointInBounds(new paper.Point(canvasX, canvasY), _this.getBoundaries());
-		var imagePosition = _this.getBoundaries();
-		var x = (canvasPoint.x - imagePosition.x) / _this.getZoom();
-		var y = (canvasPoint.y - imagePosition.y) / _this.getZoom();
+	_getPointFromCanvas(canvasX, canvasY){
+		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
+		const imagePosition = this.getBoundaries();
+		const x = (canvasPoint.x - imagePosition.x) / this.getZoom();
+		const y = (canvasPoint.y - imagePosition.y) / this.getZoom();
 
 		return {"x":x,"y":y};
 	}
 
-	var getPercentPointFromCanvas = function(canvasX, canvasY){
-		var canvasPoint = _this.getPointInBounds(new paper.Point(canvasX, canvasY), _this.getBoundaries());
-		var imagePosition = _this.getBoundaries();
-		var x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
-		var y = (canvasPoint.y - imagePosition.y) / imagePosition.height;
+	_getPercentPointFromCanvas(canvasX, canvasY){
+		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
+		const imagePosition = this.getBoundaries();
+		const x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
+		const y = (canvasPoint.y - imagePosition.y) / imagePosition.height;
 
 		return {"x":x,"y":y};
 	}
 
-	this.getPointInBounds = function(point, bounds){
+	getPointInBounds(point, bounds){
 		if(!bounds.contains(point)){
-			var boundPoint = point;
+			const boundPoint = point;
 			if(point.x < bounds.left){
 				boundPoint.x = bounds.left;
 			}else if(point.x > bounds.right){
@@ -911,91 +902,32 @@ function Editor(viewer,controller) {
 		}
 	}
 
-	var fixGuiTextSize = function(){
-		_guiOverlay.children.forEach(function(element) {
+	_fixGuiTextSize(){
+		this._guiOverlay.children.forEach(function(element) {
 			element.scaling = new paper.Point(1,1);
 		}, this);
-		_guiOverlay.bringToFront();
+		this._guiOverlay.bringToFront();
 	}
 
 	//***Inherintent functions***
-	this.setImage = function(id){
-		_viewer.setImage(id);
-		_this.getImageCanvas().addChild(_guiOverlay);
+	setImage(id){
+		super.setImage(id);
+		this.getImageCanvas().addChild(this._guiOverlay);
 	}
-	this.addSegment = function(segment,isFixed){
-		_viewer.addSegment(segment,isFixed);
+	setZoom(zoomfactor,point) {
+		super.setZoom(zoomfactor,point);
+		this._fixGuiTextSize();
 	}
-	this.clear = function() {
-		_viewer.clear();
+	zoomIn(zoomfactor,point) {
+		super.zoomIn(zoomfactor,point);
+		this._fixGuiTextSize();
 	}
-	this.updateSegment = function(segment) {
-		_viewer.updateSegment(segment);
+	zoomOut(zoomfactor,point) {
+		super.zoomOut(zoomfactor,point);
+		this._fixGuiTextSize();
 	}
-	this.removeSegment = function(id){
-		_viewer.removeSegment(id);
-	}
-	this.highlightSegment = function(id, doHighlight) {
-		_viewer.highlightSegment(id, doHighlight);
-	}
-	this.hideSegment = function(id,doHide){
-		_viewer.hideSegment(id, doHide);
-	}
-	this.selectSegment = function(id, doSelect) {
-		_viewer.selectSegment(id, doSelect);
-	}
-	this.getBoundaries = function(){
-		return _viewer.getBoundaries();
-	}
-	this.center = function() {
-		_viewer.center();
-	}
-	this.getZoom = function(){
-		return _viewer.getZoom();
-	}
-	this.setZoom = function(zoomfactor,point) {
-		_viewer.setZoom(zoomfactor,point);
-
-		fixGuiTextSize();
-	}
-	this.zoomIn = function(zoomfactor,point) {
-		_viewer.zoomIn(zoomfactor,point);
-
-		fixGuiTextSize();
-	}
-	this.zoomOut = function(zoomfactor,point) {
-		_viewer.zoomOut(zoomfactor,point);
-
-		fixGuiTextSize();
-	}
-	this.zoomFit = function() {
-		_viewer.zoomFit();
-
-		fixGuiTextSize();
-	}
-	this.movePoint = function(delta) {
-			_viewer.movePoint(delta);
-	}
-	this.move = function(x, y) {
-			_viewer.move(x, y);
-	}
-	this.getColor = function(segmentType){
-		return _viewer.getColor(segmentType);
-	}
-	//Protected functions
-	this.getPath = function(id){
-		return _viewer.getPath(id);
-	}
-	this.drawPath = function(segment, doFill, info){
-		_viewer.drawPath(segment, doFill, info);
-	}
-	this.drawPathLine = function(segment){
-		_viewer.drawPathLine(segment);
-	}
-	this.getImageCanvas = function(){
-		return _viewer.getImageCanvas();
-	}
-	this.getSegmentIDsBetweenPoints = function(pointA,pointB){
-		return _viewer.getSegmentIDsBetweenPoints(pointA,pointB);
+	zoomFit() {
+		super.zoomFit();
+		this._fixGuiTextSize();
 	}
 }

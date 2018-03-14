@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -21,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.communication.FullBookResponse;
+import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
@@ -60,8 +60,9 @@ public class ViewerController {
 		}
 
 		segmenter.clear();
-		prepareSegmenter(bookID);
-		Book book = segmenter.getBook();
+		prepareSegmenter();
+		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		Book book = database.getBook(bookID);
 
 		if (book == null) {
 			return "redirect:/404";
@@ -81,25 +82,24 @@ public class ViewerController {
 			@RequestParam(value = "bookname", required = true) String bookname,
 			@RequestParam(value = "localsave", required = false) String localsave,
 			@RequestParam(value = "savedir", required = false) String savedir,
-			@RequestParam(value = "websave", required = false) String websave)
-			throws IOException {
+			@RequestParam(value = "websave", required = false) String websave) throws IOException {
 		init();
 		if (!config.getSetting("directrequest").equals("enable")) {
 			return "redirect:/403";
 		}
-		if(!new File(bookpath+File.separator+bookname).exists()) {
+		if (!new File(bookpath + File.separator + bookname).exists()) {
 			return "redirect:/400";
 		}
 		fileManager.setBooksPath(bookpath);
 		int bookID = bookname.hashCode();
 
-		if(localsave != null) {
+		if (localsave != null) {
 			config.setSetting("localsave", localsave);
 		}
-		if(savedir != null) {
+		if (savedir != null) {
 			config.setSetting("savedir", savedir);
 		}
-		if(websave != null) {
+		if (websave != null) {
 			config.setSetting("websave", websave);
 		}
 		return viewer(model, bookID);
@@ -108,11 +108,12 @@ public class ViewerController {
 	@RequestMapping(value = "/book", method = RequestMethod.POST)
 	public @ResponseBody FullBookResponse getBook(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
-		prepareSegmenter(bookID);
-		Book book = segmenter.getBook();
+		prepareSegmenter();
+		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		Book book = database.getBook(bookID);
 		BookSettings settings = segmenter.getDefaultSettings(book);
 		Map<Integer, PageSegmentation> segmentations = new HashMap<Integer, PageSegmentation>();
-		segmentations.put(pageID, segmenter.segmentPage(settings, pageID, false));
+		// segmentations.put(pageID, segmenter.segmentPage(settings, pageID, false));
 
 		FullBookResponse bookview = new FullBookResponse(book, segmentations, settings);
 		return bookview;
@@ -124,22 +125,16 @@ public class ViewerController {
 				segmentationRequest.isAllowToLoadLocal());
 	}
 
-	@RequestMapping(value = "/merge", method = RequestMethod.POST)
-	public @ResponseBody Polygon segment(@RequestParam("segmentids[]") List<String> segmentIDs,
-			@RequestParam("pageid") int pageID) {
-		Polygon merged = segmenter.merge(segmentIDs, pageID);
-		return merged;
+	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody Polygon merge(@RequestBody MergeRequest mergeRequest) {
+		return segmenter.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid());
 	}
 
-	private LarexFacade prepareSegmenter(int bookID) {
+	private LarexFacade prepareSegmenter() {
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 
 		if (!segmenter.isInit()) {
-			String resourcepath = fileManager.getBooksPath();
-			segmenter.init(database.getBook(bookID), resourcepath);
-		} else if (bookID != segmenter.getBook().getId()) {
-			segmenter.setBook(database.getBook(bookID));
+			segmenter.init(fileManager);
 		}
 		return segmenter;
 	}

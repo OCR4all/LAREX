@@ -29,13 +29,15 @@ import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
-import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationStatus;
+import com.web.controller.FileManager;
 import com.web.model.Book;
 import com.web.model.BookSettings;
 import com.web.model.Page;
 import com.web.model.PageSegmentation;
 import com.web.model.Polygon;
+import com.web.model.database.FileDatabase;
+import com.web.model.database.IDatabase;
 
 import larex.export.PageXMLReader;
 import larex.export.PageXMLWriter;
@@ -43,7 +45,6 @@ import larex.export.SettingsReader;
 import larex.export.SettingsWriter;
 import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
-import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
@@ -57,31 +58,15 @@ import larex.segmentation.result.SegmentationResult;
 @Scope("session")
 public class LarexFacade implements IFacade {
 
-	private larex.dataManagement.Page exportPage;
-	private String resourcepath;
-	private Book book;
-	private Segmenter segmenter;
-	private Parameters parameters;
-	private Document exportSettings;
+	private FileManager fileManager;
+	private Map<Integer, larex.dataManagement.Page> exportPages = new HashMap<Integer, larex.dataManagement.Page>();
+	private Map<Integer, Document> exportSettings = new HashMap<Integer, Document>();
 	private boolean isInit = false;
-	private HashMap<Integer, larex.dataManagement.Page> segmentedLarexPages;
 
 	@Override
-	public void init(Book book, String resourcepath) {
-		this.book = book;
-		this.resourcepath = resourcepath;
+	public void init(FileManager fileManager) {
+		this.fileManager = fileManager;
 		this.isInit = true;
-		this.segmentedLarexPages = new HashMap<Integer, larex.dataManagement.Page>();
-	}
-
-	@Override
-	public void setBook(Book book) {
-		this.book = book;
-	}
-
-	@Override
-	public Book getBook() {
-		return book;
 	}
 
 	@Override
@@ -91,33 +76,19 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public void clear() {
-		this.resourcepath = "";
-		this.book = null;
-		this.segmenter = null;
-		this.parameters = null;
 		this.isInit = false;
-		if (segmentedLarexPages != null) {
-			for (int pageNr : segmentedLarexPages.keySet()) {
-				this.segmentedLarexPages.get(pageNr).clean();
-			}
-		}
-		this.segmentedLarexPages = null;
-		System.gc();
 	}
 
 	@Override
 	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults) {
-		if (book == null || !(settings.getBookID() == book.getId())) {
-			throw new IllegalArgumentException("Booksettings do not fit the book");
-		}
+		Book book = getBook(settings.getBookID());
 
 		Page page = book.getPage(pageNr);
-		String imagePath = resourcepath + File.separator + page.getImage();
+		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 		String xmlPath = imagePath.substring(0, imagePath.lastIndexOf('.')) + ".xml";
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			setPageResult(page, loadedResult);
 			return LarexWebTranslator.translateResultRegionsToSegmentation(loadedResult.getRegions(), page.getId());
 		} else {
 			return segment(settings, page);
@@ -132,50 +103,15 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public void prepareExport(ExportRequest exportRequest) {
-		// shallow clown page (ResultRegions are not cloned)
-		exportPage = segmentedLarexPages.get(exportRequest.getPage()).clone();
-		SegmentationResult result = exportPage.getSegmentationResult();
-
-		// Deleted
-		for (String segmentID : exportRequest.getSegmentsToIgnore()) {
-			result.removeRegionByID(segmentID);
-		}
-
-		// ChangedTypes
-		for (Map.Entry<String, RegionType> changeType : exportRequest.getChangedTypes().entrySet()) {
-			// clone ResultRegion before changing it
-			if (result.getRegionByID(changeType.getKey()) != null) {
-				ResultRegion clone = result.removeRegionByID(changeType.getKey()).clone();
-				clone.setType(changeType.getValue());
-				result.addRegion(clone);
-			}
-		}
-
-		// FixedSegments
-		Map<String, Polygon> fixedSegments = exportRequest.getFixedRegions();
-		if (fixedSegments != null) {
-			for (String fixedSegmentID : fixedSegments.keySet()) {
-				// Replace Region with fixed Region if exists
-				result.removeRegionByID(fixedSegmentID);
-				result.addRegion(WebLarexTranslator.translateSegmentToResultRegion(fixedSegments.get(fixedSegmentID)));
-			}
-		}
-
-		// Reading Order
-		ArrayList<ResultRegion> readingOrder = new ArrayList<ResultRegion>();
-		List<String> readingOrderStrings = exportRequest.getReadingOrder();
-		for (String regionID : readingOrderStrings) {
-			ResultRegion region = result.getRegionByID(regionID);
-			if (region != null) {
-				readingOrder.add(region);
-			}
-		}
-		result.setReadingOrder(readingOrder);
+	public void prepareExport(PageSegmentation segmentation, int bookID) {
+		larex.dataManagement.Page exportPage = getLarexPage(getBook(bookID).getPage(segmentation.getPage()));
+		exportPage.setSegmentationResult(WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation));
+		exportPages.put(bookID, exportPage);
 	}
 
 	@Override
-	public ResponseEntity<byte[]> getPageXML(String version) {
+	public ResponseEntity<byte[]> getPageXML(String version, int bookID) {
+		larex.dataManagement.Page exportPage = exportPages.get(bookID);
 		if (exportPage != null) {
 			exportPage.initPage();
 			Document document = PageXMLWriter.getPageXML(exportPage, version);
@@ -187,7 +123,8 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public void savePageXMLLocal(String saveDir, String version) {
+	public void savePageXMLLocal(String saveDir, String version, int bookID) {
+		larex.dataManagement.Page exportPage = exportPages.get(bookID);
 		if (exportPage != null) {
 			exportPage.initPage();
 			Document document = PageXMLWriter.getPageXML(exportPage, version);
@@ -198,14 +135,14 @@ public class LarexFacade implements IFacade {
 
 	@Override
 	public void prepareSettings(BookSettings settings) {
-		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, null, new Size());
-		exportSettings = SettingsWriter.getSettingsXML(parameters);
+		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
+		exportSettings.put(settings.getBookID(), SettingsWriter.getSettingsXML(parameters));
 	}
 
 	@Override
-	public ResponseEntity<byte[]> getSettingsXML() {
+	public ResponseEntity<byte[]> getSettingsXML(int bookID) {
 		if (exportSettings != null) {
-			return convertDocumentToByte(exportSettings, "settings_" + book.getName());
+			return convertDocumentToByte(exportSettings.get(bookID), "settings_" + getBook(bookID).getName());
 		} else {
 			throw new IllegalStateException("Setting can't be returned. No Setting has been prepared for export.");
 		}
@@ -236,16 +173,15 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public Polygon merge(List<String> segments, int pageNr) {
-		SegmentationResult resultPage = segmentedLarexPages.get(pageNr).getSegmentationResult();
-
+	public Polygon merge(List<Polygon> segments, int pageNr, int bookID) {
 		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
-		for (String segmentID : segments) {
-			resultRegions.add(resultPage.getRegionByID(segmentID));
-		}
-		larex.dataManagement.Page page = segmentedLarexPages.get(pageNr);
+		for (Polygon segment : segments)
+			resultRegions.add(WebLarexTranslator.translateSegmentToResultRegion(segment));
+
+		Book book = getBook(bookID);
+		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr));
 		page.initPage();
-		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary());
+		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary().size());
 		page.clean();
 		System.gc();
 
@@ -271,7 +207,7 @@ public class LarexFacade implements IFacade {
 	}
 
 	private larex.dataManagement.Page segmentLarex(BookSettings settings, Page page) {
-		String imagePath = resourcepath + File.separator + page.getImage();
+		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
@@ -279,21 +215,15 @@ public class LarexFacade implements IFacade {
 
 			Size pagesize = currentLarexPage.getOriginal().size();
 
-			parameters = WebLarexTranslator.translateSettingsToParameters(settings, parameters, pagesize);
+			Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, pagesize);
 			parameters.getRegionManager().setPointListManager(
 					WebLarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
 
-			if (segmenter == null) {
-				segmenter = new Segmenter(parameters);
-			} else {
-				segmenter.setParameters(parameters);
-			}
+			Segmenter segmenter = new Segmenter(parameters);
 			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
 			currentLarexPage.setSegmentationResult(segmentationResult);
 
 			currentLarexPage.clean();
-
-			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
 
 			System.gc();
 			return currentLarexPage;
@@ -304,31 +234,26 @@ public class LarexFacade implements IFacade {
 		}
 	}
 
-	private larex.dataManagement.Page setPageResult(Page page, SegmentationResult result) {
-		String imagePath = resourcepath + File.separator + page.getImage();
+	private larex.dataManagement.Page getLarexPage(Page page) {
+		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
-			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
-			currentLarexPage.setSegmentationResult(result);
-			segmentedLarexPages.put(page.getId(), currentLarexPage.clone());
-			return currentLarexPage;
-		} else {
-			System.err.println(
-					"Warning: Image file could not be found. Segmentation result will be empty. File: " + imagePath);
-			return null;
+			return new larex.dataManagement.Page(imagePath);
 		}
+		return null;
 	}
 
 	@Override
-	public BookSettings readSettings(byte[] settingsFile) {
+	public BookSettings readSettings(byte[] settingsFile, int bookID) {
 		BookSettings settings = null;
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(new ByteArrayInputStream(settingsFile));
 
+			Book book = getBook(bookID);
 			Page page = book.getPage(0);
-			String imagePath = resourcepath + File.separator + page.getImage();
+			String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
 			currentLarexPage.initPage();
 
@@ -348,21 +273,16 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public PageSegmentation readPageXML(byte[] pageXML, int pageNr) {
+	public PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID) {
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(new ByteArrayInputStream(pageXML));
-			Page page = book.getPage(pageNr);
+			Page page = getBook(bookID).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
 			PageSegmentation pageSegmentation = LarexWebTranslator
 					.translateResultRegionsToSegmentation(result.getRegions(), page.getId());
-
-			// set pageXML as segmented page
-			larex.dataManagement.Page larexPage = segmentedLarexPages.get(pageNr);
-			larexPage.setSegmentationResult(result);
-			segmentedLarexPages.put(pageNr, larexPage);
 
 			List<String> readingOrder = new ArrayList<String>();
 			for (ResultRegion region : result.getReadingOrder()) {
@@ -379,5 +299,10 @@ public class LarexFacade implements IFacade {
 			e.printStackTrace();
 		}
 		return null;
+	}
+
+	public Book getBook(int bookID) {
+		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		return database.getBook(bookID);
 	}
 }

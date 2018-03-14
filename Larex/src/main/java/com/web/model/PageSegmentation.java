@@ -29,7 +29,7 @@ public class PageSegmentation {
 	public PageSegmentation(int pageNr) {
 		this(pageNr, new HashMap<String, Polygon>(), SegmentationStatus.UNSEGMENTED,new ArrayList<String>());
 	}
-	@JsonCreator
+
 	public PageSegmentation(int pageNr, Map<String, Polygon> segments) {
 		this(pageNr,segments,SegmentationStatus.SUCCESS,new ArrayList<String>());
 	}

@@ -33,6 +33,7 @@ public class MaxOccOneFinder {
 	}
 	
 	public static Candidate findMaxOccOne(ArrayList<Candidate> candidates, Region region) {
+		//TODO Remove because rarely used
 		candidates = checkPositions(candidates, region);
 		
 		int minSize = region.getMinSize();
@@ -48,7 +49,7 @@ public class MaxOccOneFinder {
 			return calcRightRect(candidates, minSize);
 		}
 
-		return null;
+		return calcTopRect(candidates, minSize);
 	}
 
 	public static Candidate calcTopRect(ArrayList<Candidate> candidates, int minSize) {

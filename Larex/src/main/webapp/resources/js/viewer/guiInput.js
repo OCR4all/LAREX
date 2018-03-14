@@ -1,12 +1,12 @@
 function GuiInput(navigationController, controller, gui){
-	var _navigationController = navigationController;
-	var _controller = controller;
-	var _gui = gui;
-	var _draggedObject = null;
+	const _navigationController = navigationController;
+	const _controller = controller;
+	const _gui = gui;
+	let _draggedObject = null;
 
-	$(window).click(function(event) {
+	$(window).click((event) => {
 		//Cancel viewer actions, if outside of viewer or a menu icon
-		$target = $(event.target);
+		const $target = $(event.target);
 		if(!$target.is('body') && !$target.is('#viewer') && !$target.parents("#viewer").is("#viewer")
 		&& !$target.is('.infocus') && !$target.parents(".infocus").is(".infocus")){
 			_controller.escape();
@@ -14,40 +14,28 @@ function GuiInput(navigationController, controller, gui){
 	});
 
 	// button registration
-	$( "#viewer" ).contextmenu(function() {
+	$( "#viewer" ).contextmenu(() => {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
-	$( "#viewer" ).dblclick(function() {
-		_controller.endEditing();
-	});
-	$('.doSegment').click(function() {
-		_controller.doSegmentation();
-	});
-	$('.exportPageXML').click(function() {
-		_controller.exportPageXML();
-	});
-	$('.downloadPageXML').click(function() {
-		_controller.downloadPageXML();
-	});
-	$('.pageXMLVersion').click(function() {
-		var version = $(this).data(version).version;
+	$( "#viewer" ).dblclick(() => _controller.endEditing());
+	$('.doSegment').click(() => _controller.doSegmentation());
+	$('.exportPageXML').click(() => _controller.exportPageXML());
+	$('.downloadPageXML').click(() => _controller.downloadPageXML());
+	$('.pageXMLVersion').click( function(){
+		const version = $(this).data('version');
 		_gui.setPageXMLVersion(version);
 		$('#dropDownPageXML').dropdown('close');
 		_controller.setPageXMLVersion(version);
 	});
-	$('#dropDownPageXMLCorner').click(function(event) {
-    event.stopPropagation();
+	$('#dropDownPageXMLCorner').click((event) => {
+    	event.stopPropagation();
 		$('#dropDownPageXML').dropdown('open');
 	});
-	$('.saveSettingsXML').click(function() {
-		_controller.saveSettingsXML();
-	});
-	$('.downloadSettingsXML').click(function() {
-		_controller.downloadSettingsXML();
-	});
+	$('.saveSettingsXML').click(() => _controller.saveSettingsXML());
+	$('.downloadSettingsXML').click(() => _controller.downloadSettingsXML());
 	$('#upload-input:file').on('change', function() {
-    var file = this.files[0];
+    	const file = this.files[0];
 		$(this).val("");
 		if(file){
 			if (file.size < 1024*1024) {
@@ -58,7 +46,7 @@ function GuiInput(navigationController, controller, gui){
 		}
 	});
 	$('#upload-segmentation-input:file').on('change', function() {
-    var file = this.files[0];
+    	const file = this.files[0];
 		$(this).val("");
 		if(file){
 			if (file.size < 1024*1024) {
@@ -68,205 +56,131 @@ function GuiInput(navigationController, controller, gui){
 	    }
 		}
   	});
-	$('.reload').click(function() {
-		location.reload();
-	});
+	$('.reload').click(() => location.reload());
 	$('.settings-image-mode').on('change', function() {
 		if(this.value){
 			_controller.changeImageMode(this.value);
 		}
 	})
-
-	$('.settings-combine-image').on('change', function() {
-		var doCombine = $(this).find('input').prop('checked');
+	$('.settings-combine-image').on('change', function(){
+		const doCombine = $(this).find('input').prop('checked');
 		if(doCombine !== undefined){
 		  _controller.changeImageCombine(doCombine);
 		}
 	});
-	$('.createRegionRectangle').click(function() {
-		_controller.createRectangle('region');
-	});
+	$('.createRegionRectangle').click(() => _controller.createRectangle('region'));
+	$('.setRegionOfInterest').click(() => _controller.createRectangle('roi'));
 
-	$('.setRegionOfInterest').click(function() {
-		_controller.createRectangle('roi');
-	});
+	$('.createIgnore').click(() => _controller.createRectangle('ignore'));
+	$('.createRegionBorder').click(() => _controller.createBorder(false));
+	$('.createSegmentPolygon').click(() => _controller.createPolygon(true));
+	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
+	$('.createSegmentBorder').click(() => _controller.createBorder(true));
+	$('.createCut').click(() => _controller.createCut());
 
-	$('.createIgnore').click(function() {
-		_controller.createRectangle('ignore');
-	});
+	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
+	$('.scaleSelected').click(() => _controller.scaleSelected());
+	$('.moveSelected').click(() => _controller.moveSelected());
+	$('.deleteSelected').click(() => _controller.deleteSelected());
+	$('.fixSelected').click(() => _controller.fixSelected());
 
-	$('.createRegionBorder').click(function() {
-		_controller.createBorder(false);
-	});
+	$('.editMode').click(() => _controller.editLastSelected());
 
-	$('.createSegmentPolygon').click(function() {
-		_controller.createPolygon(true);
-	});
+	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
+	$('.zoomout').click(() => _navigationController.zoomOut(0.1));
+	$('.zoomfit').click(() => _navigationController.zoomFit());
 
-	$('.createSegmentRectangle').click(function() {
-		_controller.createRectangle('segment');
-	});
-
-	$('.createSegmentBorder').click(function() {
-		_controller.createBorder(true);
-	});
-
-	$('.createCut').click(function() {
-		_controller.createCut();
-	});
-
-	$('.combineSelected').click(function() {
-		_controller.mergeSelectedSegments();
-	});
-
-	$('.scaleSelected').click(function() {
-		_controller.scaleSelected();
-	});
-
-	$('.moveSelected').click(function() {
-		_controller.moveSelected();
-	});
-
-	$('.deleteSelected').click(function() {
-		_controller.deleteSelected();
-	});
-
-	$('.editMode').click(function() {
-		//TODO
-		_controller.editLastSelected();
-		//_inputhandler.selectEdit();//_viewer.startEdit();
-	});
-
-	$('.zoomin').click(function() {
-		_navigationController.zoomIn(0.1);
-	});
-
-	$('.zoomout').click(function() {
-		_navigationController.zoomOut(0.1);
-	});
-
-	$('.zoomfit').click(function() {
-		_navigationController.zoomFit();
-	});
-
-	$('.moveright').click(function() {
-		_navigationController.move(10, 0);
-	});
-
-	$('.moveleft').click(function() {
-		_navigationController.move(-10, 0);
-	});
-
-	$('.movedown').click(function() {
-		_navigationController.move(0, 10);
-	});
-
-	$('.moveup').click(function() {
-		_navigationController.move(0, -10);
-	});
-
-	$('.movecenter').click(function() {
-		_navigationController.center();
-	});
-
-	$('.movefree').click(function() {
+	$('.moveright').click(() => _navigationController.move(10, 0));
+	$('.moveleft').click(() => _navigationController.move(-10, 0));
+	$('.movedown').click(() => _navigationController.move(0, 10));
+	$('.moveup').click(() => _navigationController.move(0, -10));
+	$('.movecenter').click(() => _navigationController.center());
+	
+	$('.movefree').click(() => {
 		if(_gui.doMoveCanvas){
 			_gui.moveCanvas(false);
 		} else {
 			_gui.moveCanvas(true);
 		}
 	});
-	$('.undo').click(function() {
-		_controller.undo();
-	});
-	$('.redo').click(function() {
-		_controller.redo();
-	});
-	$('.deleteEdit').click(function() {
+
+	$('.undo').click(() => _controller.undo());
+	$('.redo').click(() => _controller.redo());
+	
+	$('.deleteEdit').click(() =>{
 		_controller.deleteSelected();
 		//TODO redirect to controller
 		$("#segmentedit").addClass("hide");
 	});
-	$('.closeEdit').click(function() {
+	$('.closeEdit').click(() =>{
 		//TODO redirect to controller
 		$("#segmentedit").addClass("hide");
 	});
-	$('.chagePage').click(function() {
-		  _controller.displayPage($(this).data("page"));
-	});
-	$('#selectTypes').on('change', function() {
-		  _controller.changeTypeSelected(this.value);
-	});
+	
+	$('.chagePage').click(function(){_controller.displayPage($(this).data("page"))});
+	$('#selectTypes').on('change', function(){_controller.changeTypeSelected(this.value)});
 	$('.regionlegend').click(function() {
-			var $this = $(this);
-			var $switchBox = $this.find('input');
+			const $this = $(this);
+			const $switchBox = $this.find('input');
 			_controller.hideRegion($this.data('type'), !$switchBox.prop('checked'));
 	});
-	$('.regionlegendAll').click(function() {
-			var $switchBox = $(this).find('input');
-			var $allSwitchBoxes = $('.regionlegend').find('input');
+	$('.regionlegendAll').click(function(){
+			const $switchBox = $(this).find('input');
+			const $allSwitchBoxes = $('.regionlegend').find('input');
 			$allSwitchBoxes.prop('checked',$switchBox.prop('checked'))
 
 			_controller.hideAllRegions(!$switchBox.prop('checked'));
 	});
-	$('.regionSettings, #regioneditorSelect .collection-item').click(function() {
-			_controller.openRegionSettings($(this).data("type"),false);
-	});
-	$('.regionCreate').click(function() {
-			_controller.openRegionSettings($(this).data("type"),true);
-	});
-	$('.regionCancel').click(function() {
-		_gui.closeRegionSettings();
-	});
-	$('.regionDelete').click(function() {
-			var regionType = $('#regioneditor').find('#regionType').text();
+	$('.regionSettings, #regioneditorSelect .collection-item').click(function(){_controller.openRegionSettings($(this).data("type"),false)});
+	$('.regionCreate').click(function(){_controller.openRegionSettings($(this).data("type"),true)});
+	$('.regionCancel').click(() => _gui.closeRegionSettings());
+	$('.regionDelete').click(() => {
+			const regionType = $('#regioneditor').find('#regionType').text();
 			_controller.deleteRegionSettings(regionType);
 			_gui.closeRegionSettings();
 	});
-	$('.contextTypeOption').click(function(){
-			var $this = $(this);
-			var $contextmenu = $("#contextmenu");
-			var doSelected = $contextmenu.data('doSelected');
-			var regionType = $this.data('type');
+	$('.contextTypeOption').click(function() {
+			const $this = $(this);
+			const $contextmenu = $("#contextmenu");
+			const doSelected = $contextmenu.data('doSelected');
+			const regionType = $this.data('type');
 
 			if(doSelected){
 				_controller.changeTypeSelected(regionType);
 			}else{
-				var polygonID = $contextmenu.data('polygonID');
+				const polygonID = $contextmenu.data('polygonID');
 				_controller.changeRegionType(polygonID,regionType);
 			}
 			_gui.closeContextMenu();
 	});
-	$('#regioneditorSave').click(function(){
-			var $regioneditor = $('#regioneditor');
+	
+	$('#regioneditorSave').click(() => { 
+			const $regioneditor = $('#regioneditor');
 
-			var regionType = $regioneditor.find('#regionType').text();
-			var minSize = $regioneditor.find('#regionMinSize').val();
-			var maxOccurances = $regioneditor.find('#regionMaxOccurances').val();
-			var color = $regioneditor.find('#regionColor').data('color');
+			const regionType = $regioneditor.find('#regionType').text();
+			const minSize = $regioneditor.find('#regionMinSize').val();
+			const maxOccurances = $regioneditor.find('#regionMaxOccurances').val();
+			let color = $regioneditor.find('#regionColor').data('color');
 			color = new paper.Color(color.red,color.green,color.blue);
 			_controller.changeRegionSettings(regionType, minSize,maxOccurances);
 			_controller.setRegionColor(regionType,_controller.getColorID(color));
 			_gui.closeRegionSettings();
 	});
-	$('#regioneditorCancel').click(function(){
-			_gui.closeRegionSettings();
-	});
-	$('#regioneditor #regionType').click(function(){
-			var $regioneditor = $('#regioneditor');
+	$('#regioneditorCancel').click(() =>  _gui.closeRegionSettings());
+	$('#regioneditor #regionType').click(() => {
+			const $regioneditor = $('#regioneditor');
 			$('#regioneditorSelect').removeClass('hide');
 	});
-	$('#regioneditor #regionColor').click(function(){
-			var $regioneditorColorSelect = $('#regioneditorColorSelect');
+	$('#regioneditor #regionColor').click(() => { 
+			const $regioneditorColorSelect = $('#regioneditorColorSelect');
 			if($regioneditorColorSelect.hasClass('hide')){
 				$('#regioneditorColorSelect').removeClass('hide');
 			}else{
 				$('#regioneditorColorSelect').addClass('hide');
 			}
 	});
-
-	$('.regioneditorColorSelectItem').click(function() {
-			var color = $(this).data('color');
+	$('.regioneditorColorSelectItem').click(function(){
+			let color = $(this).data('color');
 			color = new paper.Color(color.red,color.green,color.blue);
 			_gui.setRegionColor(color);
 	});
@@ -280,60 +194,49 @@ function GuiInput(navigationController, controller, gui){
 	});
 	
 	$('.settings-load-existing-xml').click(function() {
-			var $this = $(this);
-			var $switchBox = $this.find('input');
+			const $this = $(this);
+			const $switchBox = $this.find('input');
 			_controller.allowToLoadExistingSegmentation($switchBox.prop('checked'));
 	});
 
-	$('.loadExistingSegmentation').click(function() {
-			_controller.loadExistingSegmentation();
-	});
-	
-	$('.autoGenerateReadingOrder').click(function(){
-		_controller.autoGenerateReadingOrder();
-	});
+	$('.loadExistingSegmentation').click(() => _controller.loadExistingSegmentation());
 
-	$('.createReadingOrder').click(function(){
-		_controller.createReadingOrder();
-	});
+	$('.autoGenerateReadingOrder').click(() =>  _controller.autoGenerateReadingOrder());
+	$('.createReadingOrder').click(() =>  _controller.createReadingOrder());
 		
-	$('.saveReadingOrder').click(function(){
-		_controller.endCreateReadingOrder();
-	});
+	$('.saveReadingOrder').click(() =>  _controller.endCreateReadingOrder());
 
-	this.addDynamicListeners = function(){
-		var _hasBeenDropped = false;
+	this.addDynamicListeners = () => {
+		let _hasBeenDropped = false;
 
-		$('.reading-order-segment').mouseover(function(){
-				var $this = $(this);
-				var segmentID = $this.data('segmentid');
+		$('.reading-order-segment').mouseover(function() {
+				const $this = $(this);
+				const segmentID = $this.data('segmentid');
 				_controller.enterSegment(segmentID);
 		});
 
-		$('.reading-order-segment').mouseleave(function(){
-				var $this = $(this);
-				var segmentID = $this.data('segmentid');
+		$('.reading-order-segment').mouseleave(function() {
+				const $this = $(this);
+				const segmentID = $this.data('segmentid');
 				_controller.leaveSegment(segmentID);
 		});
 
-		$('.reading-order-segment').on('dragstart', function (event) {
-				var $this = $(this);
+		$('.reading-order-segment').on('dragstart', function(event) {
+				const $this = $(this);
 				_draggedObject = $this;
 				_hasBeenDropped = false;
 		});
 
-		$('.reading-order-segment').on('dragover', function (event) {
-				return false;
-		});
+		$('.reading-order-segment').on('dragover',  (event) => false);
 
-		$('.reading-order-segment').on('dragleave', function (event) {
+		$('.reading-order-segment').on('dragleave', function(event){
 				$(this).removeClass('dragedOver');
 				event.preventDefault();
 				return false;
 		});
 
-		$('.reading-order-segment').on('dragenter', function (event) {
-					var $this = $(this);
+		$('.reading-order-segment').on('dragenter',function(event) {
+					const $this = $(this);
 					$this.addClass('dragedOver');
 					if(_draggedObject){
 						_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),false);
@@ -341,8 +244,8 @@ function GuiInput(navigationController, controller, gui){
 				return true;
 		});
 
-		$('.reading-order-segment').on('drop', function (event) {
-				var $this = $(this);
+		$('.reading-order-segment').on('drop',function(event) {
+				const $this = $(this);
 				$this.removeClass('dragedOver');
 				if(_draggedObject){
 					_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'),$(event.target).data('segmentid'),true);
@@ -350,14 +253,14 @@ function GuiInput(navigationController, controller, gui){
 				_hasBeenDropped = true;
 		});
 
-		$('.reading-order-segment').on('dragend', function (event) {
+		$('.reading-order-segment').on('dragend',  (event) => {
 				if(!_hasBeenDropped){
 					_controller.forceUpdateReadingOrder();
 				}
 		});
 		$('.delete-reading-order-segment').click(function(){
-				var $this = $(this);
-				var segmentID = $this.data('segmentid');
+				const $this = $(this);
+				const segmentID = $this.data('segmentid');
 				_controller.removeFromReadingOrder(segmentID);
 		});
 	}

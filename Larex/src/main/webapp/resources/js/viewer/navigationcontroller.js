@@ -1,6 +1,6 @@
 function NavigationController(){
-	var _gui;
-	var _viewer;
+	let _gui;
+	let _viewer;
 
 	this.setGUI = function(gui){
 		_gui = gui;
