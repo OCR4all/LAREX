@@ -136,9 +136,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				if(pageSegments){
 					// Iterate over Segment-"Map" (Object in JS)
 					Object.keys(pageSegments).forEach((key) => {
-						if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-						let isFixed = ($.inArray(key,_fixedSegments[_currentPage]) !== -1); 
-						_editor.addSegment(pageSegments[key], isFixed);
+						_editor.addSegment(pageSegments[key], this.isSegmentFixed(key));
 					});
 				}
 
@@ -167,7 +165,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				// Iterate over FixedSegment-"Map" (Object in JS)
 				Object.keys(pageCuts).forEach((key) => _editor.addLine(pageCuts[key]));
 				_editor.center();
-				_editor.zoomFit();
+				_editor.zoomFit(); 
 
 				_gui.updateZoom();
 				_gui.showUsedRegionLegends(_presentRegions);
@@ -499,9 +497,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				actions.push(new ActionRemoveRegion(this._getRegionByID(_selected[i]), _editor, _settings, _currentPage,this));
 			} else if(_selectType === "segment"){
 				let segment = _segmentation[_currentPage].segments[_selected[i]];
-				if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-				let isFixed = ($.inArray(segment.id,_fixedSegments[_currentPage]) !== -1); 
-				actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this,isFixed));
+				actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
 			}else if(_selectType === "line"){
 				let cut = _settings.pages[_currentPage].cuts[_selected[i]];
 				actions.push(new ActionRemoveCut(cut,_editor,_settings,_currentPage));
@@ -520,9 +516,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				//filter special case image (do not merge images)
 				if(segment.type !== 'image'){
 					segments.push(segment);
-					if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-					let isFixed = ($.inArray(segment.id,_fixedSegments[_currentPage]) !== -1); 
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this,isFixed));
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
 				}
 			}
 		}
@@ -1057,6 +1051,14 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	
 	this.allowToLoadExistingSegmentation = function(allowLoadLocal){
 		_allowLoadLocal = allowLoadLocal;
+	}
+
+	this.isSegmentFixed = function(segmentID){
+		if(!_fixedSegments[_currentPage])
+			_fixedSegments[_currentPage] = [];
+
+		let isFixed = ($.inArray(segmentID,_fixedSegments[_currentPage]) !== -1); 
+		return isFixed;
 	}
 
 	this._getRegionByID = function(id){

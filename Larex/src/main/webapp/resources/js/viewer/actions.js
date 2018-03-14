@@ -116,15 +116,16 @@ function ActionChangeTypeRegionPolygon(regionPolygon,newType,viewer,settings,pag
 	}
 }
 
-function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentation,page,isFixedSegment){
+function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentation,page){
 	let _isExecuted = false;
 	let _segment = segmentation[page].segments[segmentID];
 	const _oldType = _segment.type;
 	let _actionReadingOrder = null;
-	const _actionSetFixed = new ActionFixSegment(segmentID,controller,true);
-	if(newType === 'image'){
+	if(newType === 'image')
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(segmentID,page,segmentation,controller);
-	}
+	let _actionSetFixed = null;
+	if(!controller.isSegmentFixed(segmentID))
+		_actionSetFixed = new ActionFixSegment(segmentID,controller,true);
 	
 	this.execute = function(){
 		if(!_isExecuted){
@@ -133,10 +134,10 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 			_segment.type = newType;
 			viewer.updateSegment(_segment);
 			controller.forceUpdateReadingOrder(true); //TODO try not to force to update all for changing type
-			if(_actionReadingOrder){
+			if(_actionReadingOrder)
 				_actionReadingOrder.execute();
-			}
-			_actionSetFixed.execute();
+			if(_actionSetFixed)
+				_actionSetFixed.execute();
 			console.log('Do - Change Type: {id:"'+segmentID+'",[..],type:"'+_oldType+'->'+newType+'"}');
 		}
 	}
@@ -147,10 +148,10 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 			_segment.type = _oldType;
 			viewer.updateSegment(_segment);
 			controller.forceUpdateReadingOrder(true);
-			if(_actionReadingOrder){
+			if(_actionReadingOrder)
 				_actionReadingOrder.undo();
-			}
-			_actionSetFixed.undo()
+			if(_actionSetFixed)
+				_actionSetFixed.undo();			
 			console.log('Undo - Change Type: {id:"'+segmentID+'",[..],type:"'+_oldType+'->'+newType+'"}');
 		}
 	}
@@ -165,9 +166,9 @@ function ActionAddRegion(id,points,type,editor,settings,page, controller){
 			_isExecuted = true;
 			settings.regions[type].polygons[_region.id] = _region;
 			editor.addRegion(_region);
-			if(controller != null){
+			if(controller != null)
 				controller.hideRegion(_region.type,false);
-			}
+			
 			console.log('Do - Add Region Polygon: {id:"'+_region.id+'",[..],type:"'+_region.type+'"}');
 		}
 	}
@@ -270,16 +271,18 @@ function ActionAddSegment(id,points,type,editor,segmentation,page,controller){
 	}
 }
 
-function ActionRemoveSegment(segment,editor,segmentation,page,controller,isFixedSegment){
+function ActionRemoveSegment(segment,editor,segmentation,page,controller){
 	let _isExecuted = false;
 	const _segment = JSON.parse(JSON.stringify(segment));
 	const _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id,page,segmentation,controller);
-	const _actionSetFixed = new ActionFixSegment(segment.id,controller,isFixedSegment);
+	let _actionSetFixed = null;
+	if(controller.isSegmentFixed(segment.id))
+		_actionSetFixed = new ActionFixSegment(segment.id,controller,true);
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
-			if(isFixedSegment)
+			if(_actionSetFixed)
 				_actionSetFixed.undo();
 			delete segmentation[page].segments[_segment.id]; 
 			editor.removeSegment(_segment.id);
@@ -294,7 +297,7 @@ function ActionRemoveSegment(segment,editor,segmentation,page,controller,isFixed
 			segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			editor.addSegment(_segment);
 			_actionRemoveFromReadingOrder.undo();
-			if(isFixedSegment)
+			if(_actionSetFixed)
 				_actionSetFixed.execute();
 			console.log('Undo - Remove: {id:"'+_segment.id+'",[..],type:"'+_segment.type+'"}');
 		}
@@ -385,7 +388,9 @@ function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page,contro
 	const _id = id;
 	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
 	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[_id].points));
-	const _actionSetFixed = new ActionFixSegment(id,controller,true);
+	let _actionSetFixed = null;
+	if(!controller.isSegmentFixed(id))
+		_actionSetFixed = new ActionFixSegment(id,controller,true);
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -393,7 +398,8 @@ function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page,contro
 			let segment = segmentation[page].segments[_id];
 			segment.points = _newRegionPoints;
 			viewer.updateSegment(segment);
-			_actionSetFixed.execute();
+			if(_actionSetFixed)
+				_actionSetFixed.execute();
 			console.log('Do - Transform Segment: {id:"'+_id+' [..]}');
 		}
 	}
@@ -402,7 +408,8 @@ function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page,contro
 			_isExecuted = false;
 			let segment = segmentation[page].segments[_id];
 			segment.points = _oldRegionPoints;
-			_actionSetFixed.undo();
+			if(_actionSetFixed)
+				_actionSetFixed.undo();
 			viewer.updateSegment(segment);
 			console.log('Undo - Transform Segment: {id:"'+_id+' [..]}');
 		}
