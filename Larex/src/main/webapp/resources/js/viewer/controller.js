@@ -17,7 +17,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _presentRegions = [];
 	let _currentPageDownloadable = false;
 	let	_currentSettingsDownloadable = false;
-	let _pageXMLVersion = "2010-03-19";
+	let _pageXMLVersion = "2017-07-15";
 	let _gridIsActive = false;
 	let _displayReadingOrder = false;
 	let _tempReadingOrder = null;

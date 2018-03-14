@@ -23,7 +23,7 @@ function GuiInput(navigationController, controller, gui){
 	$('.exportPageXML').click(() => _controller.exportPageXML());
 	$('.downloadPageXML').click(() => _controller.downloadPageXML());
 	$('.pageXMLVersion').click( function(){
-		const version = $(this).data(version).version;
+		const version = $(this).data('version');
 		_gui.setPageXMLVersion(version);
 		$('#dropDownPageXML').dropdown('close');
 		_controller.setPageXMLVersion(version);
