@@ -121,6 +121,7 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 	let _segment = segmentation[page].segments[segmentID];
 	const _oldType = _segment.type;
 	let _actionReadingOrder = null;
+	const _actionSetFixed = new ActionFixSegment(segmentID,controller,true);
 	if(newType === 'image'){
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(segmentID,page,segmentation,controller);
 	}
@@ -135,6 +136,7 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 			if(_actionReadingOrder){
 				_actionReadingOrder.execute();
 			}
+			_actionSetFixed.execute();
 			console.log('Do - Change Type: {id:"'+segmentID+'",[..],type:"'+_oldType+'->'+newType+'"}');
 		}
 	}
@@ -148,6 +150,7 @@ function ActionChangeTypeSegment(segmentID,newType,viewer,controller,segmentatio
 			if(_actionReadingOrder){
 				_actionReadingOrder.undo();
 			}
+			_actionSetFixed.undo()
 			console.log('Undo - Change Type: {id:"'+segmentID+'",[..],type:"'+_oldType+'->'+newType+'"}');
 		}
 	}
@@ -245,18 +248,21 @@ function ActionRemoveCompleteRegion(regionType,controller,editor,settings,contro
 function ActionAddSegment(id,points,type,editor,segmentation,page,controller){
 	let _isExecuted = false;
 	const _segment = {id:id, points:points, type:type, isRelative:false};
+	const _actionSetFixed = new ActionFixSegment(id,controller,true);
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
 			segmentation[page].segments[_segment.id] = _segment;
 			editor.addSegment(_segment,false);
+			_actionSetFixed.execute();
 			console.log('Do - Add Region Polygon: {id:"'+_segment.id+'",[..],type:"'+_segment.type+'"}');
 		}
 	}
 	this.undo = function(){
 		if(_isExecuted){
 			_isExecuted = false;
+			_actionSetFixed.undo();
 			delete segmentation[page].segments[_segment.id];
 			editor.removeSegment(_segment.id);
 			console.log('Undo - Add Region Polygon: {id:"'+_segment.id+'",[..],type:"'+_segment.type+'"}');
@@ -268,10 +274,13 @@ function ActionRemoveSegment(segment,editor,segmentation,page,controller,isFixed
 	let _isExecuted = false;
 	const _segment = JSON.parse(JSON.stringify(segment));
 	const _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id,page,segmentation,controller);
+	const _actionSetFixed = new ActionFixSegment(segment.id,controller,isFixedSegment);
 
 	this.execute = function(){
 		if(!_isExecuted){
 			_isExecuted = true;
+			if(isFixedSegment)
+				_actionSetFixed.undo();
 			delete segmentation[page].segments[_segment.id]; 
 			editor.removeSegment(_segment.id);
 
@@ -285,6 +294,8 @@ function ActionRemoveSegment(segment,editor,segmentation,page,controller,isFixed
 			segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			editor.addSegment(_segment);
 			_actionRemoveFromReadingOrder.undo();
+			if(isFixedSegment)
+				_actionSetFixed.execute();
 			console.log('Undo - Remove: {id:"'+_segment.id+'",[..],type:"'+_segment.type+'"}');
 		}
 	}
@@ -369,11 +380,12 @@ function ActionTransformRegion(id,regionPolygon,regionType,viewer,settings,page,
 	}
 }
 
-function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page){
+function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page,controller){
 	let _isExecuted = false;
 	const _id = id;
 	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
 	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[_id].points));
+	const _actionSetFixed = new ActionFixSegment(id,controller,true);
 
 	this.execute = function(){
 		if(!_isExecuted){
@@ -381,6 +393,7 @@ function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page){
 			let segment = segmentation[page].segments[_id];
 			segment.points = _newRegionPoints;
 			viewer.updateSegment(segment);
+			_actionSetFixed.execute();
 			console.log('Do - Transform Segment: {id:"'+_id+' [..]}');
 		}
 	}
@@ -389,6 +402,7 @@ function ActionTransformSegment(id,segmentPoints,viewer,segmentation,page){
 			_isExecuted = false;
 			let segment = segmentation[page].segments[_id];
 			segment.points = _oldRegionPoints;
+			_actionSetFixed.undo();
 			viewer.updateSegment(segment);
 			console.log('Undo - Transform Segment: {id:"'+_id+' [..]}');
 		}

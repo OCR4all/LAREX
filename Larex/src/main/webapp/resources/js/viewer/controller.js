@@ -499,7 +499,9 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				actions.push(new ActionRemoveRegion(this._getRegionByID(_selected[i]), _editor, _settings, _currentPage,this));
 			} else if(_selectType === "segment"){
 				let segment = _segmentation[_currentPage].segments[_selected[i]];
-				actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
+				if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
+				let isFixed = ($.inArray(segment.id,_fixedSegments[_currentPage]) !== -1); 
+				actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this,isFixed));
 			}else if(_selectType === "line"){
 				let cut = _settings.pages[_currentPage].cuts[_selected[i]];
 				actions.push(new ActionRemoveCut(cut,_editor,_settings,_currentPage));
@@ -511,19 +513,21 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 	this.mergeSelectedSegments = function() {
 		const actions = [];
-		const segmentIDs = [];
+		const segments = [];
 		for (let i = 0, selectedlength = _selected.length; i < selectedlength; i++) {
 			if(_selectType === "segment"){
 				let segment = _segmentation[_currentPage].segments[_selected[i]];
 				//filter special case image (do not merge images)
 				if(segment.type !== 'image'){
-					segmentIDs.push(segment);
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
+					segments.push(segment);
+					if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
+					let isFixed = ($.inArray(segment.id,_fixedSegments[_currentPage]) !== -1); 
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this,isFixed));
 				}
 			}
 		}
-		if(segmentIDs.length > 1){
-			_communicator.requestMergedSegment(segmentIDs,_currentPage,_bookID).done((data) => {
+		if(segments.length > 1){
+			_communicator.requestMergedSegment(segments,_currentPage,_bookID).done((data) => {
 				const mergedSegment = data;
 				actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
 						_editor, _segmentation, _currentPage, this));
@@ -653,7 +657,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.transformSegment = function(segmentID,segmentPoints){
-		const actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_segmentation,_currentPage);
+		const actionTransformSegment = new ActionTransformSegment(segmentID,segmentPoints,_editor,_segmentation,_currentPage,this);
 		_actionController.addAndExecuteAction(actionTransformSegment,_currentPage);
 	}
 
