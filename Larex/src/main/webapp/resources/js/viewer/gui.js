@@ -300,6 +300,16 @@ function GUI(canvas, viewer) {
 		$exportedPage.addClass('exported');
 		$exportedPage.find(".pageIconExported").removeClass('hide');
 	}
+	this.highlightLoadedPage = function(exportedPage,doHighlight=true){
+		const $loadedPage = $('.pageImageContainer[data-page~="'+exportedPage+'"]');
+		if(doHighlight){
+			$loadedPage.addClass('loaded');
+			$loadedPage.find(".pageIconLoaded").removeClass('hide');
+		}else{
+			$loadedPage.removeClass('loaded');
+			$loadedPage.find(".pageIconLoaded").addClass('hide');
+		}
+	}
 	this.setDownloadable = function(isDownloadble){
 		if(isDownloadble){
 			$('.downloadPageXML').removeClass('disabled');

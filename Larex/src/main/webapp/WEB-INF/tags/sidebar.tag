@@ -33,7 +33,7 @@
 					<div class="col s12">
 						<span class="settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable"> 
 							<label>
-								<input type="checkbox"> 
+								<input type="checkbox" checked="checked"> 
 									<span class="lever"></span>
 								Load existing segmentations
 							</label>

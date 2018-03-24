@@ -21,7 +21,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _gridIsActive = false;
 	let _displayReadingOrder = false;
 	let _tempReadingOrder = null;
-	let _allowLoadLocal = false;
+	let _allowLoadLocal = true;
 	let _selected = [];
 	this.selectmultiple = false;
 	let _isSelecting = false;
@@ -241,7 +241,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				const failedSegmentations = [];
 				const missingRegions = [];
 
+				_gui.highlightLoadedPage(pageID,false);
 				switch (result.status) {
+					case 'LOADED':
+						_gui.highlightLoadedPage(pageID,true);
 					case 'SUCCESS':
 						_segmentation[pageID] = result;
 

@@ -89,7 +89,9 @@ public class LarexFacade implements IFacade {
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			return LarexWebTranslator.translateResultRegionsToSegmentation(loadedResult.getRegions(), page.getId());
+			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(loadedResult.getRegions(), page.getId());
+			segmentation.setStatus(SegmentationStatus.LOADED);
+			return segmentation;
 		} else {
 			return segment(settings, page);
 		}

@@ -59,6 +59,10 @@ public class PageSegmentation {
 		return status;
 	}
 	
+	public void setStatus(SegmentationStatus status) {
+		this.status = status;
+	}
+	
 	public List<String> getReadingOrder() {
 		return new ArrayList<String>(readingOrder);
 	}
