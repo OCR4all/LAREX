@@ -83,10 +83,10 @@ public class FileController {
 			imageMat = resizeImage;
 		}
 
-		// Convert to png
+		// Convert to bmp
 		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
 		ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-		ImageIO.write(bufferedImage, "png", byteArrayOut);
+		ImageIO.write(bufferedImage, "bmp", byteArrayOut);
 		byte[] pngImageBytes = byteArrayOut.toByteArray();
 
 		// Create header to display the image
