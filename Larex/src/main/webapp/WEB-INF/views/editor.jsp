@@ -20,6 +20,7 @@
 			canvas="viewerCanvas"></script>
 		<script type="text/javascript" src="resources/js/viewer/editor.js"
 			canvas="viewerCanvas"></script>
+		<script type="text/javascript" src="resources/js/viewer/selector.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/controller.js"></script>
 
 		<!-- Main Method -->

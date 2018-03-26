@@ -1,8 +1,5 @@
-function KeyInput(navigationController, controller, gui) {
+function KeyInput(_navigationController, _controller, _gui, _selector) {
 	this.isActive = true;
-	const _navigationController = navigationController;
-	const _controller = controller;
-	const _gui = gui;
 	const _this = this;
 	let _mousePosition;
 
@@ -44,7 +41,7 @@ function KeyInput(navigationController, controller, gui) {
 				validKey = true;
 				break;
 			case 17: // CTRL
-				_controller.selectmultiple = true;
+				_selector.selectmultiple = true;
 				validKey = true;
 				break;
 			case 16: // Shift
@@ -148,7 +145,7 @@ function KeyInput(navigationController, controller, gui) {
 				case 16: // Shift
 					break;
 				case 17: // CTRL
-					_controller.selectmultiple = false;
+					_selector.selectmultiple = false;
 					validKey = true;
 					break;
 				case 18: // ALT
