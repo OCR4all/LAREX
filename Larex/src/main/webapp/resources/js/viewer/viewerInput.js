@@ -75,7 +75,6 @@ function ViewerInput(controller) {
 			case 0:
 				if(hitTest && hitTest.item && hitTest.segment){
 					_controller.selectSegment(hitTest.item.id, point);
-					console.log("Test")
 				}
 				break;
 			// middleclick

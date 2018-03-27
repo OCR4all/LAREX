@@ -135,6 +135,18 @@ class Viewer{
 		}
 	}
 
+	getPointsBetweenPoints(pointA,pointB,segmentID){
+		const points = [];
+		const rectangleAB = new paper.Rectangle(pointA,pointB);
+
+		this._paths[segmentID].segments.forEach(point => {
+			if(rectangleAB.contains(point.point)){
+				points.push(point);
+			}
+		});
+		return points;
+	}
+
 	getSegmentIDsBetweenPoints(pointA,pointB){
 		const segmentIDs = [];
 		const rectangleAB = new paper.Rectangle(pointA,pointB);

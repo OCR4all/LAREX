@@ -67,20 +67,30 @@ function Selector(_editor,_controller) {
 	}
 
 	this.rectangleSelect = function(pointA,pointB) {
-		if ((!this.selectmultiple) || !(_selectType === 'segment' || _selectType === 'point')) {
-			this.unSelect();
-		}
+		if(this.selectpoints){
+			if(!(_selectType === 'segment') || _selectedSegments.length !== 1){
+				this.unSelect();
+			}else{
+				const segmentID = _selectedSegments[0];
+				const inbetween = _editor.getPointsBetweenPoints(pointA,pointB,segmentID);
 
-		const inbetween = _editor.getSegmentIDsBetweenPoints(pointA,pointB);
-
-		$.each(inbetween, (index, id) => {
-			const idType = _controller.getIDType(id);
-			if(idType === 'segment'){
-				_selectedSegments.push(id);
-				_editor.selectSegment(id, true);
+				inbetween.forEach((point) => this._processSelectPoint(point,segmentID,false));
 			}
-		});
+		}else{
+			if ((!this.selectmultiple) || !(_selectType === 'segment')) {
+				this.unSelect();
+			}
 
+			const inbetween = _editor.getSegmentIDsBetweenPoints(pointA,pointB);
+
+			inbetween.forEach((id) => {
+				const idType = _controller.getIDType(id);
+				if(idType === 'segment'){
+					_selectedSegments.push(id);
+					_editor.selectSegment(id, true);
+				}
+			});
+		}
 		_selectType = 'segment';
 		this.isSelecting = false;
 	}
@@ -99,9 +109,9 @@ function Selector(_editor,_controller) {
 
 	//***** private methods ****//
 	// Handels if a point has to be selected or unselected
-	this._processSelectPoint = function(point,segmentID){
+	this._processSelectPoint = function(point,segmentID,toggle = true){
 		const selectIndex = _selectedPoints.indexOf(point);
-		if(selectIndex < 0){
+		if(selectIndex < 0 || !toggle){
 			// Has not been selected before => select
 			if(point){
 				_selectedPoints.push(point);
