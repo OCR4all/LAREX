@@ -86,6 +86,8 @@ function GuiInput(navigationController, controller, gui){
 
 	$('.editMode').click(() => _controller.editLastSelected());
 
+	$('.editPoints').click(() => _controller.toggleEditPoints());
+
 	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
 	$('.zoomout').click(() => _navigationController.zoomOut(0.1));
 	$('.zoomfit').click(() => _navigationController.zoomFit());

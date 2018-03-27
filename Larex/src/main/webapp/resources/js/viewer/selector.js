@@ -6,7 +6,8 @@ function Selector(_editor,_controller) {
 	let _selectedPoints = [];
 	let _selectType;
 
-	this.select = function(segmentID, selectType, points = []){
+	this.select = function(segmentID, points = []){
+		const selectType = _controller.getIDType(segmentID);
 		if(!this.selectpoints) {
 			// Select segment of result or region
 			if(_selectType !== selectType || !this.selectmultiple){
@@ -15,17 +16,19 @@ function Selector(_editor,_controller) {
 			this._processSelectSegment(segmentID);
 		}else{
 			// Select points
-			if($.inArray(_selectedSegments,segmentID) === -1 || _selectedSegments.length !== 1){
+			if($.inArray(segmentID,_selectedSegments) === -1 || _selectedSegments.length !== 1){
 				this.unSelect();
 				this._processSelectSegment(segmentID);
 			}
 			if(this.selectmultiple){
 				points.forEach((point) => {
-					this._processSelectPoint(point);
+					this._processSelectPoint(point,segmentID);
 				});
 			}else if(points.length > 0){
-				// Take last point (multiple are not allowed)
-				this._processSelectPoint(points[points.length-1]);
+				this.unSelect();
+				this._processSelectSegment(segmentID);
+				// Select last segment (multiple are not allowed)
+				this._processSelectPoint(points[points.length-1],segmentID);
 			}
 		}
 		_selectType = selectType;
@@ -87,7 +90,7 @@ function Selector(_editor,_controller) {
 	}
 
 	this.getSelectedPoints = function(){
-		return _selectedPoints;
+		return _selectedPoints;_selectedPoints
 	}
 
 	this.getSelectedType = function(){
@@ -96,14 +99,20 @@ function Selector(_editor,_controller) {
 
 	//***** private methods ****//
 	// Handels if a point has to be selected or unselected
-	this._processSelectPoint = function(point){
+	this._processSelectPoint = function(point,segmentID){
 		const selectIndex = _selectedPoints.indexOf(point);
 		if(selectIndex < 0){
-			// Has net been selected before => select
-			_selectedPoints.push(point);
+			// Has not been selected before => select
+			if(point){
+				_selectedPoints.push(point);
+				_editor.selectSegment(segmentID, true, this.selectpoints, point);
+			}
 		} else {
 			// Has been selected before => unselect
-			_selectedPoints.splice(selectIndex,1);
+			if(point){
+				_selectedPoints.splice(selectIndex,1);
+				_editor.selectSegment(segmentID, false, this.selectpoints, point);
+			}
 		}
 	}
 
@@ -112,11 +121,11 @@ function Selector(_editor,_controller) {
 		const selectIndex = _selectedSegments.indexOf(segmentID);
 		if(selectIndex < 0){
 			// Has not been selected before => select
-			_editor.selectSegment(segmentID, true);
+			_editor.selectSegment(segmentID, true, this.selectpoints);
 			_selectedSegments.push(segmentID);
 		} else {
 			// Has been selected before => unselect
-			_editor.selectSegment(segmentID, false);
+			_editor.selectSegment(segmentID, false, this.selectpoints);
 			_selectedSegments.splice(selectIndex,1);
 		}
 	}

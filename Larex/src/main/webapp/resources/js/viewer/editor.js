@@ -52,7 +52,7 @@ class Editor extends Viewer{
 	}
 
 	addRegion(region){
-		this.drawPath(region, true, {type: 'region'});
+		this.drawPath(region, true);
 	}
 
 	addLine(line){

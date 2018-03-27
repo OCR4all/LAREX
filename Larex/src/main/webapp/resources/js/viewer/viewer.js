@@ -23,7 +23,7 @@ class Viewer{
 	}
 
 	addSegment(segment,isFixed){
-		this.drawPath(segment, false, null,isFixed);
+		this.drawPath(segment, false, isFixed);
 	}
 
 	fixSegment(segmentID,doFix = true){
@@ -113,17 +113,25 @@ class Viewer{
 		}
 	}
 
-	selectSegment(id, doSelect){
+	selectSegment(id, doSelect, displayPoints, point){
 		if(doSelect){
 			const path = this._paths[id];
 			path.strokeColor = new paper.Color('#1e88e5');
 			path.strokeWidth = 2;
-			//this._paths[id].selected = true;
+			if(displayPoints){
+				this._paths[id].selected = true;
+			}
+			if(point){
+				point.selected = true;
+			}
 		}else{
 			const path = this._paths[id];
 			path.strokeColor = new paper.Color(path.defaultStrokeColor);
 			path.strokeWidth = 1;
-			//this._paths[id].selected = false;
+			this._paths[id].selected = false;
+			if(point){
+				point.selected = false;
+			}
 		}
 	}
 
@@ -213,7 +221,7 @@ class Viewer{
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	drawPath(segment, doFill, info, isFixed){
+	drawPath(segment, doFill, isFixed){
 		//Construct path from segment
 		const path = new paper.Path();
 		const color = this.getColor(segment.type);
@@ -232,7 +240,7 @@ class Viewer{
 		}
 		path.defaultStrokeColor = new paper.Color(path.strokeColor);
 		if(isFixed){
-			path.dashArray = [5, 3];
+			path.dashArray = [5, 3];u
 		}
 		path.fillColor.mainAlpha = path.fillColor.alpha;
 
@@ -250,9 +258,9 @@ class Viewer{
 		}
 
 		//Add listeners
-		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id,info,event);
-		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id,info,event);
-		path.onClick = (event) => this.thisInput.selectSection(segment.id,info,event);
+		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id,event);
+		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id,event);
+		path.onClick = (event) => {this.thisInput.selectSection(segment.id,event,path.hitTest(event.point,{segments: true,tolerance: 10}));};
 
 		//Add to canvas
 		this._imageCanvas.addChild(path);
@@ -282,9 +290,9 @@ class Viewer{
 		}
 
 		//Add listeners
-		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id,{type:'line'},event);
-		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id,{type:'line'},event);
-		path.onMouseDown = (event) => this.thisInput.selectSection(segment.id,{type:'line'},event);
+		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id,event);
+		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id,event);
+		path.onMouseDown = (event) => this.thisInput.selectSection(segment.id,event,path.hitTest(event.point,{segments: true,tolerance: 10}));
 
 		//Add to canvas
 		this._imageCanvas.addChild(path);
@@ -341,7 +349,7 @@ class Viewer{
 		let position = new paper.Point(0, 0);
 		position = position.add([ image.width * 0.5, image.height * 0.5 ]);
 		image.position = position;
-		image.onClick = (event) => this.thisInput.clickImage(event);
+		image.onClick = (event) => this.thisInput.clickImage(event,image.hitTest(event.point,{tolerance: 10}));
 
 		this._imageCanvas.addChild(image);
 		this._updateBackground();

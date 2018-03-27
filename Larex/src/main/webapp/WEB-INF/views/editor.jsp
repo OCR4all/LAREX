@@ -147,6 +147,9 @@
 						<t:menuIcon jsClass="redo" icon="redo"
 							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 						<div class="menuIconDivider col"></div>
+						<t:menuIcon jsClass="editPoints" icon="linear_scale"
+							tooltip="Switch between editing points and polygons">Points</t:menuIcon>
+						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="deleteSelected" icon="delete"
 							tooltip="Delete selected items (Shortcut: DEL)">Delete</t:menuIcon>
 						<t:menuIcon jsClass="moveSelected" icon="open_with"

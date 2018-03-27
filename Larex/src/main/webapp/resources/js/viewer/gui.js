@@ -242,6 +242,9 @@ function GUI(canvas, viewer) {
 			case 'ignore':
 				$button = $('.createIgnore');
 				break;
+			case 'editPoints':
+				$button = $('.editPoints');
+				break;
 			default:
 				break;
 		}

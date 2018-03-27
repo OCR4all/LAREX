@@ -497,6 +497,12 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_editor.endEditing(doAbbord);
 		_gui.unselectAllToolBarButtons();
 	}
+
+	this.toggleEditPoints = function(){
+		_selector.selectpoints = !_selector.selectpoints;
+		_gui.selectToolBarButton('editPoints',_selector.selectpoints);
+	}
+
 	this.deleteSelected = function() {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedType();
@@ -882,7 +888,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		return false;
 	}
 	// Display
-	this.selectSegment = function(sectionID, info) {
+	this.selectSegment = function(sectionID, hitTest) {
 		const idType = this.getIDType(sectionID);
 
 		if(_editReadingOrder && idType === 'segment'){
@@ -891,8 +897,13 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				_actionController.addAndExecuteAction(new ActionAddToReadingOrder(segment,_currentPage,_segmentation,this),_currentPage);
 			}
 		} else {
+			let nearestPoint = undefined;
+			if(hitTest && hitTest.segment){
+				nearestPoint = hitTest.segment.point;				
+			}
+
 			this.closeContextMenu();
-			_selector.select(sectionID,this.getIDType(sectionID));
+			_selector.select(sectionID,[nearestPoint]);
 		}
 	}
 	this.unSelect = function(){
@@ -907,13 +918,13 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.rectangleSelect = function(pointA,pointB) {
 		_selector.rectangleSelect(pointA,pointB);
 	}
-	this.enterSegment = function(sectionID, info) {
+	this.enterSegment = function(sectionID) {
 		if(!_editor.isEditing){
 			_editor.highlightSegment(sectionID, true);
 			_gui.highlightSegment(sectionID, true);
 		}
 	}
-	this.leaveSegment = function(sectionID, info) {
+	this.leaveSegment = function(sectionID) {
 		if(!_editor.isEditing){
 			_editor.highlightSegment(sectionID, false);
 			_gui.highlightSegment(sectionID,false);
