@@ -500,6 +500,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 	this.toggleEditPoints = function(){
 		_selector.selectpoints = !_selector.selectpoints;
+		_selector.unSelect();
 		_gui.selectToolBarButton('editPoints',_selector.selectpoints);
 	}
 
