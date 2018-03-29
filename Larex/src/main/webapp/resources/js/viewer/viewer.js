@@ -141,7 +141,7 @@ class Viewer{
 
 		this._paths[segmentID].segments.forEach(point => {
 			if(rectangleAB.contains(point.point)){
-				points.push(point);
+				points.push(point.point);
 			}
 		});
 		return points;

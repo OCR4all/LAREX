@@ -341,7 +341,7 @@ class Editor extends Viewer{
 		}
 	}
 
-	startMovePath(pathID,type) {
+	startMovePath(pathID,type,points) {
 		if(this.isEditing === false){
 			this._editMode = 4;
 			this.isEditing = true;
@@ -381,26 +381,44 @@ class Editor extends Viewer{
 						this._grid.vertical.visible = true;
 						this._grid.horizontal.visible = true;
 					}
-					this._tempPath.position = this._tempPoint;
+					if(!points){
+						this._tempPath.position = this._tempPoint;
 
-					// Correct to stay in viewer bounds
-					const tempPathBounds = this._tempPath.bounds;
-					const pictureBounds = this.getBoundaries();
-					let correctionPoint = new paper.Point(0,0);
-					if(tempPathBounds.left < pictureBounds.left){
-						correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
+						// Correct to stay in viewer bounds
+						const tempPathBounds = this._tempPath.bounds;
+						const pictureBounds = this.getBoundaries();
+						let correctionPoint = new paper.Point(0,0);
+						if(tempPathBounds.left < pictureBounds.left){
+							correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
+						}
+						if(tempPathBounds.right > pictureBounds.right){
+							correctionPoint = correctionPoint.subtract(new paper.Point((tempPathBounds.right-pictureBounds.right),0));
+						}
+						if(tempPathBounds.top < pictureBounds.top){
+							correctionPoint = correctionPoint.add(new paper.Point(0,(pictureBounds.top-tempPathBounds.top)));
+						}
+						if(tempPathBounds.bottom > pictureBounds.bottom){
+							correctionPoint = correctionPoint.subtract(new paper.Point(0,(tempPathBounds.bottom-pictureBounds.bottom)));
+						}
+						this._tempPoint = this._tempPoint.add(correctionPoint);
+						this._tempPath.position = this._tempPoint;
+					}else{
+						const delta = oldPosition.subtract(this._tempPoint);
+						this._tempPath.removeSegments();
+						const segments = this.getPath(this._tempID).segments.map(p => {
+							let newPoint = p.point;
+							points.forEach(pp => {
+								// Contains can not be trusted (TODO: propably?)
+								if(p.point.equals(pp)){
+									newPoint = p.point.subtract(delta);
+								}
+							});
+							return new paper.Segment(newPoint);
+						});
+						this._tempPath.addSegments(segments);
 					}
-					if(tempPathBounds.right > pictureBounds.right){
-						correctionPoint = correctionPoint.subtract(new paper.Point((tempPathBounds.right-pictureBounds.right),0));
-					}
-					if(tempPathBounds.top < pictureBounds.top){
-						correctionPoint = correctionPoint.add(new paper.Point(0,(pictureBounds.top-tempPathBounds.top)));
-					}
-					if(tempPathBounds.bottom > pictureBounds.bottom){
-						correctionPoint = correctionPoint.subtract(new paper.Point(0,(tempPathBounds.bottom-pictureBounds.bottom)));
-					}
-					this._tempPoint = this._tempPoint.add(correctionPoint);
-					this._tempPath.position = this._tempPoint;
+
+					
 				}else{
 					tool.remove();
 				}

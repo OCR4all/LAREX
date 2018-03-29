@@ -466,10 +466,14 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(selected.length > 0){
 			//moveLast instead of all maybe TODO
 			const moveID = selected[selected.length-1];
+			let points = undefined;
+			if(_selector.selectpoints){
+				points = _selector.getSelectedPoints();
+			}
 			if (selectType === "region") {
-				_editor.startMovePath(moveID,'region');
+				_editor.startMovePath(moveID,'region',points);
 			} else if(selectType === "segment"){
-				_editor.startMovePath(moveID,'segment');
+				_editor.startMovePath(moveID,'segment',points);
 			}else if(selectType === "line"){
 				//TODO
 			}

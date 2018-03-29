@@ -104,7 +104,7 @@ class Selector {
 	}
 
 	getSelectedPoints(){
-		return this._selectedPoints;this._selectedPoints
+		return this._selectedPoints;
 	}
 
 	getSelectedType(){
