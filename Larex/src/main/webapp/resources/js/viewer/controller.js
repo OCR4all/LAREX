@@ -443,21 +443,23 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 	
 	this.fixSelected = function() {
-		const actions = [];
-		const selected = _selector.getSelectedSegments();
-		const selectType = _selector.getSelectedType();
-		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-			if (selectType === "region") {
-			} else if(selectType === "segment"){
-				if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-				let wasFixed = $.inArray(selected[i],_fixedSegments[_currentPage]) > -1;
-				actions.push(new ActionFixSegment(selected[i],this,!wasFixed));
-			}else if(selectType === "line"){
+		if(!_selector.selectpoints){
+			const actions = [];
+			const selected = _selector.getSelectedSegments();
+			const selectType = _selector.getSelectedType();
+			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+				if (selectType === "region") {
+				} else if(selectType === "segment"){
+					if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
+					let wasFixed = $.inArray(selected[i],_fixedSegments[_currentPage]) > -1;
+					actions.push(new ActionFixSegment(selected[i],this,!wasFixed));
+				}else if(selectType === "line"){
+				}
 			}
+			_selector.unSelect();
+			let multiFix = new ActionMultiple(actions);
+			_actionController.addAndExecuteAction(multiFix,_currentPage);
 		}
-		_selector.unSelect();
-		let multiFix = new ActionMultiple(actions);
-		_actionController.addAndExecuteAction(multiFix,_currentPage);
 	}
 
 	this.moveSelected = function() {
@@ -482,19 +484,21 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.scaleSelected = function() {
-		const selected = _selector.getSelectedSegments();
-		const selectType = _selector.getSelectedType();
-		if(selected.length > 0){
-			//moveLast instead of all maybe TODO
-			const moveID = selected[selected.length-1];
-			if (selectType === "region") {
-				_editor.startScalePath(moveID,'region');
-			} else if(selectType === "segment"){
-				_editor.startScalePath(moveID,'segment');
-			}else if(selectType === "line"){
-				//TODO
+		if(!_selector.selectpoints){
+			const selected = _selector.getSelectedSegments();
+			const selectType = _selector.getSelectedType();
+			if(selected.length > 0){
+				//moveLast instead of all maybe TODO
+				const moveID = selected[selected.length-1];
+				if (selectType === "region") {
+					_editor.startScalePath(moveID,'region');
+				} else if(selectType === "segment"){
+					_editor.startScalePath(moveID,'segment');
+				}else if(selectType === "line"){
+					//TODO
+				}
+				_selector.unSelect();
 			}
-			_selector.unSelect();
 		}
 	}
 	this.endEditing = function(doAbbord){
@@ -505,7 +509,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.toggleEditPoints = function(){
 		_selector.selectpoints = !_selector.selectpoints;
 		_selector.unSelect();
-		_gui.selectToolBarButton('editPoints',_selector.selectpoints);
+		_gui.setSelectionModePoints(_selector.selectpoints);
 	}
 
 	this.deleteSelected = function() {
@@ -543,53 +547,57 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		}
 	}
 	this.mergeSelectedSegments = function() {
-		const selected = _selector.getSelectedSegments();
-		const selectType = _selector.getSelectedType();
-		const actions = [];
-		const segments = [];
-		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-			if(selectType === "segment"){
-				let segment = _segmentation[_currentPage].segments[selected[i]];
-				//filter special case image (do not merge images)
-				if(segment.type !== 'image'){
-					segments.push(segment);
-					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
+		if(!_selector.selectpoints){
+			const selected = _selector.getSelectedSegments();
+			const selectType = _selector.getSelectedType();
+			const actions = [];
+			const segments = [];
+			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+				if(selectType === "segment"){
+					let segment = _segmentation[_currentPage].segments[selected[i]];
+					//filter special case image (do not merge images)
+					if(segment.type !== 'image'){
+						segments.push(segment);
+						actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
+					}
 				}
 			}
-		}
-		if(segments.length > 1){
-			_communicator.requestMergedSegment(segments,_currentPage,_bookID).done((data) => {
-				const mergedSegment = data;
-				actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-						_editor, _segmentation, _currentPage, this));
+			if(segments.length > 1){
+				_communicator.requestMergedSegment(segments,_currentPage,_bookID).done((data) => {
+					const mergedSegment = data;
+					actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
+							_editor, _segmentation, _currentPage, this));
 
-				_selector.unSelect();
+					_selector.unSelect();
 
-				let mergeAction = new ActionMultiple(actions);
-				_actionController.addAndExecuteAction(mergeAction,_currentPage);
-				this.selectSegment(mergedSegment.id);
-				this.openContextMenu(true);
-			});
+					let mergeAction = new ActionMultiple(actions);
+					_actionController.addAndExecuteAction(mergeAction,_currentPage);
+					this.selectSegment(mergedSegment.id);
+					this.openContextMenu(true);
+				});
+			}
 		}
 	}
 	this.changeTypeSelected = function(newType) {
-		const selected = _selector.getSelectedSegments();
-		const selectType = _selector.getSelectedType();
-		const selectedlength = selected.length;
-		if(selectedlength || selectedlength > 0){
-			const actions = [];
-			for (let i = 0; i < selectedlength; i++) {
-				if(selectType === "region"){
-					const regionPolygon = this._getRegionByID(selected[i]);
-					actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings,_currentPage,this));
+		if(!_selector.selectpoints){
+			const selected = _selector.getSelectedSegments();
+			const selectType = _selector.getSelectedType();
+			const selectedlength = selected.length;
+			if(selectedlength || selectedlength > 0){
+				const actions = [];
+				for (let i = 0; i < selectedlength; i++) {
+					if(selectType === "region"){
+						const regionPolygon = this._getRegionByID(selected[i]);
+						actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings,_currentPage,this));
 
-					this.hideRegion(newType,false);
-				} else if(selectType === "segment"){
+						this.hideRegion(newType,false);
+					} else if(selectType === "segment"){
 					actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage,false));
+					}
 				}
+				const multiChange = new ActionMultiple(actions);
+				_actionController.addAndExecuteAction(multiChange,_currentPage);
 			}
-			const multiChange = new ActionMultiple(actions);
-			_actionController.addAndExecuteAction(multiChange,_currentPage);
 		}
 	}
 	this.createBorder = function(doSegment) {
