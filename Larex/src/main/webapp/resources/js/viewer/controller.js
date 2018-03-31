@@ -679,13 +679,41 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_gui.unselectAllToolBarButtons();
 	}
 	this.callbackNewCut = function(segmentpoints) {
-		const newID = "created" + _newPathCounter;
-		_newPathCounter++;
+		if(!_selector.selectpoints){
+			const newID = "created" + _newPathCounter;
+			_newPathCounter++;
 
-		const actionAdd = new ActionAddCut(newID, segmentpoints,
-				_editor, _settings, _currentPage);
+			const actionAdd = new ActionAddCut(newID, segmentpoints,
+					_editor, _settings, _currentPage);
 
-		_actionController.addAndExecuteAction(actionAdd,_currentPage);
+			_actionController.addAndExecuteAction(actionAdd,_currentPage);
+		}else{
+			const selectedSegments = _selector.getSelectedSegments();
+			const cut = new paper.Path(segmentpoints);
+			const segments = _segmentation[_currentPage].segments;
+			const actions = [];
+			selectedSegments.forEach(segmentID => {
+				let path = new paper.Path(segments[segmentID].points);
+				path.closed = true;
+				
+				if(path.intersects(cut)){
+					const overlapp = path.getIntersections(cut);
+					overlapp.forEach(l => {
+						const splitLocation = path.getNearestLocation(l.point);
+						path.splitAt(splitLocation);
+						path.closed = true;
+					});
+					//path.divideAt(overlapp);
+
+					const points = path.segments.map(s => {return {"x":s.point.x,"y":s.point.y}});
+
+					actions.push(new ActionTransformSegment(segmentID,points,_editor,_segmentation,_currentPage,this));
+				}
+			});
+			if(actions.length > 0){
+				_actionController.addAndExecuteAction(new ActionMultiple(actions));
+			}
+		}
 		_gui.unselectAllToolBarButtons();
 	}
 
