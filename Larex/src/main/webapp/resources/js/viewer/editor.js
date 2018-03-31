@@ -407,10 +407,11 @@ class Editor extends Viewer{
 						this._tempPath.removeSegments();
 						const segments = this.getPath(this._tempID).segments.map(p => {
 							let newPoint = p.point;
+							const realPoint = this._convertPointFromCanvas(newPoint.x,newPoint.y);
 							points.forEach(pp => {
 								// Contains can not be trusted (TODO: propably?)
-								if(p.point.equals(pp)){
-									newPoint = p.point.subtract(delta);
+								if(realPoint.x === pp.x && realPoint.y === pp.y){
+									newPoint = new paper.Point(p.point.x-delta.x,p.point.y-delta.y);
 								}
 							});
 							return new paper.Segment(newPoint);

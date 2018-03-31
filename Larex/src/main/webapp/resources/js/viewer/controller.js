@@ -511,21 +511,36 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.deleteSelected = function() {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedType();
-		const actions = [];
-		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-			if (selectType === "region") {
-				actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage,this));
-			} else if(selectType === "segment"){
-				let segment = _segmentation[_currentPage].segments[selected[i]];
-				actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
-			}else if(selectType === "line"){
-				let cut = _settings.pages[_currentPage].cuts[selected[i]];
-				actions.push(new ActionRemoveCut(cut,_editor,_settings,_currentPage));
+		if(!_selector.selectpoints){
+			const actions = [];
+			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+				if (selectType === "region") {
+					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage,this));
+				} else if(selectType === "segment"){
+					let segment = _segmentation[_currentPage].segments[selected[i]];
+					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
+				}else if(selectType === "line"){
+					let cut = _settings.pages[_currentPage].cuts[selected[i]];
+					actions.push(new ActionRemoveCut(cut,_editor,_settings,_currentPage));
+				}
 			}
+			_selector.unSelect();
+			let multidelete = new ActionMultiple(actions);
+			_actionController.addAndExecuteAction(multidelete,_currentPage);
+		}else if(selected.length == 1){
+			const points = _selector.getSelectedPoints();
+			const segments = _segmentation[_currentPage].segments[selected[0]].points;
+			const newSegments = segments.filter(p => {
+				let boolFilter = true;
+				points.forEach(pp => {
+					// Contains can not be trusted (TODO: propably?)
+					if(p.x === pp.x && p.y === pp.y){ boolFilter = false;}
+				});
+				return boolFilter;
+			});
+
+			_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0],newSegments,_editor,_segmentation,_currentPage,this),_currentPage);
 		}
-		_selector.unSelect();
-		let multidelete = new ActionMultiple(actions);
-		_actionController.addAndExecuteAction(multidelete,_currentPage);
 	}
 	this.mergeSelectedSegments = function() {
 		const selected = _selector.getSelectedSegments();
@@ -905,6 +920,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			let nearestPoint = undefined;
 			if(hitTest && hitTest.segment){
 				nearestPoint = hitTest.segment.point;				
+				nearestPoint = _editor._convertPointFromCanvas(nearestPoint.x,nearestPoint.y);
 			}
 
 			this.closeContextMenu();

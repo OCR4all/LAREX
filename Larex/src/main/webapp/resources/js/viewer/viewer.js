@@ -122,7 +122,11 @@ class Viewer{
 				this._paths[id].selected = true;
 			}
 			if(point){
-				point.selected = true;
+				const canvasSegment = path.segments.find(s => {
+					const realPoint = this._convertPointFromCanvas(s.point.x,s.point.y);
+					return realPoint.x === point.x && realPoint.y === point.y;
+				});
+				canvasSegment.point.selected = true;
 			}
 		}else{
 			const path = this._paths[id];
@@ -130,7 +134,11 @@ class Viewer{
 			path.strokeWidth = 1;
 			this._paths[id].selected = false;
 			if(point){
-				point.selected = false;
+				const canvasSegment = path.segments.find(s => {
+					const realPoint = this._convertPointFromCanvas(s.point.x,s.point.y);
+					return realPoint.x === point.x && realPoint.y === point.y;
+				});
+				canvasSegment.point.selected = false;
 			}
 		}
 	}
@@ -141,7 +149,7 @@ class Viewer{
 
 		this._paths[segmentID].segments.forEach(point => {
 			if(rectangleAB.contains(point.point)){
-				points.push(point.point);
+				points.push(this._convertPointFromCanvas(point.point.x,point.point.y));
 			}
 		});
 		return points;
@@ -252,7 +260,7 @@ class Viewer{
 		}
 		path.defaultStrokeColor = new paper.Color(path.strokeColor);
 		if(isFixed){
-			path.dashArray = [5, 3];u
+			path.dashArray = [5, 3];
 		}
 		path.fillColor.mainAlpha = path.fillColor.alpha;
 
@@ -382,6 +390,14 @@ class Viewer{
 			this._background.onMouseDrag = (event) => this.thisInput.dragBackground(event);
 			this._background.sendToBack();
 		}
+	}
+
+	_convertPointFromCanvas(x,y){
+		const imagePosition = this._imageCanvas.bounds;
+		const canvasX = Math.round((x - imagePosition.x) / this._currentZoom);
+		const canvasY = Math.round((y - imagePosition.y) / this._currentZoom);
+
+		return {"x":canvasX,"y":canvasY};
 	}
 
 	_convertPointToCanvas(x,y){
