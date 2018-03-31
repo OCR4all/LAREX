@@ -139,9 +139,6 @@
 								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="createCut" icon="content_cut"
-							tooltip="Create a cut line. Double click to end (Shortcut: 5)">Line</t:menuIcon>
-						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="undo" icon="undo"
 							tooltip="Undo: Revokes the last action (Shortcut: ctrl+z)">Undo</t:menuIcon>
 						<t:menuIcon jsClass="redo" icon="redo"
@@ -150,6 +147,10 @@
 						<t:menuIcon jsClass="editPoints fixed" icon="linear_scale"
 							tooltip="Switch between select points (active) and select polygons (inactive)">Points</t:menuIcon>
 						<div class="menuIconDivider col"></div>
+						<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
+							tooltip="Create a cut line that splits segments and persists a new segmentation. Double click to end (Shortcut: 5)">Line</t:menuIcon>
+						<t:menuIcon jsClass="createCut cutPoint hide" icon="content_cut"
+							tooltip="Cut through selected polygons to create new points. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<t:menuIcon jsClass="deleteSelected" icon="delete"
 							tooltip="Delete selected items (Shortcut: DEL)">Delete</t:menuIcon>
 						<t:menuIcon jsClass="moveSelected" icon="open_with"
