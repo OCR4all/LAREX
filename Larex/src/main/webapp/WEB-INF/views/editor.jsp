@@ -145,7 +145,7 @@
 							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="editPoints fixed" icon="linear_scale"
-							tooltip="Switch between select points (active) and select polygons (inactive)">Points</t:menuIcon>
+							tooltip="Switch between select points (active) and select polygons (inactive) (Shortcut: P)">Points</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
 							tooltip="Create a cut line that splits segments and persists a new segmentation. Double click to end (Shortcut: 5)">Line</t:menuIcon>

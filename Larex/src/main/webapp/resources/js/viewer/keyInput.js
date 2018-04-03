@@ -110,6 +110,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 				_controller.moveSelected();
 				validKey = true;
 				break;
+			case 80: // P
+				_controller.toggleEditPoints();
+				validKey = true;
+				break;
 			case 83: // S
 				if (event.ctrlKey) {
 					_controller.exportPageXML();
@@ -123,10 +127,8 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 
 				_controller.applyGrid();
 				break;
-
-			 //default: //Debug to get key codes
+			 default: //Debug to get key codes
 			 	//alert(event.keyCode);
-
 			}
 
 			if (validKey = true) {
