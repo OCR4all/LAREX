@@ -18,7 +18,8 @@ class Selector {
 				this.unSelect();
 			}	
 			this._processSelectSegment(segmentID);
-		}else{
+			this._selectType = selectType;
+		}else if(selectType === 'segment'){
 			// Select points
 			if($.inArray(segmentID,this._selectedSegments) === -1 || this._selectedSegments.length !== 1){
 				this.unSelect();
@@ -34,8 +35,8 @@ class Selector {
 				// Select last segment (multiple are not allowed)
 				this._processSelectPoint(points[points.length-1],segmentID);
 			}
+			this._selectType = selectType;
 		}
-		this._selectType = selectType;
 	}
 	
 	unSelect(){

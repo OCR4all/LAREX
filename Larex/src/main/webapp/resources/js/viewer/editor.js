@@ -883,15 +883,6 @@ class Editor extends Viewer{
 		return points;
 	}
 
-	_convertPercentPointFromCanvas(canvasX, canvasY){
-		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
-		const imagePosition = this.getBoundaries();
-		const x = Math.round((canvasPoint.x - imagePosition.x) / imagePosition.width);
-		const y = Math.round((canvasPoint.y - imagePosition.y) / imagePosition.height);
-
-		return {"x":x,"y":y};
-	}
-
 	getPointInBounds(point, bounds){
 		if(!bounds.contains(point)){
 			const boundPoint = point;

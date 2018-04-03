@@ -453,7 +453,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 					if(!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
 					let wasFixed = $.inArray(selected[i],_fixedSegments[_currentPage]) > -1;
 					actions.push(new ActionFixSegment(selected[i],this,!wasFixed));
-				}else if(selectType === "line"){
+				}else if(selectType === "cut"){
 				}
 			}
 			_selector.unSelect();
@@ -472,12 +472,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			if(_selector.selectpoints){
 				points = _selector.getSelectedPoints();
 			}
-			if (selectType === "region") {
-				_editor.startMovePath(moveID,'region',points);
-			} else if(selectType === "segment"){
-				_editor.startMovePath(moveID,'segment',points);
-			}else if(selectType === "line"){
-				//TODO
+			if (selectType === "region" || selectType === "segment") {
+				_editor.startMovePath(moveID,selectType,points);
 			}
 			_selector.unSelect();
 		}
@@ -494,7 +490,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 					_editor.startScalePath(moveID,'region');
 				} else if(selectType === "segment"){
 					_editor.startScalePath(moveID,'segment');
-				}else if(selectType === "line"){
+				}else if(selectType === "cut"){
 					//TODO
 				}
 				_selector.unSelect();
@@ -523,7 +519,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				} else if(selectType === "segment"){
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					actions.push(new ActionRemoveSegment(segment,_editor,_segmentation,_currentPage,this));
-				}else if(selectType === "line"){
+				}else if(selectType === "cut"){
 					let cut = _settings.pages[_currentPage].cuts[selected[i]];
 					actions.push(new ActionRemoveCut(cut,_editor,_settings,_currentPage));
 				}
