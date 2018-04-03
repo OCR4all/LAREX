@@ -874,29 +874,20 @@ class Editor extends Viewer{
 		for(let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
 			const point = path.segments[pointItr].point;
 			if(isRelative){
-				points.push(this._getPercentPointFromCanvas(point.x, point.y));
+				points.push(this._convertPercentPointFromCanvas(point.x, point.y));
 			}else{
-				points.push(this._getPointFromCanvas(point.x, point.y));
+				points.push(this._convertPointFromCanvas(point.x, point.y));
 			}
 		}
 
 		return points;
 	}
 
-	_getPointFromCanvas(canvasX, canvasY){
+	_convertPercentPointFromCanvas(canvasX, canvasY){
 		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
 		const imagePosition = this.getBoundaries();
-		const x = (canvasPoint.x - imagePosition.x) / this.getZoom();
-		const y = (canvasPoint.y - imagePosition.y) / this.getZoom();
-
-		return {"x":x,"y":y};
-	}
-
-	_getPercentPointFromCanvas(canvasX, canvasY){
-		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
-		const imagePosition = this.getBoundaries();
-		const x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
-		const y = (canvasPoint.y - imagePosition.y) / imagePosition.height;
+		const x = Math.round((canvasPoint.x - imagePosition.x) / imagePosition.width);
+		const y = Math.round((canvasPoint.y - imagePosition.y) / imagePosition.height);
 
 		return {"x":x,"y":y};
 	}

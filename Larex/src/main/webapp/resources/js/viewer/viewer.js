@@ -391,13 +391,13 @@ class Viewer{
 			this._background.sendToBack();
 		}
 	}
+	_convertPointFromCanvas(canvasX, canvasY){
+		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
+		const imagePosition = this.getBoundaries();
+		const x = Math.round((canvasPoint.x - imagePosition.x) / this.getZoom());
+		const y = Math.round((canvasPoint.y - imagePosition.y) / this.getZoom());
 
-	_convertPointFromCanvas(x,y){
-		const imagePosition = this._imageCanvas.bounds;
-		const canvasX = Math.round((x - imagePosition.x) / this._currentZoom);
-		const canvasY = Math.round((y - imagePosition.y) / this._currentZoom);
-
-		return {"x":canvasX,"y":canvasY};
+		return {"x":x,"y":y};
 	}
 
 	_convertPointToCanvas(x,y){
