@@ -471,6 +471,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			let points = undefined;
 			if(_selector.selectpoints){
 				points = _selector.getSelectedPoints();
+				if(!points || points <= 0)
+					return;
 			}
 			if (selectType === "region" || selectType === "segment") {
 				_editor.startMovePath(moveID,selectType,points);
