@@ -5,6 +5,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
@@ -69,11 +71,14 @@ public class FileController {
 		if (matchingFiles.length == 0)
 			throw new IOException("File does not exist");
 
-		// load Mat
-		Mat imageMat = Highgui.imread(matchingFiles[0].getAbsolutePath());
+		byte[] imageBytes = null;
 
-		// resize
+		File imageFile = matchingFiles[0];
+		
 		if (doResize) {
+			// load Mat
+			Mat imageMat = Highgui.imread(imageFile.getAbsolutePath());
+			// resize
 			Mat resizeImage = new Mat();
 			int width = 300;
 			int height = (int) (imageMat.rows() * ((width * 1.0) / imageMat.cols()));
@@ -81,27 +86,29 @@ public class FileController {
 			Imgproc.resize(imageMat, resizeImage, sz);
 			imageMat.release();
 			imageMat = resizeImage;
-		}
 
-		// Convert to bmp
-		BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
-		ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-		ImageIO.write(bufferedImage, "bmp", byteArrayOut);
-		byte[] pngImageBytes = byteArrayOut.toByteArray();
+			// Convert to png
+			BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
+			ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
+			ImageIO.write(bufferedImage, "png", byteArrayOut);
+			imageBytes = byteArrayOut.toByteArray();
+			
+			// Remove Garbage
+			imageMat.release();
+			System.gc();
+		} else {
+			imageBytes = Files.readAllBytes(imageFile.toPath());
+		}
 
 		// Create header to display the image
 		HttpHeaders headers = new HttpHeaders();
 
-		headers.setLastModified(matchingFiles[0].lastModified()/* Calendar.getInstance().getTime().getTime() */);
+		headers.setLastModified(imageFile.lastModified());
 		headers.setCacheControl("no-cache");
 		headers.setContentType(MediaType.IMAGE_PNG);
-		headers.setContentLength(pngImageBytes.length);
+		headers.setContentLength(imageBytes.length);
 
-		// Remove Garbage
-		imageMat.release();
-		System.gc();
-
-		return new ResponseEntity<byte[]>(pngImageBytes, headers, HttpStatus.OK);
+		return new ResponseEntity<byte[]>(imageBytes, headers, HttpStatus.OK);
 	}
 
 	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
