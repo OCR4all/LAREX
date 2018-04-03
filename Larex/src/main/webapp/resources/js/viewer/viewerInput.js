@@ -2,19 +2,19 @@ function ViewerInput(controller) {
 	const _controller = controller;
 	let _mouseSelecting = false;
 
-	this.enterSection = function(sectionID, info,event) {
-		_controller.enterSegment(sectionID, true, info);
+	this.enterSection = function(sectionID, event) {
+		_controller.enterSegment(sectionID, true);
 	}
 
-	this.leaveSection = function(sectionID, info,event) {
-		_controller.leaveSegment(sectionID, false, info);
+	this.leaveSection = function(sectionID, event) {
+		_controller.leaveSegment(sectionID, false);
 	}
 
-	this.selectSection = function(sectionID, info,event) {
+	this.selectSection = function(sectionID, event, hitTest) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				_controller.selectSegment(sectionID, info);
+				_controller.selectSegment(sectionID, hitTest);
 				break;
 			// middleclick
 			case 1:
@@ -23,7 +23,7 @@ function ViewerInput(controller) {
 			case 2:
 				if(!_controller.isSegmentSelected(sectionID)){
 					_controller.unSelect();
-					_controller.selectSegment(sectionID, info);
+					_controller.selectSegment(sectionID, hitTest);
 					_controller.openContextMenu(true);
 				}
 				_controller.endCreateReadingOrder();
@@ -69,10 +69,13 @@ function ViewerInput(controller) {
 		}
 	}
 
-	this.clickImage = function(event){
+	this.clickImage = function(event, hitTest){
 		switch (event.event.button) {
 			// leftclick
 			case 0:
+				if(hitTest && hitTest.item && hitTest.segment){
+					_controller.selectSegment(hitTest.item.id, point);
+				}
 				break;
 			// middleclick
 			case 1:

@@ -52,7 +52,7 @@ class Editor extends Viewer{
 	}
 
 	addRegion(region){
-		this.drawPath(region, true, {type: 'region'});
+		this.drawPath(region, true);
 	}
 
 	addLine(line){
@@ -341,7 +341,7 @@ class Editor extends Viewer{
 		}
 	}
 
-	startMovePath(pathID,type) {
+	startMovePath(pathID,type,points) {
 		if(this.isEditing === false){
 			this._editMode = 4;
 			this.isEditing = true;
@@ -381,26 +381,45 @@ class Editor extends Viewer{
 						this._grid.vertical.visible = true;
 						this._grid.horizontal.visible = true;
 					}
-					this._tempPath.position = this._tempPoint;
+					if(!points){
+						this._tempPath.position = this._tempPoint;
 
-					// Correct to stay in viewer bounds
-					const tempPathBounds = this._tempPath.bounds;
-					const pictureBounds = this.getBoundaries();
-					let correctionPoint = new paper.Point(0,0);
-					if(tempPathBounds.left < pictureBounds.left){
-						correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
+						// Correct to stay in viewer bounds
+						const tempPathBounds = this._tempPath.bounds;
+						const pictureBounds = this.getBoundaries();
+						let correctionPoint = new paper.Point(0,0);
+						if(tempPathBounds.left < pictureBounds.left){
+							correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left-tempPathBounds.left),0));
+						}
+						if(tempPathBounds.right > pictureBounds.right){
+							correctionPoint = correctionPoint.subtract(new paper.Point((tempPathBounds.right-pictureBounds.right),0));
+						}
+						if(tempPathBounds.top < pictureBounds.top){
+							correctionPoint = correctionPoint.add(new paper.Point(0,(pictureBounds.top-tempPathBounds.top)));
+						}
+						if(tempPathBounds.bottom > pictureBounds.bottom){
+							correctionPoint = correctionPoint.subtract(new paper.Point(0,(tempPathBounds.bottom-pictureBounds.bottom)));
+						}
+						this._tempPoint = this._tempPoint.add(correctionPoint);
+						this._tempPath.position = this._tempPoint;
+					}else{
+						const delta = oldPosition.subtract(this._tempPoint);
+						this._tempPath.removeSegments();
+						const segments = this.getPath(this._tempID).segments.map(p => {
+							let newPoint = p.point;
+							const realPoint = this._convertPointFromCanvas(newPoint.x,newPoint.y);
+							points.forEach(pp => {
+								// Contains can not be trusted (TODO: propably?)
+								if(realPoint.x === pp.x && realPoint.y === pp.y){
+									newPoint = new paper.Point(p.point.x-delta.x,p.point.y-delta.y);
+								}
+							});
+							return new paper.Segment(newPoint);
+						});
+						this._tempPath.addSegments(segments);
 					}
-					if(tempPathBounds.right > pictureBounds.right){
-						correctionPoint = correctionPoint.subtract(new paper.Point((tempPathBounds.right-pictureBounds.right),0));
-					}
-					if(tempPathBounds.top < pictureBounds.top){
-						correctionPoint = correctionPoint.add(new paper.Point(0,(pictureBounds.top-tempPathBounds.top)));
-					}
-					if(tempPathBounds.bottom > pictureBounds.bottom){
-						correctionPoint = correctionPoint.subtract(new paper.Point(0,(tempPathBounds.bottom-pictureBounds.bottom)));
-					}
-					this._tempPoint = this._tempPoint.add(correctionPoint);
-					this._tempPath.position = this._tempPoint;
+
+					
 				}else{
 					tool.remove();
 				}
@@ -855,31 +874,13 @@ class Editor extends Viewer{
 		for(let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++){
 			const point = path.segments[pointItr].point;
 			if(isRelative){
-				points.push(this._getPercentPointFromCanvas(point.x, point.y));
+				points.push(this._convertPercentPointFromCanvas(point.x, point.y));
 			}else{
-				points.push(this._getPointFromCanvas(point.x, point.y));
+				points.push(this._convertPointFromCanvas(point.x, point.y));
 			}
 		}
 
 		return points;
-	}
-
-	_getPointFromCanvas(canvasX, canvasY){
-		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
-		const imagePosition = this.getBoundaries();
-		const x = (canvasPoint.x - imagePosition.x) / this.getZoom();
-		const y = (canvasPoint.y - imagePosition.y) / this.getZoom();
-
-		return {"x":x,"y":y};
-	}
-
-	_getPercentPointFromCanvas(canvasX, canvasY){
-		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
-		const imagePosition = this.getBoundaries();
-		const x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
-		const y = (canvasPoint.y - imagePosition.y) / imagePosition.height;
-
-		return {"x":x,"y":y};
 	}
 
 	getPointInBounds(point, bounds){

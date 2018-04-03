@@ -217,6 +217,23 @@ function GUI(canvas, viewer) {
 			$('.createReadingOrder').removeClass("hide");	
 		}
 	}
+	
+	this.setSelectionModePoints = function(doSet){
+		this.selectToolBarButton('editPoints',doSet);
+		if(doSet){
+			$('.scaleSelected').addClass('hide');
+			$('.combineSelected').addClass('hide');
+			$('.fixSelected').addClass('hide');
+			$('.cutPolygon').addClass('hide');
+			$('.cutPoint').removeClass('hide');
+		}else{
+			$('.scaleSelected').removeClass('hide');
+			$('.combineSelected').removeClass('hide');
+			$('.fixSelected').removeClass('hide');
+			$('.cutPolygon').removeClass('hide');
+			$('.cutPoint').addClass('hide');
+		}
+	}
 
 	this.selectToolBarButton = function(option, doSelect){
 		let $button = null;
@@ -242,6 +259,9 @@ function GUI(canvas, viewer) {
 			case 'ignore':
 				$button = $('.createIgnore');
 				break;
+			case 'editPoints':
+				$button = $('.editPoints');
+				break;
 			default:
 				break;
 		}
@@ -255,7 +275,7 @@ function GUI(canvas, viewer) {
 	}
 
 	this.unselectAllToolBarButtons = function(){
-		const $buttons = $('.menuIcon');
+		const $buttons = $('.menuIcon').not('.fixed');
 		$buttons.removeClass('invert');
 	}
 
