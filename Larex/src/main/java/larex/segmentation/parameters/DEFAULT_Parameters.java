@@ -23,12 +23,12 @@ public class DEFAULT_Parameters {
 	private static final int IMAGE_REMOVAL_DILATION_Y_MAX = 100;
 	private static final int IMAGE_REMOVAL_DILATION_Y_STEPSIZE = 1;
 
-	private static final int TEXT_REMOVAL_DILATION_X_DEFAULT = 15;
+	private static final int TEXT_REMOVAL_DILATION_X_DEFAULT = 20;
 	private static final int TEXT_REMOVAL_DILATION_X_MIN = 1;
 	private static final int TEXT_REMOVAL_DILATION_X_MAX = 100;
 	private static final int TEXT_REMOVAL_DILATION_X_STEPSIZE = 1;
 
-	private static final int TEXT_REMOVAL_DILATION_Y_DEFAULT = 10;
+	private static final int TEXT_REMOVAL_DILATION_Y_DEFAULT = 15;
 	private static final int TEXT_REMOVAL_DILATION_Y_MIN = 1;
 	private static final int TEXT_REMOVAL_DILATION_Y_MAX = 100;
 	private static final int TEXT_REMOVAL_DILATION_Y_STEPSIZE = 1;
