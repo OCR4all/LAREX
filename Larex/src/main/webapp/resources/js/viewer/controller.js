@@ -974,7 +974,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_selector.rectangleSelect(pointA,pointB);
 	}
 	this.enterSegment = function(sectionID) {
-		if(!_editor.isEditing){
+		if(!_editor.isEditing && !(_selector.selectpoints && this.getIDType(sectionID) === "region")){
 			_editor.highlightSegment(sectionID, true);
 			_gui.highlightSegment(sectionID, true);
 		}
