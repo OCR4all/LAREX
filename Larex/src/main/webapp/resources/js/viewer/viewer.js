@@ -399,6 +399,14 @@ class Viewer{
 
 		return {"x":x,"y":y};
 	}
+	_convertPercentPointFromCanvas(canvasX, canvasY){	
+		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());	
+		const imagePosition = this.getBoundaries();	
+		const x = (canvasPoint.x - imagePosition.x) / imagePosition.width;	
+		const y = (canvasPoint.y - imagePosition.y) / imagePosition.height;	
+		
+		return {"x":x,"y":y};	
+	}
 
 	_convertPointToCanvas(x,y){
 		const imagePosition = this._imageCanvas.bounds;
