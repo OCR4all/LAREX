@@ -47,7 +47,7 @@ public class Parameters {
 		// TODO Real Image scale
 		setScaleFactor((double) desiredImageHeight / originalHeight);
 
-		setImageSegType(ImageSegType.STRAIGHT_RECT);
+		setImageSegType(ImageSegType.ROTATED_RECT);
 		setCombineImages(true);
 	}
 

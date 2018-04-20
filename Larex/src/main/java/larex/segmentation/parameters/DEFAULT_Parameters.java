@@ -50,7 +50,7 @@ public class DEFAULT_Parameters {
 	private static final int MARGINALIA_MIN_SIZE_STEPSIZE = 100;
 	private static final int MARGINALIA_LEFT_RIGHT_PERCENTAGE = 25;
 
-	private static final int PAGE_NUMBER_MIN_SIZE_DEFAULT = 500;
+	private static final int PAGE_NUMBER_MIN_SIZE_DEFAULT = 1500;
 	private static final int PAGE_NUMBER_MIN_SIZE_MIN = 1;
 	private static final int PAGE_NUMBER_MIN_SIZE_MAX = 999000;
 	private static final int PAGE_NUMBER_MIN_SIZE_STEPSIZE = 50;
