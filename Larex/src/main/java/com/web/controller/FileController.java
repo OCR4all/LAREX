@@ -74,7 +74,7 @@ public class FileController {
 		byte[] imageBytes = null;
 
 		File imageFile = matchingFiles[0];
-		
+
 		if (doResize) {
 			// load Mat
 			Mat imageMat = Highgui.imread(imageFile.getAbsolutePath());
@@ -92,12 +92,25 @@ public class FileController {
 			ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
 			ImageIO.write(bufferedImage, "png", byteArrayOut);
 			imageBytes = byteArrayOut.toByteArray();
-			
+
 			// Remove Garbage
 			imageMat.release();
 			System.gc();
 		} else {
-			imageBytes = Files.readAllBytes(imageFile.toPath());
+			if (imageFile.getName().endsWith("tif") || imageFile.getName().endsWith("tiff")) {
+				// load Mat
+				Mat imageMat = Highgui.imread(imageFile.getAbsolutePath());
+
+				// Convert to png
+				BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
+				ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
+				ImageIO.write(bufferedImage, "png", byteArrayOut);
+				imageBytes = byteArrayOut.toByteArray();
+
+				// Remove Garbage
+				imageMat.release();
+			} else
+				imageBytes = Files.readAllBytes(imageFile.toPath());
 		}
 
 		// Create header to display the image
@@ -167,13 +180,14 @@ public class FileController {
 	}
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
-	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,@RequestParam("bookID") int bookID) {
+	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,
+			@RequestParam("bookID") int bookID) {
 		BookSettings settings = null;
 		facade.getDefaultSettings(facade.getBook(bookID));
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				settings = facade.readSettings(bytes,bookID);
+				settings = facade.readSettings(bytes, bookID);
 			} catch (Exception e) {
 			}
 		}
