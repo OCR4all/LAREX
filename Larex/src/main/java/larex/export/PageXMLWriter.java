@@ -29,20 +29,14 @@ public class PageXMLWriter {
 	 * @param document
 	 * @param coordsElement
 	 * @param pointMat
-	 * @param scaleFactor
 	 */
-	public static void addPoints2017(Document document, Element coordsElement, MatOfPoint pointMat,
-			double scaleFactor) {
+	public static void addPoints2017(Document document, Element coordsElement, MatOfPoint pointMat) {
 		Point[] points = pointMat.toArray();
 		String pointCoords = "";
 
-		if (scaleFactor == 0) {
-			scaleFactor = 1;
-		}
-
 		for (int i = 0; i < points.length; i++) {
-			int x = (int) (scaleFactor * points[i].x);
-			int y = (int) (scaleFactor * points[i].y);
+			int x = (int) points[i].x;
+			int y = (int) points[i].y;
 
 			pointCoords += x + "," + y + " ";
 		}
@@ -57,20 +51,14 @@ public class PageXMLWriter {
 	 * @param document
 	 * @param coordsElement
 	 * @param pointMat
-	 * @param scaleFactor
 	 */
-	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat,
-			double scaleFactor) {
+	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat) {
 		Point[] points = pointMat.toArray();
-
-		if (scaleFactor == 0) {
-			scaleFactor = 1;
-		}
 
 		for (int i = 0; i < points.length; i++) {
 			Element pointElement = document.createElement("Point");
-			pointElement.setAttribute("x", "" + (int) (scaleFactor * points[i].x));
-			pointElement.setAttribute("y", "" + (int) (scaleFactor * points[i].y));
+			pointElement.setAttribute("x", "" + (int) points[i].x);
+			pointElement.setAttribute("y", "" + (int) points[i].y);
 			coordsElement.appendChild(pointElement);
 		}
 	}
@@ -93,11 +81,11 @@ public class PageXMLWriter {
 
 		switch (pageXMLVersion) {
 		case "2017-07-15":
-			addPoints2017(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			addPoints2017(document, coordsElement, region.getPoints());
 			break;
 		case "2010-03-19":
 		default:
-			addPoints2010(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			addPoints2010(document, coordsElement, region.getPoints());
 			break;
 		}
 		regionElement.appendChild(coordsElement);
