@@ -1,6 +1,8 @@
 package com.web.model.database;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -8,6 +10,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import javax.imageio.ImageIO;
 
 import com.web.model.Book;
 import com.web.model.Page;
@@ -29,7 +33,7 @@ public class FileDatabase implements IDatabase {
 	}
 
 	public FileDatabase(File databaseFolder) {
-		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg","tif","tiff"));
+		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"));
 	}
 
 	public Map<Integer, Book> getBooks() {
@@ -65,6 +69,16 @@ public class FileDatabase implements IDatabase {
 
 	private Book readBook(File bookFile, int bookID) {
 		String bookName = bookFile.getName();
+		BufferedImage img;
+		int width = 0;
+		int height = 0;
+		try {
+			img = ImageIO.read(bookFile);
+		width = img.getWidth();
+		height = img.getHeight();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
 		LinkedList<Page> pages = new LinkedList<Page>();
 		int pageCounter = 0;
@@ -77,7 +91,7 @@ public class FileDatabase implements IDatabase {
 			if (pageFile.isFile()) {
 				String pageName = pageFile.getName();
 				if (isValidImageFile(pageName)) {
-					pages.add(new Page(pageCounter, bookName + File.separator + pageName));
+					pages.add(new Page(pageCounter, bookName + File.separator + pageName, width, height));
 					pageCounter++;
 				}
 			}

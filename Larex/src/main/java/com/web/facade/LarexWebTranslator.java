@@ -82,13 +82,13 @@ public class LarexWebTranslator {
 		return segment;
 	}
 
-	public static PageSegmentation translateResultRegionsToSegmentation(ArrayList<ResultRegion> regions, int pageid) {
+	public static PageSegmentation translateResultRegionsToSegmentation(String fileName, int width, int height,ArrayList<ResultRegion> regions, int pageid) {
 		Map<String, Polygon> segments = new HashMap<String, Polygon>();
 
 		for (ResultRegion region : regions) {
 			Polygon segment = translateResultRegionToSegment(region);
 			segments.put(segment.getId(), segment);
 		}
-		return new PageSegmentation(pageid, segments);
+		return new PageSegmentation(fileName, width, height,pageid, segments);
 	}
 }
