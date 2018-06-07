@@ -141,18 +141,10 @@ public class LarexFacade implements IFacade {
 	}
 
 	@Override
-	public void prepareSettings(BookSettings settings) {
+	public ResponseEntity<byte[]> getSettingsXML(BookSettings settings) {
 		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
-		exportSettings.put(settings.getBookID(), SettingsWriter.getSettingsXML(parameters));
-	}
-
-	@Override
-	public ResponseEntity<byte[]> getSettingsXML(int bookID) {
-		if (exportSettings != null) {
-			return convertDocumentToByte(exportSettings.get(bookID), "settings_" + getBook(bookID).getName());
-		} else {
-			throw new IllegalStateException("Setting can't be returned. No Setting has been prepared for export.");
-		}
+		return convertDocumentToByte(SettingsWriter.getSettingsXML(parameters),
+				"settings_" + getBook(settings.getBookID()).getName());
 	}
 
 	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {

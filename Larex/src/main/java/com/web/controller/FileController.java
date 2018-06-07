@@ -168,15 +168,9 @@ public class FileController {
 		return facade.getPageXML(version, bookID);
 	}
 
-	@RequestMapping(value = "/saveSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody String saveSettings(@RequestBody SegmentationRequest exportRequest) {
-		facade.prepareSettings(exportRequest.getSettings());
-		return "Export has been prepared";
-	}
-
-	@RequestMapping(value = "/downloadSettings")
-	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestParam("bookID") Integer bookID) {
-		return facade.getSettingsXML(bookID);
+	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
+		return facade.getSettingsXML(exportRequest.getSettings());
 	}
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)

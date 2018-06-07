@@ -120,7 +120,7 @@ function Communicator() {
 
 		$.ajax({
 			type : "POST",
-			url : "saveSettings",
+			url : "downloadSettings",
 			contentType: "application/json",
 			data : JSON.stringify(segmentationRequest),
 			beforeSend : () => console.log("Prepare Export Settings: start"),
