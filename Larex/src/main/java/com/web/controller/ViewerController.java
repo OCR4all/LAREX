@@ -59,8 +59,7 @@ public class ViewerController {
 			return "redirect:/404";
 		}
 
-		segmenter.clear();
-		prepareSegmenter();
+		init();
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 		Book book = database.getBook(bookID);
 
@@ -108,7 +107,7 @@ public class ViewerController {
 	@RequestMapping(value = "/book", method = RequestMethod.POST)
 	public @ResponseBody FullBookResponse getBook(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
-		prepareSegmenter();
+		init();
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 		Book book = database.getBook(bookID);
 		BookSettings settings = segmenter.getDefaultSettings(book);
@@ -122,21 +121,12 @@ public class ViewerController {
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
 		return segmenter.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
-				segmentationRequest.isAllowToLoadLocal());
+				segmentationRequest.isAllowToLoadLocal(),fileManager);
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon merge(@RequestBody MergeRequest mergeRequest) {
-		return segmenter.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid());
-	}
-
-	private LarexFacade prepareSegmenter() {
-		init();
-
-		if (!segmenter.isInit()) {
-			segmenter.init(fileManager);
-		}
-		return segmenter;
+		return segmenter.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid(),fileManager);
 	}
 
 	private Map<RegionType, Integer> getSegmentTypes() {

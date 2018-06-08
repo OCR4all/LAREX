@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
@@ -131,7 +130,7 @@ public class FileController {
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				result = facade.readPageXML(bytes, pageNr, bookID);
+				result = facade.readPageXML(bytes, pageNr, bookID, fileManager);
 			} catch (Exception e) {
 			}
 		}
@@ -140,7 +139,7 @@ public class FileController {
 
 	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody String prepareExport(@RequestBody ExportRequest request) {
-		facade.prepareExport(request.getSegmentation(), request.getBookid());
+		facade.prepareExport(request.getSegmentation(), request.getBookid(), fileManager);
 		return "Export has been prepared";
 	}
 
@@ -151,7 +150,8 @@ public class FileController {
 		String localsave = config.getSetting("localsave");
 		switch (localsave) {
 		case "bookpath":
-			facade.savePageXMLLocal(fileManager.getBooksPath() + File.separator + facade.getBook(bookID).getName(),
+			facade.savePageXMLLocal(
+					fileManager.getBooksPath() + File.separator + facade.getBook(bookID, fileManager).getName(),
 					version, bookID);
 			break;
 		case "savedir":
@@ -170,18 +170,18 @@ public class FileController {
 
 	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
-		return facade.getSettingsXML(exportRequest.getSettings());
+		return facade.getSettingsXML(exportRequest.getSettings(), fileManager);
 	}
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
 	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,
 			@RequestParam("bookID") int bookID) {
 		BookSettings settings = null;
-		facade.getDefaultSettings(facade.getBook(bookID));
+		facade.getDefaultSettings(facade.getBook(bookID, fileManager));
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				settings = facade.readSettings(bytes, bookID);
+				settings = facade.readSettings(bytes, bookID, fileManager);
 			} catch (Exception e) {
 			}
 		}
