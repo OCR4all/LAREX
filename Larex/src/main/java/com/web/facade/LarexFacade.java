@@ -42,11 +42,9 @@ import larex.segmentation.result.SegmentationResult;
  * Segmenter using the Larex project/algorithm
  * 
  */
-@Component
-@Scope("session")
 public class LarexFacade {
 
-	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
+	public static PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
 			FileManager fileManager) {
 		Book book = getBook(settings.getBookID(), fileManager);
 
@@ -66,28 +64,28 @@ public class LarexFacade {
 		}
 	}
 
-	public BookSettings getDefaultSettings(Book book) {
+	public static BookSettings getDefaultSettings(Book book) {
 		RegionManager regionmanager = new RegionManager();
 		Parameters parameters = new Parameters(regionmanager, 0);
 		return LarexWebTranslator.translateParametersToSettings(parameters, book);
 	}
 
-	public Document getPageXML(PageSegmentation segmentation, String version) {
+	public static Document getPageXML(PageSegmentation segmentation, String version) {
 		SegmentationResult result = WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation);
 		return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
 				segmentation.getHeight(), version);
 	}
 
-	public void savePageXMLLocal(String saveDir, String filename, Document document) {
+	public static void savePageXMLLocal(String saveDir, String filename, Document document) {
 		PageXMLWriter.saveDocument(document, filename, saveDir);
 	}
 
-	public Document getSettingsXML(BookSettings settings) {
+	public static Document getSettingsXML(BookSettings settings) {
 		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	public Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
+	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
 		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
 		for (Polygon segment : segments)
 			resultRegions.add(WebLarexTranslator.translateSegmentToResultRegion(segment));
@@ -102,7 +100,7 @@ public class LarexFacade {
 		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
 	}
 
-	private PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
+	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageSegmentation segmentation = null;
 		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page, fileManager);
 
@@ -121,7 +119,7 @@ public class LarexFacade {
 		return segmentation;
 	}
 
-	private larex.dataManagement.Page segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
+	private static larex.dataManagement.Page segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
 		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
@@ -149,7 +147,7 @@ public class LarexFacade {
 		}
 	}
 
-	private larex.dataManagement.Page getLarexPage(Page page, FileManager fileManager) {
+	private static larex.dataManagement.Page getLarexPage(Page page, FileManager fileManager) {
 		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
@@ -158,7 +156,7 @@ public class LarexFacade {
 		return null;
 	}
 
-	public BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager) {
+	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager) {
 		BookSettings settings = null;
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -186,7 +184,7 @@ public class LarexFacade {
 		return settings;
 	}
 
-	public PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileManager fileManager) {
+	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileManager fileManager) {
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
@@ -214,7 +212,7 @@ public class LarexFacade {
 		return null;
 	}
 
-	public Book getBook(int bookID, FileManager fileManager) {
+	public static Book getBook(int bookID, FileManager fileManager) {
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 		return database.getBook(bookID);
 	}

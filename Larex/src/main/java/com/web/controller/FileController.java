@@ -52,8 +52,6 @@ import com.web.model.PageSegmentation;
 @Scope("request")
 public class FileController {
 	@Autowired
-	private LarexFacade facade;
-	@Autowired
 	private ServletContext servletContext;
 	@Autowired
 	private FileManager fileManager;
@@ -137,7 +135,7 @@ public class FileController {
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				result = facade.readPageXML(bytes, pageNr, bookID, fileManager);
+				result = LarexFacade.readPageXML(bytes, pageNr, bookID, fileManager);
 			} catch (Exception e) {
 			}
 		}
@@ -147,19 +145,19 @@ public class FileController {
 	@RequestMapping(value = "/exportXML", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		init();
-		final Document pageXML = facade.getPageXML(request.getSegmentation(), request.getVersion());
+		final Document pageXML = LarexFacade.getPageXML(request.getSegmentation(), request.getVersion());
 
 		switch (config.getSetting("localsave")) {
 		case "bookpath":
-			facade.savePageXMLLocal(
+			LarexFacade.savePageXMLLocal(
 					fileManager.getBooksPath() + File.separator
-							+ facade.getBook(request.getBookid(), fileManager).getName(),
+							+ LarexFacade.getBook(request.getBookid(), fileManager).getName(),
 					request.getSegmentation().getFileName(), pageXML);
 			break;
 		case "savedir":
 			String savedir = config.getSetting("savedir");
 			if (savedir != null && !savedir.equals("")) {
-				facade.savePageXMLLocal(savedir, request.getSegmentation().getFileName(), pageXML);
+				LarexFacade.savePageXMLLocal(savedir, request.getSegmentation().getFileName(), pageXML);
 			} else {
 				System.err.println("Warning: Save dir is not set. File could not been saved.");
 			}
@@ -172,18 +170,18 @@ public class FileController {
 
 	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
-		return convertDocumentToByte(facade.getSettingsXML(exportRequest.getSettings()), "settings.xml");
+		return convertDocumentToByte(LarexFacade.getSettingsXML(exportRequest.getSettings()), "settings.xml");
 	}
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
 	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,
 			@RequestParam("bookID") int bookID) {
 		BookSettings settings = null;
-		facade.getDefaultSettings(facade.getBook(bookID, fileManager));
+		LarexFacade.getDefaultSettings(LarexFacade.getBook(bookID, fileManager));
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				settings = facade.readSettings(bytes, bookID, fileManager);
+				settings = LarexFacade.readSettings(bytes, bookID, fileManager);
 			} catch (Exception e) {
 			}
 		}
