@@ -375,7 +375,7 @@ function GUI(canvas, viewer) {
 	}
 
 	this.loadVisiblePreviewImages = function(){
-		$previewImages = $('.emptyImage');
+		$previewImages = $('.emptyPreview');
 		const pixelBuffer = 500;
 
 		$previewImages.each(function(){
@@ -386,8 +386,8 @@ function GUI(canvas, viewer) {
 				const imageId = $p.data("page");
 				const bookpath = $p.data("bookpath");
 
-				const image = '<img class="pageImage" alt="'+imageSrc+'" title="'+imageSrc+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />';
-				const status = '<div class="pagestatus">'+
+				const $image = $('<img class="pageImage" alt="'+imageSrc+'" title="'+imageSrc+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
+				const $status = $('<div class="pagestatus">'+
 									'<i class="material-icons pagestatusIcon pageIconLoaded circle tooltipped hide"'+
 										'data-position="bottom" data-delay="50" data-tooltip="This page has been loaded from an existing segmentation.">file_upload</i>'+
 									'<i class="material-icons pagestatusIcon pageIconExported circle tooltipped hide"'+
@@ -396,10 +396,11 @@ function GUI(canvas, viewer) {
 										'data-position="bottom" data-delay="50" data-tooltip="This page has been saved.">lock</i>'+
 									'<i class="material-icons pagestatusIcon pageIconError circle tooltipped hide"'+
 										'data-position="bottom" data-delay="50" data-tooltip="There has been an error with this page. Reload the webpage to reslove.">error</i>'+
-								'</div>';
-				$p.append($(image));
-				$p.append($(status));
-				$p.removeClass("emptyImage");
+								'</div>');
+				$p.append($image);
+				$p.append($status);
+				$p.removeClass("emptyPreview");
+				$image.on('load', () => $p.removeClass("emptyImage"));
 			}
 		});
 		
