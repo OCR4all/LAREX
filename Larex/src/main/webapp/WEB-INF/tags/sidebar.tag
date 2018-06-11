@@ -148,9 +148,9 @@
 			</div>
 		</li>
 	</ul>
-	<a class="col s12 waves-effect waves-light btn doSegment">Segment</a>
+	<a class="col s12 waves-effect waves-light btn doSegment tooltipped" data-position="left" data-delay="50" data-tooltip="Segment the current page automatically (Shortcut: CTRL+Space)">Segment</a>
 	
-	<a class="col s12 waves-effect waves-light btn exportPageXML">
+	<a class="col s12 waves-effect waves-light btn exportPageXML tooltipped" data-position="left" data-delay="50" data-tooltip="Save the current segmentation as PageXML (Shortcut: CTRL+S)">
 		Save Result
 		<div class="progress hide">
     		<div class="indeterminate"></div>
@@ -166,7 +166,7 @@
 		<li><a class="pageXMLVersion" data-version="2010-03-19">2010-03-19</a></li>
 	</ul>
 	<form action="#">
-	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="bottom" data-delay="50" data-tooltip="Supports PageXML v2010-03-19 and v2013-07-15">
+	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="left" data-delay="50" data-tooltip="Supports PageXML v2010-03-19 and v2013-07-15">
 		Load Result
 		<i class="material-icons right">file_upload</i></div>
 		<input id="upload-segmentation-input" class="uploadSegmentation hide" type="file">
