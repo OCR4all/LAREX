@@ -1,6 +1,6 @@
 function Communicator() {
 
-	this.load = function() {
+	this.load = function () {
 		// Deferred object for function status
 		const status = $.Deferred();
 		const dataloader = this;
@@ -11,24 +11,24 @@ function Communicator() {
 		return status;
 	}
 
-	this.loadBook = function(bookID,pageID) {
+	this.loadBook = function (bookID, pageID) {
 		// Deferred object for function status
 		const status = $.Deferred();
 
 		$.ajax({
-			type : "POST",
-			url : "book",
-			dataType : "json",
-			data : {
-				bookid : bookID,
-				pageid : pageID
+			type: "POST",
+			url: "book",
+			dataType: "json",
+			data: {
+				bookid: bookID,
+				pageid: pageID
 			},
-			beforeSend : () => console.log("Book load: start"),
-			success : (data) => {
+			beforeSend: () => console.log("Book load: start"),
+			success: (data) => {
 				console.log('Book load: successful');
 				status.resolve(data);
 			},
-			error : (jqXHR, textStatus, errorThrown) => {
+			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Book load: failed" + textStatus);
 				status.resolve();
 			}
@@ -36,27 +36,27 @@ function Communicator() {
 		return status;
 	}
 
-	this.segmentBook = function(settings,page,allowLoadLocal) {
+	this.segmentBook = function (settings, page, allowLoadLocal) {
 		// Deferred object for function status
 		const status = $.Deferred();
 
-		const segmentationRequest = {settings: settings,page:page,allowLoadLocal:allowLoadLocal}
+		const segmentationRequest = { settings: settings, page: page, allowLoadLocal: allowLoadLocal }
 
 		$.ajax({
-			type : "POST",
-			url : "segment",
-			dataType : "json",
+			type: "POST",
+			url: "segment",
+			dataType: "json",
 			contentType: "application/json",
-			data : JSON.stringify(segmentationRequest)/*{
+			data: JSON.stringify(segmentationRequest)/*{
 				settings : JSON.stringify(settings),
 				pageid : pageID
 			}*/,
-			beforeSend : () => console.log("Segmentation load: start"),
-			success : (data) => {
+			beforeSend: () => console.log("Segmentation load: start"),
+			success: (data) => {
 				console.log('Segmentation load: successful');
 				status.resolve(data);
 			},
-			error : (jqXHR, textStatus, errorThrown) => {
+			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Segmentation load: failed " + textStatus);
 				status.resolve();
 			}
@@ -64,24 +64,24 @@ function Communicator() {
 		return status;
 	}
 
-	this.requestMergedSegment = function(segments,pageID,bookID) {
+	this.requestMergedSegment = function (segments, pageID, bookID) {
 		// Deferred object for function status
 		const status = $.Deferred();
 
-		const mergeRequest = {segments : segments, pageid: pageID, bookid: bookID}
+		const mergeRequest = { segments: segments, pageid: pageID, bookid: bookID }
 
 		$.ajax({
-			type : "POST",
-			url : "merge",
-			dataType : "json",
+			type: "POST",
+			url: "merge",
+			dataType: "json",
 			contentType: "application/json",
-			data : JSON.stringify(mergeRequest),
-			beforeSend : () => console.log("Merge load: start"),
-			success : (data) => {
+			data: JSON.stringify(mergeRequest),
+			beforeSend: () => console.log("Merge load: start"),
+			success: (data) => {
 				console.log('Merge load: successful');
 				status.resolve(data);
 			},
-			error : (jqXHR, textStatus, errorThrown) => {
+			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Merge load: failed" + textStatus);
 				status.resolve();
 			}
@@ -89,22 +89,22 @@ function Communicator() {
 		return status;
 	}
 
-	this.prepareExport = function(segmentation,bookID,pageXMLVersion){
-		const exportRequest = {bookid: bookID, segmentation: segmentation,version:pageXMLVersion}
+	this.prepareExport = function (segmentation, bookID, pageXMLVersion) {
+		const exportRequest = { bookid: bookID, segmentation: segmentation, version: pageXMLVersion }
 		// Deferred object for function status
 		const status = $.Deferred();
 
 		$.ajax({
-			type : "POST",
-			url : "exportXML",
+			type: "POST",
+			url: "exportXML",
 			contentType: "application/json",
-			data : JSON.stringify(exportRequest),
-			beforeSend : () => console.log("Prepare Export: start"),
-			success : (data) => {
+			data: JSON.stringify(exportRequest),
+			beforeSend: () => console.log("Prepare Export: start"),
+			success: (data) => {
 				console.log('Prepare Export: successful');
 				status.resolve(data);
 			},
-			error : (jqXHR, textStatus, errorThrown) => {
+			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Prepare Export: end");
 				status.resolve();
 			}
@@ -112,23 +112,23 @@ function Communicator() {
 		return status;
 	}
 
-	this.prepareSettingsExport = function(settings){
+	this.prepareSettingsExport = function (settings) {
 		// Deferred object for function status
 		const status = $.Deferred();
 
-		const segmentationRequest = {settings: settings,page:0}
+		const segmentationRequest = { settings: settings, page: 0 }
 
 		$.ajax({
-			type : "POST",
-			url : "downloadSettings",
+			type: "POST",
+			url: "downloadSettings",
 			contentType: "application/json",
-			data : JSON.stringify(segmentationRequest),
-			beforeSend : () => console.log("Prepare Export Settings: start"),
-			success : (data) => {
+			data: JSON.stringify(segmentationRequest),
+			beforeSend: () => console.log("Prepare Export Settings: start"),
+			success: (data) => {
 				console.log('Prepare Export Settings: successful');
 				status.resolve(data);
 			},
-			error : (jqXHR, textStatus, errorThrown) => {
+			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Prepare Export Settings: end");//"Prepare Export: failed " + textStatus);
 				status.resolve();
 			}
@@ -136,7 +136,7 @@ function Communicator() {
 		return status;
 	}
 
-	this.uploadSettings = function(file, bookID) {
+	this.uploadSettings = function (file, bookID) {
 		// Deferred object for function status
 		const status = $.Deferred();
 		const formData = new FormData();
@@ -144,22 +144,22 @@ function Communicator() {
 		formData.append("bookID", bookID)
 
 		jQuery.ajax({
-		    url: 'uploadSettings',
-		    type: 'POST',
-		    data: formData,
-				dataType: 'json',
-		    cache: false,
-		    contentType: false,
-		    processData: false,
-		    success: function(data){
-		        alert(data);
-		    },
-			beforeSend : () => console.log("Settings upload: start"),
-			success : (data) => {
+			url: 'uploadSettings',
+			type: 'POST',
+			data: formData,
+			dataType: 'json',
+			cache: false,
+			contentType: false,
+			processData: false,
+			success: function (data) {
+				alert(data);
+			},
+			beforeSend: () => console.log("Settings upload: start"),
+			success: (data) => {
 				console.log('Settings upload: successful');
 				status.resolve(data);
 			},
-			error : (jqXHR, textStatus, errorThrown) => {
+			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Settings upload: failed" + textStatus);
 				status.resolve();
 			}
@@ -167,7 +167,7 @@ function Communicator() {
 		return status;
 	}
 
-	this.uploadPageXML = function(file,pageNr,bookID) {
+	this.uploadPageXML = function (file, pageNr, bookID) {
 		// Deferred object for function status
 		const status = $.Deferred();
 		const formData = new FormData();
@@ -176,33 +176,33 @@ function Communicator() {
 		formData.append("bookID", bookID);
 
 		jQuery.ajax({
-		    url: 'uploadSegmentation',
-		    type: 'POST',
-		    data: formData,
-				dataType: 'json',
-		    cache: false,
-		    contentType: false,
-		    processData: false,
-		    success: (data) => alert(data),
-			beforeSend : () => console.log("Segmentation upload: start"),
-			success : (data) => {
+			url: 'uploadSegmentation',
+			type: 'POST',
+			data: formData,
+			dataType: 'json',
+			cache: false,
+			contentType: false,
+			processData: false,
+			success: (data) => alert(data),
+			beforeSend: () => console.log("Segmentation upload: start"),
+			success: (data) => {
 				console.log('Segmentation upload: successful');
 				status.resolve(data);
 			},
-			error : (jqXHR, textStatus, errorThrown) => {
+			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Segmentation upload: failed" + textStatus);
 				status.resolve();
 			}
 		});
 		return status;
 	}
-	this.loadSegmentTypes = function() {
+	this.loadSegmentTypes = function () {
 		// Deferred object for function status
 		const status = $.Deferred();
 		$.ajax({
-			dataType : "json",
-			url : "SegmentTypes",
-			beforeSend : () => console.log("SegmentTypes load: start")
+			dataType: "json",
+			url: "SegmentTypes",
+			beforeSend: () => console.log("SegmentTypes load: start")
 		}).done((data) => {
 			status.resolve();
 			console.log("SegmentTypes load: successful");
@@ -212,14 +212,14 @@ function Communicator() {
 		return status;
 	}
 
-	this.loadSegments = function() {
+	this.loadSegments = function () {
 		// Deferred object for function status
 		const status = $.Deferred();
 
 		$.ajax({
-			dataType : 'json',
-			url : "Segments",
-			beforeSend : function() {
+			dataType: 'json',
+			url: "Segments",
+			beforeSend: function () {
 				console.log("Segmentation load: start");
 			}
 		}).done((data) => {
@@ -230,11 +230,11 @@ function Communicator() {
 
 		return status;
 	}
-	this.loadImage = function(image, id){
+	this.loadImage = function (image, id) {
 		// Deferred object for function status
 		const status = $.Deferred();
-		
-		const img = $("<img />").attr('src', "images/books/"+image).on('load', () => {
+
+		const img = $("<img />").attr('src', "images/books/" + image).on('load', () => {
 			img.attr('id', id);
 			$('body').append(img);
 			status.resolve();
