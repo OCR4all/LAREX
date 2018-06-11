@@ -42,6 +42,7 @@ function GUI(canvas, viewer) {
 
 		$canvas.height(height);
 		$sidebars.height(height);
+		this.loadVisiblePreviewImages();
 	}
 
 	this.setParameters = function (parameters, imageMode, combineMode) {
@@ -367,5 +368,40 @@ function GUI(canvas, viewer) {
 	this.displayWarning = function (text) {
 		Materialize.toast(text, 4000);
 		console.warn(text);
+	}
+
+	this.addPreviewImageListener = function(){
+		$('#pagecontainer').scroll(() => this.loadVisiblePreviewImages());
+	}
+
+	this.loadVisiblePreviewImages = function(){
+		$previewImages = $('.emptyImage');
+		const pixelBuffer = 500;
+
+		$previewImages.each(function(){
+			const $p = $(this);
+			const windowsHeight = $(window).height();
+			if($p.offset().top < windowsHeight+100){
+				const imageSrc = $p.data("image");
+				const imageId = $p.data("page");
+				const bookpath = $p.data("bookpath");
+
+				const image = '<img class="pageImage" alt="'+imageSrc+'" title="'+imageSrc+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />';
+				const status = '<div class="pagestatus">'+
+									'<i class="material-icons pagestatusIcon pageIconLoaded circle tooltipped hide"'+
+										'data-position="bottom" data-delay="50" data-tooltip="This page has been loaded from an existing segmentation.">file_upload</i>'+
+									'<i class="material-icons pagestatusIcon pageIconExported circle tooltipped hide"'+
+										'data-position="bottom" data-delay="50" data-tooltip="This page has been exported.">file_download</i>'+
+									'<i class="material-icons pagestatusIcon pageIconSaved circle tooltipped hide"'+
+										'data-position="bottom" data-delay="50" data-tooltip="This page has been saved.">lock</i>'+
+									'<i class="material-icons pagestatusIcon pageIconError circle tooltipped hide"'+
+										'data-position="bottom" data-delay="50" data-tooltip="There has been an error with this page. Reload the webpage to reslove.">error</i>'+
+								'</div>';
+				$p.append($(image));
+				$p.append($(status));
+				$p.removeClass("emptyImage");
+			}
+		});
+		
 	}
 }
