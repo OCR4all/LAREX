@@ -16,8 +16,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _activesettings;
 	let _segmentationtypes;
 	let _presentRegions = [];
-	let _currentPageDownloadable = false;
-	let	_currentSettingsDownloadable = false;
 	let _pageXMLVersion = "2017-07-15";
 	let _gridIsActive = false;
 	let _displayReadingOrder = false;
@@ -172,7 +170,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				this.displayReadingOrder(_displayReadingOrder);
 				_gui.setRegionLegendColors(_segmentationtypes);
 
-				this.setPageDownloadable(_currentPage,false);
 				_gui.selectPage(pageNr);
 				_tempReadingOrder = null;
 				this.endCreateReadingOrder();
@@ -325,38 +322,36 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_pageXMLVersion = pageXMLVersion;
 	}
 
-	this.downloadPageXML = function(data){
-		if(_globalSettings.downloadPage && _currentPageDownloadable){
-			var a = window.document.createElement('a');
-			a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], {type: "text/xml;charset=utf-8"}));
-			console.log(_segmentation[_currentPage]);
-			a.download = _book.name+"_"+_book.pages[_currentPage].name+".xml";
-		
-			// Append anchor to body.
-			document.body.appendChild(a);
-			a.click();
-		}
-		_gui.highlightExportedPage(_currentPage);
-	}
-
 	this.exportPageXML = function(){
 		_gui.setExportingInProgress(true);
 
 		_communicator.prepareExport(_segmentation[_currentPage],bookID,_pageXMLVersion).done((data) => {
-			this.setPageDownloadable(_currentPage,true);
-			_gui.setExportingInProgress(false);
-			_gui.highlightSavedPage(_currentPage);
+			// Set export finished
 			_savedPages.push(_currentPage);
-			this.downloadPageXML(data);
+			_gui.highlightExportedPage(_currentPage);
+			_gui.setExportingInProgress(false);
+
+			// Download
+			if(_globalSettings.downloadPage){
+				var a = window.document.createElement('a');
+				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], {type: "text/xml;charset=utf-8"}));
+				a.download = _book.name+"_"+_book.pages[_currentPage].name+".xml";
+			
+				// Append anchor to body.
+				document.body.appendChild(a);
+				a.click();
+			}
+			_gui.highlightSavedPage(_currentPage);
 		});
 	}
 
-	this.downloadSettingsXML = function(data){
-		if(_currentSettingsDownloadable){
+	this.saveSettingsXML = function(){
+		_gui.setSaveSettingsInProgress(true);
+		_settings.parameters = _gui.getParameters();
+		_communicator.prepareSettingsExport(_settings).done((data) => {
 			var a = window.document.createElement('a');
 			a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], {type: "text/xml;charset=utf-8"}));
 			a.download = "settings_"+_book.name+".xml";
-			console.log(_book);
 		
 			// Append anchor to body.
 			document.body.appendChild(a);
@@ -364,18 +359,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		
 			// Remove anchor from body
 			document.body.removeChild(a);
-		}
-	}
 
-	this.saveSettingsXML = function(){
-		_gui.setSaveSettingsInProgress(true);
-		_settings.parameters = _gui.getParameters();
-		_communicator.prepareSettingsExport(_settings).done((data) => {
-			_currentSettingsDownloadable = true;
-			_gui.setSettingsDownloadable(_currentSettingsDownloadable);
 			_gui.setSaveSettingsInProgress(false);
-
-			this.downloadSettingsXML(data);
 		});
 	}
 
@@ -1066,15 +1051,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			this.endEditing(true);
 			_gui.closeRegionSettings();
 	}
-
-	this.setPageDownloadable = function(page,isDownloadable){
-		if(page === _currentPage){
-			// Reset Downloadable
-			_currentPageDownloadable = isDownloadable;
-			_gui.setDownloadable(_currentPageDownloadable);
-		}
-	}
-	
 	this.allowToLoadExistingSegmentation = function(allowLoadLocal){
 		_allowLoadLocal = allowLoadLocal;
 	}

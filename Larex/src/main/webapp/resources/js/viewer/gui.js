@@ -330,13 +330,6 @@ function GUI(canvas, viewer) {
 			$loadedPage.find(".pageIconLoaded").addClass('hide');
 		}
 	}
-	this.setDownloadable = function(isDownloadble){
-		if(isDownloadble){
-			$('.downloadPageXML').removeClass('disabled');
-		}else{
-			$('.downloadPageXML').addClass('disabled');
-		}
-	}
 	this.setExportingInProgress = function(isInProgress){
 		if(isInProgress){
 			$('.exportPageXML').find('.progress').removeClass('hide');
@@ -346,13 +339,6 @@ function GUI(canvas, viewer) {
 	}
 	this.setPageXMLVersion = function(version){
 		$('#pageXMLVersion').text(version);
-	}
-	this.setSettingsDownloadable = function(isDownloadble){
-		if(isDownloadble){
-			$('.downloadSettingsXML').removeClass('disabled');
-		}else{
-			$('.downloadSettingsXML').addClass('disabled');
-		}
 	}
 	this.setSaveSettingsInProgress = function(isInProgress){
 		if(isInProgress){

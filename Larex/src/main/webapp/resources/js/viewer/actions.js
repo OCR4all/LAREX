@@ -11,9 +11,6 @@ function ActionController(controller){
 			_controller.unSelect();
 			_actionpointers[page]++;
 			pageActions[_actionpointers[page]].execute();
-			
-			// Reset Downloadable
-			_controller.setPageDownloadable(page,false);
 		}
 	}
 	this.undo = function(page) {
@@ -23,9 +20,6 @@ function ActionController(controller){
 			_controller.unSelect();
 			pageActions[pageActionpointer].undo();
 			_actionpointers[page]--;
-
-			// Reset Downloadable
-			_controller.setPageDownloadable(page,false);
 		}
 	}
 	this.resetActions = function(page){
@@ -48,9 +42,6 @@ function ActionController(controller){
 		pageActions.push(action);
 		_actions[page] = pageActions;
 		_actionpointers[page]++;
-		
-		// Reset Downloadable
-		_controller.setPageDownloadable(page,false);
 	}
 
 }
