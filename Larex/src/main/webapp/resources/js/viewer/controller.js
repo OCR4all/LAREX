@@ -1,9 +1,7 @@
 function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
-	let _bookID = bookID;
 	const _actionController = new ActionController(this);
 	const _communicator = new Communicator();
 	let _selector;
-	let _globalSettings = globalSettings;
 	let _gui;
 	let _guiInput;
 	let _editor;
@@ -26,8 +24,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	let _editReadingOrder = false;
 
 	let _newPathCounter = 0;
-	let _specifiedColors = specifiedColors;
-	let _colors = colors;
 
 	// main method
 	$(window).ready(() => {
@@ -43,7 +39,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 				_currentPage = 0;
 				this.showPreloader(true);
-				_communicator.loadBook(_bookID,_currentPage).done((data) => {
+				_communicator.loadBook(bookID,_currentPage).done((data) => {
 							_book = data.book;
 							_segmentation = data.segmentation;
 							_segmentationtypes = data.segmenttypes;
@@ -277,7 +273,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(!pageNr){
 			pageNr = _currentPage;
 		}
-		_communicator.uploadPageXML(file,pageNr,bookID).done((page) => {
+		_communicator.uploadPageXML(file,pageNr,_book.id).done((page) => {
 				const failedSegmentations = [];
 				const missingRegions = [];
 				
@@ -325,14 +321,14 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	this.exportPageXML = function(){
 		_gui.setExportingInProgress(true);
 
-		_communicator.prepareExport(_segmentation[_currentPage],bookID,_pageXMLVersion).done((data) => {
+		_communicator.prepareExport(_segmentation[_currentPage],_book.id,_pageXMLVersion).done((data) => {
 			// Set export finished
 			_savedPages.push(_currentPage);
 			_gui.highlightExportedPage(_currentPage);
 			_gui.setExportingInProgress(false);
 
 			// Download
-			if(_globalSettings.downloadPage){
+			if(globalSettings.downloadPage){
 				var a = window.document.createElement('a');
 				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], {type: "text/xml;charset=utf-8"}));
 				a.download = _book.name+"_"+_book.pages[_currentPage].name+".xml";
@@ -365,7 +361,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.uploadSettings = function(file){
-		_communicator.uploadSettings(file, bookID).done((settings) => {
+		_communicator.uploadSettings(file, _book.id).done((settings) => {
 			if(settings){
 				_settings = settings;
 				_presentRegions = [];
@@ -549,7 +545,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 				}
 			}
 			if(segments.length > 1){
-				_communicator.requestMergedSegment(segments,_currentPage,_bookID).done((data) => {
+				_communicator.requestMergedSegment(segments,_currentPage,_book.id).done((data) => {
 					const mergedSegment = data;
 					actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
 							_editor, _segmentation, _currentPage, this));
@@ -754,10 +750,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
 		let color;
-		if(_specifiedColors[regionType]){
-			color = _specifiedColors[regionType];
+		if(specifiedColors[regionType]){
+			color = specifiedColors[regionType];
 		}else{
-			color = _colors[this.getAvailableColorIndexes()[0]];
+			color = colors[this.getAvailableColorIndexes()[0]];
 		}
 
 		_gui.openRegionSettings(regionType,region.minSize,region.maxOccurances,region.priorityPosition,doCreate,color);
@@ -768,8 +764,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.getColorID = function(color){
-		for(let id = 0; id < _colors.length; id++){
-			if(color.toCSS() === _colors[id].toCSS()){
+		for(let id = 0; id < colors.length; id++){
+			if(color.toCSS() === colors[id].toCSS()){
 				return id;
 			}
 		}
@@ -777,7 +773,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.setRegionColor = function(regionType,colorID){
-		_specifiedColors[regionType] = _colors[colorID];
+		specifiedColors[regionType] = colors[colorID];
 
 		const pageSegments = _segmentation[_currentPage].segments;
 		const pageFixedSegments = _settings.pages[_currentPage].segments;
@@ -810,10 +806,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 	}
 
 	this.getAvailableColorIndexes = function(){
-		let freeColorIndexes = Array.apply(null, {length: _colors.length}).map(Number.call, Number);
+		let freeColorIndexes = Array.apply(null, {length: colors.length}).map(Number.call, Number);
 
-		for (let regionType in _specifiedColors) {
-			let index = _colors.indexOf(_specifiedColors[regionType]);
+		for (let regionType in specifiedColors) {
+			let index = colors.indexOf(specifiedColors[regionType]);
 			if (index > -1) {
 		    freeColorIndexes.splice(freeColorIndexes.indexOf(index), 1);
 			}
