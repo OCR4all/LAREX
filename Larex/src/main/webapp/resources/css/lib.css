@@ -1,17 +1,2 @@
-/* Sticky footer */
-body {
-  display: flex;
-  min-height: 100vh;
-  flex-direction: column; }
-
-main {
-  flex: 1 0 auto;
-  z-index: 0 !important; }
-
-.bookopen {
-  cursor: pointer; }
-  .bookopen:hover * {
-    background-color: #757575;
-    color: white; }
-
+body{display:flex;min-height:100vh;flex-direction:column}main{flex:1 0 auto;z-index:0 !important}.bookopen{cursor:pointer}.bookopen:hover *{background-color:#757575;color:#fff}
 /*# sourceMappingURL=lib.css.map */

@@ -248,6 +248,11 @@ body{
   &.segmentError:before {
     transform: rotate(-45deg);
   }
+  &.emptyImage:before{
+    content:"";
+    display:block;
+    padding-top:140%;
+  }
   .pageImage{
     width: 100%;
   }

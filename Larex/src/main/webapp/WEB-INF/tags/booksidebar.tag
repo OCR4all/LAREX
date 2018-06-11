@@ -3,22 +3,7 @@
 <div id="pagecontainer" class="row">
 	<div class="col s12">
 		<c:forEach items="${book.getPages()}" var="bookpage">
-			<div class="chagePage pageImageContainer card col s12" data-page="${bookpage.getId()}">
-				<img class="pageImage"
-					alt="${bookpage.getImage()}"
-					title="${bookpage.getImage()}"
-					src="${bookPath}${bookpage.getImage()}?resize=true"
-					id="${bookpage.getId()}previewImage" />
-				<div class="pagestatus">
-					<i class="material-icons pagestatusIcon pageIconLoaded circle tooltipped hide"
-						data-position="bottom" data-delay="50" data-tooltip="This page has been loaded from an existing segmentation.">file_upload</i>
-					<i class="material-icons pagestatusIcon pageIconExported circle tooltipped hide"
-						data-position="bottom" data-delay="50" data-tooltip="This page has been exported.">file_download</i>
-					<i class="material-icons pagestatusIcon pageIconSaved circle tooltipped hide"
-						data-position="bottom" data-delay="50" data-tooltip="This page has been saved.">lock</i>
-					<i class="material-icons pagestatusIcon pageIconError circle tooltipped hide"
-						data-position="bottom" data-delay="50" data-tooltip="There has been an error with this page. Reload the webpage to reslove.">error</i>
-				</div>
+			<div class="chagePage pageImageContainer emptyImage emptyPreview card col s12" data-bookpath="${bookPath}" data-page="${bookpage.getId()}" data-image="${bookpage.getImage()}">
 			</div>
 		</c:forEach>
 	</div>

@@ -68,12 +68,14 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 			_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
 			_gui.setRegionLegendColors(_segmentationtypes);
+			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
 			_gui.setPageXMLVersion(_pageXMLVersion);
 
 			_gui.setAllRegionColors(colors);
 			_gui.updateAvailableColors(this.getAvailableColorIndexes());
+			_gui.addPreviewImageListener();
 
 			navigationController.setGUI(_gui);
 			navigationController.setViewer(_editor);
