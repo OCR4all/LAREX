@@ -381,7 +381,7 @@ function GUI(canvas, viewer) {
 		$previewImages.each(function(){
 			const $p = $(this);
 			const windowsHeight = $(window).height();
-			if($p.offset().top < windowsHeight+100){
+			if($p.offset().top < windowsHeight+pixelBuffer){
 				const imageSrc = $p.data("image");
 				const imageId = $p.data("page");
 				const bookpath = $p.data("bookpath");
