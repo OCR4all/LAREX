@@ -9,6 +9,12 @@ import java.nio.file.Files;
 
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
@@ -28,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.w3c.dom.Document;
 
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
@@ -137,40 +144,35 @@ public class FileController {
 		return result;
 	}
 
-	@RequestMapping(value = "/prepareExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody String prepareExport(@RequestBody ExportRequest request) {
-		facade.prepareExport(request.getSegmentation(), request.getBookid(), fileManager);
-		return "Export has been prepared";
-	}
-
-	@RequestMapping(value = "/exportXML")
-	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestParam("version") String version,
-			@RequestParam("bookID") Integer bookID) {
+	@RequestMapping(value = "/exportXML", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		init();
-		String localsave = config.getSetting("localsave");
-		switch (localsave) {
+		final Document pageXML = facade.getPageXML(request.getSegmentation(), request.getVersion());
+
+		switch (config.getSetting("localsave")) {
 		case "bookpath":
 			facade.savePageXMLLocal(
-					fileManager.getBooksPath() + File.separator + facade.getBook(bookID, fileManager).getName(),
-					version, bookID);
+					fileManager.getBooksPath() + File.separator
+							+ facade.getBook(request.getBookid(), fileManager).getName(),
+					request.getSegmentation().getFileName(), pageXML);
 			break;
 		case "savedir":
 			String savedir = config.getSetting("savedir");
 			if (savedir != null && !savedir.equals("")) {
-				facade.savePageXMLLocal(savedir, version, bookID);
+				facade.savePageXMLLocal(savedir, request.getSegmentation().getFileName(), pageXML);
 			} else {
-				System.err.println("Warning: Save dir is not set. File could not been saved.:w");
+				System.err.println("Warning: Save dir is not set. File could not been saved.");
 			}
 			break;
 		case "none":
 		case "default":
 		}
-		return facade.getPageXML(version, bookID);
+		return convertDocumentToByte(pageXML, request.getSegmentation().getFileName());
 	}
 
 	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
-		return facade.getSettingsXML(exportRequest.getSettings(), fileManager);
+		return convertDocumentToByte(facade.getSettingsXML(exportRequest.getSettings()), "settings.xml");
 	}
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
@@ -219,5 +221,29 @@ public class FileController {
 
 		bufferedImage.getRaster().setDataElements(0, 0, imageWidth, imageHeight, data);
 		return bufferedImage;
+	}
+
+	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {
+		// convert document to bytes
+		byte[] documentbytes = null;
+		try {
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			TransformerFactory factory = TransformerFactory.newInstance();
+			Transformer transformer = factory.newTransformer();
+			transformer.transform(new DOMSource(document), new StreamResult(out));
+			documentbytes = out.toByteArray();
+		} catch (TransformerConfigurationException e) {
+			e.printStackTrace();
+		} catch (TransformerException e) {
+			e.printStackTrace();
+		}
+
+		// create ResponseEntry
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.parseMediaType("application/xml"));
+		headers.setContentDispositionFormData(filename, filename + ".xml");
+		headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+
+		return new ResponseEntity<byte[]>(documentbytes, headers, HttpStatus.OK);
 	}
 }

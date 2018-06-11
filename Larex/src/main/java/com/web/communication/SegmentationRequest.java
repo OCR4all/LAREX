@@ -6,8 +6,9 @@ import org.codehaus.jackson.annotate.JsonProperty;
 import com.web.model.BookSettings;
 
 /**
- * Communication object for the gui to request the segmentation of different pages.
- * Contains the segmentation settings and a list of page numbers to segment.
+ * Communication object for the gui to request the segmentation of different
+ * pages. Contains the segmentation settings and a list of page numbers to
+ * segment.
  * 
  */
 public class SegmentationRequest {
@@ -20,8 +21,7 @@ public class SegmentationRequest {
 	private boolean allowToLoadLocal;
 
 	@JsonCreator
-	public SegmentationRequest(@JsonProperty("settings") BookSettings settings,
-			@JsonProperty("page") Integer page,
+	public SegmentationRequest(@JsonProperty("settings") BookSettings settings, @JsonProperty("page") Integer page,
 			@JsonProperty("allowLoadLocal") boolean allowToLoadLocal) {
 		this.page = page;
 		this.settings = settings;
@@ -35,7 +35,7 @@ public class SegmentationRequest {
 	public BookSettings getSettings() {
 		return settings;
 	}
-	
+
 	public boolean isAllowToLoadLocal() {
 		return allowToLoadLocal;
 	}

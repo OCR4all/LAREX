@@ -325,32 +325,28 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		_pageXMLVersion = pageXMLVersion;
 	}
 
-	this.downloadPageXML = function(){
-		if(_globalSettings.downloadPage){
-			if(_currentPageDownloadable){
-				const popup_download = window.open("exportXML?version="+_pageXMLVersion+"&bookID="+bookID);	
-				try {
-					popup_download.focus();
-				} catch(e){
-					_gui.displayWarning("Download was blocked. Please disable the Pop-up Blocker for this website.");
-					_gui.highlightExportedPage(_currentPage);
-				}
-			}
-		}else{
-			$.get("exportXML?version="+_pageXMLVersion+"&bookID="+bookID);
-			_gui.highlightExportedPage(_currentPage);
+	this.downloadPageXML = function(data){
+		if(_globalSettings.downloadPage && _currentPageDownloadable){
+			var a = window.document.createElement('a');
+			a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], {type: "text/xml;charset=utf-8"}));
+			a.download = _book.name+".xml";
+		
+			// Append anchor to body.
+			document.body.appendChild(a);
+			a.click();
 		}
+		_gui.highlightExportedPage(_currentPage);
 	}
 
 	this.exportPageXML = function(){
 		_gui.setExportingInProgress(true);
 
-		_communicator.prepareExport(_segmentation[_currentPage],bookID).done(() => {
+		_communicator.prepareExport(_segmentation[_currentPage],bookID,_pageXMLVersion).done((data) => {
 			this.setPageDownloadable(_currentPage,true);
 			_gui.setExportingInProgress(false);
 			_gui.highlightSavedPage(_currentPage);
 			_savedPages.push(_currentPage);
-			this.downloadPageXML();
+			this.downloadPageXML(data);
 		});
 	}
 
@@ -359,6 +355,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			var a = window.document.createElement('a');
 			a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], {type: "text/xml;charset=utf-8"}));
 			a.download = "settings_"+_book.name+".xml";
+			console.log(_book);
 		
 			// Append anchor to body.
 			document.body.appendChild(a);

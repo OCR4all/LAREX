@@ -120,13 +120,15 @@ public class ViewerController {
 
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
+		init();
 		return segmenter.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
-				segmentationRequest.isAllowToLoadLocal(),fileManager);
+				segmentationRequest.isAllowToLoadLocal(), fileManager);
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon merge(@RequestBody MergeRequest mergeRequest) {
-		return segmenter.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid(),fileManager);
+		return segmenter.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid(),
+				fileManager);
 	}
 
 	private Map<RegionType, Integer> getSegmentTypes() {

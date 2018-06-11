@@ -18,7 +18,6 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import larex.dataManagement.Page;
 import larex.segmentation.result.ResultRegion;
 import larex.segmentation.result.SegmentationResult;
 
@@ -93,7 +92,8 @@ public class PageXMLWriter {
 		pageElement.appendChild(regionElement);
 	}
 
-	public static void addRegions(Document document, Element pageElement, SegmentationResult segmentation, String pageXMLVersion) {
+	public static void addRegions(Document document, Element pageElement, SegmentationResult segmentation,
+			String pageXMLVersion) {
 		int regionCnt = 0;
 
 		ArrayList<ResultRegion> readingOrder = segmentation.getReadingOrder();
@@ -119,7 +119,8 @@ public class PageXMLWriter {
 	 * @param tempResult
 	 * @return pageXML document or null if parse error
 	 */
-	public static Document getPageXML(SegmentationResult result, String imageName, int width, int height, String pageXMLVersion) {
+	public static Document getPageXML(SegmentationResult result, String imageName, int width, int height,
+			String pageXMLVersion) {
 		if (!pageXMLVersion.equals("2017-07-15") && !pageXMLVersion.equals("2010-03-19")) {
 			pageXMLVersion = "2010-03-19";
 		}
@@ -161,7 +162,7 @@ public class PageXMLWriter {
 			rootElement.appendChild(metadataElement);
 
 			Element pageElement = document.createElement("Page");
-			pageElement.setAttribute("imageFilename",imageName);
+			pageElement.setAttribute("imageFilename", imageName);
 
 			pageElement.setAttribute("imageWidth", "" + width);
 			pageElement.setAttribute("imageHeight", "" + height);

@@ -49,10 +49,6 @@ public class PageSegmentation {
 		this.height = height;
 	}
 
-	public void addSegment(Polygon segment) {
-		segments.put(segment.getId(), segment);
-	}
-
 	public int getPage() {
 		return pageNr;
 	}
@@ -75,5 +71,17 @@ public class PageSegmentation {
 
 	public void setReadingOrder(List<String> readingOrder) {
 		this.readingOrder = readingOrder;
+	}
+
+	public String getFileName() {
+		return fileName;
+	}
+
+	public int getHeight() {
+		return height;
+	}
+
+	public int getWidth() {
+		return width;
 	}
 }

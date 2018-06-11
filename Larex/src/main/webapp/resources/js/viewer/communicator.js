@@ -89,14 +89,14 @@ function Communicator() {
 		return status;
 	}
 
-	this.prepareExport = function(segmentation,bookID){
-		const exportRequest = {bookid: bookID, segmentation: segmentation}
+	this.prepareExport = function(segmentation,bookID,pageXMLVersion){
+		const exportRequest = {bookid: bookID, segmentation: segmentation,version:pageXMLVersion}
 		// Deferred object for function status
 		const status = $.Deferred();
 
 		$.ajax({
 			type : "POST",
-			url : "prepareExport",
+			url : "exportXML",
 			contentType: "application/json",
 			data : JSON.stringify(exportRequest),
 			beforeSend : () => console.log("Prepare Export: start"),
@@ -105,7 +105,7 @@ function Communicator() {
 				status.resolve(data);
 			},
 			error : (jqXHR, textStatus, errorThrown) => {
-				console.log("Prepare Export: end");//"Prepare Export: failed " + textStatus);
+				console.log("Prepare Export: end");
 				status.resolve();
 			}
 		});

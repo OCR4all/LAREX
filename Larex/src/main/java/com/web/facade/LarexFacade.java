@@ -6,25 +6,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 
-import org.apache.tomcat.util.http.fileupload.ByteArrayOutputStream;
 import org.opencv.core.Size;
 import org.springframework.context.annotation.Scope;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -58,10 +46,8 @@ import larex.segmentation.result.SegmentationResult;
 @Scope("session")
 public class LarexFacade {
 
-	private Map<Integer, larex.dataManagement.Page> exportPages = new HashMap<Integer, larex.dataManagement.Page>();
-
-
-	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults, FileManager fileManager) {
+	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
+			FileManager fileManager) {
 		Book book = getBook(settings.getBookID(), fileManager);
 
 		Page page = book.getPage(pageNr);
@@ -75,7 +61,8 @@ public class LarexFacade {
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
 		} else {
-			return segment(settings, page, fileManager);
+			PageSegmentation segmentation = segment(settings, page, fileManager);
+			return segmentation;
 		}
 	}
 
@@ -85,69 +72,22 @@ public class LarexFacade {
 		return LarexWebTranslator.translateParametersToSettings(parameters, book);
 	}
 
-	public void prepareExport(PageSegmentation segmentation, int bookID,FileManager fileManager) {
-		larex.dataManagement.Page exportPage = getLarexPage(getBook(bookID, fileManager).getPage(segmentation.getPage()), fileManager);
-		exportPage.setSegmentationResult(WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation));
-		exportPages.put(bookID, exportPage);
+	public Document getPageXML(PageSegmentation segmentation, String version) {
+		SegmentationResult result = WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation);
+		return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
+				segmentation.getHeight(), version);
 	}
 
-	public ResponseEntity<byte[]> getPageXML(String version, int bookID) {
-		larex.dataManagement.Page exportPage = exportPages.get(bookID);
-		if (exportPage != null) {
-			exportPage.initPage();
-			Document document = PageXMLWriter.getPageXML(exportPage.getSegmentationResult(),
-					exportPage.getImagePath().substring(exportPage.getImagePath().lastIndexOf(File.separator) + 1),
-					exportPage.getBinary().width(), exportPage.getBinary().height(), version);
-			exportPage.clean();
-			return convertDocumentToByte(document, exportPage.getFileName());
-		} else {
-			throw new IllegalStateException("PageXML can't be returned. No Page has been prepared for export.");
-		}
+	public void savePageXMLLocal(String saveDir, String filename, Document document) {
+		PageXMLWriter.saveDocument(document, filename, saveDir);
 	}
 
-	public void savePageXMLLocal(String saveDir, String version, int bookID) {
-		larex.dataManagement.Page exportPage = exportPages.get(bookID);
-		if (exportPage != null) {
-			exportPage.initPage();
-			Document document = PageXMLWriter.getPageXML(exportPage.getSegmentationResult(),
-					exportPage.getImagePath().substring(exportPage.getImagePath().lastIndexOf(File.separator) + 1),
-					exportPage.getBinary().width(), exportPage.getBinary().height(), version);
-			exportPage.clean();
-			PageXMLWriter.saveDocument(document, exportPage.getFileName(), saveDir);
-		}
-	}
-
-	public ResponseEntity<byte[]> getSettingsXML(BookSettings settings,FileManager fileManager) {
+	public Document getSettingsXML(BookSettings settings) {
 		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
-		return convertDocumentToByte(SettingsWriter.getSettingsXML(parameters),
-				"settings_" + getBook(settings.getBookID(), fileManager).getName());
+		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {
-		// convert document to bytes
-		byte[] documentbytes = null;
-		try {
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-			TransformerFactory factory = TransformerFactory.newInstance();
-			Transformer transformer = factory.newTransformer();
-			transformer.transform(new DOMSource(document), new StreamResult(out));
-			documentbytes = out.toByteArray();
-		} catch (TransformerConfigurationException e) {
-			e.printStackTrace();
-		} catch (TransformerException e) {
-			e.printStackTrace();
-		}
-
-		// create ResponseEntry
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.parseMediaType("application/xml"));
-		headers.setContentDispositionFormData(filename, filename + ".xml");
-		headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
-
-		return new ResponseEntity<byte[]>(documentbytes, headers, HttpStatus.OK);
-	}
-
-	public Polygon merge(List<Polygon> segments, int pageNr, int bookID,FileManager fileManager) {
+	public Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
 		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
 		for (Polygon segment : segments)
 			resultRegions.add(WebLarexTranslator.translateSegmentToResultRegion(segment));
@@ -218,7 +158,7 @@ public class LarexFacade {
 		return null;
 	}
 
-	public BookSettings readSettings(byte[] settingsFile, int bookID,FileManager fileManager) {
+	public BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager) {
 		BookSettings settings = null;
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
