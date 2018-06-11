@@ -16,7 +16,12 @@ import com.web.communication.SegmentationStatus;
  * 
  */
 public class PageSegmentation {
-
+	@JsonProperty("fileName")
+	private String fileName;
+	@JsonProperty("width")
+	private int width;
+	@JsonProperty("height")
+	private int height;
 	@JsonProperty("page")
 	private int pageNr;
 	@JsonProperty("segments")
@@ -26,25 +31,22 @@ public class PageSegmentation {
 	@JsonProperty("status")
 	private SegmentationStatus status;
 
-	public PageSegmentation(int pageNr) {
-		this(pageNr, new HashMap<String, Polygon>(), SegmentationStatus.UNSEGMENTED,new ArrayList<String>());
+	public PageSegmentation(String fileName, int width, int height, int pageNr, Map<String, Polygon> segments) {
+		this(fileName, width, height, pageNr, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
 	}
 
-	public PageSegmentation(int pageNr, Map<String, Polygon> segments) {
-		this(pageNr,segments,SegmentationStatus.SUCCESS,new ArrayList<String>());
-	}
-	
 	@JsonCreator
-	public PageSegmentation(@JsonProperty("page") int pageNr, @JsonProperty("segments") Map<String, Polygon> segments,
-			@JsonProperty("status") SegmentationStatus status, @JsonProperty("readingOrder") List<String> readingOrder) {
+	public PageSegmentation(@JsonProperty("fileName") String fileName, @JsonProperty("width") int width,
+			@JsonProperty("height") int height, @JsonProperty("page") int pageNr,
+			@JsonProperty("segments") Map<String, Polygon> segments, @JsonProperty("status") SegmentationStatus status,
+			@JsonProperty("readingOrder") List<String> readingOrder) {
 		this.pageNr = pageNr;
 		this.segments = segments;
 		this.status = status;
 		this.readingOrder = readingOrder;
-	}
-
-	public void addSegment(Polygon segment) {
-		segments.put(segment.getId(), segment);
+		this.fileName = fileName;
+		this.width = width;
+		this.height = height;
 	}
 
 	public int getPage() {
@@ -54,19 +56,32 @@ public class PageSegmentation {
 	public Map<String, Polygon> getSegments() {
 		return new HashMap<String, Polygon>(segments);
 	}
-	
+
 	public SegmentationStatus getStatus() {
 		return status;
 	}
-	
+
 	public void setStatus(SegmentationStatus status) {
 		this.status = status;
 	}
-	
+
 	public List<String> getReadingOrder() {
 		return new ArrayList<String>(readingOrder);
 	}
+
 	public void setReadingOrder(List<String> readingOrder) {
 		this.readingOrder = readingOrder;
+	}
+
+	public String getFileName() {
+		return fileName;
+	}
+
+	public int getHeight() {
+		return height;
+	}
+
+	public int getWidth() {
+		return width;
 	}
 }

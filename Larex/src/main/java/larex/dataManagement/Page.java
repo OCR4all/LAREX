@@ -19,8 +19,6 @@ public class Page {
 	private Mat original;
 	private Mat binary;
 
-	private double scaleFactor;
-
 	private SegmentationResult segmentationResult;
 
 	private boolean isAccepted;
@@ -97,14 +95,6 @@ public class Page {
 		this.original = original;
 	}
 
-	public double getScaleFactor() {
-		return scaleFactor;
-	}
-
-	public void setScaleFactor(double scaleFactor) {
-		this.scaleFactor = scaleFactor;
-	}
-
 	public Mat getBinary() {
 		return binary;
 	}
@@ -141,7 +131,6 @@ public class Page {
 		copy.setImagePath(imagePath);
 		if(original != null)
 			copy.setOriginal(original.clone());
-		copy.setScaleFactor(scaleFactor);
 		if(segmentationResult != null){
 			copy.setSegmentationResult(segmentationResult.clone());
 		}

@@ -2,15 +2,15 @@ function ViewerInput(controller) {
 	const _controller = controller;
 	let _mouseSelecting = false;
 
-	this.enterSection = function(sectionID, event) {
+	this.enterSection = function (sectionID, event) {
 		_controller.enterSegment(sectionID, true);
 	}
 
-	this.leaveSection = function(sectionID, event) {
+	this.leaveSection = function (sectionID, event) {
 		_controller.leaveSegment(sectionID, false);
 	}
 
-	this.selectSection = function(sectionID, event, hitTest) {
+	this.selectSection = function (sectionID, event, hitTest) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
@@ -21,7 +21,7 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
-				if(!_controller.isSegmentSelected(sectionID)){
+				if (!_controller.isSegmentSelected(sectionID)) {
 					_controller.unSelect();
 					_controller.selectSegment(sectionID, hitTest);
 					_controller.openContextMenu(true);
@@ -31,13 +31,13 @@ function ViewerInput(controller) {
 		}
 	}
 
-	this.dragImage = function(event){
+	this.dragImage = function (event) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if(event.modifiers.shift){
+				if (event.modifiers.shift) {
 					_controller.startRectangleSelect();
-				}else{
+				} else {
 					_controller.moveImage(event.delta);
 				}
 				break;
@@ -51,11 +51,11 @@ function ViewerInput(controller) {
 		}
 	}
 
-	this.dragBackground = function(event){
+	this.dragBackground = function (event) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if(event.modifiers.shift){
+				if (event.modifiers.shift) {
 					_controller.startRectangleSelect();
 				}
 				break;
@@ -69,11 +69,11 @@ function ViewerInput(controller) {
 		}
 	}
 
-	this.clickImage = function(event, hitTest){
+	this.clickImage = function (event, hitTest) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if(hitTest && hitTest.item && hitTest.segment){
+				if (hitTest && hitTest.item && hitTest.segment) {
 					_controller.selectSegment(hitTest.item.id, point);
 				}
 				break;
@@ -85,13 +85,13 @@ function ViewerInput(controller) {
 				_controller.endCreateReadingOrder();
 				break;
 		}
-		if(!event.modifiers.control){
+		if (!event.modifiers.control) {
 			_controller.unSelect();
 		}
 		_controller.closeContextMenu();
 	}
 
-	this.clickBackground = function(event){
+	this.clickBackground = function (event) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
@@ -104,7 +104,7 @@ function ViewerInput(controller) {
 				_controller.endCreateReadingOrder();
 				break;
 		}
-		if(!event.modifiers.control){
+		if (!event.modifiers.control) {
 			_controller.unSelect();
 		}
 		_controller.closeContextMenu();

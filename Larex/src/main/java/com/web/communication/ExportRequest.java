@@ -15,12 +15,15 @@ public class ExportRequest {
 	private Integer bookid;
 	@JsonProperty("segmentation")
 	private PageSegmentation segmentation;
+	@JsonProperty("version")
+	private String version;
 
 	@JsonCreator
 	public ExportRequest(@JsonProperty("bookid") Integer bookid,
-			@JsonProperty("segmentation") PageSegmentation segmentation) {
+			@JsonProperty("segmentation") PageSegmentation segmentation, @JsonProperty("version") String version) {
 		this.bookid = bookid;
 		this.segmentation = segmentation;
+		this.version = version;
 	}
 
 	public Integer getBookid() {
@@ -29,5 +32,9 @@ public class ExportRequest {
 
 	public PageSegmentation getSegmentation() {
 		return segmentation;
+	}
+
+	public String getVersion() {
+		return version;
 	}
 }

@@ -1,13 +1,19 @@
 package com.web.model.database;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 
 import com.web.model.Book;
 import com.web.model.Page;
@@ -29,7 +35,7 @@ public class FileDatabase implements IDatabase {
 	}
 
 	public FileDatabase(File databaseFolder) {
-		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg","tif","tiff"));
+		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"));
 	}
 
 	public Map<Integer, Book> getBooks() {
@@ -76,8 +82,27 @@ public class FileDatabase implements IDatabase {
 		for (File pageFile : sortedFiles) {
 			if (pageFile.isFile()) {
 				String pageName = pageFile.getName();
+
 				if (isValidImageFile(pageName)) {
-					pages.add(new Page(pageCounter, bookName + File.separator + pageName));
+					int width = 0;
+					int height = 0;
+
+					try {
+						ImageInputStream in = ImageIO.createImageInputStream(pageFile);
+						final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+						if (readers.hasNext()) {
+							ImageReader reader = readers.next();
+							reader.setInput(in);
+							width = reader.getWidth(0);
+							height = reader.getHeight(0);
+
+							reader.dispose();
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+
+					pages.add(new Page(pageCounter, pageName.substring(0, pageName.lastIndexOf(".")), bookName + File.separator + pageName, width, height));
 					pageCounter++;
 				}
 			}

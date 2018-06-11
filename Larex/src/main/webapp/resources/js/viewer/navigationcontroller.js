@@ -1,39 +1,39 @@
-function NavigationController(){
+function NavigationController() {
 	let _gui;
 	let _viewer;
 
-	this.setGUI = function(gui){
+	this.setGUI = function (gui) {
 		_gui = gui;
 	}
-	this.setViewer = function(viewer){
+	this.setViewer = function (viewer) {
 		_viewer = viewer;
 	}
 
 	//Navigation
-	this.center = function() {
+	this.center = function () {
 		_viewer.center();
 	}
-	this.setZoom = function(zoomfactor, point) {
+	this.setZoom = function (zoomfactor, point) {
 		_viewer.setZoom(zoomfactor, point);
 		_gui.updateZoom();
 	}
-	this.zoomIn = function(zoomfactor, point) {
+	this.zoomIn = function (zoomfactor, point) {
 		_viewer.zoomIn(zoomfactor, point);
 		_gui.updateZoom();
 	}
-	this.zoomOut = function(zoomfactor, point) {
+	this.zoomOut = function (zoomfactor, point) {
 		_viewer.zoomOut(zoomfactor, point);
 		_gui.updateZoom();
 	}
-	this.zoomFit = function() {
+	this.zoomFit = function () {
 		_viewer.center();
 		_viewer.zoomFit();
 		_gui.updateZoom();
 	}
-	this.move = function(x, y) {
+	this.move = function (x, y) {
 		_viewer.move(x, y);
 	}
-	this.moveCanvas = function(doMove) {
+	this.moveCanvas = function (doMove) {
 		_gui.moveCanvas(doMove);
 	}
 }

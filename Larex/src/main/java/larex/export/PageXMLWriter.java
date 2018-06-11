@@ -19,7 +19,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 import larex.segmentation.result.ResultRegion;
-import larex.dataManagement.Page;
+import larex.segmentation.result.SegmentationResult;
 
 public class PageXMLWriter {
 
@@ -29,20 +29,14 @@ public class PageXMLWriter {
 	 * @param document
 	 * @param coordsElement
 	 * @param pointMat
-	 * @param scaleFactor
 	 */
-	public static void addPoints2017(Document document, Element coordsElement, MatOfPoint pointMat,
-			double scaleFactor) {
+	public static void addPoints2017(Document document, Element coordsElement, MatOfPoint pointMat) {
 		Point[] points = pointMat.toArray();
 		String pointCoords = "";
 
-		if (scaleFactor == 0) {
-			scaleFactor = 1;
-		}
-
 		for (int i = 0; i < points.length; i++) {
-			int x = (int) (scaleFactor * points[i].x);
-			int y = (int) (scaleFactor * points[i].y);
+			int x = (int) points[i].x;
+			int y = (int) points[i].y;
 
 			pointCoords += x + "," + y + " ";
 		}
@@ -57,25 +51,19 @@ public class PageXMLWriter {
 	 * @param document
 	 * @param coordsElement
 	 * @param pointMat
-	 * @param scaleFactor
 	 */
-	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat,
-			double scaleFactor) {
+	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat) {
 		Point[] points = pointMat.toArray();
-
-		if (scaleFactor == 0) {
-			scaleFactor = 1;
-		}
 
 		for (int i = 0; i < points.length; i++) {
 			Element pointElement = document.createElement("Point");
-			pointElement.setAttribute("x", "" + (int) (scaleFactor * points[i].x));
-			pointElement.setAttribute("y", "" + (int) (scaleFactor * points[i].y));
+			pointElement.setAttribute("x", "" + (int) points[i].x);
+			pointElement.setAttribute("y", "" + (int) points[i].y);
 			coordsElement.appendChild(pointElement);
 		}
 	}
 
-	public static void addRegion(Document document, Element pageElement, Page page, ResultRegion region, int regionCnt,
+	public static void addRegion(Document document, Element pageElement, ResultRegion region, int regionCnt,
 			String pageXMLVersion) {
 		Element regionElement = null;
 		String regionType = region.getType().toString().toLowerCase();
@@ -93,39 +81,33 @@ public class PageXMLWriter {
 
 		switch (pageXMLVersion) {
 		case "2017-07-15":
-			addPoints2017(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			addPoints2017(document, coordsElement, region.getPoints());
 			break;
 		case "2010-03-19":
 		default:
-			addPoints2010(document, coordsElement, region.getPoints(), page.getScaleFactor());
+			addPoints2010(document, coordsElement, region.getPoints());
 			break;
 		}
 		regionElement.appendChild(coordsElement);
 		pageElement.appendChild(regionElement);
 	}
 
-	public static void addRegions(Document document, Element pageElement, Page page, String pageXMLVersion) {
+	public static void addRegions(Document document, Element pageElement, SegmentationResult segmentation,
+			String pageXMLVersion) {
 		int regionCnt = 0;
 
-		ArrayList<ResultRegion> readingOrder = page.getSegmentationResult().getReadingOrder();
-		ArrayList<ResultRegion> allRegions = page.getSegmentationResult().getRegions();
+		ArrayList<ResultRegion> readingOrder = segmentation.getReadingOrder();
+		ArrayList<ResultRegion> allRegions = segmentation.getRegions();
 		allRegions.removeAll(readingOrder);
 
 		for (ResultRegion region : readingOrder) {
-			addRegion(document, pageElement, page, region, regionCnt, pageXMLVersion);
+			addRegion(document, pageElement, region, regionCnt, pageXMLVersion);
 			regionCnt++;
 		}
 
 		for (ResultRegion region : allRegions) {
-			addRegion(document, pageElement, page, region, regionCnt, pageXMLVersion);
+			addRegion(document, pageElement, region, regionCnt, pageXMLVersion);
 			regionCnt++;
-		}
-	}
-
-	public static void writePageXML(Page page, String outputFolder, String pageXMLVersion) {
-		Document pageXML = getPageXML(page, pageXMLVersion);
-		if (pageXML != null) {
-			saveDocument(pageXML, page.getFileName(), outputFolder);
 		}
 	}
 
@@ -137,7 +119,8 @@ public class PageXMLWriter {
 	 * @param tempResult
 	 * @return pageXML document or null if parse error
 	 */
-	public static Document getPageXML(Page page, String pageXMLVersion) {
+	public static Document getPageXML(SegmentationResult result, String imageName, int width, int height,
+			String pageXMLVersion) {
 		if (!pageXMLVersion.equals("2017-07-15") && !pageXMLVersion.equals("2010-03-19")) {
 			pageXMLVersion = "2010-03-19";
 		}
@@ -179,15 +162,14 @@ public class PageXMLWriter {
 			rootElement.appendChild(metadataElement);
 
 			Element pageElement = document.createElement("Page");
-			pageElement.setAttribute("imageFilename",
-					page.getImagePath().substring(page.getImagePath().lastIndexOf(File.separator) + 1));
+			pageElement.setAttribute("imageFilename", imageName);
 
-			pageElement.setAttribute("imageWidth", "" + (int) page.getOriginal().size().width);
-			pageElement.setAttribute("imageHeight", "" + (int) page.getOriginal().size().height);
+			pageElement.setAttribute("imageWidth", "" + width);
+			pageElement.setAttribute("imageHeight", "" + height);
 			rootElement.appendChild(pageElement);
 
 			// ReadingOrder
-			if (page.getSegmentationResult().getReadingOrder().size() > 0) {
+			if (result.getReadingOrder().size() > 0) {
 				Element readingOrderElement = document.createElement("ReadingOrder");
 				pageElement.appendChild(readingOrderElement);
 
@@ -195,7 +177,7 @@ public class PageXMLWriter {
 				orderedGroupElement.setAttribute("id", "ro" + System.currentTimeMillis());
 				readingOrderElement.appendChild(orderedGroupElement);
 
-				ArrayList<ResultRegion> readingOrder = page.getSegmentationResult().getReadingOrder();
+				ArrayList<ResultRegion> readingOrder = result.getReadingOrder();
 				for (int index = 0; index < readingOrder.size(); index++) {
 					Element regionRefElement = document.createElement("RegionRefIndexed");
 					regionRefElement.setAttribute("regionRef", "r" + index);
@@ -204,7 +186,7 @@ public class PageXMLWriter {
 				}
 			}
 
-			addRegions(document, pageElement, page, pageXMLVersion);
+			addRegions(document, pageElement, result, pageXMLVersion);
 
 			return document;
 		} catch (Exception e) {

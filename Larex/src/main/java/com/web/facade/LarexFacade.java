@@ -6,25 +6,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 
-import org.apache.tomcat.util.http.fileupload.ByteArrayOutputStream;
 import org.opencv.core.Size;
 import org.springframework.context.annotation.Scope;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -54,34 +42,11 @@ import larex.segmentation.result.SegmentationResult;
  * Segmenter using the Larex project/algorithm
  * 
  */
-@Component
-@Scope("session")
-public class LarexFacade implements IFacade {
+public class LarexFacade {
 
-	private FileManager fileManager;
-	private Map<Integer, larex.dataManagement.Page> exportPages = new HashMap<Integer, larex.dataManagement.Page>();
-	private Map<Integer, Document> exportSettings = new HashMap<Integer, Document>();
-	private boolean isInit = false;
-
-	@Override
-	public void init(FileManager fileManager) {
-		this.fileManager = fileManager;
-		this.isInit = true;
-	}
-
-	@Override
-	public boolean isInit() {
-		return isInit;
-	}
-
-	@Override
-	public void clear() {
-		this.isInit = false;
-	}
-
-	@Override
-	public PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults) {
-		Book book = getBook(settings.getBookID());
+	public static PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
+			FileManager fileManager) {
+		Book book = getBook(settings.getBookID(), fileManager);
 
 		Page page = book.getPage(pageNr);
 		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
@@ -89,99 +54,44 @@ public class LarexFacade implements IFacade {
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(loadedResult.getRegions(), page.getId());
+			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getImage(),
+					page.getWidth(), page.getHeight(), loadedResult.getRegions(), page.getId());
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
 		} else {
-			return segment(settings, page);
+			PageSegmentation segmentation = segment(settings, page, fileManager);
+			return segmentation;
 		}
 	}
 
-	@Override
-	public BookSettings getDefaultSettings(Book book) {
+	public static BookSettings getDefaultSettings(Book book) {
 		RegionManager regionmanager = new RegionManager();
 		Parameters parameters = new Parameters(regionmanager, 0);
 		return LarexWebTranslator.translateParametersToSettings(parameters, book);
 	}
 
-	@Override
-	public void prepareExport(PageSegmentation segmentation, int bookID) {
-		larex.dataManagement.Page exportPage = getLarexPage(getBook(bookID).getPage(segmentation.getPage()));
-		exportPage.setSegmentationResult(WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation));
-		exportPages.put(bookID, exportPage);
+	public static Document getPageXML(PageSegmentation segmentation, String version) {
+		SegmentationResult result = WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation);
+		return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
+				segmentation.getHeight(), version);
 	}
 
-	@Override
-	public ResponseEntity<byte[]> getPageXML(String version, int bookID) {
-		larex.dataManagement.Page exportPage = exportPages.get(bookID);
-		if (exportPage != null) {
-			exportPage.initPage();
-			Document document = PageXMLWriter.getPageXML(exportPage, version);
-			exportPage.clean();
-			return convertDocumentToByte(document, exportPage.getFileName());
-		} else {
-			throw new IllegalStateException("PageXML can't be returned. No Page has been prepared for export.");
-		}
+	public static void savePageXMLLocal(String saveDir, String filename, Document document) {
+		PageXMLWriter.saveDocument(document, filename, saveDir);
 	}
 
-	@Override
-	public void savePageXMLLocal(String saveDir, String version, int bookID) {
-		larex.dataManagement.Page exportPage = exportPages.get(bookID);
-		if (exportPage != null) {
-			exportPage.initPage();
-			Document document = PageXMLWriter.getPageXML(exportPage, version);
-			exportPage.clean();
-			PageXMLWriter.saveDocument(document, exportPage.getFileName(), saveDir);
-		}
-	}
-
-	@Override
-	public void prepareSettings(BookSettings settings) {
+	public static Document getSettingsXML(BookSettings settings) {
 		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
-		exportSettings.put(settings.getBookID(), SettingsWriter.getSettingsXML(parameters));
+		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	@Override
-	public ResponseEntity<byte[]> getSettingsXML(int bookID) {
-		if (exportSettings != null) {
-			return convertDocumentToByte(exportSettings.get(bookID), "settings_" + getBook(bookID).getName());
-		} else {
-			throw new IllegalStateException("Setting can't be returned. No Setting has been prepared for export.");
-		}
-	}
-
-	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {
-		// convert document to bytes
-		byte[] documentbytes = null;
-		try {
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-			TransformerFactory factory = TransformerFactory.newInstance();
-			Transformer transformer = factory.newTransformer();
-			transformer.transform(new DOMSource(document), new StreamResult(out));
-			documentbytes = out.toByteArray();
-		} catch (TransformerConfigurationException e) {
-			e.printStackTrace();
-		} catch (TransformerException e) {
-			e.printStackTrace();
-		}
-
-		// create ResponseEntry
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.parseMediaType("application/xml"));
-		headers.setContentDispositionFormData(filename, filename + ".xml");
-		headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
-
-		return new ResponseEntity<byte[]>(documentbytes, headers, HttpStatus.OK);
-	}
-
-	@Override
-	public Polygon merge(List<Polygon> segments, int pageNr, int bookID) {
+	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
 		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
 		for (Polygon segment : segments)
 			resultRegions.add(WebLarexTranslator.translateSegmentToResultRegion(segment));
 
-		Book book = getBook(bookID);
-		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr));
+		Book book = getBook(bookID, fileManager);
+		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary().size());
 		page.clean();
@@ -190,9 +100,9 @@ public class LarexFacade implements IFacade {
 		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
 	}
 
-	private PageSegmentation segment(BookSettings settings, Page page) {
+	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageSegmentation segmentation = null;
-		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page);
+		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page, fileManager);
 
 		if (currentLarexPage != null) {
 			SegmentationResult segmentationResult = currentLarexPage.getSegmentationResult();
@@ -200,15 +110,16 @@ public class LarexFacade implements IFacade {
 
 			ArrayList<ResultRegion> regions = segmentationResult.getRegions();
 
-			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(regions, page.getId());
+			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getImage(), page.getWidth(),
+					page.getHeight(), regions, page.getId());
 		} else {
-			segmentation = new PageSegmentation(page.getId(), new HashMap<String, Polygon>(),
-					SegmentationStatus.MISSINGFILE, new ArrayList<String>());
+			segmentation = new PageSegmentation(page.getImage(), page.getWidth(), page.getHeight(), page.getId(),
+					new HashMap<String, Polygon>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
 		}
 		return segmentation;
 	}
 
-	private larex.dataManagement.Page segmentLarex(BookSettings settings, Page page) {
+	private static larex.dataManagement.Page segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
 		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
@@ -236,7 +147,7 @@ public class LarexFacade implements IFacade {
 		}
 	}
 
-	private larex.dataManagement.Page getLarexPage(Page page) {
+	private static larex.dataManagement.Page getLarexPage(Page page, FileManager fileManager) {
 		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
@@ -245,15 +156,14 @@ public class LarexFacade implements IFacade {
 		return null;
 	}
 
-	@Override
-	public BookSettings readSettings(byte[] settingsFile, int bookID) {
+	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager) {
 		BookSettings settings = null;
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(new ByteArrayInputStream(settingsFile));
 
-			Book book = getBook(bookID);
+			Book book = getBook(bookID, fileManager);
 			Page page = book.getPage(0);
 			String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
@@ -274,17 +184,16 @@ public class LarexFacade implements IFacade {
 		return settings;
 	}
 
-	@Override
-	public PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID) {
+	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileManager fileManager) {
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(new ByteArrayInputStream(pageXML));
-			Page page = getBook(bookID).getPage(pageNr);
+			Page page = getBook(bookID, fileManager).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
-			PageSegmentation pageSegmentation = LarexWebTranslator
-					.translateResultRegionsToSegmentation(result.getRegions(), page.getId());
+			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getImage(),
+					page.getWidth(), page.getHeight(), result.getRegions(), page.getId());
 
 			List<String> readingOrder = new ArrayList<String>();
 			for (ResultRegion region : result.getReadingOrder()) {
@@ -303,7 +212,7 @@ public class LarexFacade implements IFacade {
 		return null;
 	}
 
-	public Book getBook(int bookID) {
+	public static Book getBook(int bookID, FileManager fileManager) {
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 		return database.getBook(bookID);
 	}
