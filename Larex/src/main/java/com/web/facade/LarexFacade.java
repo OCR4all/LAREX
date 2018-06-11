@@ -54,7 +54,7 @@ public class LarexFacade {
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getImage(),
+			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getName(),
 					page.getWidth(), page.getHeight(), loadedResult.getRegions(), page.getId());
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
