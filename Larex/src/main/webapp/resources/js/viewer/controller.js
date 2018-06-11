@@ -329,7 +329,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if(_globalSettings.downloadPage && _currentPageDownloadable){
 			var a = window.document.createElement('a');
 			a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], {type: "text/xml;charset=utf-8"}));
-			a.download = _book.name+"_"+_segmentation[_currentPage].imageName+".xml";
+			console.log(_segmentation[_currentPage]);
+			a.download = _book.name+"_"+_book.pages[_currentPage].name+".xml";
 		
 			// Append anchor to body.
 			document.body.appendChild(a);

@@ -12,6 +12,8 @@ public class Page {
 
 	@JsonProperty("id")
 	private int id;
+	@JsonProperty("name")
+	private String name;
 	@JsonProperty("image")
 	private String image;
 	@JsonProperty("width")
@@ -20,9 +22,10 @@ public class Page {
 	private int height;
 
 	@JsonCreator
-	public Page(@JsonProperty("id") int id, @JsonProperty("image") String image, @JsonProperty("width") int width,
-			@JsonProperty("height") int height) {
+	public Page(@JsonProperty("id") int id, @JsonProperty("name") String name, @JsonProperty("image") String image,
+			@JsonProperty("width") int width, @JsonProperty("height") int height) {
 		this.id = id;
+		this.name = name;
 		this.image = image;
 		this.height = height;
 		this.width = width;
@@ -46,5 +49,9 @@ public class Page {
 
 	public int getWidth() {
 		return width;
+	}
+
+	public String getName() {
+		return name;
 	}
 }
