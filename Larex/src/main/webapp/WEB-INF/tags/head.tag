@@ -4,7 +4,7 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 	
 	<!--Import Google Icon Font-->
-	<link href="http://fonts.googleapis.com/icon?family=Material+Icons"	rel="stylesheet">
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons"	rel="stylesheet">
 	
 	<!--Import materialize.css-->
 	<link type="text/css" rel="stylesheet"
