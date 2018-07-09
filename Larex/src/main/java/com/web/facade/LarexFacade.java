@@ -12,8 +12,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.opencv.core.Size;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -110,10 +108,10 @@ public class LarexFacade {
 
 			ArrayList<ResultRegion> regions = segmentationResult.getRegions();
 
-			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getImage(), page.getWidth(),
+			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getName(), page.getWidth(),
 					page.getHeight(), regions, page.getId());
 		} else {
-			segmentation = new PageSegmentation(page.getImage(), page.getWidth(), page.getHeight(), page.getId(),
+			segmentation = new PageSegmentation(page.getName(), page.getWidth(), page.getHeight(), page.getId(),
 					new HashMap<String, Polygon>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
 		}
 		return segmentation;
@@ -192,7 +190,7 @@ public class LarexFacade {
 			Page page = getBook(bookID, fileManager).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
-			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getImage(),
+			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getName(),
 					page.getWidth(), page.getHeight(), result.getRegions(), page.getId());
 
 			List<String> readingOrder = new ArrayList<String>();
