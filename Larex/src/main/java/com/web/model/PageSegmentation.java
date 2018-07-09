@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.web.communication.SegmentationStatus;
@@ -75,6 +76,11 @@ public class PageSegmentation {
 
 	public String getFileName() {
 		return fileName;
+	}
+	
+	@JsonIgnore
+	public String getName() {
+		return fileName.substring(0, fileName.lastIndexOf("."));
 	}
 
 	public int getHeight() {

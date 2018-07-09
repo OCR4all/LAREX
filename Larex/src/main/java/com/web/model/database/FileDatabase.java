@@ -102,7 +102,7 @@ public class FileDatabase implements IDatabase {
 						e.printStackTrace();
 					}
 
-					pages.add(new Page(pageCounter, pageName.substring(0, pageName.lastIndexOf(".")), bookName + File.separator + pageName, width, height));
+					pages.add(new Page(pageCounter, pageName, bookName + File.separator + pageName, width, height));
 					pageCounter++;
 				}
 			}

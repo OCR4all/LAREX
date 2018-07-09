@@ -333,7 +333,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			if (globalSettings.downloadPage) {
 				var a = window.document.createElement('a');
 				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
-				a.download = _book.name + "_" + _book.pages[_currentPage].name + ".xml";
+				const fileName = _book.pages[_currentPage].fileName;
+				a.download = _book.name + "_" + fileName.substring(0, fileName.lastIndexOf(".")) + ".xml";
 
 				// Append anchor to body.
 				document.body.appendChild(a);

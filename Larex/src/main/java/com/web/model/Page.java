@@ -1,7 +1,9 @@
 package com.web.model;
 
 import org.codehaus.jackson.annotate.JsonCreator;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
+
 
 /**
  * Representation of a Page with an id and an image. (Page specific Settings and
@@ -12,8 +14,8 @@ public class Page {
 
 	@JsonProperty("id")
 	private int id;
-	@JsonProperty("name")
-	private String name;
+	@JsonProperty("fileName")
+	private String fileName;
 	@JsonProperty("image")
 	private String image;
 	@JsonProperty("width")
@@ -22,10 +24,10 @@ public class Page {
 	private int height;
 
 	@JsonCreator
-	public Page(@JsonProperty("id") int id, @JsonProperty("name") String name, @JsonProperty("image") String image,
+	public Page(@JsonProperty("id") int id, @JsonProperty("fileName") String fileName, @JsonProperty("image") String image,
 			@JsonProperty("width") int width, @JsonProperty("height") int height) {
 		this.id = id;
-		this.name = name;
+		this.fileName = fileName;
 		this.image = image;
 		this.height = height;
 		this.width = width;
@@ -50,8 +52,14 @@ public class Page {
 	public int getWidth() {
 		return width;
 	}
-
+	
+	@JsonIgnore
 	public String getName() {
-		return name;
+		return fileName.substring(0, fileName.lastIndexOf("."));
+	}
+	
+	
+	public String getFileName() {
+		return fileName;
 	}
 }

@@ -52,7 +52,7 @@ public class LarexFacade {
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getName(),
+			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(),
 					page.getWidth(), page.getHeight(), loadedResult.getRegions(), page.getId());
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
@@ -108,10 +108,10 @@ public class LarexFacade {
 
 			ArrayList<ResultRegion> regions = segmentationResult.getRegions();
 
-			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getName(), page.getWidth(),
+			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(), page.getWidth(),
 					page.getHeight(), regions, page.getId());
 		} else {
-			segmentation = new PageSegmentation(page.getName(), page.getWidth(), page.getHeight(), page.getId(),
+			segmentation = new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
 					new HashMap<String, Polygon>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
 		}
 		return segmentation;
@@ -190,7 +190,7 @@ public class LarexFacade {
 			Page page = getBook(bookID, fileManager).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
-			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getName(),
+			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(),
 					page.getWidth(), page.getHeight(), result.getRegions(), page.getId());
 
 			List<String> readingOrder = new ArrayList<String>();
