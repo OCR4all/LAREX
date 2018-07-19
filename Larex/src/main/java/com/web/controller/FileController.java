@@ -152,12 +152,12 @@ public class FileController {
 			LarexFacade.savePageXMLLocal(
 					fileManager.getBooksPath() + File.separator
 							+ LarexFacade.getBook(request.getBookid(), fileManager).getName(),
-					request.getSegmentation().getFileName(), pageXML);
+					request.getSegmentation().getName(), pageXML);
 			break;
 		case "savedir":
 			String savedir = config.getSetting("savedir");
 			if (savedir != null && !savedir.equals("")) {
-				LarexFacade.savePageXMLLocal(savedir, request.getSegmentation().getFileName(), pageXML);
+				LarexFacade.savePageXMLLocal(savedir, request.getSegmentation().getName(), pageXML);
 			} else {
 				System.err.println("Warning: Save dir is not set. File could not been saved.");
 			}
