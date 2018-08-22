@@ -16,6 +16,7 @@
 		<script type="text/javascript" src="resources/js/viewer/keyInput.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/communicator.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/gui.js"></script>
+		<script type="text/javascript" src="resources/js/viewer/colors.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/viewer.js"
 			canvas="viewerCanvas"></script>
 		<script type="text/javascript" src="resources/js/viewer/editor.js"
@@ -43,7 +44,7 @@
 						new paper.Color(1,0.95,0.7),
 						new paper.Color(0.8,0.6,0),
 						new paper.Color(0.7,0.45,0.2),
-						new paper.Color(0.5,0,0),
+						new paper.Color(0,0.5,0),
 						new paper.Color(0.4,0,0.55)];
 			
 		var globalSettings ={
@@ -52,11 +53,11 @@
 		
 		//specify specific colors
 		var specifiedColors = {
-				image: colors[0],
-				paragraph: colors[1],
-				marginalia: colors[2],
-				page_number: colors[3],
-				ignore: colors[4]
+				image: 0,
+				paragraph: 1,
+				marginalia: 2,
+				page_number: 3,
+				ignore: 4
 		};
 		var controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors,colors,globalSettings);
 		$(document).ready(function() {

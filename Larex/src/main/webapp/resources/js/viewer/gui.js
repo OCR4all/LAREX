@@ -1,5 +1,6 @@
-function GUI(canvas, viewer) {
+function GUI(canvas, viewer, colors) {
 	const _viewer = viewer;
+	const _colors = colors;
 	let _canvas = canvas;
 	let _doMoveCanvas = false;
 	let _mouse;
@@ -74,7 +75,7 @@ function GUI(canvas, viewer) {
 	this.setRegionLegendColors = function (segmenttypes) {
 		// Iterate over Segmenttype-"Map" (Object in JS)
 		Object.keys(segmenttypes).forEach((key) => {
-			const color = _viewer.getColor(key);
+			const color = _colors.getColor(key);
 			$(".legendicon." + key).css("background-color", color.toCSS());
 		});
 	}
@@ -117,7 +118,7 @@ function GUI(canvas, viewer) {
 		});
 	}
 
-	this.openRegionSettings = function (regionType, minSize, maxOccurances, priorityPosition, doCreate, regionColor) {
+	this.openRegionSettings = function (regionType, minSize, maxOccurances, priorityPosition, doCreate, regionColorID) {
 		$('#regionType').text(regionType);
 		$('#regionMinSize').val(minSize);
 		$('#regionMaxOccurances').val(maxOccurances);
@@ -141,8 +142,8 @@ function GUI(canvas, viewer) {
 			} else {
 				$('.regionDelete').addClass('hide');
 			}
-			if (regionColor) {
-				this.setRegionColor(regionColor);
+			if (regionColorID) {
+				this.setRegionColor(regionColorID);
 			}
 		}
 		$settingsOffset = $('#sidebarRegions').offset();
@@ -151,10 +152,11 @@ function GUI(canvas, viewer) {
 		$regioneditor.css({ top: $settingsOffset.top, left: $settingsOffset.left - $regioneditor.width() });
 	}
 
-	this.setRegionColor = function (color) {
+	this.setRegionColor = function (colorID) {
 		const $regioneditor = $('#regioneditor');
+		const color = _colors.getPredefinedColor(colorID);
 		$regioneditor.find('.regionColorIcon').css("background-color", color.toCSS());
-		$regioneditor.find('#regionColor').data('color', color);
+		$regioneditor.find('#regionColor').data('colorID', colorID);
 	}
 	this.closeRegionSettings = function () {
 		$('#regioneditor').addClass('hide');
@@ -348,21 +350,21 @@ function GUI(canvas, viewer) {
 			$('.saveSettingsXML').find('.progress').addClass('hide');
 		}
 	}
-	this.setAllRegionColors = function (colors) {
+	this.setAllRegionColors = function () {
 		const $collection = $('#regioneditorColorSelect .collection');
-		for (let index = 0; index < colors.length; index++) {
-			const color = colors[index];
-			const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color' + index + '"></li>');
+		_colors.getPredefinedColorIDs().forEach(id => {
+			const color = _colors.getPredefinedColor(id);
+			const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color' + id + '"></li>');
 			const $icon = $('<div class="legendicon" style="background-color:' + color.toCSS() + ';"></div>');
-			$colorItem.data('color', color);
+			$colorItem.data('colorID', id);
 			$colorItem.append($icon);
 			$collection.append($colorItem);
-		}
+		});
 	}
-	this.updateAvailableColors = function (availableColorsIndexes) {
+	this.updateAvailableColors = function () {
 		$('.regioneditorColorSelectItem').addClass("hide");
-		availableColorsIndexes.forEach((index) => {
-			$('.regioneditorColorSelectItem.color' + index).removeClass("hide");
+		_colors.getAvailableColorIDs().forEach((id) => {
+			$('.regioneditorColorSelectItem.color' + id).removeClass("hide");
 		});
 	}
 	this.displayWarning = function (text) {

@@ -1,5 +1,5 @@
 class Viewer {
-	constructor(segmenttypes, viewerInput, colors, specifiedColors) {
+	constructor(segmenttypes, viewerInput, colors) {
 		this._segmenttypes = segmenttypes;
 		this.thisInput = viewerInput;
 		this._imageID;
@@ -8,7 +8,6 @@ class Viewer {
 		this._background;
 		this._currentZoom = 1;
 		this._colors = colors;
-		this._specifiedColors = specifiedColors;
 		document.addEventListener('visibilitychange', () => {
 			if (!document.hidden) this.forceUpdate();
 		});
@@ -57,7 +56,7 @@ class Viewer {
 			path.removeSegments();
 
 			//Update color
-			const color = this.getColor(segment.type);
+			const color = this._colors.getColor(segment.type);
 			//Save old alpha
 			const alphaFill = path.fillColor.alpha;
 			const alphaStroke = path.strokeColor.alpha;
@@ -244,7 +243,7 @@ class Viewer {
 	drawPath(segment, doFill, isFixed) {
 		//Construct path from segment
 		const path = new paper.Path();
-		const color = this.getColor(segment.type);
+		const color = this._colors.getColor(segment.type);
 
 		path.doFill = doFill;
 		path.fillColor = new paper.Color(color);//color;
@@ -323,37 +322,6 @@ class Viewer {
 
 	getImageCanvas() {
 		return this._imageCanvas;
-	}
-
-	getColor(segmentType) {
-		let color = this._specifiedColors[segmentType];
-
-		if (color) {
-			return color;
-		} else {
-			const id = this._segmenttypes[segmentType]
-			const counter = 6;
-			const modifier1 = (id + 6) % counter;
-			const modifier2 = Math.floor(((id - 6) / counter));
-			const c = modifier2 == 0 ? 1 : 1 - (1 / modifier2);
-
-			switch (modifier1) {
-				case 0: color = new paper.Color(c, 0, 0);
-					break;
-				case 1: color = new paper.Color(0, c, 0);
-					break;
-				case 2: color = new paper.Color(0, 0, c);
-					break;
-				case 3: color = new paper.Color(c, c, 0);
-					break;
-				case 4: color = new paper.Color(0, c, c);
-					break;
-				case 5: color = new paper.Color(c, 0, c);
-					break;
-			}
-
-			return color;
-		}
 	}
 
 	// private helper functions

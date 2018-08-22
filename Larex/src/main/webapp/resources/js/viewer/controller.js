@@ -1,6 +1,7 @@
-function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
+function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
 	const _communicator = new Communicator();
+	const _colors = new Colors(colors,regionColors);
 	let _selector;
 	let _gui;
 	let _guiInput;
@@ -60,10 +61,10 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			const viewerInput = new ViewerInput(this);
 
 			// Inheritance Editor extends Viewer
-			_editor = new Editor(_segmentationtypes, viewerInput, colors, specifiedColors, this);
+			_editor = new Editor(_segmentationtypes, viewerInput, _colors, this);
 
 			_selector = new Selector(_editor, this);
-			_gui = new GUI(canvasID, _editor);
+			_gui = new GUI(canvasID, _editor,_colors);
 			_gui.resizeViewerHeight();
 
 			_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
@@ -73,8 +74,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 
 			_gui.setPageXMLVersion(_pageXMLVersion);
 
-			_gui.setAllRegionColors(colors);
-			_gui.updateAvailableColors(this.getAvailableColorIndexes());
+			_gui.setAllRegionColors();
+			_gui.updateAvailableColors();
 			_gui.addPreviewImageListener();
 
 			navigationController.setGUI(_gui);
@@ -248,6 +249,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 						if ($.inArray(segment.type, _presentRegions) == -1) {
 							//TODO as Action
 							this.changeRegionSettings(segment.type, 0, -1);
+							const colorID = _colors.getColorID(_colors.getColor(segment.type));
+							this.setRegionColor(segment.type,colorID);
 							missingRegions.push(segment.type);
 						}
 					});
@@ -291,6 +294,8 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 						if ($.inArray(segment.type, _presentRegions) == -1) {
 							//TODO as Action
 							this.changeRegionSettings(segment.type, 0, -1);
+							const colorID = _colors.getColorID(_colors.getColor(segment.type));
+							this.setRegionColor(segment.type,colorID);
 							missingRegions.push(segment.type);
 						}
 					});
@@ -752,31 +757,14 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 		if (!region) {
 			region = _settings.regions['paragraph']; //TODO replace, is to fixed
 		}
-		let color;
-		if (specifiedColors[regionType]) {
-			color = specifiedColors[regionType];
-		} else {
-			color = colors[this.getAvailableColorIndexes()[0]];
-		}
+		const colorID = _colors.getColorID(_colors.getColor(regionType));
 
-		_gui.openRegionSettings(regionType, region.minSize, region.maxOccurances, region.priorityPosition, doCreate, color);
-	}
-
-	this.getColor = function (colorID) {
-		return colors[colorID];
-	}
-
-	this.getColorID = function (color) {
-		for (let id = 0; id < colors.length; id++) {
-			if (color.toCSS() === colors[id].toCSS()) {
-				return id;
-			}
-		}
-		return -1;
+		_gui.openRegionSettings(regionType, region.minSize, region.maxOccurances, region.priorityPosition, doCreate, colorID);
 	}
 
 	this.setRegionColor = function (regionType, colorID) {
-		specifiedColors[regionType] = colors[colorID];
+		_colors.setColor(regionType, colorID);
+		_gui.updateAvailableColors();
 
 		const pageSegments = _segmentation[_currentPage].segments;
 		const pageFixedSegments = _settings.pages[_currentPage].segments;
@@ -796,6 +784,7 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			}
 		});
 
+		
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
 		Object.keys(region.polygons).forEach((polygonKey) => {
@@ -805,19 +794,6 @@ function Controller(bookID, canvasID, specifiedColors, colors, globalSettings) {
 			}
 		});
 		_gui.setRegionLegendColors(_segmentationtypes);
-		_gui.updateAvailableColors(this.getAvailableColorIndexes());
-	}
-
-	this.getAvailableColorIndexes = function () {
-		let freeColorIndexes = Array.apply(null, { length: colors.length }).map(Number.call, Number);
-
-		for (let regionType in specifiedColors) {
-			let index = colors.indexOf(specifiedColors[regionType]);
-			if (index > -1) {
-				freeColorIndexes.splice(freeColorIndexes.indexOf(index), 1);
-			}
-		}
-		return freeColorIndexes;
 	}
 
 	this.autoGenerateReadingOrder = function () {

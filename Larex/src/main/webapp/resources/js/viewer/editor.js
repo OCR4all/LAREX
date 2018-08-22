@@ -1,7 +1,7 @@
 // Editor extends viewer
 class Editor extends Viewer {
-	constructor(segmenttypes, viewerInput, colors, specifiedColors, controller) {
-		super(segmenttypes, viewerInput, constructor, specifiedColors);
+	constructor(segmenttypes, viewerInput, colors, controller) {
+		super(segmenttypes, viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
 		this._editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale

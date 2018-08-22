@@ -162,10 +162,9 @@ function GuiInput(navigationController, controller, gui) {
 		const regionType = $regioneditor.find('#regionType').text();
 		const minSize = $regioneditor.find('#regionMinSize').val();
 		const maxOccurances = $regioneditor.find('#regionMaxOccurances').val();
-		let color = $regioneditor.find('#regionColor').data('color');
-		color = new paper.Color(color.red, color.green, color.blue);
+		let colorID = $regioneditor.find('#regionColor').data('colorID');
 		_controller.changeRegionSettings(regionType, minSize, maxOccurances);
-		_controller.setRegionColor(regionType, _controller.getColorID(color));
+		_controller.setRegionColor(regionType, colorID);
 		_gui.closeRegionSettings();
 	});
 	$('#regioneditorCancel').click(() => _gui.closeRegionSettings());
@@ -176,15 +175,14 @@ function GuiInput(navigationController, controller, gui) {
 	$('#regioneditor #regionColor').click(() => {
 		const $regioneditorColorSelect = $('#regioneditorColorSelect');
 		if ($regioneditorColorSelect.hasClass('hide')) {
+			_gui.updateAvailableColors();
 			$('#regioneditorColorSelect').removeClass('hide');
 		} else {
 			$('#regioneditorColorSelect').addClass('hide');
 		}
 	});
 	$('.regioneditorColorSelectItem').click(function () {
-		let color = $(this).data('color');
-		color = new paper.Color(color.red, color.green, color.blue);
-		_gui.setRegionColor(color);
+		_gui.setRegionColor($(this).data('colorID'));
 	});
 
 	$('.collapsible-header').click(function () {
