@@ -29,11 +29,11 @@
 								</tr>
 							</thead>
 							<tbody>
-								<c:forEach items="${library.getBooks()}" var="bookentry">
-									<tr id="${bookentry.key}" class="bookopen">
+								<c:forEach items="${library.getSortedBooks()}" var="bookentry">
+									<tr id="${bookentry.getId()}" class="bookopen">
 										<td>
 											<i class="material-icons">book</i></td>
-										<td>${bookentry.value.getName()}</td>
+										<td>${bookentry.getName()}</td>
 									</tr>
 								</c:forEach>
 							</tbody>
