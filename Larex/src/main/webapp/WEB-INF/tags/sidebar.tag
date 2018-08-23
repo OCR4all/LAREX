@@ -112,17 +112,17 @@
 					<div>
 						<p class="settings-header settings-input">Text Dilation</p>
 						<p class="settings-input">
-							<input value="" id="textdilationX" class="input-number textdilationX" type="number" class="validate" /> :
-							<input value="" id="textdilationY" class="input-number textdilationY" type="number" class="validate" />
+							<input value="" id="textdilationX" class="input-number textdilationX" type="number" min="0" class="validate" /> :
+							<input value="" id="textdilationY" class="input-number textdilationY" type="number" min="0" class="validate" />
 						</p>
 					</div>
 					<div>
 						<p class="settings-header settings-input">Image Dilation</p>
 						<p class="settings-input">
 							<input value="" id="imagedilationX"
-								class="input-number imagedilationX" type="number" class="validate" />
+								class="input-number imagedilationX" type="number" min="0" class="validate" />
 							: <input value="" id="imagedilationY"
-								class="input-number imagedilationY" type="number" class="validate" />
+								class="input-number imagedilationY" type="number" min="0" class="validate" />
 						</p>
 					</div>
 					<div class="settings-input settings-imagesegmentation">
