@@ -3,9 +3,9 @@ package larex.geometry;
 import java.awt.Point;
 import java.util.ArrayList;
 
-import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
+import org.opencv.imgproc.Imgproc;
 
 public class PointListManager {
 
@@ -21,7 +21,7 @@ public class PointListManager {
 
 			for (int i = 1; i < points.size(); i++) {
 				org.opencv.core.Point currentPoint = points.get(i);
-				Core.line(image, lastPoint, currentPoint, new Scalar(0), 2);
+				Imgproc.line(image, lastPoint, currentPoint, new Scalar(0), 2);
 				lastPoint = currentPoint;
 			}
 		}

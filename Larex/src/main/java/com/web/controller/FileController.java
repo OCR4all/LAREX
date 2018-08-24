@@ -18,7 +18,7 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
-import org.opencv.highgui.Highgui;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -81,7 +81,7 @@ public class FileController {
 
 		if (doResize) {
 			// load Mat
-			Mat imageMat = Highgui.imread(imageFile.getAbsolutePath());
+			Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
 			// resize
 			Mat resizeImage = new Mat();
 			int width = 300;
@@ -103,7 +103,7 @@ public class FileController {
 		} else {
 			if (imageFile.getName().endsWith("tif") || imageFile.getName().endsWith("tiff")) {
 				// load Mat
-				Mat imageMat = Highgui.imread(imageFile.getAbsolutePath());
+				Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
 
 				// Convert to png
 				BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);

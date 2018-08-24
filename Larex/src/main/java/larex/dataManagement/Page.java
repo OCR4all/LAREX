@@ -3,7 +3,7 @@ package larex.dataManagement;
 import java.io.File;
 
 import org.opencv.core.Mat;
-import org.opencv.highgui.Highgui;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 import larex.segmentation.result.SegmentationResult;
@@ -45,7 +45,7 @@ public class Page {
 	 *            The desired vertical resolution of the image.
 	 */
 	public void initPage() {
-		Mat original = Highgui.imread(imagePath);
+		Mat original = Imgcodecs.imread(imagePath);
 
 		Mat binary = new Mat();
 		Mat gray = new Mat();
