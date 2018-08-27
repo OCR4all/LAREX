@@ -18,7 +18,7 @@ public class Charextractor {
 		tempInverted.release();
 		
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-		Imgproc.findContours(inverted, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_TC89_L1);
+		Imgproc.findContours(inverted, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 
 		inverted.release();
 		return contours;
