@@ -2,6 +2,7 @@ package com.web.controller;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -129,6 +130,12 @@ public class ViewerController {
 				fileManager);
 	}
 
+	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody Collection<Polygon> extractcontours(@RequestParam("bookid") int bookID, @RequestParam("pageid") int pageID) {
+		
+		return LarexFacade.extractContours(pageID, bookID, fileManager);
+	}
+	
 	private Map<RegionType, Integer> getSegmentTypes() {
 		Comparator<RegionType> compareAlphabetically = new Comparator<RegionType>() {
 			@Override
