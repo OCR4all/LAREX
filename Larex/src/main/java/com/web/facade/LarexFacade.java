@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -15,7 +14,6 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
-import org.opencv.highgui.Highgui;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -25,6 +23,7 @@ import com.web.model.Book;
 import com.web.model.BookSettings;
 import com.web.model.Page;
 import com.web.model.PageSegmentation;
+import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
@@ -36,7 +35,6 @@ import larex.export.SettingsReader;
 import larex.export.SettingsWriter;
 import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
-import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
@@ -104,7 +102,7 @@ public class LarexFacade {
 		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
 	}
 
-	public static Collection<Polygon> extractContours(int pageNr, int bookID, FileManager fileManager) {
+	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager) {
 		Book book = getBook(bookID, fileManager);
 		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
@@ -113,10 +111,9 @@ public class LarexFacade {
 		page.clean();
 		System.gc();
 
-		Collection<Polygon> contourSegments = new ArrayList<>();
+		Collection<List<Point>> contourSegments = new ArrayList<>();
 		for (MatOfPoint contour : contours)
-			contourSegments.add(LarexWebTranslator.translatePointsToSegment(contour, UUID.randomUUID().toString(),
-					RegionType.paragraph));
+			contourSegments.add(LarexWebTranslator.translatePointsToContour(contour));
 		
 		return contourSegments;
 	}

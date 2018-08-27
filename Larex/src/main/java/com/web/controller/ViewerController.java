@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -28,6 +29,7 @@ import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
+import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
@@ -131,7 +133,7 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/extractchars", method = RequestMethod.POST)
-	public @ResponseBody Collection<Polygon> extractchars(@RequestParam("bookid") int bookID,
+	public @ResponseBody Collection<List<Point>> extractchars(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 
 		return LarexFacade.extractContours(pageID, bookID, fileManager);

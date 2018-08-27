@@ -3,6 +3,7 @@ package com.web.facade;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import org.opencv.core.MatOfPoint;
@@ -74,6 +75,15 @@ public class LarexWebTranslator {
 		return settings;
 	}
 
+	public static List<Point> translatePointsToContour(MatOfPoint mat) {
+		LinkedList<Point> points = new LinkedList<Point>();
+		for (org.opencv.core.Point regionPoint : mat.toList()) {
+			points.add(new Point(regionPoint.x, regionPoint.y));
+		}
+
+		return points;
+	}
+	
 	public static Polygon translatePointsToSegment(MatOfPoint mat, String id, RegionType type) {
 		LinkedList<Point> points = new LinkedList<Point>();
 		for (org.opencv.core.Point regionPoint : mat.toList()) {

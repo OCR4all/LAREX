@@ -29,6 +29,31 @@ class Viewer {
 		this.drawPath(segment, false, isFixed, isStatic);
 	}
 
+	setContours(contours){
+		let overlayHTML = document.getElementById("overlay");
+		if(!overlayHTML){
+			overlayHTML = document.createElement('canvas');
+			document.body.appendChild(overlayHTML);
+			overlayHTML.id = "overlay";
+		}
+		overlayHTML.width = this.getImageWidth();
+		overlayHTML.height = this.getImageHeight();
+		let ctx = overlayHTML.getContext("2d");
+
+		contours.forEach((c) => {
+			ctx.fillStyle = '#FF0000';
+			ctx.beginPath();
+			if(c.length > 0){
+				ctx.moveTo(c[0].x, c[0].y);
+				c.forEach((p) => {
+					ctx.lineTo(p.x,p.y);
+				});
+				ctx.closePath();
+				ctx.fill();
+			}
+		});
+	}
+
 	fixSegment(segmentID, doFix = true) {
 		if (doFix) {
 			this._paths[segmentID].dashArray = [5, 3];

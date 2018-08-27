@@ -981,15 +981,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if(!_chars[_currentPage])
 			_communicator.requestChars(_currentPage,_book.id).done((result) => {
 				_chars[_currentPage] = result; 
-				//_chars[_currentPage].forEach(c => {_editor.addSegment(c,false,true)});
-				let overlay = document.createElement('canvas');
-				overlay.width = _editor.getImageWidth();
-				overlay.height = _editor.getImageHeight();
-				document.body.appendChild(overlay);
-				overlay.id = "overlay";
-				let ctx = overlay.getContext("2d");
-				ctx.fillStyle = "#FF0000";
-				ctx.fillRect(0,0,1000,1000);
+				_editor.setContours(_chars[_currentPage]);
 				_editor.displayOverlay();
 			});
 		else{
