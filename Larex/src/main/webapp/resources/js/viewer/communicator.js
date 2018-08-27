@@ -47,10 +47,7 @@ function Communicator() {
 			url: "segment",
 			dataType: "json",
 			contentType: "application/json",
-			data: JSON.stringify(segmentationRequest)/*{
-				settings : JSON.stringify(settings),
-				pageid : pageID
-			}*/,
+			data: JSON.stringify(segmentationRequest),
 			beforeSend: () => console.log("Segmentation load: start"),
 			success: (data) => {
 				console.log('Segmentation load: successful');
@@ -83,6 +80,28 @@ function Communicator() {
 			},
 			error: (jqXHR, textStatus, errorThrown) => {
 				console.log("Merge load: failed" + textStatus);
+				status.resolve();
+			}
+		});
+		return status;
+	}
+
+	this.requestChars = function (pageid, bookid) {
+		// Deferred object for function status
+		const status = $.Deferred();
+
+		$.ajax({
+			type: "POST",
+			url: "extractchars",
+			dataType: "json",
+			data: { pageid: pageid, bookid: bookid },
+			beforeSend: () => console.log("Request chars: start"),
+			success: (data) => {
+				console.log('Request chars: successful');
+				status.resolve(data);
+			},
+			error: (jqXHR, textStatus, errorThrown) => {
+				console.log("Request chars: failed " + textStatus);
 				status.resolve();
 			}
 		});

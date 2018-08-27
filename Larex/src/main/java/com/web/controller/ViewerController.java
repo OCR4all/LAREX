@@ -130,12 +130,13 @@ public class ViewerController {
 				fileManager);
 	}
 
-	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody Collection<Polygon> extractcontours(@RequestParam("bookid") int bookID, @RequestParam("pageid") int pageID) {
-		
+	@RequestMapping(value = "/extractchars", method = RequestMethod.POST)
+	public @ResponseBody Collection<Polygon> extractchars(@RequestParam("bookid") int bookID,
+			@RequestParam("pageid") int pageID) {
+
 		return LarexFacade.extractContours(pageID, bookID, fileManager);
 	}
-	
+
 	private Map<RegionType, Integer> getSegmentTypes() {
 		Comparator<RegionType> compareAlphabetically = new Comparator<RegionType>() {
 			@Override

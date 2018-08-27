@@ -15,6 +15,7 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
+import org.opencv.highgui.Highgui;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -107,7 +108,8 @@ public class LarexFacade {
 		Book book = getBook(bookID, fileManager);
 		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
-		Collection<MatOfPoint> contours = Charextractor.extract(page.getBinary());
+
+		Collection<MatOfPoint> contours = Charextractor.extract(page.getOriginal());
 		page.clean();
 		System.gc();
 
