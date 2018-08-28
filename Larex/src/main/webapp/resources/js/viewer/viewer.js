@@ -15,6 +15,7 @@ class Viewer {
 		document.addEventListener('visibilitychange', () => {
 			if (!document.hidden) this.forceUpdate();
 		});
+		paper.settings.handleSize = 6;
 	}
 
 	setImage(id) {

@@ -554,25 +554,23 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.changeTypeSelected = function (newType) {
-		if (selectedType === 'segment' && selected > 0) {
-			const selected = _selector.getSelectedSegments();
-			const selectType = _selector.getSelectedPolygonType();
-			const selectedlength = selected.length;
-			if (selectedlength || selectedlength > 0) {
-				const actions = [];
-				for (let i = 0; i < selectedlength; i++) {
-					if (selectType === "region") {
-						const regionPolygon = this._getRegionByID(selected[i]);
-						actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings, _currentPage, this));
+		const selected = _selector.getSelectedSegments();
+		const selectType = _selector.getSelectedPolygonType();
+		const selectedlength = selected.length;
+		if (selectedlength || selectedlength > 0) {
+			const actions = [];
+			for (let i = 0; i < selectedlength; i++) {
+				if (selectType === "region") {
+					const regionPolygon = this._getRegionByID(selected[i]);
+					actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings, _currentPage, this));
 
-						this.hideRegion(newType, false);
-					} else if (selectType === "segment") {
-						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
-					}
+					this.hideRegion(newType, false);
+				} else if (selectType === "segment") {
+					actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
 				}
-				const multiChange = new ActionMultiple(actions);
-				_actionController.addAndExecuteAction(multiChange, _currentPage);
 			}
+			const multiChange = new ActionMultiple(actions);
+			_actionController.addAndExecuteAction(multiChange, _currentPage);
 		}
 	}
 	this.createBorder = function (doSegment) {
