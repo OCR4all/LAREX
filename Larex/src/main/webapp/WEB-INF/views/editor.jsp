@@ -145,8 +145,12 @@
 						<t:menuIcon jsClass="redo" icon="redo"
 							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="editPoints fixed" icon="linear_scale"
-							tooltip="Switch between select points (active) and select polygons (inactive) (Shortcut: P)">Points</t:menuIcon>
+						<t:menuIcon jsClass="editPolygons fixed" icon="view_quilt"
+							tooltip="Set mode select polygons">Polygons</t:menuIcon>
+						<t:menuIcon jsClass="editPoints fixed" icon="share"
+							tooltip="Set mode select points">Points</t:menuIcon>
+						<t:menuIcon jsClass="editChars fixed" icon="font_download"
+							tooltip="Set mode select chars">Chars</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
 							tooltip="Create a cut line that splits segments and persists a new segmentation. Double click to end (Shortcut: 5)">Line</t:menuIcon>

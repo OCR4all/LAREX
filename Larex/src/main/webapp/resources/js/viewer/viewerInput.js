@@ -14,7 +14,7 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				_controller.selectSegment(sectionID, hitTest);
+				_controller.selectSegment(sectionID, hitTest, event.point);
 				break;
 			// middleclick
 			case 1:
@@ -23,7 +23,7 @@ function ViewerInput(controller) {
 			case 2:
 				if (!_controller.isSegmentSelected(sectionID)) {
 					_controller.unSelect();
-					_controller.selectSegment(sectionID, hitTest);
+					_controller.selectSegment(sectionID, hitTest, event.point);
 					_controller.openContextMenu(true);
 				}
 				_controller.endCreateReadingOrder();

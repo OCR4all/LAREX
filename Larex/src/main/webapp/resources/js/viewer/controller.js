@@ -437,7 +437,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.fixSelected = function () {
-		if (!_selector.selectpoints) {
+		if (_selector.selectMode === _selector.selectModes.POLYGON) {
 			const actions = [];
 			const selected = _selector.getSelectedSegments();
 			const selectType = _selector.getSelectedType();
@@ -463,7 +463,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			//moveLast instead of all maybe TODO
 			const moveID = selected[selected.length - 1];
 			let points = undefined;
-			if (_selector.selectpoints) {
+			if (_selector.selectMode === _selector.selectModes.POINT) {
 				points = _selector.getSelectedPoints();
 				if (!points || points <= 0)
 					return;
@@ -476,7 +476,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.scaleSelected = function () {
-		if (!_selector.selectpoints) {
+		if (_selector.selectMode === _selector.selectModes.POLYGON) {
 			const selected = _selector.getSelectedSegments();
 			const selectType = _selector.getSelectedType();
 			if (selected.length > 0) {
@@ -506,8 +506,26 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.deleteSelected = function () {
 		const selected = _selector.getSelectedSegments();
-		const selectType = _selector.getSelectedType();
-		if (!_selector.selectpoints) {
+		const points = _selector.getSelectedPoints();
+		const selectType = _selector.getSelectedPolygonType();
+
+		if (selected.length === 1 && points.length > 0) {
+			// Points inside of a polygon is selected => Delete points
+			if(selectType === 'segment'){
+				const segments = _segmentation[_currentPage].segments[selected[0]].points;
+				const newSegments = segments.filter(p => {
+					let boolFilter = true;
+					points.forEach(pp => {
+						// Contains can not be trusted (TODO: propably?)
+						if (p.x === pp.x && p.y === pp.y) { boolFilter = false; }
+					});
+					return boolFilter;
+				});
+
+				_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0], newSegments, _editor, _segmentation, _currentPage, this), _currentPage);
+			}
+		}else{
+			//Polygon is selected => Delete polygon
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				if (selectType === "region") {
@@ -523,23 +541,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_selector.unSelect();
 			let multidelete = new ActionMultiple(actions);
 			_actionController.addAndExecuteAction(multidelete, _currentPage);
-		} else if (selected.length == 1) {
-			const points = _selector.getSelectedPoints();
-			const segments = _segmentation[_currentPage].segments[selected[0]].points;
-			const newSegments = segments.filter(p => {
-				let boolFilter = true;
-				points.forEach(pp => {
-					// Contains can not be trusted (TODO: propably?)
-					if (p.x === pp.x && p.y === pp.y) { boolFilter = false; }
-				});
-				return boolFilter;
-			});
-
-			_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0], newSegments, _editor, _segmentation, _currentPage, this), _currentPage);
-		}
+		} 
 	}
 	this.mergeSelectedSegments = function () {
-		if (!_selector.selectpoints) {
+		if (_selector.selectMode === _selector.selectModes.POLYGON) {
 			const selected = _selector.getSelectedSegments();
 			const selectType = _selector.getSelectedType();
 			const actions = [];
@@ -571,7 +576,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.changeTypeSelected = function (newType) {
-		if (!_selector.selectpoints) {
+		if (_selector.selectMode === _selector.selectModes.POLYGON) {
 			const selected = _selector.getSelectedSegments();
 			const selectType = _selector.getSelectedType();
 			const selectedlength = selected.length;
@@ -679,7 +684,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.unselectAllToolBarButtons();
 	}
 	this.callbackNewCut = function (segmentpoints) {
-		if (!_selector.selectpoints) {
+		if (_selector.selectMode === _selector.selectModes.POLYGON) {
 			const newID = "created" + _newPathCounter;
 			_newPathCounter++;
 
@@ -908,7 +913,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		return false;
 	}
 	// Display
-	this.selectSegment = function (sectionID, hitTest) {
+	this.selectSegment = function (sectionID, hitTest, mouse) {
 		const idType = this.getIDType(sectionID);
 
 		if (_editReadingOrder && idType === 'segment') {
@@ -924,7 +929,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			}
 
 			this.closeContextMenu();
-			_selector.select(sectionID, [nearestPoint]);
+			_selector.select(sectionID, [nearestPoint], mouse);
 		}
 	}
 	this.unSelect = function () {
@@ -940,7 +945,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_selector.rectangleSelect(pointA, pointB);
 	}
 	this.enterSegment = function (sectionID) {
-		if (!_editor.isEditing && !(_selector.selectpoints && this.getIDType(sectionID) === "region")) {
+		if (!_editor.isEditing && !(_selector.selectMode === _selector.selectModes.POINT && this.getIDType(sectionID) === "region")) {
 			_editor.highlightSegment(sectionID, true);
 			_gui.highlightSegment(sectionID, true);
 		}

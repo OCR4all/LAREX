@@ -16,6 +16,12 @@ class Editor extends Viewer {
 		this._guiOverlay = new paper.Group();
 		this.mouseregions = { TOP: 0, BOTTOM: 1, LEFT: 2, RIGHT: 3, MIDDLE: 4, OUTSIDE: 5 };
 	}
+
+	setEditSegment(id,displayPoints=true){
+		this._paths[id].selected = displayPoints;
+	}
+
+
 	startRectangleSelect() {
 		if (this.isEditing === false) {
 			this._editMode = -1;

@@ -41,7 +41,7 @@ class Viewer {
 		let ctx = overlayHTML.getContext("2d");
 
 		contours.forEach((c) => {
-			ctx.fillStyle = '#FF0000';
+			ctx.fillStyle = '#FF000088';
 			ctx.beginPath();
 			if(c.length > 0){
 				ctx.moveTo(c[0].x, c[0].y);
@@ -170,6 +170,7 @@ class Viewer {
 			}
 		}
 	}
+
 
 	getPointsBetweenPoints(pointA, pointB, segmentID) {
 		const points = [];
