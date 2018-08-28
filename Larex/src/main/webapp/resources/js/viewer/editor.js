@@ -625,13 +625,14 @@ class Editor extends Viewer {
 				const path = new paper.Path(this.getPath(this._tempID).segments);
 				path.bounds = this._tempPath.bounds;
 
+				this._tempPath.remove();
+
 				if (this._tempPathType === 'segment') {
 					this._controller.transformSegment(this._tempID, this._convertPointsPathToSegment(path, false));
 				} else {
 					this._controller.transformRegion(this._tempID, this._convertPointsPathToSegment(path, true));
 				}
 
-				this._tempPath.remove();
 				this._tempPath = null;
 			}
 
