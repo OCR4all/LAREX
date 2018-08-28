@@ -312,6 +312,7 @@ class Viewer {
 			path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
 			path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
 			path.onClick = (event) => { this.thisInput.selectSection(segment.id, event, path.hitTest(event.point, { segments: true, tolerance: 10 })); };
+			path.onMouseDrag = (event) => this.thisInput.dragSection(segment.id, event);
 		}
 
 		//Add to canvas

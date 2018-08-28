@@ -79,14 +79,11 @@ function GuiInput(navigationController, controller, gui) {
 	$('.createCut').click(() => _controller.createCut());
 
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
-	$('.scaleSelected').click(() => _controller.scaleSelected());
 	$('.moveSelected').click(() => _controller.moveSelected());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
 
 	$('.editMode').click(() => _controller.editLastSelected());
-
-	$('.editPoints').click(() => _controller.toggleEditPoints());
 
 	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
 	$('.zoomout').click(() => _navigationController.zoomOut(0.1));

@@ -31,6 +31,26 @@ function ViewerInput(controller) {
 		}
 	}
 
+	this.dragSection = function (sectionID, event) {
+		switch (event.event.button) {
+			// leftclick
+			case 0:
+				if (event.modifiers.shift) {
+					_controller.startRectangleSelect();
+				} else {
+					_controller.dragSegment(sectionID, event.delta);
+				}
+				break;
+			// middleclick
+			case 1:
+				break;
+			// rightclick
+			case 2:
+				_controller.endCreateReadingOrder();
+				break;
+		}
+	}
+
 	this.dragImage = function (event) {
 		switch (event.event.button) {
 			// leftclick

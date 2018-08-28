@@ -138,34 +138,26 @@
 								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
 								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
+							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
+								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
+							<t:menuIcon jsClass="combineSelected" icon="add_circle"
+								tooltip="Combine selected segments (Shortcut: C)">Combine</t:menuIcon>
+							<t:menuIcon jsClass="fixSelected" icon="lock"
+								tooltip="Fix/unfix segments, for it to persist a new auto segmentation. (Shortcut: F)">Fix</t:menuIcon>
 						</t:menuIconCategory>
+						<t:menuIcon jsClass="editChars fixed" icon="font_download"
+							tooltip="Select chars to create a segment (WIP)">Chars</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="undo" icon="undo"
 							tooltip="Undo: Revokes the last action (Shortcut: ctrl+z)">Undo</t:menuIcon>
 						<t:menuIcon jsClass="redo" icon="redo"
 							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="editPolygons fixed" icon="view_quilt"
-							tooltip="Set mode select polygons">Polygons</t:menuIcon>
-						<t:menuIcon jsClass="editPoints fixed" icon="share"
-							tooltip="Set mode select points">Points</t:menuIcon>
-						<t:menuIcon jsClass="editChars fixed" icon="font_download"
-							tooltip="Set mode select chars">Chars</t:menuIcon>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
-							tooltip="Create a cut line that splits segments and persists a new segmentation. Double click to end (Shortcut: 5)">Line</t:menuIcon>
-						<t:menuIcon jsClass="createCut cutPoint hide" icon="content_cut"
-							tooltip="Cut through selected polygons to create new points. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<t:menuIcon jsClass="deleteSelected" icon="delete"
 							tooltip="Delete selected items (Shortcut: DEL)">Delete</t:menuIcon>
 						<t:menuIcon jsClass="moveSelected" icon="open_with"
 							tooltip="Move selected items (Shortcut: M)">Move</t:menuIcon>
-						<t:menuIcon jsClass="scaleSelected" icon="photo_size_select_small"
-							tooltip="Scale selected items (Shortcut: S)">Scale</t:menuIcon>
-						<t:menuIcon jsClass="combineSelected" icon="add_circle"
-							tooltip="Combine selected Segments (Shortcut: C)">Combine</t:menuIcon>
-						<t:menuIcon jsClass="fixSelected" icon="lock"
-							tooltip="Fix/unfix Segments (Shortcut: F)">Fix</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="createReadingOrder" icon="timeline"

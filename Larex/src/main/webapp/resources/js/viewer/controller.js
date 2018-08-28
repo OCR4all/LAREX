@@ -476,12 +476,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.unselectAllToolBarButtons();
 	}
 
-	this.toggleEditPoints = function () {
-		_selector.selectpoints = !_selector.selectpoints;
-		_selector.unSelect();
-		_gui.setSelectionModePoints(_selector.selectpoints);
-	}
-
 	this.deleteSelected = function () {
 		const selected = _selector.getSelectedSegments();
 		const points = _selector.getSelectedPoints();
@@ -524,7 +518,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.mergeSelectedSegments = function () {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
-		if (selectedType === 'segment' && selected > 1) {
+		if (selectType === 'segment' && selected.length > 1) {
 			const actions = [];
 			const segments = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
@@ -922,6 +916,18 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_selector.select(sectionID, [nearestPoint], mouse);
 		}
 	}
+
+	this.dragSegment = function (sectionID, event) {
+		const idType = this.getIDType(sectionID);
+		
+		if(idType === 'segment'){
+			this.moveSelected();
+
+		} else {
+			this.moveImage(event.delta);
+		}
+	}
+
 	this.unSelect = function () {
 		_selector.unSelect();
 	}
