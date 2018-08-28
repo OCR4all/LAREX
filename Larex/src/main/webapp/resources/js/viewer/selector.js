@@ -24,16 +24,13 @@ class Selector {
 		if(this._selectedSegments.length === 1){
 			this._editor.setEditSegment(this._selectedSegments[0]);
 
-			switch(typeSelected){
-				case 'segment': 
-					points.forEach(p => this._processSelectPoint(p,segmentID));
-					break;
-				case 'region':
-					this._controller.scaleSelected();
-			}
+			if(this._typeLastSelected === 'segment')
+				points.forEach(p => this._processSelectPoint(p,segmentID));
 		}
 
 		this._typeLastSelected = typeSelected;
+		if(typeSelected === 'region')
+			this._controller.scaleSelected();
 	}
 
 	unSelect() {
