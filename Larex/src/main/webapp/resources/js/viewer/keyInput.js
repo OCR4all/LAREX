@@ -45,6 +45,8 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 16: // Shift
+					_controller.selectMultiple();
+					validKey = true;
 					break;
 				case 89: // Y
 					if (event.ctrlKey) {

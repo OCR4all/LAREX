@@ -4,7 +4,8 @@ class Editor extends Viewer {
 		super(segmenttypes, viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
-		this._editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
+		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5};
+		this._editMode = this._editModes.default; 
 		this._tempPathType;
 		this._tempPath;
 		this._tempPoint;
@@ -21,22 +22,120 @@ class Editor extends Viewer {
 		this._paths[id].selected = displayPoints;
 	}
 
-
-	startRectangleSelect() {
+	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, isActive = false) {
 		if (this.isEditing === false) {
-			this._editMode = -1;
-			this.isEditing = true;
+
+			startFunction();
 
 			const tool = new paper.Tool();
 			tool.activate();
-			let isActive = false;
-			tool.onMouseMove = (event) => {
-				if (!isActive) {
-					isActive = true;
-					this.createResponsiveRectangle("endRectangleSelect", event.point, true);
+			tool.onMouseDown = (event) => {
+				if (this.isEditing === true) { 
+					const startPoint = event.point; 
+
+					const imageCanvas = this.getImageCanvas();
+
+					const tool = new paper.Tool();
+					tool.activate();
+
+					const canvasPoint = this.getPointInBounds(startPoint, this.getBoundaries());
+					// Start path
+					this._tempPoint = new paper.Path(canvasPoint);
+					imageCanvas.addChild(this._tempPoint);
+					this._tempPath = new paper.Path();
+					this._tempPath.add(this._tempPoint); //Add Point for mouse movement
+					this._tempPath.fillColor = 'grey';
+					this._tempPath.opacity = 0.3;
+					this._tempPath.closed = true;
+					this._tempPath.selected = true;
+
+					tool.onMouseMove = (event) => {
+						if (this.isEditing === true) {
+							if (this._tempPath) {
+								const point = this.getPointInBounds(event.point, this.getBoundaries());
+								let rectangle = new paper.Path.Rectangle(this._tempPoint.firstSegment.point, point);
+
+								this._tempPath.segments = rectangle.segments;
+								
+								updateFunction(rectangle);
+							}
+						} else {
+							this.endRectangle(endFunction,this._tempPath);
+							tool.remove();
+						}
+					}
+					imageCanvas.addChild(this._tempPath);
+
+					tool.onMouseUp = (event) => {
+						this.endRectangle(endFunction,this._tempPath);
+						tool.remove();
+					}
+				} else {
+					tool.remove();
 				}
-				tool.remove();
 			}
+		}
+	}
+
+	endRectangle(endFunction = (rectangle) => {}, rectangle) {
+		if (this.isEditing) {
+			this.isEditing = false;
+			if (this._tempPath != null) {
+				endFunction(rectangle);
+				this._tempPath.remove();
+				this._tempPath = null;
+			}
+			if (this._tempPoint != null) {
+				this._tempPoint.clear();
+				this._tempPoint = null;
+			}
+			document.body.style.cursor = "auto";
+		}
+	}
+
+	createRectangle(type) {
+		if (this.isEditing === false) {
+			this.startRectangle(
+				()=>{
+					this._editMode = 1;
+					this.isEditing = true;
+					this._tempPathType = type;
+					document.body.style.cursor = "copy";
+				},
+				(rectangle)=>{
+					this._tempPath.closed = true;
+					this._tempPath.selected = false;
+					switch (this._tempPathType) {
+						case 'segment':
+							this._controller.callbackNewSegment(this._convertPointsPathToSegment(rectangle, false));
+							break;
+						case 'region':
+							this._controller.callbackNewRegion(this._convertPointsPathToSegment(rectangle, true));
+							break;
+						case 'ignore':
+							this._controller.callbackNewRegion(this._convertPointsPathToSegment(rectangle, true), 'ignore');
+							break;
+						case 'roi':
+						default:
+							this._controller.callbackNewRoI(this._convertPointsPathToSegment(rectangle, true));
+							break;
+					}
+				});
+		}
+	}
+
+	selectMultiple() {
+		if (this.isEditing === false) {
+			this.startRectangle(
+				()=>{
+					this._editMode = -1;
+					this.isEditing = true;
+				},
+				(rectangle)=>{
+					const selectBounds = this._tempPath.bounds;
+					this._controller.rectangleSelect(selectBounds.topLeft, selectBounds.bottomRight);
+				}
+			);
 		}
 	}
 
@@ -138,57 +237,6 @@ class Editor extends Viewer {
 				this._tempPath.remove();
 				this._tempPath = null;
 				this._tempEndCircle.remove();
-			}
-			document.body.style.cursor = "auto";
-		}
-	}
-
-	startCreateRectangle(type) {
-		if (this.isEditing === false) {
-			this._editMode = 1;
-			this.isEditing = true;
-			this._tempPathType = type;
-			document.body.style.cursor = "copy";
-
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseDown = (event) => {
-				if (this.isEditing === true) {
-					this.createResponsiveRectangle("endCreateRectangle", event.point);
-				} else {
-					tool.remove();
-				}
-			}
-		}
-	}
-
-	endCreateRectangle() {
-		if (this.isEditing) {
-			this.isEditing = false;
-			if (this._tempPath != null) {
-				this._tempPath.closed = true;
-				this._tempPath.selected = false;
-				switch (this._tempPathType) {
-					case 'segment':
-						this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath, false));
-						break;
-					case 'region':
-						this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath, true));
-						break;
-					case 'ignore':
-						this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath, true), 'ignore');
-						break;
-					case 'roi':
-					default:
-						this._controller.callbackNewRoI(this._convertPointsPathToSegment(this._tempPath, true));
-						break;
-				}
-				this._tempPath.remove();
-				this._tempPath = null;
-			}
-			if (this._tempPoint != null) {
-				this._tempPoint.clear();
-				this._tempPoint = null;
 			}
 			document.body.style.cursor = "auto";
 		}
@@ -513,58 +561,6 @@ class Editor extends Viewer {
 		}
 	}
 
-	createResponsiveRectangle(endFunction, startPoint, boundless) {
-		const imageCanvas = this.getImageCanvas();
-
-		const tool = new paper.Tool();
-		tool.activate();
-
-		const canvasPoint = boundless ? startPoint : this.getPointInBounds(startPoint, this.getBoundaries());
-		// Start path
-		this._tempPoint = new paper.Path(canvasPoint);
-		imageCanvas.addChild(this._tempPoint);
-		this._tempPath = new paper.Path();
-		this._tempPath.add(this._tempPoint); //Add Point for mouse movement
-		this._tempPath.fillColor = 'grey';
-		this._tempPath.opacity = 0.3;
-		this._tempPath.closed = true;
-		this._tempPath.selected = true;
-
-		tool.onMouseMove = (event) => {
-			if (this.isEditing === true) {
-				if (this._tempPath) {
-					const point = boundless ? event.point : this.getPointInBounds(event.point, this.getBoundaries());
-					let rectangle = new paper.Path.Rectangle(this._tempPoint.firstSegment.point, point);
-
-					this._tempPath.segments = rectangle.segments;
-				}
-			} else {
-				switch (endFunction) {
-					case "endRectangleSelect":
-						this.endRectangleSelect();
-						break;
-					case "endCreateRectangle":
-						this.endCreateRectangle();
-						break;
-				}
-				tool.remove();
-			}
-		}
-		imageCanvas.addChild(this._tempPath);
-
-		tool.onMouseUp = (event) => {
-			switch (endFunction) {
-				case "endRectangleSelect":
-					this.endRectangleSelect();
-					break;
-				case "endCreateRectangle":
-					this.endCreateRectangle();
-					break;
-			}
-			tool.remove();
-		}
-	}
-
 	scalePath(path, mouseregion) {
 		const tool = new paper.Tool();
 		tool.activate();
@@ -697,6 +693,7 @@ class Editor extends Viewer {
 
 	endEditing(doAbbord) {
 		if (!doAbbord) {
+			this.isEditing = false;
 			if (this.isEditing) {
 				switch (this._editMode) {
 					case 0:

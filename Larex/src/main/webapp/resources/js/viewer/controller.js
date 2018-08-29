@@ -414,7 +414,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.createRectangle = function (type) {
 		this.endEditing(true);
 
-		_editor.startCreateRectangle(type);
+		_editor.createRectangle(type);
 		switch (type) {
 			case 'segment':
 				_gui.selectToolBarButton('segmentRectangle', true);
@@ -934,8 +934,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.isSegmentSelected = function (segmentID) {
 		return _selector.isSegmentSelected(segmentID);
 	}
-	this.startRectangleSelect = function () {
-		_selector.startRectangleSelect();
+	this.selectMultiple = function () {
+		_selector.selectMultiple();
 	}
 	this.rectangleSelect = function (pointA, pointB) {
 		_selector.rectangleSelect(pointA, pointB);

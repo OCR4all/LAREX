@@ -36,7 +36,7 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if (event.modifiers.shift) {
-					_controller.startRectangleSelect();
+					_controller.selectMultiple();
 				} else {
 					_controller.dragSegment(sectionID, event.delta);
 				}
@@ -56,7 +56,7 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if (event.modifiers.shift) {
-					_controller.startRectangleSelect();
+					_controller.selectMultiple();
 				} else {
 					_controller.moveImage(event.delta);
 				}
@@ -75,9 +75,9 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (event.modifiers.shift) {
-					_controller.startRectangleSelect();
-				}
+				/*if (event.modifiers.shift) {
+					_controller.selectMultiple();
+				}*/
 				break;
 			// middleclick
 			case 1:

@@ -58,10 +58,10 @@ class Selector {
 			return false;
 		}
 	}
-	startRectangleSelect() {
+	selectMultiple() {
 		if (!this._editor.isEditing) {
 			if (!this.isSelecting) {
-				this._editor.startRectangleSelect();
+				this._editor.selectMultiple();
 			}
 
 			this.isSelecting = true;
