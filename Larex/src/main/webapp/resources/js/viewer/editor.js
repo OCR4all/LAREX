@@ -484,13 +484,11 @@ class Editor extends Viewer {
 						});
 						this._tempPath.addSegments(segments);
 					}
-
-
 				} else {
 					tool.remove();
 				}
 			}
-			tool.onMouseDown = (event) => {
+			tool.onMouseUp = (event) => {
 				if (this.isEditing === true) {
 					this.endMovePath();
 				}
@@ -939,10 +937,6 @@ class DoubleClickListener{
 			curTime - this._lastClickedTime <= this._maxTime)
 		{
 			this._action(curMousePos);
-		}
-		if(this._lastClickedPosition){
-			console.log(this._lastClickedPosition.getDistance(curMousePos),
-			curTime - this._lastClickedTime);
 		}
 
 		this._lastClickedPosition = curMousePos;

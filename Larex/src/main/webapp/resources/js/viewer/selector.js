@@ -16,21 +16,22 @@ class Selector {
 		if(this._typeLastSelected !== typeSelected || !this.selectmultiple)
 			this.unSelect();
 		
+		this._typeLastSelected = typeSelected;
+		
 		if(!(this._selectedSegments.length === 1 && this._selectedSegments[0] === segmentID)){
 			this._selectedSegments.forEach(s => this._editor.setEditSegment(s,false));
 			this._processSelectSegment(segmentID);
 		}
 		
 		if(this._selectedSegments.length === 1){
-			this._editor.setEditSegment(this._selectedSegments[0]);
-
-			if(this._typeLastSelected === 'segment')
+			if(typeSelected === 'segment'){
+				this._editor.setEditSegment(this._selectedSegments[0]);
 				points.forEach(p => this._processSelectPoint(p,segmentID));
+			} else if(typeSelected === 'region'){
+				this._controller.scaleSelected();
+			}
 		}
 
-		this._typeLastSelected = typeSelected;
-		if(typeSelected === 'region')
-			this._controller.scaleSelected();
 	}
 
 	unSelect() {
