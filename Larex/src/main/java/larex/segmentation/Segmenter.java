@@ -154,7 +154,7 @@ public class Segmenter {
 				parameters.isCombineImages());
 
 		for (MatOfPoint tempContour : images) {
-			Core.fillConvexPoly(binary, tempContour, new Scalar(0));
+			Imgproc.fillConvexPoly(binary, tempContour, new Scalar(0));
 		}
 
 		return images;

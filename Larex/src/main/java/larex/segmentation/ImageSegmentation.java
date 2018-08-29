@@ -1,8 +1,6 @@
 package larex.segmentation;
 
 
-import larex.imageProcessing.Contour;
-
 import java.util.ArrayList;
 
 import org.opencv.core.Core;
@@ -16,6 +14,7 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import larex.imageProcessing.Contour;
 import larex.segmentation.parameters.ImageSegType;
 
 public class ImageSegmentation {
@@ -26,12 +25,12 @@ public class ImageSegmentation {
 		for (MatOfPoint contour : contours) {
 			if(type.equals(ImageSegType.STRAIGHT_RECT)) {
 				Rect rect = Imgproc.boundingRect(contour);
-				Core.rectangle(binary, rect.tl(), rect.br(), new Scalar(255), -1);
+				Imgproc.rectangle(binary, rect.tl(), rect.br(), new Scalar(255), -1);
 			} else if(type.equals(ImageSegType.ROTATED_RECT)) {
 				RotatedRect rect = Imgproc.minAreaRect(new MatOfPoint2f(contour.toArray()));
 				Point[] points = new Point[4];
 				rect.points(points);
-				Core.fillConvexPoly(binary, new MatOfPoint(points), new Scalar(255));
+				Imgproc.fillConvexPoly(binary, new MatOfPoint(points), new Scalar(255));
 			}
 		}
 		
@@ -45,7 +44,7 @@ public class ImageSegmentation {
 
 		for (MatOfPoint contour : contours) {
 			Rect rect = Imgproc.boundingRect(contour);
-			Core.rectangle(binary, rect.tl(), rect.br(), new Scalar(255), -1);
+			Imgproc.rectangle(binary, rect.tl(), rect.br(), new Scalar(255), -1);
 		}
 
 		ArrayList<MatOfPoint> results = Contour.findContours(binary);

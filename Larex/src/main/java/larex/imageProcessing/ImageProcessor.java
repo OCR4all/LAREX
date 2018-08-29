@@ -20,7 +20,7 @@ import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.highgui.Highgui;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 public class ImageProcessor {
@@ -151,7 +151,7 @@ public class ImageProcessor {
 		Imgproc.resize(img, img, size);
 
 		MatOfByte matOfByte = new MatOfByte();
-		Highgui.imencode(".jpg", img, matOfByte);
+		Imgcodecs.imencode(".jpg", img, matOfByte);
 		byte[] byteArray = matOfByte.toArray();
 		BufferedImage bufImage = null;
 		try {

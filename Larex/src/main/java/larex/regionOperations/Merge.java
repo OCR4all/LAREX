@@ -2,7 +2,6 @@ package larex.regionOperations;
 
 import java.util.ArrayList;
 
-import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
@@ -63,7 +62,7 @@ public class Merge {
 				}
 			}
 
-			Core.line(temp, assignedCogTemp, remCogTemp, new Scalar(255), 2);
+			Imgproc.line(temp, assignedCogTemp, remCogTemp, new Scalar(255), 2);
 			assignedCogs.add(remCogTemp);
 			remainingCogs.remove(remCogTemp);
 
