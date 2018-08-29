@@ -23,7 +23,7 @@ class Editor extends Viewer {
 		this._paths[id].selected = displayPoints;
 	}
 
-	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, isActive = false) {
+	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none') {
 		if (this.isEditing === false) {
 
 			startFunction();
@@ -45,10 +45,20 @@ class Editor extends Viewer {
 					imageCanvas.addChild(this._tempPoint);
 					this._tempPath = new paper.Path();
 					this._tempPath.add(this._tempPoint); //Add Point for mouse movement
-					this._tempPath.fillColor = 'grey';
+					this._tempPath.fillColor = '#bdbdbd';
+					this._tempPath.strokeColor = '#424242';
 					this._tempPath.opacity = 0.3;
 					this._tempPath.closed = true;
-					this._tempPath.selected = true;
+					switch(borderStyle){
+						case 'selected':
+							this._tempPath.selected = true;
+							break;
+						case 'dashed':
+							this._tempPath.dashArray = [5, 3];
+							break;
+						default:
+							break;
+					}
 
 					tool.onMouseMove = (event) => {
 						if (this.isEditing === true) {
@@ -121,7 +131,9 @@ class Editor extends Viewer {
 							this._controller.callbackNewRoI(this._convertPointsPathToSegment(rectangle, true));
 							break;
 					}
-				});
+				},
+				(rectangle) => {},
+				type === 'segment'? 'selected' : 'default');
 		}
 	}
 
@@ -135,7 +147,9 @@ class Editor extends Viewer {
 				(rectangle)=>{
 					const selectBounds = this._tempPath.bounds;
 					this._controller.rectangleSelect(selectBounds.topLeft, selectBounds.bottomRight);
-				}
+				},
+				(rectangle) => {},
+				'dashed'
 			);
 		}
 	}
@@ -439,14 +453,9 @@ class Editor extends Viewer {
 						oldMouse = event.point;
 					}
 					this._tempPoint = oldPosition.add(event.point.subtract(oldMouse));
-					if (!this._grid.isActive) {
-						this._grid.vertical.visible = false;
-						this._grid.horizontal.visible = false;
-					} else {
+					if (this._grid.isActive) 
 						this._tempPoint = this.getPointFixedToGrid(this._tempPoint);
-						this._grid.vertical.visible = true;
-						this._grid.horizontal.visible = true;
-					}
+
 					if (!points) {
 						this._tempPath.position = this._tempPoint;
 
@@ -511,9 +520,6 @@ class Editor extends Viewer {
 				this._tempPath.remove();
 				this._tempPath = null;
 			}
-			//hide grid
-			this._grid.vertical.visible = false;
-			this._grid.horizontal.visible = false;
 
 			document.body.style.cursor = "auto";
 		}
@@ -739,19 +745,12 @@ class Editor extends Viewer {
 		}
 	}
 
-	addGrid() {
-		this._grid.isActive = true;
-	}
-
 	setGrid(point) {
 		if (this._grid.vertical == null || this._grid.horizontal == null) {
 			this._grid.vertical = new paper.Path.Line();
-			this._grid.vertical.strokeColor = 'black';
-			this._grid.vertical.dashArray = [3, 3];
-
 			this._grid.horizontal = new paper.Path.Line();
-			this._grid.horizontal.strokeColor = 'black';
-			this._grid.horizontal.dashArray = [3, 3];
+			this._grid.vertical.visible = false;
+			this._grid.horizontal.visible = false;
 		}
 		const bounds = paper.view.bounds;
 		this._grid.vertical.removeSegments();
@@ -761,22 +760,13 @@ class Editor extends Viewer {
 		this._grid.horizontal.removeSegments();
 		this._grid.horizontal.add(new paper.Point(bounds.left, point.y));
 		this._grid.horizontal.add(new paper.Point(bounds.right, point.y));
-
-		//visibility
-		if (!this._grid.isActive) {
-			this._grid.vertical.visible = false;
-			this._grid.horizontal.visible = false;
-		} else {
-			this._grid.vertical.visible = true;
-			this._grid.horizontal.visible = true;
-		}
 	}
 
-	removeGrid(point) {
-		if (this._grid.vertical != null && this._grid.horizontal != null) {
-			this._grid.vertical.visible = false;
-			this._grid.horizontal.visible = false;
-		}
+	addGrid() {
+		this._grid.isActive = true;
+	}
+
+	removeGrid() {
 		this._grid.isActive = false;
 	}
 
@@ -801,8 +791,8 @@ class Editor extends Viewer {
 			this._readingOrder.strokeWidth = 2;
 		}
 		this.getImageCanvas().addChild(this._readingOrder);
-		this._readingOrder.visible = true;
-		this._guiOverlay.visible = true;
+		this._readingOrder.visible = false;
+		this._guiOverlay.visible = false;
 		this._readingOrder.removeSegments();
 		this._guiOverlay.removeChildren();
 

@@ -480,16 +480,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			// Points inside of a polygon is selected => Delete points
 			if(selectType === 'segment'){
 				const segments = _segmentation[_currentPage].segments[selected[0]].points;
-				const newSegments = segments.filter(p => {
-					let boolFilter = true;
-					points.forEach(pp => {
-						// Contains can not be trusted (TODO: propably?)
-						if (p.x === pp.x && p.y === pp.y) { boolFilter = false; }
-					});
-					return boolFilter;
-				});
+				let filteredSegments = segments;
 
-				_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0], newSegments, _editor, _segmentation, _currentPage, this), _currentPage);
+				points.forEach(p => { filteredSegments = filteredSegments.filter(s => !(s.x === p.x && s.y === p.y))});
+
+				_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0], filteredSegments, _editor, _segmentation, _currentPage, this), _currentPage);
 			}
 		}else{
 			//Polygon is selected => Delete polygon
