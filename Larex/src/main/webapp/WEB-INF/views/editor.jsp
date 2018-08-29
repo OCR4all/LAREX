@@ -156,8 +156,6 @@
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="deleteSelected" icon="delete"
 							tooltip="Delete selected items (Shortcut: DEL)">Delete</t:menuIcon>
-						<t:menuIcon jsClass="moveSelected" icon="open_with"
-							tooltip="Move selected items (Shortcut: M)">Move</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="createReadingOrder" icon="timeline"

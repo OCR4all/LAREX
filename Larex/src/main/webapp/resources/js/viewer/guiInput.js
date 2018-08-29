@@ -79,7 +79,6 @@ function GuiInput(navigationController, controller, gui) {
 	$('.createCut').click(() => _controller.createCut());
 
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
-	$('.moveSelected').click(() => _controller.moveSelected());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
 

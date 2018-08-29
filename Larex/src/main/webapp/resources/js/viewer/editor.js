@@ -107,9 +107,9 @@ class Editor extends Viewer {
 						this._tempEndCircle.strokeColor = 'black';
 						this._tempEndCircle.fillColor = 'grey';
 						this._tempEndCircle.opacity = 0.5;
-						this._tempEndCircle.onMouseDown = function (event) {
+						this._tempEndCircle.onMouseDown = (event) => {
 							this.endCreatePolygon();
-							this.remove();
+							this._tempEndCircle.remove();
 						}
 
 						let imageCanvas = this.getImageCanvas();
