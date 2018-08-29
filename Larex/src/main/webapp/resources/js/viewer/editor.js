@@ -304,9 +304,9 @@ class Editor extends Viewer {
 								case this.mouseregions.BOTTOM:
 									document.body.style.cursor = "row-resize";
 
-									bottomleft = new paper.Point(boundaries.left, boundaries.bottom);
+									bottommouse = new paper.Point(boundaries.left, boundaries.bottom);
 									mouseright = new paper.Point(boundaries.right, event.point.y);
-									rectangle = new paper.Path.Rectangle(bottomleft, mouseright);
+									rectangle = new paper.Path.Rectangle(bottommouse, mouseright);
 
 									this._tempPath.segments = rectangle.segments;
 									break;

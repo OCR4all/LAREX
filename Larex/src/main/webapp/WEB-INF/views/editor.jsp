@@ -161,7 +161,7 @@
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="createReadingOrder" icon="timeline"
-								tooltip="Set a reading order">readingOrder</t:menuIcon>
+								tooltip="Set a reading order. Add to the readingorder with leftclick and save with rightclick or clicking the button again.">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="saveReadingOrder hide" icon="save"
 								tooltip="Save the current reading order (Shortcut: right click)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
