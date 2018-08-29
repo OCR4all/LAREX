@@ -18,7 +18,6 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
-	$("#viewer").dblclick(() => _controller.endEditing());
 	$('.doSegment').click(() => _controller.doSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
 	$('.downloadPageXML').click(() => _controller.downloadPageXML());

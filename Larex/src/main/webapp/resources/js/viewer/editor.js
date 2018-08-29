@@ -16,6 +16,7 @@ class Editor extends Viewer {
 		this._readingOrder;
 		this._guiOverlay = new paper.Group();
 		this.mouseregions = { TOP: 0, BOTTOM: 1, LEFT: 2, RIGHT: 3, MIDDLE: 4, OUTSIDE: 5 };
+		this.DoubleClickListener = new DoubleClickListener();
 	}
 
 	setEditSegment(id,displayPoints=true){
@@ -188,7 +189,14 @@ class Editor extends Viewer {
 				}
 			}
 
+			this.DoubleClickListener.setAction((pos)=> {
+				this.endCreatePolygon();
+				this.DoubleClickListener.setActive(false);
+			});
+			this.DoubleClickListener.setActive(true);
+
 			tool.onMouseDown = (event) => {
+				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
@@ -206,10 +214,7 @@ class Editor extends Viewer {
 						this._tempEndCircle.strokeColor = 'black';
 						this._tempEndCircle.fillColor = 'grey';
 						this._tempEndCircle.opacity = 0.5;
-						this._tempEndCircle.onMouseDown = (event) => {
-							this.endCreatePolygon();
-							this._tempEndCircle.remove();
-						}
+						this._tempEndCircle.onMouseDown = (event) => this.endCreatePolygon();
 
 						let imageCanvas = this.getImageCanvas();
 						imageCanvas.addChild(this._tempPath);
@@ -257,7 +262,14 @@ class Editor extends Viewer {
 				}
 			}
 
+			this.DoubleClickListener.setAction((pos)=> {
+				this.endCreateLine();
+				this.DoubleClickListener.setActive(false);
+			});
+			this.DoubleClickListener.setActive(true);
+
 			tool.onMouseDown = (event) => {
+				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
@@ -691,50 +703,22 @@ class Editor extends Viewer {
 		}
 	}
 
-	endEditing(doAbbord) {
-		if (!doAbbord) {
-			this.isEditing = false;
-			if (this.isEditing) {
-				switch (this._editMode) {
-					case 0:
-						this.endCreatePolygon();
-						break;
-					case 1:
-						this.endCreateRectangle();
-						break;
-					case 2:
-						this.endCreateBorder();
-						break;
-					case 3:
-						this.endCreateLine();
-						break;
-					case 4:
-						this.endMovePath();
-						break;
-					case 5:
-						this.endMovePath();
-						break;
-					default:
-						break;
-				}
-			}
-		} else {
-			this.isEditing = false;
+	endEditing() {
+		this.isEditing = false;
 
-			this._tempID = null;
-			if (this._tempPath != null) {
-				this._tempPath.remove();
-				this._tempPath = null;
-			}
-			this._tempPoint = null;
-
-			if (this._tempEndCircle) {
-				this._tempEndCircle.remove();
-				this._tempEndCircle = null;
-			}
-
-			document.body.style.cursor = "auto";
+		this._tempID = null;
+		if (this._tempPath != null) {
+			this._tempPath.remove();
+			this._tempPath = null;
 		}
+		this._tempPoint = null;
+
+		if (this._tempEndCircle) {
+			this._tempEndCircle.remove();
+			this._tempEndCircle = null;
+		}
+
+		document.body.style.cursor = "auto";
 	}
 
 	getPointInBounds(point, bounds) {
@@ -934,5 +918,43 @@ class Editor extends Viewer {
 	zoomFit() {
 		super.zoomFit();
 		this._fixGuiTextSize();
+	}
+}
+
+/* Adds double click functionality for paperjs canvas */
+class DoubleClickListener{
+	constructor(action = (pos) => {}, maxTime = 500, maxDistance = 20) {
+		this._lastClickedTime = undefined;
+		this._lastClickedPosition = undefined;
+		this._maxTime = maxTime;
+		this._maxDistance = maxDistance;
+		this._action = action;
+		this._isActive = false;
+		this._date = new Date();
+	}
+
+	update(curMousePos,curTime = this._date.getTime()){
+		if(this._isActive && this._lastClickedTime && this._lastClickedPosition &&
+			this._lastClickedPosition.getDistance(curMousePos) <= this._maxDistance &&
+			curTime - this._lastClickedTime <= this._maxTime)
+		{
+			this._action(curMousePos);
+		}
+		if(this._lastClickedPosition){
+			console.log(this._lastClickedPosition.getDistance(curMousePos),
+			curTime - this._lastClickedTime);
+		}
+
+		this._lastClickedPosition = curMousePos;
+		this._lastClickedTime = curTime;
+		
+	}
+
+	setActive(isActive = true){
+		this._isActive = isActive;
+	}
+
+	setAction(action = (pos) => {}){
+		this._action = action;
 	}
 }

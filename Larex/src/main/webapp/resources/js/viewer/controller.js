@@ -404,7 +404,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.createPolygon = function (doSegment) {
-		this.endEditing(true);
+		this.endEditing();
 		const type = doSegment ? 'segment' : 'region';
 		_editor.startCreatePolygon(type);
 		if (doSegment) {
@@ -412,7 +412,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.createRectangle = function (type) {
-		this.endEditing(true);
+		this.endEditing();
 
 		_editor.createRectangle(type);
 		switch (type) {
@@ -431,7 +431,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.createCut = function () {
-		this.endEditing(true);
+		this.endEditing();
 		_editor.startCreateLine();
 		_gui.selectToolBarButton('cut', true);
 	}
@@ -471,8 +471,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
-	this.endEditing = function (doAbbord) {
-		_editor.endEditing(doAbbord);
+	this.endEditing = function () {
+		_editor.endEditing();
 		_gui.unselectAllToolBarButtons();
 	}
 
@@ -568,7 +568,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.createBorder = function (doSegment) {
-		this.endEditing(true);
+		this.endEditing();
 		const type = doSegment ? 'segment' : 'region';
 		_editor.startCreateBorder(type);
 		if (doSegment) {
@@ -1039,7 +1039,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.escape = function () {
 		_selector.unSelect();
 		this.closeContextMenu();
-		this.endEditing(true);
+		this.endEditing();
 		_gui.closeRegionSettings();
 	}
 	this.allowToLoadExistingSegmentation = function (allowLoadLocal) {
