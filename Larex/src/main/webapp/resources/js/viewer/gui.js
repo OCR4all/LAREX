@@ -175,13 +175,15 @@ function GUI(canvas, viewer, colors) {
 		$readingOrderList.empty();
 		for (let index = 0; index < readingOrder.length; index++) {
 			const segment = segments[readingOrder[index]];
-			const $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="' + segment.id + '" draggable="true"></li>');
-			const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
-			const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="' + segment.id + '">delete</i>');
-			$collectionItem.append($legendTypeIcon);
-			$collectionItem.append(segment.type + "-" + segment.id.substring(0, 4));
-			$collectionItem.append($deleteReadingOrderSegment);
-			$readingOrderList.append($collectionItem);
+			if(segment){
+				const $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="' + segment.id + '" draggable="true"></li>');
+				const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
+				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="' + segment.id + '">delete</i>');
+				$collectionItem.append($legendTypeIcon);
+				$collectionItem.append(segment.type + "-" + segment.id.substring(0, 4));
+				$collectionItem.append($deleteReadingOrderSegment);
+				$readingOrderList.append($collectionItem);
+			}
 		}
 	}
 
