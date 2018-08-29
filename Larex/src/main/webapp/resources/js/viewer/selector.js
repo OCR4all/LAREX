@@ -85,9 +85,14 @@ class Selector {
 			});
 		} else {
 			const segmentID = this._selectedSegments[0];
-			const inbetween = this._editor.getPointsBetweenPoints(pointA, pointB, segmentID);
+			const inbetween = this._editor.selectPointsInbetween(pointA, pointB, segmentID);
 
-			inbetween.forEach((point) => this._processSelectPoint(point, segmentID, false));
+			inbetween.forEach((point) => {
+				if (this._selectedPoints.indexOf(point) < 0) {
+					// Has not been selected before => select
+					this._selectedPoints.push(point);
+				}
+			});
 		}
 
 		this.isSelecting = false;

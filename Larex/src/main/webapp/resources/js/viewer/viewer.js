@@ -172,13 +172,15 @@ class Viewer {
 		}
 	}
 
-
-	getPointsBetweenPoints(pointA, pointB, segmentID) {
+	selectPointsInbetween(pointA, pointB, segmentID) {
 		const points = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
+		this._paths[segmentID].selected = true;
+		
 		this._paths[segmentID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
+				point.point.selected = true;
 				points.push(this._convertPointFromCanvas(point.point.x, point.point.y));
 			}
 		});
