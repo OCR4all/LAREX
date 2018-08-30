@@ -202,6 +202,9 @@ function GuiInput(navigationController, controller, gui) {
 
 	$('.saveReadingOrder').click(() => _controller.endCreateReadingOrder());
 
+	$('#pageLegendSaved').change(function(event) { _controller.hideSavedPages(!event.target.checked); });
+	$('#pageLegendExported').change(function(event) { _controller.hideExportedPages(!event.target.checked); });
+	
 	this.addDynamicListeners = () => {
 		let _hasBeenDropped = false;
 

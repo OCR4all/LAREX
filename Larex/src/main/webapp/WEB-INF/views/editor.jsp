@@ -26,7 +26,7 @@
 
 		<!-- Main Method -->
 		<script>
-		var colors = [	
+		const colors = [	
 						new paper.Color(0,1,0),
 						new paper.Color(1,0,0),
 						new paper.Color(1,1,0),
@@ -47,19 +47,19 @@
 						new paper.Color(0,0.5,0),
 						new paper.Color(0.4,0,0.55)];
 			
-		var globalSettings ={
+		let globalSettings ={
 			downloadPage:${globalSettings.getSetting("websave").equals("") ? true : globalSettings.getSetting("websave")}
 		}
 		
 		//specify specific colors
-		var specifiedColors = {
+		let specifiedColors = {
 				image: 0,
 				paragraph: 1,
 				marginalia: 2,
 				page_number: 3,
 				ignore: 4
 		};
-		var controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors,colors,globalSettings);
+		let controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors,colors,globalSettings);
 		$(document).ready(function() {
 			$(".button-collapse").sideNav();
 		    $('select').material_select();

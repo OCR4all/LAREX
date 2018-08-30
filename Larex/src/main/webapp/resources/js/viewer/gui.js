@@ -4,6 +4,7 @@ function GUI(canvas, viewer, colors) {
 	let _canvas = canvas;
 	let _doMoveCanvas = false;
 	let _mouse;
+	let _hiddenStyles = [];
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
@@ -289,6 +290,7 @@ function GUI(canvas, viewer, colors) {
 		segmentedPages.forEach((page) => {
 			$('.pageImageContainer[data-page~="' + page + '"]').addClass('segmented');
 		});
+
 	}
 	this.highlightPagesAsError = function (errorPages) {
 		$('.pageIconError').addClass('hide');
@@ -302,11 +304,15 @@ function GUI(canvas, viewer, colors) {
 		const $savedPage = $('.pageImageContainer[data-page~="' + savedPage + '"]');
 		$savedPage.addClass('saved');
 		$savedPage.find(".pageIconSaved").removeClass('hide');
+		if(_hiddenStyles.indexOf(".pageImageContainer.saved") !== -1)
+			$savedPage.addClass('hide');
 	}
 	this.highlightExportedPage = function (exportedPage) {
 		const $exportedPage = $('.pageImageContainer[data-page~="' + exportedPage + '"]');
 		$exportedPage.addClass('exported');
 		$exportedPage.find(".pageIconExported").removeClass('hide');
+		if(_hiddenStyles.indexOf(".pageImageContainer.exported") !== -1)
+			$savedPage.addClass('hide');
 	}
 	this.highlightLoadedPage = function (exportedPage, doHighlight = true) {
 		const $loadedPage = $('.pageImageContainer[data-page~="' + exportedPage + '"]');
@@ -318,6 +324,33 @@ function GUI(canvas, viewer, colors) {
 			$loadedPage.find(".pageIconLoaded").addClass('hide');
 		}
 	}
+	this.hideSavedPages = function (doHide=true) {
+		const indexOfStyle = _hiddenStyles.indexOf(".pageImageContainer.saved");
+		if(indexOfStyle < 0 && doHide)
+			_hiddenStyles.push(".pageImageContainer.saved");
+		else if(indexOfStyle >= 0 && !doHide)
+			_hiddenStyles.splice(indexOfStyle, 1);
+		
+		if(doHide)
+			$('.pageImageContainer.saved').addClass('hide');
+		else
+			$('.pageImageContainer.saved').removeClass('hide');
+
+	}
+
+	this.hideExportedPages = function (doHide=true) {
+		const indexOfStyle = _hiddenStyles.indexOf(".pageImageContainer.exported");
+		if(indexOfStyle < 0 && doHide)
+			_hiddenStyles.push(".pageImageContainer.exported");
+		else if(indexOfStyle >= 0 && !doHide)
+			_hiddenStyles.splice(indexOfStyle, 1);
+		
+		if(doHide)
+			$('.pageImageContainer.export').addClass('hide');
+		else
+			$('.pageImageContainer.export').removeClass('hide');
+	}
+
 	this.setExportingInProgress = function (isInProgress) {
 		if (isInProgress) {
 			$('.exportPageXML').find('.progress').removeClass('hide');

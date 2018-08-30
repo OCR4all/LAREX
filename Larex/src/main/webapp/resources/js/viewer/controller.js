@@ -10,7 +10,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _segmentedPages = [];
 	let _savedPages = [];
 	let _book;
-	let _segmentation;
+	let _segmentation = {};
 	let _settings;
 	let _chars = {};
 	let _activesettings;
@@ -43,7 +43,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		this.showPreloader(true);
 		_communicator.loadBook(bookID, _currentPage).done((data) => {
 			_book = data.book;
-			_segmentation = data.segmentation;
 			_segmentationtypes = data.segmenttypes;
 			_settings = data.settings;
 			// clone _settings
@@ -933,6 +932,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
+
+	this.hideExportedPages = function (doHide=true){ _gui.hideExportedPages(doHide); }
+
+	this.hideSavedPages = function(doHide=true){ _gui.hideSavedPages(doHide); }
 
 	this.selectChars = function() {
 		if(!_chars[_currentPage]){
