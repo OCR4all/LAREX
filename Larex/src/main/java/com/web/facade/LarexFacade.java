@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -28,6 +29,7 @@ import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
 
+import larex.charselect.Charcombiner;
 import larex.charselect.Charextractor;
 import larex.export.PageXMLReader;
 import larex.export.PageXMLWriter;
@@ -35,6 +37,7 @@ import larex.export.SettingsReader;
 import larex.export.SettingsWriter;
 import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
+import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
@@ -117,7 +120,25 @@ public class LarexFacade {
 		
 		return contourSegments;
 	}
+	
+	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID, FileManager fileManager) {
+		Book book = getBook(bookID, fileManager);
+		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
+		page.initPage();
 
+		Collection<MatOfPoint> matContours = new ArrayList<>();
+		for(List<Point> contour : contours) {
+			matContours.add(WebLarexTranslator.translatePointsToContour(contour));
+		}
+		
+		MatOfPoint combined = Charcombiner.combine(matContours, page.getBinary());
+		page.clean();
+		System.gc();
+
+		
+		return LarexWebTranslator.translatePointsToSegment(combined, UUID.randomUUID().toString(), RegionType.paragraph);
+	}
+	
 	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageSegmentation segmentation = null;
 		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page, fileManager);

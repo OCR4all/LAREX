@@ -80,6 +80,7 @@ function GuiInput(navigationController, controller, gui) {
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
+	$('.editChars').click(() => _controller.selectChars());
 
 	$('.editMode').click(() => _controller.editLastSelected());
 

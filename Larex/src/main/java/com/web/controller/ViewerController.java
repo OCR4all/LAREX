@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.web.communication.ContourCombineRequest;
 import com.web.communication.FullBookResponse;
 import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
@@ -132,6 +133,12 @@ public class ViewerController {
 				fileManager);
 	}
 
+	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody Polygon combinechars(@RequestBody ContourCombineRequest combineRequest) {
+
+		return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),combineRequest.getBookid(), fileManager);
+	}
+	
 	@RequestMapping(value = "/extractchars", method = RequestMethod.POST)
 	public @ResponseBody Collection<List<Point>> extractchars(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {

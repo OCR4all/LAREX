@@ -148,4 +148,15 @@ public class WebLarexTranslator {
 		ResultRegion result = new ResultRegion(segment.getType(), resultPoints, segment.getId());
 		return result;
 	}
+	
+	public static MatOfPoint translatePointsToContour(List<Point> points) {
+		
+		org.opencv.core.Point[] matPoints = new org.opencv.core.Point[points.size()];
+		
+		for(int index = 0; index < points.size(); index++) {
+			Point point = points.get(index);
+			matPoints[index] = new org.opencv.core.Point(point.getX(), point.getY());
+		}
+		return new MatOfPoint(matPoints);
+	}
 }

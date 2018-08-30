@@ -4,7 +4,7 @@ class Editor extends Viewer {
 		super(segmenttypes, viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
-		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5};
+		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5,contours:6};
 		this._editMode = this._editModes.default; 
 		this._tempPathType;
 		this._tempPath;
@@ -427,6 +427,56 @@ class Editor extends Viewer {
 		}
 	}
 
+	selectContours(contours){
+		let contourBounds = [];
+		
+		contours.forEach(c => {
+			let contourBound = {contour:c};
+			let left = Number.POSITIVE_INFINITY;
+			let right = Number.NEGATIVE_INFINITY;
+			let top = Number.POSITIVE_INFINITY;
+			let bottom = Number.NEGATIVE_INFINITY;
+
+			c.forEach(p => {
+				if(p.x < left) left = p.x;
+				if(p.x > right) right = p.x;
+				if(p.y < top) top = p.y;
+				if(p.y > bottom) bottom = p.y;
+			});
+
+			contourBound.bounds = new paper.Rectangle(
+					new paper.Point(
+						this._convertPointToCanvas(left,top)),
+					new paper.Point(
+						this._convertPointToCanvas(right,bottom)));
+			contourBound.bounds.visible = false;
+			contourBounds.push(contourBound);
+		});
+
+		if (this.isEditing === false) {
+			this.startRectangle(
+				()=>{
+					this._editMode = 6;
+					this.isEditing = true;
+				},
+				(rectangle)=>{
+					let selectedContours = contourBounds.filter(c => {return rectangle.contains(c.bounds)}).map(c => {return c.contour});
+					this._controller.combineContours(selectedContours);
+				},
+				(rectangle) => {
+					let selectedContours = contourBounds.filter(c => {return rectangle.contains(c.bounds)}).map(c => {return c.contour});
+					this.showContours(selectedContours);
+				},
+				'dashed'
+			);
+		}
+	}
+
+	getContours(contours,rectangle){
+		this._convertPointFromCanvas(selectBounds.topLeft);
+		this._convertPointFromCanvas(selectBounds.bottomRight);
+	}
+
 	startMovePath(pathID, type, points) {
 		if (this.isEditing === false) {
 			this._editMode = 4;
@@ -730,6 +780,7 @@ class Editor extends Viewer {
 		}
 
 		document.body.style.cursor = "auto";
+		this.hideContours();
 	}
 
 	getPointInBounds(point, bounds) {

@@ -107,6 +107,31 @@ function Communicator() {
 		});
 		return status;
 	}
+	
+	this.requestCombinedContours = function (contours, pageID, bookID) {
+		// Deferred object for function status
+		const status = $.Deferred();
+
+		const mergeRequest = { contours: contours, pageid: pageID, bookid: bookID }
+
+		$.ajax({
+			type: "POST",
+			url: "combinecontours",
+			dataType: "json",
+			contentType: "application/json",
+			data: JSON.stringify(mergeRequest),
+			beforeSend: () => console.log("Merge load: start"),
+			success: (data) => {
+				console.log('Merge load: successful');
+				status.resolve(data);
+			},
+			error: (jqXHR, textStatus, errorThrown) => {
+				console.log("Merge load: failed" + textStatus);
+				status.resolve();
+			}
+		});
+		return status;
+	}
 
 	this.prepareExport = function (segmentation, bookID, pageXMLVersion) {
 		const exportRequest = { bookid: bookID, segmentation: segmentation, version: pageXMLVersion }

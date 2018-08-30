@@ -174,7 +174,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_tempReadingOrder = null;
 			this.endCreateReadingOrder();
 			this.showPreloader(false);
-			this.displayChars();
 		}
 	}
 
@@ -934,16 +933,29 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
-	this.displayChars = function(){
-		if(!_chars[_currentPage])
+
+	this.selectChars = function() {
+		if(!_chars[_currentPage]){
 			_communicator.requestChars(_currentPage,_book.id).done((result) => {
 				_chars[_currentPage] = result; 
-				_editor.setContours(_chars[_currentPage]);
-				_editor.displayOverlay();
+				_editor.selectContours(_chars[_currentPage]);
 			});
-		else{
-			//_chars[_currentPage].forEach(c => {_editor.addSegment(c,false,true)});
+		}else{
+			_editor.selectContours(_chars[_currentPage]);
 		}
+	}
+	this.combineContours = function(contours){
+		_communicator.requestCombinedContours(contours,_currentPage,_book.id).done((segment) => {
+			const action = new ActionAddSegment(segment.id, segment.points, segment.type,
+				_editor, _segmentation, _currentPage, this);
+
+			_editor.endEditing();
+
+			_actionController.addAndExecuteAction(action, _currentPage);
+			this.selectSegment(segment.id);
+			this.openContextMenu(true);
+		});
+		
 	}
 
 	this.changeRegionSettings = function (regionType, minSize, maxOccurances) {
