@@ -329,7 +329,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.exportPageXML = function () {
 		_gui.setExportingInProgress(true);
 
-		_communicator.prepareExport(_segmentation[_currentPage], _book.id, _pageXMLVersion).done((data) => {
+		_communicator.exportSegmentation(_segmentation[_currentPage], _book.id, _pageXMLVersion).done((data) => {
 			// Set export finished
 			_savedPages.push(_currentPage);
 			_gui.highlightExportedPage(_currentPage);
@@ -353,7 +353,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.saveSettingsXML = function () {
 		_gui.setSaveSettingsInProgress(true);
 		_settings.parameters = _gui.getParameters();
-		_communicator.prepareSettingsExport(_settings).done((data) => {
+		_communicator.exportSettings(_settings).done((data) => {
 			var a = window.document.createElement('a');
 			a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
 			a.download = "settings_" + _book.name + ".xml";
@@ -521,7 +521,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				}
 			}
 			if (segments.length > 1) {
-				_communicator.requestMergedSegment(segments, _currentPage, _book.id).done((data) => {
+				_communicator.mergeSegments(segments, _currentPage, _book.id).done((data) => {
 					const mergedSegment = data;
 					actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
 						_editor, _segmentation, _currentPage, this));
@@ -936,7 +936,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.selectChars = function() {
 		if(!_chars[_currentPage]){
-			_communicator.requestChars(_currentPage,_book.id).done((result) => {
+			_communicator.extractContours(_currentPage,_book.id).done((result) => {
 				_chars[_currentPage] = result; 
 				_editor.selectContours(_chars[_currentPage]);
 			});
@@ -945,7 +945,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.combineContours = function(contours){
-		_communicator.requestCombinedContours(contours,_currentPage,_book.id).done((segment) => {
+		_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
 			const action = new ActionAddSegment(segment.id, segment.points, segment.type,
 				_editor, _segmentation, _currentPage, this);
 
