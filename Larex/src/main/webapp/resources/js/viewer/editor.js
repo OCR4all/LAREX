@@ -19,6 +19,11 @@ class Editor extends Viewer {
 		this.DoubleClickListener = new DoubleClickListener();
 	}
 
+	updateSegment(segmentID){
+		super.updateSegment(segmentID);
+		this.endEditing();
+	}
+
 	setEditSegment(id,displayPoints=true){
 		this._paths[id].selected = displayPoints;
 	}
@@ -184,6 +189,7 @@ class Editor extends Viewer {
 	}
 
 	removeRegion(regionID) {
+		this.endEditing();
 		this.removeSegment(regionID);
 	}
 
@@ -534,6 +540,7 @@ class Editor extends Viewer {
 			// Create Copy of movable
 			const boundaries = this.getPath(pathID).bounds;
 			this._tempPath = new paper.Path.Rectangle(boundaries);
+			this.getImageCanvas().addChild(this._tempPath);
 			this._tempID = pathID;
 			this._tempPath.fillColor = 'grey';
 			this._tempPath.opacity = 0.3;
