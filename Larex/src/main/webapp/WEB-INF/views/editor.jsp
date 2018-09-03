@@ -26,7 +26,7 @@
 
 		<!-- Main Method -->
 		<script>
-		var colors = [	
+		const colors = [	
 						new paper.Color(0,1,0),
 						new paper.Color(1,0,0),
 						new paper.Color(1,1,0),
@@ -47,19 +47,19 @@
 						new paper.Color(0,0.5,0),
 						new paper.Color(0.4,0,0.55)];
 			
-		var globalSettings ={
+		let globalSettings ={
 			downloadPage:${globalSettings.getSetting("websave").equals("") ? true : globalSettings.getSetting("websave")}
 		}
 		
 		//specify specific colors
-		var specifiedColors = {
+		let specifiedColors = {
 				image: 0,
 				paragraph: 1,
 				marginalia: 2,
 				page_number: 3,
 				ignore: 4
 		};
-		var controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors,colors,globalSettings);
+		let controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors,colors,globalSettings);
 		$(document).ready(function() {
 			$(".button-collapse").sideNav();
 		    $('select').material_select();
@@ -138,6 +138,14 @@
 								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
 								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
+							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
+								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
+						<t:menuIcon jsClass="editContours" icon="font_download"
+							tooltip="Create a fixed segment by selecting contours to include. (WIP) (Shortcut: 6)">Contours</t:menuIcon>
+							<t:menuIcon jsClass="combineSelected" icon="add_circle"
+								tooltip="Combine selected segments (Shortcut: C)">Combine</t:menuIcon>
+							<t:menuIcon jsClass="fixSelected" icon="lock"
+								tooltip="Fix/unfix segments, for it to persist a new auto segmentation. (Shortcut: F)">Fix</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIcon jsClass="undo" icon="undo"
@@ -145,27 +153,13 @@
 						<t:menuIcon jsClass="redo" icon="redo"
 							tooltip="Redo: Executes the most recent undone action (Shortcut: ctrl+y)">Redo</t:menuIcon>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="editPoints fixed" icon="linear_scale"
-							tooltip="Switch between select points (active) and select polygons (inactive) (Shortcut: P)">Points</t:menuIcon>
 						<div class="menuIconDivider col"></div>
-						<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
-							tooltip="Create a cut line that splits segments and persists a new segmentation. Double click to end (Shortcut: 5)">Line</t:menuIcon>
-						<t:menuIcon jsClass="createCut cutPoint hide" icon="content_cut"
-							tooltip="Cut through selected polygons to create new points. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<t:menuIcon jsClass="deleteSelected" icon="delete"
 							tooltip="Delete selected items (Shortcut: DEL)">Delete</t:menuIcon>
-						<t:menuIcon jsClass="moveSelected" icon="open_with"
-							tooltip="Move selected items (Shortcut: M)">Move</t:menuIcon>
-						<t:menuIcon jsClass="scaleSelected" icon="photo_size_select_small"
-							tooltip="Scale selected items (Shortcut: S)">Scale</t:menuIcon>
-						<t:menuIcon jsClass="combineSelected" icon="add_circle"
-							tooltip="Combine selected Segments (Shortcut: C)">Combine</t:menuIcon>
-						<t:menuIcon jsClass="fixSelected" icon="lock"
-							tooltip="Fix/unfix Segments (Shortcut: F)">Fix</t:menuIcon>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="createReadingOrder" icon="timeline"
-								tooltip="Set a reading order">readingOrder</t:menuIcon>
+								tooltip="Set a reading order. Add to the readingorder with leftclick and save with rightclick or clicking the button again.">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="saveReadingOrder hide" icon="save"
 								tooltip="Save the current reading order (Shortcut: right click)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"

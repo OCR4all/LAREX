@@ -3,13 +3,16 @@ package com.web.facade;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+
+import org.opencv.core.MatOfPoint;
 
 import com.web.model.Book;
 import com.web.model.BookSettings;
+import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
-import com.web.model.PageSegmentation;
 
 import larex.positions.Position;
 import larex.positions.PriorityPosition;
@@ -72,16 +75,29 @@ public class LarexWebTranslator {
 		return settings;
 	}
 
-	public static Polygon translateResultRegionToSegment(ResultRegion region) {
+	public static List<Point> translatePointsToContour(MatOfPoint mat) {
 		LinkedList<Point> points = new LinkedList<Point>();
-		for (org.opencv.core.Point regionPoint : region.getPoints().toList()) {
+		for (org.opencv.core.Point regionPoint : mat.toList()) {
 			points.add(new Point(regionPoint.x, regionPoint.y));
 		}
 
-		Polygon segment = new Polygon(region.getId(), region.getType(), points, false);
+		return points;
+	}
+	
+	public static Polygon translatePointsToSegment(MatOfPoint mat, String id, RegionType type) {
+		LinkedList<Point> points = new LinkedList<Point>();
+		for (org.opencv.core.Point regionPoint : mat.toList()) {
+			points.add(new Point(regionPoint.x, regionPoint.y));
+		}
+
+		Polygon segment = new Polygon(id, type, points, false);
 		return segment;
 	}
 
+	public static Polygon translateResultRegionToSegment(ResultRegion region) {
+		return translatePointsToSegment(region.getPoints(), region.getId(), region.getType());
+	}
+	
 	public static PageSegmentation translateResultRegionsToSegmentation(String fileName, int width, int height,ArrayList<ResultRegion> regions, int pageid) {
 		Map<String, Polygon> segments = new HashMap<String, Polygon>();
 

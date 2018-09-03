@@ -14,7 +14,7 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				_controller.selectSegment(sectionID, hitTest);
+				_controller.selectSegment(sectionID, hitTest, event.point);
 				break;
 			// middleclick
 			case 1:
@@ -23,9 +23,29 @@ function ViewerInput(controller) {
 			case 2:
 				if (!_controller.isSegmentSelected(sectionID)) {
 					_controller.unSelect();
-					_controller.selectSegment(sectionID, hitTest);
+					_controller.selectSegment(sectionID, hitTest, event.point);
 					_controller.openContextMenu(true);
 				}
+				_controller.endCreateReadingOrder();
+				break;
+		}
+	}
+
+	this.dragSection = function (sectionID, event) {
+		switch (event.event.button) {
+			// leftclick
+			case 0:
+				if (event.modifiers.shift) {
+					_controller.selectMultiple();
+				} else {
+					_controller.dragSegment(sectionID, event.delta);
+				}
+				break;
+			// middleclick
+			case 1:
+				break;
+			// rightclick
+			case 2:
 				_controller.endCreateReadingOrder();
 				break;
 		}
@@ -36,7 +56,7 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if (event.modifiers.shift) {
-					_controller.startRectangleSelect();
+					_controller.selectMultiple();
 				} else {
 					_controller.moveImage(event.delta);
 				}
@@ -55,9 +75,9 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (event.modifiers.shift) {
-					_controller.startRectangleSelect();
-				}
+				/*if (event.modifiers.shift) {
+					_controller.selectMultiple();
+				}*/
 				break;
 			// middleclick
 			case 1:

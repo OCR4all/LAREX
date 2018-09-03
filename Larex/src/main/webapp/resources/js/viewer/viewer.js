@@ -3,6 +3,10 @@ class Viewer {
 		this._segmenttypes = segmenttypes;
 		this.thisInput = viewerInput;
 		this._imageID;
+		this._imageWidth;
+		this._imageHeight;
+		this._overlayID = "overlay";
+		this._overlay;
 		this._paths = {};
 		this._imageCanvas = new paper.Group();
 		this._background;
@@ -11,6 +15,7 @@ class Viewer {
 		document.addEventListener('visibilitychange', () => {
 			if (!document.hidden) this.forceUpdate();
 		});
+		paper.settings.handleSize = 5;
 	}
 
 	setImage(id) {
@@ -21,8 +26,8 @@ class Viewer {
 		this._imageCanvas.bringToFront();
 	}
 
-	addSegment(segment, isFixed) {
-		this.drawPath(segment, false, isFixed);
+	addSegment(segment, isFixed=false, isStatic=false) {
+		this.drawPath(segment, false, isFixed, isStatic);
 	}
 
 	fixSegment(segmentID, doFix = true) {
@@ -142,12 +147,15 @@ class Viewer {
 		}
 	}
 
-	getPointsBetweenPoints(pointA, pointB, segmentID) {
+	selectPointsInbetween(pointA, pointB, segmentID) {
 		const points = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
+		this._paths[segmentID].selected = true;
+		
 		this._paths[segmentID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
+				point.point.selected = true;
 				points.push(this._convertPointFromCanvas(point.point.x, point.point.y));
 			}
 		});
@@ -240,7 +248,7 @@ class Viewer {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	drawPath(segment, doFill, isFixed) {
+	drawPath(segment, doFill, isFixed, isStatic = false) {
 		//Construct path from segment
 		const path = new paper.Path();
 		const color = this._colors.getColor(segment.type);
@@ -276,10 +284,13 @@ class Viewer {
 			}
 		}
 
-		//Add listeners
-		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
-		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
-		path.onClick = (event) => { this.thisInput.selectSection(segment.id, event, path.hitTest(event.point, { segments: true, tolerance: 10 })); };
+		if(!isStatic){
+			//Add listeners
+			path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
+			path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
+			path.onClick = (event) => { this.thisInput.selectSection(segment.id, event, path.hitTest(event.point, { segments: true, tolerance: 10 })); };
+			path.onMouseDrag = (event) => this.thisInput.dragSection(segment.id, event);
+		}
 
 		//Add to canvas
 		this._imageCanvas.addChild(path);
@@ -324,9 +335,19 @@ class Viewer {
 		return this._imageCanvas;
 	}
 
+	getImageWidth(){
+		return this._imageWidth
+	}
+
+	getImageHeight(){
+		return this._imageHeight;
+	}
+
 	// private helper functions
 	_drawImage() {
 		const image = new paper.Raster(this._imageID);
+		this._imageWidth = image.width;
+		this._imageHeight = image.height;
 		image.style = {
 			shadowColor: new paper.Color(0, 0, 0),
 			// Set the shadow blur radius to 12:
@@ -340,8 +361,52 @@ class Viewer {
 		image.onClick = (event) => this.thisInput.clickImage(event, image.hitTest(event.point, { tolerance: 10 }));
 
 		this._imageCanvas.addChild(image);
+
 		this._updateBackground();
 		return image;
+	}
+
+	showContours(contours){
+		let overlayHTML = document.getElementById(this._overlayID);
+		if(!overlayHTML){
+			overlayHTML = document.createElement('canvas');
+			document.body.appendChild(overlayHTML);
+			overlayHTML.id = "overlay";
+		}
+		overlayHTML.width = this.getImageWidth();
+		overlayHTML.height = this.getImageHeight();
+		let ctx = overlayHTML.getContext("2d");
+
+		contours.forEach((c) => {
+			ctx.fillStyle = '#FF0000CC';
+			ctx.beginPath();
+			if(c.length > 0){
+				ctx.moveTo(c[0].x, c[0].y);
+				c.forEach((p) => {
+					ctx.lineTo(p.x,p.y);
+				});
+				ctx.closePath();
+				ctx.fill();
+			}
+		});
+
+		//Draw Overlay
+		if(document.getElementById(this._overlayID)){
+			if(this._overlay) this._overlay.remove();
+
+			this._overlay = new paper.Raster(this._overlayID);
+			this._overlay.visible = true;
+			const imagePosition = this._imageCanvas.bounds;
+			this._overlay.position = new paper.Point(imagePosition.x,imagePosition.y);
+			this._overlay.position = this._overlay.position.add([imagePosition.width * 0.5, imagePosition.height * 0.5]);
+			this._overlay.scale(this._currentZoom);
+
+			this._imageCanvas.addChild(this._overlay);
+		}
+	}
+
+	hideContours(){
+		if(this._overlay) this._overlay.visible = false;
 	}
 
 	_updateBackground() {

@@ -4,13 +4,16 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -21,16 +24,20 @@ import com.web.model.Book;
 import com.web.model.BookSettings;
 import com.web.model.Page;
 import com.web.model.PageSegmentation;
+import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
 
+import larex.contourselect.Contourcombiner;
+import larex.contourselect.Contourextractor;
 import larex.export.PageXMLReader;
 import larex.export.PageXMLWriter;
 import larex.export.SettingsReader;
 import larex.export.SettingsWriter;
 import larex.regionOperations.Merge;
 import larex.regions.RegionManager;
+import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
@@ -98,6 +105,40 @@ public class LarexFacade {
 		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
 	}
 
+	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager) {
+		Book book = getBook(bookID, fileManager);
+		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
+		page.initPage();
+
+		Collection<MatOfPoint> contours = Contourextractor.extract(page.getOriginal());
+		page.clean();
+		System.gc();
+
+		Collection<List<Point>> contourSegments = new ArrayList<>();
+		for (MatOfPoint contour : contours)
+			contourSegments.add(LarexWebTranslator.translatePointsToContour(contour));
+		
+		return contourSegments;
+	}
+	
+	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID, FileManager fileManager) {
+		Book book = getBook(bookID, fileManager);
+		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
+		page.initPage();
+
+		Collection<MatOfPoint> matContours = new ArrayList<>();
+		for(List<Point> contour : contours) {
+			matContours.add(WebLarexTranslator.translatePointsToContour(contour));
+		}
+		
+		MatOfPoint combined = Contourcombiner.combine(matContours, page.getBinary());
+		page.clean();
+		System.gc();
+
+		
+		return LarexWebTranslator.translatePointsToSegment(combined, UUID.randomUUID().toString(), RegionType.paragraph);
+	}
+	
 	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageSegmentation segmentation = null;
 		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page, fileManager);
@@ -190,8 +231,8 @@ public class LarexFacade {
 			Page page = getBook(bookID, fileManager).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
-			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(),
-					page.getWidth(), page.getHeight(), result.getRegions(), page.getId());
+			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(
+					page.getFileName(), page.getWidth(), page.getHeight(), result.getRegions(), page.getId());
 
 			List<String> readingOrder = new ArrayList<String>();
 			for (ResultRegion region : result.getReadingOrder()) {

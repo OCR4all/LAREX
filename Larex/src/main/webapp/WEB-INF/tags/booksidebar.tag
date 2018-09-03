@@ -8,3 +8,9 @@
 		</c:forEach>
 	</div>
 </div>
+<div id="pageLegend" class="col s12">
+	<input id="pageLegendExported" type="checkbox" class="filled-in" checked="checked" />
+	<label for="pageLegendExported">Exported</label></br>
+	<input id="pageLegendSaved" type="checkbox" class="filled-in " checked="checked" />
+	<label for="pageLegendSaved">Saved </label>
+</div>

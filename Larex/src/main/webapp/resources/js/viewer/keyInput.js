@@ -45,6 +45,8 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 16: // Shift
+					_controller.selectMultiple();
+					validKey = true;
 					break;
 				case 89: // Y
 					if (event.ctrlKey) {
@@ -92,6 +94,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					_controller.createCut();
 					validKey = true;
 					break;
+				case 54: // 6
+					_controller.selectContours();
+					validKey = true;
+					break;
 				case 67: // C
 					_controller.mergeSelectedSegments();
 					validKey = true;
@@ -110,15 +116,9 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					_controller.moveSelected();
 					validKey = true;
 					break;
-				case 80: // P
-					_controller.toggleEditPoints();
-					validKey = true;
-					break;
 				case 83: // S
 					if (event.ctrlKey) {
 						_controller.exportPageXML();
-					} else {
-						_controller.scaleSelected();
 					}
 					validKey = true;
 					break;

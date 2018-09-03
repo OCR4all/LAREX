@@ -7,44 +7,42 @@ class Selector {
 		this.isSelecting = false;
 		this._selectedSegments = [];
 		this._selectedPoints = [];
-		this._selectType;
+		this._selectedContours = [];
+		this._typeLastSelected;
 	}
 
 	select(segmentID, points = []) {
-		const selectType = this._controller.getIDType(segmentID);
-		if (!this.selectpoints) {
-			// Select segment of result or region
-			if (this._selectType !== selectType || !this.selectmultiple) {
-				this.unSelect();
-			}
+		const typeSelected = this._controller.getIDType(segmentID);
+		if(this._typeLastSelected !== typeSelected || !this.selectmultiple)
+			this.unSelect();
+		
+		this._typeLastSelected = typeSelected;
+		
+		if(!(this._selectedSegments.length === 1 && this._selectedSegments[0] === segmentID)){
+			this._selectedSegments.forEach(s => this._editor.setEditSegment(s,false));
 			this._processSelectSegment(segmentID);
-			this._selectType = selectType;
-		} else if (selectType === 'segment') {
-			// Select points
-			if ($.inArray(segmentID, this._selectedSegments) === -1 || this._selectedSegments.length !== 1) {
-				this.unSelect();
-				this._processSelectSegment(segmentID);
-			}
-			if (this.selectmultiple) {
-				points.forEach((point) => {
-					this._processSelectPoint(point, segmentID);
-				});
-			} else if (points.length > 0) {
-				this.unSelect();
-				this._processSelectSegment(segmentID);
-				// Select last segment (multiple are not allowed)
-				this._processSelectPoint(points[points.length - 1], segmentID);
-			}
-			this._selectType = selectType;
 		}
+		
+		if(this._selectedSegments.length === 1){
+			if(typeSelected === 'segment'){
+				this._editor.setEditSegment(this._selectedSegments[0]);
+				points.forEach(p => this._processSelectPoint(p,segmentID));
+			} else if(typeSelected === 'region'){
+				this._controller.scaleSelected();
+			}
+		}
+
 	}
 
 	unSelect() {
-		for (let i = 0, selectedsize = this._selectedSegments.length; i < selectedsize; i++) {
-			this._editor.selectSegment(this._selectedSegments[i], false);
-		}
+		this._selectedSegments.forEach(segmentID => {
+			this._editor.selectSegment(segmentID, false);
+			this._editor.setEditSegment(segmentID,false)
+		});
+
 		this._selectedSegments = [];
 		this._selectedPoints = [];
+		this._selectedContours = [];
 	}
 
 	hasSegmentsSelected() {
@@ -61,10 +59,10 @@ class Selector {
 			return false;
 		}
 	}
-	startRectangleSelect() {
+	selectMultiple() {
 		if (!this._editor.isEditing) {
 			if (!this.isSelecting) {
-				this._editor.startRectangleSelect();
+				this._editor.selectMultiple();
 			}
 
 			this.isSelecting = true;
@@ -72,19 +70,9 @@ class Selector {
 	}
 
 	rectangleSelect(pointA, pointB) {
-		if (this.selectpoints) {
-			if (!(this._selectType === 'segment') || this._selectedSegments.length !== 1) {
+		if(this._selectedSegments.length !== 1 || this._typeLastSelected !== 'segment'){
+			if ((!this.selectmultiple) || this._typeLastSelected !== 'segment') 
 				this.unSelect();
-			} else {
-				const segmentID = this._selectedSegments[0];
-				const inbetween = this._editor.getPointsBetweenPoints(pointA, pointB, segmentID);
-
-				inbetween.forEach((point) => this._processSelectPoint(point, segmentID, false));
-			}
-		} else {
-			if ((!this.selectmultiple) || !(this._selectType === 'segment')) {
-				this.unSelect();
-			}
 
 			const inbetween = this._editor.getSegmentIDsBetweenPoints(pointA, pointB);
 
@@ -95,8 +83,18 @@ class Selector {
 					this._editor.selectSegment(id, true);
 				}
 			});
+		} else {
+			const segmentID = this._selectedSegments[0];
+			const inbetween = this._editor.selectPointsInbetween(pointA, pointB, segmentID);
+
+			inbetween.forEach((point) => {
+				if (this._selectedPoints.indexOf(point) < 0) {
+					// Has not been selected before => select
+					this._selectedPoints.push(point);
+				}
+			});
 		}
-		this._selectType = 'segment';
+
 		this.isSelecting = false;
 	}
 
@@ -108,8 +106,12 @@ class Selector {
 		return this._selectedPoints;
 	}
 
-	getSelectedType() {
-		return this._selectType;
+	getSelectedContours() {
+		return this._selectedContours;
+	}
+
+	getSelectedPolygonType() {
+		return this._typeLastSelected;
 	}
 
 	//***** private methods ****//
@@ -120,13 +122,13 @@ class Selector {
 			// Has not been selected before => select
 			if (point) {
 				this._selectedPoints.push(point);
-				this._editor.selectSegment(segmentID, true, this.selectpoints, point);
+				this._editor.selectSegment(segmentID, true, false, point);
 			}
 		} else {
 			// Has been selected before => unselect
 			if (point) {
 				this._selectedPoints.splice(selectIndex, 1);
-				this._editor.selectSegment(segmentID, false, this.selectpoints, point);
+				this._editor.selectSegment(segmentID, false, false, point);
 			}
 		}
 	}
@@ -136,12 +138,12 @@ class Selector {
 		const selectIndex = this._selectedSegments.indexOf(segmentID);
 		if (selectIndex < 0) {
 			// Has not been selected before => select
-			this._editor.selectSegment(segmentID, true, this.selectpoints);
 			this._selectedSegments.push(segmentID);
+			this._editor.selectSegment(segmentID, true, false);
 		} else {
 			// Has been selected before => unselect
-			this._editor.selectSegment(segmentID, false, this.selectpoints);
 			this._selectedSegments.splice(selectIndex, 1);
+			this._editor.selectSegment(segmentID, false, false);
 		}
 	}
 }

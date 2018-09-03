@@ -2,8 +2,10 @@ package com.web.controller;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -19,7 +21,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.web.communication.FullBookResponse;
+import com.web.communication.ContourCombineRequest;
+import com.web.communication.BasicResponse;
 import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
@@ -27,6 +30,7 @@ import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
+import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
@@ -103,16 +107,14 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/book", method = RequestMethod.POST)
-	public @ResponseBody FullBookResponse getBook(@RequestParam("bookid") int bookID,
+	public @ResponseBody BasicResponse getBook(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 		init();
 		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
 		Book book = database.getBook(bookID);
 		BookSettings settings = LarexFacade.getDefaultSettings(book);
-		Map<Integer, PageSegmentation> segmentations = new HashMap<Integer, PageSegmentation>();
-		// segmentations.put(pageID, segmenter.segmentPage(settings, pageID, false));
 
-		FullBookResponse bookview = new FullBookResponse(book, segmentations, settings);
+		BasicResponse bookview = new BasicResponse(book, settings);
 		return bookview;
 	}
 
@@ -129,14 +131,21 @@ public class ViewerController {
 				fileManager);
 	}
 
+	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	public @ResponseBody Polygon combinecontours(@RequestBody ContourCombineRequest combineRequest) {
+
+		return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),combineRequest.getBookid(), fileManager);
+	}
+	
+	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST)
+	public @ResponseBody Collection<List<Point>> extractcontours(@RequestParam("bookid") int bookID,
+			@RequestParam("pageid") int pageID) {
+
+		return LarexFacade.extractContours(pageID, bookID, fileManager);
+	}
+
 	private Map<RegionType, Integer> getSegmentTypes() {
-		Comparator<RegionType> compareAlphabetically = new Comparator<RegionType>() {
-			@Override
-			public int compare(RegionType o1, RegionType o2) {
-				return o1.toString().toLowerCase().compareTo(o2.toString().toLowerCase());
-			}
-		};
-		Map<RegionType, Integer> segmentTypes = new TreeMap<RegionType, Integer>(compareAlphabetically);
+		Map<RegionType, Integer> segmentTypes = new HashMap<RegionType, Integer>();
 
 		int i = 0;
 		for (RegionType type : RegionType.values()) {

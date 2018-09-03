@@ -4,7 +4,8 @@ class Editor extends Viewer {
 		super(segmenttypes, viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
-		this._editMode = -1; // -1 default, 0 Polygon, 1 Rectangle, 2 Border, 3 Line, 4 Move, 5 Scale
+		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5,contours:6};
+		this._editMode = this._editModes.default; 
 		this._tempPathType;
 		this._tempPath;
 		this._tempPoint;
@@ -15,22 +16,146 @@ class Editor extends Viewer {
 		this._readingOrder;
 		this._guiOverlay = new paper.Group();
 		this.mouseregions = { TOP: 0, BOTTOM: 1, LEFT: 2, RIGHT: 3, MIDDLE: 4, OUTSIDE: 5 };
+		this.DoubleClickListener = new DoubleClickListener();
 	}
-	startRectangleSelect() {
+
+	updateSegment(segmentID){
+		super.updateSegment(segmentID);
+		this.endEditing();
+	}
+
+	setEditSegment(id,displayPoints=true){
+		this._paths[id].selected = displayPoints;
+	}
+
+	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none') {
 		if (this.isEditing === false) {
-			this._editMode = -1;
-			this.isEditing = true;
+
+			startFunction();
 
 			const tool = new paper.Tool();
 			tool.activate();
-			let isActive = false;
-			tool.onMouseMove = (event) => {
-				if (!isActive) {
-					isActive = true;
-					this.createResponsiveRectangle("endRectangleSelect", event.point, true);
+			tool.onMouseDown = (event) => {
+				if (this.isEditing === true) { 
+					const startPoint = event.point; 
+
+					const imageCanvas = this.getImageCanvas();
+
+					const tool = new paper.Tool();
+					tool.activate();
+
+					const canvasPoint = this.getPointInBounds(startPoint, this.getBoundaries());
+					// Start path
+					this._tempPoint = new paper.Path(canvasPoint);
+					imageCanvas.addChild(this._tempPoint);
+					this._tempPath = new paper.Path();
+					this._tempPath.add(this._tempPoint); //Add Point for mouse movement
+					this._tempPath.fillColor = '#bdbdbd';
+					this._tempPath.strokeColor = '#424242';
+					this._tempPath.opacity = 0.3;
+					this._tempPath.closed = true;
+					switch(borderStyle){
+						case 'selected':
+							this._tempPath.selected = true;
+							break;
+						case 'dashed':
+							this._tempPath.dashArray = [5, 3];
+							break;
+						default:
+							break;
+					}
+
+					tool.onMouseMove = (event) => {
+						if (this.isEditing === true) {
+							if (this._tempPath) {
+								const point = this.getPointInBounds(event.point, this.getBoundaries());
+								let rectangle = new paper.Path.Rectangle(this._tempPoint.firstSegment.point, point);
+
+								this._tempPath.segments = rectangle.segments;
+								
+								updateFunction(rectangle);
+							}
+						} else {
+							this.endRectangle(endFunction,this._tempPath);
+							tool.remove();
+						}
+					}
+					imageCanvas.addChild(this._tempPath);
+
+					tool.onMouseUp = (event) => {
+						this.endRectangle(endFunction,this._tempPath);
+						tool.remove();
+					}
+				} else {
+					tool.remove();
 				}
-				tool.remove();
 			}
+		}
+	}
+
+	endRectangle(endFunction = (rectangle) => {}, rectangle) {
+		if (this.isEditing) {
+			this.isEditing = false;
+			if (this._tempPath != null) {
+				endFunction(rectangle);
+				this._tempPath.remove();
+				this._tempPath = null;
+			}
+			if (this._tempPoint != null) {
+				this._tempPoint.clear();
+				this._tempPoint = null;
+			}
+			document.body.style.cursor = "auto";
+		}
+	}
+
+	createRectangle(type) {
+		if (this.isEditing === false) {
+			this.startRectangle(
+				()=>{
+					this._editMode = 1;
+					this.isEditing = true;
+					this._tempPathType = type;
+					document.body.style.cursor = "copy";
+				},
+				(rectangle)=>{
+					this._tempPath.closed = true;
+					this._tempPath.selected = false;
+					switch (this._tempPathType) {
+						case 'segment':
+							this._controller.callbackNewSegment(this._convertPointsPathToSegment(rectangle, false));
+							break;
+						case 'region':
+							this._controller.callbackNewRegion(this._convertPointsPathToSegment(rectangle, true));
+							break;
+						case 'ignore':
+							this._controller.callbackNewRegion(this._convertPointsPathToSegment(rectangle, true), 'ignore');
+							break;
+						case 'roi':
+						default:
+							this._controller.callbackNewRoI(this._convertPointsPathToSegment(rectangle, true));
+							break;
+					}
+				},
+				(rectangle) => {},
+				type === 'segment'? 'selected' : 'default');
+		}
+	}
+
+	selectMultiple() {
+		if (this.isEditing === false) {
+			this.startRectangle(
+				()=>{
+					this._editMode = -1;
+					this.isEditing = true;
+				},
+				(rectangle)=>{
+					const selectBounds = this._tempPath.bounds;
+					this._controller.rectangleSelect(selectBounds.topLeft, selectBounds.bottomRight);
+				},
+				(rectangle) => {},
+				'dashed'
+			);
 		}
 	}
 
@@ -64,6 +189,7 @@ class Editor extends Viewer {
 	}
 
 	removeRegion(regionID) {
+		this.endEditing();
 		this.removeSegment(regionID);
 	}
 
@@ -83,7 +209,14 @@ class Editor extends Viewer {
 				}
 			}
 
+			this.DoubleClickListener.setAction((pos)=> {
+				this.endCreatePolygon();
+				this.DoubleClickListener.setActive(false);
+			});
+			this.DoubleClickListener.setActive(true);
+
 			tool.onMouseDown = (event) => {
+				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
@@ -101,10 +234,7 @@ class Editor extends Viewer {
 						this._tempEndCircle.strokeColor = 'black';
 						this._tempEndCircle.fillColor = 'grey';
 						this._tempEndCircle.opacity = 0.5;
-						this._tempEndCircle.onMouseDown = function (event) {
-							this.endCreatePolygon();
-							this.remove();
-						}
+						this._tempEndCircle.onMouseDown = (event) => this.endCreatePolygon();
 
 						let imageCanvas = this.getImageCanvas();
 						imageCanvas.addChild(this._tempPath);
@@ -137,57 +267,6 @@ class Editor extends Viewer {
 		}
 	}
 
-	startCreateRectangle(type) {
-		if (this.isEditing === false) {
-			this._editMode = 1;
-			this.isEditing = true;
-			this._tempPathType = type;
-			document.body.style.cursor = "copy";
-
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseDown = (event) => {
-				if (this.isEditing === true) {
-					this.createResponsiveRectangle("endCreateRectangle", event.point);
-				} else {
-					tool.remove();
-				}
-			}
-		}
-	}
-
-	endCreateRectangle() {
-		if (this.isEditing) {
-			this.isEditing = false;
-			if (this._tempPath != null) {
-				this._tempPath.closed = true;
-				this._tempPath.selected = false;
-				switch (this._tempPathType) {
-					case 'segment':
-						this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath, false));
-						break;
-					case 'region':
-						this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath, true));
-						break;
-					case 'ignore':
-						this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath, true), 'ignore');
-						break;
-					case 'roi':
-					default:
-						this._controller.callbackNewRoI(this._convertPointsPathToSegment(this._tempPath, true));
-						break;
-				}
-				this._tempPath.remove();
-				this._tempPath = null;
-			}
-			if (this._tempPoint != null) {
-				this._tempPoint.clear();
-				this._tempPoint = null;
-			}
-			document.body.style.cursor = "auto";
-		}
-	}
-
 	startCreateLine() {
 		if (this.isEditing === false) {
 			this._editMode = 3;
@@ -203,7 +282,14 @@ class Editor extends Viewer {
 				}
 			}
 
+			this.DoubleClickListener.setAction((pos)=> {
+				this.endCreateLine();
+				this.DoubleClickListener.setActive(false);
+			});
+			this.DoubleClickListener.setActive(true);
+
 			tool.onMouseDown = (event) => {
+				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
@@ -298,9 +384,9 @@ class Editor extends Viewer {
 								case this.mouseregions.BOTTOM:
 									document.body.style.cursor = "row-resize";
 
-									bottomleft = new paper.Point(boundaries.left, boundaries.bottom);
+									bottommouse = new paper.Point(boundaries.left, boundaries.bottom);
 									mouseright = new paper.Point(boundaries.right, event.point.y);
-									rectangle = new paper.Path.Rectangle(bottomleft, mouseright);
+									rectangle = new paper.Path.Rectangle(bottommouse, mouseright);
 
 									this._tempPath.segments = rectangle.segments;
 									break;
@@ -341,6 +427,56 @@ class Editor extends Viewer {
 		}
 	}
 
+	selectContours(contours){
+		let contourBounds = [];
+		
+		contours.forEach(c => {
+			let contourBound = {contour:c};
+			let left = Number.POSITIVE_INFINITY;
+			let right = Number.NEGATIVE_INFINITY;
+			let top = Number.POSITIVE_INFINITY;
+			let bottom = Number.NEGATIVE_INFINITY;
+
+			c.forEach(p => {
+				if(p.x < left) left = p.x;
+				if(p.x > right) right = p.x;
+				if(p.y < top) top = p.y;
+				if(p.y > bottom) bottom = p.y;
+			});
+
+			contourBound.bounds = new paper.Rectangle(
+					new paper.Point(
+						this._convertPointToCanvas(left,top)),
+					new paper.Point(
+						this._convertPointToCanvas(right,bottom)));
+			contourBound.bounds.visible = false;
+			contourBounds.push(contourBound);
+		});
+
+		if (this.isEditing === false) {
+			this.startRectangle(
+				()=>{
+					this._editMode = 6;
+					this.isEditing = true;
+				},
+				(rectangle)=>{
+					let selectedContours = contourBounds.filter(c => {return rectangle.contains(c.bounds)}).map(c => {return c.contour});
+					this._controller.combineContours(selectedContours);
+				},
+				(rectangle) => {
+					let selectedContours = contourBounds.filter(c => {return rectangle.contains(c.bounds)}).map(c => {return c.contour});
+					this.showContours(selectedContours);
+				},
+				'dashed'
+			);
+		}
+	}
+
+	getContours(contours,rectangle){
+		this._convertPointFromCanvas(selectBounds.topLeft);
+		this._convertPointFromCanvas(selectBounds.bottomRight);
+	}
+
 	startMovePath(pathID, type, points) {
 		if (this.isEditing === false) {
 			this._editMode = 4;
@@ -373,14 +509,9 @@ class Editor extends Viewer {
 						oldMouse = event.point;
 					}
 					this._tempPoint = oldPosition.add(event.point.subtract(oldMouse));
-					if (!this._grid.isActive) {
-						this._grid.vertical.visible = false;
-						this._grid.horizontal.visible = false;
-					} else {
+					if (this._grid.isActive) 
 						this._tempPoint = this.getPointFixedToGrid(this._tempPoint);
-						this._grid.vertical.visible = true;
-						this._grid.horizontal.visible = true;
-					}
+
 					if (!points) {
 						this._tempPath.position = this._tempPoint;
 
@@ -418,13 +549,11 @@ class Editor extends Viewer {
 						});
 						this._tempPath.addSegments(segments);
 					}
-
-
 				} else {
 					tool.remove();
 				}
 			}
-			tool.onMouseDown = (event) => {
+			tool.onMouseUp = (event) => {
 				if (this.isEditing === true) {
 					this.endMovePath();
 				}
@@ -447,9 +576,6 @@ class Editor extends Viewer {
 				this._tempPath.remove();
 				this._tempPath = null;
 			}
-			//hide grid
-			this._grid.vertical.visible = false;
-			this._grid.horizontal.visible = false;
 
 			document.body.style.cursor = "auto";
 		}
@@ -464,6 +590,7 @@ class Editor extends Viewer {
 			// Create Copy of movable
 			const boundaries = this.getPath(pathID).bounds;
 			this._tempPath = new paper.Path.Rectangle(boundaries);
+			this.getImageCanvas().addChild(this._tempPath);
 			this._tempID = pathID;
 			this._tempPath.fillColor = 'grey';
 			this._tempPath.opacity = 0.3;
@@ -504,58 +631,6 @@ class Editor extends Viewer {
 				}
 				tool.remove();
 			}
-		}
-	}
-
-	createResponsiveRectangle(endFunction, startPoint, boundless) {
-		const imageCanvas = this.getImageCanvas();
-
-		const tool = new paper.Tool();
-		tool.activate();
-
-		const canvasPoint = boundless ? startPoint : this.getPointInBounds(startPoint, this.getBoundaries());
-		// Start path
-		this._tempPoint = new paper.Path(canvasPoint);
-		imageCanvas.addChild(this._tempPoint);
-		this._tempPath = new paper.Path();
-		this._tempPath.add(this._tempPoint); //Add Point for mouse movement
-		this._tempPath.fillColor = 'grey';
-		this._tempPath.opacity = 0.3;
-		this._tempPath.closed = true;
-		this._tempPath.selected = true;
-
-		tool.onMouseMove = (event) => {
-			if (this.isEditing === true) {
-				if (this._tempPath) {
-					const point = boundless ? event.point : this.getPointInBounds(event.point, this.getBoundaries());
-					let rectangle = new paper.Path.Rectangle(this._tempPoint.firstSegment.point, point);
-
-					this._tempPath.segments = rectangle.segments;
-				}
-			} else {
-				switch (endFunction) {
-					case "endRectangleSelect":
-						this.endRectangleSelect();
-						break;
-					case "endCreateRectangle":
-						this.endCreateRectangle();
-						break;
-				}
-				tool.remove();
-			}
-		}
-		imageCanvas.addChild(this._tempPath);
-
-		tool.onMouseUp = (event) => {
-			switch (endFunction) {
-				case "endRectangleSelect":
-					this.endRectangleSelect();
-					break;
-				case "endCreateRectangle":
-					this.endCreateRectangle();
-					break;
-			}
-			tool.remove();
 		}
 	}
 
@@ -619,13 +694,14 @@ class Editor extends Viewer {
 				const path = new paper.Path(this.getPath(this._tempID).segments);
 				path.bounds = this._tempPath.bounds;
 
+				this._tempPath.remove();
+
 				if (this._tempPathType === 'segment') {
 					this._controller.transformSegment(this._tempID, this._convertPointsPathToSegment(path, false));
 				} else {
 					this._controller.transformRegion(this._tempID, this._convertPointsPathToSegment(path, true));
 				}
 
-				this._tempPath.remove();
 				this._tempPath = null;
 			}
 
@@ -688,49 +764,27 @@ class Editor extends Viewer {
 		}
 	}
 
-	endEditing(doAbbord) {
-		if (!doAbbord) {
-			if (this.isEditing) {
-				switch (this._editMode) {
-					case 0:
-						this.endCreatePolygon();
-						break;
-					case 1:
-						this.endCreateRectangle();
-						break;
-					case 2:
-						this.endCreateBorder();
-						break;
-					case 3:
-						this.endCreateLine();
-						break;
-					case 4:
-						this.endMovePath();
-						break;
-					case 5:
-						this.endMovePath();
-						break;
-					default:
-						break;
-				}
-			}
-		} else {
-			this.isEditing = false;
+	startEditing() {
+		this.isEditing = true;
+	}
 
-			this._tempID = null;
-			if (this._tempPath != null) {
-				this._tempPath.remove();
-				this._tempPath = null;
-			}
-			this._tempPoint = null;
+	endEditing() {
+		this.isEditing = false;
 
-			if (this._tempEndCircle) {
-				this._tempEndCircle.remove();
-				this._tempEndCircle = null;
-			}
-
-			document.body.style.cursor = "auto";
+		this._tempID = null;
+		if (this._tempPath != null) {
+			this._tempPath.remove();
+			this._tempPath = null;
 		}
+		this._tempPoint = null;
+
+		if (this._tempEndCircle) {
+			this._tempEndCircle.remove();
+			this._tempEndCircle = null;
+		}
+
+		document.body.style.cursor = "auto";
+		this.hideContours();
 	}
 
 	getPointInBounds(point, bounds) {
@@ -753,19 +807,12 @@ class Editor extends Viewer {
 		}
 	}
 
-	addGrid() {
-		this._grid.isActive = true;
-	}
-
 	setGrid(point) {
 		if (this._grid.vertical == null || this._grid.horizontal == null) {
 			this._grid.vertical = new paper.Path.Line();
-			this._grid.vertical.strokeColor = 'black';
-			this._grid.vertical.dashArray = [3, 3];
-
 			this._grid.horizontal = new paper.Path.Line();
-			this._grid.horizontal.strokeColor = 'black';
-			this._grid.horizontal.dashArray = [3, 3];
+			this._grid.vertical.visible = false;
+			this._grid.horizontal.visible = false;
 		}
 		const bounds = paper.view.bounds;
 		this._grid.vertical.removeSegments();
@@ -775,22 +822,13 @@ class Editor extends Viewer {
 		this._grid.horizontal.removeSegments();
 		this._grid.horizontal.add(new paper.Point(bounds.left, point.y));
 		this._grid.horizontal.add(new paper.Point(bounds.right, point.y));
-
-		//visibility
-		if (!this._grid.isActive) {
-			this._grid.vertical.visible = false;
-			this._grid.horizontal.visible = false;
-		} else {
-			this._grid.vertical.visible = true;
-			this._grid.horizontal.visible = true;
-		}
 	}
 
-	removeGrid(point) {
-		if (this._grid.vertical != null && this._grid.horizontal != null) {
-			this._grid.vertical.visible = false;
-			this._grid.horizontal.visible = false;
-		}
+	addGrid() {
+		this._grid.isActive = true;
+	}
+
+	removeGrid() {
 		this._grid.isActive = false;
 	}
 
@@ -815,8 +853,8 @@ class Editor extends Viewer {
 			this._readingOrder.strokeWidth = 2;
 		}
 		this.getImageCanvas().addChild(this._readingOrder);
-		this._readingOrder.visible = true;
-		this._guiOverlay.visible = true;
+		this._readingOrder.visible = false;
+		this._guiOverlay.visible = false;
 		this._readingOrder.removeSegments();
 		this._guiOverlay.removeChildren();
 
@@ -930,5 +968,39 @@ class Editor extends Viewer {
 	zoomFit() {
 		super.zoomFit();
 		this._fixGuiTextSize();
+	}
+}
+
+/* Adds double click functionality for paperjs canvas */
+class DoubleClickListener{
+	constructor(action = (pos) => {}, maxTime = 500, maxDistance = 20) {
+		this._lastClickedTime = undefined;
+		this._lastClickedPosition = undefined;
+		this._maxTime = maxTime;
+		this._maxDistance = maxDistance;
+		this._action = action;
+		this._isActive = false;
+		this._date = new Date();
+	}
+
+	update(curMousePos,curTime = this._date.getTime()){
+		if(this._isActive && this._lastClickedTime && this._lastClickedPosition &&
+			this._lastClickedPosition.getDistance(curMousePos) <= this._maxDistance &&
+			curTime - this._lastClickedTime <= this._maxTime)
+		{
+			this._action(curMousePos);
+		}
+
+		this._lastClickedPosition = curMousePos;
+		this._lastClickedTime = curTime;
+		
+	}
+
+	setActive(isActive = true){
+		this._isActive = isActive;
+	}
+
+	setAction(action = (pos) => {}){
+		this._action = action;
 	}
 }

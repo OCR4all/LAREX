@@ -18,7 +18,6 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
-	$("#viewer").dblclick(() => _controller.endEditing());
 	$('.doSegment').click(() => _controller.doSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
 	$('.downloadPageXML').click(() => _controller.downloadPageXML());
@@ -79,14 +78,11 @@ function GuiInput(navigationController, controller, gui) {
 	$('.createCut').click(() => _controller.createCut());
 
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
-	$('.scaleSelected').click(() => _controller.scaleSelected());
-	$('.moveSelected').click(() => _controller.moveSelected());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
+	$('.editContours').click(() => _controller.selectContours());
 
 	$('.editMode').click(() => _controller.editLastSelected());
-
-	$('.editPoints').click(() => _controller.toggleEditPoints());
 
 	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
 	$('.zoomout').click(() => _navigationController.zoomOut(0.1));
@@ -206,6 +202,9 @@ function GuiInput(navigationController, controller, gui) {
 
 	$('.saveReadingOrder').click(() => _controller.endCreateReadingOrder());
 
+	$('#pageLegendSaved').change(function(event) { _controller.hideSavedPages(!event.target.checked); });
+	$('#pageLegendExported').change(function(event) { _controller.hideExportedPages(!event.target.checked); });
+	
 	this.addDynamicListeners = () => {
 		let _hasBeenDropped = false;
 

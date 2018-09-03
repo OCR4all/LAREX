@@ -13,37 +13,28 @@ import com.web.model.PageSegmentation;
 import larex.regions.type.RegionType;
 
 /**
- * A communication object for the controller to parse a complete book response.
- * Contains a book, settings for segmentation and a (potentially uncompleted)
- * segmentation.
+ * A communication object for the controller to parse a basic response to the viewer.
+ * Contains a book, settings for segmentation and segmentation types.
  * 
  */
-public class FullBookResponse {
+public class BasicResponse {
 
 	@JsonProperty("book")
 	private Book book;
-	@JsonProperty("segmentation")
-	private Map<Integer, PageSegmentation> segmentation;
 	@JsonProperty("settings")
 	private BookSettings settings;
 	@JsonProperty("segmenttypes")
 	protected Map<RegionType, Integer> segmentTypes;
 
 	@JsonCreator
-	public FullBookResponse(@JsonProperty("book") Book book,
-			@JsonProperty("segmentation") Map<Integer, PageSegmentation> segmentation,
+	public BasicResponse(@JsonProperty("book") Book book,
 			@JsonProperty("settings") BookSettings settings) {
 		this.book = book;
-		this.segmentation = segmentation;
 		this.settings = settings;
 	}
 
 	public Book getBook() {
 		return book;
-	}
-
-	public Map<Integer, PageSegmentation> getSegmentation() {
-		return segmentation;
 	}
 
 	public BookSettings getSettings() {
