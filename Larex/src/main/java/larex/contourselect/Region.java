@@ -1,4 +1,4 @@
-package larex.charselect;
+package larex.contourselect;
 
 import java.util.Comparator;
 import java.util.LinkedList;

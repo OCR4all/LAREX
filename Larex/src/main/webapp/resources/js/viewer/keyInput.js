@@ -94,6 +94,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					_controller.createCut();
 					validKey = true;
 					break;
+				case 54: // 6
+					_controller.selectContours();
+					validKey = true;
+					break;
 				case 67: // C
 					_controller.mergeSelectedSegments();
 					validKey = true;

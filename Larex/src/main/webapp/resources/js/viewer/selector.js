@@ -7,7 +7,7 @@ class Selector {
 		this.isSelecting = false;
 		this._selectedSegments = [];
 		this._selectedPoints = [];
-		this._selectedChars = [];
+		this._selectedContours = [];
 		this._typeLastSelected;
 	}
 
@@ -42,7 +42,7 @@ class Selector {
 
 		this._selectedSegments = [];
 		this._selectedPoints = [];
-		this._selectedChars = [];
+		this._selectedContours = [];
 	}
 
 	hasSegmentsSelected() {
@@ -106,8 +106,8 @@ class Selector {
 		return this._selectedPoints;
 	}
 
-	getSelectedChars() {
-		return this._selectedChars;
+	getSelectedContours() {
+		return this._selectedContours;
 	}
 
 	getSelectedPolygonType() {

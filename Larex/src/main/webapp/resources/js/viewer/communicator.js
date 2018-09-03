@@ -56,7 +56,7 @@ class Communicator {
 	}
 
 	extractContours(pageid, bookid) {
-		return this.request("extractchars", {pageid:pageid,bookid:bookid});
+		return this.request("extractcontours", {pageid:pageid,bookid:bookid});
 	}
 	
 	combineContours(contours, pageID, bookID) {

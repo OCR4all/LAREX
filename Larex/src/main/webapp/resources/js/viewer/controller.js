@@ -12,7 +12,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _book;
 	let _segmentation = {};
 	let _settings;
-	let _chars = {};
+	let _contours = {};
 	let _activesettings;
 	let _segmentationtypes;
 	let _presentRegions = [];
@@ -937,14 +937,18 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.hideSavedPages = function(doHide=true){ _gui.hideSavedPages(doHide); }
 
-	this.selectChars = function() {
-		if(!_chars[_currentPage]){
+	this.selectContours = function() {
+		if(!_contours[_currentPage]){
+			this.showPreloader(true);
+			_editor.startEditing();
 			_communicator.extractContours(_currentPage,_book.id).done((result) => {
-				_chars[_currentPage] = result; 
-				_editor.selectContours(_chars[_currentPage]);
+				_contours[_currentPage] = result; 
+				this.showPreloader(false);
+				_editor.endEditing();
+				_editor.selectContours(_contours[_currentPage]);
 			});
 		}else{
-			_editor.selectContours(_chars[_currentPage]);
+			_editor.selectContours(_contours[_currentPage]);
 		}
 	}
 	this.combineContours = function(contours){

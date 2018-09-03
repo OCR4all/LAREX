@@ -1,4 +1,4 @@
-package larex.charselect;
+package larex.contourselect;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Rect;

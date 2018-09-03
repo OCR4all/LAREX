@@ -1,4 +1,4 @@
-package larex.charselect;
+package larex.contourselect;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -8,7 +8,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.imgproc.Imgproc;
 
-public class Charextractor {
+public class Contourextractor {
 	public static Collection<MatOfPoint> extract(Mat source) { 
 		Mat tempInverted = new Mat(source.size(), source.type());
 		Mat inverted = new Mat(source.size(), source.type());

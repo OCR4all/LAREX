@@ -132,13 +132,13 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody Polygon combinechars(@RequestBody ContourCombineRequest combineRequest) {
+	public @ResponseBody Polygon combinecontours(@RequestBody ContourCombineRequest combineRequest) {
 
 		return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),combineRequest.getBookid(), fileManager);
 	}
 	
-	@RequestMapping(value = "/extractchars", method = RequestMethod.POST)
-	public @ResponseBody Collection<List<Point>> extractchars(@RequestParam("bookid") int bookID,
+	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST)
+	public @ResponseBody Collection<List<Point>> extractcontours(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 
 		return LarexFacade.extractContours(pageID, bookID, fileManager);

@@ -764,6 +764,10 @@ class Editor extends Viewer {
 		}
 	}
 
+	startEditing() {
+		this.isEditing = true;
+	}
+
 	endEditing() {
 		this.isEditing = false;
 
