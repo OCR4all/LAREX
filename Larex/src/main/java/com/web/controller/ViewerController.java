@@ -3,7 +3,6 @@ package com.web.controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +20,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.web.communication.ContourCombineRequest;
 import com.web.communication.BasicResponse;
+import com.web.communication.ContourCombineRequest;
 import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
@@ -144,6 +143,13 @@ public class ViewerController {
 		return LarexFacade.extractContours(pageID, bookID, fileManager);
 	}
 
+	@RequestMapping(value = "/segmentedpages", method = RequestMethod.POST)
+	public @ResponseBody Collection<Integer> getOnServer(@RequestParam("bookid") int bookID) {
+		init();
+		FileDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		return database.getSegmentedPageIDs(bookID);
+	}
+	
 	private Map<RegionType, Integer> getSegmentTypes() {
 		Map<RegionType, Integer> segmentTypes = new HashMap<RegionType, Integer>();
 

@@ -256,28 +256,39 @@ body{
   .pageImage{
     width: 100%;
   }
-  .pagestatus{
-    position: absolute;
-    padding: 0px !important;
-    margin: 0px !important;
-    right: 2px;
-    bottom: 2px;
-    .pagestatusIcon{
-      font-size: 18px;
-      padding: 2px;
-      margin: 0px;
-      &.pageIconError{
-        color: $color4;
-        background-color: red;
-      }
-      &.pageIconExported, &.pageIconSaved, &.pageIconLoaded{
-        color: $color4;
-        background-color: #8bc34a;
-      }
-    }
 
+}
+.pagestatus{
+  position: absolute;
+  padding: 0px !important;
+  margin: 0px !important;
+  right: 2px;
+  bottom: 2px;
+} 
+#pageLegend{
+  .pagestatusIcon{
+    cursor: pointer;
+    &:not(.checked){
+      background-color: gray;
+      opacity: 0.4;
+    }
   }
 }
+.pagestatus, #pageLegend{
+  .pagestatusIcon{
+    font-size: 16px;
+    padding: 3px;
+    margin: 0px;
+    color: $color4;
+    &.pageIconTodo,&.pageIconUnsaved{
+      background-color: #f57f17;
+    }
+    &.pageIconSession, &.pageIconServer, &.pageIconChanged{
+      background-color: #689f38;
+    }
+  }
+}
+
 #regioneditor{
   position: absolute;
   #regioneditor-settings{

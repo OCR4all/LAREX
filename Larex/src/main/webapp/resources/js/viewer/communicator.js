@@ -70,7 +70,11 @@ class Communicator {
 	exportSettings(settings) {
 		return this.request("downloadSettings", {settings:settings,page:0}, DataType.JSON, DataType.BYTE);
 	}
-
+	
+	getSegmented(bookID) { 
+		return this.request("segmentedpages", {bookid:bookID});
+	}
+	
 	uploadSettings(file, bookID) {
 		const formData = new FormData();
 		formData.append("file", file);

@@ -4,7 +4,7 @@ function GUI(canvas, viewer, colors) {
 	let _canvas = canvas;
 	let _doMoveCanvas = false;
 	let _mouse;
-	let _hiddenStyles = [];
+	let _visiblePageStyles = ['saved','exported','loaded','error'];
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
@@ -287,69 +287,76 @@ function GUI(canvas, viewer, colors) {
 
 	this.highlightSegmentedPages = function (segmentedPages) {
 		$('.pageImageContainer').removeClass('segmented');
+		$(".pageIconTodo").removeClass('hide');
 		segmentedPages.forEach((page) => {
-			$('.pageImageContainer[data-page~="' + page + '"]').addClass('segmented');
+			const $segmentedPage = $('.pageImageContainer[data-page~="' + page + '"]');
+			$segmentedPage.addClass('segmented');
+			$segmentedPage.find(".pageIconTodo").addClass('hide');
 		});
 
-	}
-	this.highlightPagesAsError = function (errorPages) {
-		$('.pageIconError').addClass('hide');
-		errorPages.forEach((page) => {
-			const $errorPage = $('.pageImageContainer[data-page~="' + page + '"]');
-			$errorPage.addClass('segmentError');
-			$errorPage.find('.pageIconError').removeClass('hide');
-		});
 	}
 	this.highlightSavedPage = function (savedPage) {
 		const $savedPage = $('.pageImageContainer[data-page~="' + savedPage + '"]');
 		$savedPage.addClass('saved');
 		$savedPage.find(".pageIconSaved").removeClass('hide');
-		if(_hiddenStyles.indexOf(".pageImageContainer.saved") !== -1)
+		if(_visiblePageStyles.indexOf("saved") === -1)
 			$savedPage.addClass('hide');
+	}
+	this.highlightChangedPage = function (changedPage) {
+		const $changedPage = $('.pageImageContainer[data-page~="' + changedPage + '"]');
+		$changedPage.addClass('saved');
+		$changedPage.find(".pageIconSaved").removeClass('hide');
+		if(_visiblePageStyles.indexOf("saved") === -1)
+			$changedPage.addClass('hide');
 	}
 	this.highlightExportedPage = function (exportedPage) {
 		const $exportedPage = $('.pageImageContainer[data-page~="' + exportedPage + '"]');
 		$exportedPage.addClass('exported');
 		$exportedPage.find(".pageIconExported").removeClass('hide');
-		if(_hiddenStyles.indexOf(".pageImageContainer.exported") !== -1)
+		if(_visiblePageStyles.indexOf("exported") === -1)
 			$savedPage.addClass('hide');
 	}
 	this.highlightLoadedPage = function (exportedPage, doHighlight = true) {
 		const $loadedPage = $('.pageImageContainer[data-page~="' + exportedPage + '"]');
 		if (doHighlight) {
 			$loadedPage.addClass('loaded');
-			$loadedPage.find(".pageIconLoaded").removeClass('hide');
+			$loadedPage.find(".pageIconServer").removeClass('hide');
 		} else {
 			$loadedPage.removeClass('loaded');
-			$loadedPage.find(".pageIconLoaded").addClass('hide');
+			$loadedPage.find(".pageIconServer").addClass('hide');
 		}
 	}
-	this.hideSavedPages = function (doHide=true) {
-		const indexOfStyle = _hiddenStyles.indexOf(".pageImageContainer.saved");
-		if(indexOfStyle < 0 && doHide)
-			_hiddenStyles.push(".pageImageContainer.saved");
-		else if(indexOfStyle >= 0 && !doHide)
-			_hiddenStyles.splice(indexOfStyle, 1);
-		
-		if(doHide)
-			$('.pageImageContainer.saved').addClass('hide');
-		else
-			$('.pageImageContainer.saved').removeClass('hide');
 
+	this.highlightServerSegmentations = function(pages){
+		$('.pageIconServer').addClass('hide');
+		pages.forEach((page) => {
+			const $page = $('.pageImageContainer[data-page~="' + page + '"]');
+			$page.addClass('segmentServer');
+			$page.find('.pageIconServer').removeClass('hide');
+		});
+	}
+	
+	this.hidePages = function (doHide=true,type='saved') {
+		const indexOfStyle = _visiblePageStyles.indexOf(type);
+		if(indexOfStyle >= 0 && doHide)
+			_visiblePageStyles.splice(indexOfStyle);
+		else if(indexOfStyle < 0 && !doHide)
+			_visiblePageStyles.push(type);
+		
+		$('.pageImageContainer').addClass('hide');
+
+		_visiblePageStyles.forEach(s => $('.pageImageContainer.'+s).removeClass('hide'));
 	}
 
-	this.hideExportedPages = function (doHide=true) {
-		const indexOfStyle = _hiddenStyles.indexOf(".pageImageContainer.exported");
-		if(indexOfStyle < 0 && doHide)
-			_hiddenStyles.push(".pageImageContainer.exported");
-		else if(indexOfStyle >= 0 && !doHide)
-			_hiddenStyles.splice(indexOfStyle, 1);
-		
-		if(doHide)
-			$('.pageImageContainer.export').addClass('hide');
-		else
-			$('.pageImageContainer.export').removeClass('hide');
-	}
+	this.hideTodoPages = function (doHide=true) { this.hidePages(doHide,'statusTodo'); }
+
+	this.hideSessionPages = function (doHide=true) { this.hidePages(doHide,'saved'); }
+	
+	this.hideServerPages = function (doHide=true) { this.hidePages(doHide,'loaded'); }
+	
+	this.hideChangedPages = function (doHide=true) { this.hidePages(doHide,'changed'); }
+	
+	this.hideUnsavedPages = function (doHide=true) { this.hidePages(doHide,'unsaved'); }
 
 	this.setExportingInProgress = function (isInProgress) {
 		if (isInProgress) {
@@ -379,6 +386,7 @@ function GUI(canvas, viewer, colors) {
 			$collection.append($colorItem);
 		});
 	}
+
 	this.updateAvailableColors = function () {
 		$('.regioneditorColorSelectItem').addClass("hide");
 		_colors.getAvailableColorIDs().forEach((id) => {
@@ -408,14 +416,11 @@ function GUI(canvas, viewer, colors) {
 
 				const $image = $('<img class="pageImage" alt="'+imageSrc+'" title="'+imageSrc+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
 				const $status = $('<div class="pagestatus">'+
-									'<i class="material-icons pagestatusIcon pageIconLoaded circle tooltipped hide"'+
-										'data-position="bottom" data-delay="50" data-tooltip="This page has been loaded from an existing segmentation.">file_upload</i>'+
-									'<i class="material-icons pagestatusIcon pageIconExported circle tooltipped hide"'+
-										'data-position="bottom" data-delay="50" data-tooltip="This page has been exported.">file_download</i>'+
-									'<i class="material-icons pagestatusIcon pageIconSaved circle tooltipped hide"'+
-										'data-position="bottom" data-delay="50" data-tooltip="This page has been saved.">lock</i>'+
-									'<i class="material-icons pagestatusIcon pageIconError circle tooltipped hide"'+
-										'data-position="bottom" data-delay="50" data-tooltip="There has been an error with this page. Reload the webpage to reslove.">error</i>'+
+									'<i class="material-icons pagestatusIcon pageIconTodo circle">assignment_late</i>'+
+									'<i class="material-icons pagestatusIcon pageIconSession circle  hide">save</i>'+
+									'<i class="material-icons pagestatusIcon pageIconServer circle hide">lock</i>'+
+									'<i class="material-icons pagestatusIcon pageIconChanged circle hide">lock_open</i>'+
+									'<i class="material-icons pagestatusIcon pageIconUnsaved circle hide">warning</i>'+
 								'</div>');
 				$p.append($image);
 				$p.append($status);

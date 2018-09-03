@@ -4,8 +4,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -43,10 +45,7 @@ public class FileDatabase implements IDatabase {
 
 		// sort book files/folders
 		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(files));
-		// sortedFiles.sort((f1,f2) -> f1.getName().compareTo(f2.getName()));
-		// //ArrayOutOfBounds exception ?
-		sortedFiles.sort(new FileNameComparator());// Because lambda throws
-													// exception
+		sortedFiles.sort(new FileNameComparator());// Because lambda throws exception
 
 		for (File bookFile : sortedFiles) {
 			if (bookFile.isDirectory()) {
@@ -63,6 +62,18 @@ public class FileDatabase implements IDatabase {
 			getBooks();
 		}
 		return books.get(id);
+	}
+	
+	public Collection<Integer> getSegmentedPageIDs(int bookID){
+		Collection<Integer> segmentedIds = new HashSet<>();
+		
+		Book book = getBook(bookID);
+		for(Page page : book.getPages()){
+			String xmlPath = databaseFolder.getPath() + File.separator + page.getName()+ ".xml";
+			if(new File(xmlPath).exists()) 
+				segmentedIds.add(page.getId());
+		}
+		return segmentedIds;
 	}
 
 	public void addBook(Book book) {

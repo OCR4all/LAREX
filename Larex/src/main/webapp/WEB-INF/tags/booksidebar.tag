@@ -9,8 +9,14 @@
 	</div>
 </div>
 <div id="pageLegend" class="col s12">
-	<input id="pageLegendExported" type="checkbox" class="filled-in" checked="checked" />
-	<label for="pageLegendExported">Exported</label></br>
-	<input id="pageLegendSaved" type="checkbox" class="filled-in " checked="checked" />
-	<label for="pageLegendSaved">Saved </label>
+	<i class="material-icons pagestatusIcon pageIconTodo circle tooltipped checked"
+		data-position="top" data-delay="50" data-tooltip="There is no segmentation for this page." >assignment_late</i>
+	<i class="material-icons pagestatusIcon pageIconSession circle tooltipped checked"
+		data-position="top" data-delay="50" data-tooltip="Segmentation was saved in this session localy, but is not saved on the server.">save</i>
+	<i class="material-icons pagestatusIcon pageIconServer circle tooltipped checked"
+		data-position="top" data-delay="50" data-tooltip="Segmentation is on the server.">lock</i>
+	<i class="material-icons pagestatusIcon pageIconChanged circle tooltipped checked"
+		data-position="top" data-delay="50" data-tooltip="Segmentation is not saved on the server, but there is a segmentation on the server.">lock_open</i>
+	<i class="material-icons pagestatusIcon pageIconUnsaved circle tooltipped checked"
+		data-position="top" data-delay="50" data-tooltip="Segmentation has changed but has not been saved.">warning</i>
 </div>

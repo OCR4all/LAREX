@@ -9,6 +9,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _currentPage;
 	let _segmentedPages = [];
 	let _savedPages = [];
+	let _savedSegmentationServer = [];
 	let _book;
 	let _segmentation = {};
 	let _settings;
@@ -269,8 +270,13 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			this.displayPage(pageID);
 			_gui.highlightSegmentedPages(_segmentedPages);
-			_gui.highlightPagesAsError(failedSegmentations);
+
+			_communicator.getSegmented(_book.id).done((pages)=>{_gui.highlightServerSegmentations(pages)})
 		});
+	}
+
+	this.pageHasChanged = function(pageId){
+
 	}
 
 	this._uploadSegmentation = function (file, pageNr) {
@@ -318,7 +324,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			this.displayPage(pageNr);
 			this.showPreloader(false);
 			_gui.highlightSegmentedPages(_segmentedPages);
-			_gui.highlightPagesAsError(failedSegmentations);
 		});
 	}
 	this.setPageXMLVersion = function (pageXMLVersion) {
@@ -347,6 +352,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			}
 			_gui.highlightSavedPage(_currentPage);
 		});
+	}
+
+	this.setUnsaved = function(pageID){
+		_gui.setUnsaved(pageID);
 	}
 
 	this.saveSettingsXML = function () {
@@ -932,10 +941,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
-
-	this.hideExportedPages = function (doHide=true){ _gui.hideExportedPages(doHide); }
-
-	this.hideSavedPages = function(doHide=true){ _gui.hideSavedPages(doHide); }
 
 	this.selectContours = function() {
 		this.endEditing();
