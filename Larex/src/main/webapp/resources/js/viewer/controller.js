@@ -938,13 +938,15 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.hideSavedPages = function(doHide=true){ _gui.hideSavedPages(doHide); }
 
 	this.selectContours = function() {
+		this.endEditing();
+		_gui.selectToolBarButton('segmentContours',true);
 		if(!_contours[_currentPage]){
 			this.showPreloader(true);
 			_editor.startEditing();
 			_communicator.extractContours(_currentPage,_book.id).done((result) => {
 				_contours[_currentPage] = result; 
 				this.showPreloader(false);
-				_editor.endEditing();
+				this.endEditing();
 				_editor.selectContours(_contours[_currentPage]);
 			});
 		}else{
@@ -956,7 +958,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			const action = new ActionAddSegment(segment.id, segment.points, segment.type,
 				_editor, _segmentation, _currentPage, this);
 
-			_editor.endEditing();
+			this.endEditing();
 
 			_actionController.addAndExecuteAction(action, _currentPage);
 			this.selectSegment(segment.id);

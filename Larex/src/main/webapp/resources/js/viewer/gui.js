@@ -239,6 +239,9 @@ function GUI(canvas, viewer, colors) {
 			case 'segmentPolygon':
 				$button = $('.createSegmentPolygon');
 				break;
+			case 'segmentContours':
+				$button = $('.editContours');
+				break;
 			case 'cut':
 				$button = $('.createCut');
 				break;
@@ -247,9 +250,6 @@ function GUI(canvas, viewer, colors) {
 				break;
 			case 'ignore':
 				$button = $('.createIgnore');
-				break;
-			case 'editPoints':
-				$button = $('.editPoints');
 				break;
 			default:
 				break;
