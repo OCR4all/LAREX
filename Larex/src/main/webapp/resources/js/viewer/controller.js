@@ -1,3 +1,5 @@
+var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
+
 function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
 	const _communicator = new Communicator();
@@ -9,6 +11,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _currentPage;
 	let _segmentedPages = [];
 	let _savedPages = [];
+	let _savedSegmentationServer = [];
 	let _book;
 	let _segmentation = {};
 	let _settings;
@@ -97,8 +100,14 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			// on resize
 			$(window).resize(() => _gui.resizeViewerHeight());
-		});
 
+
+			// init Search
+			$(document).ready(function(){
+				let pageData = {};
+				_book.pages.forEach(page => pageData[page.image] = null );
+			});
+		});
 	});
 
 	this.displayPage = function (pageNr) {
@@ -269,7 +278,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			this.displayPage(pageID);
 			_gui.highlightSegmentedPages(_segmentedPages);
-			_gui.highlightPagesAsError(failedSegmentations);
+
+			_communicator.getSegmented(_book.id).done((pages) =>{
+				pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
+			})
+
 		});
 	}
 
@@ -318,7 +331,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			this.displayPage(pageNr);
 			this.showPreloader(false);
 			_gui.highlightSegmentedPages(_segmentedPages);
-			_gui.highlightPagesAsError(failedSegmentations);
 		});
 	}
 	this.setPageXMLVersion = function (pageXMLVersion) {
@@ -331,8 +343,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_communicator.exportSegmentation(_segmentation[_currentPage], _book.id, _pageXMLVersion).done((data) => {
 			// Set export finished
 			_savedPages.push(_currentPage);
-			_gui.highlightExportedPage(_currentPage);
 			_gui.setExportingInProgress(false);
+			_gui.addPageStatus(_currentPage,PageStatus.SESSIONSAVED);
 
 			// Download
 			if (globalSettings.downloadPage) {
@@ -345,8 +357,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				document.body.appendChild(a);
 				a.click();
 			}
-			_gui.highlightSavedPage(_currentPage);
 		});
+	}
+
+	this.setChanged = function(pageID){
+		_gui.addPageStatus(pageID,PageStatus.UNSAVED);
 	}
 
 	this.saveSettingsXML = function () {
@@ -932,10 +947,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
-
-	this.hideExportedPages = function (doHide=true){ _gui.hideExportedPages(doHide); }
-
-	this.hideSavedPages = function(doHide=true){ _gui.hideSavedPages(doHide); }
 
 	this.selectContours = function() {
 		this.endEditing();

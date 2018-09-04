@@ -54,8 +54,7 @@ public class LarexFacade {
 		Book book = getBook(settings.getBookID(), fileManager);
 
 		Page page = book.getPage(pageNr);
-		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
-		String xmlPath = imagePath.substring(0, imagePath.lastIndexOf('.')) + ".xml";
+		String xmlPath = fileManager.getBooksPath() + File.separator + page.getName() + ".xml";
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
@@ -117,28 +116,29 @@ public class LarexFacade {
 		Collection<List<Point>> contourSegments = new ArrayList<>();
 		for (MatOfPoint contour : contours)
 			contourSegments.add(LarexWebTranslator.translatePointsToContour(contour));
-		
+
 		return contourSegments;
 	}
-	
-	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID, FileManager fileManager) {
+
+	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID,
+			FileManager fileManager) {
 		Book book = getBook(bookID, fileManager);
 		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 
 		Collection<MatOfPoint> matContours = new ArrayList<>();
-		for(List<Point> contour : contours) {
+		for (List<Point> contour : contours) {
 			matContours.add(WebLarexTranslator.translatePointsToContour(contour));
 		}
-		
+
 		MatOfPoint combined = Contourcombiner.combine(matContours, page.getBinary());
 		page.clean();
 		System.gc();
 
-		
-		return LarexWebTranslator.translatePointsToSegment(combined, UUID.randomUUID().toString(), RegionType.paragraph);
+		return LarexWebTranslator.translatePointsToSegment(combined, UUID.randomUUID().toString(),
+				RegionType.paragraph);
 	}
-	
+
 	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageSegmentation segmentation = null;
 		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page, fileManager);

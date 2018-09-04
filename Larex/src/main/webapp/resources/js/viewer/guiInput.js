@@ -198,13 +198,36 @@ function GuiInput(navigationController, controller, gui) {
 	$('.loadExistingSegmentation').click(() => _controller.loadExistingSegmentation());
 
 	$('.autoGenerateReadingOrder').click(() => _controller.autoGenerateReadingOrder());
+
 	$('.createReadingOrder').click(() => _controller.createReadingOrder());
 
 	$('.saveReadingOrder').click(() => _controller.endCreateReadingOrder());
 
-	$('#pageLegendSaved').change(function(event) { _controller.hideSavedPages(!event.target.checked); });
-	$('#pageLegendExported').change(function(event) { _controller.hideExportedPages(!event.target.checked); });
-	
+	$('#pageLegend > .pageIconTodo').click(function(event) { 
+		$this = $(this);
+		const isChecked = !$this.hasClass('checked');
+		_gui.hideTodoPages(!isChecked); 
+		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
+	});
+	$('#pageLegend > .pageIconSession').click(function(event) {
+		$this = $(this);
+		const isChecked = !$this.hasClass('checked');
+		_gui.hideSessionPages(!isChecked); 
+		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
+	});
+	$('#pageLegend > .pageIconServer').click(function(event) {
+		$this = $(this);
+		const isChecked = !$this.hasClass('checked');
+		_gui.hideServerPages(!isChecked); 
+		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
+	});
+	$('#pageLegend > .pageIconUnsaved').click(function(event) {
+		$this = $(this);
+		const isChecked = !$this.hasClass('checked');
+		_gui.hideUnsavedPages(!isChecked); 
+		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
+	});
+
 	this.addDynamicListeners = () => {
 		let _hasBeenDropped = false;
 

@@ -5,6 +5,7 @@ function ActionController(controller) {
 	let _actionpointers = {};
 
 	this.redo = function (page) {
+		_controller.setChanged(page);
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer < pageActions.length - 1) {
@@ -14,6 +15,7 @@ function ActionController(controller) {
 		}
 	}
 	this.undo = function (page) {
+		_controller.setChanged(page);
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer >= 0) {
@@ -27,6 +29,7 @@ function ActionController(controller) {
 		_actionpointers[page] = -1;
 	}
 	this.addAndExecuteAction = function (action, page) {
+		_controller.setChanged(page);
 		let pageActions = _actions[page];
 
 		if (!pageActions) {
