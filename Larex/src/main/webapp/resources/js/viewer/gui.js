@@ -285,12 +285,48 @@ function GUI(canvas, viewer, colors) {
 		}, 2000);
 	}
 
+	this.addPageStatus = function (page, pagestatus = PageStatus.TODO){
+		const $page = $('.pageImageContainer[data-page~="' + page + '"]');
+
+		if(pagestatus === PageStatus.TODO){
+			for(status in PageStatus){ 
+				$page.removeClass(status); 
+			}
+			$page.find(".pagestatusIcon").addClass('hide');
+
+			$page.addClass(PageStatus.TODO);
+			$page.find(".pageIconTodo").removeClass('hide');
+		}else{
+			$page.removeClass(PageStatus.TODO);
+			$page.find(".pageIconTodo").addClass('hide');
+
+			$page.addClass(pagestatus);
+			
+			switch(pagestatus){
+				case PageStatus.SESSIONSAVED:
+					$page.find(".pageIconSession").removeClass('hide');
+					$page.removeClass(PageStatus.UNSAVED);
+					$page.find(".pageIconUnsaved").addClass('hide');
+				break;
+				case PageStatus.SERVERSAVED:
+					$page.find(".pageIconServer").removeClass('hide');
+					$page.removeClass(PageStatus.UNSAVED);
+					$page.find(".pageIconUnsaved").addClass('hide');
+				break;
+				case PageStatus.UNSAVED:
+					$page.find(".pageIconServer").removeClass('hide');
+					break;
+			}
+		}
+	}
 	this.highlightSegmentedPages = function (segmentedPages) {
 		$('.pageImageContainer').removeClass('segmented');
+		$('.pageImageContainer').addClass('statusTodo');
 		$(".pageIconTodo").removeClass('hide');
 		segmentedPages.forEach((page) => {
 			const $segmentedPage = $('.pageImageContainer[data-page~="' + page + '"]');
 			$segmentedPage.addClass('segmented');
+			$segmentedPage.removeClass('statusTodo');
 			$segmentedPage.find(".pageIconTodo").addClass('hide');
 		});
 
@@ -328,7 +364,7 @@ function GUI(canvas, viewer, colors) {
 	}
 
 	this.highlightServerSegmentations = function(pages){
-		$('.pageIconServer').addClass('hide');
+		$('.pageImageContainer > .pageIconServer').addClass('hide');
 		pages.forEach((page) => {
 			const $page = $('.pageImageContainer[data-page~="' + page + '"]');
 			$page.addClass('segmentServer');
@@ -356,7 +392,7 @@ function GUI(canvas, viewer, colors) {
 	
 	this.hideChangedPages = function (doHide=true) { this.hidePages(doHide,'changed'); }
 	
-	this.hideUnsavedPages = function (doHide=true) { this.hidePages(doHide,'unsaved'); }
+	this.hideUnsavedPages = function (doHide=true) { this.hidePages(doHide,'statusUnsaved'); }
 
 	this.setExportingInProgress = function (isInProgress) {
 		if (isInProgress) {

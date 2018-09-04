@@ -1,3 +1,5 @@
+var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
+
 function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
 	const _communicator = new Communicator();
@@ -271,7 +273,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			this.displayPage(pageID);
 			_gui.highlightSegmentedPages(_segmentedPages);
 
-			_communicator.getSegmented(_book.id).done((pages)=>{_gui.highlightServerSegmentations(pages)})
+			_communicator.getSegmented(_book.id).done((pages) =>{
+				pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
+			})
+
 		});
 	}
 
@@ -354,8 +359,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 	}
 
-	this.setUnsaved = function(pageID){
-		_gui.setUnsaved(pageID);
+	this.setChanged = function(pageID){
+		if(_savedSegmentationServer.indexOf(pageID) > 0){
+			_gui.addPageStatus(pageID,PageStatus.UNSAVED);
+		}
 	}
 
 	this.saveSettingsXML = function () {

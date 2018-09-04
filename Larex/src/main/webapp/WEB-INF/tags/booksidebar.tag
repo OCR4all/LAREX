@@ -15,8 +15,6 @@
 		data-position="top" data-delay="50" data-tooltip="Segmentation was saved in this session localy, but is not saved on the server.">save</i>
 	<i class="material-icons pagestatusIcon pageIconServer circle tooltipped checked"
 		data-position="top" data-delay="50" data-tooltip="Segmentation is on the server.">lock</i>
-	<i class="material-icons pagestatusIcon pageIconChanged circle tooltipped checked"
-		data-position="top" data-delay="50" data-tooltip="Segmentation is not saved on the server, but there is a segmentation on the server.">lock_open</i>
 	<i class="material-icons pagestatusIcon pageIconUnsaved circle tooltipped checked"
 		data-position="top" data-delay="50" data-tooltip="Segmentation has changed but has not been saved.">warning</i>
 </div>

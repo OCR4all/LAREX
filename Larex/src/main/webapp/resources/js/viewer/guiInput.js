@@ -203,28 +203,28 @@ function GuiInput(navigationController, controller, gui) {
 
 	$('.saveReadingOrder').click(() => _controller.endCreateReadingOrder());
 
-	$('#pageLegend > .pageIconLoaded').click(function(event) { 
+	$('#pageLegend > .pageIconTodo').click(function(event) { 
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_controller.hideSavedPages(!isChecked); 
+		_gui.hideTodoPages(!isChecked); 
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
-	$('#pageLegend > .pageIconExported').click(function(event) {
+	$('#pageLegend > .pageIconSession').click(function(event) {
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_controller.hideExportedPages(!isChecked); 
+		_gui.hideSessionPages(!isChecked); 
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
-	$('#pageLegend > .pageIconSaved').click(function(event) {
+	$('#pageLegend > .pageIconServer').click(function(event) {
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_controller.hideSavedPages(!isChecked); 
+		_gui.hideServerPages(!isChecked); 
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
-	$('#pageLegend > .pageIconError').click(function(event) {
+	$('#pageLegend > .pageIconUnsaved').click(function(event) {
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_controller.hideErrorPages(!isChecked); 
+		_gui.hideUnsavedPages(!isChecked); 
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
 	this.addDynamicListeners = () => {
