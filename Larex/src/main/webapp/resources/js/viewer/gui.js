@@ -331,27 +331,6 @@ function GUI(canvas, viewer, colors) {
 		});
 
 	}
-	this.highlightSavedPage = function (savedPage) {
-		const $savedPage = $('.pageImageContainer[data-page~="' + savedPage + '"]');
-		$savedPage.addClass('saved');
-		$savedPage.find(".pageIconSaved").removeClass('hide');
-		if(_visiblePageStyles.indexOf("saved") === -1)
-			$savedPage.addClass('hide');
-	}
-	this.highlightChangedPage = function (changedPage) {
-		const $changedPage = $('.pageImageContainer[data-page~="' + changedPage + '"]');
-		$changedPage.addClass('saved');
-		$changedPage.find(".pageIconSaved").removeClass('hide');
-		if(_visiblePageStyles.indexOf("saved") === -1)
-			$changedPage.addClass('hide');
-	}
-	this.highlightExportedPage = function (exportedPage) {
-		const $exportedPage = $('.pageImageContainer[data-page~="' + exportedPage + '"]');
-		$exportedPage.addClass('exported');
-		$exportedPage.find(".pageIconExported").removeClass('hide');
-		if(_visiblePageStyles.indexOf("exported") === -1)
-			$savedPage.addClass('hide');
-	}
 	this.highlightLoadedPage = function (exportedPage, doHighlight = true) {
 		const $loadedPage = $('.pageImageContainer[data-page~="' + exportedPage + '"]');
 		if (doHighlight) {
@@ -361,15 +340,6 @@ function GUI(canvas, viewer, colors) {
 			$loadedPage.removeClass('loaded');
 			$loadedPage.find(".pageIconServer").addClass('hide');
 		}
-	}
-
-	this.highlightServerSegmentations = function(pages){
-		$('.pageImageContainer > .pageIconServer').addClass('hide');
-		pages.forEach((page) => {
-			const $page = $('.pageImageContainer[data-page~="' + page + '"]');
-			$page.addClass('segmentServer');
-			$page.find('.pageIconServer').removeClass('hide');
-		});
 	}
 	
 	this.hidePages = function (doHide=true,type='saved') {

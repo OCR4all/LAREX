@@ -280,10 +280,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 	}
 
-	this.pageHasChanged = function(pageId){
-
-	}
-
 	this._uploadSegmentation = function (file, pageNr) {
 		this.showPreloader(true);
 		if (!pageNr) {
@@ -341,8 +337,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_communicator.exportSegmentation(_segmentation[_currentPage], _book.id, _pageXMLVersion).done((data) => {
 			// Set export finished
 			_savedPages.push(_currentPage);
-			_gui.highlightExportedPage(_currentPage);
 			_gui.setExportingInProgress(false);
+			_gui.addPageStatus(_currentPage,PageStatus.SESSIONSAVED);
 
 			// Download
 			if (globalSettings.downloadPage) {
@@ -355,7 +351,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				document.body.appendChild(a);
 				a.click();
 			}
-			_gui.highlightSavedPage(_currentPage);
 		});
 	}
 
