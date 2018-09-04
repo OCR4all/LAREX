@@ -886,12 +886,15 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
+	this.hasPointsSelected = function() {
+		return _selector.getSelectedPolygonType() === 'segment' && _selector.getSelectedSegments().length === 1 && _selector.getSelectedPoints().length > 0;
+	}
+
 	this.dragSegment = function (sectionID, event) {
 		const idType = this.getIDType(sectionID);
 		
 		if(idType === 'segment'){
 			this.moveSelected();
-
 		} else {
 			this.moveImage(event.delta);
 		}

@@ -566,14 +566,14 @@ class Editor extends Viewer {
 		if (this.isEditing) {
 			this.isEditing = false;
 
-			if (this._tempPath != null) {
+			if (this._tempPath !== null) {
 				if (this._tempPathType === 'segment') {
 					this._controller.transformSegment(this._tempID, this._convertPointsPathToSegment(this._tempPath, false));
 				} else {
 					this._controller.transformRegion(this._tempID, this._convertPointsPathToSegment(this._tempPath, true));
 				}
 
-				this._tempPath.remove();
+				if(this._tempPath) this._tempPath.remove();
 				this._tempPath = null;
 			}
 

@@ -58,6 +58,9 @@ function ViewerInput(controller) {
 				if (event.modifiers.shift) {
 					_controller.selectMultiple();
 				} else {
+					if(_controller.hasPointsSelected())
+						_controller.moveSelected();
+					else
 					_controller.moveImage(event.delta);
 				}
 				break;
