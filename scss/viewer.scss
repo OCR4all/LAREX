@@ -266,6 +266,10 @@ body{
   bottom: 2px;
 } 
 #pageLegend{
+  position:absolute;
+  bottom:0px;
+  left:0px;
+  padding:3px 5px;
   .pagestatusIcon{
     cursor: pointer;
     &:not(.checked){
@@ -458,8 +462,3 @@ body{
   }
 }
 
-#pageLegend{
-  position:absolute;
-  bottom:0px;
-  left:0px;
-}

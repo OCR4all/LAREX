@@ -100,8 +100,14 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			// on resize
 			$(window).resize(() => _gui.resizeViewerHeight());
-		});
 
+
+			// init Search
+			$(document).ready(function(){
+				let pageData = {};
+				_book.pages.forEach(page => pageData[page.image] = null );
+			});
+		});
 	});
 
 	this.displayPage = function (pageNr) {
@@ -355,9 +361,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.setChanged = function(pageID){
-		if(_savedSegmentationServer.indexOf(pageID) > 0){
-			_gui.addPageStatus(pageID,PageStatus.UNSAVED);
-		}
+		_gui.addPageStatus(pageID,PageStatus.UNSAVED);
 	}
 
 	this.saveSettingsXML = function () {

@@ -227,6 +227,7 @@ function GuiInput(navigationController, controller, gui) {
 		_gui.hideUnsavedPages(!isChecked); 
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
+
 	this.addDynamicListeners = () => {
 		let _hasBeenDropped = false;
 

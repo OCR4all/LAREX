@@ -314,7 +314,7 @@ function GUI(canvas, viewer, colors) {
 					$page.find(".pageIconUnsaved").addClass('hide');
 				break;
 				case PageStatus.UNSAVED:
-					$page.find(".pageIconServer").removeClass('hide');
+					$page.find(".pageIconUnsaved").removeClass('hide');
 					break;
 			}
 		}
@@ -342,27 +342,28 @@ function GUI(canvas, viewer, colors) {
 		}
 	}
 	
-	this.hidePages = function (doHide=true,type='saved') {
+	this.hidePages = function (doHide=true,type=PageStatus.TODO) {
 		const indexOfStyle = _visiblePageStyles.indexOf(type);
 		if(indexOfStyle >= 0 && doHide)
 			_visiblePageStyles.splice(indexOfStyle);
 		else if(indexOfStyle < 0 && !doHide)
 			_visiblePageStyles.push(type);
-		
-		$('.pageImageContainer').addClass('hide');
 
-		_visiblePageStyles.forEach(s => $('.pageImageContainer.'+s).removeClass('hide'));
+		if(doHide){
+			const excluder = _visiblePageStyles.map(s => (':not(.'+s+')')).join('');
+			_visiblePageStyles.forEach(s => $('.pageImageContainer.'+type+excluder).addClass('hide'));
+		}else{
+			$('.pageImageContainer.'+type).removeClass('hide')
+		}
 	}
 
-	this.hideTodoPages = function (doHide=true) { this.hidePages(doHide,'statusTodo'); }
+	this.hideTodoPages = function (doHide=true) { this.hidePages(doHide,PageStatus.TODO); }
 
-	this.hideSessionPages = function (doHide=true) { this.hidePages(doHide,'saved'); }
+	this.hideSessionPages = function (doHide=true) { this.hidePages(doHide,PageStatus.SESSIONSAVED); }
 	
-	this.hideServerPages = function (doHide=true) { this.hidePages(doHide,'loaded'); }
+	this.hideServerPages = function (doHide=true) { this.hidePages(doHide,PageStatus.SERVERSAVED); }
 	
-	this.hideChangedPages = function (doHide=true) { this.hidePages(doHide,'changed'); }
-	
-	this.hideUnsavedPages = function (doHide=true) { this.hidePages(doHide,'statusUnsaved'); }
+	this.hideUnsavedPages = function (doHide=true) { this.hidePages(doHide,PageStatus.UNSAVED); }
 
 	this.setExportingInProgress = function (isInProgress) {
 		if (isInProgress) {
