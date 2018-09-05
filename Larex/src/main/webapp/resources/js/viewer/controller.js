@@ -968,16 +968,18 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.combineContours = function(contours){
-		_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
-			const action = new ActionAddSegment(segment.id, segment.points, segment.type,
-				_editor, _segmentation, _currentPage, this);
+		if(contours.length > 0){
+			_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
+				const action = new ActionAddSegment(segment.id, segment.points, segment.type,
+					_editor, _segmentation, _currentPage, this);
 
-			this.endEditing();
+				this.endEditing();
 
-			_actionController.addAndExecuteAction(action, _currentPage);
-			this.selectSegment(segment.id);
-			this.openContextMenu(true);
-		});
+				_actionController.addAndExecuteAction(action, _currentPage);
+				this.selectSegment(segment.id);
+				this.openContextMenu(true);
+			});
+		}
 		
 	}
 
