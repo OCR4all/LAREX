@@ -132,8 +132,10 @@ public class ViewerController {
 
 	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon combinecontours(@RequestBody ContourCombineRequest combineRequest) {
-
-		return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),combineRequest.getBookid(), fileManager);
+		if(combineRequest.getContours().size() > 0)
+			return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),combineRequest.getBookid(), fileManager);
+		else
+			return null;
 	}
 	
 	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST)

@@ -6,12 +6,12 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 public class Contourcombiner {
@@ -25,17 +25,19 @@ public class Contourcombiner {
 	};
 
 	public static MatOfPoint combine(Collection<MatOfPoint> contours, Mat source) {
-		return combine(contours, source, 1.5);
+		return combine(contours, source, 2.5,1.5);
 	}
 
-	public static MatOfPoint combine(Collection<MatOfPoint> contours, Mat source, double growth) {
+	public static MatOfPoint combine(Collection<MatOfPoint> contours, Mat source, double growthY, double growthX) {
 		if (contours.size() < 1)
 			throw new IllegalArgumentException("Can't combine 0 contours.");
 		
 		final Mat workingImage = new Mat(source.rows(), source.cols(), CvType.CV_8UC1, new Scalar(0));
+		Mat temp = workingImage.clone();
 		List<MatOfPoint> workingContours = new ArrayList<>(contours);
 
-		double growing = 1;
+		double growingX = 1;
+		double growingY = 1;
 		int previousContourCount = contours.size();
 		
 		final int cols = workingImage.cols();
@@ -65,24 +67,23 @@ public class Contourcombiner {
 			widths.sort(COMP_DOUBLE);
 			heights.sort(COMP_DOUBLE);
 
-			final double medianDistanceX = widths.get(widths.size()/2)*growing;
-			final double medianDistanceY = heights.get(heights.size()/2)*growing;
+			final double medianDistanceX = widths.get(widths.size()/2)*growingX;
+			final double medianDistanceY = heights.get(heights.size()/2)*growingY;
 			
 			//Smear Contours to combine them	
 			Imgproc.drawContours(workingImage, new ArrayList<>(workingContours), -1, new Scalar(255), -1);
 
-			Mat temp = workingImage.clone();
 
 			// Smearing
 			int[] currentGapsX = new int[rows];
-			Arrays.fill(currentGapsX,top);
+			Arrays.fill(currentGapsX, Integer.MAX_VALUE);
 			for (int x = left; x <= right; x++) {
-				int currentGapY = top;
+				int currentGapY = Integer.MAX_VALUE;
 				for (int y = top; y <= bottom; y++) {
 					double value = temp.get(y, x)[0];
 					if (value > 0) {
 						// Entered Contour
-						final int currentGapX = currentGapsX[x];
+						final int currentGapX = currentGapsX[y];
 						
 						if (currentGapY < medianDistanceY) {
 							// Draw over
@@ -106,27 +107,33 @@ public class Contourcombiner {
 				}
 			}
 
-			temp.release();
 
-			Imgcodecs.imwrite("/home/nico/Downloads/test.png", workingImage);
 			workingContours = new ArrayList<>(Contourextractor.extract(workingImage));
 			int contourCount = workingContours.size();
 			
 			if(previousContourCount == contourCount) {
-				growing = growing*growth;
+				growingX = growingX*growthX;
+				growingY = growingY*growthY;
 			}else {
-				growing = 1;
+				growingX = 1;
+				growingY = 1;
 			}
+			
+			//Copy current to temp
+			for (int x = left; x <= right; x++) 
+				for (int y = top; y <= bottom; y++) 
+					temp.put(y,x, workingImage.get(y, x));
+				
 			
 			previousContourCount = contourCount;
-			
-			if(workingContours.size() > 1) {
-				//Draw small border to account for shrinking
-				Imgproc.drawContours(workingImage, new ArrayList<>(workingContours), -1, new Scalar(255), 2);
-				workingContours = new ArrayList<>(Contourextractor.extract(workingImage));
-			}
 		}
+
+		//Draw small border to account for shrinking
+		Imgproc.drawContours(workingImage, new ArrayList<>(workingContours), -1, new Scalar(255), 2);
+		workingContours = new ArrayList<>(Contourextractor.extract(workingImage));
 		workingImage.release();
+		temp.release();
+		System.gc();
 
 		return workingContours.get(0);
 	}
