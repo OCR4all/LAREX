@@ -121,10 +121,10 @@ public class Contourcombiner {
 			
 			//Copy current to temp
 			for (int x = left; x <= right; x++) 
-				for (int y = top; y <= bottom; y++) 
-					temp.put(y,x, workingImage.get(y, x));
+				for (int y = top; y <= bottom; y++){
+					if (workingImage.get(y, x)[0] > 0) temp.put(y,x,1);
+					else temp.put(y, x, 0);
 				
-			
 			previousContourCount = contourCount;
 		}
 
