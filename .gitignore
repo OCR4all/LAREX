@@ -1,12 +1,11 @@
-#sass
-Larex/src/main/webapp/resources/.sass-cache/
-.sass-cache/
-*.css.map
+## Larex ##
+#books 
+Larex/src/main/webapp/resources/books/
 
-#opencv
-Larex/src/main/webapp/WEB-INF/lib/opencv.jar
-Larex/src/main/webapp/WEB-INF/lib/opencv.dll
+#user settings
+Larex/src/main/webapp/WEB-INF/larex.config
 
+## Code ##
 #java
 *.class
 *.log
@@ -18,9 +17,12 @@ Larex/src/main/webapp/WEB-INF/lib/opencv.dll
 *.tar.gz
 *.rar
 
-#books 
-Larex/src/main/webapp/resources/books/
+#sass
+Larex/src/main/webapp/resources/.sass-cache/
+.sass-cache/
+*.css.map
 
+## Editors ##
 #eclipse
 Larex/target/
 Larex/bin/
@@ -37,3 +39,7 @@ Larex/.recommenders
 Larex/.target
 Larex/.classpath
 Larex/.project
+
+#vim
+*~
+*.swp

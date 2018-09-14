@@ -69,7 +69,7 @@ public class FileDatabase implements IDatabase {
 		
 		Book book = getBook(bookID);
 		for(Page page : book.getPages()){
-			String xmlPath = databaseFolder.getPath() + File.separator + page.getName()+ ".xml";
+			String xmlPath = databaseFolder.getPath() + File.separator + book.getName() + File.separator + page.getName()+ ".xml";
 			if(new File(xmlPath).exists()) 
 				segmentedIds.add(page.getId());
 		}

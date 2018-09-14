@@ -47,7 +47,7 @@ public class FileManager {
 	}
 	
 	public void setBooksPath(String booksPath) {
-		this.booksPath = booksPath;
+		this.booksPath = new File(booksPath).getAbsolutePath();
 	}
 
 	public boolean isInit() {

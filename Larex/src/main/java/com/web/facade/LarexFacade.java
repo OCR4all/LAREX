@@ -54,8 +54,9 @@ public class LarexFacade {
 		Book book = getBook(settings.getBookID(), fileManager);
 
 		Page page = book.getPage(pageNr);
-		String xmlPath = fileManager.getBooksPath() + File.separator + page.getName() + ".xml";
+		String xmlPath = fileManager.getBooksPath() + File.separator + book.getName() + File.separator + page.getName() + ".xml";
 
+		System.out.println(">"+ (allowLocalResults +" && "+ new File(xmlPath).exists())+" "+xmlPath);
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
 			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(),
