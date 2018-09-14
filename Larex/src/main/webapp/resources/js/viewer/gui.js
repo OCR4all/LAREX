@@ -4,7 +4,7 @@ function GUI(canvas, viewer, colors) {
 	let _canvas = canvas;
 	let _doMoveCanvas = false;
 	let _mouse;
-	let _visiblePageStyles = ['saved','exported','loaded','error'];
+	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
@@ -345,15 +345,15 @@ function GUI(canvas, viewer, colors) {
 	this.hidePages = function (doHide=true,type=PageStatus.TODO) {
 		const indexOfStyle = _visiblePageStyles.indexOf(type);
 		if(indexOfStyle >= 0 && doHide)
-			_visiblePageStyles.splice(indexOfStyle);
+			_visiblePageStyles.splice(indexOfStyle,1);
 		else if(indexOfStyle < 0 && !doHide)
 			_visiblePageStyles.push(type);
 
 		if(doHide){
 			const excluder = _visiblePageStyles.map(s => (':not(.'+s+')')).join('');
-			_visiblePageStyles.forEach(s => $('.pageImageContainer.'+type+excluder).addClass('hide'));
+			$('.pageImageContainer.'+type+excluder).addClass('hide');
 		}else{
-			$('.pageImageContainer.'+type).removeClass('hide')
+			$('.pageImageContainer.'+type).removeClass('hide');
 		}
 	}
 
