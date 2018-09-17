@@ -18,7 +18,6 @@ public class Library {
 
 	public Library(IDatabase database) {
 		this.books = database.getBooks();
-		System.out.println(books.values().size());
 		sortedBooks = new ArrayList<>(books.values());
 		sortedBooks.sort(new Comparator<Book>() {
 			@Override

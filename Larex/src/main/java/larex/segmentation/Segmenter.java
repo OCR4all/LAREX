@@ -2,7 +2,6 @@ package larex.segmentation;
 
 import java.util.ArrayList;
 
-import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
@@ -56,9 +55,9 @@ public class Segmenter {
 			results.add(result);
 		}
 
-		addFixedPointsLists(results);
 		double scaleFactor = (double) parameters.getDesiredImageHeight() / (double) original.height();
 		applyScaleCorrection(results, scaleFactor);
+		addFixedPointsLists(results);
 		SegmentationResult segResult = new SegmentationResult(results);
 		segResult.removeImagesWithinText();
 
@@ -91,7 +90,7 @@ public class Segmenter {
 
 		for (PointList pointList : pointsLists) {
 			if (pointList.isClosed()) {
-				contours.add(pointList.calcMatOfPoint(verticalRes, parameters.getDesiredImageHeight()));
+				contours.add(pointList.getResizedMatOfPoint(verticalRes, parameters.getDesiredImageHeight()));
 			}
 		}
 

@@ -8,7 +8,6 @@ import org.codehaus.jackson.annotate.JsonProperty;
 
 import com.web.model.Book;
 import com.web.model.BookSettings;
-import com.web.model.PageSegmentation;
 
 import larex.regions.type.RegionType;
 

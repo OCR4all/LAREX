@@ -1,6 +1,5 @@
 package com.web.communication;
 
-import java.util.Collection;
 import java.util.List;
 
 import org.codehaus.jackson.annotate.JsonCreator;

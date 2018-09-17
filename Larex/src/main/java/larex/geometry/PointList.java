@@ -28,28 +28,6 @@ public class PointList {
 		this.id = id;
 	}
 
-	/**
-	 * Converts the given points to OpenCV format and applies a scale correction.
-	 * 
-	 * @param sourceHeight The actual height of the image.
-	 * @param goalHeight The desired height of the image.
-	 * @return The converted and scaled points.
-	 */
-	public MatOfPoint calcMatOfPoint(int sourceHeight, int goalHeight) {
-		System.out.print(sourceHeight + " | "+goalHeight);
-		org.opencv.core.Point[] ocvPoints = new org.opencv.core.Point[points.size()];
-		double scaleFactor = (double) goalHeight / sourceHeight;
-
-		for (int i = 0; i < points.size(); i++) {
-			Point point = points.get(i);
-			ocvPoints[i] = new org.opencv.core.Point(scaleFactor * point.getX(), scaleFactor * point.getY());
-		}
-
-		MatOfPoint matOfPoints = new MatOfPoint(ocvPoints);
-		setOcvPoints(matOfPoints);
-
-		return matOfPoints;
-	}
 
 	public ArrayList<Point> getPoints() {
 		return points;
@@ -84,7 +62,38 @@ public class PointList {
 	}
 
 	public MatOfPoint getOcvPoints() {
+		// Calc if not exisiting (lazy eval)
+		if (this.ocvPoints == null) {
+			org.opencv.core.Point[] ocvPoints = new org.opencv.core.Point[points.size()];
+
+			for (int i = 0; i < points.size(); i++) {
+				Point point = points.get(i);
+				ocvPoints[i] = new org.opencv.core.Point(point.getX(), point.getY());
+			}
+
+			MatOfPoint matOfPoints = new MatOfPoint(ocvPoints);
+			setOcvPoints(matOfPoints);
+		}
 		return ocvPoints;
+	}
+
+	/**
+	 * Returns the given points with a scale correction.
+	 * 
+	 * @param sourceHeight The actual height of the image.
+	 * @param goalHeight   The desired height of the image.
+	 * @return The converted and scaled points.
+	 */
+	public MatOfPoint getResizedMatOfPoint(int sourceHeight, int goalHeight) {
+		org.opencv.core.Point[] ocvPoints = new org.opencv.core.Point[points.size()];
+		double scaleFactor = (double) goalHeight / sourceHeight;
+
+		for (int i = 0; i < points.size(); i++) {
+			Point point = points.get(i);
+			ocvPoints[i] = new org.opencv.core.Point(scaleFactor * point.getX(), scaleFactor * point.getY());
+		}
+
+		return new MatOfPoint(ocvPoints);
 	}
 
 	public void setOcvPoints(MatOfPoint ocvPoints) {
@@ -97,8 +106,8 @@ public class PointList {
 
 	public void setPolygon(Polygon polygon) {
 		this.polygon = polygon;
-	}	
-	
+	}
+
 	public String getId() {
 		return id;
 	}
