@@ -1061,25 +1061,25 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		return regionPolygon;
 	}
 
-	this.getIDType = function (polygonID) {
-		polygon = _segmentation[_currentPage].segments[polygonID];
+	this.getIDType = function (segmentID) {
+		polygon = _segmentation[_currentPage].segments[segmentID];
 		if (polygon) return "segment";
 
-		polygon = this._getRegionByID(polygonID);
+		polygon = this._getRegionByID(segmentID);
 		if (polygon) return "region";
 
-		polygon = _settings.pages[_currentPage].cuts[polygonID];
+		polygon = _settings.pages[_currentPage].cuts[segmentID];
 		if (polygon) return "cut";
 	}
 
-	this._getPolygon = function (polygonID) {
-		let polygon = _segmentation[_currentPage].segments[polygonID];
+	this._getPolygon = function (segmentID) {
+		let polygon = _segmentation[_currentPage].segments[segmentID];
 		if (polygon) return polygon;
 
-		polygon = this._getRegionByID(polygonID);
+		polygon = this._getRegionByID(segmentID);
 		if (polygon) return polygon;
 
-		polygon = _settings.pages[_currentPage].cuts[polygonID];
+		polygon = _settings.pages[_currentPage].cuts[segmentID];
 		if (polygon) return polygon;
 	}
 }

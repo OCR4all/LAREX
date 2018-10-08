@@ -25,8 +25,8 @@ class Viewer {
 		this._drawImage();
 		this._imageCanvas.onClick = (event) => {
 			const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
-			if (hitTest.item && hitTest.item.segmentID) 
-				this.thisInput.selectSection(hitTest.item.segmentID, event, hitTest);
+			if (hitTest.item && hitTest.item.polygonID) 
+				this.thisInput.selectSection(hitTest.item.polygonID, event, hitTest);
 			else
 				this.thisInput.clickImage(event);
 		};
@@ -38,11 +38,11 @@ class Viewer {
 		this.drawPolygon(segment, false, isFixed, isStatic);
 	}
 
-	fixSegment(segmentID, doFix = true) {
+	fixSegment(polygonID, doFix = true) {
 		if (doFix) {
-			this._polygons[segmentID].dashArray = [5, 3];
+			this._polygons[polygonID].dashArray = [5, 3];
 		} else {
-			this._polygons[segmentID].dashArray = [];
+			this._polygons[polygonID].dashArray = [];
 		}
 	}
 
@@ -147,13 +147,13 @@ class Viewer {
 		}
 	}
 
-	selectPointsInbetween(pointA, pointB, segmentID) {
+	selectPointsInbetween(pointA, pointB, polygonID) {
 		const points = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
-		this._polygons[segmentID].selected = true;
+		this._polygons[polygonID].selected = true;
 		
-		this._polygons[segmentID].segments.forEach(point => {
+		this._polygons[polygonID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
 				point.point.selected = true;
 				points.push(this._convertCanvasToGlobal(point.point.x, point.point.y));
@@ -163,15 +163,15 @@ class Viewer {
 	}
 
 	getSegmentIDsBetweenPoints(pointA, pointB) {
-		const segmentIDs = [];
+		const polygonIDs = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
 		$.each(this._polygons, (id, polygon) => {
 			if (rectangleAB.contains(polygon.bounds)) {
-				segmentIDs.push(id);
+				polygonIDs.push(id);
 			}
 		});
-		return segmentIDs;
+		return polygonIDs;
 	}
 
 	getBoundaries() {
@@ -251,7 +251,7 @@ class Viewer {
 	drawPolygon(segment, doFill, isFixed, isStatic = false) {
 		//Construct polygon from segment
 		const polygon = new paper.Path();
-		polygon.segmentID = segment.id;
+		polygon.polygonID = segment.id;
 		const color = this._colors.getColor(segment.type);
 
 		polygon.doFill = doFill;
@@ -311,7 +311,7 @@ class Viewer {
 		polygon.closed = false;
 		polygon.strokeColor = color;
 		polygon.strokeWidth = 2;
-		polygon.segmentID = line.id;
+		polygon.polygonID = line.id;
 
 		//Convert segment points to current canvas coordinates
 		for (const key in line.points) {
@@ -421,6 +421,20 @@ class Viewer {
 			this._background.onMouseDrag = (event) => this.thisInput.dragBackground(event);
 			this._background.sendToBack();
 		}
+	}
+
+	_convertCanvasPolygonToGlobal(polygon, isRelative) {
+		const points = [];
+		for (let pointItr = 0, pointMax = polygon.segments.length; pointItr < pointMax; pointItr++) {
+			const point = polygon.segments[pointItr].point;
+			if (isRelative) {
+				points.push(this._convertCanvasToPercent(point.x, point.y));
+			} else {
+				points.push(this._convertCanvasToGlobal(point.x, point.y));
+			}
+		}
+
+		return points;
 	}
 
 	_convertCanvasToGlobal(canvasX, canvasY) {

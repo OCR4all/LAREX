@@ -146,8 +146,8 @@ function GuiInput(navigationController, controller, gui) {
 		if (doSelected) {
 			_controller.changeTypeSelected(regionType);
 		} else {
-			const polygonID = $contextmenu.data('polygonID');
-			_controller.changeRegionType(polygonID, regionType);
+			const segmentID = $contextmenu.data('segmentID');
+			_controller.changeRegionType(segmentID, regionType);
 		}
 		_gui.closeContextMenu();
 	});

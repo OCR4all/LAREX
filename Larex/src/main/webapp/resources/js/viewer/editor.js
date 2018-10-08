@@ -19,8 +19,8 @@ class Editor extends Viewer {
 		this.DoubleClickListener = new DoubleClickListener();
 	}
 
-	updatePolygon(segmentID){
-		super.updatePolygon(segmentID);
+	updatePolygon(polygonID){
+		super.updatePolygon(polygonID);
 		this.endEditing();
 	}
 
@@ -123,17 +123,17 @@ class Editor extends Viewer {
 					this._tempPolygon.selected = false;
 					switch (this._tempPolygonType) {
 						case 'segment':
-							this._controller.callbackNewSegment(this._convertCanvasToGlobal(rectangle, false));
+							this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(rectangle, false));
 							break;
 						case 'region':
-							this._controller.callbackNewRegion(this._convertCanvasToGlobal(rectangle, true));
+							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true));
 							break;
 						case 'ignore':
-							this._controller.callbackNewRegion(this._convertCanvasToGlobal(rectangle, true), 'ignore');
+							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true), 'ignore');
 							break;
 						case 'roi':
 						default:
-							this._controller.callbackNewRoI(this._convertCanvasToGlobal(rectangle, true));
+							this._controller.callbackNewRoI(this._convertCanvasPolygonToGlobal(rectangle, true));
 							break;
 					}
 				},
@@ -255,9 +255,9 @@ class Editor extends Viewer {
 				this._tempPolygon.closed = true;
 				this._tempPolygon.selected = false;
 				if (this._tempPolygonType === 'segment') {
-					this._controller.callbackNewSegment(this._convertCanvasToGlobal(this._tempPolygon, false));
+					this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.callbackNewRegion(this._convertCanvasToGlobal(this._tempPolygon, true));
+					this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 				this._tempPolygon.remove();
 				this._tempPolygon = null;
@@ -318,7 +318,7 @@ class Editor extends Viewer {
 			if (this._tempPolygon != null) {
 				this._tempPolygon.closed = false;
 				this._tempPolygon.selected = false;
-				this._controller.callbackNewCut(this._convertCanvasToGlobal(this._tempPolygon, false));
+				this._controller.callbackNewCut(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 
 				this._tempPolygon.remove();
 				this._tempPolygon = null;
@@ -415,9 +415,9 @@ class Editor extends Viewer {
 
 			if (this._tempPolygon != null) {
 				if (this._tempPolygonType === 'segment') {
-					this._controller.callbackNewSegment(this._convertCanvasToGlobal(this._tempPolygon, false));
+					this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.callbackNewRegion(this._convertCanvasToGlobal(this._tempPolygon, true));
+					this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 
 				this._tempPolygon.remove();
@@ -472,12 +472,7 @@ class Editor extends Viewer {
 		}
 	}
 
-	getContours(contours,rectangle){
-		this._convertCanvasToGlobal(selectBounds.topLeft);
-		this._convertCanvasToGlobal(selectBounds.bottomRight);
-	}
-
-	startMovePolygon(pathID, type, points) {
+	startMovePolygon(polygonID, type, points) {
 		if (this.isEditing === false) {
 			this._editMode = 4;
 			this.isEditing = true;
@@ -485,8 +480,8 @@ class Editor extends Viewer {
 			document.body.style.cursor = "copy";
 
 			// Create Copy of movable
-			this._tempPolygon = new paper.Path(this.getPolygon(pathID).segments);
-			this._tempID = pathID;
+			this._tempPolygon = new paper.Path(this.getPolygon(polygonID).segments);
+			this._tempID = polygonID;
 			this._tempPolygon.fillColor = 'grey';
 			this._tempPolygon.opacity = 0.3;
 			this._tempPolygon.closed = true;
@@ -568,9 +563,9 @@ class Editor extends Viewer {
 
 			if (this._tempPolygon !== null) {
 				if (this._tempPolygonType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertCanvasToGlobal(this._tempPolygon, false));
+					this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.transformRegion(this._tempID, this._convertCanvasToGlobal(this._tempPolygon, true));
+					this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 
 				if(this._tempPolygon) this._tempPolygon.remove();
@@ -591,7 +586,7 @@ class Editor extends Viewer {
 			const boundaries = this.getPolygon(polygonID).bounds;
 			this._tempPolygon = new paper.Path.Rectangle(boundaries);
 			this.getImageCanvas().addChild(this._tempPolygon);
-			this._tempID = pathID;
+			this._tempID = polygonID;
 			this._tempPolygon.fillColor = 'grey';
 			this._tempPolygon.opacity = 0.3;
 			this._tempPolygon.closed = true;
@@ -697,9 +692,9 @@ class Editor extends Viewer {
 				this._tempPolygon.remove();
 
 				if (this._tempPolygonType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertCanvasToGlobal(polygon, false));
+					this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(polygon, false));
 				} else {
-					this._controller.transformRegion(this._tempID, this._convertCanvasToGlobal(polygon, true));
+					this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
 				}
 
 				this._tempPolygon = null;
@@ -906,21 +901,6 @@ class Editor extends Viewer {
 		return readingOrder;
 	}
 
-	// Private Helper methods
-	_convertCanvasToGlobal(polygon, isRelative) {
-		const points = [];
-		for (let pointItr = 0, pointMax = polygon.segments.length; pointItr < pointMax; pointItr++) {
-			const point = polygon.segments[pointItr].point;
-			if (isRelative) {
-				points.push(this._convertCanvasToPercent(point.x, point.y));
-			} else {
-				points.push(this._convertCanvasToGlobal(point.x, point.y));
-			}
-		}
-
-		return points;
-	}
-
 	getPointInBounds(point, bounds) {
 		if (!bounds.contains(point)) {
 			const boundPoint = point;
@@ -948,7 +928,6 @@ class Editor extends Viewer {
 		this._guiOverlay.bringToFront();
 	}
 
-	//***Inherintent functions***
 	setImage(id) {
 		super.setImage(id);
 		this.getImageCanvas().addChild(this._guiOverlay);

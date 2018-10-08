@@ -30,7 +30,7 @@ function GUI(canvas, viewer, colors) {
 			$contextmenu.css({ top: _mouse.y + 5 - $contextmenu.height(), left: _mouse.x - 5 });
 		}
 		$contextmenu.data('doSelected', doSelected);
-		$contextmenu.data('polygonID', id);
+		$contextmenu.data('segmentID', id);
 	}
 
 	this.closeContextMenu = function () {
