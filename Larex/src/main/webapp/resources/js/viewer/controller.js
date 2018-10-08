@@ -878,7 +878,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			let nearestPoint = undefined;
 			if (hitTest && hitTest.segment) {
 				nearestPoint = hitTest.segment.point;
-				nearestPoint = _editor._convertPointFromCanvas(nearestPoint.x, nearestPoint.y);
+				nearestPoint = _editor._convertCanvasToGlobal(nearestPoint.x, nearestPoint.y);
 			}
 
 			this.closeContextMenu();

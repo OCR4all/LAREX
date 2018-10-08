@@ -19,8 +19,8 @@ class Editor extends Viewer {
 		this.DoubleClickListener = new DoubleClickListener();
 	}
 
-	updateSegment(segmentID){
-		super.updateSegment(segmentID);
+	updatePolygon(segmentID){
+		super.updatePolygon(segmentID);
 		this.endEditing();
 	}
 
@@ -123,17 +123,17 @@ class Editor extends Viewer {
 					this._tempPolygon.selected = false;
 					switch (this._tempPolygonType) {
 						case 'segment':
-							this._controller.callbackNewSegment(this._convertPointsPolygonToSegment(rectangle, false));
+							this._controller.callbackNewSegment(this._convertCanvasToGlobal(rectangle, false));
 							break;
 						case 'region':
-							this._controller.callbackNewRegion(this._convertPointsPolygonToSegment(rectangle, true));
+							this._controller.callbackNewRegion(this._convertCanvasToGlobal(rectangle, true));
 							break;
 						case 'ignore':
-							this._controller.callbackNewRegion(this._convertPointsPolygonToSegment(rectangle, true), 'ignore');
+							this._controller.callbackNewRegion(this._convertCanvasToGlobal(rectangle, true), 'ignore');
 							break;
 						case 'roi':
 						default:
-							this._controller.callbackNewRoI(this._convertPointsPolygonToSegment(rectangle, true));
+							this._controller.callbackNewRoI(this._convertCanvasToGlobal(rectangle, true));
 							break;
 					}
 				},
@@ -255,9 +255,9 @@ class Editor extends Viewer {
 				this._tempPolygon.closed = true;
 				this._tempPolygon.selected = false;
 				if (this._tempPolygonType === 'segment') {
-					this._controller.callbackNewSegment(this._convertPointsPolygonToSegment(this._tempPolygon, false));
+					this._controller.callbackNewSegment(this._convertCanvasToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.callbackNewRegion(this._convertPointsPolygonToSegment(this._tempPolygon, true));
+					this._controller.callbackNewRegion(this._convertCanvasToGlobal(this._tempPolygon, true));
 				}
 				this._tempPolygon.remove();
 				this._tempPolygon = null;
@@ -318,7 +318,7 @@ class Editor extends Viewer {
 			if (this._tempPolygon != null) {
 				this._tempPolygon.closed = false;
 				this._tempPolygon.selected = false;
-				this._controller.callbackNewCut(this._convertPointsPolygonToSegment(this._tempPolygon, false));
+				this._controller.callbackNewCut(this._convertCanvasToGlobal(this._tempPolygon, false));
 
 				this._tempPolygon.remove();
 				this._tempPolygon = null;
@@ -415,9 +415,9 @@ class Editor extends Viewer {
 
 			if (this._tempPolygon != null) {
 				if (this._tempPolygonType === 'segment') {
-					this._controller.callbackNewSegment(this._convertPointsPolygonToSegment(this._tempPolygon, false));
+					this._controller.callbackNewSegment(this._convertCanvasToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.callbackNewRegion(this._convertPointsPolygonToSegment(this._tempPolygon, true));
+					this._controller.callbackNewRegion(this._convertCanvasToGlobal(this._tempPolygon, true));
 				}
 
 				this._tempPolygon.remove();
@@ -446,9 +446,9 @@ class Editor extends Viewer {
 
 			contourBound.bounds = new paper.Rectangle(
 					new paper.Point(
-						this._convertPointToCanvas(left,top)),
+						this._convertGlobalToCanvas(left,top)),
 					new paper.Point(
-						this._convertPointToCanvas(right,bottom)));
+						this._convertGlobalToCanvas(right,bottom)));
 			contourBound.bounds.visible = false;
 			contourBounds.push(contourBound);
 		});
@@ -473,8 +473,8 @@ class Editor extends Viewer {
 	}
 
 	getContours(contours,rectangle){
-		this._convertPointFromCanvas(selectBounds.topLeft);
-		this._convertPointFromCanvas(selectBounds.bottomRight);
+		this._convertCanvasToGlobal(selectBounds.topLeft);
+		this._convertCanvasToGlobal(selectBounds.bottomRight);
 	}
 
 	startMovePolygon(pathID, type, points) {
@@ -538,7 +538,7 @@ class Editor extends Viewer {
 						this._tempPolygon.removeSegments();
 						const segments = this.getPolygon(this._tempID).segments.map(p => {
 							let newPoint = p.point;
-							const realPoint = this._convertPointFromCanvas(newPoint.x, newPoint.y);
+							const realPoint = this._convertCanvasToGlobal(newPoint.x, newPoint.y);
 							points.forEach(pp => {
 								// Contains can not be trusted (TODO: propably?)
 								if (realPoint.x === pp.x && realPoint.y === pp.y) {
@@ -568,9 +568,9 @@ class Editor extends Viewer {
 
 			if (this._tempPolygon !== null) {
 				if (this._tempPolygonType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertPointsPolygonToSegment(this._tempPolygon, false));
+					this._controller.transformSegment(this._tempID, this._convertCanvasToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.transformRegion(this._tempID, this._convertPointsPolygonToSegment(this._tempPolygon, true));
+					this._controller.transformRegion(this._tempID, this._convertCanvasToGlobal(this._tempPolygon, true));
 				}
 
 				if(this._tempPolygon) this._tempPolygon.remove();
@@ -697,9 +697,9 @@ class Editor extends Viewer {
 				this._tempPolygon.remove();
 
 				if (this._tempPolygonType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertPointsPolygonToSegment(polygon, false));
+					this._controller.transformSegment(this._tempID, this._convertCanvasToGlobal(polygon, false));
 				} else {
-					this._controller.transformRegion(this._tempID, this._convertPointsPolygonToSegment(polygon, true));
+					this._controller.transformRegion(this._tempID, this._convertCanvasToGlobal(polygon, true));
 				}
 
 				this._tempPolygon = null;
@@ -907,14 +907,14 @@ class Editor extends Viewer {
 	}
 
 	// Private Helper methods
-	_convertPointsPolygonToSegment(polygon, isRelative) {
+	_convertCanvasToGlobal(polygon, isRelative) {
 		const points = [];
 		for (let pointItr = 0, pointMax = polygon.segments.length; pointItr < pointMax; pointItr++) {
 			const point = polygon.segments[pointItr].point;
 			if (isRelative) {
-				points.push(this._convertPercentPointFromCanvas(point.x, point.y));
+				points.push(this._convertCanvasToPercent(point.x, point.y));
 			} else {
-				points.push(this._convertPointFromCanvas(point.x, point.y));
+				points.push(this._convertCanvasToGlobal(point.x, point.y));
 			}
 		}
 

@@ -85,8 +85,8 @@ class Viewer {
 
 			for (const key in segment.points) {
 				const sPoint = segment.points[key];
-				const point = segment.isRelative ? this._convertPercentPointToCanvas(sPoint.x, sPoint.y)
-												: this._convertPointToCanvas(sPoint.x, sPoint.y);
+				const point = segment.isRelative ? this._convertPercentToCanvas(sPoint.x, sPoint.y)
+												: this._convertGlobalToCanvas(sPoint.x, sPoint.y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
@@ -127,7 +127,7 @@ class Viewer {
 			}
 			if (point) {
 				const canvasSegment = polygon.segments.find(s => {
-					const realPoint = this._convertPointFromCanvas(s.point.x, s.point.y);
+					const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
 					return realPoint.x === point.x && realPoint.y === point.y;
 				});
 				canvasSegment.point.selected = true;
@@ -139,7 +139,7 @@ class Viewer {
 			this._polygons[id].selected = false;
 			if (point) {
 				const canvasSegment = polygon.segments.find(s => {
-					const realPoint = this._convertPointFromCanvas(s.point.x, s.point.y);
+					const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
 					return realPoint.x === point.x && realPoint.y === point.y;
 				});
 				canvasSegment.point.selected = false;
@@ -156,7 +156,7 @@ class Viewer {
 		this._polygons[segmentID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
 				point.point.selected = true;
-				points.push(this._convertPointFromCanvas(point.point.x, point.point.y));
+				points.push(this._convertCanvasToGlobal(point.point.x, point.point.y));
 			}
 		});
 		return points;
@@ -275,12 +275,12 @@ class Viewer {
 		//Convert segment points to current canvas coordinates
 		if (!segment.isRelative) {
 			for (const key in segment.points) {
-				const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
+				const point = this._convertGlobalToCanvas(segment.points[key].x, segment.points[key].y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		} else {
 			for (const key in segment.points) {
-				const point = this._convertPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
+				const point = this._convertPercentToCanvas(segment.points[key].x, segment.points[key].y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
@@ -315,7 +315,7 @@ class Viewer {
 
 		//Convert segment points to current canvas coordinates
 		for (const key in line.points) {
-			const point = this._convertPointToCanvas(line.points[key].x, line.points[key].y);
+			const point = this._convertGlobalToCanvas(line.points[key].x, line.points[key].y);
 			polygon.add(new paper.Point(point.x, point.y));
 		}
 
@@ -422,7 +422,8 @@ class Viewer {
 			this._background.sendToBack();
 		}
 	}
-	_convertPointFromCanvas(canvasX, canvasY) {
+
+	_convertCanvasToGlobal(canvasX, canvasY) {
 		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
 		const imagePosition = this.getBoundaries();
 		const x = Math.round((canvasPoint.x - imagePosition.x) / this.getZoom());
@@ -430,7 +431,8 @@ class Viewer {
 
 		return { "x": x, "y": y };
 	}
-	_convertPercentPointFromCanvas(canvasX, canvasY) {
+
+	_convertCanvasToPercent(canvasX, canvasY) {
 		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
 		const imagePosition = this.getBoundaries();
 		const x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
@@ -439,14 +441,15 @@ class Viewer {
 		return { "x": x, "y": y };
 	}
 
-	_convertPointToCanvas(x, y) {
+	_convertGlobalToCanvas(x, y) {
 		const imagePosition = this._imageCanvas.bounds;
 		const canvasX = x * this._currentZoom + imagePosition.x;
 		const canvasY = y * this._currentZoom + imagePosition.y;
 
 		return { "x": canvasX, "y": canvasY };
 	}
-	_convertPercentPointToCanvas(x, y) {
+
+	_convertPercentToCanvas(x, y) {
 		const imagePosition = this._imageCanvas.bounds;
 		const canvasX = (x * imagePosition.width) + imagePosition.x;
 		const canvasY = (y * imagePosition.height) + imagePosition.y;
