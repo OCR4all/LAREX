@@ -14,7 +14,7 @@ class Colors {
 				color = freeColors.pop();
 			} else {
 				// Fallback generator
-				const id = this._segmenttypes[segmentType]
+				const id = this._regionTypes[segmentType]
 				const counter = 6;
 				const modifier1 = (id + 6) % counter;
 				const modifier2 = Math.floor(((id - 6) / counter));

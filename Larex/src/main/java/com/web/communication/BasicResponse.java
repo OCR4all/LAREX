@@ -22,8 +22,8 @@ public class BasicResponse {
 	private Book book;
 	@JsonProperty("settings")
 	private BookSettings settings;
-	@JsonProperty("segmenttypes")
-	protected Map<RegionType, Integer> segmentTypes;
+	@JsonProperty("regionTypes")
+	protected Map<RegionType, Integer> regionTypes;
 
 	@JsonCreator
 	public BasicResponse(@JsonProperty("book") Book book,
@@ -40,17 +40,17 @@ public class BasicResponse {
 		return settings;
 	}
 
-	public Map<RegionType, Integer> getSegmentTypes() {
-		if (segmentTypes == null)
-			initSegmentTypes();
-		return segmentTypes;
+	public Map<RegionType, Integer> getregionTypes() {
+		if (regionTypes == null)
+			initregionTypes();
+		return regionTypes;
 	}
 
-	private void initSegmentTypes() {
-		this.segmentTypes = new HashMap<RegionType, Integer>();
+	private void initregionTypes() {
+		this.regionTypes = new HashMap<RegionType, Integer>();
 		int i = 0;
 		for (RegionType type : RegionType.values()) {
-			segmentTypes.put(type, i);
+			regionTypes.put(type, i);
 			i++;
 		}
 	}

@@ -8,7 +8,7 @@
 		<div id="regionTypeLegendIcon" class="legendicon"></div><span id="regionType">Test</span>
 		<div id="regioneditorSelect" class="select-regions hide">
 			<ul class="collection highlight">
-				<c:forEach var="type" items="${segmenttypes}">
+				<c:forEach var="type" items="${regionTypes}">
 					<li class="collection-item regioneditorSelectItem" data-type="${type.key}">
 						${type.key}
 					</li>

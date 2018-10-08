@@ -69,8 +69,8 @@ public class ViewerController {
 		}
 
 		model.addAttribute("book", book);
-		model.addAttribute("segmenttypes", getSegmentTypes());
-		model.addAttribute("imageSegTypes", getImageSegmentTypes());
+		model.addAttribute("regionTypes", getregionTypes());
+		model.addAttribute("imageSegTypes", getImageregionTypes());
 		model.addAttribute("bookPath", fileManager.getWebBooksPath());
 		model.addAttribute("globalSettings", config);
 
@@ -152,24 +152,24 @@ public class ViewerController {
 		return database.getSegmentedPageIDs(bookID);
 	}
 	
-	private Map<RegionType, Integer> getSegmentTypes() {
-		Map<RegionType, Integer> segmentTypes = new HashMap<RegionType, Integer>();
+	private Map<RegionType, Integer> getregionTypes() {
+		Map<RegionType, Integer> regionTypes = new HashMap<RegionType, Integer>();
 
 		int i = 0;
 		for (RegionType type : RegionType.values()) {
-			segmentTypes.put(type, i);
+			regionTypes.put(type, i);
 			i++;
 		}
-		return segmentTypes;
+		return regionTypes;
 	}
 
-	private Map<ImageSegType, String> getImageSegmentTypes() {
-		Map<ImageSegType, String> segmentTypes = new TreeMap<ImageSegType, String>();
-		segmentTypes.put(ImageSegType.NONE, "None");
-		segmentTypes.put(ImageSegType.CONTOUR_ONLY, "Contour only");
-		segmentTypes.put(ImageSegType.STRAIGHT_RECT, "Straight rectangle");
-		segmentTypes.put(ImageSegType.ROTATED_RECT, "Rotated rectangle");
-		return segmentTypes;
+	private Map<ImageSegType, String> getImageregionTypes() {
+		Map<ImageSegType, String> regionTypes = new TreeMap<ImageSegType, String>();
+		regionTypes.put(ImageSegType.NONE, "None");
+		regionTypes.put(ImageSegType.CONTOUR_ONLY, "Contour only");
+		regionTypes.put(ImageSegType.STRAIGHT_RECT, "Straight rectangle");
+		regionTypes.put(ImageSegType.ROTATED_RECT, "Rotated rectangle");
+		return regionTypes;
 	}
 
 	private void init() {

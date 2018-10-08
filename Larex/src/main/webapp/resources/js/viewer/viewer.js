@@ -1,13 +1,13 @@
 class Viewer {
-	constructor(segmenttypes, viewerInput, colors) {
-		this._segmenttypes = segmenttypes;
+	constructor(regionTypes, viewerInput, colors) {
+		this._regionTypes = regionTypes;
 		this.thisInput = viewerInput;
 		this._imageID;
 		this._imageWidth;
 		this._imageHeight;
 		this._overlayID = "overlay";
 		this._overlay;
-		this._paths = {};
+		this._polygons = {};
 		this._imageCanvas = new paper.Group();
 		this._background;
 		this._currentZoom = 1;
@@ -35,26 +35,26 @@ class Viewer {
 	}
 
 	addSegment(segment, isFixed=false, isStatic=false) {
-		this.drawPath(segment, false, isFixed, isStatic);
+		this.drawPolygon(segment, false, isFixed, isStatic);
 	}
 
 	fixSegment(segmentID, doFix = true) {
 		if (doFix) {
-			this._paths[segmentID].dashArray = [5, 3];
+			this._polygons[segmentID].dashArray = [5, 3];
 		} else {
-			this._paths[segmentID].dashArray = [];
+			this._polygons[segmentID].dashArray = [];
 		}
 	}
 
 	forceUpdate() {
 		// highlight segments to force paperjs/canvas to redraw everything
-		if (this._paths)
-			Object.keys(this._paths).forEach((id) => this.highlightSegment(id, false));
+		if (this._polygons)
+			Object.keys(this._polygons).forEach((id) => this.highlightSegment(id, false));
 	}
 
 	clear() {
 		paper.project.activeLayer.removeChildren();
-		this._paths = {};
+		this._polygons = {};
 		this._currentZoom = 1;
 		paper.view.draw();
 		this._background = null;
@@ -62,83 +62,83 @@ class Viewer {
 	}
 
 	updateSegment(segment) {
-		const path = this._paths[segment.id];
-		if (path === undefined || path === null) {
+		const polygon = this._polygons[segment.id];
+		if (polygon === undefined || polygon === null) {
 			this.addSegment(segment);
 		} else {
-			path.removeSegments();
+			polygon.removeSegments();
 
 			//Update color
 			const color = this._colors.getColor(segment.type);
 			//Save old alpha
-			const alphaFill = path.fillColor.alpha;
-			const alphaStroke = path.strokeColor.alpha;
-			const dashArray = path.dashArray;
-			const mainAlpha = path.fillColor.mainAlpha;
-			path.fillColor = new paper.Color(color);//color;
-			path.fillColor.alpha = alphaFill;
-			path.fillColor.mainAlpha = mainAlpha;
-			path.strokeColor = color;
-			path.strokeColor.alpha = alphaStroke;
-			path.defaultStrokeColor = new paper.Color(path.strokeColor);
-			path.dashArray = dashArray;
+			const alphaFill = polygon.fillColor.alpha;
+			const alphaStroke = polygon.strokeColor.alpha;
+			const dashArray = polygon.dashArray;
+			const mainAlpha = polygon.fillColor.mainAlpha;
+			polygon.fillColor = new paper.Color(color);//color;
+			polygon.fillColor.alpha = alphaFill;
+			polygon.fillColor.mainAlpha = mainAlpha;
+			polygon.strokeColor = color;
+			polygon.strokeColor.alpha = alphaStroke;
+			polygon.defaultStrokeColor = new paper.Color(polygon.strokeColor);
+			polygon.dashArray = dashArray;
 
 			for (const key in segment.points) {
 				const sPoint = segment.points[key];
 				const point = segment.isRelative ? this._convertPercentPointToCanvas(sPoint.x, sPoint.y)
 												: this._convertPointToCanvas(sPoint.x, sPoint.y);
-				path.add(new paper.Point(point.x, point.y));
+				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
 	}
 
 	removeSegment(id) {
-		this._paths[id].remove();
-		delete this._paths[id];
+		this._polygons[id].remove();
+		delete this._polygons[id];
 	}
 
 	highlightSegment(id, doHighlight) {
-		const path = this._paths[id];
-		if (path) {
-			if (path.fillColor != null) {
+		const polygon = this._polygons[id];
+		if (polygon) {
+			if (polygon.fillColor != null) {
 				if (doHighlight) {
-					path.fillColor.alpha = 0.6;
+					polygon.fillColor.alpha = 0.6;
 				} else {
-					path.fillColor.alpha = path.fillColor.mainAlpha;
+					polygon.fillColor.alpha = polygon.fillColor.mainAlpha;
 				}
 			}
 		}
 	}
 
 	hideSegment(id, doHide) {
-		const path = this._paths[id];
-		if (path !== null) {
-			path.visible = !doHide;
+		const polygon = this._polygons[id];
+		if (polygon !== null) {
+			polygon.visible = !doHide;
 		}
 	}
 
 	selectSegment(id, doSelect, displayPoints, point) {
 		if (doSelect) {
-			const path = this._paths[id];
-			path.strokeColor = new paper.Color('#1e88e5');
-			path.strokeWidth = 2;
+			const polygon = this._polygons[id];
+			polygon.strokeColor = new paper.Color('#1e88e5');
+			polygon.strokeWidth = 2;
 			if (displayPoints) {
-				this._paths[id].selected = true;
+				this._polygons[id].selected = true;
 			}
 			if (point) {
-				const canvasSegment = path.segments.find(s => {
+				const canvasSegment = polygon.segments.find(s => {
 					const realPoint = this._convertPointFromCanvas(s.point.x, s.point.y);
 					return realPoint.x === point.x && realPoint.y === point.y;
 				});
 				canvasSegment.point.selected = true;
 			}
 		} else {
-			const path = this._paths[id];
-			path.strokeColor = new paper.Color(path.defaultStrokeColor);
-			path.strokeWidth = 1;
-			this._paths[id].selected = false;
+			const polygon = this._polygons[id];
+			polygon.strokeColor = new paper.Color(polygon.defaultStrokeColor);
+			polygon.strokeWidth = 1;
+			this._polygons[id].selected = false;
 			if (point) {
-				const canvasSegment = path.segments.find(s => {
+				const canvasSegment = polygon.segments.find(s => {
 					const realPoint = this._convertPointFromCanvas(s.point.x, s.point.y);
 					return realPoint.x === point.x && realPoint.y === point.y;
 				});
@@ -151,9 +151,9 @@ class Viewer {
 		const points = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
-		this._paths[segmentID].selected = true;
+		this._polygons[segmentID].selected = true;
 		
-		this._paths[segmentID].segments.forEach(point => {
+		this._polygons[segmentID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
 				point.point.selected = true;
 				points.push(this._convertPointFromCanvas(point.point.x, point.point.y));
@@ -166,8 +166,8 @@ class Viewer {
 		const segmentIDs = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
-		$.each(this._paths, (id, path) => {
-			if (rectangleAB.contains(path.bounds)) {
+		$.each(this._polygons, (id, polygon) => {
+			if (rectangleAB.contains(polygon.bounds)) {
 				segmentIDs.push(id);
 			}
 		});
@@ -248,86 +248,86 @@ class Viewer {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	drawPath(segment, doFill, isFixed, isStatic = false) {
-		//Construct path from segment
-		const path = new paper.Path();
-		path.segmentID = segment.id;
+	drawPolygon(segment, doFill, isFixed, isStatic = false) {
+		//Construct polygon from segment
+		const polygon = new paper.Path();
+		polygon.segmentID = segment.id;
 		const color = this._colors.getColor(segment.type);
 
-		path.doFill = doFill;
-		path.fillColor = new paper.Color(color);//color;
-		path.closed = true;
-		path.strokeColor = color;
+		polygon.doFill = doFill;
+		polygon.fillColor = new paper.Color(color);//color;
+		polygon.closed = true;
+		polygon.strokeColor = color;
 		if (doFill) {
-			path.fillColor.alpha = 0.4;
-			path.strokeColor.alpha = 0.4;
+			polygon.fillColor.alpha = 0.4;
+			polygon.strokeColor.alpha = 0.4;
 		} else {
-			path.fillColor.alpha = 0.001;
-			path.strokeColor.alpha = 1;
-			path.strokeWidth = 2;
+			polygon.fillColor.alpha = 0.001;
+			polygon.strokeColor.alpha = 1;
+			polygon.strokeWidth = 2;
 		}
-		path.defaultStrokeColor = new paper.Color(path.strokeColor);
+		polygon.defaultStrokeColor = new paper.Color(polygon.strokeColor);
 		if (isFixed) {
-			path.dashArray = [5, 3];
+			polygon.dashArray = [5, 3];
 		}
-		path.fillColor.mainAlpha = path.fillColor.alpha;
+		polygon.fillColor.mainAlpha = polygon.fillColor.alpha;
 
 		//Convert segment points to current canvas coordinates
 		if (!segment.isRelative) {
 			for (const key in segment.points) {
 				const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
-				path.add(new paper.Point(point.x, point.y));
+				polygon.add(new paper.Point(point.x, point.y));
 			}
 		} else {
 			for (const key in segment.points) {
 				const point = this._convertPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
-				path.add(new paper.Point(point.x, point.y));
+				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
 
 		if(!isStatic){
 			//Add listeners
-			path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
-			path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
+			polygon.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
+			polygon.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
 		}
 
 		//Add to canvas
-		this._imageCanvas.addChild(path);
-		this._paths[segment.id] = path;
+		this._imageCanvas.addChild(polygon);
+		this._polygons[segment.id] = polygon;
 
-		return path;
+		return polygon;
 	}
 
-	getPath(id) {
-		return this._paths[id];
+	getPolygon(id) {
+		return this._polygons[id];
 	}
 
-	drawPathLine(line) {
-		//Construct path from segment
-		const path = new paper.Path();
+	drawPolygonLine(line) {
+		//Construct polygon from segment
+		const polygon = new paper.Path();
 		const color = new paper.Color(1, 0, 1);
 
-		path.doFill = false;
-		path.closed = false;
-		path.strokeColor = color;
-		path.strokeWidth = 2;
-		path.segmentID = line.id;
+		polygon.doFill = false;
+		polygon.closed = false;
+		polygon.strokeColor = color;
+		polygon.strokeWidth = 2;
+		polygon.segmentID = line.id;
 
 		//Convert segment points to current canvas coordinates
 		for (const key in line.points) {
 			const point = this._convertPointToCanvas(line.points[key].x, line.points[key].y);
-			path.add(new paper.Point(point.x, point.y));
+			polygon.add(new paper.Point(point.x, point.y));
 		}
 
 		//Add listeners
-		path.onMouseEnter = (event) => this.thisInput.enterSection(line.id, event);
-		path.onMouseLeave = (event) => this.thisInput.leaveSection(line.id, event);
+		polygon.onMouseEnter = (event) => this.thisInput.enterSection(line.id, event);
+		polygon.onMouseLeave = (event) => this.thisInput.leaveSection(line.id, event);
 
 		//Add to canvas
-		this._imageCanvas.addChild(path);
-		this._paths[line.id] = path;
+		this._imageCanvas.addChild(polygon);
+		this._polygons[line.id] = polygon;
 
-		return path;
+		return polygon;
 	}
 
 	getImageCanvas() {

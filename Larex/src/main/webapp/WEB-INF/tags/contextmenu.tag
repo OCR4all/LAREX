@@ -4,7 +4,7 @@
 <div id="contextmenu" class="card hide infocus">
 	<div class="select-regions">
 		<ul class="collection highlight">
-			<c:forEach var="type" items="${segmenttypes}">
+			<c:forEach var="type" items="${regionTypes}">
 				<c:if test="${!(type.key eq 'ignore')}">
 					<li class="collection-item contextTypeOption contextregionlegend" data-type="${type.key}">
 						<div class="legendicon ${type.key}"></div>${type.key}

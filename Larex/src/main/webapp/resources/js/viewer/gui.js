@@ -73,9 +73,9 @@ function GUI(canvas, viewer, colors) {
 		return parameters;
 	}
 
-	this.setRegionLegendColors = function (segmenttypes) {
+	this.setRegionLegendColors = function (regionTypes) {
 		// Iterate over Segmenttype-"Map" (Object in JS)
-		Object.keys(segmenttypes).forEach((key) => {
+		Object.keys(regionTypes).forEach((key) => {
 			const color = _colors.getColor(key);
 			$(".legendicon." + key).css("background-color", color.toCSS());
 		});

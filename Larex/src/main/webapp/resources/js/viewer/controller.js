@@ -28,7 +28,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _fixedSegments = {};
 	let _editReadingOrder = false;
 
-	let _newPathCounter = 0;
+	let _newPolygonCounter = 0;
 
 	// main method
 	$(window).ready(() => {
@@ -46,7 +46,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		this.showPreloader(true);
 		_communicator.loadBook(bookID, _currentPage).done((data) => {
 			_book = data.book;
-			_segmentationtypes = data.segmenttypes;
+			_segmentationtypes = data.regionTypes;
 			_settings = data.settings;
 			// clone _settings
 			_activesettings = JSON.parse(JSON.stringify(_settings));
@@ -475,7 +475,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		let points = _selector.getSelectedPoints();
 
 		if (points && points.length > 0 && selected.length === 1 && selectType === "segment") {
-			_editor.startMovePath(selected[0], selectType, points);
+			_editor.startMovePolygon(selected[0], selectType, points);
 		}
 	}
 
@@ -581,8 +581,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 	this.callbackNewRegion = function (regionpoints, regiontype) {
-		const newID = "created" + _newPathCounter;
-		_newPathCounter++;
+		const newID = "created" + _newPolygonCounter;
+		_newPolygonCounter++;
 		if (!regiontype) {
 			type = _presentRegions[0];
 			if (!type) {
@@ -622,29 +622,29 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const actions = [];
 
 		//Create 'inverted' ignore rectangle
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
 			_editor, _settings, _currentPage));
-		_newPathCounter++;
+		_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
 			_editor, _settings, _currentPage));
-		_newPathCounter++;
+		_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
 			_editor, _settings, _currentPage));
-		_newPathCounter++;
+		_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPathCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
+		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
 			_editor, _settings, _currentPage));
-		_newPathCounter++;
+		_newPolygonCounter++;
 
 		_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
 		_gui.unselectAllToolBarButtons();
 	}
 
 	this.callbackNewSegment = function (segmentpoints) {
-		const newID = "created" + _newPathCounter;
-		_newPathCounter++;
+		const newID = "created" + _newPolygonCounter;
+		_newPolygonCounter++;
 		let type = _presentRegions[0];
 		if (!type) {
 			type = "other";
@@ -657,8 +657,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.unselectAllToolBarButtons();
 	}
 	this.callbackNewCut = function (segmentpoints) {
-		const newID = "created" + _newPathCounter;
-		_newPathCounter++;
+		const newID = "created" + _newPolygonCounter;
+		_newPolygonCounter++;
 
 		const actionAdd = new ActionAddCut(newID, segmentpoints,
 			_editor, _settings, _currentPage);
@@ -677,7 +677,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const selected = _selector.getSelectedSegments();
 
 		if (selectType === 'region' && selected.length === 1) 
-			_editor.startScalePath(selected[0], 'region');
+			_editor.startScalePolygon(selected[0], 'region');
 	}
 
 	this.transformRegion = function (regionID, regionSegments) {
