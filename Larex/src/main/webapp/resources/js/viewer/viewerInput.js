@@ -1,6 +1,5 @@
 function ViewerInput(controller) {
 	const _controller = controller;
-	let _mouseSelecting = false;
 
 	this.enterSection = function (sectionID, event) {
 		_controller.enterSegment(sectionID, true);
@@ -31,37 +30,17 @@ function ViewerInput(controller) {
 		}
 	}
 
-	this.dragSection = function (sectionID, event) {
-		switch (event.event.button) {
-			// leftclick
-			case 0:
-				if (event.modifiers.shift) {
-					_controller.selectMultiple();
-				} else {
-					_controller.dragSegment(sectionID, event.delta);
-				}
-				break;
-			// middleclick
-			case 1:
-				break;
-			// rightclick
-			case 2:
-				_controller.endCreateReadingOrder();
-				break;
-		}
-	}
-
 	this.dragImage = function (event) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (event.modifiers.shift) {
+				if (event.modifiers.shift) 
 					_controller.selectMultiple();
-				} else {
+				else {
 					if(_controller.hasPointsSelected())
 						_controller.moveSelected();
 					else
-					_controller.moveImage(event.delta);
+						_controller.moveImage(event.delta);
 				}
 				break;
 			// middleclick
@@ -78,9 +57,8 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				/*if (event.modifiers.shift) {
+				if (event.modifiers.shift) 
 					_controller.selectMultiple();
-				}*/
 				break;
 			// middleclick
 			case 1:
@@ -92,13 +70,10 @@ function ViewerInput(controller) {
 		}
 	}
 
-	this.clickImage = function (event, hitTest) {
+	this.clickImage = function (event) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (hitTest && hitTest.item && hitTest.segment) {
-					_controller.selectSegment(hitTest.item.id, point);
-				}
 				break;
 			// middleclick
 			case 1:

@@ -12,6 +12,7 @@ class Viewer {
 		this._background;
 		this._currentZoom = 1;
 		this._colors = colors;
+		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
 		document.addEventListener('visibilitychange', () => {
 			if (!document.hidden) this.forceUpdate();
 		});
@@ -22,6 +23,13 @@ class Viewer {
 		this._imageCanvas = new paper.Group();
 		this._imageID = id;
 		this._drawImage();
+		this._imageCanvas.onClick = (event) => {
+			const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
+			if (hitTest.item && hitTest.item.segmentID) 
+				this.thisInput.selectSection(hitTest.item.segmentID, event, hitTest);
+			else
+				this.thisInput.clickImage(event);
+		};
 		this._imageCanvas.onMouseDrag = (event) => this.thisInput.dragImage(event);
 		this._imageCanvas.bringToFront();
 	}
@@ -75,19 +83,11 @@ class Viewer {
 			path.defaultStrokeColor = new paper.Color(path.strokeColor);
 			path.dashArray = dashArray;
 
-			//Convert segment points to current canvas coordinates
-			const imagePosition = this._imageCanvas.bounds;
-
-			if (!segment.isRelative) {
-				for (const key in segment.points) {
-					const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
-					path.add(new paper.Point(point.x, point.y));
-				}
-			} else {
-				for (const key in segment.points) {
-					const point = this._convertPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
-					path.add(new paper.Point(point.x, point.y));
-				}
+			for (const key in segment.points) {
+				const sPoint = segment.points[key];
+				const point = segment.isRelative ? this._convertPercentPointToCanvas(sPoint.x, sPoint.y)
+												: this._convertPointToCanvas(sPoint.x, sPoint.y);
+				path.add(new paper.Point(point.x, point.y));
 			}
 		}
 	}
@@ -251,6 +251,7 @@ class Viewer {
 	drawPath(segment, doFill, isFixed, isStatic = false) {
 		//Construct path from segment
 		const path = new paper.Path();
+		path.segmentID = segment.id;
 		const color = this._colors.getColor(segment.type);
 
 		path.doFill = doFill;
@@ -288,8 +289,6 @@ class Viewer {
 			//Add listeners
 			path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
 			path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
-			path.onClick = (event) => { this.thisInput.selectSection(segment.id, event, path.hitTest(event.point, { segments: true, tolerance: 10 })); };
-			path.onMouseDrag = (event) => this.thisInput.dragSection(segment.id, event);
 		}
 
 		//Add to canvas
@@ -322,7 +321,6 @@ class Viewer {
 		//Add listeners
 		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
 		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
-		path.onMouseDown = (event) => this.thisInput.selectSection(segment.id, event, path.hitTest(event.point, { segments: true, tolerance: 10 }));
 
 		//Add to canvas
 		this._imageCanvas.addChild(path);
@@ -358,7 +356,6 @@ class Viewer {
 		let position = new paper.Point(0, 0);
 		position = position.add([image.width * 0.5, image.height * 0.5]);
 		image.position = position;
-		image.onClick = (event) => this.thisInput.clickImage(event, image.hitTest(event.point, { tolerance: 10 }));
 
 		this._imageCanvas.addChild(image);
 
