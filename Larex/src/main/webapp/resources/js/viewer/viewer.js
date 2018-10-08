@@ -301,7 +301,8 @@ class Viewer {
 	getPath(id) {
 		return this._paths[id];
 	}
-	drawPathLine(segment) {
+
+	drawPathLine(line) {
 		//Construct path from segment
 		const path = new paper.Path();
 		const color = new paper.Color(1, 0, 1);
@@ -310,21 +311,21 @@ class Viewer {
 		path.closed = false;
 		path.strokeColor = color;
 		path.strokeWidth = 2;
-
+		path.segmentID = line.id;
 
 		//Convert segment points to current canvas coordinates
-		for (const key in segment.points) {
-			const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
+		for (const key in line.points) {
+			const point = this._convertPointToCanvas(line.points[key].x, line.points[key].y);
 			path.add(new paper.Point(point.x, point.y));
 		}
 
 		//Add listeners
-		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
-		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
+		path.onMouseEnter = (event) => this.thisInput.enterSection(line.id, event);
+		path.onMouseLeave = (event) => this.thisInput.leaveSection(line.id, event);
 
 		//Add to canvas
 		this._imageCanvas.addChild(path);
-		this._paths[segment.id] = path;
+		this._paths[line.id] = path;
 
 		return path;
 	}
