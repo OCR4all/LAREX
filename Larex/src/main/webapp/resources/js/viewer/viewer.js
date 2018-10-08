@@ -302,7 +302,7 @@ class Viewer {
 		return this._polygons[id];
 	}
 
-	drawPolygonLine(line) {
+	drawLine(line) {
 		//Construct polygon from segment
 		const polygon = new paper.Path();
 		const color = new paper.Color(1, 0, 1);

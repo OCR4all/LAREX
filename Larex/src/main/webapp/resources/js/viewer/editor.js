@@ -181,7 +181,7 @@ class Editor extends Viewer {
 	}
 
 	addLine(line) {
-		this.drawPolygonLine(line);
+		this.drawLine(line);
 	}
 
 	removeLine(lineID) {
