@@ -897,12 +897,17 @@ class Editor extends Viewer {
 				const hitOptions = { segments: true, stroke: true, tolerance: 10 };
 
 				imageCanvas.onMouseMove = (event) => {
-					const hitResult = imageCanvas.hitTest(event.point, hitOptions);
-					if (hitResult.item.polygonID === this._pointSelectorTargetID) {
-						if (hitResult.type == 'segment') 
-							this._pointSelector.position = new paper.Point(hitResult.segment.point);
-						else if (hitResult.type == 'stroke') 
-							this._pointSelector.position = new paper.Point(hitResult.location.point);
+					if(!this.isEditing && this._pointSelector){
+						this._pointSelector.visible = true;
+						const hitResult = imageCanvas.hitTest(event.point, hitOptions);
+						if (hitResult.item.polygonID === this._pointSelectorTargetID) {
+							if (hitResult.type == 'segment') 
+								this._pointSelector.position = new paper.Point(hitResult.segment.point);
+							else if (hitResult.type == 'stroke') 
+								this._pointSelector.position = new paper.Point(hitResult.location.point);
+						}
+					}else if(this._pointSelector){
+						this._pointSelector.visible = false;
 					}
 				} 
 			} else {
@@ -975,6 +980,10 @@ class Editor extends Viewer {
 		this._resetPointSelector();
 	}
 
+	movePoint(point){
+		super.movePoint(point);
+		this._resetOverlay();
+	}
 	setImage(id) {
 		super.setImage(id);
 		this._resetOverlay();

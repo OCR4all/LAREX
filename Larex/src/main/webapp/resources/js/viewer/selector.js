@@ -40,6 +40,8 @@ class Selector {
 			} else if(typeSelected === 'region'){
 				this._controller.scaleSelected();
 			}
+		}else{
+			this._editor.setPointSelectorActive(false);
 		}
 
 	}
@@ -50,6 +52,7 @@ class Selector {
 			this._editor.setEditSegment(segmentID,false)
 		});
 
+		this._editor.setPointSelectorActive(false);
 		this._selectedSegments = [];
 		this._selectedPoints = [];
 		this._selectedContours = [];
