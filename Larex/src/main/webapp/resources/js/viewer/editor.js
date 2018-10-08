@@ -6,17 +6,25 @@ class Editor extends Viewer {
 		this._controller = controller;
 		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5,contours:6};
 		this._editMode = this._editModes.default; 
+
 		this._tempPolygonType;
 		this._tempPolygon;
 		this._tempPoint;
 		this._tempID;
 		this._tempMouseregion;
 		this._tempEndCircle;
+		
 		this._grid = { isActive: false };
 		this._readingOrder;
+		
 		this._guiOverlay = new paper.Group();
+		
 		this.mouseregions = { TOP: 0, BOTTOM: 1, LEFT: 2, RIGHT: 3, MIDDLE: 4, OUTSIDE: 5 };
 		this.DoubleClickListener = new DoubleClickListener();
+		
+		this._pointSelector;
+		this._pointSelectorActive = false;
+		this._pointSelectorTargetID;
 	}
 
 	updatePolygon(polygonID){
@@ -873,6 +881,44 @@ class Editor extends Viewer {
 		}
 	}
 
+	setPointSelectorTarget(polygonID){
+		this._pointSelectorTargetID = polygonID;
+	}
+
+	setPointSelectorActive(isActive = true){
+		if(this._pointSelectorActive !== isActive){
+			const imageCanvas = this.getImageCanvas();
+			this._pointSelectorActive = isActive;
+			if(isActive){
+				this._pointSelector = new paper.Path.Rectangle(new paper.Rectangle(0,0,6,6));
+				this._pointSelector.strokeColor = '#0699ea';
+				this._pointSelector.fillColor = '#0699ea';
+
+				const hitOptions = { segments: true, stroke: true, tolerance: 10 };
+
+				imageCanvas.onMouseMove = (event) => {
+					const hitResult = imageCanvas.hitTest(event.point, hitOptions);
+					if (hitResult.item.polygonID === this._pointSelectorTargetID) {
+						if (hitResult.type == 'segment') 
+							this._pointSelector.position = new paper.Point(hitResult.segment.point);
+						else if (hitResult.type == 'stroke') 
+							this._pointSelector.position = new paper.Point(hitResult.location.point);
+					}
+				} 
+			} else {
+				if(this._pointSelector)
+					this._pointSelector.remove();
+				this._pointSelector = null;
+				imageCanvas.addMouseMove = (e) => {};
+			}
+		}
+	}
+
+	_resetPointSelector(){
+		if(this._pointSelector)
+			this._pointSelector.position = new paper.Point(-10,-10);
+	}
+
 	hideReadingOrder() {
 		if (this._readingOrder) {
 			this._readingOrder.visible = false;
@@ -921,32 +967,33 @@ class Editor extends Viewer {
 		}
 	}
 
-	_fixGuiTextSize() {
+	_resetOverlay() {
 		this._guiOverlay.children.forEach(function (element) {
 			element.scaling = new paper.Point(1, 1);
 		}, this);
-		this._guiOverlay.bringToFront();
+		//this._guiOverlay.bringToFront();
+		this._resetPointSelector();
 	}
 
 	setImage(id) {
 		super.setImage(id);
-		this.getImageCanvas().addChild(this._guiOverlay);
+		this._resetOverlay();
 	}
 	setZoom(zoomfactor, point) {
 		super.setZoom(zoomfactor, point);
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 	zoomIn(zoomfactor, point) {
 		super.zoomIn(zoomfactor, point);
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 	zoomOut(zoomfactor, point) {
 		super.zoomOut(zoomfactor, point);
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 	zoomFit() {
 		super.zoomFit();
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 }
 

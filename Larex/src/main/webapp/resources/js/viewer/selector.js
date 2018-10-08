@@ -13,7 +13,7 @@ class Selector {
 
 	select(segmentID, points = []) {
 		const typeSelected = this._controller.getIDType(segmentID);
-		const pointsWhereVisible = this.isSegmentSelected(segmentID) && this._selectedSegments.length === 1;
+		const pointsWhereVisible = this._selectedSegments.length === 1 && this.isSegmentSelected(segmentID);
 
 		if(this._typeLastSelected !== typeSelected || !this.selectmultiple)
 			this.unSelect();
@@ -27,9 +27,16 @@ class Selector {
 		
 		if(this._selectedSegments.length === 1){
 			if(typeSelected === 'segment'){
-				this._editor.setEditSegment(this._selectedSegments[0]);
+				this._editor.setEditSegment(segmentID);
 				if(pointsWhereVisible)
 					points.forEach(p => this._processSelectPoint(p,segmentID));
+
+				if(this._selectedPoints.length > 0)
+					this._editor.setPointSelectorActive(false);
+				else {
+					this._editor.setPointSelectorTarget(segmentID);
+					this._editor.setPointSelectorActive(true);
+				}
 			} else if(typeSelected === 'region'){
 				this._controller.scaleSelected();
 			}
