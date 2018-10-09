@@ -31,7 +31,9 @@ class Editor extends Viewer {
 	}
 
 	setEditSegment(id,displayPoints=true){
-		this._polygons[id].selected = displayPoints;
+		const polygon = this._polygons[id];
+		if(polygon)
+			polygon.selected = displayPoints;
 	}
 
 	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none') {
@@ -39,16 +41,14 @@ class Editor extends Viewer {
 
 			startFunction();
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseDown = (event) => {
+			const listener = {};
+			this.addListener(listener);
+
+			listener.onMouseDown = (event) => {
 				if (this.isEditing === true) { 
 					const startPoint = event.point; 
 
 					const imageCanvas = this.getImageCanvas();
-
-					const tool = new paper.Tool();
-					tool.activate();
 
 					const canvasPoint = this.getPointInBounds(startPoint, this.getBoundaries());
 					// Start polygon
@@ -71,7 +71,7 @@ class Editor extends Viewer {
 							break;
 					}
 
-					tool.onMouseMove = (event) => {
+					listener.onMouseDrag = (event) => {
 						if (this.isEditing === true) {
 							if (this._tempPolygon) {
 								const point = this.getPointInBounds(event.point, this.getBoundaries());
@@ -83,17 +83,17 @@ class Editor extends Viewer {
 							}
 						} else {
 							this.endRectangle(endFunction,this._tempPolygon);
-							tool.remove();
+							this.removeListener(listener);
 						}
 					}
 					imageCanvas.addChild(this._tempPolygon);
 
-					tool.onMouseUp = (event) => {
+					listener.onMouseUp = (event) => {
 						this.endRectangle(endFunction,this._tempPolygon);
-						tool.remove();
+						this.removeListener(listener);
 					}
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
 		}
@@ -206,9 +206,9 @@ class Editor extends Viewer {
 			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseUp = (event) => {
 				if (this._tempPolygon) {
 					this._tempPolygon.removeSegment(this._tempPolygon.segments.length - 1);
 					this._tempPolygon.add(this.getPointInBounds(event.point, this.getBoundaries()));
@@ -221,7 +221,7 @@ class Editor extends Viewer {
 			});
 			this.DoubleClickListener.setActive(true);
 
-			tool.onMouseDown = (event) => {
+			listener.onMouseDown = (event) => {
 				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
@@ -248,7 +248,7 @@ class Editor extends Viewer {
 					}
 					this._tempPolygon.add(new paper.Point(canvasPoint));
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
 		}
@@ -279,9 +279,9 @@ class Editor extends Viewer {
 			this.isEditing = true;
 			document.body.style.cursor = "copy";
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseMove = (event) => {
 				if (this._tempPolygon) {
 					this._tempPolygon.removeSegment(this._tempPolygon.segments.length - 1);
 					this._tempPolygon.add(this.getPointInBounds(event.point, this.getBoundaries()));
@@ -294,7 +294,7 @@ class Editor extends Viewer {
 			});
 			this.DoubleClickListener.setActive(true);
 
-			tool.onMouseDown = (event) => {
+			listener.onMouseDown = (event) => {
 				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
@@ -311,7 +311,7 @@ class Editor extends Viewer {
 					}
 					this._tempPolygon.add(new paper.Point(canvasPoint));
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
 		}
@@ -339,8 +339,8 @@ class Editor extends Viewer {
 			this._editMode = 2;
 			this._tempPolygonType = type;
 
-			const tool = new paper.Tool();
-			tool.activate();
+			const listener = {};
+			this.addListener(listener);
 
 			if (!this._tempPolygon) {
 				// Start polygon
@@ -351,7 +351,7 @@ class Editor extends Viewer {
 				//this._tempPolygon.selected = true;
 
 				this.getImageCanvas().addChild(this._tempPolygon);
-				tool.onMouseMove = (event) => {
+				listener.onMouseMove = (event) => {
 					if (this.isEditing === true) {
 						if (this._tempPolygon) {
 							const boundaries = this.getBoundaries();
@@ -405,10 +405,10 @@ class Editor extends Viewer {
 						}
 					}
 				}
-				tool.onMouseDown = (event) => {
+				listener.onMouseDown = (event) => {
 					if (this._tempPolygon) {
 						this.endCreateBorder();
-						tool.remove();
+						this.removeListener(listener);
 					}
 				}
 			}
@@ -478,7 +478,7 @@ class Editor extends Viewer {
 		}
 	}
 
-	startMovePolygon(polygonID, type, points) {
+	startMovePolygonPoints(polygonID, type, points) {
 		if (this.isEditing === false) {
 			this._editMode = 4;
 			this.isEditing = true;
@@ -502,9 +502,9 @@ class Editor extends Viewer {
 			const oldPosition = new paper.Point(this._tempPolygon.position);
 			let oldMouse = null;
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseDrag = (event) => {
 				if (this.isEditing === true) {
 					if (oldMouse === null) {
 						oldMouse = event.point;
@@ -513,28 +513,6 @@ class Editor extends Viewer {
 					if (this._grid.isActive) 
 						this._tempPoint = this.getPointFixedToGrid(this._tempPoint);
 
-					if (!points) {
-						this._tempPolygon.position = this._tempPoint;
-
-						// Correct to stay in viewer bounds
-						const tempPolygonBounds = this._tempPolygon.bounds;
-						const pictureBounds = this.getBoundaries();
-						let correctionPoint = new paper.Point(0, 0);
-						if (tempPolygonBounds.left < pictureBounds.left) {
-							correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left - tempPolygonBounds.left), 0));
-						}
-						if (tempPolygonBounds.right > pictureBounds.right) {
-							correctionPoint = correctionPoint.subtract(new paper.Point((tempPolygonBounds.right - pictureBounds.right), 0));
-						}
-						if (tempPolygonBounds.top < pictureBounds.top) {
-							correctionPoint = correctionPoint.add(new paper.Point(0, (pictureBounds.top - tempPolygonBounds.top)));
-						}
-						if (tempPolygonBounds.bottom > pictureBounds.bottom) {
-							correctionPoint = correctionPoint.subtract(new paper.Point(0, (tempPolygonBounds.bottom - pictureBounds.bottom)));
-						}
-						this._tempPoint = this._tempPoint.add(correctionPoint);
-						this._tempPolygon.position = this._tempPoint;
-					} else {
 						const delta = oldPosition.subtract(this._tempPoint);
 						this._tempPolygon.removeSegments();
 						const segments = this.getPolygon(this._tempID).segments.map(p => {
@@ -549,21 +527,20 @@ class Editor extends Viewer {
 							return new paper.Segment(newPoint);
 						});
 						this._tempPolygon.addSegments(segments);
-					}
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
-			tool.onMouseUp = (event) => {
+			listener.onMouseUp = (event) => {
 				if (this.isEditing === true) {
-					this.endMovePolygon();
+					this.endMovePolygonPoints();
 				}
-				tool.remove();
+				this.removeListener(listener);
 			}
 		}
 	}
 
-	endMovePolygon() {
+	endMovePolygonPoints() {
 		if (this.isEditing) {
 			this.isEditing = false;
 
@@ -599,9 +576,9 @@ class Editor extends Viewer {
 			this._tempPolygon.strokeColor = 'black';
 			this._tempPolygon.dashArray = [5, 3];
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseDrag = (event) => {
 				if (this.isEditing === true) {
 					if (this._tempPolygon) {
 						const mouseregion = this.getMouseRegion(this._tempPolygon.bounds, event.point, 0.1, 10);
@@ -623,22 +600,22 @@ class Editor extends Viewer {
 						}
 					}
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
-			tool.onMouseDown = (event) => {
+			listener.onMouseDown = (event) => {
 				if (this.isEditing === true) {
 					this.scalePolygon(this._tempPolygon, this._tempMouseregion);
 				}
-				tool.remove();
+				this.removeListener(listener);
 			}
 		}
 	}
 
 	scalePolygon(polygon, mouseregion) {
-		const tool = new paper.Tool();
-		tool.activate();
-		tool.onMouseMove = (event) => {
+		const listener = {};
+		this.addListener(listener);
+		listener.onMouseDrag = (event) => {
 			if (this.isEditing === true) {
 				if (this._tempPolygon) {
 					const mouseinbound = this.getPointInBounds(event.point, this.getBoundaries());
@@ -671,19 +648,19 @@ class Editor extends Viewer {
 						case this.mouseregions.MIDDLE:
 						default:
 							document.body.style.cursor = "auto";
-							tool.remove();
+							this.removeListener(listener);
 							break;
 					}
 				}
 			} else {
-				tool.remove();
+				this.removeListener(listener);
 			}
 		}
-		tool.onMouseUp = (event) => {
+		listener.onMouseUp = (event) => {
 			if (this.isEditing === true) {
 				this.endScalePolygon();
 			}
-			tool.remove();
+			this.removeListener(listener);
 		}
 	}
 
@@ -880,28 +857,28 @@ class Editor extends Viewer {
 	}
 
 	startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, cleanup = () => {}, update = (targetID,point) => {}){
-		if(!this._pointSelector || !this._pointSelector.targetID || targetID !== this._pointSelector.targetID){
+		if(!this._pointSelector){
 			// Terminate potential running point select
 			this.endPointSelect();
 
 			// Run 
 			init();
-			const imageCanvas = this.getImageCanvas();
+
+			const polygon = this._polygons[targetID];
 
 			// Init selector rectangle
 			this._pointSelector = new paper.Path.Rectangle(new paper.Rectangle(0,0,6,6));
 			this._pointSelector.strokeColor = '#0699ea';
 			this._pointSelector.fillColor = '#0699ea';
-			this._pointSelector.targetID = targetID;
 
 			const hitOptions = { segments: true, stroke: true, tolerance: 10 };
 
-			const tool = new paper.Tool();
-			tool.onMouseMove = (event) => {
-				if(!this.isEditing && this._pointSelector && this._pointSelector.targetID){
+			const listener = {};
+			listener.onMouseMove = (event) => {
+				if(!this.isEditing && this._pointSelector){
 					this._pointSelector.visible = true;
-					const hitResult = imageCanvas.hitTest(event.point, hitOptions);
-					if (hitResult.item.polygonID === this._pointSelector.targetID) {
+					const hitResult = polygon.hitTest(event.point, hitOptions);
+					if (hitResult) {
 						if (hitResult.type == 'segment') 
 							this._pointSelector.position = new paper.Point(hitResult.segment.point);
 						else if (hitResult.type == 'stroke') 
@@ -909,33 +886,32 @@ class Editor extends Viewer {
 
 						update(targetID, this._convertCanvasToGlobal(this._pointSelector.position.x,this._pointSelector.position.y));
 					} else { 
+						// Mouse is not near the polygon
 						this._pointSelector.visible = false;
 					}
 				} else {
 					this.endPointSelect();
 					cleanup();
-					tool.remove();
+					this.removeListener(listener);
 				}
 			} 
-			tool.onMouseDown = (event) => {
-				if(!this.isEditing && this._pointSelector && this._pointSelector.targetID){
-					const hitResult = imageCanvas.hitTest(event.point, hitOptions);
-					if (hitResult.item !== this._pointSelector && hitResult.item.polygonID === this._pointSelector.targetID) {
+			listener.onMouseUp = (event) => {
+				if(!this.isEditing && this._pointSelector){
+					const hitResult = polygon.hitTest(event.point, hitOptions);
+					if (hitResult) {
 						// Update last time if hit is not on point selector
 						if (hitResult.type == 'segment') 
 							this._pointSelector.position = new paper.Point(hitResult.segment.point);
 						else if (hitResult.type == 'stroke') 
 							this._pointSelector.position = new paper.Point(hitResult.location.point);
+						this.endPointSelect(callback, targetID, this._pointSelector.position);
 					}
-					this.endPointSelect(callback, targetID,this._pointSelector.position);
-				} else {
-					this.endPointSelect();
 				}
 
 				cleanup();
-				tool.remove();
+				this.removeListener(listener);
 			}
-			tool.activate();
+			this.addListener(listener);
 		}
 	}
 
@@ -944,10 +920,24 @@ class Editor extends Viewer {
 			this._pointSelector.remove();
 		this._pointSelector = null;
 
-		if(point && point.x && point.y)
+		if(point && point.x && point.y){
 			callback(targetID, this._convertCanvasToGlobal(point.x,point.y));
-		else
+		}else{
 			callback(targetID)
+		}
+	}
+
+	addPointOnLine(polygonID,point){
+		const polygon = this._polygons[polygonID];
+		if(polygon){
+			const canvasPoint = this._convertGlobalToCanvas(point.x,point.y);
+			const hitResult = polygon.hitTest(canvasPoint, { stroke: true, tolerance: 1 });
+
+			if (hitResult && hitResult.type == 'stroke') {
+				polygon.insert(hitResult.location.index+1,canvasPoint);
+			}
+		}
+		return this._convertCanvasPolygonToGlobal(polygon);
 	}
 
 	_resetPointSelector(){

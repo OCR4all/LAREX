@@ -475,7 +475,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		let points = _selector.getSelectedPoints();
 
 		if (points && points.length > 0 && selected.length === 1 && selectType === "segment") {
-			_editor.startMovePolygon(selected[0], selectType, points);
+			_editor.startMovePolygonPoints(selected[0], selectType, points);
 		}
 	}
 
@@ -513,7 +513,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 					actions.push(new ActionRemoveCut(cut, _editor, _settings, _currentPage));
 				}
 			}
-			_selector.unSelect();
 			let multidelete = new ActionMultiple(actions);
 			_actionController.addAndExecuteAction(multidelete, _currentPage);
 		} 
@@ -539,8 +538,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 					const mergedSegment = data;
 					actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
 						_editor, _segmentation, _currentPage, this));
-
-					_selector.unSelect();
 
 					let mergeAction = new ActionMultiple(actions);
 					_actionController.addAndExecuteAction(mergeAction, _currentPage);
@@ -900,8 +897,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
-	this.unSelect = function () {
-		_selector.unSelect();
+	this.unSelect = function (segments) {
+		_selector.unSelect(segments);
 	}
 	this.isSegmentSelected = function (segmentID) {
 		return _selector.isSegmentSelected(segmentID);

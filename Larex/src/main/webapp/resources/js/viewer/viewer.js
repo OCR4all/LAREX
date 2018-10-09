@@ -13,24 +13,76 @@ class Viewer {
 		this._currentZoom = 1;
 		this._colors = colors;
 		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
+		this._listener = [];
+
 		document.addEventListener('visibilitychange', () => {
 			if (!document.hidden) this.forceUpdate();
 		});
 		paper.settings.handleSize = 5;
+
+		// Mouse Listener
+		const tool = new paper.Tool();
+		tool.onMouseUp = (event) => {
+			let propagate = true;
+			this._listener.forEach(listener => {
+				if (listener.onMouseUp) {
+					propagate = false;
+					listener.onMouseUp(event)
+				}
+			});
+
+			if(propagate){
+				const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
+				if(hitTest){
+					if (hitTest.item && hitTest.item.polygonID) 
+						this.thisInput.selectSection(hitTest.item.polygonID, event, hitTest);
+					else
+						this.thisInput.clickImage(event);
+				} else {
+					this.thisInput.clickBackground(event);
+				}
+			}
+		};
+		tool.onMouseDrag = (event) => {
+			let propagate = true;
+			this._listener.forEach(listener => {
+				if (listener.onMouseDrag) {
+					propagate = false;
+					listener.onMouseDrag(event)
+				}
+			});
+
+			if(propagate){
+				const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
+				if(hitTest)
+					this.thisInput.dragImage(event);
+				else 
+					this.thisInput.dragBackground(event);
+			}
+		}
+
+		tool.onMouseMove = (event) => {
+			this._listener.forEach(listener => { if (listener.onMouseMove) listener.onMouseMove(event);});
+		}
+		tool.onMouseDown = (event) => {
+			this._listener.forEach(listener => { if (listener.onMouseDown) listener.onMouseDown(event);});
+		}
+		tool.activate();
+	}
+
+	addListener(tool){
+		this._listener.push(tool);
+	}
+
+	removeListener(tool){
+		var index = this._listener.indexOf(tool);
+		if (index > -1) this._listener.splice(index, 1);
 	}
 
 	setImage(id) {
 		this._imageCanvas = new paper.Group();
 		this._imageID = id;
 		this._drawImage();
-		this._imageCanvas.onClick = (event) => {
-			const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
-			if (hitTest.item && hitTest.item.polygonID) 
-				this.thisInput.selectSection(hitTest.item.polygonID, event, hitTest);
-			else
-				this.thisInput.clickImage(event);
-		};
-		this._imageCanvas.onMouseDrag = (event) => this.thisInput.dragImage(event);
 		this._imageCanvas.bringToFront();
 	}
 
@@ -120,37 +172,41 @@ class Viewer {
 	selectSegment(id, doSelect, displayPoints, point, fallback = (id,point) => {}) {
 		if (doSelect) {
 			const polygon = this._polygons[id];
-			if(!polygon) fallback(id)
-			
-			polygon.strokeColor = new paper.Color('#1e88e5');
-			polygon.strokeWidth = 2;
-			if (displayPoints) {
-				this._polygons[id].selected = true;
-			}
-			if (point) {
-				const canvasSegment = polygon.segments.find(s => {
-					const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
-					return realPoint.x === point.x && realPoint.y === point.y;
-				});
-				if(canvasSegment)
-					canvasSegment.point.selected = true;
-				else
-					fallback(id,point)
+			if(!polygon)
+				fallback(id)
+			else{
+				polygon.strokeColor = new paper.Color('#1e88e5');
+				polygon.strokeWidth = 2;
+				if (displayPoints) {
+					this._polygons[id].selected = true;
+				}
+				if (point) {
+					const canvasSegment = polygon.segments.find(s => {
+						const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
+						return realPoint.x === point.x && realPoint.y === point.y;
+					});
+					if(canvasSegment)
+						canvasSegment.point.selected = true;
+					else
+						fallback(id,point)
+				}
 			}
 		} else {
 			const polygon = this._polygons[id];
-			polygon.strokeColor = new paper.Color(polygon.defaultStrokeColor);
-			polygon.strokeWidth = 1;
-			this._polygons[id].selected = false;
-			if (point) {
-				const canvasSegment = polygon.segments.find(s => {
-					const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
-					return realPoint.x === point.x && realPoint.y === point.y;
-				});
-				if(canvasSegment)
-					canvasSegment.point.selected = false;
-				else
-					fallback(id,point)
+			if(polygon){
+				polygon.strokeColor = new paper.Color(polygon.defaultStrokeColor);
+				polygon.strokeWidth = 1;
+				this._polygons[id].selected = false;
+				if (point) {
+					const canvasSegment = polygon.segments.find(s => {
+						const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
+						return realPoint.x === point.x && realPoint.y === point.y;
+					});
+					if(canvasSegment)
+						canvasSegment.point.selected = false;
+					else
+						fallback(id,point)
+				}
 			}
 		}
 	}
@@ -425,8 +481,6 @@ class Viewer {
 				strokeColor: '#757575',
 				fillColor: '#757575'
 			});
-			this._background.onClick = (event) => this.thisInput.clickBackground(event);
-			this._background.onMouseDrag = (event) => this.thisInput.dragBackground(event);
 			this._background.sendToBack();
 		}
 	}

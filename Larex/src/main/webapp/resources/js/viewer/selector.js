@@ -31,7 +31,7 @@ class Selector {
 				if(pointsWhereVisible)
 					points.forEach(p => this._processSelectPoint(p,segmentID));
 
-				this._editor.startPointSelect(segmentID,(id,point) => {console.log(id,[point]),this.select(id,[point]);} );
+				this._editor.startPointSelect(segmentID,(id,point) => this.select(id,[point]));
 			} else if(typeSelected === 'region'){
 				this._controller.scaleSelected();
 			}
@@ -41,13 +41,22 @@ class Selector {
 
 	}
 
-	unSelect() {
-		this._selectedSegments.forEach(segmentID => {
+	/**
+	 * Unselect all given segments or if none given: unselect everything.
+	 * 
+	 * @param {*} segments 
+	 */
+	unSelect(segments) {
+		const unSelectable = segments ? segments : this._selectedSegments;
+
+		unSelectable.forEach(segmentID => {
 			this._editor.selectSegment(segmentID, false);
 			this._editor.setEditSegment(segmentID,false)
+			const index = this._selectedSegments.indexOf(segmentID);
+			this._selectedSegments.splice(index,1);
+			
 		});
 
-		this._selectedSegments = [];
 		this._selectedPoints = [];
 		this._selectedContours = [];
 	}
@@ -129,7 +138,10 @@ class Selector {
 			// Has not been selected before => select
 			if (point) {
 				this._selectedPoints.push(point);
-				this._editor.selectSegment(segmentID, true, false, point, this._notExistFallback);
+				this._editor.selectSegment(segmentID, true, false, point, () => 
+					this._notExistFallback(segmentID, point, this._processSelectPoint(point,segmentID,toggle), 
+					(id,point) => {this._controller.transformSegment(id, this._editor.addPointOnLine(id,point))})
+				);
 			}
 		} else {
 			// Has been selected before => unselect
@@ -140,10 +152,12 @@ class Selector {
 		}
 	}
 
-	_notExistFallback(segmentID, point){
+	_notExistFallback(segmentID, point, callback = () => {}, addPoint = (segmentID, point) => {}){
 		if(segmentID){
-			if(point)
-				console.log("addPoint");
+			if(point){
+				addPoint(segmentID, point);
+				callback();
+			}
 			else 
 				console.log("Warning tried to select a non existing segment.");
 		}
