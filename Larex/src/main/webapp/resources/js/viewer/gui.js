@@ -30,7 +30,7 @@ function GUI(canvas, viewer, colors) {
 			$contextmenu.css({ top: _mouse.y + 5 - $contextmenu.height(), left: _mouse.x - 5 });
 		}
 		$contextmenu.data('doSelected', doSelected);
-		$contextmenu.data('segmentID', id);
+		$contextmenu.data('id', id);
 	}
 
 	this.closeContextMenu = function () {
@@ -177,9 +177,9 @@ function GUI(canvas, viewer, colors) {
 		for (let index = 0; index < readingOrder.length; index++) {
 			const segment = segments[readingOrder[index]];
 			if(segment){
-				const $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="' + segment.id + '" draggable="true"></li>');
+				const $collectionItem = $('<li class="collection-item reading-order-segment" data-id="' + segment.id + '" draggable="true"></li>');
 				const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
-				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="' + segment.id + '">delete</i>');
+				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-id="' + segment.id + '">delete</i>');
 				$collectionItem.append($legendTypeIcon);
 				$collectionItem.append(segment.type + "-" + segment.id.substring(0, 4));
 				$collectionItem.append($deleteReadingOrderSegment);
@@ -188,11 +188,11 @@ function GUI(canvas, viewer, colors) {
 		}
 	}
 
-	this.highlightSegment = function (segmentID, doHighlight) {
+	this.highlightSegment = function (id, doHighlight) {
 		if (doHighlight) {
-			$(".reading-order-segment[data-segmentid='" + segmentID + "']").addClass('highlighted');
+			$(".reading-order-segment[data-segmentid='" + id + "']").addClass('highlighted');
 		} else {
-			$(".reading-order-segment[data-segmentid='" + segmentID + "']").removeClass('highlighted');
+			$(".reading-order-segment[data-segmentid='" + id + "']").removeClass('highlighted');
 		}
 	}
 

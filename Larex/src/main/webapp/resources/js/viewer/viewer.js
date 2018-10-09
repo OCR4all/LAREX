@@ -173,46 +173,42 @@ class Viewer {
 		}
 	}
 
-	selectSegment(id, doSelect, displayPoints, point, fallback = (id,point) => {}) {
-		if (doSelect) {
-			const polygon = this._polygons[id];
-			if(!polygon)
-				fallback(id)
-			else{
+	selectSegment(id, doSelect, displayPoints) {
+		const polygon = this._polygons[id];
+		if(polygon){
+			if (doSelect) {
 				polygon.strokeColor = new paper.Color('#1e88e5');
 				polygon.strokeWidth = 2;
-				if (displayPoints) {
-					this._polygons[id].selected = true;
-				}
-				if (point) {
-					const canvasSegment = polygon.segments.find(s => {
-						const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
-						return realPoint.x === point.x && realPoint.y === point.y;
-					});
-					if(canvasSegment)
-						canvasSegment.point.selected = true;
-					else
-						fallback(id,point)
-				}
-			}
-		} else {
-			const polygon = this._polygons[id];
-			if(polygon){
+				this._polygons[id].selected = displayPoints;
+			} else {
 				polygon.strokeColor = new paper.Color(polygon.defaultStrokeColor);
 				polygon.strokeWidth = 1;
 				this._polygons[id].selected = false;
-				if (point) {
-					const canvasSegment = polygon.segments.find(s => {
-						const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
-						return realPoint.x === point.x && realPoint.y === point.y;
-					});
-					if(canvasSegment)
-						canvasSegment.point.selected = false;
-					else
-						fallback(id,point)
-				}
 			}
 		}
+	}
+
+	selectSegmentPoints(id, points, fallback = (id,points) => {}){
+		const polygon = this._polygons[id];
+		if(!polygon)
+			throw Error("Segment does not exist.")
+
+		this._polygons[id].selected = true;
+
+		const unSelected = points.splice();
+		polygon.segments.forEach(s => {
+			const globalPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
+			
+			// Select if in unSelected and remove from unSelected
+			const unSelectedIndex = unSelected.findIndex(point => globalPoint.x == point.x && globalPoint.y == point.y);	
+			if(unSelectedIndex > -1){
+				s.point.selected = true
+				unSelected.splice(unSelected,1);
+			}
+		});
+	
+		if(unSelected.length > 0)
+			fallback(id,unSelected);
 	}
 
 	selectPointsInbetween(pointA, pointB, polygonID) {

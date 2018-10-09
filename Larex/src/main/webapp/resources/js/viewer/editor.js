@@ -890,7 +890,7 @@ class Editor extends Viewer {
 						this.endPointSelect(callback, targetID, this._pointSelector.position);
 						return false; // do not propagate
 					} else {
-						this.endPointSelect(callback)
+						this.endPointSelect()
 						return true; // do propagate
 					}
 				}
@@ -914,15 +914,17 @@ class Editor extends Viewer {
 		}
 	}
 
-	addPointOnLine(polygonID,point){
+	addPointsOnLine(polygonID,points){
 		const polygon = this._polygons[polygonID];
 		if(polygon){
-			const canvasPoint = this._convertGlobalToCanvas(point.x,point.y);
-			const hitResult = polygon.hitTest(canvasPoint, { stroke: true, tolerance: 1 });
+			points.forEach(point => {
+				const canvasPoint = this._convertGlobalToCanvas(point.x,point.y);
+				const hitResult = polygon.hitTest(canvasPoint, { stroke: true, tolerance: 1 });
 
-			if (hitResult && hitResult.type == 'stroke') {
-				polygon.insert(hitResult.location.index+1,canvasPoint);
-			}
+				if (hitResult && hitResult.type == 'stroke') {
+					polygon.insert(hitResult.location.index+1,canvasPoint);
+				}
+			});
 		}
 		return this._convertCanvasPolygonToGlobal(polygon);
 	}

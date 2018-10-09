@@ -146,8 +146,8 @@ function GuiInput(navigationController, controller, gui) {
 		if (doSelected) {
 			_controller.changeTypeSelected(regionType);
 		} else {
-			const segmentID = $contextmenu.data('segmentID');
-			_controller.changeRegionType(segmentID, regionType);
+			const id = $contextmenu.data('id');
+			_controller.changeRegionType(id, regionType);
 		}
 		_gui.closeContextMenu();
 	});
@@ -233,14 +233,14 @@ function GuiInput(navigationController, controller, gui) {
 
 		$('.reading-order-segment').mouseover(function () {
 			const $this = $(this);
-			const segmentID = $this.data('segmentid');
-			_controller.enterSegment(segmentID);
+			const id = $this.data('segmentid');
+			_controller.enterSegment(id);
 		});
 
 		$('.reading-order-segment').mouseleave(function () {
 			const $this = $(this);
-			const segmentID = $this.data('segmentid');
-			_controller.leaveSegment(segmentID);
+			const id = $this.data('segmentid');
+			_controller.leaveSegment(id);
 		});
 
 		$('.reading-order-segment').on('dragstart', function (event) {
@@ -282,8 +282,8 @@ function GuiInput(navigationController, controller, gui) {
 		});
 		$('.delete-reading-order-segment').click(function () {
 			const $this = $(this);
-			const segmentID = $this.data('segmentid');
-			_controller.removeFromReadingOrder(segmentID);
+			const id = $this.data('segmentid');
+			_controller.removeFromReadingOrder(id);
 		});
 	}
 }

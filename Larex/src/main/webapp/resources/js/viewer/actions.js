@@ -110,16 +110,16 @@ function ActionChangeTypeRegionPolygon(regionPolygon, newType, viewer, settings,
 	}
 }
 
-function ActionChangeTypeSegment(segmentID, newType, viewer, controller, segmentation, page) {
+function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, page) {
 	let _isExecuted = false;
-	let _segment = segmentation[page].segments[segmentID];
+	let _segment = segmentation[page].segments[id];
 	const _oldType = _segment.type;
 	let _actionReadingOrder = null;
 	if (newType === 'image')
-		_actionReadingOrder = new ActionRemoveFromReadingOrder(segmentID, page, segmentation, controller);
+		_actionReadingOrder = new ActionRemoveFromReadingOrder(id, page, segmentation, controller);
 	let _actionSetFixed = null;
-	if (!controller.isSegmentFixed(segmentID))
-		_actionSetFixed = new ActionFixSegment(segmentID, controller, true);
+	if (!controller.isSegmentFixed(id))
+		_actionSetFixed = new ActionFixSegment(id, controller, true);
 
 	this.execute = function () {
 		if (!_isExecuted) {
@@ -132,7 +132,7 @@ function ActionChangeTypeSegment(segmentID, newType, viewer, controller, segment
 				_actionReadingOrder.execute();
 			if (_actionSetFixed)
 				_actionSetFixed.execute();
-			console.log('Do - Change Type: {id:"' + segmentID + '",[..],type:"' + _oldType + '->' + newType + '"}');
+			console.log('Do - Change Type: {id:"' + id + '",[..],type:"' + _oldType + '->' + newType + '"}');
 		}
 	}
 	this.undo = function () {
@@ -146,7 +146,7 @@ function ActionChangeTypeSegment(segmentID, newType, viewer, controller, segment
 				_actionReadingOrder.undo();
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
-			console.log('Undo - Change Type: {id:"' + segmentID + '",[..],type:"' + _oldType + '->' + newType + '"}');
+			console.log('Undo - Change Type: {id:"' + id + '",[..],type:"' + _oldType + '->' + newType + '"}');
 		}
 	}
 }
@@ -438,7 +438,7 @@ function ActionChangeReadingOrder(oldReadingOrder, newReadingOrder, controller, 
 	}
 }
 
-function ActionRemoveFromReadingOrder(segmentID, page, segmentation, controller) {
+function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
 	let _isExecuted = false;
 	const _oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].readingOrder));
 	let _newReadingOrder;
@@ -450,7 +450,7 @@ function ActionRemoveFromReadingOrder(segmentID, page, segmentation, controller)
 			if (!_newReadingOrder) {
 				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 				for (let index = 0; index < _newReadingOrder.length; index++) {
-					if (_newReadingOrder[index] === segmentID) {
+					if (_newReadingOrder[index] === id) {
 						_newReadingOrder.splice(index, 1);
 						break;
 					}
@@ -459,7 +459,7 @@ function ActionRemoveFromReadingOrder(segmentID, page, segmentation, controller)
 
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
 			controller.forceUpdateReadingOrder(true);
-			console.log('Do - Remove from Reading Order: {id:"' + segmentID + '",[..]}');
+			console.log('Do - Remove from Reading Order: {id:"' + id + '",[..]}');
 		}
 	}
 	this.undo = function () {
@@ -468,7 +468,7 @@ function ActionRemoveFromReadingOrder(segmentID, page, segmentation, controller)
 
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 			controller.forceUpdateReadingOrder(true);
-			console.log('Undo - Remove from Reading Order: {id:"' + segmentID + '",[..]}');
+			console.log('Undo - Remove from Reading Order: {id:"' + id + '",[..]}');
 		}
 	}
 }
@@ -502,22 +502,22 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 		}
 	}
 }
-function ActionFixSegment(segmentID, controller, doFix = true) {
+function ActionFixSegment(id, controller, doFix = true) {
 	let _isExecuted = false;
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			controller.fixSegment(segmentID, doFix);
-			console.log('Do - Fix Segment ' + segmentID);
+			controller.fixSegment(id, doFix);
+			console.log('Do - Fix Segment ' + id);
 		}
 	}
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
 
-			controller.fixSegment(segmentID, !doFix);
-			console.log('Undo - Fix Segment ' + segmentID);
+			controller.fixSegment(id, !doFix);
+			console.log('Undo - Fix Segment ' + id);
 		}
 	}
 }

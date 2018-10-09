@@ -3,78 +3,103 @@ class Selector {
 		this._controller = controller;
 		this._editor = editor;
 		this.selectMultiple = false;
-		this.selectpoints = false;
 		this.isSelecting = false;
 		this._selectedSegments = [];
 		this._selectedPoints = [];
 		this._selectedContours = [];
-		this._typeLastSelected;
+		this.selectedType;
 	}
 
-	select(segmentID, points = []) {
-		const typeSelected = this._controller.getIDType(segmentID);
-		const pointsWhereVisible = this._selectedSegments.length === 1 && this.isSegmentSelected(segmentID);
+	select(id, points) {
+		const polygonType = this._controller.getIDType(id);
+		
+		const notExistFallback = (id,points) => this._controller.transformSegment(id, this._editor.addPointsOnLine(id,points));
+		
+		if(!points){
+			//// Select polygon
+			// Unselect others if this is not of type segment or if not select multiple
+			if(polygonType != "segment" || !this.selectMultiple)
+				this.unSelect();
 
-		if(this._typeLastSelected !== typeSelected || !this.selectMultiple)
-			this.unSelect();
-		
-		this._typeLastSelected = typeSelected;
-		
-		if(!(this._selectedSegments.length === 1 && this._selectedSegments[0] === segmentID)){
-			this._selectedSegments.forEach(s => this._editor.setEditSegment(s,false));
-			this._processSelectSegment(segmentID);
-		}
-		
-		if(this._selectedSegments.length === 1){
-			if(typeSelected === 'segment'){
-				this._editor.setEditSegment(segmentID);
-				if(pointsWhereVisible)
-					points.forEach(p => this._processSelectPoint(p,segmentID));
+			console.log((polygonType != "segment" || !this.selectMultiple));
+			// Unselect edit points
+			this._selectedSegments.forEach(s =>{
+				this._editor.selectSegmentPoints(s,[]);
+				this._editor.setEditSegment(s,false);
+			});
 
-				this._editor.startPointSelect(segmentID,(id,point) => this.select(id,[point]));
-			} else if(typeSelected === 'region'){
-				this._controller.scaleSelected();
+			// Check if already selected
+			const selectIndex = this._selectedSegments.indexOf(id);
+			const doSelect = selectIndex < 0;
+			if (doSelect){ 
+				// Has not been selected before => select
+				this._selectedSegments.push(id);
+			} else {
+				// Has been selected before => unselect
+				this._selectedSegments.splice(selectIndex, 1);
 			}
+			// Update Viewer display
+			const displayPoints = this._selectedSegments.length == 1;
+			this._editor.selectSegment(id, doSelect, displayPoints);
 		} else {
-			this._editor.endPointSelect();
+			console.log(points);
+			//// Select point if possible
+			if(polygonType != "segment")
+				throw Error("Tried to select points of a polygon that is not a segment.");
+
+			// Unselect previous
+			if(this._selectedSegments.length != 1 || this._selectedSegments[0] != id || !this.selectMultiple)
+				this.unSelect()
+
+			points.forEach(point => {
+				if(this._selectedPoints.indexOf(point) == -1)
+					this._selectedPoints.push(point)
+			});
+			
+			// Update Viewer display
+			this._editor.selectSegment(id, true, true);
+			this._editor.selectSegmentPoints(id, points, notExistFallback);
 		}
 
+		this.selectedType = polygonType;
+
+		// Additional after select behaviour
+		if(this.selectedType === "segment" && this._selectedSegments.length === 1)
+			this._editor.startPointSelect(id, (id,point) => this.select(id,[point]))
+		else
+			this._editor.endPointSelect();
+
+		if(this.selectedType === 'region')
+			this._controller.scaleSelected();
+
+		console.log(this);
 	}
 
 	/**
 	 * Unselect given segments. Default: all selected.
 	 */
 	unSelect(segments = this._selectedSegments) {
-		const selected = this._selectedSegments.filter(s => segments.indexOf(s) == -1);
-
-		this._selectedSegments.forEach(segmentID => {
-			this._editor.selectSegment(segmentID, false);
-			this._editor.setEditSegment(segmentID,false);
+		segments.forEach(id => {
+			this._editor.selectSegment(id, false);
+			this._editor.setEditSegment(id,false);
 		});
 
-		this._selectedSegments = [];
-		this._selectedPoints = [];
-		this._selectedContours = [];
+		this._selectedSegments = this._selectedSegments.filter(s => segments.indexOf(s) == -1);
 
-		// Select last existing selected
-		if(selected.length > 0){
-			const userSelectMultiple = this.selectMultiple;
-			this.selectMultiple = true;
-			selected.forEach(s => this.select(s));
-			this.selectMultiple = userSelectMultiple;
-		}
+		if(this._selectedSegments.length === 1){
+			this._editor.setEditSegment(this._selectedSegments[0],true);
 
-	}
-
-	hasSegmentsSelected() {
-		if (this._selectedSegments && _selected.length > 0) {
-			return true;
+			if(this._selectedPoints.length > 0)
+				this._editor.selectSegmentPoints(this._selectedSegments[0],this._selectedPoints)
 		} else {
-			return false;
+			this._selectedPoints = [];
 		}
+
+		this._selectedContours = [];
 	}
-	isSegmentSelected(segmentID) {
-		if (this._selectedSegments && $.inArray(segmentID, this._selectedSegments) >= 0) {
+
+	isSegmentSelected(id) {
+		if (this._selectedSegments && $.inArray(id, this._selectedSegments) >= 0) {
 			return true;
 		} else {
 			return false;
@@ -90,11 +115,24 @@ class Selector {
 		}
 	}
 
-	_selectInBox(pointA, pointB) {
-		if(this._selectedSegments.length !== 1 || this._typeLastSelected !== 'segment'){
-			if ((!this.selectMultiple) || this._typeLastSelected !== 'segment') 
-				this.unSelect();
 
+	_selectInBox(pointA, pointB) {
+		if(this._selectedSegments.length === 1 && this.selectedType === 'segment'){
+			// Select points
+			const id = this._selectedSegments[0];
+
+			const inbetween = this._editor.selectPointsInbetween(pointA, pointB, id);
+
+			inbetween.forEach((point) => {
+				if (this._selectedPoints.indexOf(point) < 0) {
+					// Has not been selected before => select
+					this._selectedPoints.push(point);
+				}
+			});
+			this._editor.selectSegmentPoints(id,this._selectedPoints);
+		} else {
+			this.unSelect();
+			// Select segments
 			const inbetween = this._editor.getSegmentIDsBetweenPoints(pointA, pointB);
 
 			inbetween.forEach((id) => {
@@ -104,18 +142,9 @@ class Selector {
 					this._editor.selectSegment(id, true);
 				}
 			});
-		} else {
-			const segmentID = this._selectedSegments[0];
-			const inbetween = this._editor.selectPointsInbetween(pointA, pointB, segmentID);
-
-			inbetween.forEach((point) => {
-				if (this._selectedPoints.indexOf(point) < 0) {
-					// Has not been selected before => select
-					this._selectedPoints.push(point);
-				}
-			});
 		}
 
+		this.selectedType = "segment";
 		this.isSelecting = false;
 	}
 
@@ -132,53 +161,6 @@ class Selector {
 	}
 
 	getSelectedPolygonType() {
-		return this._typeLastSelected;
-	}
-
-	//***** private methods ****//
-	// Handels if a point has to be selected or unselected
-	_processSelectPoint(point, segmentID, toggle = true) {
-		const selectIndex = this._selectedPoints.indexOf(point);
-		if (selectIndex < 0 || !toggle) {
-			// Has not been selected before => select
-			if (point) {
-				this._selectedPoints.push(point);
-				this._editor.selectSegment(segmentID, true, false, point, () => 
-					this._notExistFallback(segmentID, point, this._processSelectPoint(point,segmentID,toggle), 
-					(id,point) => {this._controller.transformSegment(id, this._editor.addPointOnLine(id,point))})
-				);
-			}
-		} else {
-			// Has been selected before => unselect
-			if (point) {
-				this._selectedPoints.splice(selectIndex, 1);
-				this._editor.selectSegment(segmentID, false, false, point, this._notExistFallback);
-			}
-		}
-	}
-
-	_notExistFallback(segmentID, point, callback = () => {}, addPoint = (segmentID, point) => {}){
-		if(segmentID){
-			if(point){
-				addPoint(segmentID, point);
-				callback();
-			}
-			else 
-				console.log("Warning tried to select a non existing segment.");
-		}
-	}
-
-	// Handels if a segment has to be selected or unselected
-	_processSelectSegment(segmentID) {
-		const selectIndex = this._selectedSegments.indexOf(segmentID);
-		if (selectIndex < 0) {
-			// Has not been selected before => select
-			this._selectedSegments.push(segmentID);
-			this._editor.selectSegment(segmentID, true, false);
-		} else {
-			// Has been selected before => unselect
-			this._selectedSegments.splice(selectIndex, 1);
-			this._editor.selectSegment(segmentID, false, false);
-		}
+		return this.selectedType;
 	}
 }
