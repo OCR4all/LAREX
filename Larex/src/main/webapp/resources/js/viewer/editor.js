@@ -23,8 +23,6 @@ class Editor extends Viewer {
 		this.DoubleClickListener = new DoubleClickListener();
 		
 		this._pointSelector;
-		this._pointSelectorActive = false;
-		this._pointSelectorTargetID;
 	}
 
 	updatePolygon(polygonID){
@@ -881,42 +879,75 @@ class Editor extends Viewer {
 		}
 	}
 
-	setPointSelectorTarget(polygonID){
-		this._pointSelectorTargetID = polygonID;
-	}
+	startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, cleanup = () => {}, update = (targetID,point) => {}){
+		if(!this._pointSelector || !this._pointSelector.targetID || targetID !== this._pointSelector.targetID){
+			// Terminate potential running point select
+			this.endPointSelect();
 
-	setPointSelectorActive(isActive = true){
-		if(this._pointSelectorActive !== isActive){
+			// Run 
+			init();
 			const imageCanvas = this.getImageCanvas();
-			this._pointSelectorActive = isActive;
-			if(isActive){
-				this._pointSelector = new paper.Path.Rectangle(new paper.Rectangle(0,0,6,6));
-				this._pointSelector.strokeColor = '#0699ea';
-				this._pointSelector.fillColor = '#0699ea';
 
-				const hitOptions = { segments: true, stroke: true, tolerance: 10 };
+			// Init selector rectangle
+			this._pointSelector = new paper.Path.Rectangle(new paper.Rectangle(0,0,6,6));
+			this._pointSelector.strokeColor = '#0699ea';
+			this._pointSelector.fillColor = '#0699ea';
+			this._pointSelector.targetID = targetID;
 
-				imageCanvas.onMouseMove = (event) => {
-					if(!this.isEditing && this._pointSelector){
-						this._pointSelector.visible = true;
-						const hitResult = imageCanvas.hitTest(event.point, hitOptions);
-						if (hitResult.item.polygonID === this._pointSelectorTargetID) {
-							if (hitResult.type == 'segment') 
-								this._pointSelector.position = new paper.Point(hitResult.segment.point);
-							else if (hitResult.type == 'stroke') 
-								this._pointSelector.position = new paper.Point(hitResult.location.point);
-						}
-					}else if(this._pointSelector){
+			const hitOptions = { segments: true, stroke: true, tolerance: 10 };
+
+			const tool = new paper.Tool();
+			tool.onMouseMove = (event) => {
+				if(!this.isEditing && this._pointSelector && this._pointSelector.targetID){
+					this._pointSelector.visible = true;
+					const hitResult = imageCanvas.hitTest(event.point, hitOptions);
+					if (hitResult.item.polygonID === this._pointSelector.targetID) {
+						if (hitResult.type == 'segment') 
+							this._pointSelector.position = new paper.Point(hitResult.segment.point);
+						else if (hitResult.type == 'stroke') 
+							this._pointSelector.position = new paper.Point(hitResult.location.point);
+
+						update(targetID, this._convertCanvasToGlobal(this._pointSelector.position.x,this._pointSelector.position.y));
+					} else { 
 						this._pointSelector.visible = false;
 					}
-				} 
-			} else {
-				if(this._pointSelector)
-					this._pointSelector.remove();
-				this._pointSelector = null;
-				imageCanvas.addMouseMove = (e) => {};
+				} else {
+					this.endPointSelect();
+					cleanup();
+					tool.remove();
+				}
+			} 
+			tool.onMouseDown = (event) => {
+				if(!this.isEditing && this._pointSelector && this._pointSelector.targetID){
+					const hitResult = imageCanvas.hitTest(event.point, hitOptions);
+					if (hitResult.item !== this._pointSelector && hitResult.item.polygonID === this._pointSelector.targetID) {
+						// Update last time if hit is not on point selector
+						if (hitResult.type == 'segment') 
+							this._pointSelector.position = new paper.Point(hitResult.segment.point);
+						else if (hitResult.type == 'stroke') 
+							this._pointSelector.position = new paper.Point(hitResult.location.point);
+					}
+					this.endPointSelect(callback, targetID,this._pointSelector.position);
+				} else {
+					this.endPointSelect();
+				}
+
+				cleanup();
+				tool.remove();
 			}
+			tool.activate();
 		}
+	}
+
+	endPointSelect(callback = (targetID, point) => {}, targetID, point){
+		if(this._pointSelector)
+			this._pointSelector.remove();
+		this._pointSelector = null;
+
+		if(point && point.x && point.y)
+			callback(targetID, this._convertCanvasToGlobal(point.x,point.y));
+		else
+			callback(targetID)
 	}
 
 	_resetPointSelector(){

@@ -26,22 +26,17 @@ class Selector {
 		}
 		
 		if(this._selectedSegments.length === 1){
-			if(typeSelected === 'segment'){
+				if(typeSelected === 'segment'){
 				this._editor.setEditSegment(segmentID);
 				if(pointsWhereVisible)
 					points.forEach(p => this._processSelectPoint(p,segmentID));
 
-				if(this._selectedPoints.length > 0)
-					this._editor.setPointSelectorActive(false);
-				else {
-					this._editor.setPointSelectorTarget(segmentID);
-					this._editor.setPointSelectorActive(true);
-				}
+				this._editor.startPointSelect(segmentID,(id,point) => {console.log(id,[point]),this.select(id,[point]);} );
 			} else if(typeSelected === 'region'){
 				this._controller.scaleSelected();
 			}
-		}else{
-			this._editor.setPointSelectorActive(false);
+		} else {
+			this._editor.endPointSelect();
 		}
 
 	}
@@ -52,7 +47,6 @@ class Selector {
 			this._editor.setEditSegment(segmentID,false)
 		});
 
-		this._editor.setPointSelectorActive(false);
 		this._selectedSegments = [];
 		this._selectedPoints = [];
 		this._selectedContours = [];
@@ -135,14 +129,23 @@ class Selector {
 			// Has not been selected before => select
 			if (point) {
 				this._selectedPoints.push(point);
-				this._editor.selectSegment(segmentID, true, false, point);
+				this._editor.selectSegment(segmentID, true, false, point, this._notExistFallback);
 			}
 		} else {
 			// Has been selected before => unselect
 			if (point) {
 				this._selectedPoints.splice(selectIndex, 1);
-				this._editor.selectSegment(segmentID, false, false, point);
+				this._editor.selectSegment(segmentID, false, false, point, this._notExistFallback);
 			}
+		}
+	}
+
+	_notExistFallback(segmentID, point){
+		if(segmentID){
+			if(point)
+				console.log("addPoint");
+			else 
+				console.log("Warning tried to select a non existing segment.");
 		}
 	}
 

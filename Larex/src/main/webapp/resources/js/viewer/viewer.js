@@ -117,9 +117,11 @@ class Viewer {
 		}
 	}
 
-	selectSegment(id, doSelect, displayPoints, point) {
+	selectSegment(id, doSelect, displayPoints, point, fallback = (id,point) => {}) {
 		if (doSelect) {
 			const polygon = this._polygons[id];
+			if(!polygon) fallback(id)
+			
 			polygon.strokeColor = new paper.Color('#1e88e5');
 			polygon.strokeWidth = 2;
 			if (displayPoints) {
@@ -130,7 +132,10 @@ class Viewer {
 					const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
 					return realPoint.x === point.x && realPoint.y === point.y;
 				});
-				canvasSegment.point.selected = true;
+				if(canvasSegment)
+					canvasSegment.point.selected = true;
+				else
+					fallback(id,point)
 			}
 		} else {
 			const polygon = this._polygons[id];
@@ -142,7 +147,10 @@ class Viewer {
 					const realPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
 					return realPoint.x === point.x && realPoint.y === point.y;
 				});
-				canvasSegment.point.selected = false;
+				if(canvasSegment)
+					canvasSegment.point.selected = false;
+				else
+					fallback(id,point)
 			}
 		}
 	}
