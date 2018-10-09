@@ -41,11 +41,11 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 17: // CTRL
-					_selector.selectmultiple = true;
+					_selector.selectMultiple = true;
 					validKey = true;
 					break;
 				case 16: // Shift
-					_controller.selectMultiple();
+					_controller.boxSelect();
 					validKey = true;
 					break;
 				case 89: // Y
@@ -147,7 +147,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 				case 16: // Shift
 					break;
 				case 17: // CTRL
-					_selector.selectmultiple = false;
+					_selector.selectMultiple = false;
 					validKey = true;
 					break;
 				case 18: // ALT

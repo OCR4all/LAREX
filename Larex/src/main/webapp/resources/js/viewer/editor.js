@@ -148,7 +148,7 @@ class Editor extends Viewer {
 		}
 	}
 
-	selectMultiple() {
+	boxSelect(callback = (x,y) => {}) {
 		if (this.isEditing === false) {
 			this.startRectangle(
 				()=>{
@@ -157,28 +157,11 @@ class Editor extends Viewer {
 				},
 				(rectangle)=>{
 					const selectBounds = this._tempPolygon.bounds;
-					this._controller.rectangleSelect(selectBounds.topLeft, selectBounds.bottomRight);
+					callback(selectBounds.topLeft, selectBounds.bottomRight);
 				},
 				(rectangle) => {},
 				'dashed'
 			);
-		}
-	}
-
-	endRectangleSelect() {
-		if (this.isEditing) {
-			this.isEditing = false;
-			if (this._tempPolygon != null) {
-				const selectBounds = this._tempPolygon.bounds;
-				this._controller.rectangleSelect(selectBounds.topLeft, selectBounds.bottomRight);
-
-				this._tempPolygon.remove();
-				this._tempPolygon = null;
-			}
-			if (this._tempPoint != null) {
-				this._tempPoint.clear();
-				this._tempPoint = null;
-			}
 		}
 	}
 
@@ -905,6 +888,10 @@ class Editor extends Viewer {
 						else if (hitResult.type == 'stroke') 
 							this._pointSelector.position = new paper.Point(hitResult.location.point);
 						this.endPointSelect(callback, targetID, this._pointSelector.position);
+						return false; // do not propagate
+					} else {
+						this.endPointSelect(callback)
+						return true; // do propagate
 					}
 				}
 

@@ -2,7 +2,7 @@ class Selector {
 	constructor(editor, controller) {
 		this._controller = controller;
 		this._editor = editor;
-		this.selectmultiple = false;
+		this.selectMultiple = false;
 		this.selectpoints = false;
 		this.isSelecting = false;
 		this._selectedSegments = [];
@@ -15,7 +15,7 @@ class Selector {
 		const typeSelected = this._controller.getIDType(segmentID);
 		const pointsWhereVisible = this._selectedSegments.length === 1 && this.isSegmentSelected(segmentID);
 
-		if(this._typeLastSelected !== typeSelected || !this.selectmultiple)
+		if(this._typeLastSelected !== typeSelected || !this.selectMultiple)
 			this.unSelect();
 		
 		this._typeLastSelected = typeSelected;
@@ -26,7 +26,7 @@ class Selector {
 		}
 		
 		if(this._selectedSegments.length === 1){
-				if(typeSelected === 'segment'){
+			if(typeSelected === 'segment'){
 				this._editor.setEditSegment(segmentID);
 				if(pointsWhereVisible)
 					points.forEach(p => this._processSelectPoint(p,segmentID));
@@ -42,23 +42,28 @@ class Selector {
 	}
 
 	/**
-	 * Unselect all given segments or if none given: unselect everything.
-	 * 
-	 * @param {*} segments 
+	 * Unselect given segments. Default: all selected.
 	 */
-	unSelect(segments) {
-		const unSelectable = segments ? segments : this._selectedSegments;
+	unSelect(segments = this._selectedSegments) {
+		const selected = this._selectedSegments.filter(s => segments.indexOf(s) == -1);
 
-		unSelectable.forEach(segmentID => {
+		this._selectedSegments.forEach(segmentID => {
 			this._editor.selectSegment(segmentID, false);
-			this._editor.setEditSegment(segmentID,false)
-			const index = this._selectedSegments.indexOf(segmentID);
-			this._selectedSegments.splice(index,1);
-			
+			this._editor.setEditSegment(segmentID,false);
 		});
 
+		this._selectedSegments = [];
 		this._selectedPoints = [];
 		this._selectedContours = [];
+
+		// Select last existing selected
+		if(selected.length > 0){
+			const userSelectMultiple = this.selectMultiple;
+			this.selectMultiple = true;
+			selected.forEach(s => this.select(s));
+			this.selectMultiple = userSelectMultiple;
+		}
+
 	}
 
 	hasSegmentsSelected() {
@@ -75,19 +80,19 @@ class Selector {
 			return false;
 		}
 	}
-	selectMultiple() {
+	boxSelect() {
 		if (!this._editor.isEditing) {
 			if (!this.isSelecting) {
-				this._editor.selectMultiple();
+				this._editor.boxSelect((x,y) => {this._selectInBox(x,y)});
 			}
 
 			this.isSelecting = true;
 		}
 	}
 
-	rectangleSelect(pointA, pointB) {
+	_selectInBox(pointA, pointB) {
 		if(this._selectedSegments.length !== 1 || this._typeLastSelected !== 'segment'){
-			if ((!this.selectmultiple) || this._typeLastSelected !== 'segment') 
+			if ((!this.selectMultiple) || this._typeLastSelected !== 'segment') 
 				this.unSelect();
 
 			const inbetween = this._editor.getSegmentIDsBetweenPoints(pointA, pointB);

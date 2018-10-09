@@ -903,11 +903,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.isSegmentSelected = function (segmentID) {
 		return _selector.isSegmentSelected(segmentID);
 	}
-	this.selectMultiple = function () {
-		_selector.selectMultiple();
-	}
-	this.rectangleSelect = function (pointA, pointB) {
-		_selector.rectangleSelect(pointA, pointB);
+	this.boxSelect = function () {
+		_selector.boxSelect();
 	}
 	this.enterSegment = function (sectionID) {
 		if (!_editor.isEditing) {

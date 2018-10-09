@@ -26,11 +26,13 @@ class Viewer {
 			let propagate = true;
 			this._listener.forEach(listener => {
 				if (listener.onMouseUp) {
-					propagate = false;
-					listener.onMouseUp(event)
+					const doPropagate = listener.onMouseUp(event);
+					if(!doPropagate)
+						propagate = false;
 				}
 			});
 
+			// Do not propagate unless all child listener say otherwise
 			if(propagate){
 				const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
 				if(hitTest){
@@ -47,11 +49,13 @@ class Viewer {
 			let propagate = true;
 			this._listener.forEach(listener => {
 				if (listener.onMouseDrag) {
-					propagate = false;
-					listener.onMouseDrag(event)
+					const doPropagate = listener.onMouseDrag(event)
+					if(!doPropagate)
+						propagate = false;
 				}
 			});
 
+			// Do not propagate unless all child listener say otherwise
 			if(propagate){
 				const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
 				if(hitTest)

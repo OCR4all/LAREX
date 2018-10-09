@@ -35,7 +35,7 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if (event.modifiers.shift) 
-					_controller.selectMultiple();
+					_controller.boxSelect();
 				else {
 					if(_controller.hasPointsSelected())
 						_controller.moveSelected();
@@ -58,7 +58,7 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if (event.modifiers.shift) 
-					_controller.selectMultiple();
+					_controller.boxSelect();
 				break;
 			// middleclick
 			case 1:
