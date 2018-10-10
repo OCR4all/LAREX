@@ -664,6 +664,12 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.unselectAllToolBarButtons();
 	}
 
+	this.movePolygonPoints = function (id, segmentPoints) {
+		this.transformSegment(id,segmentPoints);
+		_selector.unSelect();
+		_selector.select(id);
+	}
+
 	this.transformSegment = function (id, segmentPoints) {
 		const actionTransformSegment = new ActionTransformSegment(id, segmentPoints, _editor, _segmentation, _currentPage, this);
 		_actionController.addAndExecuteAction(actionTransformSegment, _currentPage);

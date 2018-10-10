@@ -23,6 +23,7 @@ class Editor extends Viewer {
 		this.DoubleClickListener = new DoubleClickListener();
 		
 		this._pointSelector;
+		this._pointSelectorListener;
 	}
 
 	updatePolygon(polygonID){
@@ -523,9 +524,9 @@ class Editor extends Viewer {
 
 			if (this._tempPolygon !== null) {
 				if (this._tempPolygonType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+					this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
+					this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 
 				if(this._tempPolygon) this._tempPolygon.remove();
@@ -850,8 +851,10 @@ class Editor extends Viewer {
 
 			const hitOptions = { segments: true, stroke: true, tolerance: 10 };
 
-			const listener = {};
-			listener.onMouseMove = (event) => {
+			if(this._pointSelectorListener)
+				this.removeListener(this._pointSelectorListener);
+			this._pointSelectorListener = {};
+			this._pointSelectorListener.onMouseMove = (event) => {
 				if(!this.isEditing && this._pointSelector){
 					this._pointSelector.visible = true;
 					const hitResult = polygon.hitTest(event.point, hitOptions);
@@ -869,10 +872,10 @@ class Editor extends Viewer {
 				} else {
 					this.endPointSelect();
 					cleanup();
-					this.removeListener(listener);
+					this.removeListener(this._pointSelectorListener);
 				}
 			} 
-			listener.onMouseUp = (event) => {
+			this._pointSelectorListener.onMouseDown = (event) => {
 				if(!this.isEditing && this._pointSelector){
 					const hitResult = polygon.hitTest(event.point, hitOptions);
 					if (hitResult) {
@@ -890,13 +893,15 @@ class Editor extends Viewer {
 				}
 
 				cleanup();
-				this.removeListener(listener);
+				this.removeListener(this._pointSelectorListener);
 			}
-			this.addListener(listener);
+			this.addListener(this._pointSelectorListener);
 		}
 	}
 
 	endPointSelect(callback = (targetID, point) => {}, targetID, point){
+		if(this._pointSelectorListener)
+			this.removeListener(this._pointSelectorListener);
 		if(this._pointSelector)
 			this._pointSelector.remove();
 		this._pointSelector = null;

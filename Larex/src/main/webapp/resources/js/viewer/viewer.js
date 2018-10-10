@@ -195,7 +195,7 @@ class Viewer {
 
 		this._polygons[id].selected = true;
 
-		const pointsToSelect = points.splice(0);
+		const pointsToSelect = points.slice(0);
 		polygon.segments.some(s => {
 			if(pointsToSelect.length == 0)
 				true; // End loop, since no points to select

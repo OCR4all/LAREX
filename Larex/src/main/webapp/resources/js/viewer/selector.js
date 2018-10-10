@@ -61,9 +61,10 @@ class Selector {
 			if(this._selectedPoints.indexOf(point) == -1)
 				this._selectedPoints.push(point)
 		});
-		const notExistFallback = (id,points) => {
-				this._controller.transformSegment(id,this._editor.addPointsOnLine(id,points));
-				this._selectAndAddPoints(id, points);	
+
+		const notExistFallback = (i,p) => {
+				this._controller.transformSegment(i,this._editor.addPointsOnLine(i,p));
+				this._selectAndAddPoints(i, p);	
 			};
 		this._editor.selectSegmentPoints(id, this._selectedPoints, notExistFallback);
 	}
