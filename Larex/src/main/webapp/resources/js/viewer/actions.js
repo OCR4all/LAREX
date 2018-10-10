@@ -280,7 +280,7 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
 				_actionSetFixed.undo();
 			delete segmentation[page].segments[_segment.id];
 			editor.removeSegment(_segment.id);
-			controller.unSelect([_segment.id]);
+			controller.unSelectSegment(_segment.id);
 
 			_actionRemoveFromReadingOrder.execute();
 			console.log('Do - Remove: {id:"' + _segment.id + '",[..],type:"' + _segment.type + '"}');

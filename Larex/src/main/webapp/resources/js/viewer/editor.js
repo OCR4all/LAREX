@@ -30,12 +30,6 @@ class Editor extends Viewer {
 		this.endEditing();
 	}
 
-	setEditSegment(id,displayPoints=true){
-		const polygon = this._polygons[id];
-		if(polygon)
-			polygon.selected = displayPoints;
-	}
-
 	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none') {
 		if (this.isEditing === false) {
 

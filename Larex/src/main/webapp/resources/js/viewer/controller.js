@@ -899,8 +899,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
-	this.unSelect = function (segments) {
-		_selector.unSelect(segments);
+	this.unSelect = function () {
+		_selector.unSelect();
+	}
+	this.unSelectSegment = function (segmentID) {
+		_selector.unSelectSegment(segmentID);
 	}
 	this.isSegmentSelected = function (id) {
 		return _selector.isSegmentSelected(id);

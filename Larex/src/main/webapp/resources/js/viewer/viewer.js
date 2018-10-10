@@ -153,7 +153,7 @@ class Viewer {
 		delete this._polygons[id];
 	}
 
-	highlightSegment(id, doHighlight) {
+	highlightSegment(id, doHighlight = true) {
 		const polygon = this._polygons[id];
 		if (polygon) {
 			if (polygon.fillColor != null) {
@@ -166,24 +166,24 @@ class Viewer {
 		}
 	}
 
-	hideSegment(id, doHide) {
+	hideSegment(id, doHide = true) {
 		const polygon = this._polygons[id];
 		if (polygon !== null) {
 			polygon.visible = !doHide;
 		}
 	}
 
-	selectSegment(id, doSelect, displayPoints) {
+	selectSegment(id, doSelect = true, selectPoints = false) {
 		const polygon = this._polygons[id];
 		if(polygon){
 			if (doSelect) {
 				polygon.strokeColor = new paper.Color('#1e88e5');
 				polygon.strokeWidth = 2;
-				this._polygons[id].selected = displayPoints;
+				this._polygons[id].selected = selectPoints;
 			} else {
 				polygon.strokeColor = new paper.Color(polygon.defaultStrokeColor);
 				polygon.strokeWidth = 1;
-				this._polygons[id].selected = false;
+				this._polygons[id].selected = selectPoints;
 			}
 		}
 	}
@@ -195,20 +195,24 @@ class Viewer {
 
 		this._polygons[id].selected = true;
 
-		const unSelected = points.splice();
-		polygon.segments.forEach(s => {
-			const globalPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
-			
-			// Select if in unSelected and remove from unSelected
-			const unSelectedIndex = unSelected.findIndex(point => globalPoint.x == point.x && globalPoint.y == point.y);	
-			if(unSelectedIndex > -1){
-				s.point.selected = true
-				unSelected.splice(unSelected,1);
+		const pointsToSelect = points.splice(0);
+		polygon.segments.some(s => {
+			if(pointsToSelect.length == 0)
+				true; // End loop, since no points to select
+			else{
+				const globalPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
+				
+				// Select if in pointsToSelect and remove from pointsToSelect
+				const pointsToSelectIndex = pointsToSelect.findIndex(point => {return (globalPoint.x == point.x && globalPoint.y == point.y);});	
+				if(pointsToSelectIndex > -1){
+					s.point.selected = true
+					pointsToSelect.splice(pointsToSelect,1);
+				}
 			}
 		});
 	
-		if(unSelected.length > 0)
-			fallback(id,unSelected);
+		if(pointsToSelect.length > 0)
+			fallback(id,pointsToSelect);
 	}
 
 	selectPointsInbetween(pointA, pointB, polygonID) {
