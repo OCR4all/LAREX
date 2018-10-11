@@ -41,7 +41,7 @@ class Selector {
 		this._postSelection();
 	}
 
-	_selectPolygon(id, doSelect = true, displayPoints = false,){
+	_selectPolygon(id, doSelect = true, displayPoints = false){
 		const selectIndex = this._selectedSegments.indexOf(id);
 		const isInList = selectIndex >= 0;
 		if (doSelect){ 
