@@ -1,16 +1,12 @@
-function GUI(canvas, viewer, colors) {
+function GUI(canvas, viewer, colors, regionTypes) {
 	const _viewer = viewer;
 	const _colors = colors;
+	const _regionTypes = regionTypes;
 	let _canvas = canvas;
-	let _doMoveCanvas = false;
 	let _mouse;
 	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
-
-	this.setCanvas = function (id) {
-		_canvas = id;
-	}
 
 	this.updateZoom = function () {
 		let zoom = _viewer.getZoom();
@@ -73,9 +69,9 @@ function GUI(canvas, viewer, colors) {
 		return parameters;
 	}
 
-	this.setRegionLegendColors = function (regionTypes) {
-		// Iterate over Segmenttype-"Map" (Object in JS)
-		Object.keys(regionTypes).forEach((key) => {
+	this.setRegionLegendColors = function () {
+		// Iterate over regionTypes-"Map" (Object in JS)
+		Object.keys(_regionTypes).forEach((key) => {
 			const color = _colors.getColor(key);
 			$(".legendicon." + key).css("background-color", color.toCSS());
 		});

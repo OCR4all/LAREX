@@ -1,13 +1,6 @@
-function NavigationController() {
-	let _gui;
-	let _viewer;
-
-	this.setGUI = function (gui) {
-		_gui = gui;
-	}
-	this.setViewer = function (viewer) {
-		_viewer = viewer;
-	}
+function NavigationController(gui,viewer) {
+	let _gui = gui;
+	let _viewer = viewer;
 
 	//Navigation
 	this.center = function () {
@@ -32,8 +25,5 @@ function NavigationController() {
 	}
 	this.move = function (x, y) {
 		_viewer.move(x, y);
-	}
-	this.moveCanvas = function (doMove) {
-		_gui.moveCanvas(doMove);
 	}
 }

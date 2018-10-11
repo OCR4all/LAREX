@@ -1,7 +1,6 @@
 function KeyInput(_navigationController, _controller, _gui, _selector) {
 	this.isActive = true;
 	const _this = this;
-	let _mousePosition;
 
 	document.onkeydown = function (event) {
 		if (_this.isActive) {
@@ -79,7 +78,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 50: // 2
-					_controller.createBorder(false);
+					_controller.createRegionBorder();
 					validKey = true;
 					break;
 				case 51: // 3
@@ -101,12 +100,6 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 				case 67: // C
 					_controller.mergeSelectedSegments();
 					validKey = true;
-					break;
-				case 69: // E
-					if (event.ctrlKey) {
-						_controller.downloadPageXML();
-						validKey = true;
-					}
 					break;
 				case 70: // F
 					_controller.fixSelected();
@@ -190,24 +183,6 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 			} else {
 				_navigationController.zoomOut(0.1, mousepoint);
 			}
-		}
-	});
-
-	let lastPositionX;
-	let lastPositionY;
-
-	$(window).mousemove(function (event) {
-		if (_this.isActive) {
-			const deltaX = event.pageX - lastPositionX;
-			const deltaY = event.pageY - lastPositionY;
-
-			if (_gui.doMoveCanvas) {
-				if (deltaX && deltaY)
-					_navigationController.move(deltaX, deltaY);
-			}
-
-			lastPositionX = event.pageX;
-			lastPositionY = event.pageY;
 		}
 	});
 }

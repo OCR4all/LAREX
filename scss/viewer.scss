@@ -364,13 +364,6 @@ body{
   }
 }
 
-/*#segmentedit{
-    position: absolute;
-    top: 80px;
-    left: 80px;
-    width: 300px;
-}*/
-
 #contextmenu{
   position: absolute;
   max-height: 40%;
@@ -410,7 +403,7 @@ body{
     pagging: 0;
   }
 }
-.downloadPageXML, .exportPageXML{
+.exportPageXML{
   &.disabled {
     pointer-events: auto !important;
     #dropDownPageXMLCorner{

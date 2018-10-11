@@ -15,10 +15,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _segmentation = {};
 	let _settings;
 	let _contours = {};
-	let _segmentationtypes;
 	let _presentRegions = [];
 	let _pageXMLVersion = "2017-07-15";
-	let _gridIsActive = false;
 	let _displayReadingOrder = false;
 	let _tempReadingOrder = null;
 	let _allowLoadLocal = true;
@@ -44,7 +42,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		this.showPreloader(true);
 		_communicator.loadBook(bookID, _currentPage).done((data) => {
 			_book = data.book;
-			_segmentationtypes = data.regionTypes;
 			_settings = data.settings;
 
 			const regions = _settings.regions;
@@ -56,18 +53,17 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				}
 			});
 			// Init the viewer
-			const navigationController = new NavigationController();
 			const viewerInput = new ViewerInput(this);
 
 			// Inheritance Editor extends Viewer
 			_editor = new Editor(viewerInput, _colors, this);
 
 			_selector = new Selector(_editor, this);
-			_gui = new GUI(canvasID, _editor,_colors);
+			_gui = new GUI(canvasID, _editor,_colors,data.regionTypes);
 			_gui.resizeViewerHeight();
 
 			_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
-			_gui.setRegionLegendColors(_segmentationtypes);
+			_gui.setRegionLegendColors();
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
@@ -77,8 +73,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.updateAvailableColors();
 			_gui.addPreviewImageListener();
 
-			navigationController.setGUI(_gui);
-			navigationController.setViewer(_editor);
+			const navigationController = new NavigationController(_gui,_editor);
 			// setup paper again because of pre-resize bugcallbackNewFixedSegment
 			// (streched)
 			paper.setup(document.getElementById(canvasID));
@@ -171,7 +166,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.setReadingOrder(_segmentation[_currentPage].readingOrder, _segmentation[_currentPage].segments);
 			_guiInput.addDynamicListeners();
 			this.displayReadingOrder(_displayReadingOrder);
-			_gui.setRegionLegendColors(_segmentationtypes);
+			_gui.setRegionLegendColors();
 
 			_gui.selectPage(pageNr);
 			_tempReadingOrder = null;
@@ -559,15 +554,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_actionController.addAndExecuteAction(multiChange, _currentPage);
 		}
 	}
-	this.createBorder = function (doSegment) {
+	this.createRegionBorder = function () {
 		this.endEditing();
-		const type = doSegment ? 'segment' : 'region';
-		_editor.startCreateBorder(type);
-		if (doSegment) {
-			//currently not in gui: _gui.selectToolBarButton('createSegmentBorder',true);
-		} else {
-			_gui.selectToolBarButton('regionBorder', true);
-		}
+		_editor.startCreateBorder('region');
+		_gui.selectToolBarButton('regionBorder', true);
 	}
 	this.callbackNewRegion = function (regionpoints, regiontype) {
 		const newID = "created" + _newPolygonCounter;
@@ -737,7 +727,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				_editor.updateSegment(polygon);
 			}
 		});
-		_gui.setRegionLegendColors(_segmentationtypes);
+		_gui.setRegionLegendColors();
 	}
 
 	this.autoGenerateReadingOrder = function () {
@@ -809,7 +799,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.forceUpdateReadingOrder = function (forceHard) {
 		_gui.forceUpdateReadingOrder(_segmentation[_currentPage].readingOrder, forceHard, _segmentation[_currentPage].segments);
-		_gui.setRegionLegendColors(_segmentationtypes);
+		_gui.setRegionLegendColors();
 		_guiInput.addDynamicListeners();
 		this.displayReadingOrder(_displayReadingOrder);
 	}
@@ -827,17 +817,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.applyGrid = function () {
-		if (!_gridIsActive) {
-			_editor.addGrid();
-		}
-		_gridIsActive = true;
+		_editor.addGrid();
 	}
 
 	this.removeGrid = function () {
-		if (_gridIsActive) {
-			_editor.removeGrid();
-			_gridIsActive = false;
-		}
+		_editor.removeGrid();
 	}
 
 	this._readingOrderContains = function (id) {
