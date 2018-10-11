@@ -1,7 +1,7 @@
 // Editor extends viewer
 class Editor extends Viewer {
-	constructor(regionTypes, viewerInput, colors, controller) {
-		super(regionTypes, viewerInput, colors);
+	constructor(viewerInput, colors, controller) {
+		super(viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
 		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5,contours:6};

@@ -14,26 +14,8 @@ class Colors {
 				color = freeColors.pop();
 			} else {
 				// Fallback generator
-				const id = this._regionTypes[segmentType]
-				const counter = 6;
-				const modifier1 = (id + 6) % counter;
-				const modifier2 = Math.floor(((id - 6) / counter));
-				const c = modifier2 == 0 ? 1 : 1 - (1 / modifier2);
-
-				switch (modifier1) {
-					case 0: color = [c, 0, 0];
-						break;
-					case 1: color = [0, c, 0];
-						break;
-					case 2: color = [0, 0, c];
-						break;
-					case 3: color = [c, c, 0];
-						break;
-					case 4: color = [0, c, c];
-						break;
-					case 5: color = [c, 0, c];
-						break;
-				}
+				console.log("Warning: Not enough colors for region types. Will display region \'"+segmentType+"\' as black");
+				color = [0,0,0];
 			}
 
 		}

@@ -1,6 +1,5 @@
 class Viewer {
-	constructor(regionTypes, viewerInput, colors) {
-		this._regionTypes = regionTypes;
+	constructor(viewerInput, colors) {
 		this.thisInput = viewerInput;
 		this._imageID;
 		this._imageWidth;
@@ -332,7 +331,7 @@ class Viewer {
 		} else {
 			polygon.fillColor.alpha = 0.001;
 			polygon.strokeColor.alpha = 1;
-			polygon.strokeWidth = 2;
+			polygon.strokeWidth = 1;
 		}
 		polygon.defaultStrokeColor = new paper.Color(polygon.strokeColor);
 		if (isFixed) {
