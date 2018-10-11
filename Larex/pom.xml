@@ -104,11 +104,6 @@
 			<artifactId>opencv</artifactId>
 			<version>3.4.2-0</version>
 		</dependency>
-		<dependency>
-			<groupId>org.apache.tomcat</groupId>
-			<artifactId>tomcat-coyote</artifactId>
-			<version>7.0.14</version>
-		</dependency>
 
 		<!-- Apache Commons FileUpload -->
 		<dependency>
