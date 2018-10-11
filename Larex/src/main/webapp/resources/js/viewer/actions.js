@@ -206,11 +206,10 @@ function ActionRemoveCompleteRegion(regionType, controller, editor, settings, co
 	let _isExecuted = false;
 	const _region = JSON.parse(JSON.stringify(settings.regions[regionType]));
 
-	//TODO redo after undo does not work
+	// TODO remove region segments?
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			let region = settings.regions[_region.type];
 			controller.removePresentRegions(_region.type);
 
 			// Iterate over all Polygons in Region

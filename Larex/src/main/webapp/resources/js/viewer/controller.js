@@ -183,7 +183,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.addPresentRegions = function (regionType) {
-		if (region.type !== 'ignore' && $.inArray(regionType, _presentRegions) < 0) {
+		if (regionType !== 'ignore' && $.inArray(regionType, _presentRegions) < 0) {
 			//_presentRegions does not contains region.type
 			_presentRegions.push(regionType);
 		}
