@@ -86,7 +86,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 52: // 4
-					_controller.createPolygon(true);
+					_controller.createSegmentPolygon(true);
 					validKey = true;
 					break;
 				case 53: // 5
@@ -106,7 +106,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 77: // M
-					_controller.moveSelected();
+					_controller.moveSelectedPoints();
 					validKey = true;
 					break;
 				case 83: // S

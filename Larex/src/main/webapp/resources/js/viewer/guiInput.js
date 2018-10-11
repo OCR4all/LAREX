@@ -70,7 +70,7 @@ function GuiInput(navigationController, controller, gui) {
 
 	$('.createIgnore').click(() => _controller.createRectangle('ignore'));
 	$('.createRegionBorder').click(() => _controller.createRegionBorder());
-	$('.createSegmentPolygon').click(() => _controller.createPolygon(true));
+	$('.createSegmentPolygon').click(() => _controller.createSegmentPolygon(true));
 	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
 	$('.createCut').click(() => _controller.createCut());
 

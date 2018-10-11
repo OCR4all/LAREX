@@ -122,6 +122,7 @@ class Editor extends Viewer {
 				(rectangle)=>{
 					this._tempPolygon.closed = true;
 					this._tempPolygon.selected = false;
+
 					switch (this._tempPolygonType) {
 						case 'segment':
 							this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(rectangle, false));

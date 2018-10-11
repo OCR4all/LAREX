@@ -403,13 +403,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_editor.fixSegment(id, doFix);
 	}
 
-	this.createPolygon = function (doSegment) {
+	this.createSegmentPolygon = function () {
 		this.endEditing();
-		const type = doSegment ? 'segment' : 'region';
-		_editor.startCreatePolygon(type);
-		if (doSegment) {
-			_gui.selectToolBarButton('segmentPolygon', true);
-		}
+		_editor.startCreatePolygon('segment');
+		_gui.selectToolBarButton('segmentPolygon', true);
 	}
 	this.createRectangle = function (type) {
 		this.endEditing();
@@ -430,6 +427,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				break;
 		}
 	}
+
 	this.createCut = function () {
 		this.endEditing();
 		_editor.startCreateLine();
@@ -456,13 +454,13 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
-	this.moveSelected = function () {
+	this.moveSelectedPoints = function () {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
 		let points = _selector.getSelectedPoints();
 
 		if (points && points.length > 0 && selected.length === 1 && selectType === "segment") {
-			_editor.startMovePolygonPoints(selected[0], selectType, points);
+			_editor.startMovePolygonPoints(selected[0], 'segment', points);
 		}
 	}
 
@@ -657,7 +655,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_actionController.addAndExecuteAction(actionTransformSegment, _currentPage);
 	}
 
-	this.scaleSelected = function () {
+	this.scaleSelectedRegion = function () {
 		const selectType = _selector.getSelectedPolygonType();
 		const selected = _selector.getSelectedSegments();
 
@@ -685,15 +683,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			}
 			this.hideRegion(type, false);
 		} else if (polygonType === "segment" || polygonType === "fixed") {
-			// is Segment
-			this.changeSegmentType(id, type);
-		}
-	}
-
-	this.changeSegmentType = function (id, type) {
-		if (_segmentation[_currentPage].segments[id].type != type) {
-			const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
-			_actionController.addAndExecuteAction(actionChangeType, _currentPage);
+			if (_segmentation[_currentPage].segments[id].type != type) {
+				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
+				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
+			}
 		}
 	}
 
@@ -834,7 +827,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		return false;
 	}
 	// Display
-	this.selectSegment = function (sectionID, hitTest, mouse) {
+	this.selectSegment = function (sectionID, hitTest) {
 		const idType = this.getIDType(sectionID);
 
 		if (_editReadingOrder && idType === 'segment') {
@@ -858,16 +851,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.hasPointsSelected = function() {
 		return _selector.getSelectedPolygonType() === 'segment' && _selector.getSelectedSegments().length === 1 && _selector.getSelectedPoints().length > 0;
-	}
-
-	this.dragSegment = function (sectionID, event) {
-		const idType = this.getIDType(sectionID);
-		
-		if(idType === 'segment'){
-			this.moveSelected();
-		} else {
-			this.moveImage(event.delta);
-		}
 	}
 
 	this.unSelect = function () {

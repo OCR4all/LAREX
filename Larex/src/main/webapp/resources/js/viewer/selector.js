@@ -103,7 +103,7 @@ class Selector {
 		}
 
 		if(this.selectedType === 'region')
-			this._controller.scaleSelected();
+			this._controller.scaleSelectedRegion();
 	}
 
 	isSegmentSelected(id) {
