@@ -11,12 +11,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _currentPage;
 	let _segmentedPages = [];
 	let _savedPages = [];
-	let _savedSegmentationServer = [];
 	let _book;
 	let _segmentation = {};
 	let _settings;
 	let _contours = {};
-	let _activesettings;
 	let _segmentationtypes;
 	let _presentRegions = [];
 	let _pageXMLVersion = "2017-07-15";
@@ -48,8 +46,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_book = data.book;
 			_segmentationtypes = data.regionTypes;
 			_settings = data.settings;
-			// clone _settings
-			_activesettings = JSON.parse(JSON.stringify(_settings));
 
 			const regions = _settings.regions;
 			Object.keys(regions).forEach((key) => {
@@ -134,7 +130,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_editor.clear();
 			_editor.setImage(imageId);
 
-			const pageFixedSegments = _settings.pages[_currentPage].segments;
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
 			if (pageSegments) {
@@ -208,8 +203,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.doSegmentation = function (pageID) {
 		_settings.parameters = _gui.getParameters();
 
-		// clone _settings
-		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
 		this._requestSegmentation(pageID, false);
@@ -218,8 +211,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.loadExistingSegmentation = function () {
 		_settings.parameters = _gui.getParameters();
 
-		// clone _settings
-		_activesettings = JSON.parse(JSON.stringify(_settings));
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
 		this._requestSegmentation(_currentPage, true);
@@ -236,11 +227,12 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 
 		//Add fixed Segments to settings
-		_activesettings.pages[pageID].segments = {};
+		const activesettings = JSON.parse(JSON.stringify(_settings));
+		activesettings.pages[pageID].segments = {};
 		if (!_fixedSegments[pageID]) _fixedSegments[pageID] = [];
-		_fixedSegments[pageID].forEach(s => _activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
+		_fixedSegments[pageID].forEach(s => activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
 
-		_communicator.segmentBook(_activesettings, pageID, allowLoadLocal).done((result) => {
+		_communicator.segmentBook(activesettings, pageID, allowLoadLocal).done((result) => {
 			const failedSegmentations = [];
 			const missingRegions = [];
 
@@ -730,23 +722,12 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.updateAvailableColors();
 
 		const pageSegments = _segmentation[_currentPage].segments;
-		const pageFixedSegments = _settings.pages[_currentPage].segments;
 		Object.keys(pageSegments).forEach((key) => {
-			if (!pageFixedSegments[key]) {
 				let segment = pageSegments[key];
 				if (segment.type === regionType) {
 					_editor.updateSegment(segment);
 				}
-			}
 		});
-		// Iterate over FixedSegment-"Map" (Object in JS)
-		Object.keys(pageFixedSegments).forEach((key) => {
-			const segment = pageFixedSegments[key];
-			if (segment.type === regionType) {
-				_editor.updateSegment(segment);
-			}
-		});
-
 		
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
