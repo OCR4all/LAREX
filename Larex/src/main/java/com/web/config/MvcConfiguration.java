@@ -7,7 +7,7 @@ import org.springframework.web.multipart.commons.CommonsMultipartResolver;
 import org.springframework.web.servlet.ViewResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 
 /**
@@ -17,7 +17,7 @@ import org.springframework.web.servlet.view.InternalResourceViewResolver;
 @Configuration
 @ComponentScan(basePackages = "com.web")
 @EnableWebMvc
-public class MvcConfiguration extends WebMvcConfigurerAdapter {
+public class MvcConfiguration implements WebMvcConfigurer {
 
 	/*
 	 * System library for openCV 
@@ -26,8 +26,6 @@ public class MvcConfiguration extends WebMvcConfigurerAdapter {
 		nu.pattern.OpenCV.loadShared();
 		System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);
 	}
-
-
 	
 	@Bean
 	public ViewResolver getViewResolver() {

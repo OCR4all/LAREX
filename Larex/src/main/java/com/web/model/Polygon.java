@@ -2,8 +2,8 @@ package com.web.model;
 
 import java.util.LinkedList;
 
-import org.codehaus.jackson.annotate.JsonCreator;
-import org.codehaus.jackson.annotate.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import larex.regions.type.RegionType;
 
