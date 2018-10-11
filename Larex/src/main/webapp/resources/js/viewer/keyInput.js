@@ -105,10 +105,6 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					_controller.fixSelected();
 					validKey = true;
 					break;
-				case 77: // M
-					_controller.moveSelectedPoints();
-					validKey = true;
-					break;
 				case 83: // S
 					if (event.ctrlKey) {
 						_controller.exportPageXML();
