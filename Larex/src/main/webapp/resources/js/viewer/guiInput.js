@@ -105,8 +105,8 @@ function GuiInput(navigationController, controller, gui) {
 
 		_controller.hideAllRegions(!$switchBox.prop('checked'));
 	});
-	$('.regionSettings, #regioneditorSelect .collection-item').click(function () { _controller.openRegionSettings($(this).data("type"), false) });
-	$('.regionCreate').click(function () { _controller.openRegionSettings($(this).data("type"), true) });
+	$('.regionSettings, #regioneditorSelect .collection-item').click(function () { _controller.openRegionSettings($(this).data("type")) });
+	$('.regionCreate').click(function () { _controller.openRegionSettings() });
 	$('.regionDelete').click(() => {
 		const regionType = $('#regioneditor').find('#regionType').text();
 		_controller.deleteRegionSettings(regionType);

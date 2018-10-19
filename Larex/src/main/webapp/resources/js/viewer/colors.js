@@ -5,61 +5,52 @@ class Colors {
 	}
 	
 	getColor(segmentType) {
-		let color = this.getPredefinedColor(this._regionColors[segmentType]);
-		
-		if (!color) {
-			let freeColors = this.getAvailableColors();
-
-			if (freeColors && freeColors.length > 0) {
-				color = freeColors.pop();
-			} else {
-				// Fallback generator
-				console.log("Warning: Not enough colors for region types. Will display region \'"+segmentType+"\' as black");
-				color = [0,0,0];
-			}
-
-		}
-		return new paper.Color(color);
+		return new paper.Color(this.unpackColor(this.getColorID(segmentType)));
 	}
 
-	getPredefinedColor(id){
+	getColorID(segmentType) {
+		if (!this.hasColor(segmentType)) 
+			throw "No color for region type defined! ["+segmentType+"]";
+		
+		return this._regionColors[segmentType];
+	}
+
+	hasColor(segmentType) {
+		return this._regionColors.hasOwnProperty(segmentType);
+	}
+
+	assignAvailableColor(segmentType){
+		if(!this.hasColor(segmentType)){
+			let freeColorIDs = this.getAvailableColorIDs();
+
+			if (freeColorIDs && freeColorIDs.length > 0) {
+				const colorID = freeColorIDs.pop();
+				this.setColor(segmentType,colorID);
+			} else { 
+				throw "No colors left!";
+			}
+		}
+	}
+
+	unpackColor(id){
 		return this._colors[id];
 	}
 
-	setColor(segmentType,colorID){
+	setColor(segmentType, colorID){
 		this._regionColors[segmentType] = colorID;
 	}
 
-	getPredefinedColors(){
-		return this._colors;
-	}
-
-	getPredefinedColorIDs(){
+	getAllColorIDs(){
 		var ids = [];
-    	for (var i = 0; i < this._colors.length; i++) {
+    	for (var i = 0; i < this._colors.length; i++) 
       		ids.push(i);
-    	}
    		return ids;
 	}
 	
-	getAvailableColors(){
-		let freeColorsIDs = this.getAvailableColorIDs();
-		return freeColorsIDs.map(id => {return this.getPredefinedColor(id)});
-	}
-	
 	getAvailableColorIDs(){
-		let freeColors = this.getPredefinedColorIDs().slice();
+		let freeColors = this.getAllColorIDs().slice();
 		Object.keys(this._regionColors).forEach(type =>{
 			freeColors.splice($.inArray(this._regionColors[type], freeColors), 1)});
 		return freeColors;
-	}
-
-	getColorID(color){
-		for(let index = 0; index < this._colors.length; index++){
-			let c = this._colors[index];
-			if(color.red === c.red && color.blue === c.blue && color.green === c.green) 
-				return index;
-		}
-		return undefined;
 	}
 }

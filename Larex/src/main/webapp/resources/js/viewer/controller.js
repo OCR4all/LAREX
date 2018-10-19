@@ -59,11 +59,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_editor = new Editor(viewerInput, _colors, this);
 
 			_selector = new Selector(_editor, this);
-			_gui = new GUI(canvasID, _editor,_colors,data.regionTypes);
+			_gui = new GUI(canvasID, _editor,_colors);
 			_gui.resizeViewerHeight();
 
 			_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
-			_gui.setRegionLegendColors();
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
@@ -138,6 +137,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			// Iterate over Regions-"Map" (Object in JS)
 			Object.keys(regions).forEach((key) => {
 				const region = regions[key];
+				if(!_colors.hasColor(region.type));
+					_colors.assignAvailableColor(region.type);
 
 				// Iterate over all Polygons in Region
 				Object.keys(region.polygons).forEach((polygonKey) => {
@@ -166,7 +167,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.setReadingOrder(_segmentation[_currentPage].readingOrder, _segmentation[_currentPage].segments);
 			_guiInput.addDynamicListeners();
 			this.displayReadingOrder(_displayReadingOrder);
-			_gui.setRegionLegendColors();
+			_gui.setRegionLegendColors(_presentRegions);
 
 			_gui.selectPage(pageNr);
 			_tempReadingOrder = null;
@@ -245,8 +246,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 						if ($.inArray(segment.type, _presentRegions) == -1) {
 							//TODO as Action
 							this.changeRegionSettings(segment.type, 0, -1);
-							const colorID = _colors.getColorID(_colors.getColor(segment.type));
-							this.setRegionColor(segment.type,colorID);
+							if(!_colors.hasColor(segment.type)){
+								_colors.assignAvailableColor(segment.type)
+								const colorID = _colors.getColorID(segment.type);
+								this.setRegionColor(segment.type,colorID);
+							}
 							missingRegions.push(segment.type);
 						}
 					});
@@ -294,7 +298,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 						if ($.inArray(segment.type, _presentRegions) == -1) {
 							//TODO as Action
 							this.changeRegionSettings(segment.type, 0, -1);
-							const colorID = _colors.getColorID(_colors.getColor(segment.type));
+							const colorID = _colors.getColorID(segment.type);
 							this.setRegionColor(segment.type,colorID);
 							missingRegions.push(segment.type);
 						}
@@ -690,14 +694,19 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
-	this.openRegionSettings = function (regionType, doCreate) {
-		let region = _settings.regions[regionType];
-		if (!region) {
-			region = _settings.regions['paragraph']; //TODO replace, is to fixed
-		}
-		const colorID = _colors.getColorID(_colors.getColor(regionType));
+	this.openRegionSettings = function (regionType) {
+		if(regionType){
+			let region = _settings.regions[regionType];
+			if (!region) 
+				region = _settings.regions['paragraph']; // If no settings exist, take the ones of paragraph
+			if (!_colors.hasColor(regionType))
+				_colors.assignAvailableColor(regionType);
+			const colorID = _colors.getColorID(regionType);
 
-		_gui.openRegionSettings(regionType, region.minSize, region.maxOccurances, region.priorityPosition, doCreate, colorID);
+			_gui.openRegionSettings(regionType, region.minSize, region.maxOccurances, colorID);
+		}else{
+			_gui.openRegionCreate();
+		}
 	}
 
 	this.setRegionColor = function (regionType, colorID) {
@@ -720,7 +729,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				_editor.updateSegment(polygon);
 			}
 		});
-		_gui.setRegionLegendColors();
+		_gui.setRegionLegendColors(_presentRegions);
 	}
 
 	this.autoGenerateReadingOrder = function () {
@@ -792,7 +801,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.forceUpdateReadingOrder = function (forceHard) {
 		_gui.forceUpdateReadingOrder(_segmentation[_currentPage].readingOrder, forceHard, _segmentation[_currentPage].segments);
-		_gui.setRegionLegendColors();
+		_gui.setRegionLegendColors(_presentRegions);
 		_guiInput.addDynamicListeners();
 		this.displayReadingOrder(_displayReadingOrder);
 	}
