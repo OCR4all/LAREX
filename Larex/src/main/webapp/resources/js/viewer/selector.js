@@ -113,6 +113,7 @@ class Selector {
 			return false;
 		}
 	}
+
 	boxSelect() {
 		if (!this._editor.isEditing) {
 			if (!this.isSelecting) {
@@ -122,7 +123,6 @@ class Selector {
 			this.isSelecting = true;
 		}
 	}
-
 
 	_selectInBox(pointA, pointB) {
 		if(this._selectedSegments.length === 1 && this.selectedType === 'segment'){

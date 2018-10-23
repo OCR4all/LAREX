@@ -660,6 +660,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.scaleSelectedRegion = function () {
+		_editor.endEditing();
 		const selectType = _selector.getSelectedPolygonType();
 		const selected = _selector.getSelectedSegments();
 
@@ -674,6 +675,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			let actionTransformRegion = new ActionTransformRegion(regionID, regionSegments, regionType, _editor, _settings, _currentPage, this);
 			_actionController.addAndExecuteAction(actionTransformRegion, _currentPage);
 			this.hideRegion(regionType, false);
+			_selector.select(regionID);
 		}
 	}
 

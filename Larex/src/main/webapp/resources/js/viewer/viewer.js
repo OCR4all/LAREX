@@ -4,11 +4,11 @@ class Viewer {
 		this._imageID;
 		this._imageWidth;
 		this._imageHeight;
-		this._overlayID = "overlay";
-		this._overlay;
 		this._polygons = {};
 		this._imageCanvas = new paper.Group();
 		this._regionOverlay;
+		this._contourOverlayID = "overlay";
+		this._contourOverlay;
 		this._background;
 		this._currentZoom = 1;
 		this._colors = colors;
@@ -459,7 +459,7 @@ class Viewer {
 	}
 
 	showContours(contours){
-		let overlayHTML = document.getElementById(this._overlayID);
+		let overlayHTML = document.getElementById(this._contourOverlayID);
 		if(!overlayHTML){
 			overlayHTML = document.createElement('canvas');
 			document.body.appendChild(overlayHTML);
@@ -483,22 +483,22 @@ class Viewer {
 		});
 
 		//Draw Overlay
-		if(document.getElementById(this._overlayID)){
-			if(this._overlay) this._overlay.remove();
+		if(document.getElementById(this._contourOverlayID)){
+			if(this._contourOverlay) this._contourOverlay.remove();
 
-			this._overlay = new paper.Raster(this._overlayID);
-			this._overlay.visible = true;
+			this._contourOverlay = new paper.Raster(this._contourOverlayID);
+			this._contourOverlay.visible = true;
 			const imagePosition = this._imageCanvas.bounds;
-			this._overlay.position = new paper.Point(imagePosition.x,imagePosition.y);
-			this._overlay.position = this._overlay.position.add([imagePosition.width * 0.5, imagePosition.height * 0.5]);
-			this._overlay.scale(this._currentZoom);
+			this._contourOverlay.position = new paper.Point(imagePosition.x,imagePosition.y);
+			this._contourOverlay.position = this._contourOverlay.position.add([imagePosition.width * 0.5, imagePosition.height * 0.5]);
+			this._contourOverlay.scale(this._currentZoom);
 
-			this._imageCanvas.addChild(this._overlay);
+			this._imageCanvas.addChild(this._contourOverlay);
 		}
 	}
 
 	hideContours(){
-		if(this._overlay) this._overlay.visible = false;
+		if(this._contourOverlay) this._contourOverlay.visible = false;
 	}
 
 	_createEmptyOverlay(){

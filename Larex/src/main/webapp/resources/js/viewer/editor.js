@@ -540,7 +540,7 @@ class Editor extends Viewer {
 
 			const listener = {};
 			this.addListener(listener);
-			listener.onMouseDrag = (event) => {
+			listener.onMouseMove = (event) => {
 				if (this.isEditing === true) {
 					if (this._tempPolygon) {
 						const mouseregion = this.getMouseRegion(this._tempPolygon.bounds, event.point, 0.1, 10);
@@ -636,11 +636,8 @@ class Editor extends Viewer {
 
 				this._tempPolygon.remove();
 
-				if (this._tempPolygonType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(polygon, false));
-				} else {
+				if (this._tempPolygonType !== 'segment') 
 					this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
-				}
 
 				this._tempPolygon = null;
 			}
