@@ -8,6 +8,7 @@ class Viewer {
 		this._overlay;
 		this._polygons = {};
 		this._imageCanvas = new paper.Group();
+		this._regionOverlay;
 		this._background;
 		this._currentZoom = 1;
 		this._colors = colors;
@@ -33,10 +34,16 @@ class Viewer {
 
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
-				const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
-				if(hitTest){
-					if (hitTest.item && hitTest.item.polygonID) 
-						this.thisInput.selectSection(hitTest.item.polygonID, event, hitTest);
+				// Check regions first
+				let hitResult = this._regionOverlay.hitTest(event.point, this._hitOptions);
+
+				// Check segments after
+				if(!hitResult)
+					hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+
+				if(hitResult){
+					if (hitResult.item && hitResult.item.polygonID) 
+						this.thisInput.selectSection(hitResult.item.polygonID, event, hitResult);
 					else
 						this.thisInput.clickImage(event);
 				} else {
@@ -56,8 +63,8 @@ class Viewer {
 
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
-				const hitTest = this._imageCanvas.hitTest(event.point, this._hitOptions);
-				if(hitTest)
+				const hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+				if(hitResult)
 					this.thisInput.dragImage(event);
 				else 
 					this.thisInput.dragBackground(event);
@@ -87,25 +94,12 @@ class Viewer {
 		this._imageID = id;
 		this._drawImage();
 		this._imageCanvas.bringToFront();
-	}
 
-	addSegment(segment, isFixed=false, isStatic=false) {
-		this.drawPolygon(segment, false, isFixed, isStatic);
+		// Create region canvas
+		this._regionOverlay = this._createEmptyOverlay();
+		this._imageCanvas.addChild(this._regionOverlay);
 	}
-
-	fixSegment(polygonID, doFix = true) {
-		if (doFix) {
-			this._polygons[polygonID].dashArray = [5, 3];
-		} else {
-			this._polygons[polygonID].dashArray = [];
-		}
-	}
-
-	forceUpdate() {
-		// highlight segments to force paperjs/canvas to redraw everything
-		if (this._polygons)
-			Object.keys(this._polygons).forEach((id) => this.highlightSegment(id, false));
-	}
+	
 
 	clear() {
 		paper.project.activeLayer.removeChildren();
@@ -114,6 +108,29 @@ class Viewer {
 		paper.view.draw();
 		this._background = null;
 		this._updateBackground();
+	}
+
+	forceUpdate() {
+		// highlight segments to force paperjs/canvas to redraw everything
+		if (this._polygons)
+			Object.keys(this._polygons).forEach((id) => this.highlightSegment(id, false));
+	}
+
+	addSegment(segment, isFixed=false) {
+		this.drawPolygon(segment, false, isFixed);
+	}
+
+	removeSegment(id) {
+		this._polygons[id].remove();
+		delete this._polygons[id];
+	}
+
+	fixSegment(polygonID, doFix = true) {
+		if (doFix) {
+			this._polygons[polygonID].dashArray = [5, 3];
+		} else {
+			this._polygons[polygonID].dashArray = [];
+		}
 	}
 
 	updateSegment(segment) {
@@ -147,11 +164,6 @@ class Viewer {
 		}
 	}
 
-	removeSegment(id) {
-		this._polygons[id].remove();
-		delete this._polygons[id];
-	}
-
 	highlightSegment(id, doHighlight = true) {
 		const polygon = this._polygons[id];
 		if (polygon) {
@@ -163,6 +175,23 @@ class Viewer {
 				}
 			}
 		}
+	}
+
+	addRegion(region) {
+		this.drawPolygon(region, true, false, this._regionOverlay);
+	}
+
+	addLine(line) {
+		this.drawLine(line);
+	}
+
+	removeLine(lineID) {
+		this.removeSegment(lineID);
+	}
+
+	removeRegion(regionID) {
+		this.endEditing();
+		this.removeSegment(regionID);
 	}
 
 	hideSegment(id, doHide = true) {
@@ -315,7 +344,7 @@ class Viewer {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	drawPolygon(segment, doFill, isFixed, isStatic = false) {
+	drawPolygon(segment, doFill, isFixed, canvas = this._imageCanvas) {
 		//Construct polygon from segment
 		const polygon = new paper.Path();
 		polygon.polygonID = segment.id;
@@ -352,14 +381,12 @@ class Viewer {
 			}
 		}
 
-		if(!isStatic){
-			//Add listeners
-			polygon.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
-			polygon.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
-		}
+		//Add highlight listeners
+		polygon.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
+		polygon.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
 
 		//Add to canvas
-		this._imageCanvas.addChild(polygon);
+		canvas.addChild(polygon);
 		this._polygons[segment.id] = polygon;
 
 		return polygon;
@@ -472,6 +499,16 @@ class Viewer {
 
 	hideContours(){
 		if(this._overlay) this._overlay.visible = false;
+	}
+
+	_createEmptyOverlay(){
+		// Rectangle dummy to force empty group size to image size
+		const rect = new paper.Path.Rectangle(this._imageCanvas.bounds);
+
+		// Create overlay canvas
+		const overlay = new paper.Group();
+		overlay.addChild(rect);
+		return overlay;
 	}
 
 	_updateBackground() {

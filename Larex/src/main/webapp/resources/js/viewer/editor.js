@@ -161,23 +161,6 @@ class Editor extends Viewer {
 		}
 	}
 
-	addRegion(region) {
-		this.drawPolygon(region, true);
-	}
-
-	addLine(line) {
-		this.drawLine(line);
-	}
-
-	removeLine(lineID) {
-		this.removeSegment(lineID);
-	}
-
-	removeRegion(regionID) {
-		this.endEditing();
-		this.removeSegment(regionID);
-	}
-
 	startCreatePolygon(type) {
 		if (this.isEditing === false) {
 			this._editMode = 0;
