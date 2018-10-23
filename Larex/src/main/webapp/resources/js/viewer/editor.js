@@ -170,7 +170,7 @@ class Editor extends Viewer {
 
 			const listener = {};
 			this.addListener(listener);
-			listener.onMouseUp = (event) => {
+			listener.onMouseMove = (event) => {
 				if (this._tempPolygon) {
 					this._tempPolygon.removeSegment(this._tempPolygon.segments.length - 1);
 					this._tempPolygon.add(this.getPointInBounds(event.point, this.getBoundaries()));
