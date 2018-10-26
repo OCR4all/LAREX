@@ -89,6 +89,10 @@ class Viewer {
 		if (index > -1) this._listener.splice(index, 1);
 	}
 
+	clearListener(){
+		this._listener = [];
+	}
+
 	setImage(id) {
 		this._imageCanvas = new paper.Group();
 		this._imageID = id;

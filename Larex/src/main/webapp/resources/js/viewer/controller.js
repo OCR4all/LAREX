@@ -101,6 +101,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	});
 
 	this.displayPage = function (pageNr) {
+		this.escape();
 		_currentPage = pageNr;
 
 		this.showPreloader(true);

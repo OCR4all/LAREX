@@ -183,7 +183,7 @@ class Editor extends Viewer {
 			});
 			this.DoubleClickListener.setActive(true);
 
-			listener.onMouseDown = (event) => {
+			listener.onMouseUp = (event) => {
 				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
@@ -202,7 +202,7 @@ class Editor extends Viewer {
 						this._tempEndCircle.strokeColor = 'black';
 						this._tempEndCircle.fillColor = 'grey';
 						this._tempEndCircle.opacity = 0.5;
-						this._tempEndCircle.onMouseDown = (event) => this.endCreatePolygon();
+						this._tempEndCircle.onMouseUp = (event) => this.endCreatePolygon();
 
 						let imageCanvas = this.getImageCanvas();
 						imageCanvas.addChild(this._tempPolygon);
@@ -256,7 +256,7 @@ class Editor extends Viewer {
 			});
 			this.DoubleClickListener.setActive(true);
 
-			listener.onMouseDown = (event) => {
+			listener.onMouseUp = (event) => {
 				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
@@ -367,7 +367,7 @@ class Editor extends Viewer {
 						}
 					}
 				}
-				listener.onMouseDown = (event) => {
+				listener.onMouseUp = (event) => {
 					if (this._tempPolygon) {
 						this.endCreateBorder();
 						this.removeListener(listener);
@@ -706,6 +706,7 @@ class Editor extends Viewer {
 	}
 
 	endEditing() {
+		this.clearListener();
 		this.isEditing = false;
 
 		this._tempID = null;
