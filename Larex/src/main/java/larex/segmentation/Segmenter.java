@@ -55,39 +55,36 @@ public class Segmenter {
 			results.add(result);
 		}
 
-		double scaleFactor = (double) parameters.getDesiredImageHeight() / (double) original.height();
-		applyScaleCorrection(results, scaleFactor);
-		addFixedPointsLists(results);
+		// Apply scale correction
+		ArrayList<ResultRegion> scaled = new ArrayList<>();
+		for (ResultRegion result : results) {
+			scaled.add(result.getResized(1.0 / parameters.getScaleFactor(original.height())));
+		}
+		results = scaled;
+
+		// Add fixed pointlists
+		ArrayList<PointList> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
+		for (PointList pointList : pointsLists) {
+			if (pointList.getType() != null) {
+				results.add(new ResultRegion(pointList.getType(), pointList.getPoints(), pointList.getId()));
+			}
+		}
+
+		// Set result
 		SegmentationResult segResult = new SegmentationResult(results);
 		segResult.removeImagesWithinText();
 
 		return segResult;
 	}
 
-	private void applyScaleCorrection(ArrayList<ResultRegion> results, double scaleFactor) {
-		for (ResultRegion result : results) {
-			result.rescale(scaleFactor);
-		}
-	}
-
-	private void addFixedPointsLists(ArrayList<ResultRegion> results) {
-		ArrayList<PointList> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
-
-		for (PointList pointList : pointsLists) {
-			parameters.getRegionManager();
-			ResultRegion result = new ResultRegion(pointList.getType(), pointList.getOcvPoints(),
-					pointList.getId());
-			results.add(result);
-		}
-	}
-
 	private void fillFixedPointsLists(Mat original) {
 		ArrayList<PointList> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
-		int verticalRes = original.height();
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 
+		double scaleFactor = parameters.getScaleFactor(original.height());
+
 		for (PointList pointList : pointsLists) {
-			contours.add(pointList.getResizedMatOfPoint(verticalRes, parameters.getDesiredImageHeight()));
+			contours.add(pointList.getResizedPoints(scaleFactor));
 		}
 
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
@@ -112,7 +109,7 @@ public class Segmenter {
 
 		// draw user defined lines
 		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate,
-				parameters.getScaleFactor());
+				parameters.getScaleFactor(binary.height()));
 
 		int minSize = Integer.MAX_VALUE;
 
@@ -132,7 +129,7 @@ public class Segmenter {
 			return new ArrayList<MatOfPoint>();
 		}
 
-		Mat dilate = new Mat();
+		Mat dilate = null;
 
 		if (parameters.getImageRemovalDilationX() == 0 || parameters.getImageRemovalDilationY() == 0) {
 			dilate = binary.clone();
@@ -143,7 +140,7 @@ public class Segmenter {
 
 		// draw user defined lines
 		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate,
-				parameters.getScaleFactor());
+				parameters.getScaleFactor(binary.height()));
 
 		ArrayList<MatOfPoint> images = ImageSegmentation.detectImageContours(dilate, imageRegion.getMinSize(), type,
 				parameters.isCombineImages());

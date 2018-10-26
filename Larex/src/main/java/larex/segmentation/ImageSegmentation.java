@@ -2,6 +2,7 @@ package larex.segmentation;
 
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -13,7 +14,7 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
-import larex.imageProcessing.Contour;
+import larex.contours.Contourextractor;
 import larex.segmentation.parameters.ImageSegType;
 
 public class ImageSegmentation {
@@ -33,13 +34,13 @@ public class ImageSegmentation {
 			}
 		}
 		
-		ArrayList<MatOfPoint> results = Contour.findContours(binary);
+		ArrayList<MatOfPoint> results = new ArrayList<>(Contourextractor.fromInverted(binary));
 		
 		return results;
 	}
 
 	public static ArrayList<MatOfPoint> detectTextContours(Mat binary, int minSize) {
-		ArrayList<MatOfPoint> contours = Contour.findContours(binary);
+		Collection<MatOfPoint> contours = Contourextractor.fromInverted(binary);
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();
 
 		for (MatOfPoint contour : contours) {
@@ -54,7 +55,7 @@ public class ImageSegmentation {
 	}
 	
 	public static ArrayList<MatOfPoint> detectImageContours(Mat binary, int minSize, ImageSegType type, boolean combine) {
-		ArrayList<MatOfPoint> contours = Contour.findContours(binary);
+		Collection<MatOfPoint> contours = Contourextractor.fromInverted(binary);
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();
 
 		for (MatOfPoint contour : contours) {

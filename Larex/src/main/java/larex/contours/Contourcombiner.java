@@ -1,4 +1,4 @@
-package larex.contourselect;
+package larex.contours;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -128,7 +128,7 @@ public class Contourcombiner {
 				}
 			}
 
-			workingContours = new ArrayList<>(Contourextractor.extract(resultImage));
+			workingContours = new ArrayList<>(Contourextractor.fromSource(resultImage));
 			int contourCount = workingContours.size();
 
 			if (previousContourCount == contourCount) {
@@ -152,7 +152,7 @@ public class Contourcombiner {
 
 		// Draw small border to account for shrinking
 		Imgproc.drawContours(resultImage, new ArrayList<>(workingContours), -1, new Scalar(255), 2);
-		workingContours = new ArrayList<>(Contourextractor.extract(resultImage));
+		workingContours = new ArrayList<>(Contourextractor.fromSource(resultImage));
 		resultImage.release();
 		workImage.release();
 		System.gc();

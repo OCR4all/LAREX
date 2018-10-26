@@ -88,7 +88,7 @@ public class WebLarexTranslator {
 	public static PointListManager translateSettingsToPointListManager(BookSettings settings, int pageid) {
 		PointListManager manager = new PointListManager();
 
-		ArrayList<PointList> fixedSegments = new ArrayList<PointList>();
+		ArrayList<PointList> fixedPointLists = new ArrayList<PointList>();
 		for (Polygon fixedSegment : settings.getPage(pageid).getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : fixedSegment.getPoints()) {
@@ -96,17 +96,18 @@ public class WebLarexTranslator {
 			}
 			PointList fixedPointList = new PointList(points, fixedSegment.getId());
 			fixedPointList.setType(fixedSegment.getType());
-			fixedSegments.add(fixedPointList);
+			fixedPointLists.add(fixedPointList);
 		}
-		manager.setPointLists(fixedSegments);
 
 		for (Polygon cuts : settings.getPage(pageid).getCuts().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : cuts.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			manager.addPointList(points, cuts.getId());
+			PointList fixedPointList = new PointList(points, cuts.getId());
+			fixedPointLists.add(fixedPointList);
 		}
+		manager.setPointLists(fixedPointLists);
 
 		return manager;
 	}

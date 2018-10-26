@@ -1,9 +1,9 @@
 package larex.geometry;
 
-import java.awt.Point;
 import java.util.ArrayList;
 
 import org.opencv.core.Mat;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
@@ -15,12 +15,12 @@ public class PointListManager {
 		setPointLists(new ArrayList<PointList>());
 	}
 
-	public Mat drawLinesIntoImage(ArrayList<org.opencv.core.Point> points, Mat image) {
+	public Mat drawLinesIntoImage(ArrayList<Point> points, Mat image) {
 		if (points != null && points.size() > 1) {
-			org.opencv.core.Point lastPoint = points.get(0);
+			Point lastPoint = points.get(0);
 
 			for (int i = 1; i < points.size(); i++) {
-				org.opencv.core.Point currentPoint = points.get(i);
+				Point currentPoint = points.get(i);
 				Imgproc.line(image, lastPoint, currentPoint, new Scalar(0), 2);
 				lastPoint = currentPoint;
 			}
@@ -31,37 +31,22 @@ public class PointListManager {
 
 	public Mat drawPointListIntoImage(Mat image, double scaleFactor) {
 		Mat result = image.clone();
-		ArrayList<ArrayList<org.opencv.core.Point>> ocvPointLists = convertToOpenCV(scaleFactor);
+		ArrayList<ArrayList<Point>> ocvPointLists = getResized(scaleFactor);
 
-		for (ArrayList<org.opencv.core.Point> ocvPoints : ocvPointLists) {
+		for (ArrayList<Point> ocvPoints : ocvPointLists) {
 			result = drawLinesIntoImage(ocvPoints, result);
 		}
 
 		return result;
 	}
 
-	public ArrayList<ArrayList<org.opencv.core.Point>> convertToOpenCV(double scaleFactor) {
-		ArrayList<ArrayList<org.opencv.core.Point>> allPoints = new ArrayList<ArrayList<org.opencv.core.Point>>();
+	private ArrayList<ArrayList<Point>> getResized(double scaleFactor) {
+		ArrayList<ArrayList<Point>> allPoints = new ArrayList<ArrayList<Point>>();
 
-		for (PointList pointList : pointLists) {
-			ArrayList<org.opencv.core.Point> points = new ArrayList<org.opencv.core.Point>();
-
-			for (int i = 0; i < pointList.getPoints().size(); i++) {
-				Point toConvert = pointList.getPoints().get(i);
-
-				org.opencv.core.Point point = new org.opencv.core.Point(scaleFactor * toConvert.getX(),
-						scaleFactor * toConvert.getY());
-				points.add(point);
-			}
-
-			allPoints.add(points);
-		}
+		for (PointList pointList : pointLists)
+			allPoints.add(new ArrayList<>(pointList.getResizedPoints(scaleFactor).toList()));
 
 		return allPoints;
-	}
-
-	public void addPointList(ArrayList<Point> points, String id) {
-		pointLists.add(new PointList(points, id));
 	}
 
 	public ArrayList<PointList> getPointLists() {

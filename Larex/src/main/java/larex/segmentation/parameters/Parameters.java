@@ -16,8 +16,6 @@ public class Parameters {
 
 	private RegionManager regionManager;
 
-	private double scaleFactor;
-
 	private ImageSegType imageSegType;
 	private boolean combineImages;
 
@@ -37,8 +35,6 @@ public class Parameters {
 
 		this.textDilationX = DEFAULT_Parameters.getTextRemovalDilationXDefault();
 		this.textDilationY = DEFAULT_Parameters.getTextRemovalDilationYDefault();
-
-		this.scaleFactor = originalHeight == 0 ? 1 : desiredImageHeight / originalHeight;
 
 		setImageSegType(ImageSegType.ROTATED_RECT);
 		setCombineImages(true);
@@ -92,8 +88,8 @@ public class Parameters {
 		this.textDilationY = textDilationY;
 	}
 
-	public double getScaleFactor() {
-		return scaleFactor;
+	public double getScaleFactor(int imageHeight) {
+		return (double) desiredImageHeight / (double) imageHeight;
 	}
 
 	public ImageSegType getImageSegType() {

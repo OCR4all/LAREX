@@ -29,8 +29,8 @@ import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
 
-import larex.contourselect.Contourcombiner;
-import larex.contourselect.Contourextractor;
+import larex.contours.Contourcombiner;
+import larex.contours.Contourextractor;
 import larex.export.PageXMLReader;
 import larex.export.PageXMLWriter;
 import larex.export.SettingsReader;
@@ -106,7 +106,7 @@ public class LarexFacade {
 		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 
-		Collection<MatOfPoint> contours = Contourextractor.extract(page.getOriginal());
+		Collection<MatOfPoint> contours = Contourextractor.fromSource(page.getOriginal());
 		page.clean();
 		System.gc();
 

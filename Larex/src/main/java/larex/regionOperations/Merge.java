@@ -10,7 +10,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-import larex.imageProcessing.Contour;
+import larex.contours.Contourextractor;
 import larex.imageProcessing.ImageProcessor;
 import larex.segmentation.result.ResultRegion;
 
@@ -66,7 +66,7 @@ public class Merge {
 
 		}
 
-		contours = Contour.findContours(temp);
+		contours = new ArrayList<>(Contourextractor.fromInverted(temp));
 
 		temp.release();
 		if (contours.size() > 0) {

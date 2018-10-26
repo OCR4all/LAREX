@@ -21,8 +21,7 @@ import com.web.model.Book;
 import com.web.model.Page;
 
 /**
- * Static demo database with specific books for the web view
- * 
+ * File Database to load book folders 
  */
 public class FileDatabase implements IDatabase {
 
@@ -39,7 +38,8 @@ public class FileDatabase implements IDatabase {
 	public FileDatabase(File databaseFolder) {
 		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"));
 	}
-
+	
+	@Override
 	public Map<Integer, Book> getBooks() {
 		File[] files = databaseFolder.listFiles();
 
@@ -57,6 +57,7 @@ public class FileDatabase implements IDatabase {
 		return books;
 	}
 
+	@Override
 	public Book getBook(int id) {
 		if (books == null || !books.containsKey(id)) {
 			getBooks();
@@ -76,6 +77,7 @@ public class FileDatabase implements IDatabase {
 		return segmentedIds;
 	}
 
+	@Override
 	public void addBook(Book book) {
 		books.put(book.getId(), book);
 	}
