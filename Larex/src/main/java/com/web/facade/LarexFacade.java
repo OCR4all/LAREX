@@ -35,9 +35,8 @@ import larex.data.export.SettingsReader;
 import larex.data.export.SettingsWriter;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.RegionType;
-import larex.operators.Contourcombiner;
 import larex.operators.Contourextractor;
-import larex.operators.RegionSegmentMerge;
+import larex.operators.Merger;
 import larex.segmentation.SegmentationResult;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
@@ -94,7 +93,7 @@ public class LarexFacade {
 		Book book = getBook(bookID, fileManager);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
-		RegionSegment mergedRegion = RegionSegmentMerge.merge(resultRegions, page.getBinary().size());
+		RegionSegment mergedRegion = Merger.lineMerge(resultRegions, page.getBinary().size());
 		page.clean();
 		System.gc();
 
@@ -128,7 +127,7 @@ public class LarexFacade {
 			matContours.add(WebLarexTranslator.translateContour(contour));
 		}
 
-		MatOfPoint combined = Contourcombiner.combine(matContours, page.getBinary());
+		MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary());
 		page.clean();
 		System.gc();
 

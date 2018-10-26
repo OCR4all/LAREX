@@ -9,14 +9,20 @@ import java.util.List;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
+import larex.imageProcessing.ImageProcessor;
+
 /**
- * Contor combiner to combine multiple contours to one segment
+ * Merger to combine multiple contours/segments to one
  */
-public class Contourcombiner {
+public class Merger {
 
 	// Comparator since Lambda not working on some servers
 	private static Comparator<Integer> COMP_DOUBLE = new Comparator<Integer>() {
@@ -33,8 +39,8 @@ public class Contourcombiner {
 	 * @param source   Source image that includes the contours
 	 * @return MatOfPoint contour that includes all contours
 	 */
-	public static MatOfPoint combine(Collection<MatOfPoint> contours, Mat source) {
-		return combine(contours, source, 2.5, 1.5);
+	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Mat source) {
+		return smearMerge(contours, source, 2.5, 1.5);
 	}
 
 	/**
@@ -49,7 +55,7 @@ public class Contourcombiner {
 	 *                 smearing iteration does not change the combined contour count
 	 * @return MatOfPoint contour that includes all contours
 	 */
-	public static MatOfPoint combine(Collection<MatOfPoint> contours, Mat source, double growthY, double growthX) {
+	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Mat source, double growthY, double growthX) {
 		if (contours.size() < 1)
 			throw new IllegalArgumentException("Can't combine 0 contours.");
 
@@ -158,5 +164,81 @@ public class Contourcombiner {
 		System.gc();
 
 		return workingContours.get(0);
+	}
+
+	/**
+	 * Merge RegionSegments by combining overlapping and drawing lines between non
+	 * overlapping segments
+	 * 
+	 * @param segments   Segments to merge
+	 * @param binarySize Dimensions of the image the segments are coming from
+	 * @return
+	 */
+	public static RegionSegment lineMerge(ArrayList<RegionSegment> segments, Size binarySize) {
+		if (segments.size() < 2) {
+			return null;
+		}
+
+		Mat temp = new Mat(binarySize, CvType.CV_8UC1, new Scalar(0));
+		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+		ArrayList<Point> cogs = new ArrayList<Point>();
+		double biggestArea = Double.MIN_VALUE;
+		RegionType biggestRegionType = segments.get(0).getType();
+
+		for (RegionSegment region : segments) {
+			MatOfPoint regionContour = region.getPoints();
+			contours.add(regionContour);
+
+			Point cog = ImageProcessor.calcCenterOfGravityOCV(region.getPoints(), true);
+			cogs.add(cog);
+			
+			final double regionArea = Imgproc.contourArea(regionContour);
+			if(biggestArea < regionArea) {
+				biggestArea = regionArea;
+				biggestRegionType = region.getType();
+			}
+		}
+
+		Imgproc.drawContours(temp, contours, -1, new Scalar(255), -1);
+
+		ArrayList<Point> remainingCogs = new ArrayList<Point>();
+		ArrayList<Point> assignedCogs = new ArrayList<Point>();
+
+		remainingCogs.addAll(cogs);
+		assignedCogs.add(cogs.get(0));
+		remainingCogs.remove(cogs.get(0));
+
+		while (remainingCogs.size() > 0) {
+			Point assignedCogTemp = null;
+			Point remCogTemp = null;
+
+			double minDist = Double.MAX_VALUE;
+
+			for (Point assignedCog : assignedCogs) {
+				for (Point remainingCog : remainingCogs) {
+					double dist = Math.pow(remainingCog.x - assignedCog.x, 2)
+							+ Math.pow(remainingCog.y - assignedCog.y, 2);
+
+					if (dist < minDist) {
+						assignedCogTemp = assignedCog;
+						remCogTemp = remainingCog;
+						minDist = dist;
+					}
+				}
+			}
+
+			Imgproc.line(temp, assignedCogTemp, remCogTemp, new Scalar(255), 2);
+			assignedCogs.add(remCogTemp);
+			remainingCogs.remove(remCogTemp);
+
+		}
+
+		contours = new ArrayList<>(Contourextractor.fromInverted(temp));
+
+		temp.release();
+		
+		RegionSegment newResult = new RegionSegment(biggestRegionType, contours.get(0));
+
+		return newResult;
 	}
 }
