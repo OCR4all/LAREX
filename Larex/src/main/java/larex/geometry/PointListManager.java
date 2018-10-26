@@ -7,12 +7,14 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import larex.segmentation.result.RegionSegment;
+
 public class PointListManager {
 
-	private ArrayList<PointList> pointLists;
+	private ArrayList<RegionSegment> pointLists;
 
 	public PointListManager() {
-		setPointLists(new ArrayList<PointList>());
+		setPointLists(new ArrayList<RegionSegment>());
 	}
 
 	public Mat drawLinesIntoImage(ArrayList<Point> points, Mat image) {
@@ -43,17 +45,17 @@ public class PointListManager {
 	private ArrayList<ArrayList<Point>> getResized(double scaleFactor) {
 		ArrayList<ArrayList<Point>> allPoints = new ArrayList<ArrayList<Point>>();
 
-		for (PointList pointList : pointLists)
+		for (RegionSegment pointList : pointLists)
 			allPoints.add(new ArrayList<>(pointList.getResizedPoints(scaleFactor).toList()));
 
 		return allPoints;
 	}
 
-	public ArrayList<PointList> getPointLists() {
+	public ArrayList<RegionSegment> getPointLists() {
 		return pointLists;
 	}
 
-	public void setPointLists(ArrayList<PointList> pointLists) {
+	public void setPointLists(ArrayList<RegionSegment> pointLists) {
 		this.pointLists = pointLists;
 	}
 }

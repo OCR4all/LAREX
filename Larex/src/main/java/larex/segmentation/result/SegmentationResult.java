@@ -10,16 +10,16 @@ import larex.regions.type.RegionType;
 
 public class SegmentationResult {
 
-	private ArrayList<ResultRegion> regions;
-	private ArrayList<ResultRegion> readingOrder;
+	private ArrayList<RegionSegment> regions;
+	private ArrayList<RegionSegment> readingOrder;
 
-	public SegmentationResult(ArrayList<ResultRegion> regions) {
+	public SegmentationResult(ArrayList<RegionSegment> regions) {
 		this.regions = regions;
-		setReadingOrder(new ArrayList<ResultRegion>());
+		setReadingOrder(new ArrayList<RegionSegment>());
 	}
 
-	public ResultRegion getRegionByID(String id){
-		for (ResultRegion roRegion : regions) {
+	public RegionSegment getRegionByID(String id){
+		for (RegionSegment roRegion : regions) {
 			if (roRegion.getId().equals(id)) {
 				return roRegion;
 			}
@@ -27,10 +27,10 @@ public class SegmentationResult {
 		return null;
 	}
 	
-	private ArrayList<ResultRegion> identifyImageList() {
-		ArrayList<ResultRegion> images = new ArrayList<ResultRegion>();
+	private ArrayList<RegionSegment> identifyImageList() {
+		ArrayList<RegionSegment> images = new ArrayList<RegionSegment>();
 
-		for (ResultRegion region : regions) {
+		for (RegionSegment region : regions) {
 			if (region.getType().equals(RegionType.image)) {
 				images.add(region);
 			}
@@ -40,7 +40,7 @@ public class SegmentationResult {
 	}
 
 	private boolean rectIsWithinText(Rect rect) {
-		for (ResultRegion region : regions) {
+		for (RegionSegment region : regions) {
 			MatOfPoint2f contour2f = new MatOfPoint2f(region.getPoints().toArray());
 
 			if (Imgproc.pointPolygonTest(contour2f, rect.tl(), false) > 0
@@ -53,15 +53,15 @@ public class SegmentationResult {
 	}
 
 	public void removeImagesWithinText() {
-		ArrayList<ResultRegion> imageList = identifyImageList();
+		ArrayList<RegionSegment> imageList = identifyImageList();
 
 		if (imageList.size() == 0) {
 			return;
 		}
 
-		ArrayList<ResultRegion> keep = new ArrayList<ResultRegion>();
+		ArrayList<RegionSegment> keep = new ArrayList<RegionSegment>();
 
-		for (ResultRegion image : imageList) {
+		for (RegionSegment image : imageList) {
 			Rect imageRect = Imgproc.boundingRect(image.getPoints());
 
 			if (!rectIsWithinText(imageRect)) {
@@ -73,15 +73,15 @@ public class SegmentationResult {
 		regions.addAll(keep);
 	}
 
-	public ArrayList<ResultRegion> getRegions() {
+	public ArrayList<RegionSegment> getRegions() {
 		return regions;
 	}
 
-	public ArrayList<ResultRegion> getReadingOrder() {
+	public ArrayList<RegionSegment> getReadingOrder() {
 		return readingOrder;
 	}
 
-	public void setReadingOrder(ArrayList<ResultRegion> readingOrder) {
+	public void setReadingOrder(ArrayList<RegionSegment> readingOrder) {
 		this.readingOrder = readingOrder;
 	}
 }

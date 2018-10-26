@@ -10,7 +10,6 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-import larex.geometry.PointList;
 import larex.imageProcessing.ImageProcessor;
 import larex.imageProcessing.Rectangle;
 import larex.positions.Position;
@@ -18,7 +17,7 @@ import larex.regions.Region;
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.ImageSegType;
 import larex.segmentation.parameters.Parameters;
-import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.RegionSegment;
 import larex.segmentation.result.SegmentationResult;
 
 public class Segmenter {
@@ -27,6 +26,7 @@ public class Segmenter {
 	private ArrayList<Region> regions;
 
 	private Mat binary;
+	private double scaleFactor;
 
 	public Segmenter(Parameters parameters) {
 		setParameters(parameters);
@@ -48,25 +48,26 @@ public class Segmenter {
 
 		// detect and classify text regionss
 		ArrayList<MatOfPoint> texts = detectText();
-		ArrayList<ResultRegion> results = classifyText(texts);
+		ArrayList<RegionSegment> results = classifyText(texts);
 
 		for (MatOfPoint image : images) {
-			ResultRegion result = new ResultRegion(RegionType.image, image);
+			RegionSegment result = new RegionSegment(RegionType.image, image);
 			results.add(result);
 		}
 
 		// Apply scale correction
-		ArrayList<ResultRegion> scaled = new ArrayList<>();
-		for (ResultRegion result : results) {
+		ArrayList<RegionSegment> scaled = new ArrayList<>();
+		for (RegionSegment result : results) {
 			scaled.add(result.getResized(1.0 / parameters.getScaleFactor(original.height())));
 		}
 		results = scaled;
 
 		// Add fixed pointlists
-		ArrayList<PointList> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
-		for (PointList pointList : pointsLists) {
+		ArrayList<RegionSegment> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
+		// TODO split pointList into fixed segments and cuts
+		for (RegionSegment pointList : pointsLists) {
 			if (pointList.getType() != null) {
-				results.add(new ResultRegion(pointList.getType(), pointList.getPoints(), pointList.getId()));
+				results.add(new RegionSegment(pointList.getType(), pointList.getPoints(), pointList.getId()));
 			}
 		}
 
@@ -78,21 +79,21 @@ public class Segmenter {
 	}
 
 	private void fillFixedPointsLists(Mat original) {
-		ArrayList<PointList> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
+		ArrayList<RegionSegment> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 
-		double scaleFactor = parameters.getScaleFactor(original.height());
-
-		for (PointList pointList : pointsLists) {
-			contours.add(pointList.getResizedPoints(scaleFactor));
+		// TODO split pointList into fixed segments and cuts
+		for (RegionSegment pointList : pointsLists) {
+			if (pointList.getType() != null)
+				contours.add(pointList.getResizedPoints(this.scaleFactor));
 		}
 
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
 	}
 
-	private ArrayList<ResultRegion> classifyText(ArrayList<MatOfPoint> texts) {
+	private ArrayList<RegionSegment> classifyText(ArrayList<MatOfPoint> texts) {
 		RegionClassifier regionClassifier = new RegionClassifier(binary, regions);
-		ArrayList<ResultRegion> classifiedRegions = regionClassifier.classifyRegions(texts);
+		ArrayList<RegionSegment> classifiedRegions = regionClassifier.classifyRegions(texts);
 
 		return classifiedRegions;
 	}
@@ -108,8 +109,7 @@ public class Segmenter {
 		}
 
 		// draw user defined lines
-		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate,
-				parameters.getScaleFactor(binary.height()));
+		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate, scaleFactor);
 
 		int minSize = Integer.MAX_VALUE;
 
@@ -139,8 +139,7 @@ public class Segmenter {
 		}
 
 		// draw user defined lines
-		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate,
-				parameters.getScaleFactor(binary.height()));
+		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate, scaleFactor);
 
 		ArrayList<MatOfPoint> images = ImageSegmentation.detectImageContours(dilate, imageRegion.getMinSize(), type,
 				parameters.isCombineImages());
@@ -206,6 +205,7 @@ public class Segmenter {
 	}
 
 	private void init(Mat original, Parameters parameters) {
+		this.scaleFactor = parameters.getScaleFactor(original.height());
 		Mat resized = ImageProcessor.resize(original, parameters.getDesiredImageHeight());
 		Mat gray = ImageProcessor.calcGray(resized);
 		// calculate region size

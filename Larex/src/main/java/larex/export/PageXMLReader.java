@@ -15,7 +15,7 @@ import org.w3c.dom.NodeList;
 
 import larex.helper.TypeConverter;
 import larex.regions.type.RegionType;
-import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.RegionSegment;
 import larex.segmentation.result.SegmentationResult;
 
 public class PageXMLReader {
@@ -23,7 +23,7 @@ public class PageXMLReader {
 	public static SegmentationResult getSegmentationResult(Document document) {
 		SegmentationResult segResult = null;
 
-		ArrayList<ResultRegion> resRegions = new ArrayList<ResultRegion>();
+		ArrayList<RegionSegment> resRegions = new ArrayList<RegionSegment>();
 
 		document.getDocumentElement().normalize();
 
@@ -31,21 +31,21 @@ public class PageXMLReader {
 		NodeList imageRegions = document.getElementsByTagName("ImageRegion");
 
 		for (int i = 0; i < textRegions.getLength(); i++) {
-			ResultRegion newRegion = extractRegion(textRegions.item(i), true);
+			RegionSegment newRegion = extractRegion(textRegions.item(i), true);
 			resRegions.add(newRegion);
 		}
 
 		for (int i = 0; i < imageRegions.getLength(); i++) {
-			ResultRegion newRegion = extractRegion(imageRegions.item(i), false);
+			RegionSegment newRegion = extractRegion(imageRegions.item(i), false);
 			resRegions.add(newRegion);
 		}
 
 		segResult = new SegmentationResult(resRegions);
-		ArrayList<ResultRegion> readingOrder = new ArrayList<ResultRegion>();
+		ArrayList<RegionSegment> readingOrder = new ArrayList<RegionSegment>();
 		NodeList readingOrderXML = document.getElementsByTagName("ReadingOrder");
 		//TODO
 		if(readingOrderXML.getLength() > 0) {
-			for (ResultRegion region : resRegions) {
+			for (RegionSegment region : resRegions) {
 				if (!region.getType().equals(RegionType.image)) {
 					readingOrder.add(region);
 				}
@@ -73,7 +73,7 @@ public class PageXMLReader {
 		return segResult;
 	}
 
-	private static ResultRegion extractRegion(Node regionNode, boolean isTextRegion) {
+	private static RegionSegment extractRegion(Node regionNode, boolean isTextRegion) {
 		Element regionElement = (Element) regionNode;
 		RegionType type = RegionType.image;
 
@@ -90,7 +90,7 @@ public class PageXMLReader {
 			points = extractPoints2017(coords);
 		}
 
-		ResultRegion region = new ResultRegion(type, points);
+		RegionSegment region = new RegionSegment(type, points);
 
 		return region;
 	}

@@ -18,7 +18,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.RegionSegment;
 import larex.segmentation.result.SegmentationResult;
 
 public class PageXMLWriter {
@@ -63,7 +63,7 @@ public class PageXMLWriter {
 		}
 	}
 
-	public static void addRegion(Document document, Element pageElement, ResultRegion region, int regionCnt,
+	public static void addRegion(Document document, Element pageElement, RegionSegment region, int regionCnt,
 			String pageXMLVersion) {
 		Element regionElement = null;
 		String regionType = region.getType().toString().toLowerCase();
@@ -96,16 +96,16 @@ public class PageXMLWriter {
 			String pageXMLVersion) {
 		int regionCnt = 0;
 
-		ArrayList<ResultRegion> readingOrder = segmentation.getReadingOrder();
-		ArrayList<ResultRegion> allRegions = segmentation.getRegions();
+		ArrayList<RegionSegment> readingOrder = segmentation.getReadingOrder();
+		ArrayList<RegionSegment> allRegions = segmentation.getRegions();
 		allRegions.removeAll(readingOrder);
 
-		for (ResultRegion region : readingOrder) {
+		for (RegionSegment region : readingOrder) {
 			addRegion(document, pageElement, region, regionCnt, pageXMLVersion);
 			regionCnt++;
 		}
 
-		for (ResultRegion region : allRegions) {
+		for (RegionSegment region : allRegions) {
 			addRegion(document, pageElement, region, regionCnt, pageXMLVersion);
 			regionCnt++;
 		}
@@ -177,7 +177,7 @@ public class PageXMLWriter {
 				orderedGroupElement.setAttribute("id", "ro" + System.currentTimeMillis());
 				readingOrderElement.appendChild(orderedGroupElement);
 
-				ArrayList<ResultRegion> readingOrder = result.getReadingOrder();
+				ArrayList<RegionSegment> readingOrder = result.getReadingOrder();
 				for (int index = 0; index < readingOrder.size(); index++) {
 					Element regionRefElement = document.createElement("RegionRefIndexed");
 					regionRefElement.setAttribute("regionRef", "r" + index);

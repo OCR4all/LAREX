@@ -10,19 +10,19 @@ import org.opencv.imgproc.Imgproc;
 import larex.positions.Position;
 import larex.regions.Region;
 import larex.regions.type.RegionType;
-import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.RegionSegment;
 
 public class RegionClassifier {
 
 	private Mat binary;
 	private ArrayList<Region> regions;
-	private ArrayList<ResultRegion> results;
+	private ArrayList<RegionSegment> results;
 	private ArrayList<Candidate> candidates;
 
 	public RegionClassifier(Mat binary, ArrayList<Region> regions) {
 		this.binary = binary;
 		preprocessRegions(regions);
-		setResults(new ArrayList<ResultRegion>());
+		setResults(new ArrayList<RegionSegment>());
 	}
 
 	public boolean isWithinRegion(Rect toCheck, Region region) {
@@ -43,7 +43,7 @@ public class RegionClassifier {
 			Rect rect = candidate.getBoundingRect();
 
 			if (rect.area() > region.getMinSize() && isWithinRegion(rect, region)) {
-				ResultRegion newResult = new ResultRegion(region.getType(), candidate.getContour());
+				RegionSegment newResult = new RegionSegment(region.getType(), candidate.getContour());
 				results.add(newResult);
 				remainingCandidates.remove(candidate);
 			}
@@ -56,7 +56,7 @@ public class RegionClassifier {
 		Candidate candidate = MaxOccOneFinder.findMaxOccOne(candidates, region);
 
 		if (candidate != null) {
-			ResultRegion newResult = new ResultRegion(region.getType(), candidate.getContour());
+			RegionSegment newResult = new RegionSegment(region.getType(), candidate.getContour());
 			results.add(newResult);
 
 			candidates.remove(candidate);
@@ -65,7 +65,7 @@ public class RegionClassifier {
 		return candidates;
 	}
 
-	public ArrayList<ResultRegion> classifyRegions(ArrayList<MatOfPoint> contours) {
+	public ArrayList<RegionSegment> classifyRegions(ArrayList<MatOfPoint> contours) {
 		setCandidates(calcCandidates(contours));
 
 		for (int i = 0; i < regions.size(); i++) {
@@ -138,7 +138,7 @@ public class RegionClassifier {
 		this.regions = regions;
 	}
 
-	public void setResults(ArrayList<ResultRegion> results) {
+	public void setResults(ArrayList<RegionSegment> results) {
 		this.results = results;
 	}
 

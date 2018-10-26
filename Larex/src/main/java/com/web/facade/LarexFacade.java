@@ -39,7 +39,7 @@ import larex.regionOperations.Merge;
 import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
-import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.RegionSegment;
 import larex.segmentation.result.SegmentationResult;
 
 /**
@@ -87,14 +87,14 @@ public class LarexFacade {
 	}
 
 	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
-		ArrayList<ResultRegion> resultRegions = new ArrayList<ResultRegion>();
+		ArrayList<RegionSegment> resultRegions = new ArrayList<RegionSegment>();
 		for (Polygon segment : segments)
 			resultRegions.add(WebLarexTranslator.translateSegmentToResultRegion(segment));
 
 		Book book = getBook(bookID, fileManager);
 		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
-		ResultRegion mergedRegion = Merge.merge(resultRegions, page.getBinary().size());
+		RegionSegment mergedRegion = Merge.merge(resultRegions, page.getBinary().size());
 		page.clean();
 		System.gc();
 
@@ -144,7 +144,7 @@ public class LarexFacade {
 			SegmentationResult segmentationResult = currentLarexPage.getSegmentationResult();
 			currentLarexPage.setSegmentationResult(segmentationResult);
 
-			ArrayList<ResultRegion> regions = segmentationResult.getRegions();
+			ArrayList<RegionSegment> regions = segmentationResult.getRegions();
 
 			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(), page.getWidth(),
 					page.getHeight(), regions, page.getId());
@@ -232,7 +232,7 @@ public class LarexFacade {
 					page.getFileName(), page.getWidth(), page.getHeight(), result.getRegions(), page.getId());
 
 			List<String> readingOrder = new ArrayList<String>();
-			for (ResultRegion region : result.getReadingOrder()) {
+			for (RegionSegment region : result.getReadingOrder()) {
 				readingOrder.add(region.getId());
 			}
 			pageSegmentation.setReadingOrder(readingOrder);

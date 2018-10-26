@@ -1,44 +1,22 @@
 package larex.segmentation.result;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 
-import larex.regions.type.RegionType;
-
-public class ResultRegion {
-
+public class PointList {
 	private final String id;
-	private RegionType type;
 	private MatOfPoint points;
 
-	public ResultRegion(RegionType type, MatOfPoint points) {
-		this(type, points, UUID.randomUUID().toString());
+	public PointList(MatOfPoint points) {
+		this(points, UUID.randomUUID().toString());
 	}
 
-	public ResultRegion(RegionType type, MatOfPoint points, String id) {
-		this.type = type;
+	public PointList( MatOfPoint points, String id) {
 		this.points = points;
 		this.id = id;
-	}
-
-	/**
-	 * Returns the a copy of this region with resized points
-	 * 
-	 * @param scaleFactor Prefered_Image_Height/Original_Image_Height
-	 * @return The converted and scaled clone.
-	 */
-	public ResultRegion getResized(double scaleFactor) {
-		return new ResultRegion(type, getResizedPoints(scaleFactor));
-	}
-
-	public RegionType getType() {
-		return type;
-	}
-
-	public void setType(RegionType type) {
-		this.type = type;
 	}
 
 	public MatOfPoint getPoints() {
@@ -61,6 +39,17 @@ public class ResultRegion {
 		}
 
 		return new MatOfPoint(scaledPointsTemp);
+	}
+
+	protected static MatOfPoint convertPoints(ArrayList<java.awt.Point> points) {
+		org.opencv.core.Point[] ocvPoints = new org.opencv.core.Point[points.size()];
+
+		for (int i = 0; i < points.size(); i++) {
+			java.awt.Point point = points.get(i);
+			ocvPoints[i] = new org.opencv.core.Point(point.getX(), point.getY());
+		}
+
+		return new MatOfPoint(ocvPoints);
 	}
 
 	public String getId() {

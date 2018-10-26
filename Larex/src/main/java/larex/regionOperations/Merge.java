@@ -12,11 +12,11 @@ import org.opencv.imgproc.Imgproc;
 
 import larex.contours.Contourextractor;
 import larex.imageProcessing.ImageProcessor;
-import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.RegionSegment;
 
 public class Merge {
 
-	public static ResultRegion merge(ArrayList<ResultRegion> toMerge, Size binarySize) {
+	public static RegionSegment merge(ArrayList<RegionSegment> toMerge, Size binarySize) {
 		if (toMerge.size() < 2) {
 			return null;
 		}
@@ -25,7 +25,7 @@ public class Merge {
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		ArrayList<Point> cogs = new ArrayList<Point>();
 
-		for (ResultRegion region : toMerge) {
+		for (RegionSegment region : toMerge) {
 			contours.add(region.getPoints());
 
 			Point cog = ImageProcessor.calcCenterOfGravityOCV(region.getPoints(), true);
@@ -71,7 +71,7 @@ public class Merge {
 		temp.release();
 		if (contours.size() > 0) {
 			// TODO: Typvergabe!
-			ResultRegion newResult = new ResultRegion(toMerge.get(0).getType(), contours.get(0));
+			RegionSegment newResult = new RegionSegment(toMerge.get(0).getType(), contours.get(0));
 
 			return newResult;
 		}

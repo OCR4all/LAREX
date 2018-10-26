@@ -22,7 +22,7 @@ import larex.regions.type.RegionType;
 import larex.segmentation.parameters.DEFAULT_Parameters;
 import larex.segmentation.parameters.ImageSegType;
 import larex.segmentation.parameters.Parameters;
-import larex.segmentation.result.ResultRegion;
+import larex.segmentation.result.RegionSegment;
 
 /**
  * Helper Class to translate Larex Objects to Web Objects
@@ -129,15 +129,15 @@ public class LarexWebTranslator {
 		return segment;
 	}
 
-	public static Polygon translateResultRegionToSegment(ResultRegion region) {
+	public static Polygon translateResultRegionToSegment(RegionSegment region) {
 		return translatePointsToSegment(region.getPoints(), region.getId(), region.getType());
 	}
 
 	public static PageSegmentation translateResultRegionsToSegmentation(String fileName, int width, int height,
-			ArrayList<ResultRegion> regions, int pageid) {
+			ArrayList<RegionSegment> regions, int pageid) {
 		Map<String, Polygon> segments = new HashMap<String, Polygon>();
 
-		for (ResultRegion region : regions) {
+		for (RegionSegment region : regions) {
 			Polygon segment = translateResultRegionToSegment(region);
 			segments.put(segment.getId(), segment);
 		}
