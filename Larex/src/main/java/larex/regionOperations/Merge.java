@@ -6,14 +6,12 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import larex.imageProcessing.Contour;
 import larex.imageProcessing.ImageProcessor;
-import larex.regions.type.RegionType;
 import larex.segmentation.result.ResultRegion;
 
 public class Merge {
@@ -79,26 +77,5 @@ public class Merge {
 		}
 
 		return null;
-	}
-
-	public static ResultRegion mergeFromRect(Rect rect, ArrayList<ResultRegion> allRegions, Size binarySize) {
-		ArrayList<ResultRegion> toMerge = detectSegmentsWithinRoI(rect, allRegions);
-
-		return merge(toMerge, binarySize);
-	}
-
-	private static ArrayList<ResultRegion> detectSegmentsWithinRoI(Rect rect, ArrayList<ResultRegion> regions) {
-		ArrayList<ResultRegion> targetRegions = new ArrayList<ResultRegion>();
-
-		for (ResultRegion region : regions) {
-			if (!region.getType().equals(RegionType.image)) {
-				Rect toCheck = Imgproc.boundingRect(region.getPoints());
-				if (rect.contains(toCheck.tl()) && rect.contains(toCheck.br())) {
-					targetRegions.add(region);
-				}
-			}
-		}
-
-		return targetRegions;
 	}
 }

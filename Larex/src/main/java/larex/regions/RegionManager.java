@@ -3,8 +3,6 @@ package larex.regions;
 import java.util.ArrayList;
 
 import larex.geometry.PointListManager;
-import larex.positions.Position;
-import larex.positions.PositionManager;
 import larex.positions.PriorityPosition;
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.DEFAULT_Parameters;
@@ -13,17 +11,14 @@ public class RegionManager {
 
 	private static ArrayList<Region> regions;
 
-	private PositionManager positionManager;
 	private PointListManager pointListManager;
 
 	public RegionManager() {
 		initRegions();
-		setPositionManager(new PositionManager(this));
 		setPointListManager(new PointListManager());
 	}
 
 	public void initRegions() {
-
 		ArrayList<Region> regions = new ArrayList<Region>();
 
 		Region imageRegion = new Region(RegionType.image, DEFAULT_Parameters.getImageMinSizeDefault(), -1, null, null);
@@ -42,19 +37,6 @@ public class RegionManager {
 		regions.add(ignoreRegion);
 
 		setRegions(regions);
-
-		Region tempRegion = new Region(RegionType.other, 0, -1, null, null);
-		tempRegion.setPositions(new ArrayList<Position>());
-	}
-
-	public Region getRegionByPosition(Position position) {
-		for (Region region : regions) {
-			if (region.getPositions().contains(position)) {
-				return region;
-			}
-		}
-
-		return null;
 	}
 
 	public Region getRegionByType(RegionType type) {
@@ -71,30 +53,12 @@ public class RegionManager {
 		regions.add(region);
 	}
 
-	public Region getRegion(String type) {
-		for (Region region : regions) {
-			if (region.getPageXmlIdentifier().equals(type)) {
-				return region;
-			}
-		}
-
-		return null;
-	}
-
 	public ArrayList<Region> getRegions() {
 		return regions;
 	}
 
 	public void setRegions(ArrayList<Region> regions) {
 		RegionManager.regions = regions;
-	}
-
-	public PositionManager getPositionManager() {
-		return positionManager;
-	}
-
-	public void setPositionManager(PositionManager positionManager) {
-		this.positionManager = positionManager;
 	}
 
 	public PointListManager getPointListManager() {

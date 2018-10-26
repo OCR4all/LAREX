@@ -1,7 +1,5 @@
 package larex.positions;
 
-import java.awt.geom.Rectangle2D;
-
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
@@ -13,7 +11,6 @@ public class Position {
 	private double bottomRightXPercentage;
 	private double bottomRightYPercentage;
 
-	private boolean isActive;
 	private boolean isFixed;
 
 	private boolean roundedUpTopLeftX;
@@ -21,7 +18,6 @@ public class Position {
 	private boolean roundedUpBottomRightX;
 	private boolean roundedUpBottomRightY;
 
-	private Rectangle2D drawingRect;
 	private Rect openCVRect;
 
 	public Position(double topLeftXPercentage, double topLeftYPercentage, double bottomRightXPercentage,
@@ -37,8 +33,7 @@ public class Position {
 	}
 
 	public void updateRect(Rect rect, Mat image) {
-		setOpenCVRect(rect);
-		setDrawingRect(new Rectangle2D.Double(rect.x, rect.y, rect.width, rect.height));
+		this.openCVRect = rect;
 		calcPercentages(image);
 	}
 
@@ -167,26 +162,6 @@ public class Position {
 		return rect;
 	}
 
-	public Rect calcRectOld(Mat image) {
-		int topLeftX = (int) (image.width() * topLeftXPercentage);
-		int topLeftY = (int) (image.height() * topLeftYPercentage);
-		int bottomRightX = (int) (image.width() * bottomRightXPercentage);
-		int bottomRightY = (int) (image.height() * bottomRightYPercentage);
-
-		// even out rounding errors at the outer border of the image
-		if (bottomRightX == image.width() - 2) {
-			bottomRightX = image.width() - 1;
-		}
-
-		if (bottomRightY == image.height() - 2) {
-			bottomRightY = image.height() - 1;
-		}
-
-		Rect rect = new Rect(new Point(topLeftX, topLeftY), new Point(bottomRightX, bottomRightY));
-
-		return rect;
-	}
-
 	public double getTopLeftXPercentage() {
 		return topLeftXPercentage;
 	}
@@ -219,14 +194,6 @@ public class Position {
 		this.bottomRightYPercentage = bottomRightYPercentage;
 	}
 
-	public boolean isActive() {
-		return isActive;
-	}
-
-	public void setActive(boolean isActive) {
-		this.isActive = isActive;
-	}
-
 	public boolean isFixed() {
 		return isFixed;
 	}
@@ -235,51 +202,7 @@ public class Position {
 		this.isFixed = isFixed;
 	}
 
-	public Rectangle2D getDrawingRect() {
-		return drawingRect;
-	}
-
-	public void setDrawingRect(Rectangle2D drawingRect) {
-		this.drawingRect = drawingRect;
-	}
-
 	public Rect getOpenCVRect() {
 		return openCVRect;
-	}
-
-	public void setOpenCVRect(Rect openCVRect) {
-		this.openCVRect = openCVRect;
-	}
-
-	public boolean isRoundedUpTopLeftX() {
-		return roundedUpTopLeftX;
-	}
-
-	public void setRoundedUpTopLeftX(boolean roundedUpTopLeftX) {
-		this.roundedUpTopLeftX = roundedUpTopLeftX;
-	}
-
-	public boolean isRoundedUpTopLeftY() {
-		return roundedUpTopLeftY;
-	}
-
-	public void setRoundedUpTopLeftY(boolean roundedUpTopLeftY) {
-		this.roundedUpTopLeftY = roundedUpTopLeftY;
-	}
-
-	public boolean isRoundedUpBottomRightX() {
-		return roundedUpBottomRightX;
-	}
-
-	public void setRoundedUpBottomRightX(boolean roundedUpBottomRightX) {
-		this.roundedUpBottomRightX = roundedUpBottomRightX;
-	}
-
-	public boolean isRoundedUpBottomRightY() {
-		return roundedUpBottomRightY;
-	}
-
-	public void setRoundedUpBottomRightY(boolean roundedUpBottomRightY) {
-		this.roundedUpBottomRightY = roundedUpBottomRightY;
 	}
 }

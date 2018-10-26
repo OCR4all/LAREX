@@ -74,12 +74,10 @@ public class Segmenter {
 		ArrayList<PointList> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
 
 		for (PointList pointList : pointsLists) {
-			if (pointList.isClosed()) {
-				parameters.getRegionManager();
-				ResultRegion result = new ResultRegion(pointList.getType(), pointList.getOcvPoints(),
-						pointList.getId());
-				results.add(result);
-			}
+			parameters.getRegionManager();
+			ResultRegion result = new ResultRegion(pointList.getType(), pointList.getOcvPoints(),
+					pointList.getId());
+			results.add(result);
 		}
 	}
 
@@ -89,9 +87,7 @@ public class Segmenter {
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 
 		for (PointList pointList : pointsLists) {
-			if (pointList.isClosed()) {
-				contours.add(pointList.getResizedMatOfPoint(verticalRes, parameters.getDesiredImageHeight()));
-			}
+			contours.add(pointList.getResizedMatOfPoint(verticalRes, parameters.getDesiredImageHeight()));
 		}
 
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);

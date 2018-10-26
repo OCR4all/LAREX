@@ -9,12 +9,9 @@ import larex.regions.type.RegionType;
 
 public class PointList {
 
-	private ArrayList<Point> points;
-	private boolean isClosed;
-	private boolean isOptimized;
+	private final ArrayList<Point> points;
 	private RegionType type;
 	private MatOfPoint ocvPoints;
-	private Polygon polygon;
 	private String id;
 
 	/**
@@ -23,34 +20,12 @@ public class PointList {
 	 * @param points A list of points.
 	 */
 	public PointList(ArrayList<Point> points, String id) {
-		setPoints(points);
-		setPolygon(new Polygon(points));
+		this.points = points;
 		this.id = id;
 	}
 
-
 	public ArrayList<Point> getPoints() {
 		return points;
-	}
-
-	public void setPoints(ArrayList<Point> points) {
-		this.points = points;
-	}
-
-	public boolean isClosed() {
-		return isClosed;
-	}
-
-	public void setClosed(boolean isClosed) {
-		this.isClosed = isClosed;
-	}
-
-	public boolean isOptimized() {
-		return isOptimized;
-	}
-
-	public void setOptimized(boolean isOptimized) {
-		this.isOptimized = isOptimized;
 	}
 
 	public RegionType getType() {
@@ -98,14 +73,6 @@ public class PointList {
 
 	public void setOcvPoints(MatOfPoint ocvPoints) {
 		this.ocvPoints = ocvPoints;
-	}
-
-	public Polygon getPolygon() {
-		return polygon;
-	}
-
-	public void setPolygon(Polygon polygon) {
-		this.polygon = polygon;
 	}
 
 	public String getId() {

@@ -19,6 +19,8 @@ import larex.positions.PriorityPosition;
 import larex.regions.Region;
 import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
+import larex.segmentation.parameters.DEFAULT_Parameters;
+import larex.segmentation.parameters.ImageSegType;
 import larex.segmentation.parameters.Parameters;
 import larex.segmentation.result.ResultRegion;
 
@@ -29,7 +31,6 @@ import larex.segmentation.result.ResultRegion;
 public class LarexWebTranslator {
 
 	public static BookSettings translateParametersToSettings(Parameters parameters, Book book) {
-		// TODO Regions
 		BookSettings settings = new BookSettings(book);
 
 		Map<String, Integer> settingParameters = settings.getParameters();
@@ -41,19 +42,15 @@ public class LarexWebTranslator {
 
 		settings.setCombine(parameters.isCombineImages());
 		settings.setImageSegType(parameters.getImageSegType());
-		
+
 		RegionManager regionManager = parameters.getRegionManager();
 		for (Region region : regionManager.getRegions()) {
-			/*List<Polygon> regions = translateRegionToGUIRegions(region);
-			for (Polygon segment : regions) {
-				settings.addRegion(segment);
-			}*/
-			
 			RegionType regionType = region.getType();
 			int minSize = region.getMinSize();
 			int maxOccurances = region.getMaxOccurances();
 			PriorityPosition priorityPosition = region.getPriorityPosition();
-			com.web.model.Region guiRegion = new com.web.model.Region(regionType,minSize,maxOccurances,priorityPosition);
+			com.web.model.Region guiRegion = new com.web.model.Region(regionType, minSize, maxOccurances,
+					priorityPosition);
 
 			int regionCount = 0;
 			for (Position position : region.getPositions()) {
@@ -67,9 +64,47 @@ public class LarexWebTranslator {
 				guiRegion.addPolygon(new Polygon(id, regionType, points, true));
 				regionCount++;
 			}
-			
-			//TODO ? PointList -> Cut
-			
+
+			settings.addRegion(guiRegion);
+		}
+		return settings;
+	}
+
+	public static BookSettings getDefaultSettings(Book book) {
+		BookSettings settings = new BookSettings(book);
+
+		Map<String, Integer> settingParameters = settings.getParameters();
+		settingParameters.put("binarythreash", DEFAULT_Parameters.getBinaryThreshDefault());
+		settingParameters.put("textdilationX", DEFAULT_Parameters.getTextRemovalDilationXDefault());
+		settingParameters.put("textdilationY", DEFAULT_Parameters.getTextRemovalDilationYDefault());
+		settingParameters.put("imagedilationX", DEFAULT_Parameters.getImageRemovalDilationXDefault());
+		settingParameters.put("imagedilationY", DEFAULT_Parameters.getImageRemovalDilationYDefault());
+
+		settings.setCombine(true);
+		settings.setImageSegType(ImageSegType.ROTATED_RECT);
+		RegionManager regionManager = new RegionManager();
+		for (Region region : regionManager.getRegions()) {
+
+			RegionType regionType = region.getType();
+			int minSize = region.getMinSize();
+			int maxOccurances = region.getMaxOccurances();
+			PriorityPosition priorityPosition = region.getPriorityPosition();
+			com.web.model.Region guiRegion = new com.web.model.Region(regionType, minSize, maxOccurances,
+					priorityPosition);
+
+			int regionCount = 0;
+			for (Position position : region.getPositions()) {
+				LinkedList<Point> points = new LinkedList<Point>();
+				points.add(new Point(position.getTopLeftXPercentage(), position.getTopLeftYPercentage()));
+				points.add(new Point(position.getBottomRightXPercentage(), position.getTopLeftYPercentage()));
+				points.add(new Point(position.getBottomRightXPercentage(), position.getBottomRightYPercentage()));
+				points.add(new Point(position.getTopLeftXPercentage(), position.getBottomRightYPercentage()));
+
+				String id = regionType.toString() + regionCount;
+				guiRegion.addPolygon(new Polygon(id, regionType, points, true));
+				regionCount++;
+			}
+
 			settings.addRegion(guiRegion);
 		}
 		return settings;
@@ -83,7 +118,7 @@ public class LarexWebTranslator {
 
 		return points;
 	}
-	
+
 	public static Polygon translatePointsToSegment(MatOfPoint mat, String id, RegionType type) {
 		LinkedList<Point> points = new LinkedList<Point>();
 		for (org.opencv.core.Point regionPoint : mat.toList()) {
@@ -97,14 +132,15 @@ public class LarexWebTranslator {
 	public static Polygon translateResultRegionToSegment(ResultRegion region) {
 		return translatePointsToSegment(region.getPoints(), region.getId(), region.getType());
 	}
-	
-	public static PageSegmentation translateResultRegionsToSegmentation(String fileName, int width, int height,ArrayList<ResultRegion> regions, int pageid) {
+
+	public static PageSegmentation translateResultRegionsToSegmentation(String fileName, int width, int height,
+			ArrayList<ResultRegion> regions, int pageid) {
 		Map<String, Polygon> segments = new HashMap<String, Polygon>();
 
 		for (ResultRegion region : regions) {
 			Polygon segment = translateResultRegionToSegment(region);
 			segments.put(segment.getId(), segment);
 		}
-		return new PageSegmentation(fileName, width, height,pageid, segments);
+		return new PageSegmentation(fileName, width, height, pageid, segments);
 	}
 }

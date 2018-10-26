@@ -12,24 +12,23 @@ import larex.positions.PriorityPosition;
 import larex.regions.type.RegionType;
 
 public class Region {
-	private RegionType type;
-	private String pageXmlIdentifier;
+	private final RegionType type;
 	private int minSize;
 
 	private ArrayList<Position> positions;
 
 	private int maxOccurances;
-	private PriorityPosition priorityPosition;
+	private final PriorityPosition priorityPosition;
 
 	private static Mat activeMat;
 
 	public Region(RegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
 			ArrayList<Position> positions) {
-		setType(type);
-		setPageXmlIdentifier(type);
-		setMinSize(minSize);
-		setMaxOccurances(maxOccurances);
-		setPriorityPosition(priorityPosition);
+		this.type = type;
+
+		this.minSize = minSize;
+		this.maxOccurances = maxOccurances;
+		this.priorityPosition = priorityPosition;
 
 		if (positions == null) {
 			initRegions();
@@ -114,21 +113,8 @@ public class Region {
 		return type;
 	}
 
-	public void setType(RegionType type) {
-		this.type = type;
-	}
-
 	public String getPageXmlIdentifier() {
-		return pageXmlIdentifier;
-	}
-
-	public void setPageXmlIdentifier(String pageXmlIdentifier) {
-		this.pageXmlIdentifier = pageXmlIdentifier;
-	}
-
-	public void setPageXmlIdentifier(RegionType type) {
-		String pageXmlIdentifier = type.toString();
-		setPageXmlIdentifier(pageXmlIdentifier);
+		return type.toString();
 	}
 
 	public int getMinSize() {
@@ -157,15 +143,6 @@ public class Region {
 
 	public PriorityPosition getPriorityPosition() {
 		return priorityPosition;
-	}
-
-	public void setPriorityPosition(PriorityPosition priorityPosition) {
-		this.priorityPosition = priorityPosition;
-	}
-
-	public void addPositionRect(Rect rect) {
-		Position position = new Position(rect, activeMat);
-		positions.add(position);
 	}
 
 	public Mat getActiveMat() {

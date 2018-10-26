@@ -9,7 +9,17 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.imgproc.Imgproc;
 
+/**
+ * Contourextractor to get all contours in an image
+ */
 public class Contourextractor {
+	/**
+	 * Find all contours on a binary copy of the source image
+	 * 
+	 * @param source Source image to search contours in
+	 * @return Collection of contours that are present in a binary copy of the
+	 *         source image
+	 */
 	public static Collection<MatOfPoint> extract(Mat source) {
 		Mat inverted = new Mat(source.size(), source.type());
 		if (source.type() != CvType.CV_8UC1) {
@@ -22,7 +32,6 @@ public class Contourextractor {
 			inverted = source.clone();
 		}
 
-			
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		Imgproc.findContours(inverted, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
 

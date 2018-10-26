@@ -38,19 +38,6 @@ public class ImageSegmentation {
 		return results;
 	}
 
-	public static ArrayList<MatOfPoint> combineContoursAsRects(ArrayList<MatOfPoint> contours, Mat image) {
-		Mat binary = new Mat(image.size(), CvType.CV_8U, new Scalar(0));
-
-		for (MatOfPoint contour : contours) {
-			Rect rect = Imgproc.boundingRect(contour);
-			Imgproc.rectangle(binary, rect.tl(), rect.br(), new Scalar(255), -1);
-		}
-
-		ArrayList<MatOfPoint> results = Contour.findContours(binary);
-
-		return results;
-	}
-
 	public static ArrayList<MatOfPoint> detectTextContours(Mat binary, int minSize) {
 		ArrayList<MatOfPoint> contours = Contour.findContours(binary);
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();

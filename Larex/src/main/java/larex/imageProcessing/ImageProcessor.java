@@ -1,26 +1,17 @@
 package larex.imageProcessing;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
 import java.util.ArrayList;
-
-import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfByte;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 public class ImageProcessor {
@@ -143,54 +134,6 @@ public class ImageProcessor {
 
 		double scaleFactor = (double) source.rows() / desiredHeight;
 		Imgproc.resize(source, result, new Size(source.cols() / scaleFactor, desiredHeight));
-
-		return result;
-	}
-
-	public static void showResult(Mat img, Size size) {
-		Imgproc.resize(img, img, size);
-
-		MatOfByte matOfByte = new MatOfByte();
-		Imgcodecs.imencode(".jpg", img, matOfByte);
-		byte[] byteArray = matOfByte.toArray();
-		BufferedImage bufImage = null;
-		try {
-			InputStream in = new ByteArrayInputStream(byteArray);
-			bufImage = ImageIO.read(in);
-			JFrame frame = new JFrame();
-			frame.getContentPane().add(new JLabel(new ImageIcon(bufImage)));
-			frame.pack();
-			frame.setVisible(true);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	public static Mat showNextTo(Mat mat1, Mat mat2) {
-		if (mat1.type() == CvType.CV_8U && mat2.type() != CvType.CV_8U) {
-			Imgproc.cvtColor(mat1, mat1, Imgproc.COLOR_GRAY2BGR);
-		} else if (mat2.type() == CvType.CV_8U && mat1.type() != CvType.CV_8U) {
-			Imgproc.cvtColor(mat2, mat2, Imgproc.COLOR_GRAY2BGR);
-		}
-
-		if (mat1.height() < mat2.height()) {
-			mat2 = ImageProcessor.resize(mat2, mat1.height());
-		} else if (mat1.height() > mat2.height()) {
-			mat1 = ImageProcessor.resize(mat1, mat2.height());
-		}
-
-		Mat result = new Mat(mat1.rows(), mat1.cols() + mat2.cols(), mat1.type());
-		byte[] pixel = { 0, 0, 0 };
-
-		for (int y = 0; y < mat1.rows(); y++) {
-			for (int x = 0; x < mat1.cols(); x++) {
-				mat1.get(y, x, pixel);
-				result.put(y, x, pixel);
-
-				mat2.get(y, x, pixel);
-				result.put(y, mat1.cols() + x, pixel);
-			}
-		}
 
 		return result;
 	}

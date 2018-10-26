@@ -20,7 +20,7 @@ public class RegionClassifier {
 	private ArrayList<Candidate> candidates;
 
 	public RegionClassifier(Mat binary, ArrayList<Region> regions) {
-		setBinary(binary);
+		this.binary = binary;
 		preprocessRegions(regions);
 		setResults(new ArrayList<ResultRegion>());
 	}
@@ -134,32 +134,12 @@ public class RegionClassifier {
 		setRegions(processedRegions);
 	}
 
-	public Mat getBinary() {
-		return binary;
-	}
-
-	public void setBinary(Mat binary) {
-		this.binary = binary;
-	}
-
-	public ArrayList<Region> getRegions() {
-		return regions;
-	}
-
 	public void setRegions(ArrayList<Region> regions) {
 		this.regions = regions;
 	}
 
-	public ArrayList<ResultRegion> getResults() {
-		return results;
-	}
-
 	public void setResults(ArrayList<ResultRegion> results) {
 		this.results = results;
-	}
-
-	public ArrayList<Candidate> getCandidates() {
-		return candidates;
 	}
 
 	public void setCandidates(ArrayList<Candidate> candidates) {

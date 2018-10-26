@@ -36,7 +36,6 @@ import larex.export.PageXMLWriter;
 import larex.export.SettingsReader;
 import larex.export.SettingsWriter;
 import larex.regionOperations.Merge;
-import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
@@ -69,9 +68,7 @@ public class LarexFacade {
 	}
 
 	public static BookSettings getDefaultSettings(Book book) {
-		RegionManager regionmanager = new RegionManager();
-		Parameters parameters = new Parameters(regionmanager, 0);
-		return LarexWebTranslator.translateParametersToSettings(parameters, book);
+		return LarexWebTranslator.getDefaultSettings(book);
 	}
 
 	public static Document getPageXML(PageSegmentation segmentation, String version) {

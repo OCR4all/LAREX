@@ -34,7 +34,6 @@ public class WebLarexTranslator {
 			Size pagesize) {
 		Parameters parameters = new Parameters(new RegionManager(), (int) pagesize.height);
 		
-		parameters.setScaleFactor((double) parameters.getDesiredImageHeight() / pagesize.height);
 		RegionManager regionmanager = parameters.getRegionManager();
 
 		for (Region region : regionmanager.getRegions()) {
@@ -97,7 +96,6 @@ public class WebLarexTranslator {
 			}
 			PointList fixedPointList = new PointList(points, fixedSegment.getId());
 			fixedPointList.setType(fixedSegment.getType());
-			fixedPointList.setClosed(true);
 			fixedSegments.add(fixedPointList);
 		}
 		manager.setPointLists(fixedSegments);
