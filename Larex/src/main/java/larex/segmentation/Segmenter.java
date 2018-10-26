@@ -40,7 +40,7 @@ public class Segmenter {
 		Region imageRegion = getImageRegion();
 		Region ignoreRegion = getIgnoreRegion();
 
-		fillFixedPointsLists(original);
+		fillFixedSegments(original);
 
 		ArrayList<MatOfPoint> fixed = processFixedRegions(imageRegion, ignoreRegion);
 		ArrayList<MatOfPoint> images = detectImages(imageRegion, parameters.getImageSegType());
@@ -62,13 +62,10 @@ public class Segmenter {
 		}
 		results = scaled;
 
-		// Add fixed pointlists
-		ArrayList<RegionSegment> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
-		// TODO split pointList into fixed segments and cuts
-		for (RegionSegment pointList : pointsLists) {
-			if (pointList.getType() != null) {
-				results.add(new RegionSegment(pointList.getType(), pointList.getPoints(), pointList.getId()));
-			}
+		// Add fixed segments
+		ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
+		for (RegionSegment segment : fixedSegments) {
+			results.add(new RegionSegment(segment.getType(), segment.getPoints(), segment.getId()));
 		}
 
 		// Set result
@@ -78,14 +75,13 @@ public class Segmenter {
 		return segResult;
 	}
 
-	private void fillFixedPointsLists(Mat original) {
-		ArrayList<RegionSegment> pointsLists = parameters.getRegionManager().getPointListManager().getPointLists();
+	private void fillFixedSegments(Mat original) {
+		ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 
-		// TODO split pointList into fixed segments and cuts
-		for (RegionSegment pointList : pointsLists) {
-			if (pointList.getType() != null)
-				contours.add(pointList.getResizedPoints(this.scaleFactor));
+		// Add fixed segments
+		for (RegionSegment segment : fixedSegments) {
+			contours.add(segment.getResizedPoints(this.scaleFactor));
 		}
 
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
@@ -109,7 +105,7 @@ public class Segmenter {
 		}
 
 		// draw user defined lines
-		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate, scaleFactor);
+		dilate = parameters.getExistingGeometry().drawIntoImage(dilate, scaleFactor);
 
 		int minSize = Integer.MAX_VALUE;
 
@@ -139,7 +135,7 @@ public class Segmenter {
 		}
 
 		// draw user defined lines
-		dilate = parameters.getRegionManager().getPointListManager().drawPointListIntoImage(dilate, scaleFactor);
+		dilate = parameters.getExistingGeometry().drawIntoImage(dilate, scaleFactor);
 
 		ArrayList<MatOfPoint> images = ImageSegmentation.detectImageContours(dilate, imageRegion.getMinSize(), type,
 				parameters.isCombineImages());

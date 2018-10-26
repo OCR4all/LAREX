@@ -68,11 +68,11 @@ public class LarexFacade {
 	}
 
 	public static BookSettings getDefaultSettings(Book book) {
-		return LarexWebTranslator.getDefaultSettings(book);
+		return LarexWebTranslator.translateParameters(new Parameters(), book);
 	}
 
 	public static Document getPageXML(PageSegmentation segmentation, String version) {
-		SegmentationResult result = WebLarexTranslator.translateSegmentationToSegmentationResult(segmentation);
+		SegmentationResult result = WebLarexTranslator.translateResult(segmentation);
 		return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
 				segmentation.getHeight(), version);
 	}
@@ -82,14 +82,14 @@ public class LarexFacade {
 	}
 
 	public static Document getSettingsXML(BookSettings settings) {
-		Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, new Size());
+		Parameters parameters = WebLarexTranslator.translateSettings(settings, new Size());
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
 	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
 		ArrayList<RegionSegment> resultRegions = new ArrayList<RegionSegment>();
 		for (Polygon segment : segments)
-			resultRegions.add(WebLarexTranslator.translateSegmentToResultRegion(segment));
+			resultRegions.add(WebLarexTranslator.translateSegment(segment));
 
 		Book book = getBook(bookID, fileManager);
 		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
@@ -125,7 +125,7 @@ public class LarexFacade {
 
 		Collection<MatOfPoint> matContours = new ArrayList<>();
 		for (List<Point> contour : contours) {
-			matContours.add(WebLarexTranslator.translatePointsToContour(contour));
+			matContours.add(WebLarexTranslator.translateContour(contour));
 		}
 
 		MatOfPoint combined = Contourcombiner.combine(matContours, page.getBinary());
@@ -164,9 +164,7 @@ public class LarexFacade {
 
 			Size pagesize = currentLarexPage.getOriginal().size();
 
-			Parameters parameters = WebLarexTranslator.translateSettingsToParameters(settings, pagesize);
-			parameters.getRegionManager().setPointListManager(
-					WebLarexTranslator.translateSettingsToPointListManager(settings, page.getId()));
+			Parameters parameters = WebLarexTranslator.translateSettings(settings, pagesize, page.getId());
 
 			Segmenter segmenter = new Segmenter(parameters);
 			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
@@ -206,7 +204,7 @@ public class LarexFacade {
 			currentLarexPage.initPage();
 
 			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());
-			settings = LarexWebTranslator.translateParametersToSettings(parameters, book);
+			settings = LarexWebTranslator.translateParameters(parameters, book);
 
 			currentLarexPage.clean();
 			System.gc();

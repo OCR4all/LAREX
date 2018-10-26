@@ -14,9 +14,13 @@ public class PointList {
 		this(points, UUID.randomUUID().toString());
 	}
 
-	public PointList( MatOfPoint points, String id) {
+	public PointList(MatOfPoint points, String id) {
 		this.points = points;
 		this.id = id;
+	}
+
+	public PointList(ArrayList<java.awt.Point> points, String id) {
+		this(convertPoints(points), id);
 	}
 
 	public MatOfPoint getPoints() {

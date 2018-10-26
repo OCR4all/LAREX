@@ -30,7 +30,7 @@ import larex.segmentation.result.RegionSegment;
  */
 public class LarexWebTranslator {
 
-	public static BookSettings translateParametersToSettings(Parameters parameters, Book book) {
+	public static BookSettings translateParameters(Parameters parameters, Book book) {
 		BookSettings settings = new BookSettings(book);
 
 		Map<String, Integer> settingParameters = settings.getParameters();

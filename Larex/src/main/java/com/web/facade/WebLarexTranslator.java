@@ -13,13 +13,14 @@ import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
 
-import larex.geometry.PointListManager;
+import larex.geometry.ExistingGeometry;
 import larex.positions.Position;
 import larex.positions.PriorityPosition;
 import larex.regions.Region;
 import larex.regions.RegionManager;
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.Parameters;
+import larex.segmentation.result.PointList;
 import larex.segmentation.result.RegionSegment;
 import larex.segmentation.result.SegmentationResult;
 
@@ -29,10 +30,10 @@ import larex.segmentation.result.SegmentationResult;
  */
 public class WebLarexTranslator {
 
-	public static Parameters translateSettingsToParameters(BookSettings settings,
-			Size pagesize) {
+	public static Parameters translateSettings(BookSettings settings, Size pagesize) {
+		// Set Parameters
 		Parameters parameters = new Parameters(new RegionManager(), (int) pagesize.height);
-		
+
 		RegionManager regionmanager = parameters.getRegionManager();
 
 		for (Region region : regionmanager.getRegions()) {
@@ -57,7 +58,6 @@ public class WebLarexTranslator {
 			Region region = regionmanager.getRegionByType(regionType);
 			if (region == null) {
 				region = new Region(regionType, minSize, maxOccurances, priorityPosition, new ArrayList<Position>());
-
 				regionmanager.addRegion(region);
 			} else {
 				region.setMinSize(minSize);
@@ -81,14 +81,17 @@ public class WebLarexTranslator {
 			}
 
 		}
+
 		return parameters;
 	}
 
-	public static PointListManager translateSettingsToPointListManager(BookSettings settings, int pageid) {
-		PointListManager manager = new PointListManager();
+	public static Parameters translateSettings(BookSettings settings, Size pagesize, int pageID) {
+		// Set Parameters
+		Parameters parameters = translateSettings(settings, pagesize);
 
-		ArrayList<RegionSegment> fixedPointLists = new ArrayList<RegionSegment>();
-		for (Polygon fixedSegment : settings.getPage(pageid).getFixedSegments().values()) {
+		// Set existing Geometry
+		ArrayList<RegionSegment> fixedPointLists = new ArrayList<>();
+		for (Polygon fixedSegment : settings.getPage(pageID).getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : fixedSegment.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
@@ -98,28 +101,30 @@ public class WebLarexTranslator {
 			fixedPointLists.add(fixedPointList);
 		}
 
-		for (Polygon cuts : settings.getPage(pageid).getCuts().values()) {
+		// Set existing cuts
+		ArrayList<PointList> cuts = new ArrayList<>();
+		for (Polygon cut : settings.getPage(pageID).getCuts().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
-			for (Point point : cuts.getPoints()) {
+			for (Point point : cut.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			RegionSegment fixedPointList = new RegionSegment(points, cuts.getId());
-			fixedPointLists.add(fixedPointList);
+			cuts.add(new PointList(points, cut.getId()));
 		}
-		manager.setPointLists(fixedPointLists);
 
-		return manager;
+		parameters.setExistingGeometry(new ExistingGeometry(fixedPointLists, cuts));
+
+		return parameters;
 	}
 
-	public static SegmentationResult translateSegmentationToSegmentationResult(PageSegmentation segmentation) {
+	public static SegmentationResult translateResult(PageSegmentation segmentation) {
 		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
 
 		for (String poly : segmentation.getSegments().keySet()) {
 			Polygon polygon = segmentation.getSegments().get(poly);
-			regions.add(translateSegmentToResultRegion(polygon));
+			regions.add(translateSegment(polygon));
 		}
 		SegmentationResult result = new SegmentationResult(regions);
-		
+
 		// Reading Order
 		ArrayList<RegionSegment> readingOrder = new ArrayList<RegionSegment>();
 		List<String> readingOrderStrings = segmentation.getReadingOrder();
@@ -133,7 +138,7 @@ public class WebLarexTranslator {
 		return result;
 	}
 
-	public static RegionSegment translateSegmentToResultRegion(Polygon segment) {
+	public static RegionSegment translateSegment(Polygon segment) {
 		LinkedList<org.opencv.core.Point> points = new LinkedList<org.opencv.core.Point>();
 
 		for (Point segmentPoint : segment.getPoints()) {
@@ -146,12 +151,12 @@ public class WebLarexTranslator {
 		RegionSegment result = new RegionSegment(segment.getType(), resultPoints, segment.getId());
 		return result;
 	}
-	
-	public static MatOfPoint translatePointsToContour(List<Point> points) {
-		
+
+	public static MatOfPoint translateContour(List<Point> points) {
+
 		org.opencv.core.Point[] matPoints = new org.opencv.core.Point[points.size()];
-		
-		for(int index = 0; index < points.size(); index++) {
+
+		for (int index = 0; index < points.size(); index++) {
 			Point point = points.get(index);
 			matPoints[index] = new org.opencv.core.Point(point.getX(), point.getY());
 		}

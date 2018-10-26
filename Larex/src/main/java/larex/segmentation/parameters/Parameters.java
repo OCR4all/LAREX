@@ -1,5 +1,6 @@
 package larex.segmentation.parameters;
 
+import larex.geometry.ExistingGeometry;
 import larex.regions.RegionManager;
 
 public class Parameters {
@@ -15,16 +16,20 @@ public class Parameters {
 	private int textDilationY;
 
 	private RegionManager regionManager;
+	private ExistingGeometry existingGeometry;
 
 	private ImageSegType imageSegType;
 	private boolean combineImages;
 
-
+	public Parameters() {
+		this(new RegionManager());
+	}
+	
 	public Parameters(RegionManager regionManager) {
 		this(regionManager,0);
 	}
 	
-	public Parameters(RegionManager regionManager, int originalHeight) {
+	public Parameters(RegionManager regionManager,int originalHeight) {
 		this.regionManager = regionManager;
 
 		this.desiredImageHeight = DEFAULT_Parameters.getImageHeightDefault();
@@ -43,7 +48,15 @@ public class Parameters {
 	public RegionManager getRegionManager() {
 		return regionManager;
 	}
+	
+	public ExistingGeometry getExistingGeometry() {
+		return existingGeometry;
+	}
 
+	public void setExistingGeometry(ExistingGeometry existingGeometry) {
+		this.existingGeometry = existingGeometry;
+	}
+	
 	public int getDesiredImageHeight() {
 		return desiredImageHeight;
 	}

@@ -21,7 +21,8 @@ public class RegionSegment extends PointList{
 	}
 
 	public RegionSegment(RegionType type, ArrayList<java.awt.Point> points, String id) {
-		this(type, convertPoints(points), id);
+		super(points,id);
+		this.type = type;
 	}
 
 	public RegionSegment(ArrayList<java.awt.Point> points, String id) {

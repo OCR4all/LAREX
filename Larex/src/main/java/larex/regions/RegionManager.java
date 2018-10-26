@@ -2,7 +2,6 @@ package larex.regions;
 
 import java.util.ArrayList;
 
-import larex.geometry.PointListManager;
 import larex.positions.PriorityPosition;
 import larex.regions.type.RegionType;
 import larex.segmentation.parameters.DEFAULT_Parameters;
@@ -11,11 +10,8 @@ public class RegionManager {
 
 	private static ArrayList<Region> regions;
 
-	private PointListManager pointListManager;
-
 	public RegionManager() {
 		initRegions();
-		setPointListManager(new PointListManager());
 	}
 
 	public void initRegions() {
@@ -59,13 +55,5 @@ public class RegionManager {
 
 	public void setRegions(ArrayList<Region> regions) {
 		RegionManager.regions = regions;
-	}
-
-	public PointListManager getPointListManager() {
-		return pointListManager;
-	}
-
-	public void setPointListManager(PointListManager pointListManager) {
-		this.pointListManager = pointListManager;
 	}
 }
