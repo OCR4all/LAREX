@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,12 +53,13 @@ public class LarexFacade {
 		Book book = getBook(settings.getBookID(), fileManager);
 
 		Page page = book.getPage(pageNr);
-		String xmlPath = fileManager.getBooksPath() + File.separator + book.getName() + File.separator + page.getName() + ".xml";
+		String xmlPath = fileManager.getBooksPath() + File.separator + book.getName() + File.separator + page.getName()
+				+ ".xml";
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			PageSegmentation segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(),
-					page.getWidth(), page.getHeight(), loadedResult.getRegions(), page.getId());
+			PageSegmentation segmentation = new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(),
+					loadedResult.getRegions(), page.getId());
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
 		} else {
@@ -67,11 +69,11 @@ public class LarexFacade {
 	}
 
 	public static BookSettings getDefaultSettings(Book book) {
-		return LarexWebTranslator.translateParameters(new Parameters(), book);
+		return new BookSettings(new Parameters(), book);
 	}
 
 	public static Document getPageXML(PageSegmentation segmentation, String version) {
-		SegmentationResult result = WebLarexTranslator.translateResult(segmentation);
+		SegmentationResult result = segmentation.toSegmentationResult();
 		return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
 				segmentation.getHeight(), version);
 	}
@@ -81,14 +83,14 @@ public class LarexFacade {
 	}
 
 	public static Document getSettingsXML(BookSettings settings) {
-		Parameters parameters = WebLarexTranslator.translateSettings(settings, new Size());
+		Parameters parameters = settings.toParameters(new Size());
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
 	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
 		ArrayList<RegionSegment> resultRegions = new ArrayList<RegionSegment>();
 		for (Polygon segment : segments)
-			resultRegions.add(WebLarexTranslator.translateSegment(segment));
+			resultRegions.add(segment.toRegionSegment());
 
 		Book book = getBook(bookID, fileManager);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
@@ -97,7 +99,7 @@ public class LarexFacade {
 		page.clean();
 		System.gc();
 
-		return LarexWebTranslator.translateResultRegionToSegment(mergedRegion);
+		return new Polygon(mergedRegion);
 	}
 
 	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager) {
@@ -110,8 +112,13 @@ public class LarexFacade {
 		System.gc();
 
 		Collection<List<Point>> contourSegments = new ArrayList<>();
-		for (MatOfPoint contour : contours)
-			contourSegments.add(LarexWebTranslator.translatePointsToContour(contour));
+		for (MatOfPoint contour : contours) {
+			LinkedList<Point> points = new LinkedList<>();
+			for (org.opencv.core.Point regionPoint : contour.toList()) {
+				points.add(new Point(regionPoint.x, regionPoint.y));
+			}
+			contourSegments.add(points);
+		}
 
 		return contourSegments;
 	}
@@ -124,15 +131,19 @@ public class LarexFacade {
 
 		Collection<MatOfPoint> matContours = new ArrayList<>();
 		for (List<Point> contour : contours) {
-			matContours.add(WebLarexTranslator.translateContour(contour));
+			org.opencv.core.Point[] matPoints = new org.opencv.core.Point[contour.size()];
+			for (int index = 0; index < contour.size(); index++) {
+				Point point = contour.get(index);
+				matPoints[index] = new org.opencv.core.Point(point.getX(), point.getY());
+			}
+			matContours.add(new MatOfPoint(matPoints));
 		}
 
 		MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary());
 		page.clean();
 		System.gc();
 
-		return LarexWebTranslator.translatePointsToSegment(combined, UUID.randomUUID().toString(),
-				RegionType.paragraph);
+		return new Polygon(combined, UUID.randomUUID().toString(), RegionType.paragraph);
 	}
 
 	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
@@ -145,8 +156,8 @@ public class LarexFacade {
 
 			ArrayList<RegionSegment> regions = segmentationResult.getRegions();
 
-			segmentation = LarexWebTranslator.translateResultRegionsToSegmentation(page.getFileName(), page.getWidth(),
-					page.getHeight(), regions, page.getId());
+			segmentation = new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(), regions,
+					page.getId());
 		} else {
 			segmentation = new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
 					new HashMap<String, Polygon>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
@@ -163,7 +174,7 @@ public class LarexFacade {
 
 			Size pagesize = currentLarexPage.getOriginal().size();
 
-			Parameters parameters = WebLarexTranslator.translateSettings(settings, pagesize, page.getId());
+			Parameters parameters = settings.toParameters(pagesize, page.getId());
 
 			Segmenter segmenter = new Segmenter(parameters);
 			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
@@ -203,7 +214,7 @@ public class LarexFacade {
 			currentLarexPage.initPage();
 
 			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());
-			settings = LarexWebTranslator.translateParameters(parameters, book);
+			settings = new BookSettings(parameters, book);
 
 			currentLarexPage.clean();
 			System.gc();
@@ -225,8 +236,8 @@ public class LarexFacade {
 			Page page = getBook(bookID, fileManager).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
-			PageSegmentation pageSegmentation = LarexWebTranslator.translateResultRegionsToSegmentation(
-					page.getFileName(), page.getWidth(), page.getHeight(), result.getRegions(), page.getId());
+			PageSegmentation pageSegmentation = new PageSegmentation(page.getFileName(), page.getWidth(),
+					page.getHeight(), result.getRegions(), page.getId());
 
 			List<String> readingOrder = new ArrayList<String>();
 			for (RegionSegment region : result.getReadingOrder()) {

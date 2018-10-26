@@ -10,6 +10,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.web.communication.SegmentationStatus;
 
+import larex.geometry.regions.RegionSegment;
+import larex.segmentation.SegmentationResult;
+
 /**
  * Segmentation result of a specific page. Contains a pageNr and the resulting
  * segment polygons.
@@ -49,6 +52,44 @@ public class PageSegmentation {
 		this.height = height;
 	}
 
+	public PageSegmentation(String fileName, int width, int height, ArrayList<RegionSegment> regions, int pageNr) {
+		Map<String, Polygon> segments = new HashMap<String, Polygon>();
+
+		for (RegionSegment region : regions) {
+			Polygon segment = new Polygon(region);
+			segments.put(segment.getId(), segment);
+		}
+
+		this.pageNr = pageNr;
+		this.segments = segments;
+		this.status = SegmentationStatus.SUCCESS;
+		this.readingOrder = new ArrayList<String>();
+		this.fileName = fileName;
+		this.width = width;
+		this.height = height;
+	}
+	
+	public SegmentationResult toSegmentationResult() {
+		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
+
+		for (String poly : this.getSegments().keySet()) {
+			Polygon polygon = this.getSegments().get(poly);
+			regions.add(polygon.toRegionSegment());
+		}
+		SegmentationResult result = new SegmentationResult(regions);
+
+		// Reading Order
+		ArrayList<RegionSegment> readingOrder = new ArrayList<RegionSegment>();
+		List<String> readingOrderStrings = this.getReadingOrder();
+		for (String regionID : readingOrderStrings) {
+			RegionSegment region = result.getRegionByID(regionID);
+			if (region != null) {
+				readingOrder.add(region);
+			}
+		}
+		result.setReadingOrder(readingOrder);
+		return result;
+	}
 	public int getPage() {
 		return pageNr;
 	}
@@ -76,7 +117,7 @@ public class PageSegmentation {
 	public String getFileName() {
 		return fileName;
 	}
-	
+
 	@JsonIgnore
 	public String getName() {
 		return fileName.substring(0, fileName.lastIndexOf("."));
