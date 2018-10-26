@@ -1,9 +1,9 @@
-package larex.regions;
+package larex.geometry.regions;
 
 import java.util.ArrayList;
 
-import larex.positions.PriorityPosition;
-import larex.regions.type.RegionType;
+import larex.geometry.positions.PriorityPosition;
+import larex.geometry.regions.type.RegionType;
 import larex.segmentation.parameters.DEFAULT_Parameters;
 
 public class RegionManager {

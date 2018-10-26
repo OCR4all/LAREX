@@ -1,4 +1,4 @@
-package larex.export;
+package larex.data.export;
 
 import java.util.ArrayList;
 
@@ -7,14 +7,14 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import larex.positions.Position;
-import larex.regions.Region;
-import larex.regions.RegionManager;
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.Region;
+import larex.geometry.regions.RegionManager;
 import larex.segmentation.parameters.Parameters;
 
 public class SettingsReader {
-	private static ArrayList<Position> extractPositions(NodeList positionElements, Mat resized) {
-		ArrayList<Position> positions = new ArrayList<Position>();
+	private static ArrayList<RelativePosition> extractPositions(NodeList positionElements, Mat resized) {
+		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
 		for (int i = 0; i < positionElements.getLength(); i++) {
 			Element positionElement = (Element) positionElements.item(i);
@@ -32,7 +32,7 @@ public class SettingsReader {
 			double y1 = Double.parseDouble(positionElement.getAttribute("y1"));
 			double y2 = Double.parseDouble(positionElement.getAttribute("y2"));
 
-			Position position = new Position(x1, y1, x2, y2);
+			RelativePosition position = new RelativePosition(x1, y1, x2, y2);
 			position.setFixed(isFixed);
 			position.updateRect(position.calcRect(resized), resized);
 			positions.add(position);
@@ -53,9 +53,9 @@ public class SettingsReader {
 			String priority = regionElement.getAttribute("priority");
 
 			NodeList positionElements = regionElement.getElementsByTagName("position");
-			ArrayList<Position> positions = extractPositions(positionElements, resized);
+			ArrayList<RelativePosition> positions = extractPositions(positionElements, resized);
 
-			Region region = new Region(type, minSize, maxOccurances, priority, new ArrayList<Position>());
+			Region region = new Region(type, minSize, maxOccurances, priority, new ArrayList<RelativePosition>());
 			region.setPositions(positions);
 			regionManager.addRegion(region);
 		}

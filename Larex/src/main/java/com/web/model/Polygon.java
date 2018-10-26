@@ -5,7 +5,7 @@ import java.util.LinkedList;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import larex.regions.type.RegionType;
+import larex.geometry.regions.type.RegionType;
 
 /**
  * A representation of a Segment or Region as Polygon that is parsed to the gui.

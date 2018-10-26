@@ -1,4 +1,4 @@
-package larex.export;
+package larex.data.export;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -18,8 +18,8 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
-import larex.segmentation.result.RegionSegment;
-import larex.segmentation.result.SegmentationResult;
+import larex.geometry.regions.RegionSegment;
+import larex.segmentation.SegmentationResult;
 
 public class PageXMLWriter {
 

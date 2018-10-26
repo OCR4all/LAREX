@@ -1,4 +1,4 @@
-package larex.export;
+package larex.data.export;
 
 import java.io.File;
 
@@ -12,8 +12,8 @@ import javax.xml.transform.stream.StreamResult;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import larex.positions.Position;
-import larex.regions.Region;
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.Region;
 import larex.segmentation.parameters.Parameters;
 
 public class SettingsWriter {
@@ -49,7 +49,7 @@ public class SettingsWriter {
 					regionElement.setAttribute("priority", region.getPriorityPosition().toString());
 				}
 
-				for (Position position : region.getPositions()) {
+				for (RelativePosition position : region.getPositions()) {
 					Element positionElement = document.createElement("position");
 
 					positionElement.setAttribute("x1", "" + position.getTopLeftXPercentage());

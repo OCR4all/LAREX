@@ -34,7 +34,7 @@ import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
 
-import larex.regions.type.RegionType;
+import larex.geometry.regions.type.RegionType;
 import larex.segmentation.parameters.ImageSegType;
 
 /**

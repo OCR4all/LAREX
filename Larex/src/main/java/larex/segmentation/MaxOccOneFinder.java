@@ -4,14 +4,14 @@ import java.util.ArrayList;
 
 import org.opencv.core.Rect;
 
-import larex.positions.Position;
-import larex.positions.PriorityPosition;
-import larex.regions.Region;
+import larex.geometry.positions.PriorityPosition;
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.Region;
 
 public class MaxOccOneFinder {
 
 	public static boolean isWithinRegion(Rect toCheck, Region region) {
-		for (Position position : region.getPositions()) {
+		for (RelativePosition position : region.getPositions()) {
 			if (position.getOpenCVRect().contains(toCheck.tl()) && position.getOpenCVRect().contains(toCheck.br())) {
 				return true;
 			}

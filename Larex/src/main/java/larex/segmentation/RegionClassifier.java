@@ -2,31 +2,28 @@ package larex.segmentation;
 
 import java.util.ArrayList;
 
-import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Rect;
 import org.opencv.imgproc.Imgproc;
 
-import larex.positions.Position;
-import larex.regions.Region;
-import larex.regions.type.RegionType;
-import larex.segmentation.result.RegionSegment;
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.Region;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
 
 public class RegionClassifier {
 
-	private Mat binary;
 	private ArrayList<Region> regions;
 	private ArrayList<RegionSegment> results;
 	private ArrayList<Candidate> candidates;
 
-	public RegionClassifier(Mat binary, ArrayList<Region> regions) {
-		this.binary = binary;
+	public RegionClassifier(ArrayList<Region> regions) {
 		preprocessRegions(regions);
 		setResults(new ArrayList<RegionSegment>());
 	}
 
 	public boolean isWithinRegion(Rect toCheck, Region region) {
-		for (Position position : region.getPositions()) {
+		for (RelativePosition position : region.getPositions()) {
 			if (position.getOpenCVRect().contains(toCheck.tl()) && position.getOpenCVRect().contains(toCheck.br())) {
 				return true;
 			}

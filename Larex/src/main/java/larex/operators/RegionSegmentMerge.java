@@ -1,4 +1,4 @@
-package larex.regionOperations;
+package larex.operators;
 
 import java.util.ArrayList;
 
@@ -10,11 +10,10 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-import larex.contours.Contourextractor;
+import larex.geometry.regions.RegionSegment;
 import larex.imageProcessing.ImageProcessor;
-import larex.segmentation.result.RegionSegment;
 
-public class Merge {
+public class RegionSegmentMerge {
 
 	public static RegionSegment merge(ArrayList<RegionSegment> toMerge, Size binarySize) {
 		if (toMerge.size() < 2) {

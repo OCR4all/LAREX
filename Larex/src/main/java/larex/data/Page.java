@@ -1,4 +1,4 @@
-package larex.dataManagement;
+package larex.data;
 
 import java.io.File;
 
@@ -6,7 +6,7 @@ import org.opencv.core.Mat;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
-import larex.segmentation.result.SegmentationResult;
+import larex.segmentation.SegmentationResult;
 
 /**
  * Maintains the required information for a page.

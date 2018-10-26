@@ -1,10 +1,10 @@
-package larex.positions;
+package larex.geometry.positions;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 
-public class Position {
+public class RelativePosition {
 
 	private double topLeftXPercentage;
 	private double topLeftYPercentage;
@@ -20,7 +20,7 @@ public class Position {
 
 	private Rect openCVRect;
 
-	public Position(double topLeftXPercentage, double topLeftYPercentage, double bottomRightXPercentage,
+	public RelativePosition(double topLeftXPercentage, double topLeftYPercentage, double bottomRightXPercentage,
 			double bottomRightYPercentage) {
 		setTopLeftXPercentage(topLeftXPercentage);
 		setTopLeftYPercentage(topLeftYPercentage);
@@ -28,7 +28,7 @@ public class Position {
 		setBottomRightYPercentage(bottomRightYPercentage);
 	}
 
-	public Position(Rect rect, Mat image) {
+	public RelativePosition(Rect rect, Mat image) {
 		updateRect(rect, image);
 	}
 

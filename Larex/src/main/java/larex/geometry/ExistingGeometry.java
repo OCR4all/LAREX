@@ -7,8 +7,7 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
-import larex.segmentation.result.PointList;
-import larex.segmentation.result.RegionSegment;
+import larex.geometry.regions.RegionSegment;
 
 public class ExistingGeometry {
 

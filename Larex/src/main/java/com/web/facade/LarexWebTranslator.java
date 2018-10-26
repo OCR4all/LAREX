@@ -14,15 +14,15 @@ import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
 
-import larex.positions.Position;
-import larex.positions.PriorityPosition;
-import larex.regions.Region;
-import larex.regions.RegionManager;
-import larex.regions.type.RegionType;
+import larex.geometry.positions.PriorityPosition;
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.Region;
+import larex.geometry.regions.RegionManager;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
 import larex.segmentation.parameters.DEFAULT_Parameters;
 import larex.segmentation.parameters.ImageSegType;
 import larex.segmentation.parameters.Parameters;
-import larex.segmentation.result.RegionSegment;
 
 /**
  * Helper Class to translate Larex Objects to Web Objects
@@ -53,7 +53,7 @@ public class LarexWebTranslator {
 					priorityPosition);
 
 			int regionCount = 0;
-			for (Position position : region.getPositions()) {
+			for (RelativePosition position : region.getPositions()) {
 				LinkedList<Point> points = new LinkedList<Point>();
 				points.add(new Point(position.getTopLeftXPercentage(), position.getTopLeftYPercentage()));
 				points.add(new Point(position.getBottomRightXPercentage(), position.getTopLeftYPercentage()));
@@ -93,7 +93,7 @@ public class LarexWebTranslator {
 					priorityPosition);
 
 			int regionCount = 0;
-			for (Position position : region.getPositions()) {
+			for (RelativePosition position : region.getPositions()) {
 				LinkedList<Point> points = new LinkedList<Point>();
 				points.add(new Point(position.getTopLeftXPercentage(), position.getTopLeftYPercentage()));
 				points.add(new Point(position.getBottomRightXPercentage(), position.getTopLeftYPercentage()));

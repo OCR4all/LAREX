@@ -1,4 +1,4 @@
-package larex.contours;
+package larex.operators;
 
 import java.util.ArrayList;
 import java.util.Collection;

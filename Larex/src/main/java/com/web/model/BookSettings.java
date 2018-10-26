@@ -8,7 +8,7 @@ import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import larex.regions.type.RegionType;
+import larex.geometry.regions.type.RegionType;
 import larex.segmentation.parameters.ImageSegType;
 
 /**

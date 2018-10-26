@@ -14,15 +14,15 @@ import com.web.model.Point;
 import com.web.model.Polygon;
 
 import larex.geometry.ExistingGeometry;
-import larex.positions.Position;
-import larex.positions.PriorityPosition;
-import larex.regions.Region;
-import larex.regions.RegionManager;
-import larex.regions.type.RegionType;
+import larex.geometry.PointList;
+import larex.geometry.positions.PriorityPosition;
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.Region;
+import larex.geometry.regions.RegionManager;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
+import larex.segmentation.SegmentationResult;
 import larex.segmentation.parameters.Parameters;
-import larex.segmentation.result.PointList;
-import larex.segmentation.result.RegionSegment;
-import larex.segmentation.result.SegmentationResult;
 
 /**
  * Helper Class to translate Web Objects to Larex Objects
@@ -37,7 +37,7 @@ public class WebLarexTranslator {
 		RegionManager regionmanager = parameters.getRegionManager();
 
 		for (Region region : regionmanager.getRegions()) {
-			region.setPositions(new ArrayList<Position>());
+			region.setPositions(new ArrayList<RelativePosition>());
 		}
 
 		Map<String, Integer> settingParameters = settings.getParameters();
@@ -57,7 +57,7 @@ public class WebLarexTranslator {
 
 			Region region = regionmanager.getRegionByType(regionType);
 			if (region == null) {
-				region = new Region(regionType, minSize, maxOccurances, priorityPosition, new ArrayList<Position>());
+				region = new Region(regionType, minSize, maxOccurances, priorityPosition, new ArrayList<RelativePosition>());
 				regionmanager.addRegion(region);
 			} else {
 				region.setMinSize(minSize);
@@ -69,7 +69,7 @@ public class WebLarexTranslator {
 				if (points.size() == 4) {
 					Point topLeft = points.get(0);
 					Point bottomRight = points.get(2);
-					Position position = new Position(topLeft.getX(), topLeft.getY(), bottomRight.getX(),
+					RelativePosition position = new RelativePosition(topLeft.getX(), topLeft.getY(), bottomRight.getX(),
 							bottomRight.getY());
 					region.addPosition(position);
 

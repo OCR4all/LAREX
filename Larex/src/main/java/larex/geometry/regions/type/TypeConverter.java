@@ -1,6 +1,4 @@
-package larex.helper;
-
-import larex.regions.type.RegionType;
+package larex.geometry.regions.type;
 
 public class TypeConverter {
 	public static RegionType stringToType(String typeString) {

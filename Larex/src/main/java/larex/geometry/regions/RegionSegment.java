@@ -1,11 +1,12 @@
-package larex.segmentation.result;
+package larex.geometry.regions;
 
 import java.util.ArrayList;
 import java.util.UUID;
 
 import org.opencv.core.MatOfPoint;
 
-import larex.regions.type.RegionType;
+import larex.geometry.PointList;
+import larex.geometry.regions.type.RegionType;
 
 public class RegionSegment extends PointList{
 

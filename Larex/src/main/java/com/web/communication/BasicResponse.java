@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.web.model.Book;
 import com.web.model.BookSettings;
 
-import larex.regions.type.RegionType;
+import larex.geometry.regions.type.RegionType;
 
 /**
  * A communication object for the controller to parse a basic response to the viewer.

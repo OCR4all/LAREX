@@ -1,4 +1,4 @@
-package larex.segmentation.result;
+package larex.segmentation;
 
 import java.util.ArrayList;
 
@@ -6,7 +6,8 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Rect;
 import org.opencv.imgproc.Imgproc;
 
-import larex.regions.type.RegionType;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
 
 public class SegmentationResult {
 

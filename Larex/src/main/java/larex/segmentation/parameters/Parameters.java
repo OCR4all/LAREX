@@ -1,7 +1,7 @@
 package larex.segmentation.parameters;
 
 import larex.geometry.ExistingGeometry;
-import larex.regions.RegionManager;
+import larex.geometry.regions.RegionManager;
 
 public class Parameters {
 

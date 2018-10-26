@@ -1,4 +1,4 @@
-package larex.regions.type;
+package larex.geometry.regions.type;
 
 public enum RegionType {
 	ignore, image, paragraph, heading, marginalia, page_number, caption, header, footer, 

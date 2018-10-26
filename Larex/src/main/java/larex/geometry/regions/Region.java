@@ -1,21 +1,20 @@
-package larex.regions;
-
-import larex.helper.TypeConverter;
+package larex.geometry.regions;
 
 import java.util.ArrayList;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Rect;
 
-import larex.positions.Position;
-import larex.positions.PriorityPosition;
-import larex.regions.type.RegionType;
+import larex.geometry.positions.PriorityPosition;
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.TypeConverter;
 
 public class Region {
 	private final RegionType type;
 	private int minSize;
 
-	private ArrayList<Position> positions;
+	private ArrayList<RelativePosition> positions;
 
 	private int maxOccurances;
 	private final PriorityPosition priorityPosition;
@@ -23,7 +22,7 @@ public class Region {
 	private static Mat activeMat;
 
 	public Region(RegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
-			ArrayList<Position> positions) {
+			ArrayList<RelativePosition> positions) {
 		this.type = type;
 
 		this.minSize = minSize;
@@ -39,7 +38,7 @@ public class Region {
 	}
 
 	public Region(String typeString, int minSize, int maxOccurances, String priorityString,
-			ArrayList<Position> positions) {
+			ArrayList<RelativePosition> positions) {
 		this(TypeConverter.stringToType(typeString), minSize, maxOccurances,
 				calcPriorityPosition(maxOccurances, priorityString), positions);
 	}
@@ -62,7 +61,7 @@ public class Region {
 	public void calcPositionRects(Mat image) {
 		setActiveMat(image);
 
-		for (Position position : positions) {
+		for (RelativePosition position : positions) {
 			Rect rect = position.calcRect(image);
 			position.updateRect(rect, activeMat);
 		}
@@ -75,35 +74,35 @@ public class Region {
 	}
 
 	public void initRegions() {
-		ArrayList<Position> positions = new ArrayList<Position>();
+		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
 		if (type.equals(RegionType.paragraph)) {
-			Position position = new Position(0, 0, 1, 1);
+			RelativePosition position = new RelativePosition(0, 0, 1, 1);
 			positions.add(position);
 		} else if (type.equals(RegionType.marginalia)) {
-			Position leftPosition = new Position(0, 0, 0.25, 1);
-			Position rightPosition = new Position(0.75, 0, 1, 1);
+			RelativePosition leftPosition = new RelativePosition(0, 0, 0.25, 1);
+			RelativePosition rightPosition = new RelativePosition(0.75, 0, 1, 1);
 			positions.add(leftPosition);
 			positions.add(rightPosition);
 		} else if (type.equals(RegionType.page_number)) {
-			Position topPosition = new Position(0, 0, 1, 0.2);
+			RelativePosition topPosition = new RelativePosition(0, 0, 1, 0.2);
 			positions.add(topPosition);
 		} else if (type.equals(RegionType.header) || type.equals(RegionType.heading)) {
-			Position bottomPosition = new Position(0, 0, 1, 0.2);
+			RelativePosition bottomPosition = new RelativePosition(0, 0, 1, 0.2);
 			positions.add(bottomPosition);
 		} else if (type.equals(RegionType.footer) || type.equals(RegionType.footnote)
 				|| type.equals(RegionType.footnote_continued)) {
-			Position bottomPosition = new Position(0, 0.8, 1, 1);
+			RelativePosition bottomPosition = new RelativePosition(0, 0.8, 1, 1);
 			positions.add(bottomPosition);
 		} else if (!type.equals(RegionType.ignore) && !type.equals(RegionType.image)) {
-			Position defaultPosition = new Position(0.2, 0.2, 0.8, 0.8);
+			RelativePosition defaultPosition = new RelativePosition(0.2, 0.2, 0.8, 0.8);
 			positions.add(defaultPosition);
 		}
 
 		setPositions(positions);
 	}
 
-	public void addPosition(Position position) {
+	public void addPosition(RelativePosition position) {
 		positions.add(position);
 		position.calcPercentages(activeMat);
 		calcPositionRects();
@@ -125,11 +124,11 @@ public class Region {
 		this.minSize = minSize;
 	}
 
-	public ArrayList<Position> getPositions() {
+	public ArrayList<RelativePosition> getPositions() {
 		return positions;
 	}
 
-	public void setPositions(ArrayList<Position> positions) {
+	public void setPositions(ArrayList<RelativePosition> positions) {
 		this.positions = positions;
 	}
 

@@ -1,4 +1,4 @@
-package larex.export;
+package larex.data.export;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -13,10 +13,10 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import larex.helper.TypeConverter;
-import larex.regions.type.RegionType;
-import larex.segmentation.result.RegionSegment;
-import larex.segmentation.result.SegmentationResult;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.TypeConverter;
+import larex.segmentation.SegmentationResult;
 
 public class PageXMLReader {
 

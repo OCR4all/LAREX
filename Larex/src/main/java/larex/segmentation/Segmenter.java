@@ -10,15 +10,13 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.Region;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
 import larex.imageProcessing.ImageProcessor;
-import larex.imageProcessing.Rectangle;
-import larex.positions.Position;
-import larex.regions.Region;
-import larex.regions.type.RegionType;
 import larex.segmentation.parameters.ImageSegType;
 import larex.segmentation.parameters.Parameters;
-import larex.segmentation.result.RegionSegment;
-import larex.segmentation.result.SegmentationResult;
 
 public class Segmenter {
 
@@ -88,7 +86,7 @@ public class Segmenter {
 	}
 
 	private ArrayList<RegionSegment> classifyText(ArrayList<MatOfPoint> texts) {
-		RegionClassifier regionClassifier = new RegionClassifier(binary, regions);
+		RegionClassifier regionClassifier = new RegionClassifier(regions);
 		ArrayList<RegionSegment> classifiedRegions = regionClassifier.classifyRegions(texts);
 
 		return classifiedRegions;
@@ -153,10 +151,11 @@ public class Segmenter {
 
 		for (Region region : regions) {
 			if ((region.getType().equals(RegionType.image) || region.getType().equals(RegionType.ignore))) {
-				for (Position position : region.getPositions()) {
+				for (RelativePosition position : region.getPositions()) {
 					if (position.isFixed()) {
 						Rect rect = position.getOpenCVRect();
-						Mat removed = Rectangle.drawStraightRect(binary, rect, new Scalar(0), -1);
+						Mat removed = binary.clone();
+						Imgproc.rectangle(removed, rect.tl(), rect.br(), new Scalar(0), -1);
 						this.binary = removed;
 
 						if (region.getType().equals(RegionType.image)) {

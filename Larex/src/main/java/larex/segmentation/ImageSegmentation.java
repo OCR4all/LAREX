@@ -14,7 +14,7 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
-import larex.contours.Contourextractor;
+import larex.operators.Contourextractor;
 import larex.segmentation.parameters.ImageSegType;
 
 public class ImageSegmentation {

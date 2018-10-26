@@ -1,4 +1,4 @@
-package larex.segmentation.result;
+package larex.geometry;
 
 import java.util.ArrayList;
 import java.util.UUID;

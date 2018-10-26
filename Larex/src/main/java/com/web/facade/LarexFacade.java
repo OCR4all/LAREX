@@ -29,18 +29,18 @@ import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 import com.web.model.database.IDatabase;
 
-import larex.contours.Contourcombiner;
-import larex.contours.Contourextractor;
-import larex.export.PageXMLReader;
-import larex.export.PageXMLWriter;
-import larex.export.SettingsReader;
-import larex.export.SettingsWriter;
-import larex.regionOperations.Merge;
-import larex.regions.type.RegionType;
+import larex.data.export.PageXMLReader;
+import larex.data.export.PageXMLWriter;
+import larex.data.export.SettingsReader;
+import larex.data.export.SettingsWriter;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.RegionType;
+import larex.operators.Contourcombiner;
+import larex.operators.Contourextractor;
+import larex.operators.RegionSegmentMerge;
+import larex.segmentation.SegmentationResult;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
-import larex.segmentation.result.RegionSegment;
-import larex.segmentation.result.SegmentationResult;
 
 /**
  * Segmenter using the Larex project/algorithm
@@ -92,9 +92,9 @@ public class LarexFacade {
 			resultRegions.add(WebLarexTranslator.translateSegment(segment));
 
 		Book book = getBook(bookID, fileManager);
-		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
+		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
-		RegionSegment mergedRegion = Merge.merge(resultRegions, page.getBinary().size());
+		RegionSegment mergedRegion = RegionSegmentMerge.merge(resultRegions, page.getBinary().size());
 		page.clean();
 		System.gc();
 
@@ -103,7 +103,7 @@ public class LarexFacade {
 
 	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager) {
 		Book book = getBook(bookID, fileManager);
-		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
+		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 
 		Collection<MatOfPoint> contours = Contourextractor.fromSource(page.getOriginal());
@@ -120,7 +120,7 @@ public class LarexFacade {
 	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID,
 			FileManager fileManager) {
 		Book book = getBook(bookID, fileManager);
-		larex.dataManagement.Page page = getLarexPage(book.getPage(pageNr), fileManager);
+		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 
 		Collection<MatOfPoint> matContours = new ArrayList<>();
@@ -138,7 +138,7 @@ public class LarexFacade {
 
 	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageSegmentation segmentation = null;
-		larex.dataManagement.Page currentLarexPage = segmentLarex(settings, page, fileManager);
+		larex.data.Page currentLarexPage = segmentLarex(settings, page, fileManager);
 
 		if (currentLarexPage != null) {
 			SegmentationResult segmentationResult = currentLarexPage.getSegmentationResult();
@@ -155,11 +155,11 @@ public class LarexFacade {
 		return segmentation;
 	}
 
-	private static larex.dataManagement.Page segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
+	private static larex.data.Page segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
 		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
-			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
+			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
 			currentLarexPage.initPage();
 
 			Size pagesize = currentLarexPage.getOriginal().size();
@@ -181,11 +181,11 @@ public class LarexFacade {
 		}
 	}
 
-	private static larex.dataManagement.Page getLarexPage(Page page, FileManager fileManager) {
+	private static larex.data.Page getLarexPage(Page page, FileManager fileManager) {
 		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
-			return new larex.dataManagement.Page(imagePath);
+			return new larex.data.Page(imagePath);
 		}
 		return null;
 	}
@@ -200,7 +200,7 @@ public class LarexFacade {
 			Book book = getBook(bookID, fileManager);
 			Page page = book.getPage(0);
 			String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
-			larex.dataManagement.Page currentLarexPage = new larex.dataManagement.Page(imagePath);
+			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
 			currentLarexPage.initPage();
 
 			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());
