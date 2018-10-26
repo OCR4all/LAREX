@@ -13,6 +13,7 @@ class Viewer {
 		this._currentZoom = 1;
 		this._colors = colors;
 		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
+		this._highlighted = null;
 		this._listener = [];
 
 		document.addEventListener('visibilitychange', () => {
@@ -72,7 +73,40 @@ class Viewer {
 		}
 
 		tool.onMouseMove = (event) => {
-			this._listener.forEach(listener => { if (listener.onMouseMove) listener.onMouseMove(event);});
+			let propagate = true;
+			this._listener.forEach(listener => {
+				 if (listener.onMouseMove) {
+					const doPropagate = listener.onMouseMove(event);
+					if(!doPropagate)
+						propagate = false;
+				 }
+			});
+
+			// Do not propagate unless all child listener say otherwise
+			if(propagate){
+				// Check regions first
+				let hitResult = this._regionOverlay.hitTest(event.point, this._hitOptions);
+
+				// Check segments after
+				if(!hitResult)
+					hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+
+				if(hitResult){
+					const new_highlight = hitResult.item ? hitResult.item.polygonID : null;
+
+					if(this._highlighted && new_highlight !== this._highlighted)
+						this.thisInput.leaveSection(this._highlighted);
+					
+					if(new_highlight)
+						this.thisInput.enterSection(new_highlight);
+
+					this._highlighted = new_highlight;
+
+				} else if(this._highlighted) {
+					this.thisInput.leaveSection(this._highlighted);
+					this._highlighted = null;
+				}
+			}
 		}
 		tool.onMouseDown = (event) => {
 			this._listener.forEach(listener => { if (listener.onMouseDown) listener.onMouseDown(event);});
@@ -385,10 +419,6 @@ class Viewer {
 			}
 		}
 
-		//Add highlight listeners
-		polygon.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
-		polygon.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
-
 		//Add to canvas
 		canvas.addChild(polygon);
 		this._polygons[segment.id] = polygon;
@@ -416,10 +446,6 @@ class Viewer {
 			const point = this._convertGlobalToCanvas(line.points[key].x, line.points[key].y);
 			polygon.add(new paper.Point(point.x, point.y));
 		}
-
-		//Add listeners
-		polygon.onMouseEnter = (event) => this.thisInput.enterSection(line.id, event);
-		polygon.onMouseLeave = (event) => this.thisInput.leaveSection(line.id, event);
 
 		//Add to canvas
 		this._imageCanvas.addChild(polygon);

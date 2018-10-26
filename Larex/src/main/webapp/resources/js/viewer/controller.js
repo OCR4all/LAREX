@@ -877,6 +877,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.boxSelect = function () {
 		_selector.boxSelect();
 	}
+	this.highlightSegment = function (sectionID, doHighlight = true) {
+		_editor.highlightSegment(sectionID, doHighlight);
+		_gui.highlightSegment(sectionID, doHighlight);
+	}
 	this.enterSegment = function (sectionID) {
 		if (!_editor.isEditing) {
 			_editor.highlightSegment(sectionID, true);

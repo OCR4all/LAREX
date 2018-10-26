@@ -2,11 +2,11 @@ function ViewerInput(controller) {
 	const _controller = controller;
 
 	this.enterSection = function (sectionID, event) {
-		_controller.enterSegment(sectionID, true);
+		_controller.highlightSegment(sectionID, true);
 	}
 
 	this.leaveSection = function (sectionID, event) {
-		_controller.leaveSegment(sectionID, false);
+		_controller.highlightSegment(sectionID, false);
 	}
 
 	this.selectSection = function (sectionID, event, hitTest) {
