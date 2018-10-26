@@ -49,8 +49,6 @@
 				<div class="col l6 s12">
 					<ul class="grey-text text-lighten-4">
 						<li><b>Dr. Uwe Springmann</b></li>
-						<li><i>Head of Kallimachos Center for Digital Humanities</i></li>
-						<li><i>University Library of Würzburg</i></li>
 						<li>Email: <a href="mailto:uwe.springmann@uni-wuerzburg.de">uwe.springmann@uni-wuerzburg.de</a></li>
 					</ul>
 				</div>
@@ -69,7 +67,7 @@
 		</div>
 		<div class="footer-copyright">
 			<div class="container">
-				© 2017
+				© 2018
 			</div>
 		</div>
 	</footer>
