@@ -98,9 +98,6 @@ public class ImageProcessor {
 		Mat bottom = source.submat(new Rect(new Point(0, source.height() - 1 - topBottomHeight),
 				new Point(source.width() - 1, source.height() - 1)));
 
-		// Imgcodecs.imwrite("C:/Users/Reul/Desktop/top.jpg", top);
-		// Imgcodecs.imwrite("C:/Users/Reul/Desktop/bottom.jpg", bottom);
-
 		Mat topBottom = new Mat(new Size(top.width(), top.height() + bottom.height()), top.type());
 
 		for (int y = 0; y < top.rows(); y++) {
@@ -110,13 +107,9 @@ public class ImageProcessor {
 			}
 		}
 
-		// Imgcodecs.imwrite("C:/Users/Reul/Desktop/topBottom.jpg", topBottom);
 		Mat grayTopBottom = ImageProcessor.calcGray(topBottom);
-		// Mat blurr = ImageProcessor.blurrImage(gray, 7);
 		Scalar avgGray = Core.mean(grayTopBottom);
 		int avg = (int) (avgGray.val[0] * 0.9);
-		// int avg = (int) avgGray.val[0] - 20;
-		// System.out.println(avg);
 
 		Mat gray = ImageProcessor.calcGray(source);
 		Mat binary = new Mat();
