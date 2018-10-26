@@ -1,7 +1,6 @@
 function KeyInput(_navigationController, _controller, _gui, _selector) {
 	this.isActive = true;
 	const _this = this;
-	let _mousePosition;
 
 	document.onkeydown = function (event) {
 		if (_this.isActive) {
@@ -41,11 +40,11 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 17: // CTRL
-					_selector.selectmultiple = true;
+					_selector.selectMultiple = true;
 					validKey = true;
 					break;
 				case 16: // Shift
-					_controller.selectMultiple();
+					_controller.boxSelect();
 					validKey = true;
 					break;
 				case 89: // Y
@@ -79,7 +78,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 50: // 2
-					_controller.createBorder(false);
+					_controller.createRegionBorder();
 					validKey = true;
 					break;
 				case 51: // 3
@@ -87,7 +86,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 52: // 4
-					_controller.createPolygon(true);
+					_controller.createSegmentPolygon(true);
 					validKey = true;
 					break;
 				case 53: // 5
@@ -102,18 +101,8 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					_controller.mergeSelectedSegments();
 					validKey = true;
 					break;
-				case 69: // E
-					if (event.ctrlKey) {
-						_controller.downloadPageXML();
-						validKey = true;
-					}
-					break;
 				case 70: // F
 					_controller.fixSelected();
-					validKey = true;
-					break;
-				case 77: // M
-					_controller.moveSelected();
 					validKey = true;
 					break;
 				case 83: // S
@@ -147,7 +136,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 				case 16: // Shift
 					break;
 				case 17: // CTRL
-					_selector.selectmultiple = false;
+					_selector.selectMultiple = false;
 					validKey = true;
 					break;
 				case 18: // ALT
@@ -190,24 +179,6 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 			} else {
 				_navigationController.zoomOut(0.1, mousepoint);
 			}
-		}
-	});
-
-	let lastPositionX;
-	let lastPositionY;
-
-	$(window).mousemove(function (event) {
-		if (_this.isActive) {
-			const deltaX = event.pageX - lastPositionX;
-			const deltaY = event.pageY - lastPositionY;
-
-			if (_gui.doMoveCanvas) {
-				if (deltaX && deltaY)
-					_navigationController.move(deltaX, deltaY);
-			}
-
-			lastPositionX = event.pageX;
-			lastPositionY = event.pageY;
 		}
 	});
 }

@@ -2,15 +2,10 @@ function GUI(canvas, viewer, colors) {
 	const _viewer = viewer;
 	const _colors = colors;
 	let _canvas = canvas;
-	let _doMoveCanvas = false;
 	let _mouse;
 	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
-
-	this.setCanvas = function (id) {
-		_canvas = id;
-	}
 
 	this.updateZoom = function () {
 		let zoom = _viewer.getZoom();
@@ -30,7 +25,7 @@ function GUI(canvas, viewer, colors) {
 			$contextmenu.css({ top: _mouse.y + 5 - $contextmenu.height(), left: _mouse.x - 5 });
 		}
 		$contextmenu.data('doSelected', doSelected);
-		$contextmenu.data('polygonID', id);
+		$contextmenu.data('id', id);
 	}
 
 	this.closeContextMenu = function () {
@@ -73,9 +68,8 @@ function GUI(canvas, viewer, colors) {
 		return parameters;
 	}
 
-	this.setRegionLegendColors = function (segmenttypes) {
-		// Iterate over Segmenttype-"Map" (Object in JS)
-		Object.keys(segmenttypes).forEach((key) => {
+	this.setRegionLegendColors = function(regions) {
+		regions.forEach((key) => {
 			const color = _colors.getColor(key);
 			$(".legendicon." + key).css("background-color", color.toCSS());
 		});
@@ -111,7 +105,7 @@ function GUI(canvas, viewer, colors) {
 			const $this = $(this);
 			const legendType = $this.data('type');
 
-			if ($.inArray(legendType, presentRegions) > -1) {
+			if (legendType == 'ignore' || $.inArray(legendType, presentRegions) > -1) {
 				$this.addClass('hide');
 			} else {
 				$this.removeClass('hide');
@@ -119,34 +113,38 @@ function GUI(canvas, viewer, colors) {
 		});
 	}
 
-	this.openRegionSettings = function (regionType, minSize, maxOccurances, priorityPosition, doCreate, regionColorID) {
+	this.openRegionSettings = function (regionType, minSize, maxOccurances, regionColorID) {
 		$('#regionType').text(regionType);
 		$('#regionMinSize').val(minSize);
 		$('#regionMaxOccurances').val(maxOccurances);
-		if (doCreate != null && doCreate == true) {
-			$('#regionType').addClass('hide');
-			$('#regioneditorSelect').removeClass('hide');
-			$('#regioneditorColorSelect').addClass('hide');
-			$('.regionColorSettings').addClass('hide');
-			$('.regionSetting').addClass('hide');
-			$('#regioneditorSave').addClass('hide');
+		$('#regionType').removeClass('hide');
+		$('#regioneditorSelect').addClass('hide');
+		$('#regioneditorColorSelect').addClass('hide');
+		$('.regionColorSettings').removeClass('hide');
+		$('.regionSetting').removeClass('hide');
+		$('#regioneditorSave').removeClass('hide');
+		if (regionType != 'image' && regionType != 'paragraph')
+			$('.regionDelete').removeClass('hide');
+		else 
 			$('.regionDelete').addClass('hide');
-		} else {
-			$('#regionType').removeClass('hide');
-			$('#regioneditorSelect').addClass('hide');
-			$('#regioneditorColorSelect').addClass('hide');
-			$('.regionColorSettings').removeClass('hide');
-			$('.regionSetting').removeClass('hide');
-			$('#regioneditorSave').removeClass('hide');
-			if (regionType != 'image' && regionType != 'paragraph') {
-				$('.regionDelete').removeClass('hide');
-			} else {
-				$('.regionDelete').addClass('hide');
-			}
-			if (regionColorID) {
-				this.setRegionColor(regionColorID);
-			}
-		}
+		
+		if (regionColorID) 
+			this.setRegionColor(regionColorID);
+		
+		$settingsOffset = $('#sidebarRegions').offset();
+		$regioneditor = $('#regioneditor');
+		$regioneditor.removeClass('hide');
+		$regioneditor.css({ top: $settingsOffset.top, left: $settingsOffset.left - $regioneditor.width() });
+	}
+
+	this.openRegionCreate = function () {
+		$('#regionType').addClass('hide');
+		$('#regioneditorSelect').removeClass('hide');
+		$('#regioneditorColorSelect').addClass('hide');
+		$('.regionColorSettings').addClass('hide');
+		$('.regionSetting').addClass('hide');
+		$('#regioneditorSave').addClass('hide');
+		$('.regionDelete').addClass('hide');
 		$settingsOffset = $('#sidebarRegions').offset();
 		$regioneditor = $('#regioneditor');
 		$regioneditor.removeClass('hide');
@@ -155,7 +153,7 @@ function GUI(canvas, viewer, colors) {
 
 	this.setRegionColor = function (colorID) {
 		const $regioneditor = $('#regioneditor');
-		const color = _colors.getPredefinedColor(colorID);
+		const color = _colors.unpackColor(colorID);
 		$regioneditor.find('.regionColorIcon').css("background-color", color.toCSS());
 		$regioneditor.find('#regionColor').data('colorID', colorID);
 	}
@@ -177,9 +175,9 @@ function GUI(canvas, viewer, colors) {
 		for (let index = 0; index < readingOrder.length; index++) {
 			const segment = segments[readingOrder[index]];
 			if(segment){
-				const $collectionItem = $('<li class="collection-item reading-order-segment" data-segmentID="' + segment.id + '" draggable="true"></li>');
+				const $collectionItem = $('<li class="collection-item reading-order-segment" data-id="' + segment.id + '" draggable="true"></li>');
 				const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
-				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-segmentID="' + segment.id + '">delete</i>');
+				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-id="' + segment.id + '">delete</i>');
 				$collectionItem.append($legendTypeIcon);
 				$collectionItem.append(segment.type + "-" + segment.id.substring(0, 4));
 				$collectionItem.append($deleteReadingOrderSegment);
@@ -188,11 +186,11 @@ function GUI(canvas, viewer, colors) {
 		}
 	}
 
-	this.highlightSegment = function (segmentID, doHighlight) {
+	this.highlightSegment = function (id, doHighlight) {
 		if (doHighlight) {
-			$(".reading-order-segment[data-segmentid='" + segmentID + "']").addClass('highlighted');
+			$(".reading-order-segment[data-segmentid='" + id + "']").addClass('highlighted');
 		} else {
-			$(".reading-order-segment[data-segmentid='" + segmentID + "']").removeClass('highlighted');
+			$(".reading-order-segment[data-segmentid='" + id + "']").removeClass('highlighted');
 		}
 	}
 
@@ -384,8 +382,8 @@ function GUI(canvas, viewer, colors) {
 	}
 	this.setAllRegionColors = function () {
 		const $collection = $('#regioneditorColorSelect .collection');
-		_colors.getPredefinedColorIDs().forEach(id => {
-			const color = _colors.getPredefinedColor(id);
+		_colors.getAllColorIDs().forEach(id => {
+			const color = _colors.unpackColor(id);
 			const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color' + id + '"></li>');
 			const $icon = $('<div class="legendicon" style="background-color:' + color.toCSS() + ';"></div>');
 			$colorItem.data('colorID', id);

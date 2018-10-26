@@ -1,31 +1,34 @@
 // Editor extends viewer
 class Editor extends Viewer {
-	constructor(segmenttypes, viewerInput, colors, controller) {
-		super(segmenttypes, viewerInput, colors);
+	constructor(viewerInput, colors, controller) {
+		super(viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
 		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5,contours:6};
 		this._editMode = this._editModes.default; 
-		this._tempPathType;
-		this._tempPath;
+
+		this._tempPolygonType;
+		this._tempPolygon;
 		this._tempPoint;
 		this._tempID;
 		this._tempMouseregion;
 		this._tempEndCircle;
+		
 		this._grid = { isActive: false };
 		this._readingOrder;
+		
 		this._guiOverlay = new paper.Group();
+		
 		this.mouseregions = { TOP: 0, BOTTOM: 1, LEFT: 2, RIGHT: 3, MIDDLE: 4, OUTSIDE: 5 };
 		this.DoubleClickListener = new DoubleClickListener();
+		
+		this._pointSelector;
+		this._pointSelectorListener;
 	}
 
-	updateSegment(segmentID){
-		super.updateSegment(segmentID);
+	updatePolygon(polygonID){
+		super.updatePolygon(polygonID);
 		this.endEditing();
-	}
-
-	setEditSegment(id,displayPoints=true){
-		this._paths[id].selected = displayPoints;
 	}
 
 	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none') {
@@ -33,61 +36,59 @@ class Editor extends Viewer {
 
 			startFunction();
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseDown = (event) => {
+			const listener = {};
+			this.addListener(listener);
+
+			listener.onMouseDown = (event) => {
 				if (this.isEditing === true) { 
 					const startPoint = event.point; 
 
 					const imageCanvas = this.getImageCanvas();
 
-					const tool = new paper.Tool();
-					tool.activate();
-
 					const canvasPoint = this.getPointInBounds(startPoint, this.getBoundaries());
-					// Start path
+					// Start polygon
 					this._tempPoint = new paper.Path(canvasPoint);
 					imageCanvas.addChild(this._tempPoint);
-					this._tempPath = new paper.Path();
-					this._tempPath.add(this._tempPoint); //Add Point for mouse movement
-					this._tempPath.fillColor = '#bdbdbd';
-					this._tempPath.strokeColor = '#424242';
-					this._tempPath.opacity = 0.3;
-					this._tempPath.closed = true;
+					this._tempPolygon = new paper.Path();
+					this._tempPolygon.add(this._tempPoint); //Add Point for mouse movement
+					this._tempPolygon.fillColor = '#bdbdbd';
+					this._tempPolygon.strokeColor = '#424242';
+					this._tempPolygon.opacity = 0.3;
+					this._tempPolygon.closed = true;
 					switch(borderStyle){
 						case 'selected':
-							this._tempPath.selected = true;
+							this._tempPolygon.selected = true;
 							break;
 						case 'dashed':
-							this._tempPath.dashArray = [5, 3];
+							this._tempPolygon.dashArray = [5, 3];
 							break;
 						default:
 							break;
 					}
 
-					tool.onMouseMove = (event) => {
+					listener.onMouseDrag = (event) => {
 						if (this.isEditing === true) {
-							if (this._tempPath) {
+							if (this._tempPolygon) {
 								const point = this.getPointInBounds(event.point, this.getBoundaries());
 								let rectangle = new paper.Path.Rectangle(this._tempPoint.firstSegment.point, point);
 
-								this._tempPath.segments = rectangle.segments;
+								this._tempPolygon.segments = rectangle.segments;
 								
 								updateFunction(rectangle);
 							}
 						} else {
-							this.endRectangle(endFunction,this._tempPath);
-							tool.remove();
+							this.endRectangle(endFunction,this._tempPolygon);
+							this.removeListener(listener);
 						}
 					}
-					imageCanvas.addChild(this._tempPath);
+					imageCanvas.addChild(this._tempPolygon);
 
-					tool.onMouseUp = (event) => {
-						this.endRectangle(endFunction,this._tempPath);
-						tool.remove();
+					listener.onMouseUp = (event) => {
+						this.endRectangle(endFunction,this._tempPolygon);
+						this.removeListener(listener);
 					}
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
 		}
@@ -96,10 +97,10 @@ class Editor extends Viewer {
 	endRectangle(endFunction = (rectangle) => {}, rectangle) {
 		if (this.isEditing) {
 			this.isEditing = false;
-			if (this._tempPath != null) {
+			if (this._tempPolygon != null) {
 				endFunction(rectangle);
-				this._tempPath.remove();
-				this._tempPath = null;
+				this._tempPolygon.remove();
+				this._tempPolygon = null;
 			}
 			if (this._tempPoint != null) {
 				this._tempPoint.clear();
@@ -115,25 +116,26 @@ class Editor extends Viewer {
 				()=>{
 					this._editMode = 1;
 					this.isEditing = true;
-					this._tempPathType = type;
+					this._tempPolygonType = type;
 					document.body.style.cursor = "copy";
 				},
 				(rectangle)=>{
-					this._tempPath.closed = true;
-					this._tempPath.selected = false;
-					switch (this._tempPathType) {
+					this._tempPolygon.closed = true;
+					this._tempPolygon.selected = false;
+
+					switch (this._tempPolygonType) {
 						case 'segment':
-							this._controller.callbackNewSegment(this._convertPointsPathToSegment(rectangle, false));
+							this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(rectangle, false));
 							break;
 						case 'region':
-							this._controller.callbackNewRegion(this._convertPointsPathToSegment(rectangle, true));
+							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true));
 							break;
 						case 'ignore':
-							this._controller.callbackNewRegion(this._convertPointsPathToSegment(rectangle, true), 'ignore');
+							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true), 'ignore');
 							break;
 						case 'roi':
 						default:
-							this._controller.callbackNewRoI(this._convertPointsPathToSegment(rectangle, true));
+							this._controller.callbackNewRoI(this._convertCanvasPolygonToGlobal(rectangle, true));
 							break;
 					}
 				},
@@ -142,7 +144,7 @@ class Editor extends Viewer {
 		}
 	}
 
-	selectMultiple() {
+	boxSelect(callback = (x,y) => {}) {
 		if (this.isEditing === false) {
 			this.startRectangle(
 				()=>{
@@ -150,8 +152,8 @@ class Editor extends Viewer {
 					this.isEditing = true;
 				},
 				(rectangle)=>{
-					const selectBounds = this._tempPath.bounds;
-					this._controller.rectangleSelect(selectBounds.topLeft, selectBounds.bottomRight);
+					const selectBounds = this._tempPolygon.bounds;
+					callback(selectBounds.topLeft, selectBounds.bottomRight);
 				},
 				(rectangle) => {},
 				'dashed'
@@ -159,53 +161,19 @@ class Editor extends Viewer {
 		}
 	}
 
-	endRectangleSelect() {
-		if (this.isEditing) {
-			this.isEditing = false;
-			if (this._tempPath != null) {
-				const selectBounds = this._tempPath.bounds;
-				this._controller.rectangleSelect(selectBounds.topLeft, selectBounds.bottomRight);
-
-				this._tempPath.remove();
-				this._tempPath = null;
-			}
-			if (this._tempPoint != null) {
-				this._tempPoint.clear();
-				this._tempPoint = null;
-			}
-		}
-	}
-
-	addRegion(region) {
-		this.drawPath(region, true);
-	}
-
-	addLine(line) {
-		this.drawPathLine(line);
-	}
-
-	removeLine(lineID) {
-		this.removeSegment(lineID);
-	}
-
-	removeRegion(regionID) {
-		this.endEditing();
-		this.removeSegment(regionID);
-	}
-
 	startCreatePolygon(type) {
 		if (this.isEditing === false) {
 			this._editMode = 0;
 			this.isEditing = true;
-			this._tempPathType = type;
+			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
-				if (this._tempPath) {
-					this._tempPath.removeSegment(this._tempPath.segments.length - 1);
-					this._tempPath.add(this.getPointInBounds(event.point, this.getBoundaries()));
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseMove = (event) => {
+				if (this._tempPolygon) {
+					this._tempPolygon.removeSegment(this._tempPolygon.segments.length - 1);
+					this._tempPolygon.add(this.getPointInBounds(event.point, this.getBoundaries()));
 				}
 			}
 
@@ -215,34 +183,34 @@ class Editor extends Viewer {
 			});
 			this.DoubleClickListener.setActive(true);
 
-			tool.onMouseDown = (event) => {
+			listener.onMouseUp = (event) => {
 				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
-					if (!this._tempPath) {
-						// Start path
-						this._tempPath = new paper.Path();
-						this._tempPath.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
-						this._tempPath.fillColor = 'grey';
-						this._tempPath.opacity = 0.3;
-						this._tempPath.closed = false;
-						this._tempPath.selected = true;
+					if (!this._tempPolygon) {
+						// Start polygon
+						this._tempPolygon = new paper.Path();
+						this._tempPolygon.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
+						this._tempPolygon.fillColor = 'grey';
+						this._tempPolygon.opacity = 0.3;
+						this._tempPolygon.closed = false;
+						this._tempPolygon.selected = true;
 
-						// circle to end the path
+						// circle to end the polygon
 						this._tempEndCircle = new paper.Path.Circle(canvasPoint, 5);
 						this._tempEndCircle.strokeColor = 'black';
 						this._tempEndCircle.fillColor = 'grey';
 						this._tempEndCircle.opacity = 0.5;
-						this._tempEndCircle.onMouseDown = (event) => this.endCreatePolygon();
+						this._tempEndCircle.onMouseUp = (event) => this.endCreatePolygon();
 
 						let imageCanvas = this.getImageCanvas();
-						imageCanvas.addChild(this._tempPath);
+						imageCanvas.addChild(this._tempPolygon);
 						imageCanvas.addChild(this._tempEndCircle);
 					}
-					this._tempPath.add(new paper.Point(canvasPoint));
+					this._tempPolygon.add(new paper.Point(canvasPoint));
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
 		}
@@ -251,16 +219,16 @@ class Editor extends Viewer {
 	endCreatePolygon() {
 		if (this.isEditing) {
 			this.isEditing = false;
-			if (this._tempPath != null) {
-				this._tempPath.closed = true;
-				this._tempPath.selected = false;
-				if (this._tempPathType === 'segment') {
-					this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath, false));
+			if (this._tempPolygon != null) {
+				this._tempPolygon.closed = true;
+				this._tempPolygon.selected = false;
+				if (this._tempPolygonType === 'segment') {
+					this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath, true));
+					this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
-				this._tempPath.remove();
-				this._tempPath = null;
+				this._tempPolygon.remove();
+				this._tempPolygon = null;
 				this._tempEndCircle.remove();
 			}
 			document.body.style.cursor = "auto";
@@ -273,12 +241,12 @@ class Editor extends Viewer {
 			this.isEditing = true;
 			document.body.style.cursor = "copy";
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
-				if (this._tempPath) {
-					this._tempPath.removeSegment(this._tempPath.segments.length - 1);
-					this._tempPath.add(this.getPointInBounds(event.point, this.getBoundaries()));
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseMove = (event) => {
+				if (this._tempPolygon) {
+					this._tempPolygon.removeSegment(this._tempPolygon.segments.length - 1);
+					this._tempPolygon.add(this.getPointInBounds(event.point, this.getBoundaries()));
 				}
 			}
 
@@ -288,24 +256,24 @@ class Editor extends Viewer {
 			});
 			this.DoubleClickListener.setActive(true);
 
-			tool.onMouseDown = (event) => {
+			listener.onMouseUp = (event) => {
 				this.DoubleClickListener.update(event.point);
 				if (this.isEditing === true) {
 					const canvasPoint = this.getPointInBounds(event.point, this.getBoundaries());
 
-					if (!this._tempPath) {
-						// Start path
-						this._tempPath = new paper.Path();
-						this._tempPath.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
-						this._tempPath.strokeColor = new paper.Color(0, 0, 0);
-						this._tempPath.closed = false;
-						this._tempPath.selected = true;
+					if (!this._tempPolygon) {
+						// Start polygon
+						this._tempPolygon = new paper.Path();
+						this._tempPolygon.add(new paper.Point(canvasPoint)); //Add Point for mouse movement
+						this._tempPolygon.strokeColor = new paper.Color(0, 0, 0);
+						this._tempPolygon.closed = false;
+						this._tempPolygon.selected = true;
 
-						this.getImageCanvas().addChild(this._tempPath);
+						this.getImageCanvas().addChild(this._tempPolygon);
 					}
-					this._tempPath.add(new paper.Point(canvasPoint));
+					this._tempPolygon.add(new paper.Point(canvasPoint));
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
 		}
@@ -315,13 +283,13 @@ class Editor extends Viewer {
 		if (this.isEditing) {
 			this.isEditing = false;
 
-			if (this._tempPath != null) {
-				this._tempPath.closed = false;
-				this._tempPath.selected = false;
-				this._controller.callbackNewCut(this._convertPointsPathToSegment(this._tempPath, false));
+			if (this._tempPolygon != null) {
+				this._tempPolygon.closed = false;
+				this._tempPolygon.selected = false;
+				this._controller.callbackNewCut(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 
-				this._tempPath.remove();
-				this._tempPath = null;
+				this._tempPolygon.remove();
+				this._tempPolygon = null;
 			}
 			document.body.style.cursor = "auto";
 		}
@@ -331,23 +299,23 @@ class Editor extends Viewer {
 		if (this.isEditing === false) {
 			this.isEditing = true;
 			this._editMode = 2;
-			this._tempPathType = type;
+			this._tempPolygonType = type;
 
-			const tool = new paper.Tool();
-			tool.activate();
+			const listener = {};
+			this.addListener(listener);
 
-			if (!this._tempPath) {
-				// Start path
-				this._tempPath = new paper.Path();
-				this._tempPath.fillColor = 'grey';
-				this._tempPath.opacity = 0.5;
-				this._tempPath.closed = true;
-				//this._tempPath.selected = true;
+			if (!this._tempPolygon) {
+				// Start polygon
+				this._tempPolygon = new paper.Path();
+				this._tempPolygon.fillColor = 'grey';
+				this._tempPolygon.opacity = 0.5;
+				this._tempPolygon.closed = true;
+				//this._tempPolygon.selected = true;
 
-				this.getImageCanvas().addChild(this._tempPath);
-				tool.onMouseMove = (event) => {
+				this.getImageCanvas().addChild(this._tempPolygon);
+				listener.onMouseMove = (event) => {
 					if (this.isEditing === true) {
-						if (this._tempPath) {
+						if (this._tempPolygon) {
 							const boundaries = this.getBoundaries();
 							const mouseregion = this.getMouseRegion(boundaries, event.point);
 							this._tempMouseregion = mouseregion;
@@ -361,7 +329,7 @@ class Editor extends Viewer {
 									bottommouse = new paper.Point(event.point.x, boundaries.bottom);
 									rectangle = new paper.Path.Rectangle(topleft, bottommouse);
 
-									this._tempPath.segments = rectangle.segments;
+									this._tempPolygon.segments = rectangle.segments;
 									break;
 								case this.mouseregions.RIGHT:
 									document.body.style.cursor = "col-resize";
@@ -370,7 +338,7 @@ class Editor extends Viewer {
 									bottommouse = new paper.Point(event.point.x, boundaries.bottom);
 									rectangle = new paper.Path.Rectangle(topright, bottommouse);
 
-									this._tempPath.segments = rectangle.segments;
+									this._tempPolygon.segments = rectangle.segments;
 									break;
 								case this.mouseregions.TOP:
 									document.body.style.cursor = "row-resize";
@@ -379,7 +347,7 @@ class Editor extends Viewer {
 									mouseright = new paper.Point(boundaries.right, event.point.y);
 									rectangle = new paper.Path.Rectangle(topleft, mouseright);
 
-									this._tempPath.segments = rectangle.segments;
+									this._tempPolygon.segments = rectangle.segments;
 									break;
 								case this.mouseregions.BOTTOM:
 									document.body.style.cursor = "row-resize";
@@ -388,21 +356,21 @@ class Editor extends Viewer {
 									mouseright = new paper.Point(boundaries.right, event.point.y);
 									rectangle = new paper.Path.Rectangle(bottommouse, mouseright);
 
-									this._tempPath.segments = rectangle.segments;
+									this._tempPolygon.segments = rectangle.segments;
 									break;
 								case this.mouseregions.MIDDLE:
 								default:
-									this._tempPath.removeSegments();
+									this._tempPolygon.removeSegments();
 									document.body.style.cursor = "copy";
 									break;
 							}
 						}
 					}
 				}
-				tool.onMouseDown = (event) => {
-					if (this._tempPath) {
+				listener.onMouseUp = (event) => {
+					if (this._tempPolygon) {
 						this.endCreateBorder();
-						tool.remove();
+						this.removeListener(listener);
 					}
 				}
 			}
@@ -413,15 +381,15 @@ class Editor extends Viewer {
 		if (this.isEditing) {
 			this.isEditing = false;
 
-			if (this._tempPath != null) {
-				if (this._tempPathType === 'segment') {
-					this._controller.callbackNewSegment(this._convertPointsPathToSegment(this._tempPath, false));
+			if (this._tempPolygon != null) {
+				if (this._tempPolygonType === 'segment') {
+					this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.callbackNewRegion(this._convertPointsPathToSegment(this._tempPath, true));
+					this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 
-				this._tempPath.remove();
-				this._tempPath = null;
+				this._tempPolygon.remove();
+				this._tempPolygon = null;
 			}
 			document.body.style.cursor = "auto";
 		}
@@ -446,9 +414,9 @@ class Editor extends Viewer {
 
 			contourBound.bounds = new paper.Rectangle(
 					new paper.Point(
-						this._convertPointToCanvas(left,top)),
+						this._convertGlobalToCanvas(left,top)),
 					new paper.Point(
-						this._convertPointToCanvas(right,bottom)));
+						this._convertGlobalToCanvas(right,bottom)));
 			contourBound.bounds.visible = false;
 			contourBounds.push(contourBound);
 		});
@@ -472,38 +440,33 @@ class Editor extends Viewer {
 		}
 	}
 
-	getContours(contours,rectangle){
-		this._convertPointFromCanvas(selectBounds.topLeft);
-		this._convertPointFromCanvas(selectBounds.bottomRight);
-	}
-
-	startMovePath(pathID, type, points) {
+	startMovePolygonPoints(polygonID, type, points) {
 		if (this.isEditing === false) {
 			this._editMode = 4;
 			this.isEditing = true;
-			this._tempPathType = type;
+			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
 
 			// Create Copy of movable
-			this._tempPath = new paper.Path(this.getPath(pathID).segments);
-			this._tempID = pathID;
-			this._tempPath.fillColor = 'grey';
-			this._tempPath.opacity = 0.3;
-			this._tempPath.closed = true;
-			this._tempPath.strokeColor = 'black';
-			this._tempPath.dashArray = [5, 3];
+			this._tempPolygon = new paper.Path(this.getPolygon(polygonID).segments);
+			this._tempID = polygonID;
+			this._tempPolygon.fillColor = 'grey';
+			this._tempPolygon.opacity = 0.3;
+			this._tempPolygon.closed = true;
+			this._tempPolygon.strokeColor = 'black';
+			this._tempPolygon.dashArray = [5, 3];
 
 			// Set Grid
-			this.setGrid(this._tempPath.position);
+			this.setGrid(this._tempPolygon.position);
 
-			// Position letiables between old and new path position
+			// Position letiables between old and new polygon position
 			this._tempPoint = new paper.Point(0, 0);
-			const oldPosition = new paper.Point(this._tempPath.position);
+			const oldPosition = new paper.Point(this._tempPolygon.position);
 			let oldMouse = null;
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseDrag = (event) => {
 				if (this.isEditing === true) {
 					if (oldMouse === null) {
 						oldMouse = event.point;
@@ -512,33 +475,11 @@ class Editor extends Viewer {
 					if (this._grid.isActive) 
 						this._tempPoint = this.getPointFixedToGrid(this._tempPoint);
 
-					if (!points) {
-						this._tempPath.position = this._tempPoint;
-
-						// Correct to stay in viewer bounds
-						const tempPathBounds = this._tempPath.bounds;
-						const pictureBounds = this.getBoundaries();
-						let correctionPoint = new paper.Point(0, 0);
-						if (tempPathBounds.left < pictureBounds.left) {
-							correctionPoint = correctionPoint.add(new paper.Point((pictureBounds.left - tempPathBounds.left), 0));
-						}
-						if (tempPathBounds.right > pictureBounds.right) {
-							correctionPoint = correctionPoint.subtract(new paper.Point((tempPathBounds.right - pictureBounds.right), 0));
-						}
-						if (tempPathBounds.top < pictureBounds.top) {
-							correctionPoint = correctionPoint.add(new paper.Point(0, (pictureBounds.top - tempPathBounds.top)));
-						}
-						if (tempPathBounds.bottom > pictureBounds.bottom) {
-							correctionPoint = correctionPoint.subtract(new paper.Point(0, (tempPathBounds.bottom - pictureBounds.bottom)));
-						}
-						this._tempPoint = this._tempPoint.add(correctionPoint);
-						this._tempPath.position = this._tempPoint;
-					} else {
 						const delta = oldPosition.subtract(this._tempPoint);
-						this._tempPath.removeSegments();
-						const segments = this.getPath(this._tempID).segments.map(p => {
+						this._tempPolygon.removeSegments();
+						const segments = this.getPolygon(this._tempID).segments.map(p => {
 							let newPoint = p.point;
-							const realPoint = this._convertPointFromCanvas(newPoint.x, newPoint.y);
+							const realPoint = this._convertCanvasToGlobal(newPoint.x, newPoint.y);
 							points.forEach(pp => {
 								// Contains can not be trusted (TODO: propably?)
 								if (realPoint.x === pp.x && realPoint.y === pp.y) {
@@ -547,63 +488,62 @@ class Editor extends Viewer {
 							});
 							return new paper.Segment(newPoint);
 						});
-						this._tempPath.addSegments(segments);
-					}
+						this._tempPolygon.addSegments(segments);
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
-			tool.onMouseUp = (event) => {
+			listener.onMouseUp = (event) => {
 				if (this.isEditing === true) {
-					this.endMovePath();
+					this.endMovePolygonPoints();
 				}
-				tool.remove();
+				this.removeListener(listener);
 			}
 		}
 	}
 
-	endMovePath() {
+	endMovePolygonPoints() {
 		if (this.isEditing) {
 			this.isEditing = false;
 
-			if (this._tempPath !== null) {
-				if (this._tempPathType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertPointsPathToSegment(this._tempPath, false));
+			if (this._tempPolygon !== null) {
+				if (this._tempPolygonType === 'segment') {
+					this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else {
-					this._controller.transformRegion(this._tempID, this._convertPointsPathToSegment(this._tempPath, true));
+					this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 
-				if(this._tempPath) this._tempPath.remove();
-				this._tempPath = null;
+				if(this._tempPolygon) this._tempPolygon.remove();
+				this._tempPolygon = null;
 			}
 
 			document.body.style.cursor = "auto";
 		}
 	}
 
-	startScalePath(pathID, type) {
+	startScalePolygon(polygonID, type) {
 		if (this.isEditing === false) {
 			this._editMode = 5;
 			this.isEditing = true;
-			this._tempPathType = type;
+			this._tempPolygonType = type;
 
 			// Create Copy of movable
-			const boundaries = this.getPath(pathID).bounds;
-			this._tempPath = new paper.Path.Rectangle(boundaries);
-			this.getImageCanvas().addChild(this._tempPath);
-			this._tempID = pathID;
-			this._tempPath.fillColor = 'grey';
-			this._tempPath.opacity = 0.3;
-			this._tempPath.closed = true;
-			this._tempPath.strokeColor = 'black';
-			this._tempPath.dashArray = [5, 3];
+			const boundaries = this.getPolygon(polygonID).bounds;
+			this._tempPolygon = new paper.Path.Rectangle(boundaries);
+			this.getImageCanvas().addChild(this._tempPolygon);
+			this._tempID = polygonID;
+			this._tempPolygon.fillColor = 'grey';
+			this._tempPolygon.opacity = 0.3;
+			this._tempPolygon.closed = true;
+			this._tempPolygon.strokeColor = 'black';
+			this._tempPolygon.dashArray = [5, 3];
 
-			const tool = new paper.Tool();
-			tool.activate();
-			tool.onMouseMove = (event) => {
+			const listener = {};
+			this.addListener(listener);
+			listener.onMouseMove = (event) => {
 				if (this.isEditing === true) {
-					if (this._tempPath) {
-						const mouseregion = this.getMouseRegion(this._tempPath.bounds, event.point, 0.1, 10);
+					if (this._tempPolygon) {
+						const mouseregion = this.getMouseRegion(this._tempPolygon.bounds, event.point, 0.1, 10);
 						this._tempMouseregion = mouseregion;
 
 						switch (mouseregion) {
@@ -622,87 +562,84 @@ class Editor extends Viewer {
 						}
 					}
 				} else {
-					tool.remove();
+					this.removeListener(listener);
 				}
 			}
-			tool.onMouseDown = (event) => {
+			listener.onMouseDown = (event) => {
 				if (this.isEditing === true) {
-					this.scalePath(this._tempPath, this._tempMouseregion);
+					this.scalePolygon(this._tempPolygon, this._tempMouseregion);
 				}
-				tool.remove();
+				this.removeListener(listener);
 			}
 		}
 	}
 
-	scalePath(path, mouseregion) {
-		const tool = new paper.Tool();
-		tool.activate();
-		tool.onMouseMove = (event) => {
+	scalePolygon(polygon, mouseregion) {
+		const listener = {};
+		this.addListener(listener);
+		listener.onMouseDrag = (event) => {
 			if (this.isEditing === true) {
-				if (this._tempPath) {
+				if (this._tempPolygon) {
 					const mouseinbound = this.getPointInBounds(event.point, this.getBoundaries());
 
 					switch (mouseregion) {
 						case this.mouseregions.LEFT:
-							if (mouseinbound.x < path.bounds.right) {
-								path.bounds.left = mouseinbound.x;
+							if (mouseinbound.x < polygon.bounds.right) {
+								polygon.bounds.left = mouseinbound.x;
 								document.body.style.cursor = "col-resize";
 							}
 							break;
 						case this.mouseregions.RIGHT:
-							if (mouseinbound.x > path.bounds.left) {
-								path.bounds.right = mouseinbound.x;
+							if (mouseinbound.x > polygon.bounds.left) {
+								polygon.bounds.right = mouseinbound.x;
 								document.body.style.cursor = "col-resize";
 							}
 							break;
 						case this.mouseregions.TOP:
-							if (mouseinbound.y < path.bounds.bottom) {
-								path.bounds.top = mouseinbound.y;
+							if (mouseinbound.y < polygon.bounds.bottom) {
+								polygon.bounds.top = mouseinbound.y;
 								document.body.style.cursor = "row-resize";
 							}
 							break;
 						case this.mouseregions.BOTTOM:
-							if (mouseinbound.y > path.bounds.top) {
-								path.bounds.bottom = mouseinbound.y;
+							if (mouseinbound.y > polygon.bounds.top) {
+								polygon.bounds.bottom = mouseinbound.y;
 								document.body.style.cursor = "row-resize";
 							}
 							break;
 						case this.mouseregions.MIDDLE:
 						default:
 							document.body.style.cursor = "auto";
-							tool.remove();
+							this.removeListener(listener);
 							break;
 					}
 				}
 			} else {
-				tool.remove();
+				this.removeListener(listener);
 			}
 		}
-		tool.onMouseUp = (event) => {
+		listener.onMouseUp = (event) => {
 			if (this.isEditing === true) {
-				this.endScalePath();
+				this.endScalePolygon();
 			}
-			tool.remove();
+			this.removeListener(listener);
 		}
 	}
 
-	endScalePath() {
+	endScalePolygon() {
 		if (this.isEditing) {
 			this.isEditing = false;
 
-			if (this._tempPath != null) {
-				const path = new paper.Path(this.getPath(this._tempID).segments);
-				path.bounds = this._tempPath.bounds;
+			if (this._tempPolygon != null) {
+				const polygon = new paper.Path(this.getPolygon(this._tempID).segments);
+				polygon.bounds = this._tempPolygon.bounds;
 
-				this._tempPath.remove();
+				this._tempPolygon.remove();
 
-				if (this._tempPathType === 'segment') {
-					this._controller.transformSegment(this._tempID, this._convertPointsPathToSegment(path, false));
-				} else {
-					this._controller.transformRegion(this._tempID, this._convertPointsPathToSegment(path, true));
-				}
+				if (this._tempPolygonType !== 'segment') 
+					this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
 
-				this._tempPath = null;
+				this._tempPolygon = null;
 			}
 
 			document.body.style.cursor = "auto";
@@ -769,12 +706,13 @@ class Editor extends Viewer {
 	}
 
 	endEditing() {
+		this.clearListener();
 		this.isEditing = false;
 
 		this._tempID = null;
-		if (this._tempPath != null) {
-			this._tempPath.remove();
-			this._tempPath = null;
+		if (this._tempPolygon != null) {
+			this._tempPolygon.remove();
+			this._tempPolygon = null;
 		}
 		this._tempPoint = null;
 
@@ -859,7 +797,7 @@ class Editor extends Viewer {
 		this._guiOverlay.removeChildren();
 
 		for (let index = 0; index < readingOrder.length; index++) {
-			const segment = this.getPath(readingOrder[index]);
+			const segment = this.getPolygon(readingOrder[index]);
 			if (segment) {
 				this._readingOrder.add(new paper.Segment(segment.bounds.center));
 				const text = new paper.PointText({
@@ -878,6 +816,105 @@ class Editor extends Viewer {
 		}
 	}
 
+	startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, cleanup = () => {}, update = (targetID,point) => {}){
+		if(!this._pointSelector){
+			// Terminate potential running point select
+			this.endPointSelect();
+
+			// Run 
+			init();
+
+			const polygon = this._polygons[targetID];
+
+			// Init selector rectangle
+			this._pointSelector = new paper.Path.Rectangle(new paper.Rectangle(0,0,6,6));
+			this._pointSelector.strokeColor = '#0699ea';
+			this._pointSelector.fillColor = '#0699ea';
+
+			const hitOptions = { segments: true, stroke: true, tolerance: 10 };
+
+			if(this._pointSelectorListener)
+				this.removeListener(this._pointSelectorListener);
+			this._pointSelectorListener = {};
+			this._pointSelectorListener.onMouseMove = (event) => {
+				if(!this.isEditing && this._pointSelector){
+					this._pointSelector.visible = true;
+					const hitResult = polygon.hitTest(event.point, hitOptions);
+					if (hitResult) {
+						if (hitResult.type == 'segment') 
+							this._pointSelector.position = new paper.Point(hitResult.segment.point);
+						else if (hitResult.type == 'stroke') 
+							this._pointSelector.position = new paper.Point(hitResult.location.point);
+
+						update(targetID, this._convertCanvasToGlobal(this._pointSelector.position.x,this._pointSelector.position.y));
+					} else { 
+						// Mouse is not near the polygon
+						this._pointSelector.visible = false;
+					}
+				} else {
+					this.endPointSelect();
+					cleanup();
+					this.removeListener(this._pointSelectorListener);
+				}
+			} 
+			this._pointSelectorListener.onMouseDown = (event) => {
+				if(!this.isEditing && this._pointSelector){
+					const hitResult = polygon.hitTest(event.point, hitOptions);
+					if (hitResult) {
+						// Update last time if hit is not on point selector
+						if (hitResult.type == 'segment') 
+							this._pointSelector.position = new paper.Point(hitResult.segment.point);
+						else if (hitResult.type == 'stroke') 
+							this._pointSelector.position = new paper.Point(hitResult.location.point);
+						this.endPointSelect(callback, targetID, this._pointSelector.position);
+						return false; // do not propagate
+					} else {
+						this.endPointSelect()
+						return true; // do propagate
+					}
+				}
+
+				cleanup();
+				this.removeListener(this._pointSelectorListener);
+			}
+			this.addListener(this._pointSelectorListener);
+		}
+	}
+
+	endPointSelect(callback = (targetID, point) => {}, targetID, point){
+		if(this._pointSelectorListener)
+			this.removeListener(this._pointSelectorListener);
+		if(this._pointSelector)
+			this._pointSelector.remove();
+		this._pointSelector = null;
+
+		if(point && point.x && point.y){
+			callback(targetID, this._convertCanvasToGlobal(point.x,point.y));
+		}else{
+			callback(targetID)
+		}
+	}
+
+	addPointsOnLine(polygonID,points){
+		const polygon = this._polygons[polygonID];
+		if(polygon){
+			points.forEach(point => {
+				const canvasPoint = this._convertGlobalToCanvas(point.x,point.y);
+				const hitResult = polygon.hitTest(canvasPoint, { stroke: true, tolerance: 1 });
+
+				if (hitResult && hitResult.type == 'stroke') {
+					polygon.insert(hitResult.location.index+1,canvasPoint);
+				}
+			});
+		}
+		return this._convertCanvasPolygonToGlobal(polygon);
+	}
+
+	_resetPointSelector(){
+		if(this._pointSelector)
+			this._pointSelector.position = new paper.Point(-10,-10);
+	}
+
 	hideReadingOrder() {
 		if (this._readingOrder) {
 			this._readingOrder.visible = false;
@@ -889,7 +926,7 @@ class Editor extends Viewer {
 		const centers = {};
 		for (let index = 0; index < readingOrder.length; index++) {
 			const id = readingOrder[index];
-			centers[id] = this.getPath(id).bounds.center;
+			centers[id] = this.getPolygon(id).bounds.center;
 		}
 
 		readingOrder.sort(function (a, b) {
@@ -904,21 +941,6 @@ class Editor extends Viewer {
 		});
 
 		return readingOrder;
-	}
-
-	// Private Helper methods
-	_convertPointsPathToSegment(path, isRelative) {
-		const points = [];
-		for (let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++) {
-			const point = path.segments[pointItr].point;
-			if (isRelative) {
-				points.push(this._convertPercentPointFromCanvas(point.x, point.y));
-			} else {
-				points.push(this._convertPointFromCanvas(point.x, point.y));
-			}
-		}
-
-		return points;
 	}
 
 	getPointInBounds(point, bounds) {
@@ -941,33 +963,37 @@ class Editor extends Viewer {
 		}
 	}
 
-	_fixGuiTextSize() {
+	_resetOverlay() {
 		this._guiOverlay.children.forEach(function (element) {
 			element.scaling = new paper.Point(1, 1);
 		}, this);
-		this._guiOverlay.bringToFront();
+		//this._guiOverlay.bringToFront();
+		this._resetPointSelector();
 	}
 
-	//***Inherintent functions***
+	movePoint(point){
+		super.movePoint(point);
+		this._resetOverlay();
+	}
 	setImage(id) {
 		super.setImage(id);
-		this.getImageCanvas().addChild(this._guiOverlay);
+		this._resetOverlay();
 	}
 	setZoom(zoomfactor, point) {
 		super.setZoom(zoomfactor, point);
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 	zoomIn(zoomfactor, point) {
 		super.zoomIn(zoomfactor, point);
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 	zoomOut(zoomfactor, point) {
 		super.zoomOut(zoomfactor, point);
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 	zoomFit() {
 		super.zoomFit();
-		this._fixGuiTextSize();
+		this._resetOverlay();
 	}
 }
 

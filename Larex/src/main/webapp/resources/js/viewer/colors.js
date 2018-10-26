@@ -5,79 +5,52 @@ class Colors {
 	}
 	
 	getColor(segmentType) {
-		let color = this.getPredefinedColor(this._regionColors[segmentType]);
-		
-		if (!color) {
-			let freeColors = this.getAvailableColors();
-
-			if (freeColors && freeColors.length > 0) {
-				color = freeColors.pop();
-			} else {
-				// Fallback generator
-				const id = this._segmenttypes[segmentType]
-				const counter = 6;
-				const modifier1 = (id + 6) % counter;
-				const modifier2 = Math.floor(((id - 6) / counter));
-				const c = modifier2 == 0 ? 1 : 1 - (1 / modifier2);
-
-				switch (modifier1) {
-					case 0: color = [c, 0, 0];
-						break;
-					case 1: color = [0, c, 0];
-						break;
-					case 2: color = [0, 0, c];
-						break;
-					case 3: color = [c, c, 0];
-						break;
-					case 4: color = [0, c, c];
-						break;
-					case 5: color = [c, 0, c];
-						break;
-				}
-			}
-
-		}
-		return new paper.Color(color);
+		return new paper.Color(this.unpackColor(this.getColorID(segmentType)));
 	}
 
-	getPredefinedColor(id){
+	getColorID(segmentType) {
+		if (!this.hasColor(segmentType)) 
+			throw "No color for region type defined! ["+segmentType+"]";
+		
+		return this._regionColors[segmentType];
+	}
+
+	hasColor(segmentType) {
+		return this._regionColors.hasOwnProperty(segmentType);
+	}
+
+	assignAvailableColor(segmentType){
+		if(!this.hasColor(segmentType)){
+			let freeColorIDs = this.getAvailableColorIDs();
+
+			if (freeColorIDs && freeColorIDs.length > 0) {
+				const colorID = freeColorIDs.pop();
+				this.setColor(segmentType,colorID);
+			} else { 
+				throw "No colors left!";
+			}
+		}
+	}
+
+	unpackColor(id){
 		return this._colors[id];
 	}
 
-	setColor(segmentType,colorID){
+	setColor(segmentType, colorID){
 		this._regionColors[segmentType] = colorID;
 	}
 
-	getPredefinedColors(){
-		return this._colors;
-	}
-
-	getPredefinedColorIDs(){
+	getAllColorIDs(){
 		var ids = [];
-    	for (var i = 0; i < this._colors.length; i++) {
+    	for (var i = 0; i < this._colors.length; i++) 
       		ids.push(i);
-    	}
    		return ids;
 	}
 	
-	getAvailableColors(){
-		let freeColorsIDs = this.getAvailableColorIDs();
-		return freeColorsIDs.map(id => {return this.getPredefinedColor(id)});
-	}
-	
 	getAvailableColorIDs(){
-		let freeColors = this.getPredefinedColorIDs().slice();
+		let freeColors = this.getAllColorIDs().slice();
 		Object.keys(this._regionColors).forEach(type =>{
 			freeColors.splice($.inArray(this._regionColors[type], freeColors), 1)});
 		return freeColors;
-	}
-
-	getColorID(color){
-		for(let index = 0; index < this._colors.length; index++){
-			let c = this._colors[index];
-			if(color.red === c.red && color.blue === c.blue && color.green === c.green) 
-				return index;
-		}
-		return undefined;
 	}
 }

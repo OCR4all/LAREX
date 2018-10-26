@@ -1,177 +1,311 @@
 class Viewer {
-	constructor(segmenttypes, viewerInput, colors) {
-		this._segmenttypes = segmenttypes;
+	constructor(viewerInput, colors) {
 		this.thisInput = viewerInput;
 		this._imageID;
 		this._imageWidth;
 		this._imageHeight;
-		this._overlayID = "overlay";
-		this._overlay;
-		this._paths = {};
+		this._polygons = {};
 		this._imageCanvas = new paper.Group();
+		this._regionOverlay;
+		this._contourOverlayID = "overlay";
+		this._contourOverlay;
 		this._background;
 		this._currentZoom = 1;
 		this._colors = colors;
+		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
+		this._highlighted = null;
+		this._listener = [];
+
 		document.addEventListener('visibilitychange', () => {
 			if (!document.hidden) this.forceUpdate();
 		});
 		paper.settings.handleSize = 5;
+
+		// Mouse Listener
+		const tool = new paper.Tool();
+		tool.onMouseUp = (event) => {
+			let propagate = true;
+			this._listener.forEach(listener => {
+				if (listener.onMouseUp) {
+					const doPropagate = listener.onMouseUp(event);
+					if(!doPropagate)
+						propagate = false;
+				}
+			});
+
+			// Do not propagate unless all child listener say otherwise
+			if(propagate){
+				// Check regions first
+				let hitResult = this._regionOverlay.hitTest(event.point, this._hitOptions);
+
+				// Check segments after
+				if(!hitResult)
+					hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+
+				if(hitResult){
+					if (hitResult.item && hitResult.item.polygonID) 
+						this.thisInput.selectSection(hitResult.item.polygonID, event, hitResult);
+					else
+						this.thisInput.clickImage(event);
+				} else {
+					this.thisInput.clickBackground(event);
+				}
+			}
+		};
+		tool.onMouseDrag = (event) => {
+			let propagate = true;
+			this._listener.forEach(listener => {
+				if (listener.onMouseDrag) {
+					const doPropagate = listener.onMouseDrag(event)
+					if(!doPropagate)
+						propagate = false;
+				}
+			});
+
+			// Do not propagate unless all child listener say otherwise
+			if(propagate){
+				const hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+				if(hitResult)
+					this.thisInput.dragImage(event);
+				else 
+					this.thisInput.dragBackground(event);
+			}
+		}
+
+		tool.onMouseMove = (event) => {
+			let propagate = true;
+			this._listener.forEach(listener => {
+				 if (listener.onMouseMove) {
+					const doPropagate = listener.onMouseMove(event);
+					if(!doPropagate)
+						propagate = false;
+				 }
+			});
+
+			// Do not propagate unless all child listener say otherwise
+			if(propagate){
+				// Check regions first
+				let hitResult = this._regionOverlay.hitTest(event.point, this._hitOptions);
+
+				// Check segments after
+				if(!hitResult)
+					hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+
+				if(hitResult){
+					const new_highlight = hitResult.item ? hitResult.item.polygonID : null;
+
+					if(this._highlighted && new_highlight !== this._highlighted)
+						this.thisInput.leaveSection(this._highlighted);
+					
+					if(new_highlight)
+						this.thisInput.enterSection(new_highlight);
+
+					this._highlighted = new_highlight;
+
+				} else if(this._highlighted) {
+					this.thisInput.leaveSection(this._highlighted);
+					this._highlighted = null;
+				}
+			}
+		}
+		tool.onMouseDown = (event) => {
+			this._listener.forEach(listener => { if (listener.onMouseDown) listener.onMouseDown(event);});
+		}
+		tool.activate();
+	}
+
+	addListener(tool){
+		this._listener.push(tool);
+	}
+
+	removeListener(tool){
+		var index = this._listener.indexOf(tool);
+		if (index > -1) this._listener.splice(index, 1);
+	}
+
+	clearListener(){
+		this._listener = [];
 	}
 
 	setImage(id) {
 		this._imageCanvas = new paper.Group();
 		this._imageID = id;
 		this._drawImage();
-		this._imageCanvas.onMouseDrag = (event) => this.thisInput.dragImage(event);
 		this._imageCanvas.bringToFront();
-	}
 
-	addSegment(segment, isFixed=false, isStatic=false) {
-		this.drawPath(segment, false, isFixed, isStatic);
+		// Create region canvas
+		this._regionOverlay = this._createEmptyOverlay();
+		this._imageCanvas.addChild(this._regionOverlay);
 	}
-
-	fixSegment(segmentID, doFix = true) {
-		if (doFix) {
-			this._paths[segmentID].dashArray = [5, 3];
-		} else {
-			this._paths[segmentID].dashArray = [];
-		}
-	}
-
-	forceUpdate() {
-		// highlight segments to force paperjs/canvas to redraw everything
-		if (this._paths)
-			Object.keys(this._paths).forEach((id) => this.highlightSegment(id, false));
-	}
+	
 
 	clear() {
 		paper.project.activeLayer.removeChildren();
-		this._paths = {};
+		this._polygons = {};
 		this._currentZoom = 1;
 		paper.view.draw();
 		this._background = null;
 		this._updateBackground();
 	}
 
+	forceUpdate() {
+		// highlight segments to force paperjs/canvas to redraw everything
+		if (this._polygons)
+			Object.keys(this._polygons).forEach((id) => this.highlightSegment(id, false));
+	}
+
+	addSegment(segment, isFixed=false) {
+		this.drawPolygon(segment, false, isFixed);
+	}
+
+	removeSegment(id) {
+		this._polygons[id].remove();
+		delete this._polygons[id];
+	}
+
+	fixSegment(polygonID, doFix = true) {
+		if (doFix) {
+			this._polygons[polygonID].dashArray = [5, 3];
+		} else {
+			this._polygons[polygonID].dashArray = [];
+		}
+	}
+
 	updateSegment(segment) {
-		const path = this._paths[segment.id];
-		if (path === undefined || path === null) {
+		const polygon = this._polygons[segment.id];
+		if (polygon === undefined || polygon === null) {
 			this.addSegment(segment);
 		} else {
-			path.removeSegments();
+			polygon.removeSegments();
 
 			//Update color
 			const color = this._colors.getColor(segment.type);
 			//Save old alpha
-			const alphaFill = path.fillColor.alpha;
-			const alphaStroke = path.strokeColor.alpha;
-			const dashArray = path.dashArray;
-			const mainAlpha = path.fillColor.mainAlpha;
-			path.fillColor = new paper.Color(color);//color;
-			path.fillColor.alpha = alphaFill;
-			path.fillColor.mainAlpha = mainAlpha;
-			path.strokeColor = color;
-			path.strokeColor.alpha = alphaStroke;
-			path.defaultStrokeColor = new paper.Color(path.strokeColor);
-			path.dashArray = dashArray;
+			const alphaFill = polygon.fillColor.alpha;
+			const alphaStroke = polygon.strokeColor.alpha;
+			const dashArray = polygon.dashArray;
+			const mainAlpha = polygon.fillColor.mainAlpha;
+			polygon.fillColor = new paper.Color(color);//color;
+			polygon.fillColor.alpha = alphaFill;
+			polygon.fillColor.mainAlpha = mainAlpha;
+			polygon.strokeColor = color;
+			polygon.strokeColor.alpha = alphaStroke;
+			polygon.defaultStrokeColor = new paper.Color(polygon.strokeColor);
+			polygon.dashArray = dashArray;
 
-			//Convert segment points to current canvas coordinates
-			const imagePosition = this._imageCanvas.bounds;
-
-			if (!segment.isRelative) {
-				for (const key in segment.points) {
-					const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
-					path.add(new paper.Point(point.x, point.y));
-				}
-			} else {
-				for (const key in segment.points) {
-					const point = this._convertPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
-					path.add(new paper.Point(point.x, point.y));
-				}
+			for (const key in segment.points) {
+				const sPoint = segment.points[key];
+				const point = segment.isRelative ? this._convertPercentToCanvas(sPoint.x, sPoint.y)
+												: this._convertGlobalToCanvas(sPoint.x, sPoint.y);
+				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
 	}
 
-	removeSegment(id) {
-		this._paths[id].remove();
-		delete this._paths[id];
-	}
-
-	highlightSegment(id, doHighlight) {
-		const path = this._paths[id];
-		if (path) {
-			if (path.fillColor != null) {
+	highlightSegment(id, doHighlight = true) {
+		const polygon = this._polygons[id];
+		if (polygon) {
+			if (polygon.fillColor != null) {
 				if (doHighlight) {
-					path.fillColor.alpha = 0.6;
+					polygon.fillColor.alpha = 0.6;
 				} else {
-					path.fillColor.alpha = path.fillColor.mainAlpha;
+					polygon.fillColor.alpha = polygon.fillColor.mainAlpha;
 				}
 			}
 		}
 	}
 
-	hideSegment(id, doHide) {
-		const path = this._paths[id];
-		if (path !== null) {
-			path.visible = !doHide;
+	addRegion(region) {
+		this.drawPolygon(region, true, false, this._regionOverlay);
+	}
+
+	addLine(line) {
+		this.drawLine(line);
+	}
+
+	removeLine(lineID) {
+		this.removeSegment(lineID);
+	}
+
+	removeRegion(regionID) {
+		this.endEditing();
+		this.removeSegment(regionID);
+	}
+
+	hideSegment(id, doHide = true) {
+		const polygon = this._polygons[id];
+		if (polygon !== null) {
+			polygon.visible = !doHide;
 		}
 	}
 
-	selectSegment(id, doSelect, displayPoints, point) {
-		if (doSelect) {
-			const path = this._paths[id];
-			path.strokeColor = new paper.Color('#1e88e5');
-			path.strokeWidth = 2;
-			if (displayPoints) {
-				this._paths[id].selected = true;
-			}
-			if (point) {
-				const canvasSegment = path.segments.find(s => {
-					const realPoint = this._convertPointFromCanvas(s.point.x, s.point.y);
-					return realPoint.x === point.x && realPoint.y === point.y;
-				});
-				canvasSegment.point.selected = true;
-			}
-		} else {
-			const path = this._paths[id];
-			path.strokeColor = new paper.Color(path.defaultStrokeColor);
-			path.strokeWidth = 1;
-			this._paths[id].selected = false;
-			if (point) {
-				const canvasSegment = path.segments.find(s => {
-					const realPoint = this._convertPointFromCanvas(s.point.x, s.point.y);
-					return realPoint.x === point.x && realPoint.y === point.y;
-				});
-				canvasSegment.point.selected = false;
+	selectSegment(id, doSelect = true, selectPoints = false) {
+		const polygon = this._polygons[id];
+		if(polygon){
+			if (doSelect) {
+				polygon.strokeColor = new paper.Color('#1e88e5');
+				polygon.strokeWidth = 2;
+				this._polygons[id].selected = selectPoints;
+			} else {
+				polygon.strokeColor = new paper.Color(polygon.defaultStrokeColor);
+				polygon.strokeWidth = 1;
+				this._polygons[id].selected = selectPoints;
 			}
 		}
 	}
 
-	selectPointsInbetween(pointA, pointB, segmentID) {
+	selectSegmentPoints(id, points, fallback = (id,points) => {}){
+		const polygon = this._polygons[id];
+		if(!polygon)
+			throw Error("Segment does not exist.")
+
+		this._polygons[id].selected = true;
+
+		const pointsToSelect = points.slice(0);
+		polygon.segments.some(s => {
+			if(pointsToSelect.length == 0)
+				true; // End loop, since no points to select
+			else{
+				const globalPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
+				
+				// Select if in pointsToSelect and remove from pointsToSelect
+				const pointsToSelectIndex = pointsToSelect.findIndex(point => {return (globalPoint.x == point.x && globalPoint.y == point.y);});	
+				if(pointsToSelectIndex > -1){
+					s.point.selected = true
+					pointsToSelect.splice(pointsToSelect,1);
+				}
+			}
+		});
+	
+		if(pointsToSelect.length > 0)
+			fallback(id,pointsToSelect);
+	}
+
+	selectPointsInbetween(pointA, pointB, polygonID) {
 		const points = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
-		this._paths[segmentID].selected = true;
+		this._polygons[polygonID].selected = true;
 		
-		this._paths[segmentID].segments.forEach(point => {
+		this._polygons[polygonID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
 				point.point.selected = true;
-				points.push(this._convertPointFromCanvas(point.point.x, point.point.y));
+				points.push(this._convertCanvasToGlobal(point.point.x, point.point.y));
 			}
 		});
 		return points;
 	}
 
 	getSegmentIDsBetweenPoints(pointA, pointB) {
-		const segmentIDs = [];
+		const polygonIDs = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
-		$.each(this._paths, (id, path) => {
-			if (rectangleAB.contains(path.bounds)) {
-				segmentIDs.push(id);
+		$.each(this._polygons, (id, polygon) => {
+			if (rectangleAB.contains(polygon.bounds)) {
+				polygonIDs.push(id);
 			}
 		});
-		return segmentIDs;
+		return polygonIDs;
 	}
 
 	getBoundaries() {
@@ -248,87 +382,76 @@ class Viewer {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	drawPath(segment, doFill, isFixed, isStatic = false) {
-		//Construct path from segment
-		const path = new paper.Path();
+	drawPolygon(segment, doFill, isFixed, canvas = this._imageCanvas) {
+		//Construct polygon from segment
+		const polygon = new paper.Path();
+		polygon.polygonID = segment.id;
 		const color = this._colors.getColor(segment.type);
 
-		path.doFill = doFill;
-		path.fillColor = new paper.Color(color);//color;
-		path.closed = true;
-		path.strokeColor = color;
+		polygon.doFill = doFill;
+		polygon.fillColor = new paper.Color(color);//color;
+		polygon.closed = true;
+		polygon.strokeColor = color;
 		if (doFill) {
-			path.fillColor.alpha = 0.4;
-			path.strokeColor.alpha = 0.4;
+			polygon.fillColor.alpha = 0.4;
+			polygon.strokeColor.alpha = 0.4;
 		} else {
-			path.fillColor.alpha = 0.001;
-			path.strokeColor.alpha = 1;
-			path.strokeWidth = 2;
+			polygon.fillColor.alpha = 0.001;
+			polygon.strokeColor.alpha = 1;
+			polygon.strokeWidth = 1;
 		}
-		path.defaultStrokeColor = new paper.Color(path.strokeColor);
+		polygon.defaultStrokeColor = new paper.Color(polygon.strokeColor);
 		if (isFixed) {
-			path.dashArray = [5, 3];
+			polygon.dashArray = [5, 3];
 		}
-		path.fillColor.mainAlpha = path.fillColor.alpha;
+		polygon.fillColor.mainAlpha = polygon.fillColor.alpha;
 
 		//Convert segment points to current canvas coordinates
 		if (!segment.isRelative) {
 			for (const key in segment.points) {
-				const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
-				path.add(new paper.Point(point.x, point.y));
+				const point = this._convertGlobalToCanvas(segment.points[key].x, segment.points[key].y);
+				polygon.add(new paper.Point(point.x, point.y));
 			}
 		} else {
 			for (const key in segment.points) {
-				const point = this._convertPercentPointToCanvas(segment.points[key].x, segment.points[key].y);
-				path.add(new paper.Point(point.x, point.y));
+				const point = this._convertPercentToCanvas(segment.points[key].x, segment.points[key].y);
+				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
 
-		if(!isStatic){
-			//Add listeners
-			path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
-			path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
-			path.onClick = (event) => { this.thisInput.selectSection(segment.id, event, path.hitTest(event.point, { segments: true, tolerance: 10 })); };
-			path.onMouseDrag = (event) => this.thisInput.dragSection(segment.id, event);
-		}
-
 		//Add to canvas
-		this._imageCanvas.addChild(path);
-		this._paths[segment.id] = path;
+		canvas.addChild(polygon);
+		this._polygons[segment.id] = polygon;
 
-		return path;
+		return polygon;
 	}
 
-	getPath(id) {
-		return this._paths[id];
+	getPolygon(id) {
+		return this._polygons[id];
 	}
-	drawPathLine(segment) {
-		//Construct path from segment
-		const path = new paper.Path();
+
+	drawLine(line) {
+		//Construct polygon from segment
+		const polygon = new paper.Path();
 		const color = new paper.Color(1, 0, 1);
 
-		path.doFill = false;
-		path.closed = false;
-		path.strokeColor = color;
-		path.strokeWidth = 2;
-
+		polygon.doFill = false;
+		polygon.closed = false;
+		polygon.strokeColor = color;
+		polygon.strokeWidth = 2;
+		polygon.polygonID = line.id;
 
 		//Convert segment points to current canvas coordinates
-		for (const key in segment.points) {
-			const point = this._convertPointToCanvas(segment.points[key].x, segment.points[key].y);
-			path.add(new paper.Point(point.x, point.y));
+		for (const key in line.points) {
+			const point = this._convertGlobalToCanvas(line.points[key].x, line.points[key].y);
+			polygon.add(new paper.Point(point.x, point.y));
 		}
 
-		//Add listeners
-		path.onMouseEnter = (event) => this.thisInput.enterSection(segment.id, event);
-		path.onMouseLeave = (event) => this.thisInput.leaveSection(segment.id, event);
-		path.onMouseDown = (event) => this.thisInput.selectSection(segment.id, event, path.hitTest(event.point, { segments: true, tolerance: 10 }));
-
 		//Add to canvas
-		this._imageCanvas.addChild(path);
-		this._paths[segment.id] = path;
+		this._imageCanvas.addChild(polygon);
+		this._polygons[line.id] = polygon;
 
-		return path;
+		return polygon;
 	}
 
 	getImageCanvas() {
@@ -358,7 +481,6 @@ class Viewer {
 		let position = new paper.Point(0, 0);
 		position = position.add([image.width * 0.5, image.height * 0.5]);
 		image.position = position;
-		image.onClick = (event) => this.thisInput.clickImage(event, image.hitTest(event.point, { tolerance: 10 }));
 
 		this._imageCanvas.addChild(image);
 
@@ -367,7 +489,7 @@ class Viewer {
 	}
 
 	showContours(contours){
-		let overlayHTML = document.getElementById(this._overlayID);
+		let overlayHTML = document.getElementById(this._contourOverlayID);
 		if(!overlayHTML){
 			overlayHTML = document.createElement('canvas');
 			document.body.appendChild(overlayHTML);
@@ -391,22 +513,32 @@ class Viewer {
 		});
 
 		//Draw Overlay
-		if(document.getElementById(this._overlayID)){
-			if(this._overlay) this._overlay.remove();
+		if(document.getElementById(this._contourOverlayID)){
+			if(this._contourOverlay) this._contourOverlay.remove();
 
-			this._overlay = new paper.Raster(this._overlayID);
-			this._overlay.visible = true;
+			this._contourOverlay = new paper.Raster(this._contourOverlayID);
+			this._contourOverlay.visible = true;
 			const imagePosition = this._imageCanvas.bounds;
-			this._overlay.position = new paper.Point(imagePosition.x,imagePosition.y);
-			this._overlay.position = this._overlay.position.add([imagePosition.width * 0.5, imagePosition.height * 0.5]);
-			this._overlay.scale(this._currentZoom);
+			this._contourOverlay.position = new paper.Point(imagePosition.x,imagePosition.y);
+			this._contourOverlay.position = this._contourOverlay.position.add([imagePosition.width * 0.5, imagePosition.height * 0.5]);
+			this._contourOverlay.scale(this._currentZoom);
 
-			this._imageCanvas.addChild(this._overlay);
+			this._imageCanvas.addChild(this._contourOverlay);
 		}
 	}
 
 	hideContours(){
-		if(this._overlay) this._overlay.visible = false;
+		if(this._contourOverlay) this._contourOverlay.visible = false;
+	}
+
+	_createEmptyOverlay(){
+		// Rectangle dummy to force empty group size to image size
+		const rect = new paper.Path.Rectangle(this._imageCanvas.bounds);
+
+		// Create overlay canvas
+		const overlay = new paper.Group();
+		overlay.addChild(rect);
+		return overlay;
 	}
 
 	_updateBackground() {
@@ -419,12 +551,25 @@ class Viewer {
 				strokeColor: '#757575',
 				fillColor: '#757575'
 			});
-			this._background.onClick = (event) => this.thisInput.clickBackground(event);
-			this._background.onMouseDrag = (event) => this.thisInput.dragBackground(event);
 			this._background.sendToBack();
 		}
 	}
-	_convertPointFromCanvas(canvasX, canvasY) {
+
+	_convertCanvasPolygonToGlobal(polygon, isRelative) {
+		const points = [];
+		for (let pointItr = 0, pointMax = polygon.segments.length; pointItr < pointMax; pointItr++) {
+			const point = polygon.segments[pointItr].point;
+			if (isRelative) {
+				points.push(this._convertCanvasToPercent(point.x, point.y));
+			} else {
+				points.push(this._convertCanvasToGlobal(point.x, point.y));
+			}
+		}
+
+		return points;
+	}
+
+	_convertCanvasToGlobal(canvasX, canvasY) {
 		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
 		const imagePosition = this.getBoundaries();
 		const x = Math.round((canvasPoint.x - imagePosition.x) / this.getZoom());
@@ -432,7 +577,8 @@ class Viewer {
 
 		return { "x": x, "y": y };
 	}
-	_convertPercentPointFromCanvas(canvasX, canvasY) {
+
+	_convertCanvasToPercent(canvasX, canvasY) {
 		const canvasPoint = this.getPointInBounds(new paper.Point(canvasX, canvasY), this.getBoundaries());
 		const imagePosition = this.getBoundaries();
 		const x = (canvasPoint.x - imagePosition.x) / imagePosition.width;
@@ -441,14 +587,15 @@ class Viewer {
 		return { "x": x, "y": y };
 	}
 
-	_convertPointToCanvas(x, y) {
+	_convertGlobalToCanvas(x, y) {
 		const imagePosition = this._imageCanvas.bounds;
 		const canvasX = x * this._currentZoom + imagePosition.x;
 		const canvasY = y * this._currentZoom + imagePosition.y;
 
 		return { "x": canvasX, "y": canvasY };
 	}
-	_convertPercentPointToCanvas(x, y) {
+
+	_convertPercentToCanvas(x, y) {
 		const imagePosition = this._imageCanvas.bounds;
 		const canvasX = (x * imagePosition.width) + imagePosition.x;
 		const canvasY = (y * imagePosition.height) + imagePosition.y;

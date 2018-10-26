@@ -20,7 +20,6 @@ function GuiInput(navigationController, controller, gui) {
 	});
 	$('.doSegment').click(() => _controller.doSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
-	$('.downloadPageXML').click(() => _controller.downloadPageXML());
 	$('.pageXMLVersion').click(function () {
 		const version = $(this).data('version');
 		_gui.setPageXMLVersion(version);
@@ -32,7 +31,6 @@ function GuiInput(navigationController, controller, gui) {
 		$('#dropDownPageXML').dropdown('open');
 	});
 	$('.saveSettingsXML').click(() => _controller.saveSettingsXML());
-	$('.downloadSettingsXML').click(() => _controller.downloadSettingsXML());
 	$('#upload-input:file').on('change', function () {
 		const file = this.files[0];
 		$(this).val("");
@@ -71,18 +69,15 @@ function GuiInput(navigationController, controller, gui) {
 	$('.setRegionOfInterest').click(() => _controller.createRectangle('roi'));
 
 	$('.createIgnore').click(() => _controller.createRectangle('ignore'));
-	$('.createRegionBorder').click(() => _controller.createBorder(false));
-	$('.createSegmentPolygon').click(() => _controller.createPolygon(true));
+	$('.createRegionBorder').click(() => _controller.createRegionBorder());
+	$('.createSegmentPolygon').click(() => _controller.createSegmentPolygon(true));
 	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
-	$('.createSegmentBorder').click(() => _controller.createBorder(true));
 	$('.createCut').click(() => _controller.createCut());
 
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.selectContours());
-
-	$('.editMode').click(() => _controller.editLastSelected());
 
 	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
 	$('.zoomout').click(() => _navigationController.zoomOut(0.1));
@@ -94,29 +89,10 @@ function GuiInput(navigationController, controller, gui) {
 	$('.moveup').click(() => _navigationController.move(0, -10));
 	$('.movecenter').click(() => _navigationController.center());
 
-	$('.movefree').click(() => {
-		if (_gui.doMoveCanvas) {
-			_gui.moveCanvas(false);
-		} else {
-			_gui.moveCanvas(true);
-		}
-	});
-
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
-	$('.deleteEdit').click(() => {
-		_controller.deleteSelected();
-		//TODO redirect to controller
-		$("#segmentedit").addClass("hide");
-	});
-	$('.closeEdit').click(() => {
-		//TODO redirect to controller
-		$("#segmentedit").addClass("hide");
-	});
-
-	$('.chagePage').click(function () { _controller.displayPage($(this).data("page")) });
-	$('#selectTypes').on('change', function () { _controller.changeTypeSelected(this.value) });
+	$('.changePage').click(function () { _controller.displayPage($(this).data("page")) });
 	$('.regionlegend').click(function () {
 		const $this = $(this);
 		const $switchBox = $this.find('input');
@@ -129,9 +105,8 @@ function GuiInput(navigationController, controller, gui) {
 
 		_controller.hideAllRegions(!$switchBox.prop('checked'));
 	});
-	$('.regionSettings, #regioneditorSelect .collection-item').click(function () { _controller.openRegionSettings($(this).data("type"), false) });
-	$('.regionCreate').click(function () { _controller.openRegionSettings($(this).data("type"), true) });
-	$('.regionCancel').click(() => _gui.closeRegionSettings());
+	$('.regionSettings, #regioneditorSelect .collection-item').click(function () { _controller.openRegionSettings($(this).data("type")) });
+	$('.regionCreate').click(function () { _controller.openRegionSettings() });
 	$('.regionDelete').click(() => {
 		const regionType = $('#regioneditor').find('#regionType').text();
 		_controller.deleteRegionSettings(regionType);
@@ -146,8 +121,8 @@ function GuiInput(navigationController, controller, gui) {
 		if (doSelected) {
 			_controller.changeTypeSelected(regionType);
 		} else {
-			const polygonID = $contextmenu.data('polygonID');
-			_controller.changeRegionType(polygonID, regionType);
+			const id = $contextmenu.data('id');
+			_controller.changeRegionType(id, regionType);
 		}
 		_gui.closeContextMenu();
 	});
@@ -233,14 +208,14 @@ function GuiInput(navigationController, controller, gui) {
 
 		$('.reading-order-segment').mouseover(function () {
 			const $this = $(this);
-			const segmentID = $this.data('segmentid');
-			_controller.enterSegment(segmentID);
+			const id = $this.data('segmentid');
+			_controller.enterSegment(id);
 		});
 
 		$('.reading-order-segment').mouseleave(function () {
 			const $this = $(this);
-			const segmentID = $this.data('segmentid');
-			_controller.leaveSegment(segmentID);
+			const id = $this.data('segmentid');
+			_controller.leaveSegment(id);
 		});
 
 		$('.reading-order-segment').on('dragstart', function (event) {
@@ -282,8 +257,8 @@ function GuiInput(navigationController, controller, gui) {
 		});
 		$('.delete-reading-order-segment').click(function () {
 			const $this = $(this);
-			const segmentID = $this.data('segmentid');
-			_controller.removeFromReadingOrder(segmentID);
+			const id = $this.data('segmentid');
+			_controller.removeFromReadingOrder(id);
 		});
 	}
 }

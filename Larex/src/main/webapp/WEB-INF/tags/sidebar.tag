@@ -61,7 +61,7 @@
 								</label>
 							</span>	
 						</li>
-						<c:forEach var="type" items="${segmenttypes}">
+						<c:forEach var="type" items="${regionTypes}">
 							<li class="regionlegend collection-item" data-type="${type.key}">
 								<span class="regionSettings infocus" data-type="${type.key}">
 									<div class="legendicon ${type.key}"></div>${type.key}
