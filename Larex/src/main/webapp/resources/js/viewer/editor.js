@@ -793,6 +793,7 @@ class Editor extends Viewer {
 		this.getImageCanvas().addChild(this._readingOrder);
 		this._readingOrder.visible = true;
 		this._guiOverlay.visible = true;
+		this._guiOverlay.bringToFront();
 		this._readingOrder.removeSegments();
 		this._guiOverlay.removeChildren();
 
@@ -800,18 +801,26 @@ class Editor extends Viewer {
 			const segment = this.getPolygon(readingOrder[index]);
 			if (segment) {
 				this._readingOrder.add(new paper.Segment(segment.bounds.center));
+				const label = new paper.Group();
 				const text = new paper.PointText({
-					point: segment.bounds.center,
 					content: index,
-					fillColor: 'white',
-					strokeColor: 'black',
+					fillColor: 'indigo',
 					fontFamily: 'Courier New',
 					fontWeight: 'bold',
-					fontSize: '16pt',
-					strokeWidth: 1
+					fontSize: '18pt',
 				});
+				text.bounds.center = segment.bounds.center;
 
-				this._guiOverlay.addChild(text);
+				const background = new paper.Path.Circle(text.bounds.center,text.bounds.height/2);
+				background.fillColor = new paper.Color(1, 1, 1, 0.8);
+				background.strokeColor = 'indigo';
+				background.strokeWidth = 3;
+
+				label.addChild(background)
+				label.addChild(text)
+				label.lastZoom = this._currentZoom;
+
+				this._guiOverlay.addChild(label);
 			}
 		}
 	}
@@ -965,7 +974,9 @@ class Editor extends Viewer {
 
 	_resetOverlay() {
 		this._guiOverlay.children.forEach(function (element) {
-			element.scaling = new paper.Point(1, 1);
+			// Reset current zoom
+			element.scale(element.lastZoom/this._currentZoom);
+			element.lastZoom = this._currentZoom;
 		}, this);
 		this._resetPointSelector();
 	}
