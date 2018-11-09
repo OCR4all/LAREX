@@ -188,15 +188,15 @@ function GUI(canvas, viewer, colors) {
 
 	this.highlightSegment = function (id, doHighlight) {
 		if (doHighlight) {
-			$(".reading-order-segment[data-segmentid='" + id + "']").addClass('highlighted');
+			$(".reading-order-segment[data-id='" + id + "']").addClass('highlighted');
 		} else {
-			$(".reading-order-segment[data-segmentid='" + id + "']").removeClass('highlighted');
+			$(".reading-order-segment[data-id='" + id + "']").removeClass('highlighted');
 		}
 	}
 
 	this.setBeforeInReadingOrder = function (segment1ID, segment2ID) {
-		const $segment1 = $(".reading-order-segment[data-segmentid='" + segment1ID + "']");
-		const $segment2 = $(".reading-order-segment[data-segmentid='" + segment2ID + "']");
+		const $segment1 = $(".reading-order-segment[data-id='" + segment1ID + "']");
+		const $segment2 = $(".reading-order-segment[data-id='" + segment2ID + "']");
 		$($segment1).insertBefore($segment2);
 	}
 
@@ -207,7 +207,7 @@ function GUI(canvas, viewer, colors) {
 			$readingOrderListItems = $('#reading-order-list');
 
 			for (let index = 0; index < readingOrder.length; index++) {
-				$readingOrderListItems.append($(".reading-order-segment[data-segmentid='" + readingOrder[index] + "']"));
+				$readingOrderListItems.append($(".reading-order-segment[data-id='" + readingOrder[index] + "']"));
 			}
 		}
 	}
