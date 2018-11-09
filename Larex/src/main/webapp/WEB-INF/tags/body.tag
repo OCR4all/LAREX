@@ -49,7 +49,7 @@
 				<div class="col l6 s12">
 					<ul class="grey-text text-lighten-4">
 						<li><b>Dr. Uwe Springmann</b></li>
-						<li>Email: <a href="mailto:uwe.springmann@uni-wuerzburg.de">uwe.springmann@uni-wuerzburg.de</a></li>
+						<li>Email: <a href="mailto:uwe@springmann.net">uwe@springmann.net</a></li>
 					</ul>
 				</div>
 				<div class="col l6 s12">
