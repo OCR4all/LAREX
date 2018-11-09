@@ -36,11 +36,11 @@ class Viewer {
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
 				// Check regions first
-				let hitResult = this._regionOverlay.hitTest(event.point, this._hitOptions);
+				let hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
 
 				// Check segments after
 				if(!hitResult)
-					hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+					hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
 
 				if(hitResult){
 					if (hitResult.item && hitResult.item.polygonID) 
@@ -64,7 +64,7 @@ class Viewer {
 
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
-				const hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+				const hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
 				if(hitResult)
 					this.thisInput.dragImage(event);
 				else 
@@ -85,11 +85,11 @@ class Viewer {
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
 				// Check regions first
-				let hitResult = this._regionOverlay.hitTest(event.point, this._hitOptions);
+				let hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
 
 				// Check segments after
 				if(!hitResult)
-					hitResult = this._imageCanvas.hitTest(event.point, this._hitOptions);
+					hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
 
 				if(hitResult){
 					const new_highlight = hitResult.item ? hitResult.item.polygonID : null;

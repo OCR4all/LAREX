@@ -763,31 +763,22 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.setBeforeInReadingOrder = function (segment1ID, segment2ID, doUpdate) {
-		if (!_tempReadingOrder) {
-			_tempReadingOrder = JSON.parse(JSON.stringify(_segmentation[_currentPage].readingOrder));
-		}
+		if(segment1ID != segment2ID){
+			if (!_tempReadingOrder) 
+				_tempReadingOrder = JSON.parse(JSON.stringify(_segmentation[_currentPage].readingOrder));
 
-		let readingOrder = _tempReadingOrder;
-		let index1;
-		let segment1;
-		let segment2;
-		for (let index = 0; index < readingOrder.length; index++) {
-			const currentSegmentID = readingOrder[index];
-			if (currentSegmentID === segment1ID) {
-				index1 = index;
-				segment1ID = currentSegmentID;
-			} else if (currentSegmentID === segment2ID) {
-				segment2ID = currentSegmentID;
+			_tempReadingOrder.splice(_tempReadingOrder.indexOf(segment1ID), 1);
+			_tempReadingOrder.splice(_tempReadingOrder.indexOf(segment2ID), 0, segment1ID);
+			if(doUpdate){
+				_gui.setBeforeInReadingOrder(segment1ID, segment2ID);
+
+				if(segment1ID != segment2ID)
+					_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_currentPage].readingOrder, _tempReadingOrder, this, _segmentation, _currentPage), _currentPage);
 			}
+			this.displayReadingOrder(_displayReadingOrder, true);
+		} else {
+			this.displayReadingOrder(_displayReadingOrder, false);
 		}
-		readingOrder.splice(index1, 1);
-		readingOrder.splice(readingOrder.indexOf(segment2ID), 0, segment1ID);
-		if (doUpdate) {
-			_gui.setBeforeInReadingOrder(segment1ID, segment2ID);
-
-			_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_currentPage].readingOrder, _tempReadingOrder, this, _segmentation, _currentPage), _currentPage);
-		}
-		this.displayReadingOrder(_displayReadingOrder, true);
 	}
 
 	this.displayReadingOrder = function (doDisplay, doUseTempReadingOrder) {

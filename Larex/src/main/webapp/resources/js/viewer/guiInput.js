@@ -208,13 +208,13 @@ function GuiInput(navigationController, controller, gui) {
 
 		$('.reading-order-segment').mouseover(function () {
 			const $this = $(this);
-			const id = $this.data('segmentid');
+			const id = $this.data('id');
 			_controller.enterSegment(id);
 		});
 
 		$('.reading-order-segment').mouseleave(function () {
 			const $this = $(this);
-			const id = $this.data('segmentid');
+			const id = $this.data('id');
 			_controller.leaveSegment(id);
 		});
 
@@ -236,7 +236,7 @@ function GuiInput(navigationController, controller, gui) {
 			const $this = $(this);
 			$this.addClass('dragedOver');
 			if (_draggedObject) {
-				_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'), $(event.target).data('segmentid'), false);
+				_controller.setBeforeInReadingOrder(_draggedObject.data('id'), $(event.target).data('id'), false);
 			}
 			return true;
 		});
@@ -245,7 +245,7 @@ function GuiInput(navigationController, controller, gui) {
 			const $this = $(this);
 			$this.removeClass('dragedOver');
 			if (_draggedObject) {
-				_controller.setBeforeInReadingOrder(_draggedObject.data('segmentid'), $(event.target).data('segmentid'), true);
+				_controller.setBeforeInReadingOrder(_draggedObject.data('id'), $(event.target).data('id'), true);
 			}
 			_hasBeenDropped = true;
 		});
@@ -257,7 +257,7 @@ function GuiInput(navigationController, controller, gui) {
 		});
 		$('.delete-reading-order-segment').click(function () {
 			const $this = $(this);
-			const id = $this.data('segmentid');
+			const id = $this.data('id');
 			_controller.removeFromReadingOrder(id);
 		});
 	}
