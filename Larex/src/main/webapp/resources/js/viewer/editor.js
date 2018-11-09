@@ -973,9 +973,11 @@ class Editor extends Viewer {
 
 	_resetOverlay() {
 		this._guiOverlay.children.forEach(function (element) {
-			// Reset current zoom
-			element.scale(element.lastZoom/this._currentZoom);
-			element.lastZoom = this._currentZoom;
+			if(element.hasOwnProperty("lastZoom")){
+				// Reset current zoom
+				element.scale(element.lastZoom/this._currentZoom);
+				element.lastZoom = this._currentZoom;
+			}
 		}, this);
 		this._resetPointSelector();
 	}
