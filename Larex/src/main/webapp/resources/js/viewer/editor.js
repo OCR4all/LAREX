@@ -17,7 +17,7 @@ class Editor extends Viewer {
 		this._grid = { isActive: false };
 		this._readingOrder;
 		
-		this._guiOverlay = new paper.Group();
+		this._guiOverlay;
 		
 		this.mouseregions = { TOP: 0, BOTTOM: 1, LEFT: 2, RIGHT: 3, MIDDLE: 4, OUTSIDE: 5 };
 		this.DoubleClickListener = new DoubleClickListener();
@@ -791,8 +791,8 @@ class Editor extends Viewer {
 			this._readingOrder.strokeWidth = 2;
 		}
 		this.getImageCanvas().addChild(this._readingOrder);
-		this._readingOrder.visible = false;
-		this._guiOverlay.visible = false;
+		this._readingOrder.visible = true;
+		this._guiOverlay.visible = true;
 		this._readingOrder.removeSegments();
 		this._guiOverlay.removeChildren();
 
@@ -967,7 +967,6 @@ class Editor extends Viewer {
 		this._guiOverlay.children.forEach(function (element) {
 			element.scaling = new paper.Point(1, 1);
 		}, this);
-		//this._guiOverlay.bringToFront();
 		this._resetPointSelector();
 	}
 
@@ -977,6 +976,10 @@ class Editor extends Viewer {
 	}
 	setImage(id) {
 		super.setImage(id);
+
+		// Create gui overlay
+		this._guiOverlay = this._createEmptyOverlay();
+		this._imageCanvas.addChild(this._guiOverlay);
 		this._resetOverlay();
 	}
 	setZoom(zoomfactor, point) {
