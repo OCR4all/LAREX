@@ -413,10 +413,8 @@ class Editor extends Viewer {
 			});
 
 			contourBound.bounds = new paper.Rectangle(
-					new paper.Point(
-						this._convertGlobalToCanvas(left,top)),
-					new paper.Point(
-						this._convertGlobalToCanvas(right,bottom)));
+					new paper.Point(left,top),
+					new paper.Point(right,bottom));
 			contourBound.bounds.visible = false;
 			contourBounds.push(contourBound);
 		});
@@ -428,14 +426,15 @@ class Editor extends Viewer {
 					this.isEditing = true;
 				},
 				(rectangle)=>{
-					let selectedContours = contourBounds.filter(c => {return rectangle.contains(c.bounds)}).map(c => {return c.contour});
+					const globalRectangle = new paper.Path(this._convertCanvasPolygonToGlobal(rectangle)).bounds;
+					let selectedContours = contourBounds.filter(c => { return globalRectangle.contains(c.bounds) }).map(c => {return c.contour});
 					this._controller.combineContours(selectedContours);
 				},
 				(rectangle) => {
-					let selectedContours = contourBounds.filter(c => {return rectangle.contains(c.bounds)}).map(c => {return c.contour});
+					const globalRectangle = new paper.Path(this._convertCanvasPolygonToGlobal(rectangle)).bounds;
+					let selectedContours = contourBounds.filter(c => {return globalRectangle.contains(c.bounds)}).map(c => {return c.contour});
 					this.showContours(selectedContours);
-				},
-				'dashed'
+				}, 'dashed'
 			);
 		}
 	}
