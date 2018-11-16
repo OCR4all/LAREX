@@ -4,8 +4,6 @@ class Editor extends Viewer {
 		super(viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
-		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5,contours:6};
-		this._editMode = this._editModes.default; 
 
 		this._tempPolygonType;
 		this._tempPolygon;
@@ -114,7 +112,6 @@ class Editor extends Viewer {
 		if (this.isEditing === false) {
 			this.startRectangle(
 				()=>{
-					this._editMode = 1;
 					this.isEditing = true;
 					this._tempPolygonType = type;
 					document.body.style.cursor = "copy";
@@ -148,7 +145,6 @@ class Editor extends Viewer {
 		if (this.isEditing === false) {
 			this.startRectangle(
 				()=>{
-					this._editMode = -1;
 					this.isEditing = true;
 				},
 				(rectangle)=>{
@@ -163,7 +159,6 @@ class Editor extends Viewer {
 
 	startCreatePolygon(type) {
 		if (this.isEditing === false) {
-			this._editMode = 0;
 			this.isEditing = true;
 			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
@@ -237,7 +232,6 @@ class Editor extends Viewer {
 
 	startCreateLine() {
 		if (this.isEditing === false) {
-			this._editMode = 3;
 			this.isEditing = true;
 			document.body.style.cursor = "copy";
 
@@ -298,7 +292,6 @@ class Editor extends Viewer {
 	startCreateBorder(type) {
 		if (this.isEditing === false) {
 			this.isEditing = true;
-			this._editMode = 2;
 			this._tempPolygonType = type;
 
 			const listener = {};
@@ -422,7 +415,6 @@ class Editor extends Viewer {
 		if (this.isEditing === false) {
 			this.startRectangle(
 				()=>{
-					this._editMode = 6;
 					this.isEditing = true;
 				},
 				(rectangle)=>{
@@ -441,7 +433,6 @@ class Editor extends Viewer {
 
 	startMovePolygonPoints(polygonID, type, points) {
 		if (this.isEditing === false) {
-			this._editMode = 4;
 			this.isEditing = true;
 			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
@@ -522,7 +513,6 @@ class Editor extends Viewer {
 
 	startScalePolygon(polygonID, type) {
 		if (this.isEditing === false) {
-			this._editMode = 5;
 			this.isEditing = true;
 			this._tempPolygonType = type;
 
