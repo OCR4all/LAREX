@@ -549,11 +549,11 @@ class Viewer {
 				if(right < point.x) right = point.x;
 				if(point.y < top) top = point.y;
 				if(bottom < point.y) bottom = point.y;
-				const width = right - left;
-				const height = bottom - top;
-				const area = width*height;
-				this._contourBounds.push({id:id,bounds:{left:left,right:right,top:top,bottom:bottom,area:area}});
 			});
+			const width = right - left;
+			const height = bottom - top;
+			const area = width*height;
+			this._contourBounds.push({id:id,bounds:{left:left,right:right,top:top,bottom:bottom,area:area}});
 		}
 		// Sort by top -> bottom -> left -> right
 		this._contourBounds.sort((a,b) => {
@@ -581,12 +581,14 @@ class Viewer {
 	}
 
 	highlightContours(contourIDs,doHighlight=true){
+		console.log(this._contours.length);
 		const contours = [];
 		contourIDs.forEach(id => contours.push(this._contours[id]));
 		if(doHighlight)
 			this._colorizeContours(contours,'#FF00FFCC');
 		else
 			this._colorizeContours(contours); // Call colorize with default color
+		console.log(this._contours.length);
 	}
 	
 	contourHitTest(point){
@@ -623,6 +625,7 @@ class Viewer {
 	}
 
 	_colorizeContours(contours,color='#00FF00CC'){
+		console.log("start",contours.length);
 		let ctx = this._contour_context;
 
 		contours.forEach((contour)=>{
@@ -637,6 +640,7 @@ class Viewer {
 				ctx.fill();
 			}
 		});
+		console.log("end");
 	}
 
 	_createEmptyOverlay(){

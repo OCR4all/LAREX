@@ -155,7 +155,8 @@ class Selector {
 		} else if (this.selectedType == ElementType.CONTOUR) {
 			const inbetween = this._editor.selectContoursInbetween(pointA, pointB);
 			inbetween.forEach(contour => {
-				this._selectedElements.push(contour);
+				if(!this._selectedContours.includes(contour))
+					this._selectedElements.push(contour);
 			});
 			
 			this._editor.highlightContours(inbetween);

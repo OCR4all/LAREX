@@ -393,49 +393,6 @@ class Editor extends Viewer {
 		}
 	}
 
-	selectContours(contours){
-		let contourBounds = [];
-		
-		contours.forEach(c => {
-			let contourBound = {contour:c};
-			let left = Number.POSITIVE_INFINITY;
-			let right = Number.NEGATIVE_INFINITY;
-			let top = Number.POSITIVE_INFINITY;
-			let bottom = Number.NEGATIVE_INFINITY;
-
-			c.forEach(p => {
-				if(p.x < left) left = p.x;
-				if(p.x > right) right = p.x;
-				if(p.y < top) top = p.y;
-				if(p.y > bottom) bottom = p.y;
-			});
-
-			contourBound.bounds = new paper.Rectangle(
-					new paper.Point(left,top),
-					new paper.Point(right,bottom));
-			contourBound.bounds.visible = false;
-			contourBounds.push(contourBound);
-		});
-
-		if (this.isEditing === false) {
-			this.startRectangle(
-				()=>{
-					this.isEditing = true;
-				},
-				(rectangle)=>{
-					const globalRectangle = new paper.Path(this._convertCanvasPolygonToGlobal(rectangle)).bounds;
-					let selectedContours = contourBounds.filter(c => { return globalRectangle.contains(c.bounds) }).map(c => {return c.contour});
-					this._controller.combineContours(selectedContours);
-				},
-				(rectangle) => {
-					const globalRectangle = new paper.Path(this._convertCanvasPolygonToGlobal(rectangle)).bounds;
-					let selectedContours = contourBounds.filter(c => {return globalRectangle.contains(c.bounds)}).map(c => {return c.contour});
-					this.displayContours(selectedContours);
-				}, 'dashed'
-			);
-		}
-	}
-
 	startMovePolygonPoints(elementID, type, points) {
 		if (this.isEditing === false) {
 			this.isEditing = true;
@@ -716,7 +673,6 @@ class Editor extends Viewer {
 		}
 
 		document.body.style.cursor = "auto";
-		this.displayContours(false);
 	}
 
 	getPointInBounds(point, bounds) {
