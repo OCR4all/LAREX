@@ -1,36 +1,26 @@
 function ViewerInput(controller) {
 	const _controller = controller;
 
-	this.enterElement = function (sectionID, event, selectMode=SelectMode.POLYGON) {
-		if(selectMode == SelectMode.POLYGON){
+	this.enterElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
+		if(this.mode != ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, true);
-		} else if(this.selectMode == SelectMode.CONTOUR){
-
-		} else {
-			throw new ValueError('Unkown selection mode: '+this.selectMode)
-		}
 	}
 
-	this.leaveElement = function (sectionID, event, selectMode=SelectMode.POLYGON) {
-		if(selectMode == SelectMode.POLYGON){
+	this.leaveElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
+		if(this.mode != ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, false);
-		} else if(this.selectMode == SelectMode.CONTOUR){
-
-		} else {
-			throw new ValueError('Unkown selection mode: '+this.selectMode)
-		}
 	}
 
-	this.selectSection = function (sectionID, event, hitTest, selectMode=SelectMode.POLYGON) {
+	this.clickElement = function (sectionID, event, hitTest, mode=ViewerMode.POLYGON) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if(selectMode == SelectMode.POLYGON){
+				if(mode == ViewerMode.POLYGON){
 					_controller.selectSegment(sectionID, hitTest);
-				} else if(this.selectMode == SelectMode.CONTOUR){
-
+				} else if(this.mode == ViewerMode.CONTOUR){
+					_controller.selectSegment(sectionID);
 				} else {
-					throw new ValueError('Unkown selection mode: '+this.selectMode)
+					throw new ValueError('Unkown selection mode: '+this.mode)
 				}
 				break;
 			// middleclick
@@ -38,17 +28,17 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
-				if(selectMode == SelectMode.POLYGON){
+				if(mode == ViewerMode.POLYGON){
 					if (!_controller.isSegmentSelected(sectionID)) {
 						_controller.unSelect();
 						_controller.selectSegment(sectionID, hitTest);
 						_controller.openContextMenu(true);
 					}
 					_controller.endCreateReadingOrder();
-				} else if(this.selectMode == SelectMode.CONTOUR){
+				} else if(this.mode == ViewerMode.CONTOUR){
 
 				} else {
-					throw new ValueError('Unkown selection mode: '+this.selectMode)
+					throw new ValueError('Unkown selection mode: '+this.mode)
 				}
 				break;
 		}

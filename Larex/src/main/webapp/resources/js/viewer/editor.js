@@ -143,7 +143,7 @@ class Editor extends Viewer {
 		}
 	}
 
-	boxSelect(callback = (x,y) => {}) {
+	boxSelect(callback = (tl,br) => {},update = (tl,br) => {}) {
 		if (this.isEditing === false) {
 			this.startRectangle(
 				()=>{
@@ -153,7 +153,10 @@ class Editor extends Viewer {
 					const selectBounds = this._tempPolygon.bounds;
 					callback(selectBounds.topLeft, selectBounds.bottomRight);
 				},
-				(rectangle) => {},
+				(rectangle) => {
+					const selectBounds = this._tempPolygon.bounds;
+					update(selectBounds.topLeft, selectBounds.bottomRight);
+				},
 				'dashed'
 			);
 		}

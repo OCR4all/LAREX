@@ -912,22 +912,36 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
 
+	this.selectContour = function(id) {
+		_selector.select(id, null, ElementType.CONTOUR);
+	}
+
 	this.selectContours = function() {
-		this.endEditing();
-		_gui.selectToolBarButton('segmentContours',true);
-		if(!_contours[_currentPage]){
-			this.showPreloader(true);
-			_editor.startEditing();
-			_communicator.extractContours(_currentPage,_book.id).done((result) => {
-				_contours[_currentPage] = result; 
-				this.showPreloader(false);
-				this.endEditing();
-				_editor.selectContours(_contours[_currentPage]);
-			});
-		}else{
-			_editor.selectContours(_contours[_currentPage]);
+		if(_editor.mode == ViewerMode.CONTOUR){
+			_editor.displayContours(false);
+			_editor.mode = ViewerMode.POLYGON;
+			_gui.selectToolBarButton('segmentContours',false);
+		} else {
+			this.endEditing();
+			_gui.selectToolBarButton('segmentContours',true);
+			if(!_contours[_currentPage]){
+				this.showPreloader(true);
+				_communicator.extractContours(_currentPage,_book.id).done((result) => {
+					_contours[_currentPage] = result; 
+					this.showPreloader(false);
+					this.endEditing();
+					_editor.setContours(_contours[_currentPage]);
+					_editor.displayContours();
+					_editor.mode = ViewerMode.CONTOUR;
+				});
+			} else {
+				_editor.setContours(_contours[_currentPage]);
+				_editor.displayContours();
+				_editor.mode = ViewerMode.CONTOUR;
+			}
 		}
 	}
+
 	this.combineContours = function(contours){
 		if(contours.length > 0){
 			_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
