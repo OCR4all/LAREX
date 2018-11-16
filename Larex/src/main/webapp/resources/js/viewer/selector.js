@@ -10,8 +10,9 @@ class Selector {
 		this.selectedType;
 	}
 
-	select(id, points) {
-		const polygonType = this._controller.getIDType(id);
+	// Select an object via their identifier and points inside the object
+	// Guess element type via id or if provided take the provided type
+	select(id, points, polygonType=this._controller.getIDType(id)) {
 		const selectIndex = this._selectedSegments.indexOf(id);
 		const isSelected = selectIndex >= 0;
 
@@ -73,7 +74,7 @@ class Selector {
 		//// Unselecting everything visually
 		this._selectedSegments.forEach(id => this._editor.selectSegment(id,false,false));
 		// Get everything that could be overseen
-		paper.project.selectedItems.forEach(i => {if(i.polygonID) this._selectPolygon(i.polygonID,false)});
+		paper.project.selectedItems.forEach(i => {if(i.elementID) this._selectPolygon(i.elementID,false)});
 
 		// Reset selected
 		this._selectedSegments = []

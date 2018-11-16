@@ -1,4 +1,6 @@
-// Editor extends viewer
+/* The Editor is an extension of the viewer that is used for every functionality that is about creating or editing
+ * elements that are to be displayed in the viewer.
+ * It handles requests for creating or editing elements, but is not supposed to start those actions by itself. */
 class Editor extends Viewer {
 	constructor(viewerInput, colors, controller) {
 		super(viewerInput, colors);
@@ -24,8 +26,8 @@ class Editor extends Viewer {
 		this._pointSelectorListener;
 	}
 
-	updatePolygon(polygonID){
-		super.updatePolygon(polygonID);
+	updatePolygon(elementID){
+		super.updatePolygon(elementID);
 		this.endEditing();
 	}
 
@@ -425,21 +427,21 @@ class Editor extends Viewer {
 				(rectangle) => {
 					const globalRectangle = new paper.Path(this._convertCanvasPolygonToGlobal(rectangle)).bounds;
 					let selectedContours = contourBounds.filter(c => {return globalRectangle.contains(c.bounds)}).map(c => {return c.contour});
-					this.showContours(selectedContours);
+					this.displayContours(selectedContours);
 				}, 'dashed'
 			);
 		}
 	}
 
-	startMovePolygonPoints(polygonID, type, points) {
+	startMovePolygonPoints(elementID, type, points) {
 		if (this.isEditing === false) {
 			this.isEditing = true;
 			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
 
 			// Create Copy of movable
-			this._tempPolygon = new paper.Path(this.getPolygon(polygonID).segments);
-			this._tempID = polygonID;
+			this._tempPolygon = new paper.Path(this.getPolygon(elementID).segments);
+			this._tempID = elementID;
 			this._tempPolygon.fillColor = 'grey';
 			this._tempPolygon.opacity = 0.3;
 			this._tempPolygon.closed = true;
@@ -511,16 +513,16 @@ class Editor extends Viewer {
 		}
 	}
 
-	startScalePolygon(polygonID, type) {
+	startScalePolygon(elementID, type) {
 		if (this.isEditing === false) {
 			this.isEditing = true;
 			this._tempPolygonType = type;
 
 			// Create Copy of movable
-			const boundaries = this.getPolygon(polygonID).bounds;
+			const boundaries = this.getPolygon(elementID).bounds;
 			this._tempPolygon = new paper.Path.Rectangle(boundaries);
 			this.getImageCanvas().addChild(this._tempPolygon);
-			this._tempID = polygonID;
+			this._tempID = elementID;
 			this._tempPolygon.fillColor = 'grey';
 			this._tempPolygon.opacity = 0.3;
 			this._tempPolygon.closed = true;
@@ -711,7 +713,7 @@ class Editor extends Viewer {
 		}
 
 		document.body.style.cursor = "auto";
-		this.hideContours();
+		this.displayContours(false);
 	}
 
 	getPointInBounds(point, bounds) {
@@ -893,8 +895,8 @@ class Editor extends Viewer {
 		}
 	}
 
-	addPointsOnLine(polygonID,points){
-		const polygon = this._polygons[polygonID];
+	addPointsOnLine(elementID,points){
+		const polygon = this._polygons[elementID];
 		if(polygon){
 			points.forEach(point => {
 				const canvasPoint = this._convertGlobalToCanvas(point.x,point.y);

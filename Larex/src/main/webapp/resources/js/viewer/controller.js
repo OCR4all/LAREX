@@ -1,4 +1,5 @@
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
+var ElementType = {SEGMENT:'segment',REGION:'region',CUT:'cut',CONTOUR:'contour'}
 
 function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -1023,13 +1024,13 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.getIDType = function (id) {
 		polygon = _segmentation[_currentPage].segments[id];
-		if (polygon) return "segment";
+		if (polygon) return ElementType.SEGMENT;
 
 		polygon = this._getRegionByID(id);
-		if (polygon) return "region";
+		if (polygon) return ElementType.REGION;
 
 		polygon = _settings.pages[_currentPage].cuts[id];
-		if (polygon) return "cut";
+		if (polygon) return ElementType.CUT;
 	}
 
 	this._getPolygon = function (id) {
