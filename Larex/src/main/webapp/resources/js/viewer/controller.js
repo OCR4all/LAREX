@@ -542,7 +542,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				}
 			} else if(selectType === ElementType.CONTOUR){
 				const contours = selected.map(id => _contours[_currentPage][id]);
-				_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
+				const contourAccuracy = _gui.getParameters()['contourAccuracy'];
+				_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
 					const action = new ActionAddSegment(segment.id, segment.points, segment.type,
 						_editor, _segmentation, _currentPage, this);
 
@@ -928,6 +929,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.displayContours = function(display=true) {
+		_gui.displayContours(display);
 		if(!display || _editor.mode == ViewerMode.CONTOUR){
 			_editor.displayContours(false);
 			_editor.mode = ViewerMode.POLYGON;

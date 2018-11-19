@@ -123,7 +123,17 @@ public class LarexFacade {
 		return contourSegments;
 	}
 
-	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID,
+	/**
+	 * Request to combine contours (point list) to a polygon of type paragraph.
+	 * 
+	 * @param contours    Contours to combine
+	 * @param pageNr      Page from which the contours are from (for dimensions)
+	 * @param bookID      Book from with the page is from
+	 * @param accuracy    Accuracy of the combination process (between 0 and 100)
+	 * @param fileManager Filemanager to load the book/page from
+	 * @return Polygon that includes all contours
+	 */
+	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
 			FileManager fileManager) {
 		Book book = getBook(bookID, fileManager);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
@@ -139,7 +149,13 @@ public class LarexFacade {
 			matContours.add(new MatOfPoint(matPoints));
 		}
 
-		MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary());
+		
+	
+		accuracy = Math.max(0,Math.max(100,accuracy));
+				
+		double growth = 105 - 100/(accuracy/100.0);
+		
+		MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary(), growth, growth,10);
 		page.clean();
 		System.gc();
 
