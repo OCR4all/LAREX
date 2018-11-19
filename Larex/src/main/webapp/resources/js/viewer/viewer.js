@@ -584,21 +584,23 @@ class Viewer {
 		const contours = [];
 		contourIDs.forEach(id => contours.push(this._contours[id]));
 		if(doHighlight)
-			this._colorizeContours(contours,'#FF00FFCC');
+			this._colorizeContours(contours,'#FF00FF');
 		else
 			this._colorizeContours(contours); // Call colorize with default color
 	}
 	
 	contourHitTest(point){
 		//TODO replace with more performant
+		const global_point = this._convertCanvasToGlobal(point);
 		const hit_contours = [];
 		this._contourBounds.forEach(contour => {
-			if(contour.bounds.left <= point.x && point.x <= contour.bounds.right &&
-				contour.bounds.top <= point.y && point.y <= contour.bounds.bottom)
-				hit_contours.push(contour.contour);
+			if(contour.bounds.left <= global_point.x && global_point.x <= contour.bounds.right &&
+				contour.bounds.top <= global_point.y && global_point.y <= contour.bounds.bottom)
+				hit_contours.push(contour);
 		});
 		if(hit_contours.length > 0){
-			const id = hit_contours.sort((a,b) => {return a.bounds.area-b.bounds.area})[0].id;	
+			hit_contours.sort((a,b) => {return a.bounds.area-b.bounds.area});
+			const id = hit_contours[0].id;	
 			return {type:'contour',item:{elementID:id,points:this._contours[id]}};
 		} else{
 			const image_bounds = this.getBoundaries();
@@ -622,7 +624,7 @@ class Viewer {
 		return included_contours;
 	}
 
-	_colorizeContours(contours,color='#0000ffCC'){
+	_colorizeContours(contours,color='#0000FF'){
 		let ctx = this._contour_context;
 
 		contours.forEach((contour)=>{
@@ -637,6 +639,7 @@ class Viewer {
 				ctx.fill();
 			}
 		});
+		this.forceUpdate();
 	}
 
 	_createEmptyOverlay(){

@@ -14,10 +14,17 @@ class Selector {
 	// Guess element type via id or if provided take the provided type
 	select(id, points, elementType=this._controller.getIDType(id)) {
 		if(elementType == ElementType.CONTOUR){			
-			if(!this.selectMultiple || this._selectedType != elementType)
+			if(!this.selectMultiple || this.selectedType != elementType)
 				this.unSelect()
-			this._selectedElements.push(id);
-			this._editor.highlightContours([id]);
+			if (!this.isSegmentSelected(id)){ 
+				this._selectedElements.push(id);
+				this._editor.highlightContours([id], true);
+			} else {
+				const selectIndex = this._selectedElements.indexOf(id);
+				this._selectedElements.splice(selectIndex, 1);
+				this._editor.highlightContours([id], false);
+			}
+			this.selectedType = elementType;
 		} else {
 			const selectIndex = this._selectedElements.indexOf(id);
 			const isSelected = selectIndex >= 0;
@@ -37,7 +44,7 @@ class Selector {
 			} else {
 				//// Select polygon
 				// Unselect others if this is not of type segment or if not select multiple
-				if(elementType != "segment" || !this.selectMultiple)
+				if(elementType != ElementType.SEGMENT || !this.selectMultiple)
 					this.unSelect();
 
 				this._selectPolygon(id, !isSelected);
@@ -173,9 +180,9 @@ class Selector {
 					this._editor.selectSegment(id, true);
 				}
 			});
+			this.selectedType = "segment";
 		}
 
-		this.selectedType = "segment";
 		this.isSelecting = false;
 	}
 

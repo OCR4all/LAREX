@@ -3,12 +3,12 @@ function ViewerInput(controller) {
 	this.selector;
 
 	this.enterElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
-		if(this.mode != ViewerMode.CONTOUR)
+		if(mode != ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, true);
 	}
 
 	this.leaveElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
-		if(this.mode != ViewerMode.CONTOUR)
+		if(mode != ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, false);
 	}
 
@@ -18,10 +18,10 @@ function ViewerInput(controller) {
 			case 0:
 				if(mode == ViewerMode.POLYGON){
 					_controller.selectSegment(sectionID, hitTest);
-				} else if(this.mode == ViewerMode.CONTOUR){
-					_controller.selectSegment(sectionID);
+				} else if(mode == ViewerMode.CONTOUR){
+					_controller.selectSegment(sectionID,null,ElementType.CONTOUR);
 				} else {
-					throw new ValueError('Unkown selection mode: '+this.mode)
+					throw new ValueError('Unkown selection mode: '+mode);
 				}
 				break;
 			// middleclick
@@ -36,10 +36,10 @@ function ViewerInput(controller) {
 						_controller.openContextMenu(true);
 					}
 					_controller.endCreateReadingOrder();
-				} else if(this.mode == ViewerMode.CONTOUR){
+				} else if(mode == ViewerMode.CONTOUR){
 
 				} else {
-					throw new ValueError('Unkown selection mode: '+this.mode)
+					throw new ValueError('Unkown selection mode: '+mode)
 				}
 				break;
 		}
