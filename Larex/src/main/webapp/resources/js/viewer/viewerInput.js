@@ -31,7 +31,7 @@ function ViewerInput(controller) {
 			case 2:
 				if(mode == ViewerMode.POLYGON){
 					if (!_controller.isSegmentSelected(sectionID)) {
-						_controller.unSelect();
+						this.selector.unSelect();
 						_controller.selectSegment(sectionID, hitTest);
 						_controller.openContextMenu(true);
 					}
@@ -100,7 +100,7 @@ function ViewerInput(controller) {
 				break;
 		}
 		if (!event.modifiers.control) {
-			_controller.unSelect();
+			this.selector.unSelect();
 		}
 		_controller.closeContextMenu();
 	}
@@ -119,7 +119,7 @@ function ViewerInput(controller) {
 				break;
 		}
 		if (!event.modifiers.control) {
-			_controller.unSelect();
+			this.selector.unSelect();
 		}
 		_controller.closeContextMenu();
 	}

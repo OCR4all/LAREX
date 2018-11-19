@@ -473,6 +473,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.endEditing = function () {
 		_editor.endEditing();
+		this.displayContours(false);
 		_gui.unselectAllToolBarButtons();
 	}
 
@@ -518,7 +519,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				const actions = [];
 				const segments = [];
 				for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-					if (selectType === "segment") {
+					if (selectType === ElementType.SEGMENT) {
 						let segment = _segmentation[_currentPage].segments[selected[i]];
 						//filter special case image (do not merge images)
 						if (segment.type !== 'image') {
@@ -539,16 +540,14 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 						this.openContextMenu(true);
 					});
 				}
-			}else if(selectType === ElementType.CONTOUR){
+			} else if(selectType === ElementType.CONTOUR){
 				const contours = selected.map(id => _contours[_currentPage][id]);
 				_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
 					const action = new ActionAddSegment(segment.id, segment.points, segment.type,
 						_editor, _segmentation, _currentPage, this);
 
-					this.endEditing();
-
 					_actionController.addAndExecuteAction(action, _currentPage);
-					this.selectSegment(segment.id);
+					_selector.unSelect();
 					this.openContextMenu(true);
 				});
 			}
@@ -928,20 +927,19 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_selector.select(id, null, ElementType.CONTOUR);
 	}
 
-	this.selectContours = function() {
-		if(_editor.mode == ViewerMode.CONTOUR){
+	this.displayContours = function(display=true) {
+		if(!display || _editor.mode == ViewerMode.CONTOUR){
 			_editor.displayContours(false);
 			_editor.mode = ViewerMode.POLYGON;
 			_gui.selectToolBarButton('segmentContours',false);
 		} else {
-			this.endEditing();
+			_selector.unSelect();
 			_gui.selectToolBarButton('segmentContours',true);
 			if(!_contours[_currentPage]){
 				this.showPreloader(true);
 				_communicator.extractContours(_currentPage,_book.id).done((result) => {
 					_contours[_currentPage] = result; 
 					this.showPreloader(false);
-					this.endEditing();
 					_editor.setContours(_contours[_currentPage]);
 					_editor.displayContours();
 					_editor.mode = ViewerMode.CONTOUR;
@@ -952,22 +950,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				_editor.mode = ViewerMode.CONTOUR;
 			}
 		}
-	}
-
-	this.combineContours = function(contours){
-		if(contours.length > 0){
-			_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
-				const action = new ActionAddSegment(segment.id, segment.points, segment.type,
-					_editor, _segmentation, _currentPage, this);
-
-				this.endEditing();
-
-				_actionController.addAndExecuteAction(action, _currentPage);
-				this.selectSegment(segment.id);
-				this.openContextMenu(true);
-			});
-		}
-		
 	}
 
 	this.changeRegionSettings = function (regionType, minSize, maxOccurances) {

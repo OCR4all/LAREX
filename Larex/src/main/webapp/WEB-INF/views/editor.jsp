@@ -141,7 +141,7 @@
 							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
 								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<t:menuIcon jsClass="editContours" icon="font_download"
-							tooltip="Select contours that can be combined to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
+							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 							<t:menuIcon jsClass="combineSelected" icon="add_circle"
 								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
 							<t:menuIcon jsClass="fixSelected" icon="lock"

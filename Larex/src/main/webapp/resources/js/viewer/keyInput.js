@@ -94,7 +94,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 54: // 6
-					_controller.selectContours();
+					_controller.displayContours();
 					validKey = true;
 					break;
 				case 67: // C
