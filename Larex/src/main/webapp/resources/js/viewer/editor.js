@@ -31,7 +31,14 @@ class Editor extends Viewer {
 		this.endEditing();
 	}
 
-	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none') {
+	/* Start a rectangle, that is updated on mouse movement. Functions/Status updates at start, end and while updating the rectangles can be supplied.
+		Parameter:
+			startFunction: 	Is called before the rectangle is created. e.g. function to change the mouse pointer
+			endFunction: 	Is called when the rectangle is finished. e.g. callback function with the finished rectangle
+			updateFunction: Is called every time the rectangle is updated by moving the mouse.
+			startPoint:		Use as start of the rectangle if set, otherwise wait for mouse down.
+	*/
+	_startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none', startPoint){
 		if (this.isEditing === false) {
 
 			startFunction();
@@ -39,7 +46,7 @@ class Editor extends Viewer {
 			const listener = {};
 			this.addListener(listener);
 
-			listener.onMouseDown = (event) => {
+			const start_rectangle = (event) => {
 				if (this.isEditing === true) { 
 					const startPoint = event.point; 
 
@@ -77,24 +84,30 @@ class Editor extends Viewer {
 								updateFunction(rectangle);
 							}
 						} else {
-							this.endRectangle(endFunction,this._tempPolygon);
-							this.removeListener(listener);
+							throw new Error("Edit Mode is left while still creating a Rectangle");
+							//this._endRectangle(endFunction,this._tempPolygon);
+							//this.removeListener(listener);
 						}
 					}
 					imageCanvas.addChild(this._tempPolygon);
 
 					listener.onMouseUp = (event) => {
-						this.endRectangle(endFunction,this._tempPolygon);
+						this._endRectangle(endFunction,this._tempPolygon);
 						this.removeListener(listener);
 					}
 				} else {
 					this.removeListener(listener);
 				}
 			}
+
+			if(startPoint)
+				start_rectangle({point:startPoint});
+			else
+				listener.onMouseDown = start_rectangle;
 		}
 	}
 
-	endRectangle(endFunction = (rectangle) => {}, rectangle) {
+	_endRectangle(endFunction = (rectangle) => {}, rectangle) {
 		if (this.isEditing) {
 			this.isEditing = false;
 			if (this._tempPolygon != null) {
@@ -110,9 +123,14 @@ class Editor extends Viewer {
 		}
 	}
 
-	createRectangle(type) {
+	/* Start creating a rectangle of a given type, that is updated on mouse movement.
+		Parameter:
+			type:			ElementType of the rectangle
+			startPoint:		Use as start of the rectangle if set, otherwise wait for mouse down.
+	*/
+	createRectangle(type,startPoint) {
 		if (this.isEditing === false) {
-			this.startRectangle(
+			this._startRectangle(
 				()=>{
 					this.isEditing = true;
 					this._tempPolygonType = type;
@@ -143,9 +161,14 @@ class Editor extends Viewer {
 		}
 	}
 
-	boxSelect(callback = (tl,br) => {},update = (tl,br) => {}) {
+	/* Start creating a rectangle of a given type, that is updated on mouse movement.
+		Parameter:
+			type:			ElementType of the rectangle
+			startPoint:		Use as start of the rectangle if set, otherwise wait for mouse down.
+	*/
+	boxSelect(callback = (tl,br) => {}, update = (tl,br) => {}, startPoint) {
 		if (this.isEditing === false) {
-			this.startRectangle(
+			this._startRectangle(
 				()=>{
 					this.isEditing = true;
 				},
@@ -157,7 +180,8 @@ class Editor extends Viewer {
 					const selectBounds = this._tempPolygon.bounds;
 					update(selectBounds.topLeft, selectBounds.bottomRight);
 				},
-				'dashed'
+				'dashed',
+				startPoint
 			);
 		}
 	}

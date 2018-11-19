@@ -1,5 +1,6 @@
 function ViewerInput(controller) {
 	const _controller = controller;
+	this.selector;
 
 	this.enterElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
 		if(this.mode != ViewerMode.CONTOUR)
@@ -48,9 +49,9 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (event.modifiers.shift) 
-					_controller.boxSelect();
-				else {
+				if (event.modifiers.shift) {
+					this.selector.boxSelect(event.point);
+				} else {
 					if(_controller.hasPointsSelected())
 						_controller.moveSelectedPoints();
 					else
@@ -71,8 +72,9 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (event.modifiers.shift) 
-					_controller.boxSelect();
+				if (event.modifiers.shift) { 
+					this.selector.boxSelect(event.point);
+				}
 				break;
 			// middleclick
 			case 1:

@@ -581,14 +581,12 @@ class Viewer {
 	}
 
 	highlightContours(contourIDs,doHighlight=true){
-		console.log(this._contours.length);
 		const contours = [];
 		contourIDs.forEach(id => contours.push(this._contours[id]));
 		if(doHighlight)
 			this._colorizeContours(contours,'#FF00FFCC');
 		else
 			this._colorizeContours(contours); // Call colorize with default color
-		console.log(this._contours.length);
 	}
 	
 	contourHitTest(point){
@@ -624,8 +622,7 @@ class Viewer {
 		return included_contours;
 	}
 
-	_colorizeContours(contours,color='#00FF00CC'){
-		console.log("start",contours.length);
+	_colorizeContours(contours,color='#0000ffCC'){
 		let ctx = this._contour_context;
 
 		contours.forEach((contour)=>{
@@ -640,7 +637,6 @@ class Viewer {
 				ctx.fill();
 			}
 		});
-		console.log("end");
 	}
 
 	_createEmptyOverlay(){

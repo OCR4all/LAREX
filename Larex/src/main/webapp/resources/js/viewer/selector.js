@@ -125,13 +125,14 @@ class Selector {
 		}
 	}
 
-	boxSelect() {
-		if(this._editor.mode == ElementType.CONTOUR && this.selectedType != ElementType.CONTOUR)
+	boxSelect(startPoint) {
+		if(this._editor.mode == ElementType.CONTOUR && this.selectedType != ElementType.CONTOUR){
 			this.unSelect();
 			this.selectedType = ElementType.CONTOUR;
+		}
 		if (!this._editor.isEditing) {
 			if (!this.isSelecting) {
-				this._editor.boxSelect((tl,br) => {this._selectInBox(tl,br)});
+				this._editor.boxSelect((tl,br) => {this._selectInBox(tl,br)},(a,b)=>{},startPoint);
 			}
 
 			this.isSelecting = true;

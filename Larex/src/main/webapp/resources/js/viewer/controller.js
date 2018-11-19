@@ -60,6 +60,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_editor = new Editor(viewerInput, _colors, this);
 
 			_selector = new Selector(_editor, this);
+			viewerInput.selector = _selector;
 			_gui = new GUI(canvasID, _editor,_colors);
 			_gui.resizeViewerHeight();
 
@@ -865,9 +866,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 	this.isSegmentSelected = function (id) {
 		return _selector.isSegmentSelected(id);
-	}
-	this.boxSelect = function () {
-		_selector.boxSelect();
 	}
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		_editor.highlightSegment(sectionID, doHighlight);
