@@ -18,13 +18,16 @@ public class ContourCombineRequest {
 	private Integer page;
 	@JsonProperty("contours")
 	private List<List<Point>> contours;
+	@JsonProperty("accuracy")
+	private Integer accuracy;
 
 	@JsonCreator
 	public ContourCombineRequest(@JsonProperty("bookid") Integer bookid, @JsonProperty("pageid") Integer page,
-			@JsonProperty("contours") List<List<Point>>  contours) {
+			@JsonProperty("contours") List<List<Point>>  contours, @JsonProperty("accuracy") Integer accuracy) {
 		this.bookid = bookid;
 		this.page = page;
 		this.contours = contours;
+		this.accuracy = accuracy;
 	}
 
 	public Integer getPage() {
@@ -37,5 +40,9 @@ public class ContourCombineRequest {
 
 	public Integer getBookid() {
 		return bookid;
-}
+	}
+	
+	public Integer getAccuracy() {
+		return accuracy;
+	}
 }

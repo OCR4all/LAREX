@@ -1,11 +1,11 @@
-// Editor extends viewer
+/* The Editor is an extension of the viewer that is used for every functionality that is about creating or editing
+ * elements that are to be displayed in the viewer.
+ * It handles requests for creating or editing elements, but is not supposed to start those actions by itself. */
 class Editor extends Viewer {
 	constructor(viewerInput, colors, controller) {
 		super(viewerInput, colors);
 		this.isEditing = false;
 		this._controller = controller;
-		this._editModes = {default:-1,polygon:0,rectangle:1,border:2,line:3,move:4,scale:5,contours:6};
-		this._editMode = this._editModes.default; 
 
 		this._tempPolygonType;
 		this._tempPolygon;
@@ -26,12 +26,19 @@ class Editor extends Viewer {
 		this._pointSelectorListener;
 	}
 
-	updatePolygon(polygonID){
-		super.updatePolygon(polygonID);
+	updatePolygon(elementID){
+		super.updatePolygon(elementID);
 		this.endEditing();
 	}
 
-	startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none') {
+	/* Start a rectangle, that is updated on mouse movement. Functions/Status updates at start, end and while updating the rectangles can be supplied.
+		Parameter:
+			startFunction: 	Is called before the rectangle is created. e.g. function to change the mouse pointer
+			endFunction: 	Is called when the rectangle is finished. e.g. callback function with the finished rectangle
+			updateFunction: Is called every time the rectangle is updated by moving the mouse.
+			startPoint:		Use as start of the rectangle if set, otherwise wait for mouse down.
+	*/
+	_startRectangle(startFunction = () => {}, endFunction = (rectangle) => {}, updateFunction = (rectangle) => {}, borderStyle = 'none', startPoint){
 		if (this.isEditing === false) {
 
 			startFunction();
@@ -39,7 +46,7 @@ class Editor extends Viewer {
 			const listener = {};
 			this.addListener(listener);
 
-			listener.onMouseDown = (event) => {
+			const start_rectangle = (event) => {
 				if (this.isEditing === true) { 
 					const startPoint = event.point; 
 
@@ -77,24 +84,30 @@ class Editor extends Viewer {
 								updateFunction(rectangle);
 							}
 						} else {
-							this.endRectangle(endFunction,this._tempPolygon);
-							this.removeListener(listener);
+							throw new Error("Edit Mode is left while still creating a Rectangle");
+							//this._endRectangle(endFunction,this._tempPolygon);
+							//this.removeListener(listener);
 						}
 					}
 					imageCanvas.addChild(this._tempPolygon);
 
 					listener.onMouseUp = (event) => {
-						this.endRectangle(endFunction,this._tempPolygon);
+						this._endRectangle(endFunction,this._tempPolygon);
 						this.removeListener(listener);
 					}
 				} else {
 					this.removeListener(listener);
 				}
 			}
+
+			if(startPoint)
+				start_rectangle({point:startPoint});
+			else
+				listener.onMouseDown = start_rectangle;
 		}
 	}
 
-	endRectangle(endFunction = (rectangle) => {}, rectangle) {
+	_endRectangle(endFunction = (rectangle) => {}, rectangle) {
 		if (this.isEditing) {
 			this.isEditing = false;
 			if (this._tempPolygon != null) {
@@ -110,11 +123,15 @@ class Editor extends Viewer {
 		}
 	}
 
-	createRectangle(type) {
+	/* Start creating a rectangle of a given type, that is updated on mouse movement.
+		Parameter:
+			type:			ElementType of the rectangle
+			startPoint:		Use as start of the rectangle if set, otherwise wait for mouse down.
+	*/
+	createRectangle(type,startPoint) {
 		if (this.isEditing === false) {
-			this.startRectangle(
+			this._startRectangle(
 				()=>{
-					this._editMode = 1;
 					this.isEditing = true;
 					this._tempPolygonType = type;
 					document.body.style.cursor = "copy";
@@ -144,26 +161,33 @@ class Editor extends Viewer {
 		}
 	}
 
-	boxSelect(callback = (x,y) => {}) {
+	/* Start creating a rectangle of a given type, that is updated on mouse movement.
+		Parameter:
+			type:			ElementType of the rectangle
+			startPoint:		Use as start of the rectangle if set, otherwise wait for mouse down.
+	*/
+	boxSelect(callback = (tl,br) => {}, update = (tl,br) => {}, startPoint) {
 		if (this.isEditing === false) {
-			this.startRectangle(
+			this._startRectangle(
 				()=>{
-					this._editMode = -1;
 					this.isEditing = true;
 				},
 				(rectangle)=>{
 					const selectBounds = this._tempPolygon.bounds;
 					callback(selectBounds.topLeft, selectBounds.bottomRight);
 				},
-				(rectangle) => {},
-				'dashed'
+				(rectangle) => {
+					const selectBounds = this._tempPolygon.bounds;
+					update(selectBounds.topLeft, selectBounds.bottomRight);
+				},
+				'dashed',
+				startPoint
 			);
 		}
 	}
 
 	startCreatePolygon(type) {
 		if (this.isEditing === false) {
-			this._editMode = 0;
 			this.isEditing = true;
 			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
@@ -237,7 +261,6 @@ class Editor extends Viewer {
 
 	startCreateLine() {
 		if (this.isEditing === false) {
-			this._editMode = 3;
 			this.isEditing = true;
 			document.body.style.cursor = "copy";
 
@@ -298,7 +321,6 @@ class Editor extends Viewer {
 	startCreateBorder(type) {
 		if (this.isEditing === false) {
 			this.isEditing = true;
-			this._editMode = 2;
 			this._tempPolygonType = type;
 
 			const listener = {};
@@ -395,60 +417,15 @@ class Editor extends Viewer {
 		}
 	}
 
-	selectContours(contours){
-		let contourBounds = [];
-		
-		contours.forEach(c => {
-			let contourBound = {contour:c};
-			let left = Number.POSITIVE_INFINITY;
-			let right = Number.NEGATIVE_INFINITY;
-			let top = Number.POSITIVE_INFINITY;
-			let bottom = Number.NEGATIVE_INFINITY;
-
-			c.forEach(p => {
-				if(p.x < left) left = p.x;
-				if(p.x > right) right = p.x;
-				if(p.y < top) top = p.y;
-				if(p.y > bottom) bottom = p.y;
-			});
-
-			contourBound.bounds = new paper.Rectangle(
-					new paper.Point(left,top),
-					new paper.Point(right,bottom));
-			contourBound.bounds.visible = false;
-			contourBounds.push(contourBound);
-		});
-
+	startMovePolygonPoints(elementID, type, points) {
 		if (this.isEditing === false) {
-			this.startRectangle(
-				()=>{
-					this._editMode = 6;
-					this.isEditing = true;
-				},
-				(rectangle)=>{
-					const globalRectangle = new paper.Path(this._convertCanvasPolygonToGlobal(rectangle)).bounds;
-					let selectedContours = contourBounds.filter(c => { return globalRectangle.contains(c.bounds) }).map(c => {return c.contour});
-					this._controller.combineContours(selectedContours);
-				},
-				(rectangle) => {
-					const globalRectangle = new paper.Path(this._convertCanvasPolygonToGlobal(rectangle)).bounds;
-					let selectedContours = contourBounds.filter(c => {return globalRectangle.contains(c.bounds)}).map(c => {return c.contour});
-					this.showContours(selectedContours);
-				}, 'dashed'
-			);
-		}
-	}
-
-	startMovePolygonPoints(polygonID, type, points) {
-		if (this.isEditing === false) {
-			this._editMode = 4;
 			this.isEditing = true;
 			this._tempPolygonType = type;
 			document.body.style.cursor = "copy";
 
 			// Create Copy of movable
-			this._tempPolygon = new paper.Path(this.getPolygon(polygonID).segments);
-			this._tempID = polygonID;
+			this._tempPolygon = new paper.Path(this.getPolygon(elementID).segments);
+			this._tempID = elementID;
 			this._tempPolygon.fillColor = 'grey';
 			this._tempPolygon.opacity = 0.3;
 			this._tempPolygon.closed = true;
@@ -520,17 +497,16 @@ class Editor extends Viewer {
 		}
 	}
 
-	startScalePolygon(polygonID, type) {
+	startScalePolygon(elementID, type) {
 		if (this.isEditing === false) {
-			this._editMode = 5;
 			this.isEditing = true;
 			this._tempPolygonType = type;
 
 			// Create Copy of movable
-			const boundaries = this.getPolygon(polygonID).bounds;
+			const boundaries = this.getPolygon(elementID).bounds;
 			this._tempPolygon = new paper.Path.Rectangle(boundaries);
 			this.getImageCanvas().addChild(this._tempPolygon);
-			this._tempID = polygonID;
+			this._tempID = elementID;
 			this._tempPolygon.fillColor = 'grey';
 			this._tempPolygon.opacity = 0.3;
 			this._tempPolygon.closed = true;
@@ -721,7 +697,6 @@ class Editor extends Viewer {
 		}
 
 		document.body.style.cursor = "auto";
-		this.hideContours();
 	}
 
 	getPointInBounds(point, bounds) {
@@ -903,8 +878,8 @@ class Editor extends Viewer {
 		}
 	}
 
-	addPointsOnLine(polygonID,points){
-		const polygon = this._polygons[polygonID];
+	addPointsOnLine(elementID,points){
+		const polygon = this._polygons[elementID];
 		if(polygon){
 			points.forEach(point => {
 				const canvasPoint = this._convertGlobalToCanvas(point.x,point.y);

@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
@@ -40,7 +41,7 @@ public class Merger {
 	 * @return MatOfPoint contour that includes all contours
 	 */
 	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Mat source) {
-		return smearMerge(contours, source, 2.5, 1.5);
+		return smearMerge(contours, source, 2.5, 1.5, 10);
 	}
 
 	/**
@@ -55,7 +56,7 @@ public class Merger {
 	 *                 smearing iteration does not change the combined contour count
 	 * @return MatOfPoint contour that includes all contours
 	 */
-	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Mat source, double growthY, double growthX) {
+	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Mat source, double growthY, double growthX , int maxIterations) {
 		if (contours.size() < 1)
 			throw new IllegalArgumentException("Can't combine 0 contours.");
 
@@ -76,7 +77,8 @@ public class Merger {
 		int bottom = 0;
 		int left = cols;
 		int right = 0;
-		while (workingContours.size() > 1) {
+		int it = 0;
+		while (workingContours.size() > 1 ) {
 			// Smear Contours to combine them
 			// Calc center x and y via moments
 			final List<Integer> heights = new ArrayList<>();
@@ -154,6 +156,27 @@ public class Merger {
 						workImage.put(y, x, new byte[] { 0 });
 
 			previousContourCount = contourCount;
+			
+				
+			// Fallback convex hull
+			if(it++ > maxIterations) {
+				MatOfInt hull = new MatOfInt();
+				MatOfPoint contour_points = new MatOfPoint(workingContours.stream().flatMap(c -> c.toList().stream()).toArray(Point[]::new));
+				Imgproc.convexHull(contour_points, hull);
+				
+				MatOfPoint contour_hull = new MatOfPoint();
+				
+				contour_hull.create((int) hull.size().height,1,CvType.CV_32SC2);
+
+				for(int i = 0; i < hull.size().height ; i++) {
+				    int index = (int)hull.get(i, 0)[0];
+				    double[] point = new double[] {
+				        contour_points.get(index, 0)[0], contour_points.get(index, 0)[1]
+				    };
+				    contour_hull.put(i, 0, point);
+				} 
+				return contour_hull;
+			}
 		}
 
 		// Draw small border to account for shrinking
@@ -162,7 +185,6 @@ public class Merger {
 		resultImage.release();
 		workImage.release();
 		System.gc();
-
 		return workingContours.get(0);
 	}
 

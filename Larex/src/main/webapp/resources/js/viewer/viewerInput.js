@@ -1,31 +1,46 @@
 function ViewerInput(controller) {
 	const _controller = controller;
+	this.selector;
 
-	this.enterSection = function (sectionID, event) {
-		_controller.highlightSegment(sectionID, true);
+	this.enterElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
+		if(mode != ViewerMode.CONTOUR)
+			_controller.highlightSegment(sectionID, true);
 	}
 
-	this.leaveSection = function (sectionID, event) {
-		_controller.highlightSegment(sectionID, false);
+	this.leaveElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
+		if(mode != ViewerMode.CONTOUR)
+			_controller.highlightSegment(sectionID, false);
 	}
 
-	this.selectSection = function (sectionID, event, hitTest) {
+	this.clickElement = function (sectionID, event, hitTest, mode=ViewerMode.POLYGON) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				_controller.selectSegment(sectionID, hitTest);
+				if(mode == ViewerMode.POLYGON){
+					_controller.selectSegment(sectionID, hitTest);
+				} else if(mode == ViewerMode.CONTOUR){
+					_controller.selectSegment(sectionID,null,ElementType.CONTOUR);
+				} else {
+					throw new ValueError('Unkown selection mode: '+mode);
+				}
 				break;
 			// middleclick
 			case 1:
 				break;
 			// rightclick
 			case 2:
-				if (!_controller.isSegmentSelected(sectionID)) {
-					_controller.unSelect();
-					_controller.selectSegment(sectionID, hitTest);
-					_controller.openContextMenu(true);
+				if(mode == ViewerMode.POLYGON){
+					if (!_controller.isSegmentSelected(sectionID)) {
+						this.selector.unSelect();
+						_controller.selectSegment(sectionID, hitTest);
+						_controller.openContextMenu(true);
+					}
+					_controller.endCreateReadingOrder();
+				} else if(mode == ViewerMode.CONTOUR){
+
+				} else {
+					throw new ValueError('Unkown selection mode: '+mode)
 				}
-				_controller.endCreateReadingOrder();
 				break;
 		}
 	}
@@ -34,9 +49,9 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (event.modifiers.shift) 
-					_controller.boxSelect();
-				else {
+				if (event.modifiers.shift) {
+					this.selector.boxSelect(event.point);
+				} else {
 					if(_controller.hasPointsSelected())
 						_controller.moveSelectedPoints();
 					else
@@ -57,8 +72,9 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if (event.modifiers.shift) 
-					_controller.boxSelect();
+				if (event.modifiers.shift) { 
+					this.selector.boxSelect(event.point);
+				}
 				break;
 			// middleclick
 			case 1:
@@ -84,7 +100,7 @@ function ViewerInput(controller) {
 				break;
 		}
 		if (!event.modifiers.control) {
-			_controller.unSelect();
+			this.selector.unSelect();
 		}
 		_controller.closeContextMenu();
 	}
@@ -103,7 +119,7 @@ function ViewerInput(controller) {
 				break;
 		}
 		if (!event.modifiers.control) {
-			_controller.unSelect();
+			this.selector.unSelect();
 		}
 		_controller.closeContextMenu();
 	}

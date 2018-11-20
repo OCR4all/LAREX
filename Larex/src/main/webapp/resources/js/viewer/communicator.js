@@ -59,8 +59,8 @@ class Communicator {
 		return this.request("extractcontours", {pageid:pageid,bookid:bookid});
 	}
 	
-	combineContours(contours, pageID, bookID) {
-		return this.request("combinecontours", {contours:contours,pageid:pageID,bookid:bookID}, DataType.JSON);
+	combineContours(contours, pageID, bookID, accuracy) {
+		return this.request("combinecontours", {contours:contours,pageid:pageID,bookid:bookID,accuracy:accuracy}, DataType.JSON);
 	}
 
 	exportSegmentation(segmentation, bookID, pageXMLVersion) {

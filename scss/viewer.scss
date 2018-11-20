@@ -172,6 +172,20 @@ body{
   display: block;
 
 }
+.menuSlider{
+	height: 40px;
+	text-align: center;
+  color: black !important;
+  background-color: $color4 !important;
+  padding: 4px 0px 0px 0px !important;
+	margin: 0px !important;
+	float: left;
+  display: block;
+  .thumb{ display: none !important; }
+  input{
+    margin: 8px 0px;
+  }
+}
 .menuIconCategory{
 	height: 38px;
 	text-align: center;
@@ -195,6 +209,13 @@ body{
     }
   }
 
+  .menuSlider{
+    height: 23px;
+    padding: 0px 0px 0px 0px !important;
+    *{
+      padding: 0px 0px 0px 0px !important;
+    }
+  }
   .menuIconCategoryText{
   	font-size: 10px;
   	padding: 0px !important;

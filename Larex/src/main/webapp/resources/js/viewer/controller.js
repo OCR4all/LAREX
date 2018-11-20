@@ -1,4 +1,5 @@
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
+var ElementType = {SEGMENT:'segment',REGION:'region',CUT:'cut',CONTOUR:'contour'}
 
 function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -59,6 +60,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_editor = new Editor(viewerInput, _colors, this);
 
 			_selector = new Selector(_editor, this);
+			viewerInput.selector = _selector;
 			_gui = new GUI(canvasID, _editor,_colors);
 			_gui.resizeViewerHeight();
 
@@ -471,6 +473,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.endEditing = function () {
 		_editor.endEditing();
+		this.displayContours(false);
 		_gui.unselectAllToolBarButtons();
 	}
 
@@ -510,33 +513,48 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.mergeSelectedSegments = function () {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
-		if (selectType === 'segment' && selected.length > 1) {
-			const actions = [];
-			const segments = [];
-			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				if (selectType === "segment") {
-					let segment = _segmentation[_currentPage].segments[selected[i]];
-					//filter special case image (do not merge images)
-					if (segment.type !== 'image') {
-						segments.push(segment);
-						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
+
+		if(selected.length > 1){
+			if(selectType === ElementType.SEGMENT){
+				const actions = [];
+				const segments = [];
+				for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+					if (selectType === ElementType.SEGMENT) {
+						let segment = _segmentation[_currentPage].segments[selected[i]];
+						//filter special case image (do not merge images)
+						if (segment.type !== 'image') {
+							segments.push(segment);
+							actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
+						}
 					}
 				}
-			}
-			if (segments.length > 1) {
-				_communicator.mergeSegments(segments, _currentPage, _book.id).done((data) => {
-					const mergedSegment = data;
-					actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-						_editor, _segmentation, _currentPage, this));
+				if (segments.length > 1) {
+					_communicator.mergeSegments(segments, _currentPage, _book.id).done((data) => {
+						const mergedSegment = data;
+						actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
+							_editor, _segmentation, _currentPage, this));
 
-					let mergeAction = new ActionMultiple(actions);
-					_actionController.addAndExecuteAction(mergeAction, _currentPage);
-					this.selectSegment(mergedSegment.id);
+						let mergeAction = new ActionMultiple(actions);
+						_actionController.addAndExecuteAction(mergeAction, _currentPage);
+						this.selectSegment(mergedSegment.id);
+						this.openContextMenu(true);
+					});
+				}
+			} else if(selectType === ElementType.CONTOUR){
+				const contours = selected.map(id => _contours[_currentPage][id]);
+				const contourAccuracy = _gui.getParameters()['contourAccuracy'];
+				_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
+					const action = new ActionAddSegment(segment.id, segment.points, segment.type,
+						_editor, _segmentation, _currentPage, this);
+
+					_actionController.addAndExecuteAction(action, _currentPage);
+					_selector.unSelect();
 					this.openContextMenu(true);
 				});
 			}
 		}
 	}
+
 	this.changeTypeSelected = function (newType) {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
@@ -830,10 +848,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		return false;
 	}
 	// Display
-	this.selectSegment = function (sectionID, hitTest) {
-		const idType = this.getIDType(sectionID);
-
-		if (_editReadingOrder && idType === 'segment') {
+	this.selectSegment = function (sectionID, hitTest, idType=this.getIDType(sectionID)) {
+		if (_editReadingOrder && idType === ElementType.SEGMENT) {
 			const segment = this._getPolygon(sectionID);
 			if (!this._readingOrderContains(sectionID)) {
 				_actionController.addAndExecuteAction(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this), _currentPage);
@@ -844,8 +860,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				const nearestPoint = hitTest.segment.point;
 				points = [_editor._convertCanvasToGlobal(nearestPoint.x, nearestPoint.y)];
 				_selector.select(sectionID, points);
-			}else{
-				_selector.select(sectionID);
+			} else {
+				_selector.select(sectionID, null, idType);
 			}
 
 			this.closeContextMenu();
@@ -864,9 +880,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 	this.isSegmentSelected = function (id) {
 		return _selector.isSegmentSelected(id);
-	}
-	this.boxSelect = function () {
-		_selector.boxSelect();
 	}
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		_editor.highlightSegment(sectionID, doHighlight);
@@ -911,36 +924,34 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
 
-	this.selectContours = function() {
-		this.endEditing();
-		_gui.selectToolBarButton('segmentContours',true);
-		if(!_contours[_currentPage]){
-			this.showPreloader(true);
-			_editor.startEditing();
-			_communicator.extractContours(_currentPage,_book.id).done((result) => {
-				_contours[_currentPage] = result; 
-				this.showPreloader(false);
-				this.endEditing();
-				_editor.selectContours(_contours[_currentPage]);
-			});
-		}else{
-			_editor.selectContours(_contours[_currentPage]);
-		}
+	this.selectContour = function(id) {
+		_selector.select(id, null, ElementType.CONTOUR);
 	}
-	this.combineContours = function(contours){
-		if(contours.length > 0){
-			_communicator.combineContours(contours,_currentPage,_book.id).done((segment) => {
-				const action = new ActionAddSegment(segment.id, segment.points, segment.type,
-					_editor, _segmentation, _currentPage, this);
 
-				this.endEditing();
-
-				_actionController.addAndExecuteAction(action, _currentPage);
-				this.selectSegment(segment.id);
-				this.openContextMenu(true);
-			});
+	this.displayContours = function(display=true) {
+		_gui.displayContours(display);
+		if(!display || _editor.mode == ViewerMode.CONTOUR){
+			_editor.displayContours(false);
+			_editor.mode = ViewerMode.POLYGON;
+			_gui.selectToolBarButton('segmentContours',false);
+		} else {
+			_selector.unSelect();
+			_gui.selectToolBarButton('segmentContours',true);
+			if(!_contours[_currentPage]){
+				this.showPreloader(true);
+				_communicator.extractContours(_currentPage,_book.id).done((result) => {
+					_contours[_currentPage] = result; 
+					this.showPreloader(false);
+					_editor.setContours(_contours[_currentPage]);
+					_editor.displayContours();
+					_editor.mode = ViewerMode.CONTOUR;
+				});
+			} else {
+				_editor.setContours(_contours[_currentPage]);
+				_editor.displayContours();
+				_editor.mode = ViewerMode.CONTOUR;
+			}
 		}
-		
 	}
 
 	this.changeRegionSettings = function (regionType, minSize, maxOccurances) {
@@ -1023,13 +1034,13 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.getIDType = function (id) {
 		polygon = _segmentation[_currentPage].segments[id];
-		if (polygon) return "segment";
+		if (polygon) return ElementType.SEGMENT;
 
 		polygon = this._getRegionByID(id);
-		if (polygon) return "region";
+		if (polygon) return ElementType.REGION;
 
 		polygon = _settings.pages[_currentPage].cuts[id];
-		if (polygon) return "cut";
+		if (polygon) return ElementType.CUT;
 	}
 
 	this._getPolygon = function (id) {

@@ -44,7 +44,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 16: // Shift
-					_controller.boxSelect();
+					_selector.selectBox = true;
 					validKey = true;
 					break;
 				case 89: // Y
@@ -94,7 +94,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 54: // 6
-					_controller.selectContours();
+					_controller.displayContours();
 					validKey = true;
 					break;
 				case 67: // C
@@ -120,7 +120,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 				//alert(event.keyCode);
 			}
 
-			if (validKey = true) {
+			if (validKey == true) {
 				event.cancelBubble = true;
 				event.returnValue = false;
 			}
@@ -134,6 +134,8 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 
 			switch (event.keyCode) {
 				case 16: // Shift
+					_selector.selectBox = false;
+					validKey = true;
 					break;
 				case 17: // CTRL
 					_selector.selectMultiple = false;
@@ -146,7 +148,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					break;
 			}
 
-			if (validKey = true) {
+			if (validKey == true) {
 				event.cancelBubble = true;
 				event.returnValue = false;
 			}

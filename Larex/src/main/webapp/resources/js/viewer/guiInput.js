@@ -77,7 +77,7 @@ function GuiInput(navigationController, controller, gui) {
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
-	$('.editContours').click(() => _controller.selectContours());
+	$('.editContours').click(() => _controller.displayContours());
 
 	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
 	$('.zoomout').click(() => _navigationController.zoomOut(0.1));

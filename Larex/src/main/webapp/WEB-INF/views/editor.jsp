@@ -141,9 +141,9 @@
 							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
 								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<t:menuIcon jsClass="editContours" icon="font_download"
-							tooltip="Create a fixed segment by selecting contours to include. (WIP) (Shortcut: 6)">Contours</t:menuIcon>
+							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 							<t:menuIcon jsClass="combineSelected" icon="add_circle"
-								tooltip="Combine selected segments (Shortcut: C)">Combine</t:menuIcon>
+								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
 							<t:menuIcon jsClass="fixSelected" icon="lock"
 								tooltip="Fix/unfix segments, for it to persist a new auto segmentation. (Shortcut: F)">Fix</t:menuIcon>
 						</t:menuIconCategory>
@@ -165,6 +165,12 @@
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
+						<t:menuIconCategory name="Contours combine accuracy" jsClass="contourAccuracy">
+							<a class="menuSlider col tooltipped infocus" data-position="bottom" data-delay="50" data-tooltip="Accuracy for combining contours to segments. Low accuracy to the left, high accuracy to the right."> 
+								<input id="contourSlider" type="range" id="test5" min="0" max="100" />
+							</a>
+						</t:menuIconCategory>
+
 					</div>
 				</div>
 			</div>

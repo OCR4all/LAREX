@@ -1,3 +1,8 @@
+/* The viewer is a display for result segments, region segments and contours of any kind. 
+ * It can handle inputs by forwarding it to a input manager (ViewerInput) 
+ * All functionality about viewing elements in the viewer is handled here. 
+ * It does not handle editing these elements. */
+var ViewerMode = {POLYGON:'polygon',CONTOUR:'contour'}
 class Viewer {
 	constructor(viewerInput, colors) {
 		this.thisInput = viewerInput;
@@ -9,12 +14,16 @@ class Viewer {
 		this._regionOverlay;
 		this._contourOverlayID = "overlay";
 		this._contourOverlay;
+		this._contour_context;
 		this._background;
 		this._currentZoom = 1;
 		this._colors = colors;
 		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
 		this._highlighted = null;
 		this._listener = [];
+		this._contours = [];
+		this._contourBounds = []; // Sorted list (top->bottom->left->right) of object of contour + contour bound
+		this.mode = ViewerMode.POLYGON;
 
 		document.addEventListener('visibilitychange', () => {
 			if (!document.hidden) this.forceUpdate();
@@ -35,16 +44,22 @@ class Viewer {
 
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
-				// Check regions first
-				let hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
+				let hitResult = false;
+				if(this.mode == ViewerMode.POLYGON){
+					// Check regions first
+					hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
 
-				// Check segments after
-				if(!hitResult)
-					hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
-
+					// Check segments after
+					if(!hitResult)
+						hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
+				} else if(this.mode == ViewerMode.CONTOUR){
+					hitResult = this._contourOverlay ? this.contourHitTest(event.point) : null;
+				} else {
+					throw new ValueError('Unkown selection mode: '+this.mode)
+				}
 				if(hitResult){
-					if (hitResult.item && hitResult.item.polygonID) 
-						this.thisInput.selectSection(hitResult.item.polygonID, event, hitResult);
+					if (hitResult.item && hitResult.item.elementID) 
+						this.thisInput.clickElement(hitResult.item.elementID, event, hitResult, this.mode);
 					else
 						this.thisInput.clickImage(event);
 				} else {
@@ -84,27 +99,34 @@ class Viewer {
 
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
-				// Check regions first
-				let hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
+				if(this.mode == ViewerMode.POLYGON){
+					// Check regions first
+					let hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
 
-				// Check segments after
-				if(!hitResult)
-					hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
+					// Check segments after
+					if(!hitResult)
+						hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
 
-				if(hitResult){
-					const new_highlight = hitResult.item ? hitResult.item.polygonID : null;
+					if(hitResult){
+						const new_highlight = hitResult.item ? hitResult.item.elementID : null;
 
-					if(this._highlighted && new_highlight !== this._highlighted)
-						this.thisInput.leaveSection(this._highlighted);
-					
-					if(new_highlight)
-						this.thisInput.enterSection(new_highlight);
+						if(this._highlighted && new_highlight !== this._highlighted)
+							this.thisInput.leaveElement(this._highlighted);
+						
+						if(new_highlight)
+							this.thisInput.enterElement(new_highlight);
 
-					this._highlighted = new_highlight;
+						this._highlighted = new_highlight;
 
-				} else if(this._highlighted) {
-					this.thisInput.leaveSection(this._highlighted);
-					this._highlighted = null;
+					} else if(this._highlighted) {
+						this.thisInput.leaveElement(this._highlighted);
+						this._highlighted = null;
+					}
+				} else if(this.mode == ViewerMode.CONTOUR){
+
+
+				} else {
+					throw new ValueError('Unkown selection mode: '+this.mode)
 				}
 			}
 		}
@@ -136,6 +158,31 @@ class Viewer {
 		// Create region canvas
 		this._regionOverlay = this._createEmptyOverlay();
 		this._imageCanvas.addChild(this._regionOverlay);
+
+		let overlayHTML = document.getElementById(this._contourOverlayID);
+		if(!overlayHTML){
+			overlayHTML = document.createElement('canvas');
+			document.body.appendChild(overlayHTML);
+			overlayHTML.id = "overlay";
+
+		}
+		overlayHTML.width = this.getImageWidth();
+		overlayHTML.height = this.getImageHeight();
+		this._contour_context = overlayHTML.getContext("2d");
+
+		//Draw Overlay
+		if(document.getElementById(this._contourOverlayID)){
+			if(this._contourOverlay) this._contourOverlay.remove();
+
+			this._contourOverlay = new paper.Raster(this._contourOverlayID);
+			this._contourOverlay.visible = false;
+			const imagePosition = this._imageCanvas.bounds;
+			this._contourOverlay.position = new paper.Point(imagePosition.x,imagePosition.y);
+			this._contourOverlay.position = this._contourOverlay.position.add([imagePosition.width * 0.5, imagePosition.height * 0.5]);
+			this._contourOverlay.scale(this._currentZoom);
+
+			this._imageCanvas.addChild(this._contourOverlay);
+		}
 	}
 	
 
@@ -163,11 +210,11 @@ class Viewer {
 		delete this._polygons[id];
 	}
 
-	fixSegment(polygonID, doFix = true) {
+	fixSegment(elementID, doFix = true) {
 		if (doFix) {
-			this._polygons[polygonID].dashArray = [5, 3];
+			this._polygons[elementID].dashArray = [5, 3];
 		} else {
-			this._polygons[polygonID].dashArray = [];
+			this._polygons[elementID].dashArray = [];
 		}
 	}
 
@@ -281,13 +328,13 @@ class Viewer {
 			fallback(id,pointsToSelect);
 	}
 
-	selectPointsInbetween(pointA, pointB, polygonID) {
+	selectPointsInbetween(pointA, pointB, elementID) {
 		const points = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
-		this._polygons[polygonID].selected = true;
+		this._polygons[elementID].selected = true;
 		
-		this._polygons[polygonID].segments.forEach(point => {
+		this._polygons[elementID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
 				point.point.selected = true;
 				points.push(this._convertCanvasToGlobal(point.point.x, point.point.y));
@@ -297,15 +344,15 @@ class Viewer {
 	}
 
 	getSegmentIDsBetweenPoints(pointA, pointB) {
-		const polygonIDs = [];
+		const elementIDs = [];
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
 		$.each(this._polygons, (id, polygon) => {
 			if (rectangleAB.contains(polygon.bounds)) {
-				polygonIDs.push(id);
+				elementIDs.push(id);
 			}
 		});
-		return polygonIDs;
+		return elementIDs;
 	}
 
 	getBoundaries() {
@@ -385,7 +432,7 @@ class Viewer {
 	drawPolygon(segment, doFill, isFixed, canvas = this._imageCanvas) {
 		//Construct polygon from segment
 		const polygon = new paper.Path();
-		polygon.polygonID = segment.id;
+		polygon.elementID = segment.id;
 		const color = this._colors.getColor(segment.type);
 
 		polygon.doFill = doFill;
@@ -439,7 +486,7 @@ class Viewer {
 		polygon.closed = false;
 		polygon.strokeColor = color;
 		polygon.strokeWidth = 2;
-		polygon.polygonID = line.id;
+		polygon.elementID = line.id;
 
 		//Convert segment points to current canvas coordinates
 		for (const key in line.points) {
@@ -488,47 +535,111 @@ class Viewer {
 		return image;
 	}
 
-	showContours(contours){
-		let overlayHTML = document.getElementById(this._contourOverlayID);
-		if(!overlayHTML){
-			overlayHTML = document.createElement('canvas');
-			document.body.appendChild(overlayHTML);
-			overlayHTML.id = "overlay";
+	setContours(contours, display=false){
+		this._contours = contours;
+		this._contourBounds = [];
+		for(let id in contours){
+			const contour = contours[id];
+			let left = Number.POSITIVE_INFINITY;
+			let right = Number.NEGATIVE_INFINITY;
+			let top = Number.POSITIVE_INFINITY;
+			let bottom = Number.NEGATIVE_INFINITY;
+			contour.forEach(point => {
+				if(point.x < left) left = point.x;
+				if(right < point.x) right = point.x;
+				if(point.y < top) top = point.y;
+				if(bottom < point.y) bottom = point.y;
+			});
+			const width = right - left;
+			const height = bottom - top;
+			const area = width*height;
+			this._contourBounds.push({id:id,bounds:{left:left,right:right,top:top,bottom:bottom,area:area}});
 		}
-		overlayHTML.width = this.getImageWidth();
-		overlayHTML.height = this.getImageHeight();
-		let ctx = overlayHTML.getContext("2d");
+		// Sort by top -> bottom -> left -> right
+		this._contourBounds.sort((a,b) => {
+			const boundA = a.bounds;
+			const boundB = b.bounds;	
+			let compare = boundA.top - boundB.top;
+			if(compare != 0) return compare;
+			compare = boundA.bottom - boundB.bottom;
+			if(compare != 0) return compare;
+			compare = boundA.left - boundB.left;
+			if(compare != 0) return compare;
+			compare = boundA.right - boundB.right;
+			if(compare != 0) return compare;
+		});
+		this.displayContours(display);
+	}
 
-		contours.forEach((c) => {
-			ctx.fillStyle = '#FF0000CC';
+	displayContours(display=true){
+		if(display){
+			this._contourOverlay.visible = true;
+			this._colorizeContours(this._contours);
+		} else {
+			if(this._contourOverlay) this._contourOverlay.visible = false;
+		}
+	}
+
+	highlightContours(contourIDs,doHighlight=true){
+		const contours = [];
+		contourIDs.forEach(id => contours.push(this._contours[id]));
+		if(doHighlight)
+			this._colorizeContours(contours,'#FF00FF');
+		else
+			this._colorizeContours(contours); // Call colorize with default color
+	}
+	
+	contourHitTest(point){
+		//TODO replace with more performant
+		const global_point = this._convertCanvasToGlobal(point);
+		const hit_contours = [];
+		this._contourBounds.forEach(contour => {
+			if(contour.bounds.left <= global_point.x && global_point.x <= contour.bounds.right &&
+				contour.bounds.top <= global_point.y && global_point.y <= contour.bounds.bottom)
+				hit_contours.push(contour);
+		});
+		if(hit_contours.length > 0){
+			hit_contours.sort((a,b) => {return a.bounds.area-b.bounds.area});
+			const id = hit_contours[0].id;	
+			return {type:'contour',item:{elementID:id,points:this._contours[id]}};
+		} else{
+			const image_bounds = this.getBoundaries();
+			if(image_bounds.left <= point.x && point.x <= image_bounds.right && image_bounds.top <= point.y && point.y <= image_bounds.bottom)
+				return {type:'image'}
+
+			return null; // No contour nor the background was hit
+		}
+	}
+
+	selectContoursInbetween(point_topleft,point_bottomright){
+		const topleft = this._convertCanvasToGlobal(point_topleft);
+		const bottomright = this._convertCanvasToGlobal(point_bottomright);
+		//TODO replace with more performant
+		const included_contours = [];
+		this._contourBounds.forEach(contour => {
+			if(topleft.x <= contour.bounds.left && contour.bounds.right <= bottomright.x &&
+				topleft.y <= contour.bounds.top && contour.bounds.bottom <= bottomright.y)
+				included_contours.push(contour.id);
+		});
+		return included_contours;
+	}
+
+	_colorizeContours(contours,color='#0000FF'){
+		let ctx = this._contour_context;
+
+		contours.forEach((contour)=>{
+			ctx.fillStyle = color;
 			ctx.beginPath();
-			if(c.length > 0){
-				ctx.moveTo(c[0].x, c[0].y);
-				c.forEach((p) => {
+			if(contour.length > 0){
+				ctx.moveTo(contour[0].x, contour[0].y);
+				contour.forEach((p) => {
 					ctx.lineTo(p.x,p.y);
 				});
 				ctx.closePath();
 				ctx.fill();
 			}
 		});
-
-		//Draw Overlay
-		if(document.getElementById(this._contourOverlayID)){
-			if(this._contourOverlay) this._contourOverlay.remove();
-
-			this._contourOverlay = new paper.Raster(this._contourOverlayID);
-			this._contourOverlay.visible = true;
-			const imagePosition = this._imageCanvas.bounds;
-			this._contourOverlay.position = new paper.Point(imagePosition.x,imagePosition.y);
-			this._contourOverlay.position = this._contourOverlay.position.add([imagePosition.width * 0.5, imagePosition.height * 0.5]);
-			this._contourOverlay.scale(this._currentZoom);
-
-			this._imageCanvas.addChild(this._contourOverlay);
-		}
-	}
-
-	hideContours(){
-		if(this._contourOverlay) this._contourOverlay.visible = false;
+		this.forceUpdate();
 	}
 
 	_createEmptyOverlay(){
