@@ -514,54 +514,53 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
 
-		if(selected.length > 1){
-			if(selectType === ElementType.SEGMENT){
-				const actions = [];
-				const segments = [];
-				for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-					if (selectType === ElementType.SEGMENT) {
-						let segment = _segmentation[_currentPage].segments[selected[i]];
-						//filter special case image (do not merge images)
-						if (segment.type !== 'image') {
-							segments.push(segment);
-							actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
-						}
+		if(selected.length > 1 && selectType === ElementType.SEGMENT){
+			const actions = [];
+			const segments = [];
+			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+				if (selectType === ElementType.SEGMENT) {
+					let segment = _segmentation[_currentPage].segments[selected[i]];
+					//filter special case image (do not merge images)
+					if (segment.type !== 'image') {
+						segments.push(segment);
+						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
 					}
 				}
-				if (segments.length > 1) {
-					_communicator.mergeSegments(segments, _currentPage, _book.id).done((data) => {
-						const mergedSegment = data;
-						if(mergedSegment.points.length > 1){
-							actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-								_editor, _segmentation, _currentPage, this));
+			}
+			if (segments.length > 1) {
+				_communicator.mergeSegments(segments, _currentPage, _book.id).done((data) => {
+					const mergedSegment = data;
+					if(mergedSegment.points.length > 1){
+						actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
+							_editor, _segmentation, _currentPage, this));
 
-							let mergeAction = new ActionMultiple(actions);
-							_actionController.addAndExecuteAction(mergeAction, _currentPage);
-							this.selectSegment(mergedSegment.id);
-							this.openContextMenu(true);
-						} else {
-							_gui.displayWarning("Combination of segments resulted in a segment with to few points. Segment will be ignored.");
-						}
-					});
-				}
-			} else if(selectType === ElementType.CONTOUR){
-				const contours = selected.map(id => _contours[_currentPage][id]);
-				const contourAccuracy = _gui.getParameters()['contourAccuracy'];
-				_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
-					if(segment.points.length > 0){
-						const action = new ActionAddSegment(segment.id, segment.points, segment.type,
-							_editor, _segmentation, _currentPage, this);
-
-						_actionController.addAndExecuteAction(action, _currentPage);
-						_selector.unSelect();
+						let mergeAction = new ActionMultiple(actions);
+						_actionController.addAndExecuteAction(mergeAction, _currentPage);
+						this.selectSegment(mergedSegment.id);
 						this.openContextMenu(true);
 					} else {
-						_gui.displayWarning("Combination of contours resulted in a segment with to few points. Segment will be ignored.");
+						_gui.displayWarning("Combination of segments resulted in a segment with to few points. Segment will be ignored.");
 					}
 				});
 			}
+		} else if(selectType === ElementType.CONTOUR){
+			const contours = selected.map(id => _contours[_currentPage][id]);
+			const contourAccuracy = _gui.getParameters()['contourAccuracy'];
+			_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
+				if(segment.points.length > 0){
+					const action = new ActionAddSegment(segment.id, segment.points, segment.type,
+						_editor, _segmentation, _currentPage, this);
+
+					_actionController.addAndExecuteAction(action, _currentPage);
+					_selector.unSelect();
+					this.openContextMenu(true);
+				} else {
+					_gui.displayWarning("Combination of contours resulted in a segment with to few points. Segment will be ignored.");
+				}
+			});
 		}
 	}
+	
 
 	this.changeTypeSelected = function (newType) {
 		const selected = _selector.getSelectedSegments();
