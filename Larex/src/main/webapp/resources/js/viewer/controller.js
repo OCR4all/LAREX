@@ -531,25 +531,33 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				if (segments.length > 1) {
 					_communicator.mergeSegments(segments, _currentPage, _book.id).done((data) => {
 						const mergedSegment = data;
-						actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-							_editor, _segmentation, _currentPage, this));
+						if(mergedSegment.points.length > 1){
+							actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
+								_editor, _segmentation, _currentPage, this));
 
-						let mergeAction = new ActionMultiple(actions);
-						_actionController.addAndExecuteAction(mergeAction, _currentPage);
-						this.selectSegment(mergedSegment.id);
-						this.openContextMenu(true);
+							let mergeAction = new ActionMultiple(actions);
+							_actionController.addAndExecuteAction(mergeAction, _currentPage);
+							this.selectSegment(mergedSegment.id);
+							this.openContextMenu(true);
+						} else {
+							_gui.displayWarning("Combination of segments resulted in a segment with to few points. Segment will be ignored.");
+						}
 					});
 				}
 			} else if(selectType === ElementType.CONTOUR){
 				const contours = selected.map(id => _contours[_currentPage][id]);
 				const contourAccuracy = _gui.getParameters()['contourAccuracy'];
 				_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
-					const action = new ActionAddSegment(segment.id, segment.points, segment.type,
-						_editor, _segmentation, _currentPage, this);
+					if(segment.points.length > 0){
+						const action = new ActionAddSegment(segment.id, segment.points, segment.type,
+							_editor, _segmentation, _currentPage, this);
 
-					_actionController.addAndExecuteAction(action, _currentPage);
-					_selector.unSelect();
-					this.openContextMenu(true);
+						_actionController.addAndExecuteAction(action, _currentPage);
+						_selector.unSelect();
+						this.openContextMenu(true);
+					} else {
+						_gui.displayWarning("Combination of contours resulted in a segment with to few points. Segment will be ignored.");
+					}
 				});
 			}
 		}
@@ -649,11 +657,15 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if (!type) {
 			type = "other";
 		}
-		const actionAdd = new ActionAddSegment(newID, segmentpoints, type,
-			_editor, _segmentation, _currentPage, this);
+		if(segmentPoints.length > 1){
+			const actionAdd = new ActionAddSegment(newID, segmentpoints, type,
+				_editor, _segmentation, _currentPage, this);
 
-		_actionController.addAndExecuteAction(actionAdd, _currentPage);
-		this.openContextMenu(false, newID);
+			_actionController.addAndExecuteAction(actionAdd, _currentPage);
+			this.openContextMenu(false, newID);
+		} else {
+			_gui.displayWarning("The system tried to create an invalid segment with to few points. Segment will be ignored.")
+		}
 		_gui.unselectAllToolBarButtons();
 	}
 	this.callbackNewCut = function (segmentpoints) {
