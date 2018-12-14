@@ -32,19 +32,21 @@ public class PageXMLReader {
 
 		for (int i = 0; i < textRegions.getLength(); i++) {
 			RegionSegment newRegion = extractRegion(textRegions.item(i), true);
-			resRegions.add(newRegion);
+			if(newRegion != null)
+				resRegions.add(newRegion);
 		}
 
 		for (int i = 0; i < imageRegions.getLength(); i++) {
 			RegionSegment newRegion = extractRegion(imageRegions.item(i), false);
-			resRegions.add(newRegion);
+			if(newRegion != null)
+				resRegions.add(newRegion);
 		}
 
 		segResult = new SegmentationResult(resRegions);
 		ArrayList<RegionSegment> readingOrder = new ArrayList<RegionSegment>();
 		NodeList readingOrderXML = document.getElementsByTagName("ReadingOrder");
-		//TODO
-		if(readingOrderXML.getLength() > 0) {
+		// TODO
+		if (readingOrderXML.getLength() > 0) {
 			for (RegionSegment region : resRegions) {
 				if (!region.getType().equals(RegionType.image)) {
 					readingOrder.add(region);
@@ -90,9 +92,12 @@ public class PageXMLReader {
 			points = extractPoints2017(coords);
 		}
 
-		RegionSegment region = new RegionSegment(type, points);
-
-		return region;
+		if(!points.empty()) {
+			RegionSegment region = new RegionSegment(type, points);
+			return region;
+		} else {
+			return null;
+		}
 	}
 
 	private static MatOfPoint extractPoints2010(Element coords) {
@@ -120,33 +125,39 @@ public class PageXMLReader {
 
 		boolean finished = false;
 
-		while (!finished) {
-			int spacePosition = pointsString.indexOf(" ");
+		// Check if points are in valid PAGE xml format
+		if (pointsString.matches("([0-9]+,[0-9]+ )+([0-9]+,[0-9]+)")) {
+			while (!finished) {
+				int spacePosition = pointsString.indexOf(" ");
 
-			if (spacePosition > 0) {
-				String pointString = pointsString.substring(0, spacePosition);
-				pointsString = pointsString.substring(spacePosition + 1);
+				if (spacePosition > 0) {
+					String pointString = pointsString.substring(0, spacePosition);
+					pointsString = pointsString.substring(spacePosition + 1);
 
-				int x = Integer.parseInt(pointString.substring(0, pointString.indexOf(",")));
-				int y = Integer.parseInt(pointString.substring(pointString.indexOf(",") + 1));
+					int x = Integer.parseInt(pointString.substring(0, pointString.indexOf(",")));
+					int y = Integer.parseInt(pointString.substring(pointString.indexOf(",") + 1));
 
-				Point newPoint = new Point(x, y);
-				pointList.add(newPoint);
-			} else {
-				int x = Integer.parseInt(pointsString.substring(0, pointsString.indexOf(",")));
-				int y = Integer.parseInt(pointsString.substring(pointsString.indexOf(",") + 1));
+					Point newPoint = new Point(x, y);
+					pointList.add(newPoint);
+				} else {
+					int x = Integer.parseInt(pointsString.substring(0, pointsString.indexOf(",")));
+					int y = Integer.parseInt(pointsString.substring(pointsString.indexOf(",") + 1));
 
-				Point newPoint = new Point(x, y);
-				pointList.add(newPoint);
+					Point newPoint = new Point(x, y);
+					pointList.add(newPoint);
 
-				finished = true;
+					finished = true;
+				}
 			}
+
+			Point[] pointArray = new Point[pointList.size()];
+
+			MatOfPoint points = new MatOfPoint(pointList.toArray(pointArray));
+
+			return points;
+		} else {
+			return new MatOfPoint();
 		}
-
-		Point[] pointArray = new Point[pointList.size()];
-		MatOfPoint points = new MatOfPoint(pointList.toArray(pointArray));
-
-		return points;
 	}
 
 }

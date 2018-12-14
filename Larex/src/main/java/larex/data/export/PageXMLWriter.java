@@ -32,17 +32,19 @@ public class PageXMLWriter {
 	 */
 	public static void addPoints2017(Document document, Element coordsElement, MatOfPoint pointMat) {
 		Point[] points = pointMat.toArray();
-		String pointCoords = "";
-
-		for (int i = 0; i < points.length; i++) {
-			int x = (int) points[i].x;
-			int y = (int) points[i].y;
-
-			pointCoords += x + "," + y + " ";
+		if(points.length > 0) {
+			String pointCoords = "";
+	
+			for (int i = 0; i < points.length; i++) {
+				int x = (int) points[i].x;
+				int y = (int) points[i].y;
+	
+				pointCoords += x + "," + y + " ";
+			}
+	
+			pointCoords = pointCoords.substring(0, pointCoords.length() - 1);
+			coordsElement.setAttribute("points", pointCoords);
 		}
-
-		pointCoords = pointCoords.substring(0, pointCoords.length() - 1);
-		coordsElement.setAttribute("points", pointCoords);
 	}
 
 	/**
