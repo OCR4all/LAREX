@@ -656,7 +656,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if (!type) {
 			type = "other";
 		}
-		if(segmentPoints.length > 1){
+		if(segmentpoints.length > 1){
 			const actionAdd = new ActionAddSegment(newID, segmentpoints, type,
 				_editor, _segmentation, _currentPage, this);
 
