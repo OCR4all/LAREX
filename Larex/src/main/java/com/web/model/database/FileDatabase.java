@@ -100,8 +100,7 @@ public class FileDatabase implements IDatabase {
 					int width = 0;
 					int height = 0;
 
-					try {
-						ImageInputStream in = ImageIO.createImageInputStream(pageFile);
+					try ( ImageInputStream in = ImageIO.createImageInputStream(pageFile) ){
 						final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
 						if (readers.hasNext()) {
 							ImageReader reader = readers.next();

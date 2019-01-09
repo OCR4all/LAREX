@@ -93,9 +93,10 @@ public class FileController {
 
 			// Convert to png
 			BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
-			ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-			ImageIO.write(bufferedImage, "png", byteArrayOut);
-			imageBytes = byteArrayOut.toByteArray();
+			try( ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream() ){
+				ImageIO.write(bufferedImage, "png", byteArrayOut);
+				imageBytes = byteArrayOut.toByteArray();
+			}
 
 			// Remove Garbage
 			imageMat.release();
@@ -107,9 +108,10 @@ public class FileController {
 
 				// Convert to png
 				BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
-				ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream();
-				ImageIO.write(bufferedImage, "png", byteArrayOut);
-				imageBytes = byteArrayOut.toByteArray();
+				try( ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream() ){
+					ImageIO.write(bufferedImage, "png", byteArrayOut);
+					imageBytes = byteArrayOut.toByteArray();
+				}
 
 				// Remove Garbage
 				imageMat.release();
@@ -224,8 +226,7 @@ public class FileController {
 	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {
 		// convert document to bytes
 		byte[] documentbytes = null;
-		try {
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
+		try( ByteArrayOutputStream out = new ByteArrayOutputStream();){
 			TransformerFactory factory = TransformerFactory.newInstance();
 			Transformer transformer = factory.newTransformer();
 			transformer.transform(new DOMSource(document), new StreamResult(out));
@@ -234,6 +235,9 @@ public class FileController {
 			e.printStackTrace();
 		} catch (TransformerException e) {
 			e.printStackTrace();
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
 		}
 
 		// create ResponseEntry

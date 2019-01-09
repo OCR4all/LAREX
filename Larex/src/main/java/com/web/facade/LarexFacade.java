@@ -218,10 +218,11 @@ public class LarexFacade {
 
 	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager) {
 		BookSettings settings = null;
-		try {
+
+		try(ByteArrayInputStream stream = new ByteArrayInputStream(settingsFile)){
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			Document document = dBuilder.parse(new ByteArrayInputStream(settingsFile));
+			Document document = dBuilder.parse(stream);
 
 			Book book = getBook(bookID, fileManager);
 			Page page = book.getPage(0);
@@ -245,10 +246,10 @@ public class LarexFacade {
 	}
 
 	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileManager fileManager) {
-		try {
+		try (ByteArrayInputStream stream = new ByteArrayInputStream(pageXML)){
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			Document document = dBuilder.parse(new ByteArrayInputStream(pageXML));
+			Document document = dBuilder.parse(stream);
 			Page page = getBook(bookID, fileManager).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
