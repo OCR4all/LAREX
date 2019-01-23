@@ -1,5 +1,7 @@
 # LAREX
 
+[![Build Status](https://travis-ci.org/b-eyselein/LAREX.svg?branch=master)](https://travis-ci.org/b-eyselein/LAREX)
+
 LAREX is a semi-automatic open-source tool for layout analysis on early printed books. 
 It uses a rule based connected components approach which is very fast, 
 easily comprehensible for the user and allows an intuitive manual correction if necessary. 

@@ -5,6 +5,8 @@ Larex/src/main/webapp/resources/books/
 #user settings
 Larex/src/main/webapp/WEB-INF/larex.config
 
+.idea/
+
 ## Code ##
 #java
 *.class
