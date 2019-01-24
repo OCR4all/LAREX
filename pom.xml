@@ -149,5 +149,4 @@
             </plugin>
         </plugins>
     </build>
-    <artifactId>Larex</artifactId>
 </project>
