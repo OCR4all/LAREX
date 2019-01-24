@@ -6,6 +6,7 @@ Larex/src/main/webapp/resources/books/
 Larex/src/main/webapp/WEB-INF/larex.config
 
 .idea/
+target/
 
 ## Code ##
 #java

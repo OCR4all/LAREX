@@ -3,10 +3,12 @@
     <servers>
         <server>
             <id>central</id>
+            <username>travis-ci</username>
             <password>${env.ARTIFACTORY_ACCESS_TOKEN}</password>
         </server>
         <server>
             <id>snapshots</id>
+            <username>travis-ci</username>
             <password>${env.ARTIFACTORY_ACCESS_TOKEN}</password>
         </server>
     </servers>
