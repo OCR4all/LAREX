@@ -1,9 +1,9 @@
 ## Larex ##
 #books 
-Larex/src/main/webapp/resources/books/
+src/main/webapp/resources/books/
 
 #user settings
-Larex/src/main/webapp/WEB-INF/larex.config
+src/main/webapp/WEB-INF/larex.config
 
 .idea/
 target/
@@ -21,27 +21,27 @@ target/
 *.rar
 
 #sass
-Larex/src/main/webapp/resources/.sass-cache/
+src/main/webapp/resources/.sass-cache/
 .sass-cache/
 *.css.map
 
 ## Editors ##
 #eclipse
-Larex/target/
-Larex/bin/
-Larex/tmp/
+target/
+bin/
+tmp/
 *.tmp
 *.bak
 *.swp
 *~.nib
 *.launch
 local.properties
-Larex/.settings/
-Larex/.loadpath
-Larex/.recommenders
-Larex/.target
-Larex/.classpath
-Larex/.project
+.settings/
+.loadpath
+.recommenders
+.target
+.classpath
+.project
 
 #vim
 *~
