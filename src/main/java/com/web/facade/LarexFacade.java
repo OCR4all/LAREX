@@ -53,7 +53,7 @@ public class LarexFacade {
 		Book book = getBook(settings.getBookID(), fileManager);
 
 		Page page = book.getPage(pageNr);
-		String xmlPath = fileManager.getBooksPath() + File.separator + book.getName() + File.separator + page.getName()
+		String xmlPath = fileManager.getLocalBooksPath() + File.separator + book.getName() + File.separator + page.getName()
 				+ ".xml";
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
@@ -182,7 +182,7 @@ public class LarexFacade {
 	}
 
 	private static larex.data.Page segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
-		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
+		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
 			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
@@ -208,7 +208,7 @@ public class LarexFacade {
 	}
 
 	private static larex.data.Page getLarexPage(Page page, FileManager fileManager) {
-		String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
+		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {
 			return new larex.data.Page(imagePath);
@@ -226,7 +226,7 @@ public class LarexFacade {
 
 			Book book = getBook(bookID, fileManager);
 			Page page = book.getPage(0);
-			String imagePath = fileManager.getBooksPath() + File.separator + page.getImage();
+			String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
 			currentLarexPage.initPage();
 
@@ -274,7 +274,7 @@ public class LarexFacade {
 	}
 
 	public static Book getBook(int bookID, FileManager fileManager) {
-		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
 		return database.getBook(bookID);
 	}
 }

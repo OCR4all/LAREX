@@ -61,7 +61,7 @@ public class ViewerController {
 		}
 
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
 		Book book = database.getBook(bookID);
 
 		if (book == null) {
@@ -71,7 +71,7 @@ public class ViewerController {
 		model.addAttribute("book", book);
 		model.addAttribute("regionTypes", getregionTypes());
 		model.addAttribute("imageSegTypes", getImageregionTypes());
-		model.addAttribute("bookPath", fileManager.getWebBooksPath());
+		model.addAttribute("bookPath", fileManager.getURLBooksPath());
 		model.addAttribute("globalSettings", config);
 
 		return "editor";
@@ -90,7 +90,7 @@ public class ViewerController {
 		if (!new File(bookpath + File.separator + bookname).exists()) {
 			return "redirect:/400";
 		}
-		fileManager.setBooksPath(bookpath);
+		fileManager.setLocalBooksPath(bookpath);
 		int bookID = bookname.hashCode();
 
 		if (localsave != null) {
@@ -109,7 +109,7 @@ public class ViewerController {
 	public @ResponseBody BasicResponse getBook(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
 		Book book = database.getBook(bookID);
 		BookSettings settings = LarexFacade.getDefaultSettings(book);
 
@@ -148,7 +148,7 @@ public class ViewerController {
 	@RequestMapping(value = "/segmentedpages", method = RequestMethod.POST)
 	public @ResponseBody Collection<Integer> getOnServer(@RequestParam("bookid") int bookID) {
 		init();
-		FileDatabase database = new FileDatabase(new File(fileManager.getBooksPath()));
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
 		return database.getSegmentedPageIDs(bookID);
 	}
 	
@@ -180,7 +180,7 @@ public class ViewerController {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
 			if (!bookFolder.equals("")) {
-				fileManager.setBooksPath(bookFolder);
+				fileManager.setLocalBooksPath(bookFolder);
 			}
 		}
 	}

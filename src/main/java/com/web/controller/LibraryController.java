@@ -37,9 +37,9 @@ public class LibraryController {
 		config.read(new File(fileManager.getConfigurationFile()));
 		String bookFolder = config.getSetting("bookpath");
 		if (!bookFolder.equals("")) {
-			fileManager.setBooksPath(bookFolder);
+			fileManager.setLocalBooksPath(bookFolder);
 		}
-		File bookPath = new File(fileManager.getBooksPath());
+		File bookPath = new File(fileManager.getLocalBooksPath());
 		bookPath.isDirectory();
 		IDatabase database = new FileDatabase(bookPath);
 		Library lib = new Library(database);

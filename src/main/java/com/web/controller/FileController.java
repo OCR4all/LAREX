@@ -64,7 +64,7 @@ public class FileController {
 			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
 		// Find file with image name
 		init();
-		File directory = new File(fileManager.getBooksPath() + File.separator + book);
+		File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
 		File[] matchingFiles = directory.listFiles(new FilenameFilter() {
 			public boolean accept(File dir, String name) {
 				return name.startsWith(image) && (name.endsWith("png") || name.endsWith("jpg") || name.endsWith("jpeg")
@@ -152,7 +152,7 @@ public class FileController {
 		switch (config.getSetting("localsave")) {
 		case "bookpath":
 			LarexFacade.savePageXMLLocal(
-					fileManager.getBooksPath() + File.separator
+					fileManager.getLocalBooksPath() + File.separator
 							+ LarexFacade.getBook(request.getBookid(), fileManager).getName(),
 					request.getSegmentation().getName(), pageXML);
 			break;
@@ -199,7 +199,7 @@ public class FileController {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
 			if (!bookFolder.equals("")) {
-				fileManager.setBooksPath(bookFolder);
+				fileManager.setLocalBooksPath(bookFolder);
 			}
 		}
 	}
