@@ -85,8 +85,7 @@ public class FileManager {
 	 */
 	public String getConfigurationFile() {
 		String configPathVariable = System.getenv("LAREX_CONFIG");
-		File configFile = new File(configPathVariable);
-		if (configPathVariable != null && !configPathVariable.equals("") && configFile.exists())
+		if (configPathVariable != null && !configPathVariable.equals("") && new File(configPathVariable).exists())
 			return configPathVariable;
 		else
 			return servletContext.getRealPath("WEB-INF" + File.separator + "larex.config");
