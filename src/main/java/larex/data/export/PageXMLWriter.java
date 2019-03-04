@@ -1,6 +1,7 @@
 package larex.data.export;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -221,8 +222,11 @@ public class PageXMLWriter {
 				outputPath += fileName + ".xml";
 			}
 
-			StreamResult result = new StreamResult(new File(outputPath));
+			FileOutputStream output = new FileOutputStream(new File(outputPath));
+			StreamResult result = new StreamResult(output);
 			transformer.transform(source, result);
+
+			output.close();
 
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -1,6 +1,7 @@
 package larex.data.export;
 
 import java.io.File;
+import java.io.FileOutputStream;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -91,7 +92,8 @@ public class SettingsWriter {
 			
 			outputPath += "Settings.xml";
 			
-			StreamResult result = new StreamResult(new File(outputPath));
+			FileOutputStream output = new FileOutputStream(new File(outputPath));
+			StreamResult result = new StreamResult(output);
 			transformer.transform(source, result);
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -109,21 +109,26 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 		this.showPreloader(true);
 
-		let hasLocal = false;
-		if(!_autoSegment){
-			// Check if pages has local segmentation only if autoSegment is not allowed
-			_communicator.getSegmented(_book.id).done((pages) =>{
-				hasLocal = pages.includes(pageNr);
-				pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
-			});
-		}
 
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-			if( _autoSegment || (_allowLoadLocal && hasLocal)){
+			if(_autoSegment){
 				this._requestSegmentation(_currentPage, _allowLoadLocal);
-			}else{
-				this._requestEmptySegmentation(_currentPage);
+			} else {
+				if(!_allowLoadLocal){
+					this._requestEmptySegmentation(_currentPage);
+				}else{
+					// Check if pages has local segmentation only if autoSegment is not allowed
+					_communicator.getSegmented(_book.id).done((pages) =>{
+						hasLocal = pages.includes(pageNr);
+						pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
+						if(_allowLoadLocal && hasLocal){
+							this._requestSegmentation(_currentPage, _allowLoadLocal);
+						} else {
+							this._requestEmptySegmentation(_currentPage);
+						}
+					});
+				}
 			}
 		} else {
 			const imageId = _book.pages[_currentPage].id + "image";
