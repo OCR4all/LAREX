@@ -164,10 +164,22 @@ function GuiInput(navigationController, controller, gui) {
 		}
 	});
 
+	// Set begin
+	const $loadSwitchBox = $('.settings-load-existing-xml').find('input');
+	_controller.allowToLoadExistingSegmentation($loadSwitchBox.prop('checked'));
 	$('.settings-load-existing-xml').click(function () {
 		const $this = $(this);
 		const $switchBox = $this.find('input');
 		_controller.allowToLoadExistingSegmentation($switchBox.prop('checked'));
+	});
+
+	// Set begin
+	const $autosegmentSwitchBox = $('.settings-autosegment').find('input');
+	_controller.allowToAutosegment($autosegmentSwitchBox.prop('checked'));
+	$('.settings-autosegment').click(function () {
+		const $this = $(this);
+		const $switchBox = $this.find('input');
+		_controller.allowToAutosegment($switchBox.prop('checked'));
 	});
 
 	$('.loadExistingSegmentation').click(() => _controller.loadExistingSegmentation());

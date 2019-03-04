@@ -21,6 +21,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _displayReadingOrder = false;
 	let _tempReadingOrder = null;
 	let _allowLoadLocal = true;
+	let _autoSegment = true;
 	let _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
 	let _fixedSegments = {};
 	let _editReadingOrder = false;
@@ -108,8 +109,22 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 		this.showPreloader(true);
 
+		let hasLocal = false;
+		if(!_autoSegment){
+			// Check if pages has local segmentation only if autoSegment is not allowed
+			_communicator.getSegmented(_book.id).done((pages) =>{
+				hasLocal = pages.includes(pageNr);
+				pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
+			});
+		}
+
+		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-			this._requestSegmentation(_currentPage, _allowLoadLocal);
+			if( _autoSegment || (_allowLoadLocal && hasLocal)){
+				this._requestSegmentation(_currentPage, _allowLoadLocal);
+			}else{
+				this._requestEmptySegmentation(_currentPage);
+			}
 		} else {
 			const imageId = _book.pages[_currentPage].id + "image";
 			// Check if image is loadedreadingOrder
@@ -167,9 +182,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			_gui.updateZoom();
 			_gui.showUsedRegionLegends(_presentRegions);
-			_gui.setReadingOrder(_segmentation[_currentPage].readingOrder, _segmentation[_currentPage].segments);
-			_guiInput.addDynamicListeners();
-			this.displayReadingOrder(_displayReadingOrder);
+			if(_segmentation[_currentPage] != null){
+				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder, _segmentation[_currentPage].segments);
+				_guiInput.addDynamicListeners();
+				this.displayReadingOrder(_displayReadingOrder);
+			}
 			_gui.setRegionLegendColors(_presentRegions);
 
 			_gui.selectPage(pageNr);
@@ -278,6 +295,26 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			})
 
 		});
+	}
+
+	this._requestEmptySegmentation = function (pageID) {
+		if (!pageID) {
+			pageID = _currentPage;
+		}
+
+		//Add fixed Segments to settings
+		const activesettings = JSON.parse(JSON.stringify(_settings));
+		activesettings.pages[pageID].segments = {};
+		if (!_fixedSegments[pageID]) _fixedSegments[pageID] = [];
+		_fixedSegments[pageID].forEach(s => activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
+
+		_communicator.emptySegmentation(activesettings, pageID).done((result) => {
+			_gui.highlightLoadedPage(pageID, false);
+			_segmentation[pageID] = result;
+
+			this.displayPage(pageID);
+		});
+		_segmentedPages.push(pageID);
 	}
 
 	this._uploadSegmentation = function (file, pageNr) {
@@ -1019,6 +1056,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 	this.allowToLoadExistingSegmentation = function (allowLoadLocal) {
 		_allowLoadLocal = allowLoadLocal;
+	}
+
+	this.allowToAutosegment = function (autoSegment) {
+		_autoSegment = autoSegment;
 	}
 
 	this.isSegmentFixed = function (id) {

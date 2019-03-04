@@ -68,6 +68,19 @@ public class LarexFacade {
 		}
 	}
 
+	public static PageSegmentation emptySegmentPage(BookSettings settings, int pageNr, FileManager fileManager) {
+		Book book = getBook(settings.getBookID(), fileManager);
+
+		Page page = book.getPage(pageNr);
+
+		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
+
+		PageSegmentation segmentation =  new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(), regions,
+				page.getId());
+		segmentation.setStatus(SegmentationStatus.EMPTY);
+		return segmentation;
+	}
+
 	public static BookSettings getDefaultSettings(Book book) {
 		return new BookSettings(new Parameters(), book);
 	}

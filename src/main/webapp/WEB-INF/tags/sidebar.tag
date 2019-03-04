@@ -40,6 +40,15 @@
 						</span>	
 					</div>
 					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if avaiable">Load now</a>
+					<div class="col s12">
+						<span class="settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened."> 
+							<label>
+								<input type="checkbox" checked="checked"> 
+									<span class="lever"></span>
+								Auto segment page 
+							</label>
+						</span>	
+					</div>
 				</div>
 			</div>
 		</li>
