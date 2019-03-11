@@ -62,72 +62,76 @@ public class FileController {
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
 			@PathVariable("image") final String image,
 			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
-		// Find file with image name
-		init();
-		File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
-		File[] matchingFiles = directory.listFiles(new FilenameFilter() {
-			public boolean accept(File dir, String name) {
-				return name.startsWith(image) && (name.endsWith("png") || name.endsWith("jpg") || name.endsWith("jpeg")
-						|| name.endsWith("tif") || name.endsWith("tiff"));
-			}
-		});
+		try {
+			// Find file with image name
+			init();
+			File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
+			File[] matchingFiles = directory.listFiles(new FilenameFilter() {
+				public boolean accept(File dir, String name) {
+					return name.startsWith(image) && (name.endsWith("png") || name.endsWith("jpg")
+							|| name.endsWith("jpeg") || name.endsWith("tif") || name.endsWith("tiff"));
+				}
+			});
 
-		if (matchingFiles.length == 0)
-			throw new IOException("File does not exist");
+			if (matchingFiles.length == 0)
+				throw new IOException("File does not exist");
 
-		byte[] imageBytes = null;
+			byte[] imageBytes = null;
 
-		File imageFile = matchingFiles[0];
+			File imageFile = matchingFiles[0];
 
-		if (doResize) {
-			// load Mat
-			Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
-			// resize
-			Mat resizeImage = new Mat();
-			int width = 300;
-			int height = (int) (imageMat.rows() * ((width * 1.0) / imageMat.cols()));
-			Size sz = new Size(width, height);
-			Imgproc.resize(imageMat, resizeImage, sz);
-			imageMat.release();
-			imageMat = resizeImage;
-
-			// Convert to png
-			BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
-			try( ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream() ){
-				ImageIO.write(bufferedImage, "png", byteArrayOut);
-				imageBytes = byteArrayOut.toByteArray();
-			}
-
-			// Remove Garbage
-			imageMat.release();
-			System.gc();
-		} else {
-			if (imageFile.getName().endsWith("tif") || imageFile.getName().endsWith("tiff")) {
+			if (doResize) {
 				// load Mat
 				Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
+				// resize
+				Mat resizeImage = new Mat();
+				int width = 300;
+				int height = (int) (imageMat.rows() * ((width * 1.0) / imageMat.cols()));
+				Size sz = new Size(width, height);
+				Imgproc.resize(imageMat, resizeImage, sz);
+				imageMat.release();
+				imageMat = resizeImage;
 
 				// Convert to png
 				BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
-				try( ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream() ){
+				try (ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream()) {
 					ImageIO.write(bufferedImage, "png", byteArrayOut);
 					imageBytes = byteArrayOut.toByteArray();
 				}
 
 				// Remove Garbage
 				imageMat.release();
-			} else
-				imageBytes = Files.readAllBytes(imageFile.toPath());
+				System.gc();
+			} else {
+				if (imageFile.getName().endsWith("tif") || imageFile.getName().endsWith("tiff")) {
+					// load Mat
+					Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
+
+					// Convert to png
+					BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
+					try (ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream()) {
+						ImageIO.write(bufferedImage, "png", byteArrayOut);
+						imageBytes = byteArrayOut.toByteArray();
+					}
+
+					// Remove Garbage
+					imageMat.release();
+				} else
+					imageBytes = Files.readAllBytes(imageFile.toPath());
+			}
+
+			// Create header to display the image
+			HttpHeaders headers = new HttpHeaders();
+
+			headers.setLastModified(imageFile.lastModified());
+			headers.setCacheControl("no-cache");
+			headers.setContentType(MediaType.IMAGE_PNG);
+			headers.setContentLength(imageBytes.length);
+
+			return new ResponseEntity<byte[]>(imageBytes, headers, HttpStatus.OK);
+		} catch (Exception e) {
+			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
-
-		// Create header to display the image
-		HttpHeaders headers = new HttpHeaders();
-
-		headers.setLastModified(imageFile.lastModified());
-		headers.setCacheControl("no-cache");
-		headers.setContentType(MediaType.IMAGE_PNG);
-		headers.setContentLength(imageBytes.length);
-
-		return new ResponseEntity<byte[]>(imageBytes, headers, HttpStatus.OK);
 	}
 
 	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
@@ -146,33 +150,41 @@ public class FileController {
 
 	@RequestMapping(value = "/exportXML", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
-		init();
-		final Document pageXML = LarexFacade.getPageXML(request.getSegmentation(), request.getVersion());
+		try {
+			init();
+			final Document pageXML = LarexFacade.getPageXML(request.getSegmentation(), request.getVersion());
 
-		switch (config.getSetting("localsave")) {
-		case "bookpath":
-			LarexFacade.savePageXMLLocal(
-					fileManager.getLocalBooksPath() + File.separator
-							+ LarexFacade.getBook(request.getBookid(), fileManager).getName(),
-					request.getSegmentation().getName(), pageXML);
-			break;
-		case "savedir":
-			String savedir = config.getSetting("savedir");
-			if (savedir != null && !savedir.equals("")) {
-				LarexFacade.savePageXMLLocal(savedir, request.getSegmentation().getName(), pageXML);
-			} else {
-				System.err.println("Warning: Save dir is not set. File could not been saved.");
+			switch (config.getSetting("localsave")) {
+			case "bookpath":
+				LarexFacade.savePageXMLLocal(
+						fileManager.getLocalBooksPath() + File.separator
+								+ LarexFacade.getBook(request.getBookid(), fileManager).getName(),
+						request.getSegmentation().getName(), pageXML);
+				break;
+			case "savedir":
+				String savedir = config.getSetting("savedir");
+				if (savedir != null && !savedir.equals("")) {
+					LarexFacade.savePageXMLLocal(savedir, request.getSegmentation().getName(), pageXML);
+				} else {
+					System.err.println("Warning: Save dir is not set. File could not been saved.");
+				}
+				break;
+			case "none":
+			case "default":
 			}
-			break;
-		case "none":
-		case "default":
+			return convertDocumentToByte(pageXML, request.getSegmentation().getFileName());
+		} catch (Exception e) {
+			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
-		return convertDocumentToByte(pageXML, request.getSegmentation().getFileName());
 	}
 
 	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
-		return convertDocumentToByte(LarexFacade.getSettingsXML(exportRequest.getSettings()), "settings.xml");
+		try {
+			return convertDocumentToByte(LarexFacade.getSettingsXML(exportRequest.getSettings()), "settings.xml");
+		} catch (Exception e) {
+			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
 	}
 
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
@@ -226,7 +238,7 @@ public class FileController {
 	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {
 		// convert document to bytes
 		byte[] documentbytes = null;
-		try( ByteArrayOutputStream out = new ByteArrayOutputStream();){
+		try (ByteArrayOutputStream out = new ByteArrayOutputStream();) {
 			TransformerFactory factory = TransformerFactory.newInstance();
 			Transformer transformer = factory.newTransformer();
 			transformer.transform(new DOMSource(document), new StreamResult(out));

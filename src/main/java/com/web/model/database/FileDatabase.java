@@ -12,6 +12,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -25,13 +26,13 @@ import com.web.model.Page;
  */
 public class FileDatabase implements IDatabase {
 
-	private Map<Integer, Book> books;
+	private Map<Integer, File> books;
 	private File databaseFolder;
 	private List<String> supportedFileExtensions;
 
 	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions) {
 		this.databaseFolder = databaseFolder;
-		this.books = new HashMap<Integer, Book>();
+		this.books = new HashMap<Integer, File>();
 		this.supportedFileExtensions = new ArrayList<String>(supportedFileExtensions);
 	}
 
@@ -40,7 +41,17 @@ public class FileDatabase implements IDatabase {
 	}
 	
 	@Override
-	public Map<Integer, Book> getBooks() {
+	public Map<Integer, String> listBooks() {
+		Map<Integer, String> booknames = new HashMap<>();
+
+		// Extract book names from book files
+		for(Entry<Integer, File> bookEntry: listBookFiles().entrySet()) {
+			booknames.put(bookEntry.getKey(), bookEntry.getValue().getName());
+		}
+		return booknames;
+	}
+	
+	public Map<Integer, File> listBookFiles() {
 		File[] files = databaseFolder.listFiles();
 
 		// sort book files/folders
@@ -50,8 +61,7 @@ public class FileDatabase implements IDatabase {
 		for (File bookFile : sortedFiles) {
 			if (bookFile.isDirectory()) {
 				int bookHash = bookFile.getName().hashCode();
-				Book book = readBook(bookFile, bookHash);
-				books.put(bookHash, book);
+				books.put(bookHash, bookFile);
 			}
 		}
 		return books;
@@ -60,9 +70,11 @@ public class FileDatabase implements IDatabase {
 	@Override
 	public Book getBook(int id) {
 		if (books == null || !books.containsKey(id)) {
-			getBooks();
+			listBookFiles();
 		}
-		return books.get(id);
+		File bookFile = books.get(id);
+		
+		return readBook(bookFile,id);
 	}
 	
 	public Collection<Integer> getSegmentedPageIDs(int bookID){
@@ -79,7 +91,7 @@ public class FileDatabase implements IDatabase {
 
 	@Override
 	public void addBook(Book book) {
-		books.put(book.getId(), book);
+		throw new UnsupportedOperationException();
 	}
 
 	private Book readBook(File bookFile, int bookID) {

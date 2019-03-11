@@ -10,7 +10,7 @@ import com.web.model.Book;
  */
 public interface IDatabase {
 
-	public Map<Integer, Book> getBooks();
+	public Map<Integer, String> listBooks();
 
 	public Book getBook(int id);
 
