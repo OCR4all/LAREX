@@ -29,15 +29,21 @@ public class FileDatabase implements IDatabase {
 	private Map<Integer, File> books;
 	private File databaseFolder;
 	private List<String> supportedFileExtensions;
+	private List<String> filterSubExtensions;
 
-	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions) {
+	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions, List<String> filterSubExtensions) {
 		this.databaseFolder = databaseFolder;
 		this.books = new HashMap<Integer, File>();
 		this.supportedFileExtensions = new ArrayList<String>(supportedFileExtensions);
+		this.filterSubExtensions = new ArrayList<String>(filterSubExtensions);
 	}
 
+	public FileDatabase(File databaseFolder, List<String> filterSubExtensions) {
+		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"), filterSubExtensions);
+	}
+	
 	public FileDatabase(File databaseFolder) {
-		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"));
+		this(databaseFolder, new ArrayList<>());
 	}
 	
 	@Override
@@ -51,7 +57,7 @@ public class FileDatabase implements IDatabase {
 		return booknames;
 	}
 	
-	public Map<Integer, File> listBookFiles() {
+	private Map<Integer, File> listBookFiles() {
 		File[] files = databaseFolder.listFiles();
 
 		// sort book files/folders
@@ -106,9 +112,10 @@ public class FileDatabase implements IDatabase {
 		sortedFiles.sort(new FileNameComparator());
 		for (File pageFile : sortedFiles) {
 			if (pageFile.isFile()) {
-				String pageName = pageFile.getName();
+				String fileName = pageFile.getName();
 
-				if (isValidImageFile(pageName)) {
+				if (isValidImageFile(fileName) && 
+						(filterSubExtensions.isEmpty() || hasValidSubExtension(fileName))) {
 					int width = 0;
 					int height = 0;
 
@@ -126,7 +133,10 @@ public class FileDatabase implements IDatabase {
 						e.printStackTrace();
 					}
 
-					pages.add(new Page(pageCounter, pageName, bookName + File.separator + pageName, width, height));
+					String pagePath = bookName + File.separator + fileName;
+					String pageName = filterSubExtensions.isEmpty() ? fileName : removeSubExtension(fileName); 
+
+					pages.add(new Page(pageCounter, pageName, pagePath, width, height));
 					pageCounter++;
 				}
 			}
@@ -140,15 +150,29 @@ public class FileDatabase implements IDatabase {
 		String[] extensionArray = filepath.split("\\.");
 		if (extensionArray.length > 0) {
 			String extension = extensionArray[extensionArray.length - 1];
-			for (String supportedExtension : supportedFileExtensions) {
-				if (extension.equals(supportedExtension)) {
-					return true;
-				}
-			}
+			return supportedFileExtensions.contains(extension);
+		}
+		return false;
+	}
+	
+	private Boolean hasValidSubExtension(String filepath) {
+		String[] extensionArray = filepath.split("\\.");
+		if (extensionArray.length > 1) {
+			String extension = extensionArray[extensionArray.length - 2];
+			return filterSubExtensions.contains(extension);
 		}
 		return false;
 	}
 
+	private String removeSubExtension(String filename) {
+		if(hasValidSubExtension(filename)) {
+			int extPointPos = filename.lastIndexOf(".");
+			int subExtPointPos = filename.lastIndexOf(".",extPointPos-1);
+			return filename.substring(0,subExtPointPos) + filename.substring(extPointPos);
+		}
+		return filename;
+	}
+	
 	private class FileNameComparator implements Comparator<File> {
 		@Override
 		public int compare(File o1, File o2) {

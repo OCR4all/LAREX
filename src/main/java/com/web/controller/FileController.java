@@ -42,6 +42,8 @@ import com.web.config.FileConfiguration;
 import com.web.facade.LarexFacade;
 import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
+import com.web.model.database.FileDatabase;
+import com.web.model.database.IDatabase;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.
@@ -141,7 +143,9 @@ public class FileController {
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				result = LarexFacade.readPageXML(bytes, pageNr, bookID, fileManager);
+				IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
+				result = LarexFacade.readPageXML(bytes, pageNr, bookID, database);
 			} catch (Exception e) {
 			}
 		}
@@ -156,9 +160,11 @@ public class FileController {
 
 			switch (config.getSetting("localsave")) {
 			case "bookpath":
+				IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+					config.getListSetting("imagefilter"));
 				LarexFacade.savePageXMLLocal(
 						fileManager.getLocalBooksPath() + File.separator
-								+ LarexFacade.getBook(request.getBookid(), fileManager).getName(),
+								+ LarexFacade.getBook(request.getBookid(), database).getName(),
 						request.getSegmentation().getName(), pageXML);
 				break;
 			case "savedir":
@@ -191,11 +197,13 @@ public class FileController {
 	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,
 			@RequestParam("bookID") int bookID) {
 		BookSettings settings = null;
-		LarexFacade.getDefaultSettings(LarexFacade.getBook(bookID, fileManager));
+		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
+		LarexFacade.getDefaultSettings(LarexFacade.getBook(bookID, database));
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				settings = LarexFacade.readSettings(bytes, bookID, fileManager);
+				settings = LarexFacade.readSettings(bytes, bookID, fileManager, database);
 			} catch (Exception e) {
 			}
 		}

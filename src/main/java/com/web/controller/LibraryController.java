@@ -41,7 +41,8 @@ public class LibraryController {
 		}
 		File bookPath = new File(fileManager.getLocalBooksPath());
 		bookPath.isDirectory();
-		IDatabase database = new FileDatabase(bookPath);
+		IDatabase database = new FileDatabase(bookPath,
+				config.getListSetting("imagefilter"));
 		Library lib = new Library(database);
 
 		model.addAttribute("library", lib);

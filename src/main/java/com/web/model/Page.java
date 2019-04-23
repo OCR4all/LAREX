@@ -24,11 +24,11 @@ public class Page {
 	private int height;
 
 	@JsonCreator
-	public Page(@JsonProperty("id") int id, @JsonProperty("fileName") String fileName, @JsonProperty("image") String image,
+	public Page(@JsonProperty("id") int id, @JsonProperty("fileName") String fileName, @JsonProperty("image") String imagePath,
 			@JsonProperty("width") int width, @JsonProperty("height") int height) {
 		this.id = id;
 		this.fileName = fileName;
-		this.image = image;
+		this.image = imagePath;
 		this.height = height;
 		this.width = width;
 	}
