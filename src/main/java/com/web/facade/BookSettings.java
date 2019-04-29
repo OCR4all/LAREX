@@ -1,5 +1,5 @@
 
-package com.web.model;
+package com.web.facade;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,6 +11,11 @@ import org.opencv.core.Size;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.web.model.Book;
+import com.web.model.Page;
+import com.web.model.Point;
+import com.web.model.Polygon;
+import com.web.model.Region;
 
 import larex.geometry.ExistingGeometry;
 import larex.geometry.PointList;

@@ -39,11 +39,10 @@ import org.w3c.dom.Document;
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
+import com.web.facade.BookSettings;
 import com.web.facade.LarexFacade;
-import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
 import com.web.model.database.FileDatabase;
-import com.web.model.database.IDatabase;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.
@@ -143,7 +142,7 @@ public class FileController {
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 				result = LarexFacade.readPageXML(bytes, pageNr, bookID, database);
 			} catch (Exception e) {
@@ -160,7 +159,7 @@ public class FileController {
 
 			switch (config.getSetting("localsave")) {
 			case "bookpath":
-				IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 					config.getListSetting("imagefilter"));
 				LarexFacade.savePageXMLLocal(
 						fileManager.getLocalBooksPath() + File.separator
@@ -197,7 +196,7 @@ public class FileController {
 	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,
 			@RequestParam("bookID") int bookID) {
 		BookSettings settings = null;
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		LarexFacade.getDefaultSettings(LarexFacade.getBook(bookID, database));
 		if (!file.isEmpty()) {

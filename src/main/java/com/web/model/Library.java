@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import com.web.model.database.IDatabase;
+import com.web.model.database.FileDatabase;
 
 /**
  * Library of all books 
@@ -17,7 +17,7 @@ public class Library {
 	private Map<Integer, String> books;
 	private List<LibraryEntry> sortedBooks;
 
-	public Library(IDatabase database) {
+	public Library(FileDatabase database) {
 		this.books = database.listBooks();
 		sortedBooks = new ArrayList<>();
 		for(Entry<Integer, String> bookEntry: books.entrySet()) {

@@ -22,12 +22,11 @@ import org.xml.sax.SAXException;
 import com.web.communication.SegmentationStatus;
 import com.web.controller.FileManager;
 import com.web.model.Book;
-import com.web.model.BookSettings;
 import com.web.model.Page;
 import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
-import com.web.model.database.IDatabase;
+import com.web.model.database.FileDatabase;
 
 import larex.data.export.PageXMLReader;
 import larex.data.export.PageXMLWriter;
@@ -48,7 +47,7 @@ import larex.segmentation.parameters.Parameters;
 public class LarexFacade {
 
 	public static PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
-			FileManager fileManager, IDatabase database) {
+			FileManager fileManager, FileDatabase database) {
 		Book book = getBook(settings.getBookID(), database);
 
 		Page page = book.getPage(pageNr);
@@ -67,7 +66,7 @@ public class LarexFacade {
 		}
 	}
 
-	public static PageSegmentation emptySegmentPage(BookSettings settings, int pageNr, IDatabase database) {
+	public static PageSegmentation emptySegmentPage(BookSettings settings, int pageNr, FileDatabase database) {
 		Book book = getBook(settings.getBookID(), database);
 
 		Page page = book.getPage(pageNr);
@@ -99,7 +98,7 @@ public class LarexFacade {
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager, IDatabase database) {
+	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
 		ArrayList<RegionSegment> resultRegions = new ArrayList<RegionSegment>();
 		for (Polygon segment : segments)
 			resultRegions.add(segment.toRegionSegment());
@@ -114,7 +113,7 @@ public class LarexFacade {
 		return new Polygon(mergedRegion);
 	}
 
-	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, IDatabase database) {
+	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
 		Book book = getBook(bookID, database);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
@@ -146,7 +145,7 @@ public class LarexFacade {
 	 * @return Polygon that includes all contours
 	 */
 	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
-			FileManager fileManager, IDatabase database) {
+			FileManager fileManager, FileDatabase database) {
 		Book book = getBook(bookID, database);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
@@ -228,7 +227,7 @@ public class LarexFacade {
 		return null;
 	}
 
-	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager, IDatabase database) {
+	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager, FileDatabase database) {
 		BookSettings settings = null;
 
 		try(ByteArrayInputStream stream = new ByteArrayInputStream(settingsFile)){
@@ -257,7 +256,7 @@ public class LarexFacade {
 		return settings;
 	}
 
-	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, IDatabase database) {
+	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileDatabase database) {
 		try (ByteArrayInputStream stream = new ByteArrayInputStream(pageXML)){
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
@@ -285,7 +284,7 @@ public class LarexFacade {
 		return null;
 	}
 
-	public static Book getBook(int bookID, IDatabase database) {
+	public static Book getBook(int bookID, FileDatabase database) {
 		return database.getBook(bookID);
 	}
 }

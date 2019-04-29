@@ -25,14 +25,13 @@ import com.web.communication.ContourCombineRequest;
 import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
+import com.web.facade.BookSettings;
 import com.web.facade.LarexFacade;
 import com.web.model.Book;
-import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
-import com.web.model.database.IDatabase;
 
 import larex.geometry.regions.type.RegionType;
 import larex.segmentation.parameters.ImageSegType;
@@ -61,7 +60,7 @@ public class ViewerController {
 		}
 
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		Book book = database.getBook(bookID);
 
@@ -114,7 +113,7 @@ public class ViewerController {
 	public @ResponseBody BasicResponse getBook(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		Book book = database.getBook(bookID);
 		BookSettings settings = LarexFacade.getDefaultSettings(book);
@@ -126,7 +125,7 @@ public class ViewerController {
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
 				segmentationRequest.isAllowToLoadLocal(), fileManager, database);
@@ -135,14 +134,14 @@ public class ViewerController {
 	@RequestMapping(value = "/emptysegment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageSegmentation emptysegment(@RequestBody SegmentationRequest segmentationRequest) {
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return LarexFacade.emptySegmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(), database);
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon merge(@RequestBody MergeRequest mergeRequest) {
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return LarexFacade.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid(),
 				fileManager, database);
@@ -151,7 +150,7 @@ public class ViewerController {
 	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon combinecontours(@RequestBody ContourCombineRequest combineRequest) {
 		if(combineRequest.getContours().size() > 0) {
-			IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 			return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),
 					combineRequest.getBookid(),combineRequest.getAccuracy(), fileManager, database);
@@ -163,7 +162,7 @@ public class ViewerController {
 	public @ResponseBody Collection<List<Point>> extractcontours(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return LarexFacade.extractContours(pageID, bookID, fileManager, database);
 	}

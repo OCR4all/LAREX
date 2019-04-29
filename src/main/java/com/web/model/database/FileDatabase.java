@@ -24,7 +24,7 @@ import com.web.model.Page;
 /**
  * File Database to load book folders 
  */
-public class FileDatabase implements IDatabase {
+public class FileDatabase {
 
 	private Map<Integer, File> books;
 	private File databaseFolder;
@@ -46,7 +46,6 @@ public class FileDatabase implements IDatabase {
 		this(databaseFolder, new ArrayList<>());
 	}
 	
-	@Override
 	public Map<Integer, String> listBooks() {
 		Map<Integer, String> booknames = new HashMap<>();
 
@@ -73,7 +72,6 @@ public class FileDatabase implements IDatabase {
 		return books;
 	}
 
-	@Override
 	public Book getBook(int id) {
 		if (books == null || !books.containsKey(id)) {
 			listBookFiles();
@@ -95,7 +93,6 @@ public class FileDatabase implements IDatabase {
 		return segmentedIds;
 	}
 
-	@Override
 	public void addBook(Book book) {
 		throw new UnsupportedOperationException();
 	}

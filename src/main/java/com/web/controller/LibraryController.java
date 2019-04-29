@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import com.web.config.FileConfiguration;
 import com.web.model.Library;
 import com.web.model.database.FileDatabase;
-import com.web.model.database.IDatabase;
 
 /**
  * Communication Controller to handle simple requests about the book library.
@@ -41,7 +40,7 @@ public class LibraryController {
 		}
 		File bookPath = new File(fileManager.getLocalBooksPath());
 		bookPath.isDirectory();
-		IDatabase database = new FileDatabase(bookPath,
+		FileDatabase database = new FileDatabase(bookPath,
 				config.getListSetting("imagefilter"));
 		Library lib = new Library(database);
 

@@ -5,8 +5,8 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.web.facade.BookSettings;
 import com.web.model.Book;
-import com.web.model.BookSettings;
 
 import larex.geometry.regions.type.RegionType;
 
