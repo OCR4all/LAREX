@@ -563,7 +563,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				if (selectType === ElementType.SEGMENT) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					//filter special case image (do not merge images)
-					if (segment.type !== 'image') {
+					if (segment.type !== 'ImageRegion') {
 						segments.push(segment);
 						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
 					}
@@ -814,7 +814,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		// Iterate over Segment-"Map" (Object in JS)
 		Object.keys(pageSegments).forEach((key) => {
 			let segment = pageSegments[key];
-			if (segment.type !== 'image') {
+			if (segment.type !== 'ImageRegion') {
 				readingOrder.push(segment.id);
 			}
 		});
@@ -1022,7 +1022,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		region.maxOccurances = maxOccurances;
 	}
 	this.deleteRegionSettings = function (regionType) {
-		if ($.inArray(regionType, _presentRegions) >= 0 && regionType != 'image' && regionType != 'paragraph') {
+		if ($.inArray(regionType, _presentRegions) >= 0 && regionType != 'ImageRegion' && regionType != 'paragraph') {
 			_actionController.addAndExecuteAction(new ActionRemoveCompleteRegion(regionType, this, _editor, _settings, this), _currentPage);
 		}
 	}

@@ -53,7 +53,7 @@
 		
 		//specify specific colors
 		let specifiedColors = {
-				image: 0,
+				ImageRegion: 0,
 				paragraph: 1,
 				marginalia: 2,
 				page_number: 3,

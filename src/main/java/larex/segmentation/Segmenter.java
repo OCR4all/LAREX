@@ -13,6 +13,8 @@ import org.opencv.imgproc.Imgproc;
 import larex.geometry.positions.RelativePosition;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.imageProcessing.ImageProcessor;
 import larex.segmentation.parameters.ImageSegType;
@@ -49,7 +51,7 @@ public class Segmenter {
 		ArrayList<RegionSegment> results = classifyText(texts);
 
 		for (MatOfPoint image : images) {
-			RegionSegment result = new RegionSegment(RegionType.image, image);
+			RegionSegment result = new RegionSegment(new PAGERegionType(RegionType.ImageRegion), image);
 			results.add(result);
 		}
 
@@ -150,7 +152,8 @@ public class Segmenter {
 		ArrayList<MatOfPoint> fixed = new ArrayList<MatOfPoint>();
 
 		for (Region region : regions) {
-			if ((region.getType().equals(RegionType.image) || region.getType().equals(RegionType.ignore))) {
+			if ((region.getType().getType().equals(RegionType.ImageRegion) ||
+					RegionSubType.ignore.equals(region.getType().getSubtype()))) {
 				for (RelativePosition position : region.getPositions()) {
 					if (position.isFixed()) {
 						Rect rect = position.getOpenCVRect();
@@ -158,7 +161,7 @@ public class Segmenter {
 						Imgproc.rectangle(removed, rect.tl(), rect.br(), new Scalar(0), -1);
 						this.binary = removed;
 
-						if (region.getType().equals(RegionType.image)) {
+						if (region.getType().getType().equals(RegionType.ImageRegion)) {
 							Point[] points = { rect.tl(), new Point(rect.br().x, rect.tl().y), rect.br(),
 									new Point(rect.tl().x, rect.br().y) };
 							fixed.add(new MatOfPoint(points));
@@ -173,7 +176,7 @@ public class Segmenter {
 
 	private Region getIgnoreRegion() {
 		for (Region region : regions) {
-			if ((region.getType().equals(RegionType.ignore))) {
+			if (RegionSubType.ignore.equals(region.getType().getSubtype())) {
 				return region;
 			}
 		}
@@ -183,7 +186,7 @@ public class Segmenter {
 
 	private Region getImageRegion() {
 		for (Region region : regions) {
-			if ((region.getType().equals(RegionType.image))) {
+			if ((region.getType().getType().equals(RegionType.ImageRegion))) {
 				return region;
 			}
 		}

@@ -14,6 +14,8 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.SegmentationResult;
@@ -48,7 +50,7 @@ public class PageXMLReader {
 		// TODO
 		if (readingOrderXML.getLength() > 0) {
 			for (RegionSegment region : resRegions) {
-				if (!region.getType().equals(RegionType.image)) {
+				if (!region.getType().getType().equals(RegionType.ImageRegion)) {
 					readingOrder.add(region);
 				}
 			}
@@ -77,11 +79,13 @@ public class PageXMLReader {
 
 	private static RegionSegment extractRegion(Node regionNode, boolean isTextRegion) {
 		Element regionElement = (Element) regionNode;
-		RegionType type = RegionType.image;
+		RegionType type = RegionType.ImageRegion;
+		RegionSubType subtype = null;
 
 		if (isTextRegion) {
 			String typeString = regionElement.getAttribute("type");
-			type = TypeConverter.stringToType(typeString);
+			type = TypeConverter.stringToMainType(regionElement.getTagName());
+			subtype = TypeConverter.stringToSubType(typeString);
 		}
 
 		Element coords = (Element) regionElement.getElementsByTagName("Coords").item(0);
@@ -93,7 +97,7 @@ public class PageXMLReader {
 		}
 
 		if(!points.empty()) {
-			RegionSegment region = new RegionSegment(type, points);
+			RegionSegment region = new RegionSegment(new PAGERegionType(type, subtype), points);
 			return region;
 		} else {
 			return null;

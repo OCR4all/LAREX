@@ -9,6 +9,8 @@ import org.opencv.imgproc.Imgproc;
 import larex.geometry.positions.RelativePosition;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 
 public class RegionClassifier {
@@ -113,8 +115,9 @@ public class RegionClassifier {
 		Region paragraphRegion = null;
 
 		for (Region region : regions) {
-			if (!region.getType().equals(RegionType.ignore) && !region.getType().equals(RegionType.image)) {
-				if (region.getType().equals(RegionType.paragraph)) {
+			if (!region.getType().getType().equals(RegionType.ImageRegion) && 
+					!region.getType().equals(new PAGERegionType(RegionType.TextRegion,RegionSubType.ignore))) {
+				if (RegionSubType.paragraph.equals(region.getType().getSubtype())) {
 					paragraphRegion = region;
 				} else {
 					if (region.getMaxOccurances() == 1) {

@@ -115,7 +115,7 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 	let _segment = segmentation[page].segments[id];
 	const _oldType = _segment.type;
 	let _actionReadingOrder = null;
-	if (newType === 'image')
+	if (newType === 'ImageRegion')
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(id, page, segmentation, controller);
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
@@ -478,7 +478,7 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 	let _newReadingOrder;
 
 	this.execute = function () {
-		if (!_isExecuted && segment.type !== 'image') {
+		if (!_isExecuted && segment.type !== 'ImageRegion') {
 			_isExecuted = true;
 
 			if (!_newReadingOrder) {
@@ -492,7 +492,7 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 		}
 	}
 	this.undo = function () {
-		if (_isExecuted && segment.type !== 'image') {
+		if (_isExecuted && segment.type !== 'ImageRegion') {
 			_isExecuted = false;
 
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));

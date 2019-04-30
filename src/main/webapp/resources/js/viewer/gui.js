@@ -124,7 +124,7 @@ function GUI(canvas, viewer, colors) {
 		$('.regionColorSettings').removeClass('hide');
 		$('.regionSetting').removeClass('hide');
 		$('#regioneditorSave').removeClass('hide');
-		if (regionType != 'image' && regionType != 'paragraph')
+		if (regionType != 'ImageRegion' && regionType != 'paragraph')
 			$('.regionDelete').removeClass('hide');
 		else 
 			$('.regionDelete').addClass('hide');

@@ -3,9 +3,9 @@ package com.web.controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import javax.servlet.ServletContext;
@@ -33,7 +33,7 @@ import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
 
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.PAGERegionType;
 import larex.segmentation.parameters.ImageSegType;
 
 /**
@@ -69,7 +69,7 @@ public class ViewerController {
 		}
 
 		model.addAttribute("book", book);
-		model.addAttribute("regionTypes", getregionTypes());
+		model.addAttribute("regionTypes", getRegionTypes());
 		model.addAttribute("imageSegTypes", getImageregionTypes());
 		model.addAttribute("bookPath", fileManager.getURLBooksPath());
 		model.addAttribute("globalSettings", config);
@@ -175,12 +175,17 @@ public class ViewerController {
 		return database.getSegmentedPageIDs(bookID);
 	}
 	
-	private Map<RegionType, Integer> getregionTypes() {
-		Map<RegionType, Integer> regionTypes = new HashMap<RegionType, Integer>();
+	private SortedMap<String, Integer> getRegionTypes() {
+		SortedMap<String, Integer> regionTypes = new TreeMap<String, Integer>((c1,c2) -> {
+			if(c1.contains("Region") && !c2.contains("Region"))
+				return 1;
+			else
+				return c1.compareTo(c2);
+			});
 
 		int i = 0;
-		for (RegionType type : RegionType.values()) {
-			regionTypes.put(type, i);
+		for (PAGERegionType type : PAGERegionType.values()) {
+			regionTypes.put(type.toString(), i);
 			i++;
 		}
 		return regionTypes;

@@ -23,7 +23,9 @@ import larex.geometry.positions.PriorityPosition;
 import larex.geometry.positions.RelativePosition;
 import larex.geometry.regions.RegionManager;
 import larex.geometry.regions.RegionSegment;
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.RegionSubType;
+import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.parameters.ImageSegType;
 import larex.segmentation.parameters.Parameters;
 
@@ -41,7 +43,7 @@ public class BookSettings {
 	@JsonProperty("parameters")
 	private Map<String, Integer> parameters;
 	@JsonProperty("regions")
-	protected Map<RegionType, Region> regions;
+	protected Map<String, Region> regions;
 	@JsonProperty("global")
 	protected PageSettings globalSettings;
 	@JsonProperty("combine")
@@ -52,7 +54,7 @@ public class BookSettings {
 	@JsonCreator
 	public BookSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<PageSettings> pages,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
-			@JsonProperty("regions") Map<RegionType, Region> regions,
+			@JsonProperty("regions") Map<String, Region> regions,
 			@JsonProperty("global") PageSettings globalSettings, @JsonProperty("combine") boolean combine,
 			@JsonProperty("imageSegType") ImageSegType imageSegType) {
 		this.bookID = bookID;
@@ -67,7 +69,7 @@ public class BookSettings {
 	public BookSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
 		this.globalSettings = new PageSettings(book.getId());
-		this.regions = new HashMap<RegionType, Region>();
+		this.regions = new HashMap<String, Region>();
 		pages = new LinkedList<PageSettings>();
 		for (Page page : book.getPages()) {
 			pages.add(new PageSettings(page.getId()));
@@ -83,10 +85,10 @@ public class BookSettings {
 		this.combine = parameters.isCombineImages();
 		this.imageSegType = parameters.getImageSegType();
 
-		this.regions = new HashMap<RegionType, Region>(regions);
+		this.regions = new HashMap<String, Region>(regions);
 		RegionManager regionManager = parameters.getRegionManager();
 		for (larex.geometry.regions.Region region : regionManager.getRegions()) {
-			RegionType regionType = region.getType();
+			String regionType = region.getType().toString();
 			int minSize = region.getMinSize();
 			int maxOccurances = region.getMaxOccurances();
 			PriorityPosition priorityPosition = region.getPriorityPosition();
@@ -134,7 +136,7 @@ public class BookSettings {
 		lParameters.setCombineImages(this.isCombine());
 
 		for (com.web.model.Region guiRegion : regions.values()) {
-			RegionType regionType = guiRegion.getType();
+			PAGERegionType regionType = TypeConverter.stringToPAGEType(guiRegion.getType());
 			int minSize = guiRegion.getMinSize();
 			int maxOccurances = guiRegion.getMaxOccurances();
 			PriorityPosition priorityPosition = guiRegion.getPriorityPosition();
@@ -159,7 +161,7 @@ public class BookSettings {
 					region.addPosition(position);
 
 					// Set Ignore Region to fixed
-					if (region.getType().equals(RegionType.ignore)) {
+					if (RegionSubType.ignore.equals(region.getType().getSubtype())) {
 						position.setFixed(true);
 					}
 				}
@@ -190,7 +192,7 @@ public class BookSettings {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
 			RegionSegment fixedPointList = new RegionSegment(points, fixedSegment.getId());
-			fixedPointList.setType(fixedSegment.getType());
+			fixedPointList.setType(TypeConverter.stringToPAGEType(fixedSegment.getType()));
 			fixedPointLists.add(fixedPointList);
 		}
 
@@ -209,8 +211,8 @@ public class BookSettings {
 		return parameters;
 	}
 
-	public Map<RegionType, Region> getRegions() {
-		return new HashMap<RegionType, Region>(regions);
+	public Map<String, Region> getRegions() {
+		return new HashMap<String, Region>(regions);
 	}
 
 	public void addPage(PageSettings page) {

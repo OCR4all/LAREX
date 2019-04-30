@@ -7,11 +7,13 @@ import org.opencv.core.Rect;
 
 import larex.geometry.positions.PriorityPosition;
 import larex.geometry.positions.RelativePosition;
+import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.geometry.regions.type.TypeConverter;
 
 public class Region {
-	private final RegionType type;
+	private final PAGERegionType type;
 	private int minSize;
 
 	private ArrayList<RelativePosition> positions;
@@ -21,7 +23,7 @@ public class Region {
 
 	private static Mat activeMat;
 
-	public Region(RegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
+	public Region(PAGERegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
 			ArrayList<RelativePosition> positions) {
 		this.type = type;
 
@@ -37,9 +39,9 @@ public class Region {
 		}
 	}
 
-	public Region(String typeString, int minSize, int maxOccurances, String priorityString,
+	public Region(String typeString, String subTypeString, int minSize, int maxOccurances, String priorityString,
 			ArrayList<RelativePosition> positions) {
-		this(TypeConverter.stringToType(typeString), minSize, maxOccurances,
+		this(TypeConverter.stringToPAGEType(typeString,subTypeString), minSize, maxOccurances,
 				calcPriorityPosition(maxOccurances, priorityString), positions);
 	}
 
@@ -76,25 +78,30 @@ public class Region {
 	public void initRegions() {
 		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
-		if (type.equals(RegionType.paragraph)) {
-			RelativePosition position = new RelativePosition(0, 0, 1, 1);
-			positions.add(position);
-		} else if (type.equals(RegionType.marginalia)) {
-			RelativePosition leftPosition = new RelativePosition(0, 0, 0.25, 1);
-			RelativePosition rightPosition = new RelativePosition(0.75, 0, 1, 1);
-			positions.add(leftPosition);
-			positions.add(rightPosition);
-		} else if (type.equals(RegionType.page_number)) {
-			RelativePosition topPosition = new RelativePosition(0, 0, 1, 0.2);
-			positions.add(topPosition);
-		} else if (type.equals(RegionType.header) || type.equals(RegionType.heading)) {
-			RelativePosition bottomPosition = new RelativePosition(0, 0, 1, 0.2);
-			positions.add(bottomPosition);
-		} else if (type.equals(RegionType.footer) || type.equals(RegionType.footnote)
-				|| type.equals(RegionType.footnote_continued)) {
-			RelativePosition bottomPosition = new RelativePosition(0, 0.8, 1, 1);
-			positions.add(bottomPosition);
-		} else if (!type.equals(RegionType.ignore) && !type.equals(RegionType.image)) {
+		if(type.getType().equals(RegionType.TextRegion)) {
+			if (type.getSubtype().equals(RegionSubType.paragraph)) {
+				RelativePosition position = new RelativePosition(0, 0, 1, 1);
+				positions.add(position);
+			} else if (type.getSubtype().equals(RegionSubType.marginalia)) {
+				RelativePosition leftPosition = new RelativePosition(0, 0, 0.25, 1);
+				RelativePosition rightPosition = new RelativePosition(0.75, 0, 1, 1);
+				positions.add(leftPosition);
+				positions.add(rightPosition);
+			} else if (type.getSubtype().equals(RegionSubType.page_number)) {
+				RelativePosition topPosition = new RelativePosition(0, 0, 1, 0.2);
+				positions.add(topPosition);
+			} else if (type.getSubtype().equals(RegionSubType.header) || type.getSubtype().equals(RegionSubType.heading)) {
+				RelativePosition bottomPosition = new RelativePosition(0, 0, 1, 0.2);
+				positions.add(bottomPosition);
+			} else if (type.getSubtype().equals(RegionSubType.footer) || type.getSubtype().equals(RegionSubType.footnote)
+					|| type.getSubtype().equals(RegionSubType.footnote_continued)) {
+				RelativePosition bottomPosition = new RelativePosition(0, 0.8, 1, 1);
+				positions.add(bottomPosition);
+			} else if (!type.getSubtype().equals(RegionSubType.ignore)) {
+				RelativePosition defaultPosition = new RelativePosition(0.2, 0.2, 0.8, 0.8);
+				positions.add(defaultPosition);
+			}
+		} else if(!type.getType().equals(RegionType.ImageRegion)) {
 			RelativePosition defaultPosition = new RelativePosition(0.2, 0.2, 0.8, 0.8);
 			positions.add(defaultPosition);
 		}
@@ -108,7 +115,7 @@ public class Region {
 		calcPositionRects();
 	}
 
-	public RegionType getType() {
+	public PAGERegionType getType() {
 		return type;
 	}
 

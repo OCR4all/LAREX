@@ -16,6 +16,8 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
+import org.primaresearch.ident.IdRegister.InvalidIdException;
+import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -33,7 +35,7 @@ import larex.data.export.PageXMLWriter;
 import larex.data.export.SettingsReader;
 import larex.data.export.SettingsWriter;
 import larex.geometry.regions.RegionSegment;
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.operators.Contourextractor;
 import larex.operators.Merger;
 import larex.segmentation.SegmentationResult;
@@ -85,8 +87,18 @@ public class LarexFacade {
 
 	public static Document getPageXML(PageSegmentation segmentation, String version) {
 		SegmentationResult result = segmentation.toSegmentationResult();
-		return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
-				segmentation.getHeight(), version);
+		try {
+			return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
+					segmentation.getHeight(), version);
+		} catch (UnsupportedFormatVersionException e) {
+			System.out.println(e.toString());
+			e.printStackTrace();
+			return null;
+		} catch (InvalidIdException e) {
+			System.out.println(e.toString());
+			e.printStackTrace();
+			return null;
+		}
 	}
 
 	public static void savePageXMLLocal(String saveDir, String filename, Document document) {
@@ -170,7 +182,7 @@ public class LarexFacade {
 		page.clean();
 		System.gc();
 
-		return new Polygon(combined, UUID.randomUUID().toString(), RegionType.paragraph);
+		return new Polygon(combined, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
 	}
 
 	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {

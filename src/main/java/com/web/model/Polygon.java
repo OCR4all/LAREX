@@ -8,7 +8,9 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.PAGERegionType;
 import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.TypeConverter;
 
 /**
  * A representation of a Segment or Region as Polygon that is parsed to the gui.
@@ -23,14 +25,14 @@ public class Polygon {
 	@JsonProperty("id")
 	protected String id;
 	@JsonProperty("type")
-	protected RegionType type;
+	protected String type;
 	@JsonProperty("points")
 	protected LinkedList<Point> points;
 	@JsonProperty("isRelative")
 	protected boolean isRelative;
 
 	@JsonCreator
-	public Polygon(@JsonProperty("id") String id, @JsonProperty("type") RegionType type,
+	public Polygon(@JsonProperty("id") String id, @JsonProperty("type") String type,
 			@JsonProperty("points") LinkedList<Point> points, @JsonProperty("isRelative") boolean isRelative) {
 		this.id = id;
 		this.type = type;
@@ -38,7 +40,7 @@ public class Polygon {
 		this.isRelative = isRelative;
 	}
 
-	public Polygon(MatOfPoint mat, String id, RegionType type) {
+	public Polygon(MatOfPoint mat, String id, String type) {
 		LinkedList<Point> points = new LinkedList<Point>();
 		for (org.opencv.core.Point regionPoint : mat.toList()) {
 			points.add(new Point(regionPoint.x, regionPoint.y));
@@ -60,11 +62,12 @@ public class Polygon {
 		MatOfPoint resultPoints = new MatOfPoint();
 		resultPoints.fromList(points);
 
-		return new RegionSegment(this.getType(), resultPoints, this.getId());
+		
+		return new RegionSegment(TypeConverter.stringToPAGEType(this.getType()), resultPoints, this.getId());
 	}
 
 	public Polygon(RegionSegment region) {
-		this(region.getPoints(), region.getId(), region.getType());
+		this(region.getPoints(), region.getId(), region.getType().toString());
 	}
 
 	public String getId() {
@@ -75,7 +78,7 @@ public class Polygon {
 		return new LinkedList<Point>(points);
 	}
 
-	public RegionType getType() {
+	public String getType() {
 		return type;
 	}
 }

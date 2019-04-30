@@ -47,7 +47,8 @@ public class SettingsReader {
 
 		for (int i = 0; i < regionNodes.getLength(); i++) {
 			Element regionElement = (Element) regionNodes.item(i);
-			String type = regionElement.getAttribute("type");
+			String type = regionElement.getTagName();
+			String subtype = regionElement.getAttribute("type");
 			int minSize = Integer.parseInt(regionElement.getAttribute("minSize"));
 			int maxOccurances = Integer.parseInt(regionElement.getAttribute("maxOccurances"));
 			String priority = regionElement.getAttribute("priority");
@@ -55,7 +56,7 @@ public class SettingsReader {
 			NodeList positionElements = regionElement.getElementsByTagName("position");
 			ArrayList<RelativePosition> positions = extractPositions(positionElements, resized);
 
-			Region region = new Region(type, minSize, maxOccurances, priority, new ArrayList<RelativePosition>());
+			Region region = new Region(type, subtype, minSize, maxOccurances, priority, new ArrayList<RelativePosition>());
 			region.setPositions(positions);
 			regionManager.addRegion(region);
 		}

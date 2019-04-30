@@ -32,7 +32,7 @@ public class SegmentationResult {
 		ArrayList<RegionSegment> images = new ArrayList<RegionSegment>();
 
 		for (RegionSegment region : regions) {
-			if (region.getType().equals(RegionType.image)) {
+			if (region.getType().getType().equals(RegionType.ImageRegion)) {
 				images.add(region);
 			}
 		}

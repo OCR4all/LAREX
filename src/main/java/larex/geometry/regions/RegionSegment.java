@@ -6,22 +6,22 @@ import java.util.UUID;
 import org.opencv.core.MatOfPoint;
 
 import larex.geometry.PointList;
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.PAGERegionType;
 
 public class RegionSegment extends PointList{
 
-	private RegionType type;
+	private PAGERegionType type;
 
-	public RegionSegment(RegionType type, MatOfPoint points) {
+	public RegionSegment(PAGERegionType type, MatOfPoint points) {
 		this(type, points, UUID.randomUUID().toString());
 	}
 
-	public RegionSegment(RegionType type, MatOfPoint points, String id) {
+	public RegionSegment(PAGERegionType type, MatOfPoint points, String id) {
 		super(points,id);
 		this.type = type;
 	}
 
-	public RegionSegment(RegionType type, ArrayList<java.awt.Point> points, String id) {
+	public RegionSegment(PAGERegionType type, ArrayList<java.awt.Point> points, String id) {
 		super(points,id);
 		this.type = type;
 	}
@@ -40,11 +40,11 @@ public class RegionSegment extends PointList{
 		return new RegionSegment(type, getResizedPoints(scaleFactor));
 	}
 
-	public RegionType getType() {
+	public PAGERegionType getType() {
 		return type;
 	}
 
-	public void setType(RegionType type) {
+	public void setType(PAGERegionType type) {
 		this.type = type;
 	}
 }
