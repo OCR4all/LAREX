@@ -29,7 +29,6 @@ import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
 import org.primaresearch.dla.page.metadata.MetaData;
 import org.primaresearch.ident.Id;
 import org.primaresearch.ident.IdRegister.InvalidIdException;
-import org.primaresearch.io.FormatModelSource;
 import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.io.xml.XmlFormatVersion;
 import org.primaresearch.maths.geometry.Polygon;
@@ -63,7 +62,6 @@ public class PageXMLWriter {
 
 		// Create page and meta data
 		MetaData metadata = page.getMetaData();
-		metadata.setCreator("Christian Reul");
 		metadata.setCreationTime(new Date());
 		// metadata ChangedTime
 		
@@ -96,7 +94,8 @@ public class PageXMLWriter {
 		}
 
 		// ReadingOrder
-		ReadingOrder xmlReadingOrder = layout.getReadingOrder();
+		ReadingOrder xmlReadingOrder = layout.createReadingOrder();
+		
 		
 		ArrayList<RegionSegment> readingOrder = result.getReadingOrder();
 		for(RegionSegment regionSegment : readingOrder) {
