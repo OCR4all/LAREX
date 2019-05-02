@@ -43,9 +43,9 @@ For this guide tomcat version 7 is used.
 run `mvn clean install -f LAREX/Larex/pom.xml`.
 
 #### Copy or link the created war file to tomcat
-Either: `sudo ln -s $PWD/LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+Either: `sudo ln -s $PWD/LAREX/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
-or `cp LAREX/Larex/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+or `cp LAREX/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
 
 #### Start Tomcat
 `systemctl start tomcat7`
@@ -89,9 +89,9 @@ to clone the repository.
 run `mvn clean install -f LAREX/Larex/pom.xml`.
 
 #### Copy or link the created war file to tomcat
-Either: `sudo ln -s $PWD/LAREX/Larex/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
+Either: `sudo ln -s $PWD/LAREX/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
 
-or `cp LAREX/Larex/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
+or `cp LAREX/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
 
 #### Start Tomcat
 `brew services start tomcat`
