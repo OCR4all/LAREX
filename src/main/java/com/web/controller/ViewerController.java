@@ -3,9 +3,9 @@ package com.web.controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import javax.servlet.ServletContext;
@@ -25,16 +25,15 @@ import com.web.communication.ContourCombineRequest;
 import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
+import com.web.facade.BookSettings;
 import com.web.facade.LarexFacade;
 import com.web.model.Book;
-import com.web.model.BookSettings;
 import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
-import com.web.model.database.IDatabase;
 
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.PAGERegionType;
 import larex.segmentation.parameters.ImageSegType;
 
 /**
@@ -61,7 +60,8 @@ public class ViewerController {
 		}
 
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
 		Book book = database.getBook(bookID);
 
 		if (book == null) {
@@ -69,7 +69,7 @@ public class ViewerController {
 		}
 
 		model.addAttribute("book", book);
-		model.addAttribute("regionTypes", getregionTypes());
+		model.addAttribute("regionTypes", getRegionTypes());
 		model.addAttribute("imageSegTypes", getImageregionTypes());
 		model.addAttribute("bookPath", fileManager.getURLBooksPath());
 		model.addAttribute("globalSettings", config);
@@ -82,7 +82,8 @@ public class ViewerController {
 			@RequestParam(value = "bookname", required = true) String bookname,
 			@RequestParam(value = "localsave", required = false) String localsave,
 			@RequestParam(value = "savedir", required = false) String savedir,
-			@RequestParam(value = "websave", required = false) String websave) throws IOException {
+			@RequestParam(value = "websave", required = false) String websave,
+			@RequestParam(value = "imagefilter", required = false) String imagefilter) throws IOException {
 		init();
 		if (!config.getSetting("directrequest").equals("enable")) {
 			return "redirect:/403";
@@ -102,6 +103,9 @@ public class ViewerController {
 		if (websave != null) {
 			config.setSetting("websave", websave);
 		}
+		if (imagefilter != null) {
+			config.setSetting("imagefilter", imagefilter);
+		}
 		return viewer(model, bookID);
 	}
 
@@ -109,7 +113,8 @@ public class ViewerController {
 	public @ResponseBody BasicResponse getBook(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 		init();
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
 		Book book = database.getBook(bookID);
 		BookSettings settings = LarexFacade.getDefaultSettings(book);
 
@@ -120,27 +125,36 @@ public class ViewerController {
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
 		init();
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
 		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
-				segmentationRequest.isAllowToLoadLocal(), fileManager);
+				segmentationRequest.isAllowToLoadLocal(), fileManager, database);
 	}
 
 	@RequestMapping(value = "/emptysegment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageSegmentation emptysegment(@RequestBody SegmentationRequest segmentationRequest) {
 		init();
-		return LarexFacade.emptySegmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(), fileManager);
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
+		return LarexFacade.emptySegmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(), database);
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon merge(@RequestBody MergeRequest mergeRequest) {
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
 		return LarexFacade.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid(),
-				fileManager);
+				fileManager, database);
 	}
 
 	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon combinecontours(@RequestBody ContourCombineRequest combineRequest) {
-		if(combineRequest.getContours().size() > 0)
-			return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),combineRequest.getBookid(),combineRequest.getAccuracy(), fileManager);
-		else
+		if(combineRequest.getContours().size() > 0) {
+			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
+			return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),
+					combineRequest.getBookid(),combineRequest.getAccuracy(), fileManager, database);
+		} else
 			return null;
 	}
 	
@@ -148,22 +162,30 @@ public class ViewerController {
 	public @ResponseBody Collection<List<Point>> extractcontours(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 
-		return LarexFacade.extractContours(pageID, bookID, fileManager);
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
+		return LarexFacade.extractContours(pageID, bookID, fileManager, database);
 	}
 
 	@RequestMapping(value = "/segmentedpages", method = RequestMethod.POST)
 	public @ResponseBody Collection<Integer> getOnServer(@RequestParam("bookid") int bookID) {
 		init();
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
 		return database.getSegmentedPageIDs(bookID);
 	}
 	
-	private Map<RegionType, Integer> getregionTypes() {
-		Map<RegionType, Integer> regionTypes = new HashMap<RegionType, Integer>();
+	private SortedMap<String, Integer> getRegionTypes() {
+		SortedMap<String, Integer> regionTypes = new TreeMap<String, Integer>((c1,c2) -> {
+			if(c1.contains("Region") && !c2.contains("Region"))
+				return 1;
+			else
+				return c1.compareTo(c2);
+			});
 
 		int i = 0;
-		for (RegionType type : RegionType.values()) {
-			regionTypes.put(type, i);
+		for (PAGERegionType type : PAGERegionType.values()) {
+			regionTypes.put(type.toString(), i);
 			i++;
 		}
 		return regionTypes;

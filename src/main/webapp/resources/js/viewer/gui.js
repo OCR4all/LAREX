@@ -124,7 +124,7 @@ function GUI(canvas, viewer, colors) {
 		$('.regionColorSettings').removeClass('hide');
 		$('.regionSetting').removeClass('hide');
 		$('#regioneditorSave').removeClass('hide');
-		if (regionType != 'image' && regionType != 'paragraph')
+		if (regionType != 'ImageRegion' && regionType != 'paragraph')
 			$('.regionDelete').removeClass('hide');
 		else 
 			$('.regionDelete').addClass('hide');
@@ -427,8 +427,9 @@ function GUI(canvas, viewer, colors) {
 				const imageSrc = $p.data("image");
 				const imageId = $p.data("page");
 				const bookpath = $p.data("bookpath");
+				const title = $p.data("title");
 
-				const $image = $('<img class="pageImage" alt="'+imageSrc+'" title="'+imageSrc+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
+				const $image = $('<img class="pageImage" alt="'+title+'" title="'+title+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
 				const $status = $('<div class="pagestatus">'+
 									'<i class="material-icons pagestatusIcon pageIconTodo circle">assignment_late</i>'+
 									'<i class="material-icons pagestatusIcon pageIconSession circle  hide">save</i>'+

@@ -17,7 +17,7 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import larex.geometry.regions.RegionSegment;
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.PAGERegionType;
 import larex.imageProcessing.ImageProcessor;
 
 /**
@@ -205,7 +205,7 @@ public class Merger {
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		ArrayList<Point> cogs = new ArrayList<Point>();
 		double biggestArea = Double.MIN_VALUE;
-		RegionType biggestRegionType = segments.get(0).getType();
+		PAGERegionType biggestRegionType = segments.get(0).getType();
 
 		for (RegionSegment region : segments) {
 			MatOfPoint regionContour = region.getPoints();

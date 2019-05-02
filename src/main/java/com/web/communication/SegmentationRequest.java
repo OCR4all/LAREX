@@ -2,7 +2,7 @@ package com.web.communication;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.web.model.BookSettings;
+import com.web.facade.BookSettings;
 
 /**
  * Communication object for the gui to request the segmentation of different

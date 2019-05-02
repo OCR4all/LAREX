@@ -16,26 +16,26 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
+import org.primaresearch.ident.IdRegister.InvalidIdException;
+import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
 import com.web.communication.SegmentationStatus;
 import com.web.controller.FileManager;
 import com.web.model.Book;
-import com.web.model.BookSettings;
 import com.web.model.Page;
 import com.web.model.PageSegmentation;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
-import com.web.model.database.IDatabase;
 
 import larex.data.export.PageXMLReader;
 import larex.data.export.PageXMLWriter;
 import larex.data.export.SettingsReader;
 import larex.data.export.SettingsWriter;
 import larex.geometry.regions.RegionSegment;
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.operators.Contourextractor;
 import larex.operators.Merger;
 import larex.segmentation.SegmentationResult;
@@ -49,8 +49,8 @@ import larex.segmentation.parameters.Parameters;
 public class LarexFacade {
 
 	public static PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
-			FileManager fileManager) {
-		Book book = getBook(settings.getBookID(), fileManager);
+			FileManager fileManager, FileDatabase database) {
+		Book book = getBook(settings.getBookID(), database);
 
 		Page page = book.getPage(pageNr);
 		String xmlPath = fileManager.getLocalBooksPath() + File.separator + book.getName() + File.separator + page.getName()
@@ -68,8 +68,8 @@ public class LarexFacade {
 		}
 	}
 
-	public static PageSegmentation emptySegmentPage(BookSettings settings, int pageNr, FileManager fileManager) {
-		Book book = getBook(settings.getBookID(), fileManager);
+	public static PageSegmentation emptySegmentPage(BookSettings settings, int pageNr, FileDatabase database) {
+		Book book = getBook(settings.getBookID(), database);
 
 		Page page = book.getPage(pageNr);
 
@@ -87,8 +87,18 @@ public class LarexFacade {
 
 	public static Document getPageXML(PageSegmentation segmentation, String version) {
 		SegmentationResult result = segmentation.toSegmentationResult();
-		return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
-				segmentation.getHeight(), version);
+		try {
+			return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
+					segmentation.getHeight(), version);
+		} catch (UnsupportedFormatVersionException e) {
+			System.out.println(e.toString());
+			e.printStackTrace();
+			return null;
+		} catch (InvalidIdException e) {
+			System.out.println(e.toString());
+			e.printStackTrace();
+			return null;
+		}
 	}
 
 	public static void savePageXMLLocal(String saveDir, String filename, Document document) {
@@ -100,12 +110,12 @@ public class LarexFacade {
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager) {
+	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
 		ArrayList<RegionSegment> resultRegions = new ArrayList<RegionSegment>();
 		for (Polygon segment : segments)
 			resultRegions.add(segment.toRegionSegment());
 
-		Book book = getBook(bookID, fileManager);
+		Book book = getBook(bookID, database);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 		RegionSegment mergedRegion = Merger.lineMerge(resultRegions, page.getBinary().size());
@@ -115,8 +125,8 @@ public class LarexFacade {
 		return new Polygon(mergedRegion);
 	}
 
-	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager) {
-		Book book = getBook(bookID, fileManager);
+	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
+		Book book = getBook(bookID, database);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 
@@ -147,8 +157,8 @@ public class LarexFacade {
 	 * @return Polygon that includes all contours
 	 */
 	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
-			FileManager fileManager) {
-		Book book = getBook(bookID, fileManager);
+			FileManager fileManager, FileDatabase database) {
+		Book book = getBook(bookID, database);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
 		page.initPage();
 
@@ -172,7 +182,7 @@ public class LarexFacade {
 		page.clean();
 		System.gc();
 
-		return new Polygon(combined, UUID.randomUUID().toString(), RegionType.paragraph);
+		return new Polygon(combined, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
 	}
 
 	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
@@ -229,7 +239,7 @@ public class LarexFacade {
 		return null;
 	}
 
-	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager) {
+	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager, FileDatabase database) {
 		BookSettings settings = null;
 
 		try(ByteArrayInputStream stream = new ByteArrayInputStream(settingsFile)){
@@ -237,7 +247,7 @@ public class LarexFacade {
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(stream);
 
-			Book book = getBook(bookID, fileManager);
+			Book book = getBook(bookID, database);
 			Page page = book.getPage(0);
 			String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
@@ -258,12 +268,12 @@ public class LarexFacade {
 		return settings;
 	}
 
-	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileManager fileManager) {
+	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileDatabase database) {
 		try (ByteArrayInputStream stream = new ByteArrayInputStream(pageXML)){
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(stream);
-			Page page = getBook(bookID, fileManager).getPage(pageNr);
+			Page page = getBook(bookID, database).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
 			PageSegmentation pageSegmentation = new PageSegmentation(page.getFileName(), page.getWidth(),
@@ -286,8 +296,7 @@ public class LarexFacade {
 		return null;
 	}
 
-	public static Book getBook(int bookID, FileManager fileManager) {
-		IDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()));
+	public static Book getBook(int bookID, FileDatabase database) {
 		return database.getBook(bookID);
 	}
 }

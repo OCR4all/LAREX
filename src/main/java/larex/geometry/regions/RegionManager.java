@@ -3,6 +3,8 @@ package larex.geometry.regions;
 import java.util.ArrayList;
 
 import larex.geometry.positions.PriorityPosition;
+import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.segmentation.parameters.DEFAULT_Parameters;
 
@@ -17,14 +19,15 @@ public class RegionManager {
 	public void initRegions() {
 		ArrayList<Region> regions = new ArrayList<Region>();
 
-		Region imageRegion = new Region(RegionType.image, DEFAULT_Parameters.getImageMinSizeDefault(), -1, null, null);
-		Region paragraphRegion = new Region(RegionType.paragraph, DEFAULT_Parameters.getParagraphMinSizeDefault(), -1,
-				null, null);
-		Region marginaliaRegion = new Region(RegionType.marginalia, DEFAULT_Parameters.getMarginaliaMinSizeDefault(),
-				-1, null, null);
-		Region pageNumberRegion = new Region(RegionType.page_number, DEFAULT_Parameters.getPageNumberMinSizeDefault(),
-				1, PriorityPosition.top, null);
-		Region ignoreRegion = new Region(RegionType.ignore, 0, -1, null, null);
+		Region imageRegion = new Region(new PAGERegionType(RegionType.ImageRegion), 
+				DEFAULT_Parameters.getImageMinSizeDefault(), -1, null, null);
+		Region paragraphRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.paragraph), 
+				DEFAULT_Parameters.getParagraphMinSizeDefault(), -1, null, null);
+		Region marginaliaRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.marginalia), 
+				DEFAULT_Parameters.getMarginaliaMinSizeDefault(), -1, null, null);
+		Region pageNumberRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.page_number), 
+				DEFAULT_Parameters.getPageNumberMinSizeDefault(), 1, PriorityPosition.top, null);
+		Region ignoreRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.ignore), 0, -1, null, null);
 
 		regions.add(imageRegion);
 		regions.add(paragraphRegion);
@@ -35,7 +38,7 @@ public class RegionManager {
 		setRegions(regions);
 	}
 
-	public Region getRegionByType(RegionType type) {
+	public Region getRegionByType(PAGERegionType type) {
 		for (Region region : regions) {
 			if (region.getType().equals(type)) {
 				return region;

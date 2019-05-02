@@ -5,10 +5,10 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.web.facade.BookSettings;
 import com.web.model.Book;
-import com.web.model.BookSettings;
 
-import larex.geometry.regions.type.RegionType;
+import larex.geometry.regions.type.PAGERegionType;
 
 /**
  * A communication object for the controller to parse a basic response to the viewer.
@@ -22,7 +22,7 @@ public class BasicResponse {
 	@JsonProperty("settings")
 	private BookSettings settings;
 	@JsonProperty("regionTypes")
-	protected Map<RegionType, Integer> regionTypes;
+	protected Map<String, Integer> regionTypes;
 
 	@JsonCreator
 	public BasicResponse(@JsonProperty("book") Book book,
@@ -39,17 +39,17 @@ public class BasicResponse {
 		return settings;
 	}
 
-	public Map<RegionType, Integer> getregionTypes() {
+	public Map<String, Integer> getregionTypes() {
 		if (regionTypes == null)
 			initregionTypes();
 		return regionTypes;
 	}
 
 	private void initregionTypes() {
-		this.regionTypes = new HashMap<RegionType, Integer>();
+		this.regionTypes = new HashMap<String, Integer>();
 		int i = 0;
-		for (RegionType type : RegionType.values()) {
-			regionTypes.put(type, i);
+		for (PAGERegionType type : PAGERegionType.values()) {
+			regionTypes.put(type.toString(), i);
 			i++;
 		}
 	}

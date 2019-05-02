@@ -1,10 +1,11 @@
-package com.web.model;
+package com.web.facade;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.web.model.Polygon;
 
 /**
  * Handles page sensitive settings for the algorithm

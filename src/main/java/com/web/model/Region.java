@@ -7,11 +7,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import larex.geometry.positions.PriorityPosition;
-import larex.geometry.regions.type.RegionType;
 
 public class Region {
 	@JsonProperty("type")
-	private RegionType type;
+	private String type;
 	@JsonProperty("polygons")
 	private Map<String, Polygon> polygons;
 	@JsonProperty("minSize")
@@ -22,7 +21,7 @@ public class Region {
 	private PriorityPosition priorityPosition;
 
 	@JsonCreator
-	public Region(@JsonProperty("type") RegionType type,
+	public Region(@JsonProperty("type") String type,
 			@JsonProperty("polygons") Map<String, Polygon> polygons,
 			@JsonProperty("minSize") int minSize,
 			@JsonProperty("maxOccurances") int maxOccurances,
@@ -34,11 +33,11 @@ public class Region {
 		this.priorityPosition = priorityPosition;
 	}
 	
-	public Region(RegionType type,int minSize,int maxOccurances,PriorityPosition priorityPosition){
+	public Region(String type,int minSize,int maxOccurances,PriorityPosition priorityPosition){
 		this(type, new HashMap<String,Polygon>(), minSize,maxOccurances,priorityPosition);
 	}
 
-	public RegionType getType() {
+	public String getType() {
 		return type;
 	}
 

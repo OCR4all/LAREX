@@ -5,7 +5,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.context.annotation.Scope;
@@ -60,6 +63,18 @@ public class FileConfiguration {
 			return configurations.get(setting);
 		} else {
 			return "";
+		}
+	}
+	
+	public List<String> getListSetting(String setting) {
+		if (!isInitiated()) {
+			System.err.println("Configuration file has not been read.");
+			return new ArrayList<>();
+		}
+		if (configurations.containsKey(setting)) {
+			return Arrays.asList(configurations.get(setting).split(" "));
+		} else {
+			return new ArrayList<>();
 		}
 	}
 

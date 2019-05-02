@@ -1,118 +1,45 @@
 package larex.data.export;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.text.SimpleDateFormat;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
-import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
+import org.primaresearch.dla.page.Page;
+import org.primaresearch.dla.page.io.xml.PageXmlInputOutput;
+import org.primaresearch.dla.page.io.xml.StreamTarget;
+import org.primaresearch.dla.page.layout.PageLayout;
+import org.primaresearch.dla.page.layout.logical.ReadingOrder;
+import org.primaresearch.dla.page.layout.physical.Region;
+import org.primaresearch.dla.page.layout.physical.shared.RegionType;
+import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
+import org.primaresearch.dla.page.metadata.MetaData;
+import org.primaresearch.ident.Id;
+import org.primaresearch.ident.IdRegister.InvalidIdException;
+import org.primaresearch.io.UnsupportedFormatVersionException;
+import org.primaresearch.io.xml.XmlFormatVersion;
+import org.primaresearch.maths.geometry.Polygon;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
 
 import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.SegmentationResult;
 
 public class PageXMLWriter {
-
-	/**
-	 * PageXML 2017
-	 * 
-	 * @param document
-	 * @param coordsElement
-	 * @param pointMat
-	 */
-	public static void addPoints2017(Document document, Element coordsElement, MatOfPoint pointMat) {
-		Point[] points = pointMat.toArray();
-		if(points.length > 0) {
-			String pointCoords = "";
-	
-			for (int i = 0; i < points.length; i++) {
-				int x = (int) points[i].x;
-				int y = (int) points[i].y;
-	
-				pointCoords += x + "," + y + " ";
-			}
-	
-			pointCoords = pointCoords.substring(0, pointCoords.length() - 1);
-			coordsElement.setAttribute("points", pointCoords);
-		}
-	}
-
-	/**
-	 * PageXML 2010
-	 * 
-	 * @param document
-	 * @param coordsElement
-	 * @param pointMat
-	 */
-	public static void addPoints2010(Document document, Element coordsElement, MatOfPoint pointMat) {
-		Point[] points = pointMat.toArray();
-
-		for (int i = 0; i < points.length; i++) {
-			Element pointElement = document.createElement("Point");
-			pointElement.setAttribute("x", "" + (int) points[i].x);
-			pointElement.setAttribute("y", "" + (int) points[i].y);
-			coordsElement.appendChild(pointElement);
-		}
-	}
-
-	public static void addRegion(Document document, Element pageElement, RegionSegment region, int regionCnt,
-			String pageXMLVersion) {
-		Element regionElement = null;
-		String regionType = region.getType().toString().toLowerCase();
-		regionType = regionType.replace("_", "-");
-
-		if (regionType.equals("image")) {
-			regionElement = document.createElement("ImageRegion");
-		} else {
-			regionElement = document.createElement("TextRegion");
-			regionElement.setAttribute("type", regionType);
-		}
-
-		regionElement.setAttribute("id", "r" + regionCnt);
-		Element coordsElement = document.createElement("Coords");
-
-		switch (pageXMLVersion) {
-		case "2017-07-15":
-			addPoints2017(document, coordsElement, region.getPoints());
-			break;
-		case "2010-03-19":
-		default:
-			addPoints2010(document, coordsElement, region.getPoints());
-			break;
-		}
-		regionElement.appendChild(coordsElement);
-		pageElement.appendChild(regionElement);
-	}
-
-	public static void addRegions(Document document, Element pageElement, SegmentationResult segmentation,
-			String pageXMLVersion) {
-		int regionCnt = 0;
-
-		ArrayList<RegionSegment> readingOrder = segmentation.getReadingOrder();
-		ArrayList<RegionSegment> allRegions = segmentation.getRegions();
-		allRegions.removeAll(readingOrder);
-
-		for (RegionSegment region : readingOrder) {
-			addRegion(document, pageElement, region, regionCnt, pageXMLVersion);
-			regionCnt++;
-		}
-
-		for (RegionSegment region : allRegions) {
-			addRegion(document, pageElement, region, regionCnt, pageXMLVersion);
-			regionCnt++;
-		}
-	}
 
 	/**
 	 * Get a pageXML document out of a page
@@ -121,81 +48,73 @@ public class PageXMLWriter {
 	 * @param outputFolder
 	 * @param tempResult
 	 * @return pageXML document or null if parse error
+	 * @throws UnsupportedFormatVersionException 
+	 * @throws InvalidIdException 
 	 */
 	public static Document getPageXML(SegmentationResult result, String imageName, int width, int height,
-			String pageXMLVersion) {
-		if (!pageXMLVersion.equals("2017-07-15") && !pageXMLVersion.equals("2010-03-19")) {
-			pageXMLVersion = "2010-03-19";
-		}
-		try {
-			DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
-			Document document = docBuilder.newDocument();
+			String pageXMLVersion) throws UnsupportedFormatVersionException, InvalidIdException {
 
-			Element rootElement = document.createElement("PcGts");
-			rootElement.setAttribute("xmlns", "http://schema.primaresearch.org/PAGE/gts/pagecontent/" + pageXMLVersion);
-			rootElement.setAttribute("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
-			rootElement.setAttribute("xsi:schemaLocation",
-					"http://schema.primaresearch.org/PAGE/gts/pagecontent/" + pageXMLVersion
-							+ " http://schema.primaresearch.org/PAGE/gts/pagecontent/" + pageXMLVersion
-							+ "/pagecontent.xsd");
+		// Start PAGE xml
+		XmlFormatVersion version = new XmlFormatVersion(pageXMLVersion);
+		Page page = new Page(PageXmlInputOutput.getSchemaModel(version));
+		
+		page.setImageFilename(imageName);
 
-			document.appendChild(rootElement);
+		// Create page and meta data
+		MetaData metadata = page.getMetaData();
+		metadata.setCreationTime(new Date());
+		// metadata ChangedTime
+		
+		// Create page layout
+		PageLayout layout = page.getLayout();
+		layout.setSize(width, height);
+		
+		// Add Regions
+		Map<String,Id> idMap = new HashMap<>();
+		for(RegionSegment regionSegment : result.getRegions()) {
+			RegionType regionType = TypeConverter.enumRegionTypeToPrima(regionSegment.getType().getType());
+			
+			Region region = layout.createRegion(regionType);
 
-			Element metadataElement = document.createElement("Metadata");
-			Element creatorElement = document.createElement("Creator");
-			Element createdElement = document.createElement("Created");
-			Element changedElement = document.createElement("LastChange");
+			Polygon poly = new Polygon();
 
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-			String date = sdf.format(new Date());
-
-			Node creatorTextNode = document.createTextNode("Christian Reul");
-			Node createdTextNode = document.createTextNode(date);
-			Node changedTextNode = document.createTextNode(date);
-
-			creatorElement.appendChild(creatorTextNode);
-			createdElement.appendChild(createdTextNode);
-			changedElement.appendChild(changedTextNode);
-
-			metadataElement.appendChild(creatorElement);
-			metadataElement.appendChild(createdElement);
-			metadataElement.appendChild(changedElement);
-
-			rootElement.appendChild(metadataElement);
-
-			Element pageElement = document.createElement("Page");
-			pageElement.setAttribute("imageFilename", imageName);
-
-			pageElement.setAttribute("imageWidth", "" + width);
-			pageElement.setAttribute("imageHeight", "" + height);
-			rootElement.appendChild(pageElement);
-
-			// ReadingOrder
-			if (result.getReadingOrder().size() > 0) {
-				Element readingOrderElement = document.createElement("ReadingOrder");
-				pageElement.appendChild(readingOrderElement);
-
-				Element orderedGroupElement = document.createElement("OrderedGroup");
-				orderedGroupElement.setAttribute("id", "ro" + System.currentTimeMillis());
-				readingOrderElement.appendChild(orderedGroupElement);
-
-				ArrayList<RegionSegment> readingOrder = result.getReadingOrder();
-				for (int index = 0; index < readingOrder.size(); index++) {
-					Element regionRefElement = document.createElement("RegionRefIndexed");
-					regionRefElement.setAttribute("regionRef", "r" + index);
-					regionRefElement.setAttribute("index", "" + index);
-					orderedGroupElement.appendChild(regionRefElement);
-				}
+			Point[] points = regionSegment.getPoints().toArray();
+			for (int i = 0; i < points.length; i++) {
+				poly.addPoint((int) points[i].x, (int) points[i].y);
 			}
+			if(regionType.getName().equals(RegionType.TextRegion.getName())) {
+				TextRegion textRegion = (TextRegion) region;
 
-			addRegions(document, pageElement, result, pageXMLVersion);
-
-			return document;
-		} catch (Exception e) {
-			e.printStackTrace();
+				String subType = TypeConverter.subTypeToString(regionSegment.getType().getSubtype());
+				textRegion.setTextType(subType);
+			}
+			region.setCoords(poly);
+			
+			idMap.put(regionSegment.getId(),region.getId());
 		}
-		return null;
+
+		// ReadingOrder
+		ReadingOrder xmlReadingOrder = layout.createReadingOrder();
+		
+		
+		ArrayList<RegionSegment> readingOrder = result.getReadingOrder();
+		for(RegionSegment regionSegment : readingOrder) {
+			String idString = idMap.get(regionSegment.getId()).toString();
+			xmlReadingOrder.getRoot().addRegionRef(idString);
+		}
+		
+		// Write as Document
+		ByteArrayOutputStream os = new ByteArrayOutputStream();
+		PageXmlInputOutput.getWriter(version).write(page, new StreamTarget(os));
+		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		factory.setNamespaceAware(true);
+
+		try {
+			return factory.newDocumentBuilder().parse(new ByteArrayInputStream(os.toByteArray()));
+		} catch (SAXException | IOException | ParserConfigurationException e) {
+			e.printStackTrace();
+			return null;
+		}
 	}
 
 	/**
