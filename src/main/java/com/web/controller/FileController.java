@@ -221,6 +221,7 @@ public class FileController {
 				byte[] bytes = file.getBytes();
 				settings = LarexFacade.readSettings(bytes, bookID, fileManager, database);
 			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
 

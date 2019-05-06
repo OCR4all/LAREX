@@ -10,6 +10,8 @@ public class PAGERegionType {
 	private static List<PAGERegionType> regionTypes;
 	
 	public PAGERegionType(RegionType type, RegionSubType subtype) {
+		if(type == null && subtype == null)
+			throw new IllegalArgumentException("A PAGERegion must have a type.");
 		this.type = type;
 		this.subtype = subtype;
 	}

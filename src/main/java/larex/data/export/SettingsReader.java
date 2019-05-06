@@ -10,6 +10,8 @@ import org.w3c.dom.NodeList;
 import larex.geometry.positions.RelativePosition;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionManager;
+import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.parameters.Parameters;
 
 public class SettingsReader {
@@ -47,8 +49,10 @@ public class SettingsReader {
 
 		for (int i = 0; i < regionNodes.getLength(); i++) {
 			Element regionElement = (Element) regionNodes.item(i);
-			String type = regionElement.getTagName();
-			String subtype = regionElement.getAttribute("type");
+			PAGERegionType typePAGE = TypeConverter.stringToPAGEType(regionElement.getAttribute("type"));
+			String type = typePAGE.getType() != null ? typePAGE.getType().toString() : "";
+			String subtype = typePAGE.getSubtype() != null ? typePAGE.getSubtype().toString() : "";
+
 			int minSize = Integer.parseInt(regionElement.getAttribute("minSize"));
 			int maxOccurances = Integer.parseInt(regionElement.getAttribute("maxOccurances"));
 			String priority = regionElement.getAttribute("priority");

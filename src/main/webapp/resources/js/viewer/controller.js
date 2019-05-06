@@ -293,18 +293,16 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
 		this.showPreloader(true);
-		if (!pageNr) {
-			pageNr = _currentPage;
-		}
-		_communicator.uploadPageXML(file, pageNr, _book.id).done((page) => {
+
+		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
 			const failedSegmentations = [];
 			const missingRegions = [];
 
 			switch (page.status) {
 				case 'SUCCESS':
-					_segmentation[pageNr] = page;
+					_segmentation[_currentPage] = page;
 
-					_actionController.resetActions(pageNr);
+					_actionController.resetActions(_currentPage);
 
 					//check if all necessary regions are available
 					Object.keys(page.segments).forEach((id) => {
@@ -321,19 +319,19 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 					page.readingOrder.forEach((id) => readingOrder.push(id));
 					_actionController.addAndExecuteAction(
-						new ActionChangeReadingOrder(_segmentation[pageNr].readingOrder, readingOrder, this, _segmentation, pageNr)
-						, pageNr);
+						new ActionChangeReadingOrder(_segmentation[_currentPage].readingOrder, readingOrder, this, _segmentation, _currentPage)
+						, _currentPage);
 					break;
 				default:
-					failedSegmentations.push(pageNr);
+					failedSegmentations.push(_currentPage);
 			}
 
-			_segmentedPages.push(pageNr);
+			_segmentedPages.push(_currentPage);
 			if (missingRegions.length > 0) {
 				_gui.displayWarning('Warning: Some regions were missing and have been added.');
 			}
 
-			this.displayPage(pageNr);
+			this.displayPage(_currentPage);
 			this.showPreloader(false);
 			_gui.highlightSegmentedPages(_segmentedPages);
 		});
