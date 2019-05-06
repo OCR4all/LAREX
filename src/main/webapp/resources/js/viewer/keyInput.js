@@ -27,7 +27,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					if (!event.ctrlKey) {
 						_navigationController.zoomFit();
 					} else {
-						_controller.doSegmentation()
+						_controller.requestSegmentation()
 					}
 					validKey = true;
 					break;

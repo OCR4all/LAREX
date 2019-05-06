@@ -68,8 +68,8 @@ public class LarexFacade {
 		}
 	}
 
-	public static PageAnnotations emptySegmentPage(BookSettings settings, int pageNr, FileDatabase database) {
-		Book book = getBook(settings.getBookID(), database);
+	public static PageAnnotations emptySegmentPage(int bookid, int pageNr, FileDatabase database) {
+		Book book = getBook(bookid, database);
 
 		Page page = book.getPage(pageNr);
 

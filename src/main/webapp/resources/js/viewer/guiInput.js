@@ -18,13 +18,12 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
-	$('.doSegment').click(() => _controller.doSegmentation());
+	$('.doSegment').click(() => _controller.requestSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
 	$('.pageXMLVersion').click(function () {
 		const version = $(this).data('version');
 		_gui.setPageXMLVersion(version);
 		$('#dropDownPageXML').dropdown('close');
-		_controller.setPageXMLVersion(version);
 	});
 	$('#dropDownPageXMLCorner').click((event) => {
 		event.stopPropagation();
@@ -47,7 +46,7 @@ function GuiInput(navigationController, controller, gui) {
 		$(this).val("");
 		if (file) {
 			if (file.size < 1024 * 1024) {
-				_controller.uploadExistingSegmentation(file);
+				_controller.uploadSegmentation(file);
 			} else {
 				alert('max upload size is 1MB')
 			}
@@ -182,7 +181,7 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.allowToAutosegment($switchBox.prop('checked'));
 	});
 
-	$('.loadExistingSegmentation').click(() => _controller.loadExistingSegmentation());
+	$('.loadExistingSegmentation').click(() => _controller.requestSegmentation(true));
 
 	$('.autoGenerateReadingOrder').click(() => _controller.autoGenerateReadingOrder());
 

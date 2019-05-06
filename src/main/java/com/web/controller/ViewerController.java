@@ -143,16 +143,16 @@ public class ViewerController {
 	public @ResponseBody PageAnnotations segment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
-		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
+		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPage(),
 				segmentationRequest.isAllowToLoadLocal(), fileManager, database);
 	}
 
-	@RequestMapping(value = "/emptysegment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody PageAnnotations emptysegment(@RequestBody SegmentationRequest segmentationRequest) {
+	@RequestMapping(value = "/emptysegment", method = RequestMethod.POST)
+	public @ResponseBody PageAnnotations emptysegment(@RequestParam("bookid") int bookID,
+			@RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
-		return LarexFacade.emptySegmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
-				database);
+		return LarexFacade.emptySegmentPage(bookID, pageID, database);
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")

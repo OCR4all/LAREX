@@ -1,5 +1,5 @@
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
-var ElementType = {SEGMENT:'segment',REGION:'region',CUT:'cut',CONTOUR:'contour'}
+var ElementType = {SEGMENT:'segment',REGION:'region',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
 
 function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -17,7 +17,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _settings;
 	let _contours = {};
 	let _presentRegions = [];
-	let _pageXMLVersion = "2017-07-15";
 	let _displayReadingOrder = false;
 	let _tempReadingOrder = null;
 	let _allowLoadLocal = true;
@@ -69,7 +68,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
-			_gui.setPageXMLVersion(_pageXMLVersion);
+			_gui.setPageXMLVersion("2017-07-15");
 
 			_gui.setAllRegionColors();
 			_gui.updateAvailableColors();
@@ -113,19 +112,19 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
 			if(_autoSegment){
-				this._requestSegmentation(_currentPage, _allowLoadLocal);
+				this.requestSegmentation(_allowLoadLocal);
 			} else {
 				if(!_allowLoadLocal){
-					this._requestEmptySegmentation(_currentPage);
+					this._requestEmptySegmentation();
 				}else{
 					// Check if pages has local segmentation only if autoSegment is not allowed
 					_communicator.getSegmented(_book.id).done((pages) =>{
 						hasLocal = pages.includes(pageNr);
 						pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
 						if(_allowLoadLocal && hasLocal){
-							this._requestSegmentation(_currentPage, _allowLoadLocal);
+							this.requestSegmentation(_allowLoadLocal);
 						} else {
-							this._requestEmptySegmentation(_currentPage);
+							this._requestEmptySegmentation();
 						}
 					});
 				}
@@ -220,51 +219,29 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.showUsedRegionLegends(_presentRegions);
 	}
 
-	// New Segmentation with different Settings
-	this.doSegmentation = function (pageID) {
+	this.requestSegmentation = function (allowLoadLocal) {
+		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
-
 		_segmentedPages = _savedPages.slice(0); //clone saved Pages
-
-		this._requestSegmentation(pageID, false);
-	}
-
-	this.loadExistingSegmentation = function () {
-		_settings.parameters = _gui.getParameters();
-
-		_segmentedPages = _savedPages.slice(0); //clone saved Pages
-
-		this._requestSegmentation(_currentPage, true);
-	}
-
-	this.uploadExistingSegmentation = function (file) {
-		_segmentedPages = _savedPages.slice(0); //clone saved Pages
-		this._uploadSegmentation(file, _currentPage);
-	}
-
-	this._requestSegmentation = function (pageID, allowLoadLocal) {
-		if (!pageID) {
-			pageID = _currentPage;
-		}
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
-		activesettings.pages[pageID].segments = {};
-		if (!_fixedSegments[pageID]) _fixedSegments[pageID] = [];
-		_fixedSegments[pageID].forEach(s => activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
+		activesettings.pages[_currentPage].segments = {};
+		if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
+		_fixedSegments[_currentPage].forEach(s => activesettings.pages[_currentPage].segments[s] = _segmentation[_currentPage].segments[s]);
 
-		_communicator.segmentBook(activesettings, pageID, allowLoadLocal).done((result) => {
+		_communicator.segmentBook(activesettings, _currentPage, allowLoadLocal).done((result) => {
 			const failedSegmentations = [];
 			const missingRegions = [];
 
-			_gui.highlightLoadedPage(pageID, false);
+			_gui.highlightLoadedPage(_currentPage, false);
 			switch (result.status) {
 				case 'LOADED':
-					_gui.highlightLoadedPage(pageID, true);
+					_gui.highlightLoadedPage(_currentPage, true);
 				case 'SUCCESS':
-					_segmentation[pageID] = result;
+					_segmentation[_currentPage] = result;
 
-					_actionController.resetActions(pageID);
+					_actionController.resetActions(_currentPage);
 					//check if all necessary regions are available
 					Object.keys(result.segments).forEach((id) => {
 						let segment = result.segments[id];
@@ -281,18 +258,18 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 					});
 					let readingOrder = [];
 					result.readingOrder.forEach((id) => readingOrder.push(id));
-					_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[pageID].readingOrder, readingOrder, this, _segmentation, pageID), pageID);
+					_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_currentPage].readingOrder, readingOrder, this, _segmentation, _currentPage), _currentPage);
 					break;
 				default:
-					failedSegmentations.push(pageID);
+					failedSegmentations.push(_currentPage);
 			}
 
-			_segmentedPages.push(pageID);
+			_segmentedPages.push(_currentPage);
 			if (missingRegions.length > 0) {
 				_gui.displayWarning('Warning: Some regions were missing and have been added.');
 			}
 
-			this.displayPage(pageID);
+			this.displayPage(_currentPage);
 			_gui.highlightSegmentedPages(_segmentedPages);
 
 			_communicator.getSegmented(_book.id).done((pages) =>{
@@ -302,27 +279,19 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 	}
 
-	this._requestEmptySegmentation = function (pageID) {
-		if (!pageID) {
-			pageID = _currentPage;
-		}
+	this._requestEmptySegmentation = function () {
+		_communicator.emptySegmentation(_book.id, _currentPage).done((result) => {
+			_gui.highlightLoadedPage(_currentPage, false);
+			_segmentation[_currentPage] = result;
 
-		//Add fixed Segments to settings
-		const activesettings = JSON.parse(JSON.stringify(_settings));
-		activesettings.pages[pageID].segments = {};
-		if (!_fixedSegments[pageID]) _fixedSegments[pageID] = [];
-		_fixedSegments[pageID].forEach(s => activesettings.pages[pageID].segments[s] = _segmentation[pageID].segments[s]);
-
-		_communicator.emptySegmentation(activesettings, pageID).done((result) => {
-			_gui.highlightLoadedPage(pageID, false);
-			_segmentation[pageID] = result;
-
-			this.displayPage(pageID);
+			this.displayPage(_currentPage);
 		});
-		_segmentedPages.push(pageID);
+		_segmentedPages.push(_currentPage);
 	}
 
-	this._uploadSegmentation = function (file, pageNr) {
+	this.uploadSegmentation = function (file) {
+		_segmentedPages = _savedPages.slice(0); //clone saved Pages
+
 		this.showPreloader(true);
 		if (!pageNr) {
 			pageNr = _currentPage;
@@ -369,14 +338,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.highlightSegmentedPages(_segmentedPages);
 		});
 	}
-	this.setPageXMLVersion = function (pageXMLVersion) {
-		_pageXMLVersion = pageXMLVersion;
-	}
 
 	this.exportPageXML = function () {
 		_gui.setExportingInProgress(true);
-
-		_communicator.exportSegmentation(_segmentation[_currentPage], _book.id, _pageXMLVersion).done((data) => {
+		console.log(_gui.getPageXMLVersion());
+		_communicator.exportSegmentation(_segmentation[_currentPage], _book.id, _gui.getPageXMLVersion()).done((data) => {
 			// Set export finished
 			_savedPages.push(_currentPage);
 			_gui.setExportingInProgress(false);
@@ -454,7 +420,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.createSegmentPolygon = function () {
 		this.endEditing();
-		_editor.startCreatePolygon('segment');
+		_editor.startCreatePolygon(ElementType.SEGMENT);
 		_gui.selectToolBarButton('segmentPolygon', true);
 	}
 	this.createRectangle = function (type) {
@@ -462,10 +428,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 		_editor.createRectangle(type);
 		switch (type) {
-			case 'segment':
+			case ElementType.SEGMENT:
 				_gui.selectToolBarButton('segmentRectangle', true);
 				break;
-			case 'region':
+			case ElementType.REGION:
 				_gui.selectToolBarButton('regionRectangle', true);
 				break;
 			case 'ignore':
@@ -480,21 +446,21 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.createCut = function () {
 		this.endEditing();
 		_editor.startCreateLine();
-		_gui.selectToolBarButton('cut', true);
+		_gui.selectToolBarButton(ElementType.CUT, true);
 	}
 
 	this.fixSelected = function () {
-		if (_selector.selectedType === 'segment') {
+		if (_selector.selectedType === ElementType.SEGMENT) {
 			const actions = [];
 			const selected = _selector.getSelectedSegments();
 			const selectType = _selector.getSelectedPolygonType();
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				if (selectType === "region") {
-				} else if (selectType === "segment") {
+				if (selectType === ElementType.REGION) {
+				} else if (selectType === ElementType.SEGMENT) {
 					if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
 					let wasFixed = $.inArray(selected[i], _fixedSegments[_currentPage]) > -1;
 					actions.push(new ActionFixSegment(selected[i], this, !wasFixed));
-				} else if (selectType === "cut") {
+				} else if (selectType === ElementType.CUT) {
 				}
 			}
 			let multiFix = new ActionMultiple(actions);
@@ -508,8 +474,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const selectType = _selector.getSelectedPolygonType();
 		let points = _selector.getSelectedPoints();
 
-		if (points && points.length > 0 && selected.length === 1 && selectType === "segment") {
-			_editor.startMovePolygonPoints(selected[0], 'segment', points);
+		if (points && points.length > 0 && selected.length === 1 && selectType === ElementType.SEGMENT) {
+			_editor.startMovePolygonPoints(selected[0], ElementType.SEGMENT, points);
 		}
 	}
 
@@ -526,7 +492,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 		if (selected.length === 1 && points.length > 0) {
 			// Points inside of a polygon is selected => Delete points
-			if(selectType === 'segment'){
+			if(selectType === ElementType.SEGMENT){
 				const segments = _segmentation[_currentPage].segments[selected[0]].points;
 				let filteredSegments = segments;
 
@@ -538,12 +504,12 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			//Polygon is selected => Delete polygon
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				if (selectType === "region") {
+				if (selectType === ElementType.REGION) {
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
-				} else if (selectType === "segment") {
+				} else if (selectType === ElementType.SEGMENT) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
-				} else if (selectType === "cut") {
+				} else if (selectType === ElementType.CUT) {
 					let cut = _settings.pages[_currentPage].cuts[selected[i]];
 					actions.push(new ActionRemoveCut(cut, _editor, _settings, _currentPage));
 				}
@@ -602,7 +568,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			});
 		}
 	}
-	
 
 	this.changeTypeSelected = function (newType) {
 		const selected = _selector.getSelectedSegments();
@@ -611,12 +576,12 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if (selectedlength || selectedlength > 0) {
 			const actions = [];
 			for (let i = 0; i < selectedlength; i++) {
-				if (selectType === "region") {
+				if (selectType === ElementType.REGION) {
 					const regionPolygon = this._getRegionByID(selected[i]);
 					actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings, _currentPage, this));
 
 					this.hideRegion(newType, false);
-				} else if (selectType === "segment") {
+				} else if (selectType === ElementType.SEGMENT) {
 					actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
 				}
 			}
@@ -626,7 +591,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 	this.createRegionBorder = function () {
 		this.endEditing();
-		_editor.startCreateBorder('region');
+		_editor.startCreateBorder(ElementType.REGION);
 		_gui.selectToolBarButton('regionBorder', true);
 	}
 	this.callbackNewRegion = function (regionpoints, regiontype) {
@@ -736,13 +701,13 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const selectType = _selector.getSelectedPolygonType();
 		const selected = _selector.getSelectedSegments();
 
-		if (selectType === 'region' && selected.length === 1) 
-			_editor.startScalePolygon(selected[0], 'region');
+		if (selectType === ElementType.REGION && selected.length === 1) 
+			_editor.startScalePolygon(selected[0], ElementType.REGION);
 	}
 
 	this.transformRegion = function (regionID, regionSegments) {
 		const polygonType = this.getIDType(regionID);
-		if (polygonType === "region") {
+		if (polygonType === ElementType.REGION) {
 			let regionType = this._getRegionByID(regionID).type;
 			let actionTransformRegion = new ActionTransformRegion(regionID, regionSegments, regionType, _editor, _settings, _currentPage, this);
 			_actionController.addAndExecuteAction(actionTransformRegion, _currentPage);
@@ -753,14 +718,14 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.changeRegionType = function (id, type) {
 		const polygonType = this.getIDType(id);
-		if (polygonType === "region") {
+		if (polygonType === ElementType.REGION) {
 			const regionPolygon = this._getRegionByID(id);
 			if (regionPolygon.type != type) {
 				let actionChangeType = new ActionChangeTypeRegionPolygon(regionPolygon, type, _editor, _settings, _currentPage, this);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
 			this.hideRegion(type, false);
-		} else if (polygonType === "segment" || polygonType === "fixed") {
+		} else if (polygonType === ElementType.SEGMENT || polygonType === "fixed") {
 			if (_segmentation[_currentPage].segments[id].type != type) {
 				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
@@ -909,7 +874,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			}
 		} else {
 			let points;
-			if (hitTest && hitTest.type == 'segment') {
+			if (hitTest && hitTest.type == ElementType.SEGMENT) {
 				const nearestPoint = hitTest.segment.point;
 				points = [_editor._convertCanvasToGlobal(nearestPoint.x, nearestPoint.y)];
 				_selector.select(sectionID, points);
@@ -922,7 +887,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.hasPointsSelected = function() {
-		return _selector.getSelectedPolygonType() === 'segment' && _selector.getSelectedSegments().length === 1 && _selector.getSelectedPoints().length > 0;
+		return _selector.getSelectedPolygonType() === ElementType.SEGMENT 
+				&& _selector.getSelectedSegments().length === 1 
+				&& _selector.getSelectedPoints().length > 0;
 	}
 
 	this.unSelect = function () {
@@ -1041,11 +1008,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.openContextMenu = function (doSelected, id) {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
-		if (doSelected && selected && selected.length > 0 && (selectType === 'region' || selectType === "segment")) {
+		if (doSelected && selected && selected.length > 0 && (selectType === ElementType.REGION || selectType === ElementType.SEGMENT)) {
 			_gui.openContextMenu(doSelected, id);
 		} else {
 			let polygonType = this.getIDType(id);
-			if (polygonType === 'region' || polygonType === "segment") {
+			if (polygonType === ElementType.REGION || polygonType === ElementType.SEGMENT) {
 				_gui.openContextMenu(doSelected, id);
 			}
 		}

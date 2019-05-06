@@ -382,6 +382,9 @@ function GUI(canvas, viewer, colors) {
 	this.setPageXMLVersion = function (version) {
 		$('#pageXMLVersion').text(version);
 	}
+	this.getPageXMLVersion = function () {
+		return $('#pageXMLVersion').text();
+	}
 	this.setSaveSettingsInProgress = function (isInProgress) {
 		if (isInProgress) {
 			$('.saveSettingsXML').find('.progress').removeClass('hide');

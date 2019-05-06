@@ -51,8 +51,8 @@ class Communicator {
 		return this.request("segment", {settings:settings,page:page,allowLoadLocal:allowLoadLocal}, DataType.JSON);
 	}
 
-	emptySegmentation(settings, page) {
-		return this.request("emptysegment", {settings:settings,page:page,allowLoadLocal:false}, DataType.JSON);
+	emptySegmentation(bookID, pageID) {
+		return this.request("emptysegment",  {pageid:pageID,bookid:bookID});
 	}
 
 	mergeSegments(segments, pageID, bookID) {

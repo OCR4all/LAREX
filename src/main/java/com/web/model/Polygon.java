@@ -8,8 +8,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import larex.geometry.regions.RegionSegment;
-import larex.geometry.regions.type.PAGERegionType;
-import larex.geometry.regions.type.RegionType;
 import larex.geometry.regions.type.TypeConverter;
 
 /**
