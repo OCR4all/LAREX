@@ -7,6 +7,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
 import javax.xml.transform.Transformer;
@@ -41,7 +42,7 @@ import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.BookSettings;
 import com.web.facade.LarexFacade;
-import com.web.model.PageSegmentation;
+import com.web.model.PageAnnotations;
 import com.web.model.database.FileDatabase;
 
 /**
@@ -59,13 +60,30 @@ public class FileController {
 	@Autowired
 	private FileConfiguration config;
 
+	/**
+	 * Initialize the controller by loading the fileManager and settings if not
+	 * loaded already.
+	 **/
+	@PostConstruct
+	private void init() {
+		if (!fileManager.isInit()) {
+			fileManager.init(servletContext);
+		}
+		if (!config.isInitiated()) {
+			config.read(new File(fileManager.getConfigurationFile()));
+			String bookFolder = config.getSetting("bookpath");
+			if (!bookFolder.equals("")) {
+				fileManager.setLocalBooksPath(bookFolder);
+			}
+		}
+	}
+	
 	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
 			@PathVariable("image") final String image,
 			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
 		try {
 			// Find file with image name
-			init();
 			File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
 			File[] matchingFiles = directory.listFiles(new FilenameFilter() {
 				public boolean accept(File dir, String name) {
@@ -136,9 +154,9 @@ public class FileController {
 	}
 
 	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
-	public @ResponseBody PageSegmentation uploadSegmentation(@RequestParam("file") MultipartFile file,
+	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") MultipartFile file,
 			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
-		PageSegmentation result = null;
+		PageAnnotations result = null;
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
@@ -154,7 +172,6 @@ public class FileController {
 	@RequestMapping(value = "/exportXML", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
-			init();
 			final Document pageXML = LarexFacade.getPageXML(request.getSegmentation(), request.getVersion());
 
 			switch (config.getSetting("localsave")) {
@@ -210,18 +227,6 @@ public class FileController {
 		return settings;
 	}
 
-	private void init() {
-		if (!fileManager.isInit()) {
-			fileManager.init(servletContext);
-		}
-		if (!config.isInitiated()) {
-			config.read(new File(fileManager.getConfigurationFile()));
-			String bookFolder = config.getSetting("bookpath");
-			if (!bookFolder.equals("")) {
-				fileManager.setLocalBooksPath(bookFolder);
-			}
-		}
-	}
 
 	private BufferedImage convertMatToBufferedImage(Mat imageMat) {
 		BufferedImage bufferedImage = null;

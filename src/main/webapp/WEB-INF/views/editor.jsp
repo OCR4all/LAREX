@@ -1,8 +1,9 @@
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <%@ taglib prefix="t" tagdir="/WEB-INF/tags"%>
-<t:webpage>
-	<t:head>
+<%@ taglib prefix="b" tagdir="/WEB-INF/tags/base"%>
+<b:webpage>
+	<b:head>
 		<!-- Load the Paper.js library -->
 		<script type="text/javascript" src="resources/js/paper.js"></script>
 
@@ -68,7 +69,7 @@
 
 		<link rel="stylesheet" href="resources/css/viewer.css">
 		<title>Larex - Editor</title>
-	</t:head>
+	</b:head>
 
 	<body>
 		<div id="menu" class="grey lighten-4">
@@ -78,7 +79,8 @@
 					<li class="tab"><a href="#nav">Navigation</a></li>
 					<li class="tab"><a class="active" href="#edit">Edit</a></li>
 				</ul>
-			</div>
+
+  			</div>
 			<div class="secondMenu">
 				<div id="file" class="">
 					<div class="">
@@ -178,19 +180,19 @@
 
 		<div id="viewerRwapper" class="row">
 			<div class="sidebar col s3 m1 l1">
-				<t:booksidebar/>
+				<t:sidebarNavigation/>
 			</div>
 			<div id="viewer" class="col s5 m9 l9">
 				<canvas id="viewerCanvas" class="grey darken-1" resize="true"></canvas>
 			</div>
 
 			<div class="sidebar col s4 m2 l2">
-			<t:sidebar/>
+			<t:sidebarSegmentation/>
 			</div>
 		</div>
 
-		<t:preloader/>
-		<t:regionsettings/>
+		<b:preloader/>
+		<t:regionSettings/>
 		<t:contextmenu/>
 	</body>
-</t:webpage>
+</b:webpage>

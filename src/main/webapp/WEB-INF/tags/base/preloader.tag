@@ -1,4 +1,5 @@
 <%@tag description="Preloader Tag" pageEncoding="UTF-8"%>
+
 <div id="preloader" class="hide">
 	<div id="preloader-body" class="circle big">
 		<div class="preloader-wrapper active">

@@ -25,7 +25,7 @@ import com.web.communication.SegmentationStatus;
 import com.web.controller.FileManager;
 import com.web.model.Book;
 import com.web.model.Page;
-import com.web.model.PageSegmentation;
+import com.web.model.PageAnnotations;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
@@ -48,7 +48,7 @@ import larex.segmentation.parameters.Parameters;
  */
 public class LarexFacade {
 
-	public static PageSegmentation segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
+	public static PageAnnotations segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
 			FileManager fileManager, FileDatabase database) {
 		Book book = getBook(settings.getBookID(), database);
 
@@ -58,24 +58,24 @@ public class LarexFacade {
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
 			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			PageSegmentation segmentation = new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(),
+			PageAnnotations segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(),
 					loadedResult.getRegions(), page.getId());
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
 		} else {
-			PageSegmentation segmentation = segment(settings, page, fileManager);
+			PageAnnotations segmentation = segment(settings, page, fileManager);
 			return segmentation;
 		}
 	}
 
-	public static PageSegmentation emptySegmentPage(BookSettings settings, int pageNr, FileDatabase database) {
+	public static PageAnnotations emptySegmentPage(BookSettings settings, int pageNr, FileDatabase database) {
 		Book book = getBook(settings.getBookID(), database);
 
 		Page page = book.getPage(pageNr);
 
 		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
 
-		PageSegmentation segmentation =  new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(), regions,
+		PageAnnotations segmentation =  new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), regions,
 				page.getId());
 		segmentation.setStatus(SegmentationStatus.EMPTY);
 		return segmentation;
@@ -85,7 +85,7 @@ public class LarexFacade {
 		return new BookSettings(new Parameters(), book);
 	}
 
-	public static Document getPageXML(PageSegmentation segmentation, String version) {
+	public static Document getPageXML(PageAnnotations segmentation, String version) {
 		SegmentationResult result = segmentation.toSegmentationResult();
 		try {
 			return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
@@ -185,8 +185,8 @@ public class LarexFacade {
 		return new Polygon(combined, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
 	}
 
-	private static PageSegmentation segment(BookSettings settings, Page page, FileManager fileManager) {
-		PageSegmentation segmentation = null;
+	private static PageAnnotations segment(BookSettings settings, Page page, FileManager fileManager) {
+		PageAnnotations segmentation = null;
 		larex.data.Page currentLarexPage = segmentLarex(settings, page, fileManager);
 
 		if (currentLarexPage != null) {
@@ -195,10 +195,10 @@ public class LarexFacade {
 
 			ArrayList<RegionSegment> regions = segmentationResult.getRegions();
 
-			segmentation = new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(), regions,
+			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), regions,
 					page.getId());
 		} else {
-			segmentation = new PageSegmentation(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
+			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
 					new HashMap<String, Polygon>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
 		}
 		return segmentation;
@@ -268,7 +268,7 @@ public class LarexFacade {
 		return settings;
 	}
 
-	public static PageSegmentation readPageXML(byte[] pageXML, int pageNr, int bookID, FileDatabase database) {
+	public static PageAnnotations readPageXML(byte[] pageXML, int pageNr, int bookID, FileDatabase database) {
 		try (ByteArrayInputStream stream = new ByteArrayInputStream(pageXML)){
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
@@ -276,7 +276,7 @@ public class LarexFacade {
 			Page page = getBook(bookID, database).getPage(pageNr);
 
 			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
-			PageSegmentation pageSegmentation = new PageSegmentation(page.getFileName(), page.getWidth(),
+			PageAnnotations pageSegmentation = new PageAnnotations(page.getFileName(), page.getWidth(),
 					page.getHeight(), result.getRegions(), page.getId());
 
 			List<String> readingOrder = new ArrayList<String>();

@@ -52,6 +52,15 @@ public class Polygon {
 		this.isRelative = false;
 	}
 
+	public Polygon(RegionSegment region) {
+		this(region.getPoints(), region.getId(), region.getType().toString());
+	}
+
+	/**
+	 * Create a Larex RegionSegment from this polygon
+	 * 
+	 * @return
+	 */
 	public RegionSegment toRegionSegment() {
 		LinkedList<org.opencv.core.Point> points = new LinkedList<org.opencv.core.Point>();
 
@@ -62,12 +71,7 @@ public class Polygon {
 		MatOfPoint resultPoints = new MatOfPoint();
 		resultPoints.fromList(points);
 
-		
 		return new RegionSegment(TypeConverter.stringToPAGEType(this.getType()), resultPoints, this.getId());
-	}
-
-	public Polygon(RegionSegment region) {
-		this(region.getPoints(), region.getId(), region.getType().toString());
 	}
 
 	public String getId() {

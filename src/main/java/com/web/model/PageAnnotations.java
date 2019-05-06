@@ -18,7 +18,7 @@ import larex.segmentation.SegmentationResult;
  * segment polygons.
  * 
  */
-public class PageSegmentation {
+public class PageAnnotations {
 	@JsonProperty("fileName")
 	private String fileName;
 	@JsonProperty("width")
@@ -34,12 +34,12 @@ public class PageSegmentation {
 	@JsonProperty("status")
 	private SegmentationStatus status;
 
-	public PageSegmentation(String fileName, int width, int height, int pageNr, Map<String, Polygon> segments) {
+	public PageAnnotations(String fileName, int width, int height, int pageNr, Map<String, Polygon> segments) {
 		this(fileName, width, height, pageNr, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
 	}
 
 	@JsonCreator
-	public PageSegmentation(@JsonProperty("fileName") String fileName, @JsonProperty("width") int width,
+	public PageAnnotations(@JsonProperty("fileName") String fileName, @JsonProperty("width") int width,
 			@JsonProperty("height") int height, @JsonProperty("page") int pageNr,
 			@JsonProperty("segments") Map<String, Polygon> segments, @JsonProperty("status") SegmentationStatus status,
 			@JsonProperty("readingOrder") List<String> readingOrder) {
@@ -52,7 +52,7 @@ public class PageSegmentation {
 		this.height = height;
 	}
 
-	public PageSegmentation(String fileName, int width, int height, ArrayList<RegionSegment> regions, int pageNr) {
+	public PageAnnotations(String fileName, int width, int height, ArrayList<RegionSegment> regions, int pageNr) {
 		Map<String, Polygon> segments = new HashMap<String, Polygon>();
 
 		for (RegionSegment region : regions) {

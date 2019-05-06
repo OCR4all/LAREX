@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +29,7 @@ import com.web.config.FileConfiguration;
 import com.web.facade.BookSettings;
 import com.web.facade.LarexFacade;
 import com.web.model.Book;
-import com.web.model.PageSegmentation;
+import com.web.model.PageAnnotations;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.database.FileDatabase;
@@ -51,15 +52,34 @@ public class ViewerController {
 	@Autowired
 	private FileConfiguration config;
 
+	/**
+	 * Initialize the controller by loading the fileManager and settings if not
+	 * loaded already.
+	 **/
+	@PostConstruct
+	private void init() {
+		if (!fileManager.isInit()) {
+			fileManager.init(servletContext);
+		}
+		if (!config.isInitiated()) {
+			config.read(new File(fileManager.getConfigurationFile()));
+			String bookFolder = config.getSetting("bookpath");
+			if (!bookFolder.equals("")) {
+				fileManager.setLocalBooksPath(bookFolder);
+			}
+		}
+	}
+
+	/**
+	 * Display the contents of a book in the main viewer
+	 **/
 	@RequestMapping(value = "/viewer", method = RequestMethod.GET)
 	public String viewer(Model model, @RequestParam(value = "book", required = false) Integer bookID)
 			throws IOException {
-		init();
 		if (bookID == null) {
 			return "redirect:/404";
 		}
 
-		init();
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		Book book = database.getBook(bookID);
@@ -84,7 +104,6 @@ public class ViewerController {
 			@RequestParam(value = "savedir", required = false) String savedir,
 			@RequestParam(value = "websave", required = false) String websave,
 			@RequestParam(value = "imagefilter", required = false) String imagefilter) throws IOException {
-		init();
 		if (!config.getSetting("directrequest").equals("enable")) {
 			return "redirect:/403";
 		}
@@ -110,9 +129,7 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/book", method = RequestMethod.POST)
-	public @ResponseBody BasicResponse getBook(@RequestParam("bookid") int bookID,
-			@RequestParam("pageid") int pageID) {
-		init();
+	public @ResponseBody BasicResponse getBook(@RequestParam("bookid") int bookID, @RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		Book book = database.getBook(bookID);
@@ -123,8 +140,7 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody PageSegmentation segment(@RequestBody SegmentationRequest segmentationRequest) {
-		init();
+	public @ResponseBody PageAnnotations segment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
@@ -132,11 +148,11 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/emptysegment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody PageSegmentation emptysegment(@RequestBody SegmentationRequest segmentationRequest) {
-		init();
+	public @ResponseBody PageAnnotations emptysegment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
-		return LarexFacade.emptySegmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(), database);
+		return LarexFacade.emptySegmentPage(segmentationRequest.getSettings(), segmentationRequest.getPages(),
+				database);
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
@@ -149,15 +165,15 @@ public class ViewerController {
 
 	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Polygon combinecontours(@RequestBody ContourCombineRequest combineRequest) {
-		if(combineRequest.getContours().size() > 0) {
+		if (combineRequest.getContours().size() > 0) {
 			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+					config.getListSetting("imagefilter"));
 			return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),
-					combineRequest.getBookid(),combineRequest.getAccuracy(), fileManager, database);
+					combineRequest.getBookid(), combineRequest.getAccuracy(), fileManager, database);
 		} else
 			return null;
 	}
-	
+
 	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST)
 	public @ResponseBody Collection<List<Point>> extractcontours(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
@@ -169,19 +185,18 @@ public class ViewerController {
 
 	@RequestMapping(value = "/segmentedpages", method = RequestMethod.POST)
 	public @ResponseBody Collection<Integer> getOnServer(@RequestParam("bookid") int bookID) {
-		init();
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return database.getSegmentedPageIDs(bookID);
 	}
-	
+
 	private SortedMap<String, Integer> getRegionTypes() {
-		SortedMap<String, Integer> regionTypes = new TreeMap<String, Integer>((c1,c2) -> {
-			if(c1.contains("Region") && !c2.contains("Region"))
+		SortedMap<String, Integer> regionTypes = new TreeMap<String, Integer>((c1, c2) -> {
+			if (c1.contains("Region") && !c2.contains("Region"))
 				return 1;
 			else
 				return c1.compareTo(c2);
-			});
+		});
 
 		int i = 0;
 		for (PAGERegionType type : PAGERegionType.values()) {
@@ -200,16 +215,4 @@ public class ViewerController {
 		return regionTypes;
 	}
 
-	private void init() {
-		if (!fileManager.isInit()) {
-			fileManager.init(servletContext);
-		}
-		if (!config.isInitiated()) {
-			config.read(new File(fileManager.getConfigurationFile()));
-			String bookFolder = config.getSetting("bookpath");
-			if (!bookFolder.equals("")) {
-				fileManager.setLocalBooksPath(bookFolder);
-			}
-		}
-	}
 }
