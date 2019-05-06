@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.web.model.Polygon;
+import com.web.model.Region;
 
 /**
  * Communication object for the gui to request a merge between segments.
@@ -17,11 +17,11 @@ public class MergeRequest {
 	@JsonProperty("pageid")
 	private Integer page;
 	@JsonProperty("segments")
-	private List<Polygon> segments;
+	private List<Region> segments;
 
 	@JsonCreator
 	public MergeRequest(@JsonProperty("bookid") Integer bookid, @JsonProperty("pageid") Integer page,
-			@JsonProperty("segments") List<Polygon> segments) {
+			@JsonProperty("segments") List<Region> segments) {
 		this.bookid = bookid;
 		this.page = page;
 		this.segments = segments;
@@ -31,7 +31,7 @@ public class MergeRequest {
 		return page;
 	}
 
-	public List<Polygon> getSegments() {
+	public List<Region> getSegments() {
 		return segments;
 	}
 

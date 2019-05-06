@@ -31,7 +31,7 @@ import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.PageAnnotations;
 import com.web.model.Point;
-import com.web.model.Polygon;
+import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
 import larex.geometry.regions.type.PAGERegionType;
@@ -156,7 +156,7 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody Polygon merge(@RequestBody MergeRequest mergeRequest) {
+	public @ResponseBody Region merge(@RequestBody MergeRequest mergeRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return LarexFacade.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid(),
@@ -164,7 +164,7 @@ public class ViewerController {
 	}
 
 	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody Polygon combinecontours(@RequestBody ContourCombineRequest combineRequest) {
+	public @ResponseBody Region combinecontours(@RequestBody ContourCombineRequest combineRequest) {
 		if (combineRequest.getContours().size() > 0) {
 			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 					config.getListSetting("imagefilter"));

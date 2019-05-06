@@ -1,66 +1,73 @@
 package com.web.model;
 
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+
+import org.opencv.core.MatOfPoint;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import larex.geometry.positions.PriorityPosition;
+import larex.geometry.regions.RegionSegment;
+import larex.geometry.regions.type.TypeConverter;
 
 /**
- * A collection of all polygons of one region type with different settings for
- * the Larex algorithm
- *
+ * A representation of a Segment or Region as Polygon that is parsed to the gui.
+ * Contains positional points and type. Polygon can be created relative or
+ * absolute. - A absolut Polygon is positioned via pixel (e.g. 10:10 ->
+ * 10px:10px) - A relative Polygon is positioned via percentage (e.g. 0.1:0.1 ->
+ * 10%:10%)
+ * 
  */
-public class Region {
+public class Region extends Polygon{
+
 	@JsonProperty("type")
-	private String type;
-	@JsonProperty("polygons")
-	private Map<String, Polygon> polygons;
-	@JsonProperty("minSize")
-	private int minSize;
-	@JsonProperty("maxOccurances")
-	private int maxOccurances;
-	@JsonProperty("priorityPosition")
-	private PriorityPosition priorityPosition;
+	protected String type;
+	@JsonProperty("textlines")
+	protected Map<String,TextLine> textlines;
 
 	@JsonCreator
-	public Region(@JsonProperty("type") String type, @JsonProperty("polygons") Map<String, Polygon> polygons,
-			@JsonProperty("minSize") int minSize, @JsonProperty("maxOccurances") int maxOccurances,
-			@JsonProperty("priorityPosition") PriorityPosition priorityPosition) {
+	public Region(@JsonProperty("id") String id, @JsonProperty("type") String type,
+			@JsonProperty("points") LinkedList<Point> points, @JsonProperty("isRelative") boolean isRelative,
+			@JsonProperty("textlines") HashMap<String,TextLine> textlines) {
+		super(id,points,isRelative);
 		this.type = type;
-		this.polygons = polygons;
-		this.minSize = minSize;
-		this.maxOccurances = maxOccurances;
-		this.priorityPosition = priorityPosition;
+		this.textlines = textlines;
 	}
 
-	public Region(String type, int minSize, int maxOccurances, PriorityPosition priorityPosition) {
-		this(type, new HashMap<String, Polygon>(), minSize, maxOccurances, priorityPosition);
+	public Region(MatOfPoint mat, String id, String type) {
+		super(mat,id);
+		this.type = type;
+	}
+
+	public Region(RegionSegment region) {
+		this(region.getPoints(), region.getId(), region.getType().toString());
+	}
+
+	/**
+	 * Create a Larex RegionSegment from this polygon
+	 * 
+	 * @return
+	 */
+	public RegionSegment toRegionSegment() {
+		LinkedList<org.opencv.core.Point> points = new LinkedList<org.opencv.core.Point>();
+
+		for (Point segmentPoint : this.getPoints()) {
+			points.add(new org.opencv.core.Point(segmentPoint.getX(), segmentPoint.getY()));
+		}
+
+		MatOfPoint resultPoints = new MatOfPoint();
+		resultPoints.fromList(points);
+
+		return new RegionSegment(TypeConverter.stringToPAGEType(this.getType()), resultPoints, this.getId());
 	}
 
 	public String getType() {
 		return type;
 	}
-
-	public Map<String, Polygon> getPolygons() {
-		return new HashMap<String, Polygon>(polygons);
-	}
-
-	public void addPolygon(Polygon polygon) {
-		polygons.put(polygon.getId(), polygon);
-	}
-
-	public int getMaxOccurances() {
-		return maxOccurances;
-	}
-
-	public int getMinSize() {
-		return minSize;
-	}
-
-	public PriorityPosition getPriorityPosition() {
-		return priorityPosition;
+	
+	public Map<String,TextLine> getTextlines() {
+		return textlines;
 	}
 }

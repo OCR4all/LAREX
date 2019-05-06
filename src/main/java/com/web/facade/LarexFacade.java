@@ -27,7 +27,7 @@ import com.web.model.Book;
 import com.web.model.Page;
 import com.web.model.PageAnnotations;
 import com.web.model.Point;
-import com.web.model.Polygon;
+import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
 import larex.data.export.PageXMLReader;
@@ -110,9 +110,9 @@ public class LarexFacade {
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	public static Polygon merge(List<Polygon> segments, int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
+	public static Region merge(List<Region> segments, int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
 		ArrayList<RegionSegment> resultRegions = new ArrayList<RegionSegment>();
-		for (Polygon segment : segments)
+		for (Region segment : segments)
 			resultRegions.add(segment.toRegionSegment());
 
 		Book book = getBook(bookID, database);
@@ -122,7 +122,7 @@ public class LarexFacade {
 		page.clean();
 		System.gc();
 
-		return new Polygon(mergedRegion);
+		return new Region(mergedRegion);
 	}
 
 	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
@@ -156,7 +156,7 @@ public class LarexFacade {
 	 * @param fileManager Filemanager to load the book/page from
 	 * @return Polygon that includes all contours
 	 */
-	public static Polygon combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
+	public static Region combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
 			FileManager fileManager, FileDatabase database) {
 		Book book = getBook(bookID, database);
 		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
@@ -182,7 +182,7 @@ public class LarexFacade {
 		page.clean();
 		System.gc();
 
-		return new Polygon(combined, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
+		return new Region(combined, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
 	}
 
 	private static PageAnnotations segment(BookSettings settings, Page page, FileManager fileManager) {
@@ -199,7 +199,7 @@ public class LarexFacade {
 					page.getId());
 		} else {
 			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
-					new HashMap<String, Polygon>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
+					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
 		}
 		return segmentation;
 	}

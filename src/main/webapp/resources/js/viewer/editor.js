@@ -147,6 +147,9 @@ class Editor extends Viewer {
 						case 'region':
 							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true));
 							break;
+						case 'textline':
+							this._controller.callbackNewTextLine(this._convertCanvasPolygonToGlobal(rectangle, false));
+							break;
 						case 'ignore':
 							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true), 'ignore');
 							break;
@@ -157,7 +160,7 @@ class Editor extends Viewer {
 					}
 				},
 				(rectangle) => {},
-				type === 'segment'? 'selected' : 'default');
+				type === ElementType.SEGMENT? 'selected' : 'default');
 		}
 	}
 
@@ -246,10 +249,12 @@ class Editor extends Viewer {
 			if (this._tempPolygon != null) {
 				this._tempPolygon.closed = true;
 				this._tempPolygon.selected = false;
-				if (this._tempPolygonType === 'segment') {
+				if (this._tempPolygonType === ElementType.SEGMENT) {
 					this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
-				} else {
+				} else if(this._tempPolygonType === ElementType.REGION) {
 					this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
+				} else if(this._tempPolygonType === ElementType.TEXTLINE) {
+					this._controller.callbackNewTextLine(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				}
 				this._tempPolygon.remove();
 				this._tempPolygon = null;
@@ -404,9 +409,7 @@ class Editor extends Viewer {
 			this.isEditing = false;
 
 			if (this._tempPolygon != null) {
-				if (this._tempPolygonType === 'segment') {
-					this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
-				} else {
+				if (this._tempPolygonType === ElementType.REGION) {
 					this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 
@@ -483,10 +486,8 @@ class Editor extends Viewer {
 			this.isEditing = false;
 
 			if (this._tempPolygon !== null) {
-				if (this._tempPolygonType === 'segment') {
+				if (this._tempPolygonType === ElementType.SEGMENT) {
 					this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
-				} else {
-					this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				}
 
 				if(this._tempPolygon) this._tempPolygon.remove();
@@ -611,7 +612,7 @@ class Editor extends Viewer {
 
 				this._tempPolygon.remove();
 
-				if (this._tempPolygonType !== 'segment') 
+				if (this._tempPolygonType !== ElementType.SEGMENT) 
 					this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
 
 				this._tempPolygon = null;

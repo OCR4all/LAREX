@@ -5,6 +5,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 	document.onkeydown = function (event) {
 		if (_this.isActive) {
 			let validKey = false;
+			const mode = _controller.getMode();
 
 			switch (event.keyCode) {
 				case 37: // left
@@ -26,10 +27,13 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 				case 32: // space
 					if (!event.ctrlKey) {
 						_navigationController.zoomFit();
+						validKey = true;
 					} else {
-						_controller.requestSegmentation()
+						if(mode === Mode.SEGMENT){
+							_controller.requestSegmentation()
+							validKey = true;
+						}
 					}
-					validKey = true;
 					break;
 				case 187: // +
 					_navigationController.zoomIn(0.1);
@@ -74,36 +78,58 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 					validKey = true;
 					break;
 				case 49: // 1
-					_controller.createRectangle('region');
-					validKey = true;
+					if(mode === Mode.SEGMENT){
+						_controller.createRectangle(ElementType.REGION);
+						validKey = true;
+					}
 					break;
 				case 50: // 2
-					_controller.createRegionBorder();
-					validKey = true;
+					if(mode === Mode.SEGMENT){
+						_controller.createRegionBorder();
+						validKey = true;
+					}
 					break;
 				case 51: // 3
-					_controller.createRectangle('segment');
-					validKey = true;
+					if(mode === Mode.SEGMENT){
+						_controller.createRectangle(ElementType.SEGMENT);
+						validKey = true;
+					} else if(mode === Mode.LINES){
+						_controller.createRectangle(ElementType.TEXTLINE);
+						validKey = true;
+					}
 					break;
 				case 52: // 4
-					_controller.createSegmentPolygon(true);
-					validKey = true;
+					if(mode === Mode.SEGMENT){
+						_controller.createSegmentPolygon();
+						validKey = true;
+					} else if(mode === Mode.LINES){
+						_controller.createTextLinePolygon();
+						validKey = true;
+					}
 					break;
 				case 53: // 5
-					_controller.createCut();
-					validKey = true;
+					if(mode === Mode.SEGMENT){
+						_controller.createCut();
+						validKey = true;
+					}
 					break;
 				case 54: // 6
-					_controller.displayContours();
-					validKey = true;
+					if(mode === Mode.SEGMENT){
+						_controller.displayContours();
+						validKey = true;
+					}
 					break;
 				case 67: // C
-					_controller.mergeSelectedSegments();
-					validKey = true;
+					if(mode === Mode.SEGMENT || mode === Mode.LINES){
+						_controller.mergeSelectedSegments();
+						validKey = true;
+					}
 					break;
 				case 70: // F
-					_controller.fixSelected();
-					validKey = true;
+					if(mode === Mode.SEGMENT){
+						_controller.fixSelected();
+						validKey = true;
+					}
 					break;
 				case 83: // S
 					if (event.ctrlKey) {

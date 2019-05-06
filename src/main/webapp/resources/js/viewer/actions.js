@@ -268,6 +268,11 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _segment = JSON.parse(JSON.stringify(segment));
 	const _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id, page, segmentation, controller);
+	const _actionRemoveTextLines = [];
+	if(_segment.textlines != null){
+		Object.keys(_segment.textlines).forEach(id =>
+			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, segmentation, page, controller)));
+	}
 	let _actionSetFixed = null;
 	if (controller.isSegmentFixed(segment.id))
 		_actionSetFixed = new ActionFixSegment(segment.id, controller, true);
@@ -277,6 +282,9 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
 			_isExecuted = true;
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
+
+			_actionRemoveTextLines.forEach(action => action.execute());
+
 			delete segmentation[page].segments[_segment.id];
 			editor.removeSegment(_segment.id);
 			controller.unSelectSegment(_segment.id);
@@ -293,7 +301,67 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
 			_actionRemoveFromReadingOrder.undo();
 			if (_actionSetFixed)
 				_actionSetFixed.execute();
+			_actionRemoveTextLines.forEach(action => action.undo());
 			console.log('Undo - Remove: {id:"' + _segment.id + '",[..],type:"' + _segment.type + '"}');
+		}
+	}
+}
+
+function ActionAddTextLine(id, segmentID, points, text, editor, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _textLine = { id: id, points: points,type:"TextLine", text: text, isRelative: false };
+	let _oldTextLines = (segmentation[page].segments[segmentID].textlines !== null) ? 
+			JSON.parse(JSON.stringify(segmentation[page].segments[segmentID].textlines)) : {}
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			if(segmentation[page].segments[segmentID].textlines === null){
+				segmentation[page].segments[segmentID].textlines = {[id]: JSON.parse(JSON.stringify(_textLine))};
+			}else{
+				segmentation[page].segments[segmentID].textlines[id] = JSON.parse(JSON.stringify(_textLine));
+			}
+			editor.addSegment(_textLine, false);
+			controller.textlineRegister[_textLine.id] = segmentID;
+			console.log('Do - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			_actionSetFixed.undo();
+			segmentation[page].segments[segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
+			editor.removeSegment(id);
+			delete controller.textlineRegister[_textLine.id]
+			console.log('Undo - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
+		}
+	}
+}
+
+function ActionRemoveTextLine(textline, editor, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _segmentID = controller.textlineRegister[textline.id];
+	const _oldTextLines = JSON.parse(JSON.stringify(segmentation[page].segments[_segmentID].textlines));
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			delete segmentation[page].segments[_segmentID].textlines[textline.id];
+			editor.removeSegment(textline.id);
+			controller.unSelectSegment(textline.id);
+
+			delete controller.textlineRegister[textline.id]
+			console.log('Do - Remove: {id:"' + textline.id + '"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
+			editor.addSegment(textline);
+
+			controller.textlineRegister[textline.id] = _segmentID;
+			console.log('Undo - Remove: {id:"' + textline.id + '"}');
 		}
 	}
 }
@@ -406,6 +474,39 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 				_actionSetFixed.undo();
 			viewer.updateSegment(segment);
 			console.log('Undo - Transform Segment: {id:"' + _id + ' [..]}');
+		}
+	}
+}
+
+function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _id = id;
+	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
+	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points));
+	let _actionSetFixed = null;
+	if (!controller.isSegmentFixed(id))
+		_actionSetFixed = new ActionFixSegment(id, controller, true);
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
+			segment.points = _newRegionPoints;
+			viewer.updateSegment(segment);
+			if (_actionSetFixed)
+				_actionSetFixed.execute();
+			console.log('Do - Transform TextLine: {id:"' + _id + ' [..]}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
+			segment.points = _oldRegionPoints;
+			if (_actionSetFixed)
+				_actionSetFixed.undo();
+			viewer.updateSegment(segment);
+			console.log('Undo - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
 	}
 }

@@ -67,7 +67,7 @@ body{
         margin: 2px;
         padding: 0px;
     }
-    .settings-regions, .reading-order{
+    .settings-regions, .reading-order, .legend-regions{
         height: 210px;
         overflow-y: scroll;
         *{
@@ -100,6 +100,13 @@ body{
               color: $color2;
             }
         }
+    }
+    .legend{
+      padding: 1px 12px 1px 12px;
+      .legend-regions {
+          overflow-y: auto;
+          height: auto;
+      }
     }
     .settings-image-mode, .settings-combine-image{
       margin-left:5px;

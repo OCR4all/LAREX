@@ -28,20 +28,20 @@ public class PageAnnotations {
 	@JsonProperty("page")
 	private int pageNr;
 	@JsonProperty("segments")
-	private Map<String, Polygon> segments;
+	private Map<String, Region> segments;
 	@JsonProperty("readingOrder")
 	private List<String> readingOrder;
 	@JsonProperty("status")
 	private SegmentationStatus status;
 
-	public PageAnnotations(String fileName, int width, int height, int pageNr, Map<String, Polygon> segments) {
+	public PageAnnotations(String fileName, int width, int height, int pageNr, Map<String, Region> segments) {
 		this(fileName, width, height, pageNr, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
 	}
 
 	@JsonCreator
 	public PageAnnotations(@JsonProperty("fileName") String fileName, @JsonProperty("width") int width,
 			@JsonProperty("height") int height, @JsonProperty("page") int pageNr,
-			@JsonProperty("segments") Map<String, Polygon> segments, @JsonProperty("status") SegmentationStatus status,
+			@JsonProperty("segments") Map<String, Region> segments, @JsonProperty("status") SegmentationStatus status,
 			@JsonProperty("readingOrder") List<String> readingOrder) {
 		this.pageNr = pageNr;
 		this.segments = segments;
@@ -53,10 +53,10 @@ public class PageAnnotations {
 	}
 
 	public PageAnnotations(String fileName, int width, int height, ArrayList<RegionSegment> regions, int pageNr) {
-		Map<String, Polygon> segments = new HashMap<String, Polygon>();
+		Map<String, Region> segments = new HashMap<String, Region>();
 
 		for (RegionSegment region : regions) {
-			Polygon segment = new Polygon(region);
+			Region segment = new Region(region);
 			segments.put(segment.getId(), segment);
 		}
 
@@ -73,7 +73,7 @@ public class PageAnnotations {
 		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
 
 		for (String poly : this.getSegments().keySet()) {
-			Polygon polygon = this.getSegments().get(poly);
+			Region polygon = this.getSegments().get(poly);
 			regions.add(polygon.toRegionSegment());
 		}
 		SegmentationResult result = new SegmentationResult(regions);
@@ -94,8 +94,8 @@ public class PageAnnotations {
 		return pageNr;
 	}
 
-	public Map<String, Polygon> getSegments() {
-		return new HashMap<String, Polygon>(segments);
+	public Map<String, Region> getSegments() {
+		return new HashMap<String, Region>(segments);
 	}
 
 	public SegmentationStatus getStatus() {

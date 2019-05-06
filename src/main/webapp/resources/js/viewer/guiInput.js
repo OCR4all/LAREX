@@ -18,6 +18,9 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
+	$('.mode-segment').click(() => _controller.setMode(Mode.SEGMENT));
+	$('.mode-lines').click(() => _controller.setMode(Mode.LINES));
+	$('.mode-text').click(() => _controller.setMode(Mode.TEXT));
 	$('.doSegment').click(() => _controller.requestSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
 	$('.pageXMLVersion').click(function () {
@@ -71,6 +74,8 @@ function GuiInput(navigationController, controller, gui) {
 	$('.createRegionBorder').click(() => _controller.createRegionBorder());
 	$('.createSegmentPolygon').click(() => _controller.createSegmentPolygon(true));
 	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
+	$('.createTextLinePolygon').click(() => _controller.createTextLinePolygon(true));
+	$('.createTextLineRectangle').click(() => _controller.createRectangle('textline'));
 	$('.createCut').click(() => _controller.createCut());
 
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());

@@ -25,7 +25,10 @@ import org.primaresearch.dla.page.layout.logical.Group;
 import org.primaresearch.dla.page.layout.logical.GroupMember;
 import org.primaresearch.dla.page.layout.logical.RegionRef;
 import org.primaresearch.dla.page.layout.physical.Region;
+import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
+import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
+import org.primaresearch.dla.page.layout.physical.text.impl.Word;
 import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.maths.geometry.Polygon;
 import org.w3c.dom.Document;
@@ -46,7 +49,7 @@ public class PageXMLReader {
 		try {
 			File tempPAGExml = File.createTempFile("larex_pagexml-", ".xml");
 			tempPAGExml.deleteOnExit();
-			
+
 			// Save page xml in temp file
 			FileOutputStream output = new FileOutputStream(new File(tempPAGExml.getAbsolutePath()));
 			StreamResult result = new StreamResult(output);
@@ -70,45 +73,69 @@ public class PageXMLReader {
 		}
 
 		// Read PAGE xml into Segmentation Result
-		if(page != null) {
+		if (page != null) {
 			Map<String, RegionSegment> resRegions = new HashMap<>();
 			// Read regions
-			for(Region region : page.getLayout().getRegionsSorted()) {
+			for (Region region : page.getLayout().getRegionsSorted()) {
 				// Get Type
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
-				if(type.equals(RegionType.TextRegion)) {
-					subtype = TypeConverter.stringToSubType(((TextRegion) region).getTextType());
+				if (type.equals(RegionType.TextRegion)) {
+					TextRegion textRegion = (TextRegion) region;
+					subtype = TypeConverter.stringToSubType((textRegion).getTextType());
+
+					// Extract Text
+					for (LowLevelTextObject text : textRegion.getTextObjectsSorted()) {
+						if (text instanceof TextLine) {
+							TextLine textLine = (TextLine) text;
+
+							// Get Coords of TextLine
+							ArrayList<Point> pointList = new ArrayList<Point>();
+							Polygon coords = textLine.getCoords();
+							for (int i = 0; i < coords.getSize(); i++) {
+								org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
+								Point newPoint = new Point(point.x, point.y);
+								pointList.add(newPoint);
+							}
+
+							//for (LowLevelTextObject textChild : textLine.getTextObjectsSorted()) {
+							//}
+						}
+
+						// TextLine textline = new TextLine(text.getId(),pointList,text.getText())
+
+						// TextLine textline = new TextLine(text.getId(),pointList,text.getText())
+					}
 				}
-				
+
 				// Get Coords
 				ArrayList<Point> pointList = new ArrayList<Point>();
 				Polygon coords = region.getCoords();
-				for(int i = 0; i < coords.getSize(); i++) {
+				for (int i = 0; i < coords.getSize(); i++) {
 					org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
 					Point newPoint = new Point(point.x, point.y);
 					pointList.add(newPoint);
 				}
-				
+
 				Point[] pointArray = new Point[pointList.size()];
 				MatOfPoint points = new MatOfPoint(pointList.toArray(pointArray));
 
-				//Id
+				// Id
 				String id = region.getId().toString();
 				if (!points.empty()) {
-					resRegions.put(id,new RegionSegment(new PAGERegionType(type, subtype), points,id));
+					resRegions.put(id, new RegionSegment(new PAGERegionType(type, subtype), points, id));
 				}
 			}
 			SegmentationResult segResult = new SegmentationResult(new ArrayList<>(resRegions.values()));
-			
+
 			// Set reading order
-			if(page.getLayout().getReadingOrder() != null) {
+			if (page.getLayout().getReadingOrder() != null) {
 				Group readingOrder = page.getLayout().getReadingOrder().getRoot();
 				ArrayList<RegionSegment> newReadingOrder = new ArrayList<RegionSegment>();
-				for(int i = 0; i < readingOrder.getSize(); i++) {
+				for (int i = 0; i < readingOrder.getSize(); i++) {
 					GroupMember member = readingOrder.getMember(i);
-					if(member instanceof RegionRef) {
-						newReadingOrder.add(resRegions.get(((RegionRef)member).getRegionId().toString()));
+					if (member instanceof RegionRef) {
+						newReadingOrder.add(resRegions.get(((RegionRef) member).getRegionId().toString()));
 					}
 				}
 				segResult.setReadingOrder(newReadingOrder);

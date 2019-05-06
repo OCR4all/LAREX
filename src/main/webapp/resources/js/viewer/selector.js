@@ -13,6 +13,8 @@ class Selector {
 	// Select an object via their identifier and points inside the object
 	// Guess element type via id or if provided take the provided type
 	select(id, points, elementType=this._controller.getIDType(id)) {
+		const mode = controller.getMode();
+
 		if(elementType == ElementType.CONTOUR){			
 			if(!this.selectMultiple || this.selectedType != elementType)
 				this.unSelect()
@@ -32,19 +34,23 @@ class Selector {
 			// Select logic
 			if(points && isSelected){
 				//// Select point if possible
-				if(elementType != "segment")
-					throw Error("Tried to select points of a polygon that is not a segment.");
+				if(elementType != ElementType.SEGMENT && elementType != ElementType.TEXTLINE)
+					throw Error("Tried to select points of a polygon that is not a segment and not a textline. ["+elementType+"]");
 
 				// Unselect previous
-				if(this._selectedElements.length != 1 || this._selectedElements[0] != id || !this.selectMultiple)
+				if(mode !== Mode.SEGMENT || this._selectedElements.length != 1 || this._selectedElements[0] != id || !this.selectMultiple)
 					this.unSelect()
 				
-				this._selectPolygon(id, true, true);
-				this._selectAndAddPoints(id, points);
+				if(mode === Mode.SEGMENT){
+					this._selectPolygon(id, true, true);
+					this._selectAndAddPoints(id, points);
+				}else{
+					this._selectPolygon(id, true, false);
+				}
 			} else {
 				//// Select polygon
 				// Unselect others if this is not of type segment or if not select multiple
-				if(elementType != ElementType.SEGMENT || !this.selectMultiple)
+				if(mode !== Mode.SEGMENT || (elementType != ElementType.SEGMENT && elementType != ElementType.TEXTLINE) || !this.selectMultiple)
 					this.unSelect();
 
 				this._selectPolygon(id, !isSelected);
@@ -110,17 +116,21 @@ class Selector {
 
 	_postSelection(){
 		// Additional after select behaviour
-		if(this.selectedType === "segment" && this._selectedElements.length === 1){
+		if((this.selectedType === ElementType.SEGMENT || this.selectType === ElementType.TEXTLINE) && this._selectedElements.length === 1){
 			const id = this._selectedElements[0];
-			this._selectPolygon(id,true,true);	
-			this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
+			if(controller.getMode() === Mode.SEGMENT){
+				this._selectPolygon(id,true,true);	
+				this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
+			}else{
+				this._selectPolygon(id,true,false);	
+			}
 		} else {
 			this._editor.endPointSelect();
 			// Only display points if only one segment is selected
 			this._selectedElements.forEach(id => this._editor.selectSegment(id,true,false));
 		}
 
-		if(this.selectedType === 'region')
+		if(this.selectedType === ElementType.REGION)
 			this._controller.scaleSelectedRegion();
 	}
 
@@ -147,7 +157,7 @@ class Selector {
 	}
 
 	_selectInBox(pointA, pointB) {
-		if(this._selectedElements.length === 1 && this.selectedType === 'segment'){
+		if(this._selectedElements.length === 1 && (this.selectedType === ElementType.SEGMENT || this.selectType === ElementType.TEXTLINE)){
 			// Select points
 			const id = this._selectedElements[0];
 
@@ -175,12 +185,12 @@ class Selector {
 
 			inbetween.forEach((id) => {
 				const idType = this._controller.getIDType(id);
-				if (idType === 'segment') {
+				if (idType === ElementType.SEGMENT || idType === ElementType.TEXTLINE) {
 					this._selectedElements.push(id);
 					this._editor.selectSegment(id, true);
 				}
 			});
-			this.selectedType = "segment";
+			this.selectedType = ElementType.SEGMENT;
 		}
 
 		this.isSelecting = false;

@@ -58,7 +58,8 @@
 				paragraph: 1,
 				marginalia: 2,
 				page_number: 3,
-				ignore: 4
+				ignore: 4,
+				TextLine: 5
 		};
 		let controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors,colors,globalSettings);
 		$(document).ready(function() {
@@ -75,9 +76,9 @@
 		<div id="menu" class="grey lighten-4">
 			<div class="mainMenu">
 				<ul class="tabs">
-					<li class="tab"><a href="#segment_tab">Segments</a></li>
-					<li class="tab"><a href="#line_tab">Lines</a></li>
-					<li class="tab"><a href="#text_tab">Text</a></li>
+					<li class="tab"><a href="#segment_tab" class="mode-segment">Segments</a></li>
+					<li class="tab"><a href="#line_tab" class="mode-lines">Lines</a></li>
+					<li class="tab"><a href="#text_tab" class="mode-text">Text</a></li>
 				</ul>
 
   			</div>
@@ -132,14 +133,14 @@
 					<b:baseMenu/>
 					<div class="">
 						<t:menuIconCategory name="Lines" >
-							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
+							<t:menuIcon jsClass="createTextLineRectangle" icon="crop_5_4"
 								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
-							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
+							<t:menuIcon jsClass="createTextLinePolygon" icon="star_border"
 								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 						<t:menuIcon jsClass="editContours" icon="font_download"
 							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
-							<t:menuIcon jsClass="combineSelected" icon="add_circle"
-								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
+						<t:menuIcon jsClass="combineSelected" icon="add_circle"
+							tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
@@ -204,6 +205,7 @@
 
 			<div class="sidebar col s4 m2 l2">
 			<t:sidebarSegmentation/>
+			<t:sidebarLines/>
 			</div>
 		</div>
 

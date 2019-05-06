@@ -14,6 +14,26 @@ function GUI(canvas, viewer, colors) {
 		$('.zoomvalue').text(zoom);
 	}
 
+	this.setMode = function(mode){
+		switch (mode) {
+			case Mode.LINES:
+				$('#sidebar-segment').addClass('hide');
+				$('#sidebar-lines').removeClass('hide');
+				$('#sidebar-text').addClass('hide');
+				break;
+			case Mode.TEXT:
+				$('#sidebar-segment').addClass('hide');
+				$('#sidebar-lines').addClass('hide');
+				$('#sidebar-text').removeClass('hide');
+				break;
+			case Mode.SEGMENT:
+			default:
+				$('#sidebar-segment').removeClass('hide');
+				$('#sidebar-lines').addClass('hide');
+				$('#sidebar-text').addClass('hide');
+		}
+	}
+
 	this.openContextMenu = function (doSelected, id) {
 		const $contextmenu = $("#contextmenu");
 		$contextmenu.removeClass("hide");
@@ -245,6 +265,12 @@ function GUI(canvas, viewer, colors) {
 				break;
 			case 'segmentPolygon':
 				$button = $('.createSegmentPolygon');
+				break;
+			case 'textlineRectangle':
+				$button = $('.createTextLineRectangle');
+				break;
+			case 'textlinePolygon':
+				$button = $('.createTextLinePolygon');
 				break;
 			case 'segmentContours':
 				$button = $('.editContours');

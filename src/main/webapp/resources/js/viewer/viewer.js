@@ -2,7 +2,7 @@
  * It can handle inputs by forwarding it to a input manager (ViewerInput) 
  * All functionality about viewing elements in the viewer is handled here. 
  * It does not handle editing these elements. */
-var ViewerMode = {POLYGON:'polygon',CONTOUR:'contour'}
+var ViewerMode = {POLYGON:'polygon',CONTOUR:'contour',TEXTLINE:'textline'}
 class Viewer {
 	constructor(viewerInput, colors) {
 		this.thisInput = viewerInput;
@@ -11,7 +11,7 @@ class Viewer {
 		this._imageHeight;
 		this._polygons = {};
 		this._imageCanvas = new paper.Group();
-		this._regionOverlay;
+		this._overlays = {};
 		this._contourOverlayID = "overlay";
 		this._contourOverlay;
 		this._contour_context;
@@ -47,13 +47,16 @@ class Viewer {
 				let hitResult = false;
 				if(this.mode == ViewerMode.POLYGON){
 					// Check regions first
-					hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
+					hitResult = this._overlays["regions"] && this._overlays["regions"].visible ?
+									this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
 
 					// Check segments after
 					if(!hitResult)
 						hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
 				} else if(this.mode == ViewerMode.CONTOUR){
 					hitResult = this._contourOverlay ? this.contourHitTest(event.point) : null;
+				} else if(this.mode == ViewerMode.TEXTLINE){
+					hitResult = this._overlays["lines"] && this._overlays["lines"].visible ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
 				} else {
 					throw new ValueError('Unkown selection mode: '+this.mode)
 				}
@@ -101,7 +104,7 @@ class Viewer {
 			if(propagate){
 				if(this.mode == ViewerMode.POLYGON){
 					// Check regions first
-					let hitResult = this._regionOverlay ? this._regionOverlay.hitTest(event.point, this._hitOptions) : null;
+					let hitResult = this._overlays["regions"] ? this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
 
 					// Check segments after
 					if(!hitResult)
@@ -156,8 +159,12 @@ class Viewer {
 		this._imageCanvas.bringToFront();
 
 		// Create region canvas
-		this._regionOverlay = this._createEmptyOverlay();
-		this._imageCanvas.addChild(this._regionOverlay);
+		this._createEmptyOverlay("regions");
+		this._imageCanvas.addChild(this._overlays["regions"]);
+
+		// Create line canvas
+		this._createEmptyOverlay("lines");
+		this._imageCanvas.addChild(this._overlays["lines"]);
 
 		let overlayHTML = document.getElementById(this._contourOverlayID);
 		if(!overlayHTML){
@@ -263,7 +270,11 @@ class Viewer {
 	}
 
 	addRegion(region) {
-		this.drawPolygon(region, true, false, this._regionOverlay);
+		this.drawPolygon(region, true, false, this._overlays["regions"]);
+	}
+
+	addTextLine(textline){
+		this.drawPolygon(textline, false, false, this._overlays["lines"]);
 	}
 
 	addLine(line) {
@@ -624,6 +635,10 @@ class Viewer {
 		return included_contours;
 	}
 
+	displayOverlay(name,doDisplay=true){
+		this._overlays[name].visible = doDisplay;
+	}
+
 	_colorizeContours(contours,color='#0000FF'){
 		let ctx = this._contour_context;
 
@@ -642,13 +657,14 @@ class Viewer {
 		this.forceUpdate();
 	}
 
-	_createEmptyOverlay(){
+	_createEmptyOverlay(name){
 		// Rectangle dummy to force empty group size to image size
 		const rect = new paper.Path.Rectangle(this._imageCanvas.bounds);
 
 		// Create overlay canvas
 		const overlay = new paper.Group();
 		overlay.addChild(rect);
+		this._overlays[name] = overlay;
 		return overlay;
 	}
 
