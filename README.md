@@ -10,20 +10,6 @@ Evaluations showed that LAREX provides an efficient and flexible way to segment 
 
 Please feel free to visit the [tool homepage](https://go.uniwue.de/larex) and the [web application](http://www.larex-webapp.informatik.uni-wuerzburg.de/). A short user manual is available [here](http://www.is.informatik.uni-wuerzburg.de/fileadmin/10030600/Mitarbeiter/Reul_Christian/Projects/Layout_Analysis/LAREX_Quick_Guide.pdf).
 
-## Current Status
-### Update 05/01/18
-Mainly due to the efforts of [@NesbiDevelopment](https://github.com/NesbiDevelopment) over the last few months all existing functionality has been successfully integrated into the web tool and several additional enhancements and bug fixes have been made.
-
-As a next step we plan to restructure parts of the client server communication since the current solution lacks modularity which already caused some issues in the past. Performing these modifications will probably take 1-2 months. However, with these changes made, the realization of the next two planned milestones (segmenting by component selection and vastly improved editing/post correction options) should become a lot easier.
-
-Obviously, we will still try to deal with upcoming or already existing issues. However, depending on their cost-benefit ratio some issues might be put on hold for the time being.
-
-### Kick-Off 28/04/17
-In the last few weeks a new, browser based GUI has been built from scratch. 
-This also required some substantial changes within the rest of the code. 
-We are now working on a step by step adaption and integration of the existing functionality.
-Nevertheless, feel free to start testing right away but please keep in mind that it's work in progress.
-
 ## Installing
 
 ### Linux (Ubuntu)
