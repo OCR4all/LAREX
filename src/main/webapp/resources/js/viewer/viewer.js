@@ -23,6 +23,7 @@ class Viewer {
 		this._listener = [];
 		this._contours = [];
 		this._contourBounds = []; // Sorted list (top->bottom->left->right) of object of contour + contour bound
+		this._focus = null;
 		this.mode = ViewerMode.POLYGON;
 
 		document.addEventListener('visibilitychange', () => {
@@ -158,6 +159,18 @@ class Viewer {
 		this._drawImage();
 		this._imageCanvas.bringToFront();
 
+		// Focus Overlay
+		this._createEmptyOverlay("focus");
+		this._imageCanvas.addChild(this._overlays["focus"]);
+		this._focus = new paper.CompoundPath({
+			children:[new paper.Path.Rectangle(this._overlays["focus"].bounds)],
+			fillColor: 'gray',
+			fillRule: 'evenodd',
+			opacity: 0.3,
+			visible: false
+		});
+		this._overlays["focus"].addChild(this._focus);
+
 		// Create region canvas
 		this._createEmptyOverlay("regions");
 		this._imageCanvas.addChild(this._overlays["regions"]);
@@ -176,6 +189,7 @@ class Viewer {
 		overlayHTML.width = this.getImageWidth();
 		overlayHTML.height = this.getImageHeight();
 		this._contour_context = overlayHTML.getContext("2d");
+
 
 		//Draw Overlay
 		if(document.getElementById(this._contourOverlayID)){
@@ -267,6 +281,16 @@ class Viewer {
 				}
 			}
 		}
+	}
+
+	focusSegment(id, doFocus = true) {
+		this.displayOverlay("focus",doFocus);
+		const polygon = this._polygons[id];
+		if (polygon && doFocus) {
+			this._focus.removeChildren(1);
+			this._focus.addChild(new paper.Path(polygon.segments));
+		}
+		this._focus.visible = doFocus;
 	}
 
 	addRegion(region) {
@@ -636,7 +660,8 @@ class Viewer {
 	}
 
 	displayOverlay(name,doDisplay=true){
-		this._overlays[name].visible = doDisplay;
+		if(this._overlays[name])
+			this._overlays[name].visible = doDisplay;
 	}
 
 	_colorizeContours(contours,color='#0000FF'){

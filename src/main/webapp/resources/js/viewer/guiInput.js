@@ -225,13 +225,13 @@ function GuiInput(navigationController, controller, gui) {
 		$('.reading-order-segment').mouseover(function () {
 			const $this = $(this);
 			const id = $this.data('id');
-			_controller.enterSegment(id);
+			_controller.highlightSegment(id,true);
 		});
 
 		$('.reading-order-segment').mouseleave(function () {
 			const $this = $(this);
 			const id = $this.data('id');
-			_controller.leaveSegment(id);
+			_controller.highlightSegment(id,false);
 		});
 
 		$('.reading-order-segment').on('dragstart', function (event) {

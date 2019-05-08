@@ -45,6 +45,7 @@ class Selector {
 					this._selectPolygon(id, true, true);
 					this._selectAndAddPoints(id, points);
 				}else{
+
 					this._selectPolygon(id, true, false);
 				}
 			} else {
@@ -73,6 +74,11 @@ class Selector {
 			if(isInList)
 				this._selectedElements.splice(selectIndex, 1);
 			this._editor.selectSegment(id, false, displayPoints);
+		}
+		if(this._controller.getMode() === Mode.LINES && this.selectedType === ElementType.SEGMENT){
+			this._editor.focusSegment(id,true);
+		}else if(this._controller.getMode() === Mode.LINES){
+			//TODO select parent if TextLine is selected
 		}
 	}
 
@@ -106,10 +112,13 @@ class Selector {
 		this.selectedType = null;
 
 		this._postSelection();
+
+		this._editor.displayOverlay("focus",false);
 	}
 
 	unSelectSegment(segmentID){
 		this._selectPolygon(segmentID, false, false);
+		this._editor.displayOverlay("focus",false);
 
 		this._postSelection();
 	}

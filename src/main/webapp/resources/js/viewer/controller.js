@@ -1000,19 +1000,19 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		return _selector.isSegmentSelected(id);
 	}
 	this.highlightSegment = function (sectionID, doHighlight = true) {
-		_editor.highlightSegment(sectionID, doHighlight);
-		_gui.highlightSegment(sectionID, doHighlight);
-	}
-	this.enterSegment = function (sectionID) {
-		if (!_editor.isEditing) {
-			_editor.highlightSegment(sectionID, true);
-			_gui.highlightSegment(sectionID, true);
-		}
-	}
-	this.leaveSegment = function (sectionID) {
-		if (!_editor.isEditing) {
-			_editor.highlightSegment(sectionID, false);
-			_gui.highlightSegment(sectionID, false);
+		if(doHighlight){
+			if (!_editor.isEditing) {
+				console.log(_editor.isEditing,_mode,this.getIDType(sectionID),_selector.getSelectedSegments().length)
+				if(_mode === Mode.SEGMENT || 
+						(_mode === Mode.LINES && 
+							(this.getIDType(sectionID)  === ElementType.TEXTLINE || _selector.getSelectedSegments.length == 0))){
+					_editor.highlightSegment(sectionID, doHighlight);
+					_gui.highlightSegment(sectionID, doHighlight);
+				}
+			}
+		}else{
+			_editor.highlightSegment(sectionID, doHighlight);
+			_gui.highlightSegment(sectionID, doHighlight);
 		}
 	}
 	this.hideAllRegions = function (doHide) {
