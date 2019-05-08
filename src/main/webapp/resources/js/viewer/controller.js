@@ -448,8 +448,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if(_selector.selectedType === ElementType.SEGMENT && selected.length > 0){
 			this.endEditing();
 			_tempID = selected[0];
-			_editor.startCreatePolygon(ElementType.TEXTLINE);
-			_gui.selectToolBarButton('textlinePolygon', true);
+			// Check if segment region is a TextRegion
+			if(this.isIDTextRegion(_tempID)){
+				_editor.startCreatePolygon(ElementType.TEXTLINE);
+				_gui.selectToolBarButton('textlinePolygon', true);
+			}
 		}else{
 			_gui.displayWarning('Warning: Can only create TextLines if a TextRegion has been selected before hand.');
 		}
@@ -460,14 +463,14 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		// Check for TextLine
 		if(type === ElementType.TEXTLINE ){
 			const selected = _selector.getSelectedSegments();
-			if(_selector.selectedType === ElementType.SEGMENT && selected.length > 0) {
+
+			if(_selector.selectedType === ElementType.SEGMENT && selected.length > 0 && this.isIDTextRegion(selected[0])) {
 				_tempID = selected[0];
 			}else{
 				_gui.displayWarning('Warning: Can only create TextLines if a TextRegion has been selected before hand.');
 				return;
 			}
 		}
-
 		_editor.createRectangle(type);
 		switch (type) {
 			case ElementType.SEGMENT:
@@ -1149,6 +1152,17 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			}
 		});
 		return regionPolygon;
+	}
+
+	this.isIDTextRegion = function(id){
+		const elementType = this.getIDType(id);
+		let type = "Region";
+		if(elementType === ElementType.SEGMENT){
+			type = _segmentation[_currentPage].segments[id].type;
+		}else if(elementType === ElementType.REGION){
+			type = this._getRegionByID(id).type;
+		}
+		return (type !== "ignore" && !type.includes("Region"));
 	}
 
 	this.getIDType = function (id) {

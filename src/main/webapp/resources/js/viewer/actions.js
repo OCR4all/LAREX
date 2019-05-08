@@ -329,7 +329,6 @@ function ActionAddTextLine(id, segmentID, points, text, editor, segmentation, pa
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			_actionSetFixed.undo();
 			segmentation[page].segments[segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.removeSegment(id);
 			delete controller.textlineRegister[_textLine.id]
