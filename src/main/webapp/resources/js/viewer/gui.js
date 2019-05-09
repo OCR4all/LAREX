@@ -52,6 +52,40 @@ function GUI(canvas, viewer, colors) {
 		$("#contextmenu").addClass("hide");
 	}
 
+	this.openTextLineContent = function (textline) {
+		const $contextmenu = $("#textline-content");
+		$contextmenu.removeClass("hide");
+		this.resizeTextLineContent();
+
+		let anchorX = Infinity;
+		let anchorY = 0;
+		
+		textline.points.forEach((point) => {
+			anchorX = anchorX < point.x ? anchorX: point.x; 	
+			anchorY = anchorY > point.y ? anchorY: point.y; 	
+		});
+
+		const viewerPoint = _viewer._convertGlobalToCanvas(anchorX,anchorY);
+		$viewerCanvas = $("#viewerCanvas")[0];
+		const left = $viewerCanvas.offsetLeft
+		const top = $viewerCanvas.offsetTop
+
+		$contextmenu.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
+		$contextmenu.data('content', textline.text);
+	}
+
+	this.resizeTextLineContent = function(){
+		$buffer = $("#textline-buffer")[0];
+		$buffer.textContent = $("#textline-text")[0].value.replace(/ /g, "\xa0");
+		$("#textline-content").css({
+			width: $buffer.offsetWidth+'px'
+		})
+	}
+	this.closeTextLineContent = function () {
+		$("#textline-content").addClass("hide");
+	}
+
+
 	this.resizeViewerHeight = function () {
 		const $canvas = $("#" + _canvas);
 		const $sidebars = $('.sidebar');

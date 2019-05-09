@@ -485,3 +485,29 @@ body{
   }
 }
 
+#textline-content{
+  position: absolute;
+  border: 1px solid black;
+  background-color: white;
+  padding: 0px;
+  margin: 0px;
+  input,#textline-buffer{
+      height:auto;
+      border-radius: 0;
+      outline: none;
+      padding: 5px;
+      margin: 0px;
+      box-shadow: none;
+      box-sizing: content-box;
+      transition: none;
+      border-bottom: 0px solid white !important;
+  }
+  #textline-buffer{
+    white-space: nowrap;
+    max-height:0px;
+    position:fixed;
+    bottom:-100%;
+    min-width:30px;
+  }
+}
+

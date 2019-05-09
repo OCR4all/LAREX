@@ -212,5 +212,9 @@
 		<b:preloader/>
 		<t:regionSettings/>
 		<t:contextmenu/>
+		<div id="textline-content" class="hide">
+			<input id="textline-text" type="text">			
+			<span id="textline-buffer" class=""></span>
+		</div>
 	</body>
 </b:webpage>

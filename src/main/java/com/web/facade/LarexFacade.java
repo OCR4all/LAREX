@@ -23,6 +23,10 @@ import org.xml.sax.SAXException;
 
 import com.web.communication.SegmentationStatus;
 import com.web.controller.FileManager;
+import com.web.io.PageXMLReader;
+import com.web.io.PageXMLWriter;
+import com.web.io.SettingsReader;
+import com.web.io.SettingsWriter;
 import com.web.model.Book;
 import com.web.model.Page;
 import com.web.model.PageAnnotations;
@@ -30,10 +34,6 @@ import com.web.model.Point;
 import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
-import larex.data.export.PageXMLReader;
-import larex.data.export.PageXMLWriter;
-import larex.data.export.SettingsReader;
-import larex.data.export.SettingsWriter;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.RegionSubType;
 import larex.operators.Contourextractor;
@@ -57,9 +57,7 @@ public class LarexFacade {
 				+ ".xml";
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
-			SegmentationResult loadedResult = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);
-			PageAnnotations segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(),
-					loadedResult.getRegions(), page.getId());
+			PageAnnotations segmentation = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);;
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
 		} else {
@@ -86,9 +84,8 @@ public class LarexFacade {
 	}
 
 	public static Document getPageXML(PageAnnotations segmentation, String version) {
-		SegmentationResult result = segmentation.toSegmentationResult();
 		try {
-			return PageXMLWriter.getPageXML(result, segmentation.getFileName(), segmentation.getWidth(),
+			return PageXMLWriter.getPageXML(segmentation, segmentation.getFileName(), segmentation.getWidth(),
 					segmentation.getHeight(), version);
 		} catch (UnsupportedFormatVersionException e) {
 			System.out.println(e.toString());
@@ -272,20 +269,8 @@ public class LarexFacade {
 		try (ByteArrayInputStream stream = new ByteArrayInputStream(pageXML)){
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			Document document = dBuilder.parse(stream);
-			Page page = getBook(bookID, database).getPage(pageNr);
 
-			SegmentationResult result = PageXMLReader.getSegmentationResult(document);
-			PageAnnotations pageSegmentation = new PageAnnotations(page.getFileName(), page.getWidth(),
-					page.getHeight(), result.getRegions(), page.getId());
-
-			List<String> readingOrder = new ArrayList<String>();
-			for (RegionSegment region : result.getReadingOrder()) {
-				readingOrder.add(region.getId());
-			}
-			pageSegmentation.setReadingOrder(readingOrder);
-
-			return pageSegmentation;
+			return PageXMLReader.getSegmentationResult(dBuilder.parse(stream));
 		} catch (SAXException e) {
 			e.printStackTrace();
 		} catch (IOException e) {

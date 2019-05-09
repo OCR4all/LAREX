@@ -156,7 +156,15 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			if (pageSegments) {
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach((key) => {
-					_editor.addSegment(pageSegments[key], this.isSegmentFixed(key));
+					const pageSegment = pageSegments[key];
+					_editor.addSegment(pageSegment, this.isSegmentFixed(key));
+					if(pageSegment.textlines !== null){
+						Object.keys(pageSegment.textlines).forEach((linekey) => {
+							const textLine = pageSegment.textlines[linekey];
+							textLine.type = "TextLine"
+							_editor.addTextLine(textLine);
+						});
+					}
 				});
 			}
 
@@ -202,6 +210,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_tempReadingOrder = null;
 			this.endCreateReadingOrder();
 			this.showPreloader(false);
+
+			// Open current Mode
+			this.setMode(_mode);
 		}
 	}
 
@@ -321,7 +332,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			const missingRegions = [];
 
 			switch (page.status) {
-				case 'SUCCESS':
+				case 'LOADED':
 					_segmentation[_currentPage] = page;
 
 					_actionController.resetActions(_currentPage);
@@ -606,7 +617,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 							_editor, _segmentation, _currentPage, this));
 						}else if(_mode === Mode.LINES){
 						actions.push(new ActionAddTextLine(mergedSegment.id, parent, mergedSegment.points,
-							mergedSegment.type, _editor, _segmentation, _currentPage, this));
+							{}, _editor, _segmentation, _currentPage, this));
 						}
 
 						let mergeAction = new ActionMultiple(actions);
@@ -748,7 +759,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const newID = "created" + _newPolygonCounter;
 		_newPolygonCounter++;
 		if(segmentpoints.length > 1){
-			const actionAdd = new ActionAddTextLine(newID,_tempID, segmentpoints, "",
+			const actionAdd = new ActionAddTextLine(newID,_tempID, segmentpoints, {},
 				_editor, _segmentation, _currentPage, this);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
@@ -1072,6 +1083,12 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
+	this.editLine = function(id){
+		if(this.getIDType(id) == ElementType.TEXTLINE){
+			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
+			_gui.openTextLineContent(textline);
+		}
+	}
 	this.changeRegionSettings = function (regionType, minSize, maxOccurances) {
 		let region = _settings.regions[regionType];
 		//create Region if not present

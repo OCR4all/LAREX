@@ -1,6 +1,5 @@
 package com.web.model;
 
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
@@ -30,7 +29,7 @@ public class Region extends Polygon{
 	@JsonCreator
 	public Region(@JsonProperty("id") String id, @JsonProperty("type") String type,
 			@JsonProperty("points") LinkedList<Point> points, @JsonProperty("isRelative") boolean isRelative,
-			@JsonProperty("textlines") HashMap<String,TextLine> textlines) {
+			@JsonProperty("textlines") Map<String,TextLine> textlines) {
 		super(id,points,isRelative);
 		this.type = type;
 		this.textlines = textlines;

@@ -167,6 +167,9 @@ function GuiInput(navigationController, controller, gui) {
 			_controller.displayReadingOrder(false);
 		}
 	});
+	$('#textline-text').on('input', function() {
+		_gui.resizeTextLineContent();
+	}).trigger('input');
 
 	// Set begin
 	const $loadSwitchBox = $('.settings-load-existing-xml').find('input');

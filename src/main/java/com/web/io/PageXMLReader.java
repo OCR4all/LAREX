@@ -1,4 +1,4 @@
-package larex.data.export;
+package com.web.io;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -16,8 +17,6 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.Point;
 import org.primaresearch.dla.page.Page;
 import org.primaresearch.dla.page.io.FileInput;
 import org.primaresearch.dla.page.io.xml.XmlPageReader;
@@ -28,21 +27,22 @@ import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
-import org.primaresearch.dla.page.layout.physical.text.impl.Word;
 import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.maths.geometry.Polygon;
 import org.w3c.dom.Document;
 
-import larex.geometry.regions.RegionSegment;
+import com.web.communication.SegmentationStatus;
+import com.web.model.PageAnnotations;
+import com.web.model.Point;
+
 import larex.geometry.regions.type.PAGERegionType;
 import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.geometry.regions.type.TypeConverter;
-import larex.segmentation.SegmentationResult;
 
 public class PageXMLReader {
 
-	public static SegmentationResult getSegmentationResult(Document document) {
+	public static PageAnnotations getSegmentationResult(Document document) {
 		// Convert document to PAGE xml Page
 		XmlPageReader reader = new XmlPageReader(null); // null ^= without validation
 		Page page = null;
@@ -74,12 +74,13 @@ public class PageXMLReader {
 
 		// Read PAGE xml into Segmentation Result
 		if (page != null) {
-			Map<String, RegionSegment> resRegions = new HashMap<>();
+			Map<String, com.web.model.Region> resRegions = new HashMap<>();
 			// Read regions
 			for (Region region : page.getLayout().getRegionsSorted()) {
 				// Get Type
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
+				Map<String,com.web.model.TextLine> textLines = new HashMap<>();
 				if (type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
 					subtype = TypeConverter.stringToSubType((textRegion).getTextType());
@@ -87,10 +88,11 @@ public class PageXMLReader {
 					// Extract Text
 					for (LowLevelTextObject text : textRegion.getTextObjectsSorted()) {
 						if (text instanceof TextLine) {
-							TextLine textLine = (TextLine) text;
+							final TextLine textLine = (TextLine) text;
+							final String id = text.getId().toString();
 
 							// Get Coords of TextLine
-							ArrayList<Point> pointList = new ArrayList<Point>();
+							LinkedList<Point> pointList = new LinkedList<>();
 							Polygon coords = textLine.getCoords();
 							for (int i = 0; i < coords.getSize(); i++) {
 								org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
@@ -98,18 +100,19 @@ public class PageXMLReader {
 								pointList.add(newPoint);
 							}
 
-							//for (LowLevelTextObject textChild : textLine.getTextObjectsSorted()) {
-							//}
+							// TextLine text content
+							Map<String,String> content = new HashMap<>();
+							// for (LowLevelTextObject textChild : textLine.getTextObjectsSorted()) {
+							// }
+
+							textLines.put(id,new com.web.model.TextLine(id,pointList,content));
 						}
 
-						// TextLine textline = new TextLine(text.getId(),pointList,text.getText())
-
-						// TextLine textline = new TextLine(text.getId(),pointList,text.getText())
 					}
 				}
 
 				// Get Coords
-				ArrayList<Point> pointList = new ArrayList<Point>();
+				LinkedList<Point> pointList = new LinkedList<>();
 				Polygon coords = region.getCoords();
 				for (int i = 0; i < coords.getSize(); i++) {
 					org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
@@ -117,37 +120,36 @@ public class PageXMLReader {
 					pointList.add(newPoint);
 				}
 
-				Point[] pointArray = new Point[pointList.size()];
-				MatOfPoint points = new MatOfPoint(pointList.toArray(pointArray));
-
 				// Id
 				String id = region.getId().toString();
-				if (!points.empty()) {
-					resRegions.put(id, new RegionSegment(new PAGERegionType(type, subtype), points, id));
+				if (!pointList.isEmpty()) {
+					resRegions.put(id, new com.web.model.Region(id, new PAGERegionType(type, subtype).toString(),
+							pointList, false, textLines));
 				}
 			}
-			SegmentationResult segResult = new SegmentationResult(new ArrayList<>(resRegions.values()));
+			final int height = page.getLayout().getHeight();
+			final int width = page.getLayout().getWidth();
 
+			ArrayList<String> newReadingOrder = new ArrayList<>();
 			// Set reading order
 			if (page.getLayout().getReadingOrder() != null) {
 				Group readingOrder = page.getLayout().getReadingOrder().getRoot();
-				ArrayList<RegionSegment> newReadingOrder = new ArrayList<RegionSegment>();
 				for (int i = 0; i < readingOrder.getSize(); i++) {
 					GroupMember member = readingOrder.getMember(i);
 					if (member instanceof RegionRef) {
-						newReadingOrder.add(resRegions.get(((RegionRef) member).getRegionId().toString()));
+						newReadingOrder.add(((RegionRef) member).getRegionId().toString());
 					}
 				}
-				segResult.setReadingOrder(newReadingOrder);
 			}
-			return segResult;
+			return new PageAnnotations(page.getImageFilename(), width, height, 0, resRegions, SegmentationStatus.LOADED,
+					newReadingOrder);
 		}
 
 		return null;
 	}
 
-	public static SegmentationResult loadSegmentationResultFromDisc(String pageXMLInputPath) {
-		SegmentationResult segResult = null;
+	public static PageAnnotations loadSegmentationResultFromDisc(String pageXMLInputPath) {
+		PageAnnotations segResult = null;
 
 		try {
 			File inputFile = new File(pageXMLInputPath);

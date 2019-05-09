@@ -44,9 +44,10 @@ class Selector {
 				if(mode === Mode.SEGMENT){
 					this._selectPolygon(id, true, true);
 					this._selectAndAddPoints(id, points);
-				}else{
-
+				}else if (mode === Mode.LINES){
 					this._selectPolygon(id, true, false);
+				}else if (mode === Mode.TEXT && elementType === ElementType.TEXTLINE){
+					this._controller.editLine(id);
 				}
 			} else {
 				//// Select polygon
@@ -54,7 +55,11 @@ class Selector {
 				if(mode !== Mode.SEGMENT || (elementType != ElementType.SEGMENT && elementType != ElementType.TEXTLINE) || !this.selectMultiple)
 					this.unSelect();
 
-				this._selectPolygon(id, !isSelected);
+				if (mode === Mode.TEXT && elementType === ElementType.TEXTLINE){
+					this._controller.editLine(id);
+				}else{
+					this._selectPolygon(id, !isSelected);
+				}
 			}
 
 			this.selectedType = elementType;
