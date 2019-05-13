@@ -113,7 +113,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 		this.showPreloader(true);
 
-
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
 			if(_autoSegment){
@@ -238,7 +237,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.requestSegmentation = function (allowLoadLocal) {
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
-		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
@@ -330,7 +328,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.uploadSegmentation = function (file) {
-		_segmentedPages = _savedPages.slice(0); //clone saved Pages
 
 		this.showPreloader(true);
 
@@ -379,7 +376,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 	this.exportPageXML = function () {
 		_gui.setExportingInProgress(true);
-		console.log(_gui.getPageXMLVersion());
+
 		_communicator.exportSegmentation(_segmentation[_currentPage], _book.id, _gui.getPageXMLVersion()).done((data) => {
 			// Set export finished
 			_savedPages.push(_currentPage);
