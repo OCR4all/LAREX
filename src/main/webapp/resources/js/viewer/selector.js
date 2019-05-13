@@ -80,10 +80,14 @@ class Selector {
 				this._selectedElements.splice(selectIndex, 1);
 			this._editor.selectSegment(id, false, displayPoints);
 		}
-		if(this._controller.getMode() === Mode.LINES && this.selectedType === ElementType.SEGMENT){
-			this._editor.focusSegment(id,true);
-		}else if(this._controller.getMode() === Mode.LINES){
-			//TODO select parent if TextLine is selected
+		if(this._controller.getMode() === Mode.LINES ){
+			const idType = this._controller.getIDType(id);
+			if(idType === ElementType.SEGMENT){
+				this._editor.focusSegment(id,true);
+			}else if(idType === ElementType.TEXTLINE){
+				const parent = this._controller.textlineRegister[id];
+				this._editor.focusSegment(parent,true);
+			}
 		}
 	}
 

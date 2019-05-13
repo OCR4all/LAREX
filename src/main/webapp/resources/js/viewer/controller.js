@@ -456,9 +456,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 	this.createTextLinePolygon = function () {
 		const selected = _selector.getSelectedSegments();
-		if(_selector.selectedType === ElementType.SEGMENT && selected.length > 0){
+		if((_selector.selectedType === ElementType.SEGMENT || _selector.selectedType === ElementType.TEXTLINE)
+				&& selected.length > 0 ){
 			this.endEditing();
-			_tempID = selected[0];
+			_tempID = _selector.selectedType === ElementType.SEGMENT ? selected[0] : this.textlineRegister[selected[0]];
 			// Check if segment region is a TextRegion
 			if(this.isIDTextRegion(_tempID)){
 				_editor.startCreatePolygon(ElementType.TEXTLINE);
@@ -475,8 +476,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if(type === ElementType.TEXTLINE ){
 			const selected = _selector.getSelectedSegments();
 
-			if(_selector.selectedType === ElementType.SEGMENT && selected.length > 0 && this.isIDTextRegion(selected[0])) {
-				_tempID = selected[0];
+			if(selected.length > 0 && 
+				(_selector.selectedType === ElementType.SEGMENT && this.isIDTextRegion(selected[0])) ||
+				(_selector.selectedType === ElementType.TEXTLINE && this.isIDTextRegion(this.textlineRegister[selected[0]]))) {
+
+				_tempID = _selector.selectedType === ElementType.TEXTLINE ? this.textlineRegister[selected[0]] : selected[0];
 			}else{
 				_gui.displayWarning('Warning: Can only create TextLines if a TextRegion has been selected before hand.');
 				return;
@@ -1013,10 +1017,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing) {
-				console.log(_editor.isEditing,_mode,this.getIDType(sectionID),_selector.getSelectedSegments().length)
 				if(_mode === Mode.SEGMENT || 
 						(_mode === Mode.LINES && 
-							(this.getIDType(sectionID)  === ElementType.TEXTLINE || _selector.getSelectedSegments.length == 0))){
+							(this.getIDType(sectionID)  === ElementType.TEXTLINE || _selector.getSelectedSegments().length == 0))){
 					_editor.highlightSegment(sectionID, doHighlight);
 					_gui.highlightSegment(sectionID, doHighlight);
 				}
@@ -1192,7 +1195,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		polygon = _settings.pages[_currentPage].cuts[id];
 		if (polygon) return ElementType.CUT;
 
-		if (id in this.textlineRegister) return ElementType.TEXTLINE;
+		if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
 	}
 
 	this._getPolygon = function (id) {
