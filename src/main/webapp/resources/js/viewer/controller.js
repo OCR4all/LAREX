@@ -161,7 +161,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 					if(pageSegment.textlines !== null){
 						Object.keys(pageSegment.textlines).forEach((linekey) => {
 							const textLine = pageSegment.textlines[linekey];
-							textLine.type = "TextLine"
+							textLine.type = "TextLine";
 							_editor.addTextLine(textLine);
 						});
 					}
@@ -299,11 +299,18 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.setMode(mode);
 
 		if(mode === Mode.SEGMENT){
+			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",true);
 			_editor.displayOverlay("lines",false);
 		} else if(mode === Mode.LINES){
+			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
+		} else if(mode === Mode.TEXT){
+			_editor.displayOverlay("segments",false);
+			_editor.displayOverlay("regions",false);
+			_editor.displayOverlay("lines",true);
+
 		}
 		_mode = mode;
 	}
@@ -546,6 +553,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_editor.endEditing();
 		this.displayContours(false);
 		_gui.unselectAllToolBarButtons();
+		_gui.closeTextLineContent();
 	}
 
 	this.deleteSelected = function () {
@@ -1019,7 +1027,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			if (!_editor.isEditing) {
 				if(_mode === Mode.SEGMENT || 
 						(_mode === Mode.LINES && 
-							(this.getIDType(sectionID)  === ElementType.TEXTLINE || _selector.getSelectedSegments().length == 0))){
+							(this.getIDType(sectionID) === ElementType.TEXTLINE || _selector.getSelectedSegments().length == 0))){
 					_editor.highlightSegment(sectionID, doHighlight);
 					_gui.highlightSegment(sectionID, doHighlight);
 				}

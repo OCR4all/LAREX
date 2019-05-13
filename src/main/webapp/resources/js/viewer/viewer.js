@@ -51,13 +51,17 @@ class Viewer {
 					hitResult = this._overlays["regions"] && this._overlays["regions"].visible ?
 									this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
 
-					// Check segments after
+					// Check textlines second
 					if(!hitResult)
-						hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
+						hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
+
+					// Check segments last
+					if(!hitResult)
+						hitResult = this._overlays["segments"] ? this._overlays["segments"].hitTest(event.point, this._hitOptions) : null;
 				} else if(this.mode == ViewerMode.CONTOUR){
 					hitResult = this._contourOverlay ? this.contourHitTest(event.point) : null;
 				} else if(this.mode == ViewerMode.TEXTLINE){
-					hitResult = this._overlays["lines"] && this._overlays["lines"].visible ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
+					hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
 				} else {
 					throw new ValueError('Unkown selection mode: '+this.mode)
 				}
@@ -107,9 +111,13 @@ class Viewer {
 					// Check regions first
 					let hitResult = this._overlays["regions"] ? this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
 
-					// Check segments after
+					// Check textlines second
 					if(!hitResult)
-						hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
+						hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
+
+					// Check segments last
+					if(!hitResult)
+						hitResult = this._overlays["segments"] ? this._overlays["segments"].hitTest(event.point, this._hitOptions) : null;
 
 					if(hitResult){
 						const new_highlight = hitResult.item ? hitResult.item.elementID : null;
@@ -170,6 +178,10 @@ class Viewer {
 			visible: false
 		});
 		this._overlays["focus"].addChild(this._focus);
+
+		// Create region canvas
+		this._createEmptyOverlay("segments");
+		this._imageCanvas.addChild(this._overlays["segments"]);
 
 		// Create region canvas
 		this._createEmptyOverlay("regions");
@@ -464,7 +476,7 @@ class Viewer {
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
-	drawPolygon(segment, doFill, isFixed, canvas = this._imageCanvas) {
+	drawPolygon(segment, doFill, isFixed, canvas = this._overlays["segments"]) {
 		//Construct polygon from segment
 		const polygon = new paper.Path();
 		polygon.elementID = segment.id;
@@ -530,7 +542,7 @@ class Viewer {
 		}
 
 		//Add to canvas
-		this._imageCanvas.addChild(polygon);
+		this._overlays["segments"].addChild(polygon);
 		this._polygons[line.id] = polygon;
 
 		return polygon;

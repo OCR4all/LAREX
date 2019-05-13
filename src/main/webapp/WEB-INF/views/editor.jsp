@@ -212,7 +212,7 @@
 		<b:preloader/>
 		<t:regionSettings/>
 		<t:contextmenu/>
-		<div id="textline-content" class="hide">
+		<div id="textline-content" class="hide infocus">
 			<input id="textline-text" type="text">			
 			<span id="textline-buffer" class=""></span>
 		</div>

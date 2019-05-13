@@ -20,11 +20,13 @@ function GUI(canvas, viewer, colors) {
 				$('#sidebar-segment').addClass('hide');
 				$('#sidebar-lines').removeClass('hide');
 				$('#sidebar-text').addClass('hide');
+				this.closeTextLineContent();
 				break;
 			case Mode.TEXT:
 				$('#sidebar-segment').addClass('hide');
 				$('#sidebar-lines').addClass('hide');
 				$('#sidebar-text').removeClass('hide');
+				this.closeTextLineContent();
 				break;
 			case Mode.SEGMENT:
 			default:
@@ -60,18 +62,22 @@ function GUI(canvas, viewer, colors) {
 		let anchorX = Infinity;
 		let anchorY = 0;
 		
-		textline.points.forEach((point) => {
-			anchorX = anchorX < point.x ? anchorX: point.x; 	
-			anchorY = anchorY > point.y ? anchorY: point.y; 	
-		});
+		this.tempTextline = textline ? textline : this.tempTextline; 
+		
+		if(this.tempTextline){
+			this.tempTextline.points.forEach((point) => {
+				anchorX = anchorX < point.x ? anchorX: point.x; 	
+				anchorY = anchorY > point.y ? anchorY: point.y; 	
+			});
 
-		const viewerPoint = _viewer._convertGlobalToCanvas(anchorX,anchorY);
-		$viewerCanvas = $("#viewerCanvas")[0];
-		const left = $viewerCanvas.offsetLeft
-		const top = $viewerCanvas.offsetTop
+			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX,anchorY);
+			$viewerCanvas = $("#viewerCanvas")[0];
+			const left = $viewerCanvas.offsetLeft
+			const top = $viewerCanvas.offsetTop
 
-		$contextmenu.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
-		$contextmenu.data('content', textline.text);
+			$contextmenu.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
+			$contextmenu.data('content', this.tempTextline.text);
+		}
 	}
 
 	this.resizeTextLineContent = function(){
@@ -81,8 +87,13 @@ function GUI(canvas, viewer, colors) {
 			width: $buffer.offsetWidth+'px'
 		})
 	}
+
 	this.closeTextLineContent = function () {
 		$("#textline-content").addClass("hide");
+	}
+
+	this.isTextLineContentActive = function() {
+		return !$("#textline-content").hasClass("hide");
 	}
 
 
