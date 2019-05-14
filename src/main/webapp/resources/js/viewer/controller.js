@@ -78,6 +78,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.updateAvailableColors();
 			_gui.addPreviewImageListener();
 			_gui.setMode(_mode);
+			_communicator.getVirtualKeyboard().done((keyboard) => {
+				_gui.setVirtualKeyboard(keyboard);
+			});
 
 			const navigationController = new NavigationController(_gui,_editor);
 			// setup paper again because of pre-resize bugcallbackNewFixedSegment
@@ -200,7 +203,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.showUsedRegionLegends(_presentRegions);
 			if(_segmentation[_currentPage] != null){
 				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder, _segmentation[_currentPage].segments);
-				_guiInput.addDynamicListeners();
 				this.displayReadingOrder(_displayReadingOrder);
 			}
 			_gui.setRegionLegendColors(_presentRegions);
@@ -940,7 +942,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if (doDisplay) {
 			const readingOrder = doUseTempReadingOrder ? _tempReadingOrder : _segmentation[_currentPage].readingOrder;
 			_editor.displayReadingOrder(readingOrder);
-
 		} else {
 			_editor.hideReadingOrder();
 		}
@@ -950,7 +951,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.forceUpdateReadingOrder = function (forceHard) {
 		_gui.forceUpdateReadingOrder(_segmentation[_currentPage].readingOrder, forceHard, _segmentation[_currentPage].segments);
 		_gui.setRegionLegendColors(_presentRegions);
-		_guiInput.addDynamicListeners();
 		this.displayReadingOrder(_displayReadingOrder);
 	}
 

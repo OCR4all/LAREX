@@ -54,6 +54,39 @@ function GUI(canvas, viewer, colors) {
 		$("#contextmenu").addClass("hide");
 	}
 
+	this.setVirtualKeyboard = function (keyboard){
+		$virtualKeyboard = $(".virtual-keyboard");
+		$virtualKeyboard.empty();
+
+		// Clear grid before loading all items
+		for(let x = 0; x < keyboard.length; x++){
+			const row = keyboard[x];
+			const divRow = $('<div class="vk-row row"></div>');
+			$virtualKeyboard.append(divRow);
+			for(let y = 0; y < row.length; y++){
+				divRow.append($('<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true"><a class="vk-btn btn infocus">'  + row[y] + '</a></div>'));
+			}
+		}
+	}
+
+	this.capKeyboardRowLength = function ($row){
+		$children = $row.children();
+		if($children.length > 12){
+			const $newRow = $('<div class="vk-row row"></div>');
+			$newRow.insertAfter($row);
+			for(let i = 12; i < $children.length; i++){
+				$newRow.append($children[i]);
+			}
+		}
+		// Check for empty rows and delete them
+		$('.vk-row').each((i,r)=> {
+			console.log($(r).children().length == 0);
+			if($(r).children().length == 0){
+				$(r).remove()
+			}
+		});
+	}
+
 	this.openTextLineContent = function (textline) {
 		const $contextmenu = $("#textline-content");
 		$contextmenu.removeClass("hide");
@@ -96,6 +129,14 @@ function GUI(canvas, viewer, colors) {
 		return !$("#textline-content").hasClass("hide");
 	}
 
+	this.insertCharacterTextLine = function(character){
+		if(this.isTextLineContentActive()){
+			$input = $("#textline-text");
+			$input.val($input.val()+character);
+			this.resizeTextLineContent();
+			$input.focus();
+		}
+	}
 
 	this.resizeViewerHeight = function () {
 		const $canvas = $("#" + _canvas);
@@ -249,7 +290,7 @@ function GUI(canvas, viewer, colors) {
 		for (let index = 0; index < readingOrder.length; index++) {
 			const segment = segments[readingOrder[index]];
 			if(segment){
-				const $collectionItem = $('<li class="collection-item reading-order-segment" data-id="' + segment.id + '" draggable="true"></li>');
+				const $collectionItem = $('<li class="draggable collection-item reading-order-segment" data-id="' + segment.id + '" data-drag-group="readingorder" draggable="true"></li>');
 				const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
 				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-id="' + segment.id + '">delete</i>');
 				$collectionItem.append($legendTypeIcon);
@@ -451,10 +492,10 @@ function GUI(canvas, viewer, colors) {
 		}
 	}
 	this.setPageXMLVersion = function (version) {
-		$('#pageXMLVersion').text(version);
+		$('.pageXMLVersion').text(version);
 	}
 	this.getPageXMLVersion = function () {
-		return $('#pageXMLVersion').text();
+		return $('.pageXMLVersion').first().text();
 	}
 	this.setSaveSettingsInProgress = function (isInProgress) {
 		if (isInProgress) {

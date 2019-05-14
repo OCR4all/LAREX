@@ -2,7 +2,6 @@ function GuiInput(navigationController, controller, gui) {
 	const _navigationController = navigationController;
 	const _controller = controller;
 	const _gui = gui;
-	let _draggedObject = null;
 
 	$(window).click((event) => {
 		//Cancel viewer actions, if outside of viewer or a menu icon
@@ -23,14 +22,14 @@ function GuiInput(navigationController, controller, gui) {
 	$('.mode-text').click(() => _controller.setMode(Mode.TEXT));
 	$('.doSegment').click(() => _controller.requestSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
-	$('.pageXMLVersion').click(function () {
+	$('.pageXMLVersionSelect').click(function () {
 		const version = $(this).data('version');
 		_gui.setPageXMLVersion(version);
-		$('#dropDownPageXML').dropdown('close');
+		$('.dropDownPageXML').dropdown('close');
 	});
-	$('#dropDownPageXMLCorner').click((event) => {
+	$('.dropDownPageXMLCorner').click((event) => {
 		event.stopPropagation();
-		$('#dropDownPageXML').dropdown('open');
+		$('.dropDownPageXML').dropdown('open');
 	});
 	$('.saveSettingsXML').click(() => _controller.saveSettingsXML());
 	$('#upload-input:file').on('change', function () {
@@ -222,62 +221,88 @@ function GuiInput(navigationController, controller, gui) {
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
 
-	this.addDynamicListeners = () => {
-		let _hasBeenDropped = false;
+	/*** Dynamically added listeners 
+	 * (Add Listeners to document and use selector in on function)
+	 ***/
+	let _hasBeenDropped = false;
 
-		$('.reading-order-segment').mouseover(function () {
-			const $this = $(this);
-			const id = $this.data('id');
-			_controller.highlightSegment(id,true);
-		});
+	$(document).on("mouseover",'.reading-order-segment',function () {
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.highlightSegment(id,true);
+	});
 
-		$('.reading-order-segment').mouseleave(function () {
-			const $this = $(this);
-			const id = $this.data('id');
-			_controller.highlightSegment(id,false);
-		});
+	$(document).on("mouseleave",'.reading-order-segment',function () {
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.highlightSegment(id,false);
+	});
 
-		$('.reading-order-segment').on('dragstart', function (event) {
-			const $this = $(this);
-			_draggedObject = $this;
-			_hasBeenDropped = false;
-		});
+	/**
+	 * Drag'n Drop Objects
+	 */
+	let $drag_target = null;
+	$(document).on('dragstart','.draggable', function (event) {
+		_hasBeenDropped = false;
+		$drag_target = $(this);
+		event.originalEvent.dataTransfer.setData('Text', this.id);
+	});
+	$(document).on('dragover','.draggable', (event) => false);
+	$(document).on('dragleave','.draggable', function (event) {
+		$(this).removeClass('draggable-target');
+	});
+	$(document).on('dragenter','.draggable', function (event) {
+		const $this = $(this);
+		if($this.data("drag-group") == $(event.target).data('drag-group')){
+			$this.addClass('draggable-target');
+		}
+	});
+	$(document).on('drop','.draggable', function (event) {
+		const $this = $(this);
 
-		$('.reading-order-segment').on('dragover', (event) => false);
+		if($drag_target && $this.data("drag-group") == $drag_target.data('drag-group')){
+			$drag_target.insertBefore($this);
+		}
+	});
+	$(document).on('dragend','.draggable', (event) => {
+		$('.draggable').removeClass("draggable-target");
+	});
 
-		$('.reading-order-segment').on('dragleave', function (event) {
-			$(this).removeClass('dragedOver');
-			event.preventDefault();
-			return false;
-		});
+	/* Virtual Keyboard */
+	$(document).on("click",'.vk-btn', function(event){
+		const character = $(this).text();
+		_gui.insertCharacterTextLine(character);
+	});
 
-		$('.reading-order-segment').on('dragenter', function (event) {
-			const $this = $(this);
-			$this.addClass('dragedOver');
-			if (_draggedObject) {
-				_controller.setBeforeInReadingOrder(_draggedObject.data('id'), $(event.target).data('id'), false);
-			}
-			return true;
-		});
+	/* Reading Order */
+	$(document).on('dragenter','.reading-order-segment', function (event) {
+		const $this = $(this);
+		if ($drag_target && $this.data("drag-group") == $drag_target.data('drag-group')) {
+			_controller.setBeforeInReadingOrder($drag_target.data('id'),$this.data('id'), false);
+		}
+	});
 
-		$('.reading-order-segment').on('drop', function (event) {
-			const $this = $(this);
-			$this.removeClass('dragedOver');
-			if (_draggedObject) {
-				_controller.setBeforeInReadingOrder(_draggedObject.data('id'), $(event.target).data('id'), true);
-			}
-			_hasBeenDropped = true;
-		});
+	$(document).on('drop','.reading-order-segment', function (event) {
+		const $this = $(this);
+		const $other = $(event.target);
+		if ($this.data("drag-group") == $other.data('drag-group')) {
+			_controller.setBeforeInReadingOrder($this.data('id'), $other.data('id'), true);
+		}
+		_hasBeenDropped = true;
+	});
 
-		$('.reading-order-segment').on('dragend', (event) => {
-			if (!_hasBeenDropped) {
-				_controller.forceUpdateReadingOrder();
-			}
-		});
-		$('.delete-reading-order-segment').click(function () {
-			const $this = $(this);
-			const id = $this.data('id');
-			_controller.removeFromReadingOrder(id);
-		});
-	}
+	$(document).on('dragend','.reading-order-segment', (event) => {
+		if (!_hasBeenDropped) {
+			_controller.forceUpdateReadingOrder();
+		}
+	});
+	$(document).on("click",'.delete-reading-order-segment', function () {
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.removeFromReadingOrder(id);
+	});
+
+	$(document).on('drop','.vk-row', function (event) {
+		_gui.capKeyboardRowLength($(this));
+	});
 }

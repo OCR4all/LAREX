@@ -1,36 +1,10 @@
 <%@tag description="Edit Segment Window" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
-<div id="sidebar-lines" class="col s12 hide">
+<div id="sidebar-text" class="col s12 hide">
 
-	<div class="card legend">
-		<h5>
-			Legend
-		</h5>
-		<ul class="legend-regions">
-			<c:forEach var="type" items="${regionTypes}">
-				<li class="regionlegend" data-type="${type.key}">
-					<span>
-						<div class="legendicon ${type.key}"></div>${type.key}
-					</span>
-				</li>
-			</c:forEach>
-		</ul>
-	</div>
-	<ul class="collapsible row" data-collapsible="accordion">
-		<li>
-			<div id="reading-order-header" class="collapsible-header">
-				<i class="material-icons">reorder</i>Reading Order
-			</div>
-			<div class="collapsible-body">
-				<div class="reading-order">
-				  	<ul id="reading-order-list" class="collection">
-				  	</ul>
-			  	</div>
-			</div>
-		</li>
-	</ul>
-	
+	<div class="virtual-keyboard infocus"> </div>
+
 	<a class="col s12 waves-effect waves-light btn exportPageXML tooltipped" data-position="left" data-delay="50" data-tooltip="Save the current segmentation as PageXML (Shortcut: CTRL+S)">
 		Save Result
 		<div class="progress hide">
@@ -41,8 +15,8 @@
 		<div class="dropDownPageXMLCorner"></div>
 	</a>
 
-	<div href="#!" class='dropdown-button dropDownPageXML' data-activates='dropdownPageXMLVersion1'></div>
-	<ul id='dropdownPageXMLVersion1' class='dropdown-content'>
+	<div href="#!" class='dropdown-button dropDownPageXML' data-activates='dropdownPageXMLVersion2'></div>
+	<ul id='dropdownPageXMLVersion2' class='dropdown-content'>
 		<li><a class="pageXMLVersionSelect" data-version="2017-07-15">2017-07-15</a></li>
 		<li><a class="pageXMLVersionSelect" data-version="2010-03-19">2010-03-19</a></li>
 	</ul>

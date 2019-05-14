@@ -1,7 +1,7 @@
 const DataType = {SIMPLE:0,JSON:1,BYTE:2};
 
 class Communicator {
-	request(url,data,uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON){
+	request(url,data={},uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON){
 		// Deferred object for function status
 		const status = $.Deferred();
 
@@ -79,6 +79,10 @@ class Communicator {
 		return this.request("segmentedpages", {bookid:bookID});
 	}
 	
+	getVirtualKeyboard() { 
+		return this.request("virtualkeyboard");
+	}
+
 	uploadSettings(file, bookID) {
 		const formData = new FormData();
 		formData.append("file", file);

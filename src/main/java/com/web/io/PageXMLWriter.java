@@ -27,7 +27,6 @@ import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.shared.RegionType;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
-import org.primaresearch.dla.page.layout.physical.text.impl.Word;
 import org.primaresearch.dla.page.metadata.MetaData;
 import org.primaresearch.ident.Id;
 import org.primaresearch.ident.IdRegister.InvalidIdException;
@@ -95,22 +94,24 @@ public class PageXMLWriter {
 				textRegion.setTextType(TypeConverter.subTypeToString(type.getSubtype()));
 
 				// Add TextLines if existing
-				for (Entry<String, com.web.model.TextLine> lineEntry : regionSegment.getTextlines().entrySet()) {
-					com.web.model.TextLine textLine = lineEntry.getValue();
-					
-					TextLine newTextLine = textRegion.createTextLine();
-					
-					Polygon coords = new Polygon();
-					for (Point point : textLine.getPoints()) {
-						coords.addPoint((int) point.getX(), (int) point.getY());
+				if(regionSegment.getTextlines() != null) {
+					for (Entry<String, com.web.model.TextLine> lineEntry : regionSegment.getTextlines().entrySet()) {
+						com.web.model.TextLine textLine = lineEntry.getValue();
+						
+						TextLine newTextLine = textRegion.createTextLine();
+						
+						Polygon coords = new Polygon();
+						for (Point point : textLine.getPoints()) {
+							coords.addPoint((int) point.getX(), (int) point.getY());
+						}
+						newTextLine.setCoords(coords);
+						
+						// Add Text
+						/*for(Entry<String,String> content : textLine.getText().entrySet()) {
+							Word word = newTextLine.createWord();
+							word.setText(content.getValue());
+						}*/
 					}
-					newTextLine.setCoords(coords);
-					
-					// Add Text
-					/*for(Entry<String,String> content : textLine.getText().entrySet()) {
-						Word word = newTextLine.createWord();
-						word.setText(content.getValue());
-					}*/
 				}
 
 			}

@@ -164,15 +164,15 @@
 		<div class="progress hide">
     		<div class="indeterminate"></div>
 		</div>       
-		<span id="pageXMLVersion">version</span>
+		<span class="pageXMLVersion">version</span>
 		<i class="material-icons right">file_download</i>
-		<div id="dropDownPageXMLCorner"></div>
+		<div class="dropDownPageXMLCorner"></div>
 	</a>
 	
-	<div id="dropDownPageXML" href="#!"class='dropdown-button' data-activates='dropdownPageXMLVersion'></div>
-	<ul id='dropdownPageXMLVersion' class='dropdown-content'>
-		<li><a class="pageXMLVersion" data-version="2017-07-15">2017-07-15</a></li>
-		<li><a class="pageXMLVersion" data-version="2010-03-19">2010-03-19</a></li>
+	<div href="#!"class='dropdown-button dropDownPageXML' data-activates='dropdownPageXMLVersion0'></div>
+	<ul id='dropdownPageXMLVersion0' class='dropdown-content'>
+		<li><a class="pageXMLVersionSelect" data-version="2017-07-15">2017-07-15</a></li>
+		<li><a class="pageXMLVersionSelect" data-version="2010-03-19">2010-03-19</a></li>
 	</ul>
 	<form action="#">
 	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="left" data-delay="50" data-tooltip="Supports PageXML v2010-03-19 and v2013-07-15">

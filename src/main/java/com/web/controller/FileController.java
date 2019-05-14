@@ -1,11 +1,16 @@
 package com.web.controller;
 
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
@@ -78,6 +83,10 @@ public class FileController {
 		}
 	}
 	
+	/**
+	 * Request an image of a book, by book name and image name.
+	 * Use resize to get a downscaled preview image, with a width of 300px.
+	 */
 	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
 	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
 			@PathVariable("image") final String image,
@@ -153,6 +162,10 @@ public class FileController {
 		}
 	}
 
+	/**
+	 * Upload a segmentation to potentially save in the database and load back into the gui.
+	 * 
+	 */
 	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") MultipartFile file,
 			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
@@ -169,6 +182,9 @@ public class FileController {
 		return result;
 	}
 
+	/**
+	 * Export a segmentation per PAGE xml to download and or in the database.
+	 */
 	@RequestMapping(value = "/exportXML", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
@@ -196,10 +212,14 @@ public class FileController {
 			}
 			return convertDocumentToByte(pageXML, request.getSegmentation().getFileName());
 		} catch (Exception e) {
+			e.printStackTrace();
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
 
+	/**
+	 * Download the current segmentation settings as response.
+	 */
 	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
 		try {
@@ -209,6 +229,13 @@ public class FileController {
 		}
 	}
 
+	/**
+	 * Upload a segmentation settings file and return a BookSettings json as result.
+	 * 
+	 * @param file
+	 * @param bookID
+	 * @return
+	 */
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
 	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,
 			@RequestParam("bookID") int bookID) {
@@ -228,6 +255,30 @@ public class FileController {
 		return settings;
 	}
 
+	/**
+	 * Retrieve the default virtual keyboard.
+	 * 
+	 * @param file
+	 * @param bookID
+	 * @return
+	 */
+	@RequestMapping(value = "/virtualkeyboard", method = RequestMethod.POST)
+	public @ResponseBody List<String[]> virtualKeyboard() {
+		File virtualKeyboard = new File(fileManager.getVirtualKeyboardFile());
+
+		List<String[]> keyboard = new ArrayList<>();
+		try(BufferedReader br = new BufferedReader(new FileReader(virtualKeyboard))) {
+			String st; 
+			while ((st = br.readLine()) != null) 
+				if(st.replace("\\s+", "").length() > 0) 
+					keyboard.add(st.split("\\s+"));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} 
+		return keyboard;
+	}
 
 	private BufferedImage convertMatToBufferedImage(Mat imageMat) {
 		BufferedImage bufferedImage = null;
