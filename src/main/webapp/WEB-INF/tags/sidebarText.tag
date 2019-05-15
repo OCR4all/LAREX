@@ -3,7 +3,29 @@
 
 <div id="sidebar-text" class="col s12 hide">
 
+	<div class="virtual-keyboard-settings row infocus">
+		<a class="btn col s6 waves-effect waves-light tooltipped vk-upload" data-position="left" data-delay="50" data-tooltip="Add new buttons to the virtual keyboard.">
+			Load <i class="material-icons right"> file_upload </i>
+		</a>	
+		<a class="btn col s6 tooltipped vk-download" data-position="left" data-delay="50" data-tooltip="Drop virtual keyboard buttons here to delete them. (Only possible if virtual keyboard is unlocked)">
+			Save <i class="material-icons right"> file_download </i>
+		</a>	
+	</div>
 	<div class="virtual-keyboard infocus"> </div>
+	<div class="virtual-keyboard-tools row infocus">
+		<a class="btn col s4 waves-effect waves-light tooltipped vk-add" data-position="left" data-delay="50" data-tooltip="Add new buttons to the virtual keyboard.">
+			<i class="material-icons"> add </i>
+		</a>	
+		<a class="btn col s4 tooltipped vk-delete" data-position="left" data-delay="50" data-tooltip="Drop virtual keyboard buttons here to delete them. (Only possible if virtual keyboard is unlocked)">
+			<i class="material-icons"> delete </i>
+		</a>	
+		<a class="btn col s4 waves-effect waves-light tooltipped vk-lock" data-position="left" data-delay="50" data-tooltip="Lock buttons of the virtual keyboard in place.">
+			<i class="material-icons"> lock_open </i>
+		</a>	
+		<a class="btn col s4 waves-effect waves-light tooltipped hide vk-unlock" data-position="left" data-delay="50" data-tooltip="Unlock buttons of the virtual keyboard in order to move them.">
+			<i class="material-icons"> lock </i>
+		</a>	
+	</div>
 
 	<a class="col s12 waves-effect waves-light btn exportPageXML tooltipped" data-position="left" data-delay="50" data-tooltip="Save the current segmentation as PageXML (Shortcut: CTRL+S)">
 		Save Result

@@ -14,6 +14,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 						_controller.endCreateReadingOrder();
 						validKey = true;
 						break;
+					case 13: // Enter
+						_controller.saveLine();
+						validKey = true;
+						break;
 					case 83: // S
 						if (event.ctrlKey) {
 							_controller.exportPageXML();

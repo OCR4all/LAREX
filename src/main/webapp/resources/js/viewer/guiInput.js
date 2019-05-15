@@ -273,6 +273,21 @@ function GuiInput(navigationController, controller, gui) {
 		const character = $(this).text();
 		_gui.insertCharacterTextLine(character);
 	});
+	$(document).on('drop','.vk-row', function (event) {
+		_gui.capKeyboardRowLength($(this));
+	});
+	$(document).on("click",'.vk-lock', function(event){
+		_gui.lockVirtualKeyboard(true);
+	});
+	$(document).on("click",'.vk-unlock', function(event){
+		_gui.lockVirtualKeyboard(false);
+	});
+	$(document).on('drop','.vk-delete', function (event) {
+		//TODO does not trigger?
+		if($drag_target.data('drag-group') == "keyboard"){
+			_gui.deleteVirtualKeyboardButton($drag_target);
+		}
+	});
 
 	/* Reading Order */
 	$(document).on('dragenter','.reading-order-segment', function (event) {
@@ -281,7 +296,6 @@ function GuiInput(navigationController, controller, gui) {
 			_controller.setBeforeInReadingOrder($drag_target.data('id'),$this.data('id'), false);
 		}
 	});
-
 	$(document).on('drop','.reading-order-segment', function (event) {
 		const $this = $(this);
 		const $other = $(event.target);
@@ -300,9 +314,5 @@ function GuiInput(navigationController, controller, gui) {
 		const $this = $(this);
 		const id = $this.data('id');
 		_controller.removeFromReadingOrder(id);
-	});
-
-	$(document).on('drop','.vk-row', function (event) {
-		_gui.capKeyboardRowLength($(this));
 	});
 }

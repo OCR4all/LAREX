@@ -11,8 +11,8 @@
 				</span>
 			</div>
 			<div id="import-export-settings" class="collapsible-body">
-				<a class="col s12 waves-effect waves-light btn saveSettingsXML">
-					Save Settings
+				<a class="col s6 waves-effect waves-light btn saveSettingsXML">
+					Save
 					<div class="progress hide">
 			    		<div class="indeterminate"></div>
 					</div>       
@@ -20,8 +20,8 @@
 				</a>
 
 				<form action="#">
-					<div class="btn col s12" onclick="$('#upload-input').click()">
-						Load Settings
+					<div class="btn col s6" onclick="$('#upload-input').click()">
+						Load
 						<i class="material-icons right">file_upload</i></div>
 					<input id="upload-input" class="uploadSettings hide" type="file">
 				</form>
@@ -39,7 +39,7 @@
 							</label>
 						</span>	
 					</div>
-					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if avaiable">Load now</a>
+					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if available">Load now</a>
 					<div class="col s12">
 						<span class="settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened."> 
 							<label>

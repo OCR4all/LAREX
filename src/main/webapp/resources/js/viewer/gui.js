@@ -68,7 +68,20 @@ function GUI(canvas, viewer, colors) {
 			}
 		}
 	}
-
+	this.lockVirtualKeyboard = function(doLock){
+		if(doLock){ 
+			$('.vk-lock').addClass("hide");
+			$('.vk-unlock').removeClass("hide");
+			$('.vk-drag').attr("draggable",false);
+		}else{
+			$('.vk-lock').removeClass("hide");
+			$('.vk-unlock').addClass("hide");
+			$('.vk-drag').attr("draggable",true);
+		}
+	}
+	this.deleteVirtualKeyboardButton = function($button){
+		$button.remove();
+	}
 	this.capKeyboardRowLength = function ($row){
 		$children = $row.children();
 		if($children.length > 12){
@@ -80,7 +93,6 @@ function GUI(canvas, viewer, colors) {
 		}
 		// Check for empty rows and delete them
 		$('.vk-row').each((i,r)=> {
-			console.log($(r).children().length == 0);
 			if($(r).children().length == 0){
 				$(r).remove()
 			}
@@ -88,9 +100,8 @@ function GUI(canvas, viewer, colors) {
 	}
 
 	this.openTextLineContent = function (textline) {
-		const $contextmenu = $("#textline-content");
-		$contextmenu.removeClass("hide");
-		this.resizeTextLineContent();
+		const $textlinecontent = $("#textline-content");
+		$textlinecontent.removeClass("hide");
 
 		let anchorX = Infinity;
 		let anchorY = 0;
@@ -108,9 +119,12 @@ function GUI(canvas, viewer, colors) {
 			const left = $viewerCanvas.offsetLeft
 			const top = $viewerCanvas.offsetTop
 
-			$contextmenu.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
-			$contextmenu.data('content', this.tempTextline.text);
+			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
+			$textlinecontent.data('textline', textline);
+
+			$("#textline-text").val(this.tempTextline.text["gt"]);
 		}
+		this.resizeTextLineContent();
 	}
 
 	this.resizeTextLineContent = function(){
@@ -123,6 +137,13 @@ function GUI(canvas, viewer, colors) {
 
 	this.closeTextLineContent = function () {
 		$("#textline-content").addClass("hide");
+	}
+
+	this.getTextLineContent = function () {
+		if(this.tempTextline){
+			return {id:this.tempTextline.id,text:$("#textline-text").val()};
+		}
+		return {};
 	}
 
 	this.isTextLineContentActive = function() {

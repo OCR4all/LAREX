@@ -161,36 +161,6 @@
 				</div>
 				<div id="text_tab">
 					<b:baseMenu/>
-					<div class="">
-						<t:menuIconCategory name="RoI" >
-							<t:menuIcon jsClass="setRegionOfInterest" icon="video_label"
-								tooltip="Set the Region of Interest (RoI)">RoI</t:menuIcon>
-							<t:menuIcon jsClass="createIgnore" icon="layers_clear"
-								tooltip="Create a ignore rectangle">Ignore</t:menuIcon> 
-						</t:menuIconCategory>
-						<t:menuIconCategory name="Region" >
-							<t:menuIcon jsClass="createRegionRectangle" icon="crop_5_4"
-								tooltip="Create a region rectangle (Shortcut: 1)">Rectangle</t:menuIcon>
-							<t:menuIcon jsClass="createRegionBorder" icon="border_left"
-								tooltip="Create a region border (Shortcut: 2)">Border</t:menuIcon>
-						</t:menuIconCategory>
-						<div class="menuIconDivider col"></div>
-						<t:menuIconCategory name="Segment" >
-							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
-								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
-							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
-								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
-							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
-								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
-						<t:menuIcon jsClass="editContours" icon="font_download"
-							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
-							<t:menuIcon jsClass="combineSelected" icon="add_circle"
-								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
-							<t:menuIcon jsClass="fixSelected" icon="lock"
-								tooltip="Fix/unfix segments, for it to persist a new auto segmentation. (Shortcut: F)">Fix</t:menuIcon>
-						</t:menuIconCategory>
-						<div class="menuIconDivider col"></div>
-					</div>
 				</div>
 			</div>
 		</div>

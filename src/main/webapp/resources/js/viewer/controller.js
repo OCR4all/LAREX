@@ -83,7 +83,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			});
 
 			const navigationController = new NavigationController(_gui,_editor);
-			// setup paper again because of pre-resize bugcallbackNewFixedSegment
+			// setup paper again because of pre-resize bug
 			// (streched)
 			paper.setup(document.getElementById(canvasID));
 
@@ -553,6 +553,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		this.displayContours(false);
 		_gui.unselectAllToolBarButtons();
 		_gui.closeTextLineContent();
+		this.saveLine();
 	}
 
 	this.deleteSelected = function () {
@@ -1094,9 +1095,22 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.editLine = function(id){
 		if(this.getIDType(id) == ElementType.TEXTLINE){
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
+			this.saveLine();
 			_gui.openTextLineContent(textline);
 		}
 	}
+
+	this.saveLine = function(){
+		const textlinecontent = _gui.getTextLineContent();
+		const id = textlinecontent.id;
+		if(id && this.getIDType(id) == ElementType.TEXTLINE){
+			const content = textlinecontent.text;
+			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
+			
+			textline.text["gt"] = content;
+		}
+	}
+
 	this.changeRegionSettings = function (regionType, minSize, maxOccurances) {
 		let region = _settings.regions[regionType];
 		//create Region if not present
