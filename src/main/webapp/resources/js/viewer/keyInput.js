@@ -1,4 +1,4 @@
-function KeyInput(_navigationController, _controller, _gui, _selector) {
+function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocus) {
 	this.isActive = true;
 	const _this = this;
 
@@ -220,8 +220,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 	}
 
 	const wheelEvent = 'onwheel' in document ? 'wheel' : 'mousewheel DOMMouseScroll';
-	$("canvas").bind(wheelEvent, function (event) {
-		if (_this.isActive) {
+	let isZooming = false;
+	$(viewerFocus.join(",")).bind(wheelEvent, function (event) {
+		if (_this.isActive && !isZooming) {
+			isZooming = true;
 			const canvasOffset = $(this).offset();
 			let scrollDirection; //positive => down, negative => up
 
@@ -244,6 +246,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector) {
 			} else {
 				_navigationController.zoomOut(0.1, mousepoint);
 			}
+			isZooming = false;
 		}
 	});
 }

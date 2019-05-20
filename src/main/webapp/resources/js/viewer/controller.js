@@ -91,8 +91,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 
 			// Init inputs
-			const keyInput = new KeyInput(_navigationController,
-				this, _gui, _selector);
+			const keyInput = new KeyInput(_navigationController, this, _gui, _selector, ["#"+canvasID,"#textline-content"]);
 			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
 			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
 			_guiInput = new GuiInput(_navigationController, this, _gui);
