@@ -11,6 +11,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _selector;
 	let _gui;
 	let _guiInput;
+	let _navigationController;
 	let _editor;
 	let _currentPage;
 	let _segmentedPages = [];
@@ -82,24 +83,30 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				_gui.setVirtualKeyboard(keyboard);
 			});
 
-			const navigationController = new NavigationController(_gui,_editor);
+			_navigationController = new NavigationController(_gui,_editor,this.getMode);
+			viewerInput.navigationController = _navigationController;
 			// setup paper again because of pre-resize bug
 			// (streched)
 			paper.setup(document.getElementById(canvasID));
 
 
 			// Init inputs
-			const keyInput = new KeyInput(navigationController,
+			const keyInput = new KeyInput(_navigationController,
 				this, _gui, _selector);
-			$("#" + canvasID).mouseover(() => keyInput.isActive = true);
-			$("#" + canvasID).mouseleave(() => keyInput.isActive = false);
-			_guiInput = new GuiInput(navigationController, this, _gui);
+			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
+			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
+			_guiInput = new GuiInput(_navigationController, this, _gui);
 
 			this.showPreloader(false);
 			this.displayPage(0);
 
 			// on resize
-			$(window).resize(() => _gui.resizeViewerHeight());
+			$(window).resize(() => {
+				_gui.resizeViewerHeight();
+				if(_mode == Mode.TEXT && _gui.isTextLineContentActive()){
+					_gui.placeTextLineContent();
+				}
+			});
 
 
 			// init Search
@@ -155,6 +162,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
+			this.textlineRegister = {};
 			if (pageSegments) {
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach((key) => {
@@ -165,6 +173,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 							const textLine = pageSegment.textlines[linekey];
 							textLine.type = "TextLine";
 							_editor.addTextLine(textLine);
+							this.textlineRegister[textLine.id] = pageSegment.id;
 						});
 					}
 				});
@@ -196,10 +205,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			const pageCuts = _settings.pages[_currentPage].cuts;
 			// Iterate over FixedSegment-"Map" (Object in JS)
 			Object.keys(pageCuts).forEach((key) => _editor.addLine(pageCuts[key]));
-			_editor.center();
-			_editor.zoomFit();
 
-			_gui.updateZoom();
+			_navigationController.zoomFit();
+
 			_gui.showUsedRegionLegends(_presentRegions);
 			if(_segmentation[_currentPage] != null){
 				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder, _segmentation[_currentPage].segments);
@@ -553,7 +561,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		this.displayContours(false);
 		_gui.unselectAllToolBarButtons();
 		_gui.closeTextLineContent();
-		this.saveLine();
 	}
 
 	this.deleteSelected = function () {
@@ -1095,7 +1102,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.editLine = function(id){
 		if(this.getIDType(id) == ElementType.TEXTLINE){
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
-			this.saveLine();
 			_gui.openTextLineContent(textline);
 		}
 	}
@@ -1107,7 +1113,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			const content = textlinecontent.text;
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
 			
-			textline.text["gt"] = content;
+			textline.text[1] = content;
+			_gui.saveTextLine(id);
 		}
 	}
 
@@ -1135,11 +1142,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			$('#preloader').removeClass('hide');
 		} else {
 			$('#preloader').addClass('hide');
-		}
-	}
-	this.moveImage = function (delta) {
-		if (!_editor.isEditing) {
-			_editor.movePoint(delta);
 		}
 	}
 	this.openContextMenu = function (doSelected, id) {

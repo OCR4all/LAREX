@@ -25,6 +25,7 @@ import org.primaresearch.dla.page.layout.PageLayout;
 import org.primaresearch.dla.page.layout.logical.ReadingOrder;
 import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.shared.RegionType;
+import org.primaresearch.dla.page.layout.physical.text.TextContent;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
 import org.primaresearch.dla.page.metadata.MetaData;
@@ -90,27 +91,29 @@ public class PageXMLWriter {
 
 			// Check for TextRegion
 			if (regionType.getName().equals(RegionType.TextRegion.getName())) {
-				TextRegion textRegion = ((TextRegion) region);
+				final TextRegion textRegion = ((TextRegion) region);
 				textRegion.setTextType(TypeConverter.subTypeToString(type.getSubtype()));
 
 				// Add TextLines if existing
 				if(regionSegment.getTextlines() != null) {
 					for (Entry<String, com.web.model.TextLine> lineEntry : regionSegment.getTextlines().entrySet()) {
-						com.web.model.TextLine textLine = lineEntry.getValue();
+						final com.web.model.TextLine textLine = lineEntry.getValue();
 						
-						TextLine newTextLine = textRegion.createTextLine();
+						final TextLine newTextLine = textRegion.createTextLine();
 						
-						Polygon coords = new Polygon();
+						final Polygon coords = new Polygon();
 						for (Point point : textLine.getPoints()) {
 							coords.addPoint((int) point.getX(), (int) point.getY());
 						}
 						newTextLine.setCoords(coords);
 						
 						// Add Text
-						/*for(Entry<String,String> content : textLine.getText().entrySet()) {
-							Word word = newTextLine.createWord();
-							word.setText(content.getValue());
-						}*/
+						for(Entry<Integer,String> content : textLine.getText().entrySet()) {
+							final int id = content.getKey();
+							final TextContent textContent = (id >= newTextLine.getTextContentVariantCount()) ?
+									newTextLine.addTextContentVariant(): newTextLine.getTextContentVariant(id);
+							textContent.setText(content.getValue());
+						}
 					}
 				}
 

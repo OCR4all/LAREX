@@ -520,6 +520,10 @@ body{
   background-color: white;
   padding: 0px;
   margin: 0px;
+  &.corrected{
+    border-color:#4caf50;
+    background-color: #c8e6c9;
+  }
   *{
     font-family: 'Andron';
   }

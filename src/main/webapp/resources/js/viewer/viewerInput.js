@@ -1,5 +1,6 @@
 function ViewerInput(controller) {
 	const _controller = controller;
+	this.navigationController
 	this.selector;
 
 	this.enterElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
@@ -55,7 +56,7 @@ function ViewerInput(controller) {
 					if(_controller.hasPointsSelected())
 						_controller.moveSelectedPoints();
 					else
-						_controller.moveImage(event.delta);
+						this.navigationController.move(event.delta.x,event.delta.y);
 				}
 				break;
 			// middleclick

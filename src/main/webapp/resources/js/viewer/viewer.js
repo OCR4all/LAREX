@@ -19,6 +19,7 @@ class Viewer {
 		this._currentZoom = 1;
 		this._colors = colors;
 		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
+		this._hitOptionsTextline = { segments: true, stroke: true, fill: true, tolerance: 1 };
 		this._highlighted = null;
 		this._listener = [];
 		this._contours = [];
@@ -53,7 +54,7 @@ class Viewer {
 
 					// Check textlines second
 					if(!hitResult)
-						hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
+						hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptionsTextline) : null;
 
 					// Check segments last
 					if(!hitResult)
@@ -61,7 +62,7 @@ class Viewer {
 				} else if(this.mode == ViewerMode.CONTOUR){
 					hitResult = this._contourOverlay ? this.contourHitTest(event.point) : null;
 				} else if(this.mode == ViewerMode.TEXTLINE){
-					hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
+					hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptionsTextline) : null;
 				} else {
 					throw new ValueError('Unkown selection mode: '+this.mode)
 				}

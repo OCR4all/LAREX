@@ -25,6 +25,7 @@ import org.primaresearch.dla.page.layout.logical.GroupMember;
 import org.primaresearch.dla.page.layout.logical.RegionRef;
 import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
+import org.primaresearch.dla.page.layout.physical.text.TextContent;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
 import org.primaresearch.io.UnsupportedFormatVersionException;
@@ -101,9 +102,11 @@ public class PageXMLReader {
 							}
 
 							// TextLine text content
-							Map<String,String> content = new HashMap<>();
-							// for (LowLevelTextObject textChild : textLine.getTextObjectsSorted()) {
-							// }
+							Map<Integer,String> content = new HashMap<>();
+							for(int i = 0; i < textLine.getTextContentVariantCount(); i++) {
+								TextContent textContent = textLine.getTextContentVariant(i);
+								content.put(i, textContent.getText());
+							}
 
 							textLines.put(id,new com.web.model.TextLine(id,pointList,content));
 						}

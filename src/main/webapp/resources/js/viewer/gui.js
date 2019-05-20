@@ -102,14 +102,38 @@ function GUI(canvas, viewer, colors) {
 	this.openTextLineContent = function (textline) {
 		const $textlinecontent = $("#textline-content");
 		$textlinecontent.removeClass("hide");
-
-		let anchorX = Infinity;
-		let anchorY = 0;
 		
 		this.tempTextline = textline ? textline : this.tempTextline; 
 		
 		if(this.tempTextline){
-			this.tempTextline.points.forEach((point) => {
+			this.placeTextLineContent(this.tempTextline);
+
+			const hasPredict = 0 in this.tempTextline.text;
+			const hasGT = 1 in this.tempTextline.text;
+			$textline_text = $("#textline-text");
+			if(hasGT){
+				$textlinecontent.addClass("corrected")
+				$textline_text.val(this.tempTextline.text[1]);
+			} else {
+				$textlinecontent.removeClass("corrected")
+				if (hasPredict){
+					$textline_text.val(this.tempTextline.text[0]);
+				} else {
+					$textline_text.val("");
+				}
+			}
+
+		}
+		this.resizeTextLineContent();
+	}
+
+	this.placeTextLineContent = function(textline=this.tempTextline){
+		const $textlinecontent = $("#textline-content");
+		let anchorX = Infinity;
+		let anchorY = 0;
+
+		if(textline){
+			textline.points.forEach((point) => {
 				anchorX = anchorX < point.x ? anchorX: point.x; 	
 				anchorY = anchorY > point.y ? anchorY: point.y; 	
 			});
@@ -121,10 +145,14 @@ function GUI(canvas, viewer, colors) {
 
 			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
 			$textlinecontent.data('textline', textline);
-
-			$("#textline-text").val(this.tempTextline.text["gt"]);
 		}
-		this.resizeTextLineContent();
+	}
+
+	this.saveTextLine = function(id) {
+		const $textlinecontent = $("#textline-content");
+		if(this.tempTextline && this.tempTextline.id == id && this.isTextLineContentActive()){
+			$textlinecontent.addClass("corrected");
+		}
 	}
 
 	this.resizeTextLineContent = function(){
@@ -153,9 +181,15 @@ function GUI(canvas, viewer, colors) {
 	this.insertCharacterTextLine = function(character){
 		if(this.isTextLineContentActive()){
 			$input = $("#textline-text");
-			$input.val($input.val()+character);
+			const start = $input[0].selectionStart;
+			const end = $input[0].selectionEnd;
+			let text = $input.val();
+
+			$input.val(text.substring(0,start)+character+text.substring(end));
 			this.resizeTextLineContent();
 			$input.focus();
+			$input[0].selectionStart = start+character.length;
+			$input[0].selectionEnd = start+character.length;
 		}
 	}
 

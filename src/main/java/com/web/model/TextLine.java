@@ -20,7 +20,7 @@ public class TextLine extends Polygon {
 	 * TextLine. (UTF-8)
 	 */
 	@JsonProperty("text")
-	protected Map<String, String> text;
+	protected Map<Integer, String> text;
 
 	/**
 	 * Base constructor for the parsing from a JSON object, with all included data.
@@ -32,7 +32,7 @@ public class TextLine extends Polygon {
 	 */
 	@JsonCreator
 	public TextLine(@JsonProperty("id") String id, @JsonProperty("points") LinkedList<Point> points,
-			@JsonProperty("text") Map<String, String> text, @JsonProperty("isRelative") boolean isRelative) {
+			@JsonProperty("text") Map<Integer, String> text, @JsonProperty("isRelative") boolean isRelative) {
 		super(id, points, isRelative);
 		this.text = text;
 	}
@@ -44,7 +44,7 @@ public class TextLine extends Polygon {
 	 * @param points
 	 * @param text   Text content inside the text line
 	 */
-	public TextLine(String id, LinkedList<Point> points, Map<String, String> text) {
+	public TextLine(String id, LinkedList<Point> points, Map<Integer, String> text) {
 		this(id, points, text, false);
 	}
 
@@ -55,7 +55,7 @@ public class TextLine extends Polygon {
 	 * @param id
 	 * @param text
 	 */
-	public TextLine(MatOfPoint mat, String id, Map<String, String> text) {
+	public TextLine(MatOfPoint mat, String id, Map<Integer, String> text) {
 		super(mat, id);
 		this.text = text;
 	}
@@ -66,7 +66,7 @@ public class TextLine extends Polygon {
 	 * 
 	 * @return
 	 */
-	public Map<String, String> getText() {
+	public Map<Integer, String> getText() {
 		return new HashMap<>(text);
 	}
 }
