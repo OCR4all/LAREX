@@ -168,6 +168,7 @@ function GuiInput(navigationController, controller, gui) {
 	});
 	$('#textline-text').on('input', function() {
 		_gui.resizeTextLineContent();
+		_gui.saveTextLine(false,false);
 	}).trigger('input');
 
 	// Set begin

@@ -516,7 +516,7 @@ function ActionChangeTextLineText(id, content, viewer, gui, segmentation, page, 
 
 			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[id];
 			textline.text[1] = content;
-			gui.updateTextLine(id);
+			gui.saveTextLine(id);
 			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
 	}

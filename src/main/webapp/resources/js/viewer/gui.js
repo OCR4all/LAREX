@@ -129,30 +129,49 @@ function GUI(canvas, viewer, colors) {
 
 			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
 			$textlinecontent.data('textline', textline);
+
+			this.saveTextLine(false,false);
 		}
 	}
 
 	this.updateTextLine = function(id) {
-		if(this.tempTextline.id == id){
+		if(this.tempTextline && this.tempTextline.id == id){
 			const $textlinecontent = $("#textline-content");
 			const hasPredict = 0 in this.tempTextline.text;
 			const hasGT = 1 in this.tempTextline.text;
 			const $textline_text = $("#textline-text");
+			const start = $textline_text[0].selectionStart;
+			const end = $textline_text[0].selectionEnd;
 			if(hasGT){
-				$textlinecontent.addClass("corrected")
+				$textlinecontent.addClass("line-corrected")
 				$textline_text.val(this.tempTextline.text[1]);
 			} else {
-				$textlinecontent.removeClass("corrected")
+				$textlinecontent.removeClass("line-corrected")
+				$textlinecontent.removeClass("line-saved");
 				if (hasPredict){
 					$textline_text.val(this.tempTextline.text[0]);
 				} else {
 					$textline_text.val("");
 				}
 			}
+
+			// Correct to last focus
+			const content_len = $textline_text.val().length;
+			$textline_text.focus();
+			$textline_text[0].selectionStart = start < content_len ? start : content_len;
+			$textline_text[0].selectionEnd = end < content_len ? end : content_len;
 			this.resizeTextLineContent();
 		}
+	}
 
-
+	this.saveTextLine = function(id,doSave=true){
+		this.updateTextLine(id);
+		const $textlinecontent = $("#textline-content");
+		if(doSave){
+			$textlinecontent.addClass("line-saved")
+		}else{
+			$textlinecontent.removeClass("line-saved")
+		}
 	}
 
 	this.resizeTextLineContent = function(){
