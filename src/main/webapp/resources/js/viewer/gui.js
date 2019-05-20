@@ -106,25 +106,9 @@ function GUI(canvas, viewer, colors) {
 		this.tempTextline = textline ? textline : this.tempTextline; 
 		
 		if(this.tempTextline){
-			this.placeTextLineContent(this.tempTextline);
-
-			const hasPredict = 0 in this.tempTextline.text;
-			const hasGT = 1 in this.tempTextline.text;
-			$textline_text = $("#textline-text");
-			if(hasGT){
-				$textlinecontent.addClass("corrected")
-				$textline_text.val(this.tempTextline.text[1]);
-			} else {
-				$textlinecontent.removeClass("corrected")
-				if (hasPredict){
-					$textline_text.val(this.tempTextline.text[0]);
-				} else {
-					$textline_text.val("");
-				}
-			}
-
+			this.updateTextLine(textline.id);
+			this.placeTextLineContent();
 		}
-		this.resizeTextLineContent();
 	}
 
 	this.placeTextLineContent = function(textline=this.tempTextline){
@@ -148,11 +132,27 @@ function GUI(canvas, viewer, colors) {
 		}
 	}
 
-	this.saveTextLine = function(id) {
-		const $textlinecontent = $("#textline-content");
-		if(this.tempTextline && this.tempTextline.id == id && this.isTextLineContentActive()){
-			$textlinecontent.addClass("corrected");
+	this.updateTextLine = function(id) {
+		if(this.tempTextline.id == id){
+			const $textlinecontent = $("#textline-content");
+			const hasPredict = 0 in this.tempTextline.text;
+			const hasGT = 1 in this.tempTextline.text;
+			const $textline_text = $("#textline-text");
+			if(hasGT){
+				$textlinecontent.addClass("corrected")
+				$textline_text.val(this.tempTextline.text[1]);
+			} else {
+				$textlinecontent.removeClass("corrected")
+				if (hasPredict){
+					$textline_text.val(this.tempTextline.text[0]);
+				} else {
+					$textline_text.val("");
+				}
+			}
+			this.resizeTextLineContent();
 		}
+
+
 	}
 
 	this.resizeTextLineContent = function(){

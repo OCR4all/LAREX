@@ -482,9 +482,6 @@ function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, 
 	const _id = id;
 	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
 	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points));
-	let _actionSetFixed = null;
-	if (!controller.isSegmentFixed(id))
-		_actionSetFixed = new ActionFixSegment(id, controller, true);
 
 	this.execute = function () {
 		if (!_isExecuted) {
@@ -492,8 +489,6 @@ function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, 
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _newRegionPoints;
 			viewer.updateSegment(segment);
-			if (_actionSetFixed)
-				_actionSetFixed.execute();
 			console.log('Do - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
 	}
@@ -502,14 +497,38 @@ function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, 
 			_isExecuted = false;
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _oldRegionPoints;
-			if (_actionSetFixed)
-				_actionSetFixed.undo();
 			viewer.updateSegment(segment);
 			console.log('Undo - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
 	}
 }
 
+function ActionChangeTextLineText(id, content, viewer, gui, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _id = id;
+	const _oldContent = JSON.parse(JSON.stringify(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].text));
+	if (!controller.isSegmentFixed(id))
+		_actionSetFixed = new ActionFixSegment(id, controller, true);
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+
+			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[id];
+			textline.text[1] = content;
+			gui.updateTextLine(id);
+			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].text = JSON.parse(JSON.stringify(_oldContent));
+			gui.updateTextLine(id);
+			console.log('Undo - Change TextLine text: {id:"' + _id + ' [..]}');
+		}
+	}
+}
 function ActionChangeReadingOrder(oldReadingOrder, newReadingOrder, controller, segmentation, page) {
 	let _isExecuted = false;
 	const _oldReadingOrder = JSON.parse(JSON.stringify(oldReadingOrder));

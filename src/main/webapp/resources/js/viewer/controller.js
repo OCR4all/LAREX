@@ -1110,10 +1110,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const id = textlinecontent.id;
 		if(id && this.getIDType(id) == ElementType.TEXTLINE){
 			const content = textlinecontent.text;
-			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
-			
-			textline.text[1] = content;
-			_gui.saveTextLine(id);
+			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _editor, _gui, _segmentation, _currentPage, this), _currentPage);
 		}
 	}
 
