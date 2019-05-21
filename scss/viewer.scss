@@ -51,6 +51,21 @@ body{
 		background-color: $color2;
     padding: 0px !important;
 
+    .collapsible-header{
+      position:relative;
+      .collapsible-setting{
+        position:absolute;
+        right:5px;
+        top:0px;
+        height:100%;
+        *{
+          font-size:15px;
+        }
+        i{
+          margin-right:0px;
+        }
+      }
+    }
     .input-number{
         background-color: transparent;
         border: 1px solid black;
@@ -80,6 +95,7 @@ body{
     .settings-regions, .reading-order, .legend-regions{
         height: 210px;
         overflow-y: scroll;
+        counter-reset: li -1;
         *{
           font-size: 10px;
         }
@@ -110,6 +126,26 @@ body{
               color: $color2;
             }
         }
+        .reading-order-segment{
+          position:relative;
+          .delete-reading-order-segment{
+            position:absolute;
+            right: 5px;
+            top:7px;
+          }
+          &::before{
+            counter-increment: li;
+            content:counter(li);
+            border-right: 1px solid $color3;
+            margin-right: 5px;
+            padding-right: 5px;
+          }
+          &:hover{
+            &::before{
+              border-right: 1px solid white;
+            }
+          }
+        }
     }
     .legend{
       padding: 1px 12px 1px 12px;
@@ -132,6 +168,10 @@ body{
     .btn {
       margin-bottom: 5px;
     }
+}
+
+.reading-order{
+  height:350px !important;
 }
 
 .virtual-keyboard{
@@ -171,8 +211,8 @@ body{
     width: 40px;
     height: 40px;
     text-align: center;
-    color: black !important;
-    background-color: $color4 !important;
+    color: black;
+    background-color: $color4;
     padding: 2px 0px 0px 0px !important;
     margin: 0px !important;
     float: left;

@@ -97,6 +97,7 @@
 		<li>
 			<div id="reading-order-header" class="collapsible-header">
 				<i class="material-icons">reorder</i>Reading Order
+				<div class="collapsible-setting"><i class="delete-reading-order material-icons">delete</i></div>
 			</div>
 			<div class="collapsible-body">
 				<div class="reading-order">

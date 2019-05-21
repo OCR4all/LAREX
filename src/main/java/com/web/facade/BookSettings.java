@@ -104,7 +104,7 @@ public class BookSettings {
 				points.add(new Point(position.getTopLeftXPercentage(), position.getBottomRightYPercentage()));
 
 				String id = regionType.toString() + regionCount;
-				guiRegion.addPolygon(new Region(id, regionType, points, true, new HashMap<>()));
+				guiRegion.addPolygon(new Region(id, regionType, points, true, new HashMap<>(), new ArrayList<>()));
 				regionCount++;
 			}
 

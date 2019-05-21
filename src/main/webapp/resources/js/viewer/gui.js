@@ -20,16 +20,19 @@ function GUI(canvas, viewer, colors) {
 				$('#sidebar-segment').addClass('hide');
 				$('#sidebar-lines').removeClass('hide');
 				$('#sidebar-text').addClass('hide');
+				this.displayReadingOrder(false);
 				this.closeTextLineContent();
 				break;
 			case Mode.TEXT:
 				$('#sidebar-segment').addClass('hide');
 				$('#sidebar-lines').addClass('hide');
 				$('#sidebar-text').removeClass('hide');
+				this.displayReadingOrder(false);
 				this.closeTextLineContent();
 				break;
 			case Mode.SEGMENT:
 			default:
+				this.displayReadingOrder($("#reading-order-header").hasClass("active"));
 				$('#sidebar-segment').removeClass('hide');
 				$('#sidebar-lines').addClass('hide');
 				$('#sidebar-text').addClass('hide');
@@ -344,9 +347,9 @@ function GUI(canvas, viewer, colors) {
 
 	this.displayReadingOrder = function (doDisplay) {
 		if (doDisplay) {
-			$('.readingOrderCategory').removeClass("hide");
+			_viewer.displayReadingOrder(this.getReadingOrder());
 		} else {
-			$('.readingOrderCategory').addClass("hide");
+			_viewer.hideReadingOrder();
 		}
 	}
 
@@ -358,6 +361,7 @@ function GUI(canvas, viewer, colors) {
 		}
 	}
 
+	/** Set the in the gui visible reading order */
 	this.setReadingOrder = function (readingOrder, segments) {
 		$readingOrderList = $('#reading-order-list');
 		$readingOrderList.empty();
@@ -366,13 +370,33 @@ function GUI(canvas, viewer, colors) {
 			if(segment){
 				const $collectionItem = $('<li class="draggable collection-item reading-order-segment" data-id="' + segment.id + '" data-drag-group="readingorder" draggable="true"></li>');
 				const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
-				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-id="' + segment.id + '">delete</i>');
+				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons" data-id="' + segment.id + '">delete</i>');
 				$collectionItem.append($legendTypeIcon);
-				$collectionItem.append(segment.type + "-" + segment.id.substring(0, 4));
+				$collectionItem.append(segment.id.substring(0, 4) + "-" + segment.type );
 				$collectionItem.append($deleteReadingOrderSegment);
 				$readingOrderList.append($collectionItem);
 			}
 		}
+	}
+
+	/** Open the reading order collapsible */
+	this.openReadingOrderSettings = function (){
+		$readingOrder = $("#reading-order-header");
+		if(!$readingOrder.hasClass("active")){
+			$readingOrder.click();
+		}
+	}
+
+	/**
+	 * Get the reading order displayed in the gui (list of segment ids)
+	 */
+	this.getReadingOrder = function (){
+		const readingOrder = [];
+		const $readingOrderItems = $("#reading-order-list").children();
+		
+		$readingOrderItems.each((i,ir) => readingOrder.push($(ir).data("id")));
+
+		return readingOrder;
 	}
 
 	this.highlightSegment = function (id, doHighlight) {
@@ -389,6 +413,7 @@ function GUI(canvas, viewer, colors) {
 		$($segment1).insertBefore($segment2);
 	}
 
+
 	this.forceUpdateReadingOrder = function (readingOrder, forceHard, segments) {
 		if (forceHard) {
 			this.setReadingOrder(readingOrder, segments);
@@ -403,11 +428,11 @@ function GUI(canvas, viewer, colors) {
 
 	this.doEditReadingOrder = function (doEdit) {
 		if (doEdit) {
-			$('.createReadingOrder').addClass("hide");
+			$('.editReadingOrder').addClass("hide");
 			$('.saveReadingOrder').removeClass("hide");
 		} else {
 			$('.saveReadingOrder').addClass("hide");
-			$('.createReadingOrder').removeClass("hide");
+			$('.editReadingOrder').removeClass("hide");
 		}
 	}
 
@@ -434,6 +459,9 @@ function GUI(canvas, viewer, colors) {
 				break;
 			case 'segmentContours':
 				$button = $('.editContours');
+				break;
+			case 'editReadingOrder':
+				$button = $('.editReadingOrder');
 				break;
 			case 'cut':
 				$button = $('.createCut');

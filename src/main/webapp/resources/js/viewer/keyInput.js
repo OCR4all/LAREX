@@ -11,7 +11,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 				switch(event.keyCode){
 					case 27: // ESC
 						_controller.escape();
-						_controller.endCreateReadingOrder();
+						_controller.endEditReadingOrder();
 						validKey = true;
 						break;
 					case 13: // Enter
@@ -110,7 +110,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 
 					case 27: // ESC
 						_controller.escape();
-						_controller.endCreateReadingOrder();
+						_controller.endEditReadingOrder();
 						validKey = true;
 						break;
 					case 49: // 1
@@ -164,6 +164,15 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 					case 70: // F
 						if(mode === Mode.SEGMENT){
 							_controller.fixSelected();
+							validKey = true;
+						}
+						break;
+					case 82: // R
+						if (!event.ctrlKey && !event.shiftKey) {
+							_controller.addSelectedToReadingOrder();
+							validKey = true;
+						} else if(event.ctrlKey && !event.shiftKey){
+							_controller.toggleEditReadingOrder();
 							validKey = true;
 						}
 						break;

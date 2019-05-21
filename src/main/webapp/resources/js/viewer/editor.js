@@ -760,42 +760,44 @@ getPointFixedToGrid(point) {
 }
 
 displayReadingOrder(readingOrder) {
-	if (!this._readingOrder) {
-		this._readingOrder = new paper.Path();
-		this._readingOrder.strokeColor = 'indigo';
-		this._readingOrder.strokeWidth = 2;
-	}
-	this.getImageCanvas().addChild(this._readingOrder);
-	this._readingOrder.visible = true;
-	this._guiOverlay.visible = true;
-	this._guiOverlay.bringToFront();
-	this._readingOrder.removeSegments();
-	this._guiOverlay.removeChildren();
+	if(this._guiOverlay){
+		if (!this._readingOrder) {
+			this._readingOrder = new paper.Path();
+			this._readingOrder.strokeColor = 'indigo';
+			this._readingOrder.strokeWidth = 2;
+		}
+		this.getImageCanvas().addChild(this._readingOrder);
+		this._readingOrder.visible = true;
+		this._guiOverlay.visible = true;
+		this._guiOverlay.bringToFront();
+		this._readingOrder.removeSegments();
+		this._guiOverlay.removeChildren();
 
-	for (let index = 0; index < readingOrder.length; index++) {
-		const segment = this.getPolygon(readingOrder[index]);
-		if (segment) {
-			this._readingOrder.add(new paper.Segment(segment.bounds.center));
-			const label = new paper.Group();
-			const text = new paper.PointText({
-				content: index,
-				fillColor: 'indigo',
-				fontFamily: 'Courier New',
-				fontWeight: 'bold',
-				fontSize: '18pt',
-			});
-			text.bounds.center = segment.bounds.center;
+		for (let index = 0; index < readingOrder.length; index++) {
+			const segment = this.getPolygon(readingOrder[index]);
+			if (segment) {
+				this._readingOrder.add(new paper.Segment(segment.bounds.center));
+				const label = new paper.Group();
+				const text = new paper.PointText({
+					content: index,
+					fillColor: 'indigo',
+					fontFamily: 'Courier New',
+					fontWeight: 'bold',
+					fontSize: '18pt',
+				});
+				text.bounds.center = segment.bounds.center;
 
-			const background = new paper.Path.Circle(text.bounds.center,text.bounds.height/2);
-			background.fillColor = new paper.Color(1, 1, 1, 0.8);
-			background.strokeColor = 'indigo';
-			background.strokeWidth = 3;
+				const background = new paper.Path.Circle(text.bounds.center,text.bounds.height/2);
+				background.fillColor = new paper.Color(1, 1, 1, 0.8);
+				background.strokeColor = 'indigo';
+				background.strokeWidth = 3;
 
-			label.addChild(background)
-			label.addChild(text)
-			label.lastZoom = this._currentZoom;
+				label.addChild(background)
+				label.addChild(text)
+				label.lastZoom = this._currentZoom;
 
-			this._guiOverlay.addChild(label);
+				this._guiOverlay.addChild(label);
+			}
 		}
 	}
 }

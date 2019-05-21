@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -81,7 +82,9 @@ public class PageXMLReader {
 				// Get Type
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
-				Map<String,com.web.model.TextLine> textLines = new HashMap<>();
+				final Map<String,com.web.model.TextLine> textLines = new HashMap<>();
+				final List<String> readingOrder = new ArrayList<>();
+				
 				if (type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
 					subtype = TypeConverter.stringToSubType((textRegion).getTextType());
@@ -109,6 +112,7 @@ public class PageXMLReader {
 							}
 
 							textLines.put(id,new com.web.model.TextLine(id,pointList,content));
+							readingOrder.add(id);
 						}
 
 					}
@@ -127,7 +131,7 @@ public class PageXMLReader {
 				String id = region.getId().toString();
 				if (!pointList.isEmpty()) {
 					resRegions.put(id, new com.web.model.Region(id, new PAGERegionType(type, subtype).toString(),
-							pointList, false, textLines));
+							pointList, false, textLines, readingOrder));
 				}
 			}
 			final int height = page.getLayout().getHeight();

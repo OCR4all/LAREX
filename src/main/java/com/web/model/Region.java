@@ -1,6 +1,9 @@
 package com.web.model;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import org.opencv.core.MatOfPoint;
@@ -25,19 +28,24 @@ public class Region extends Polygon{
 	protected String type;
 	@JsonProperty("textlines")
 	protected Map<String,TextLine> textlines;
+	@JsonProperty("readingOrder")
+	protected List<String> readingOrder;
 
 	@JsonCreator
 	public Region(@JsonProperty("id") String id, @JsonProperty("type") String type,
 			@JsonProperty("points") LinkedList<Point> points, @JsonProperty("isRelative") boolean isRelative,
-			@JsonProperty("textlines") Map<String,TextLine> textlines) {
+			@JsonProperty("textlines") Map<String,TextLine> textlines, @JsonProperty("readingOrder") List<String> readingOrder) {
 		super(id,points,isRelative);
 		this.type = type;
 		this.textlines = textlines;
+		this.readingOrder = readingOrder;
 	}
 
 	public Region(MatOfPoint mat, String id, String type) {
 		super(mat,id);
 		this.type = type;
+		this.textlines = new HashMap<>();
+		this.readingOrder = new ArrayList<>();
 	}
 
 	public Region(RegionSegment region) {
@@ -68,5 +76,13 @@ public class Region extends Polygon{
 	
 	public Map<String,TextLine> getTextlines() {
 		return textlines;
+	}
+	
+	/**
+	 * Get the reading order of the contained textlines
+	 * @return
+	 */
+	public List<String> getReadingOrder() {
+		return readingOrder;
 	}
 }

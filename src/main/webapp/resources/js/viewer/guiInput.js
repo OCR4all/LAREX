@@ -191,11 +191,18 @@ function GuiInput(navigationController, controller, gui) {
 
 	$('.loadExistingSegmentation').click(() => _controller.requestSegmentation(true));
 
+	$('.addToReadingOrder').click(() => _controller.addSelectedToReadingOrder());
+
 	$('.autoGenerateReadingOrder').click(() => _controller.autoGenerateReadingOrder());
 
-	$('.createReadingOrder').click(() => _controller.createReadingOrder());
+	$('.editReadingOrder').click(() => _controller.toggleEditReadingOrder());
 
-	$('.saveReadingOrder').click(() => _controller.endCreateReadingOrder());
+	$('.saveReadingOrder').click(() => _controller.toggleEditReadingOrder());
+
+	$('.delete-reading-order').click((e) => {
+		_controller.deleteReadingOrder()
+		e.stopPropagation();
+	});
 
 	$('#pageLegend > .pageIconTodo').click(function(event) { 
 		$this = $(this);
@@ -293,23 +300,18 @@ function GuiInput(navigationController, controller, gui) {
 	/* Reading Order */
 	$(document).on('dragenter','.reading-order-segment', function (event) {
 		const $this = $(this);
-		if ($drag_target && $this.data("drag-group") == $drag_target.data('drag-group')) {
-			_controller.setBeforeInReadingOrder($drag_target.data('id'),$this.data('id'), false);
-		}
 	});
 	$(document).on('drop','.reading-order-segment', function (event) {
 		const $this = $(this);
 		const $other = $(event.target);
 		if ($this.data("drag-group") == $other.data('drag-group')) {
-			_controller.setBeforeInReadingOrder($this.data('id'), $other.data('id'), true);
+			_gui.setBeforeInReadingOrder($this.data('id'), $other.data('id'));
+			_controller.saveReadingOrder();
 		}
 		_hasBeenDropped = true;
 	});
 
 	$(document).on('dragend','.reading-order-segment', (event) => {
-		if (!_hasBeenDropped) {
-			_controller.forceUpdateReadingOrder();
-		}
 	});
 	$(document).on("click",'.delete-reading-order-segment', function () {
 		const $this = $(this);

@@ -36,7 +36,7 @@ function ViewerInput(controller) {
 						_controller.selectSegment(sectionID, hitTest);
 						_controller.openContextMenu(true);
 					}
-					_controller.endCreateReadingOrder();
+					_controller.endEditReadingOrder();
 				} else if(mode == ViewerMode.CONTOUR){
 
 				} else {
@@ -64,7 +64,7 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
-				_controller.endCreateReadingOrder();
+				_controller.endEditReadingOrder();
 				break;
 		}
 	}
@@ -82,7 +82,7 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
-				_controller.endCreateReadingOrder();
+				_controller.endEditReadingOrder();
 				break;
 		}
 	}
@@ -97,7 +97,7 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
-				_controller.endCreateReadingOrder();
+				_controller.endEditReadingOrder();
 				break;
 		}
 		if (!event.modifiers.control) {
@@ -116,7 +116,7 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
-				_controller.endCreateReadingOrder();
+				_controller.endEditReadingOrder();
 				break;
 		}
 		if (!event.modifiers.control) {

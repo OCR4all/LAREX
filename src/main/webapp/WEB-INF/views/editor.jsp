@@ -114,10 +114,10 @@
 								tooltip="Fix/unfix segments, for it to persist a new auto segmentation. (Shortcut: F)">Fix</t:menuIcon>
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
-							<t:menuIcon jsClass="createReadingOrder" icon="timeline"
-								tooltip="Set a reading order. Add to the readingorder with leftclick and save with rightclick or clicking the button again.">readingOrder</t:menuIcon>
-							<t:menuIcon jsClass="saveReadingOrder hide" icon="save"
-								tooltip="Save the current reading order (Shortcut: right click)">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
+								tooltip="Add a segment to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
+								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
@@ -144,10 +144,10 @@
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
-							<t:menuIcon jsClass="createReadingOrder" icon="timeline"
-								tooltip="Set a reading order. Add to the readingorder with leftclick and save with rightclick or clicking the button again.">readingOrder</t:menuIcon>
-							<t:menuIcon jsClass="saveReadingOrder hide" icon="save"
-								tooltip="Save the current reading order (Shortcut: right click)">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
+								tooltip="Add a segment to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
+								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>

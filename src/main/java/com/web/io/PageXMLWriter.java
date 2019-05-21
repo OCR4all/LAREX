@@ -5,6 +5,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -96,22 +98,32 @@ public class PageXMLWriter {
 
 				// Add TextLines if existing
 				if(regionSegment.getTextlines() != null) {
-					for (Entry<String, com.web.model.TextLine> lineEntry : regionSegment.getTextlines().entrySet()) {
-						final com.web.model.TextLine textLine = lineEntry.getValue();
-						
-						final TextLine newTextLine = textRegion.createTextLine();
+					final List<com.web.model.TextLine> textlines = new ArrayList<>(regionSegment.getTextlines().values());
+					
+					// Sort textlines via reading order
+					List<String> readingOrder = new ArrayList<>(regionSegment.getReadingOrder());
+					Collections.reverse(readingOrder);
+					readingOrder.forEach(id -> {
+						com.web.model.TextLine textline = regionSegment.getTextlines().get(id);
+						textlines.remove(textline);
+						textlines.add(0, textline);
+					});
+					
+					// Iterate over sorted text lines and to PAGE xml
+					for (com.web.model.TextLine textline : textlines) {
+						final TextLine pageTextLine = textRegion.createTextLine();
 						
 						final Polygon coords = new Polygon();
-						for (Point point : textLine.getPoints()) {
+						for (Point point : textline.getPoints()) {
 							coords.addPoint((int) point.getX(), (int) point.getY());
 						}
-						newTextLine.setCoords(coords);
+						pageTextLine.setCoords(coords);
 						
 						// Add Text
-						for(Entry<Integer,String> content : textLine.getText().entrySet()) {
+						for(Entry<Integer,String> content : textline.getText().entrySet()) {
 							final int id = content.getKey();
-							final TextContent textContent = (id >= newTextLine.getTextContentVariantCount()) ?
-									newTextLine.addTextContentVariant(): newTextLine.getTextContentVariant(id);
+							final TextContent textContent = (id >= pageTextLine.getTextContentVariantCount()) ?
+									pageTextLine.addTextContentVariant(): pageTextLine.getTextContentVariant(id);
 							textContent.setText(content.getValue());
 						}
 					}
@@ -129,7 +141,7 @@ public class PageXMLWriter {
 
 		List<String> readingOrder = result.getReadingOrder();
 		for (String regionID : readingOrder) {
-			xmlReadingOrder.getRoot().addRegionRef(regionID);
+			xmlReadingOrder.getRoot().addRegionRef(idMap.get(regionID).toString());
 		}
 
 		// Write as Document
