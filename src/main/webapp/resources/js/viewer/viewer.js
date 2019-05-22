@@ -19,7 +19,7 @@ class Viewer {
 		this._currentZoom = 1;
 		this._colors = colors;
 		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
-		this._hitOptionsTextline = { segments: true, stroke: true, fill: true, tolerance: 1 };
+		this._hitOptionsTextline = { segments: true, stroke: true, fill: true, tolerance: 5 };
 		this._highlighted = null;
 		this._listener = [];
 		this._contours = [];
