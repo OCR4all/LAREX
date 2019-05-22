@@ -673,7 +673,7 @@ function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, contr
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
 			controller.forceUpdateReadingOrder(true);
-			console.log('Do - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
+			console.log('Do - Add to Reading Order: {id:"' + id + '",[..]"}');
 		}
 	}
 	this.undo = function () {
@@ -682,7 +682,7 @@ function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, contr
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 			controller.forceUpdateReadingOrder(true);
-			console.log('Undo - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
+			console.log('Undo - Add to Reading Order: {id:"' + id + '",[..]}');
 		}
 	}
 }

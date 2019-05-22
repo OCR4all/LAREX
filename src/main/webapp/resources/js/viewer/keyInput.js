@@ -256,6 +256,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 				_navigationController.zoomOut(0.1, mousepoint);
 			}
 			isZooming = false;
+			event.preventDefault();
 		}
 	});
 }

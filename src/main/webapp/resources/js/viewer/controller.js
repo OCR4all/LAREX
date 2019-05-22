@@ -77,7 +77,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_gui.setAllRegionColors();
 			_gui.updateAvailableColors();
 			_gui.addPreviewImageListener();
-			_gui.setMode(_mode);
+			this.setMode(_mode);
 			_communicator.getVirtualKeyboard().done((keyboard) => {
 				_gui.setVirtualKeyboard(keyboard);
 			});
@@ -207,10 +207,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_navigationController.zoomFit();
 
 			_gui.showUsedRegionLegends(_presentRegions);
-			if(_segmentation[_currentPage] != null){
-				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder, _segmentation[_currentPage].segments);
-				this.displayReadingOrder(_displayReadingOrder);
-			}
+			this.displayReadingOrder(_displayReadingOrder);
 			_gui.setRegionLegendColors(_presentRegions);
 
 			_gui.selectPage(pageNr);
@@ -305,15 +302,17 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",true);
 			_editor.displayOverlay("lines",false);
+			this.displayReadingOrder(this._displayReadingOrder);
 		} else if(mode === Mode.LINES){
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
+			this.displayReadingOrder(this._displayReadingOrder);
 		} else if(mode === Mode.TEXT){
 			_editor.displayOverlay("segments",false);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
-
+			this.displayReadingOrder(false);
 		}
 		_mode = mode;
 	}
@@ -593,35 +592,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			let multidelete = new ActionMultiple(actions);
 			_actionController.addAndExecuteAction(multidelete, _currentPage);
 		} 
-	}
-
-	this.addSelectedToReadingOrder = function(){
-		const selected = _selector.getSelectedSegments();
-		const selectType = _selector.getSelectedPolygonType();
-
-		const actions = [];
-		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-			const id = selected[i];
-			if (selectType === ElementType.SEGMENT) {
-				let segment = _segmentation[_currentPage].segments[id];
-
-				if (!this._readingOrderContains(id) && segment.type !== 'ImageRegion'){
-					actions.push(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this));
-				}
-			} else if (selectType === ElementType.TEXTLINE) {
-				const parentID = this.textlineRegister[id];
-				let segment = _segmentation[_currentPage].segments[parentID].textlines[id];
-
-				if (!this._readingOrderContains(id)){
-					actions.push(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this));
-				}
-			}
-		}
-		if(actions.length > 0){
-			_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
-		}else{
-			_gui.displayWarning("You need to select a segment to add to the reading order.");
-		}
 	}
 
 	this.mergeSelectedSegments = function () {
@@ -922,6 +892,37 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.setRegionLegendColors(_presentRegions);
 	}
 
+	/**
+	 * Add all currently selected segments that can be added to the reading order (global or local) 
+	 * to the reading order.
+	 */
+	this.addSelectedToReadingOrder = function(){
+		const selected = _editor.getSortedReadingOrder(_selector.getSelectedSegments());
+		const selectType = _selector.getSelectedPolygonType();
+
+		const actions = [];
+		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+			const id = selected[i];
+			if (selectType === ElementType.SEGMENT) {
+				let segment = _segmentation[_currentPage].segments[id];
+
+				if (!this._readingOrderContains(id) && segment.type !== 'ImageRegion'){
+					actions.push(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this));
+				}
+			} else if (selectType === ElementType.TEXTLINE) {
+				const parentID = this.textlineRegister[id];
+				if (!this._readingOrderContains(id,parentID,selectType)){
+					actions.push(new ActionAddTextLineToReadingOrder(id,parentID, _currentPage, _segmentation, this));
+				}
+			}
+		}
+		if(actions.length > 0){
+			_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
+		}else{
+			_gui.displayWarning("You need to select a segment to add to the reading order.");
+		}
+	}
+
 	this.autoGenerateReadingOrder = function () {
 		this.endEditReadingOrder();
 		let readingOrder = [];
@@ -938,7 +939,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_currentPage].readingOrder, readingOrder, this, _segmentation, _currentPage), _currentPage);
 	}
 
-	/** Toggle if the reading order can be edited by clicking on segments
+	/**
+	 * Toggle if the reading order can be edited by clicking on segments.
 	 * (Left click will add to the reading order and right click will end the edit)
 	 */
 	this.toggleEditReadingOrder = function() {
@@ -946,18 +948,26 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.selectToolBarButton('editReadingOrder', _editReadingOrder);
 	}
 
-	/** End edit reading order */
+	/** 
+	 * End edit reading order 
+	 */
 	this.endEditReadingOrder = function(){
 		_editReadingOrder = false;
 		_gui.selectToolBarButton('editReadingOrder', _editReadingOrder);
 	}
 
+	/**
+	 * Save the current reading order via an actions tate
+	 */
 	this.saveReadingOrder = function () {
 		const tempReadingOrder = JSON.parse(JSON.stringify(_gui.getReadingOrder()));
 		const action = new ActionChangeReadingOrder( _segmentation[_currentPage].readingOrder, tempReadingOrder, this, _segmentation, _currentPage);
 		_actionController.addAndExecuteAction(action, _currentPage);
 	}
 
+	/**
+	 * Delete the current complete reading order
+	 */
 	this.deleteReadingOrder = function () {
 		const currentReadingOrder = _segmentation[_currentPage].readingOrder;
 		if(currentReadingOrder && currentReadingOrder.length > 0){
@@ -966,18 +976,62 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		}
 	}
 
+	/**
+	 * Display/Hide the global reading order of a page (SEGMENT Mode) or
+	 * the local text line reading order of a segment (TEXTLINE Mode).
+	 */
 	this.displayReadingOrder = function (doDisplay) {
 		_displayReadingOrder = doDisplay;
+
+		if(doDisplay){
+			let readingOrder = []; // temp reading order either pointing to a global or local reading order
+			if(_segmentation[_currentPage] !== null){
+				if (_mode === Mode.SEGMENT) {
+					// Display the normal reading order
+					readingOrder = _segmentation[_currentPage].readingOrder;
+					_gui.setReadingOrder(readingOrder, _segmentation[_currentPage].segments);
+
+				} else if(_mode === Mode.LINES) {
+					// Get TextRegion segment or parent of Textline, depending on selection
+					const selected = _selector.getSelectedSegments;
+					const selectedType = _selector.getSelectedPolygonType();
+					// Retrieve TextRegion ID
+					let segmentID; 
+					if(selectedType === Element.SEGMENT){
+						// Get segmentID of a selected TextRegion (paragraph etc.)
+						segmentID = selected.filter(id => !_segmentation[_currentPage].segments[id].type.contains("Region"))[0];
+
+					} else if(selectedType === Element.TEXTLINE){ 
+						const parents = selected.map((id) => this._controller.textlineRegister[id]).sort();
+						// Create counter object for parents accurences
+						const parents_counter = {}; 
+						parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1}); 
+						// Sort and retrieve most represented/dominant parent
+						[segmentID,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
+					}
+					const segment = _segmentation[_currentPage].segments[segmentID];
+					readingOrder = segment.readingOrder;
+					_gui.setReadingOrder(readingOrder, segment.textlines);
+				} else {
+					readingOrder = [];
+					_gui.setReadingOrder([], {});
+				}
+			}
+			_editor.displayReadingOrder(readingOrder);
+		}else{
+			_editor.hideReadingOrder();
+		}
 		_gui.displayReadingOrder(doDisplay);
 	}
 
-	this.forceUpdateReadingOrder = function (forceHard) {
-		_gui.forceUpdateReadingOrder(_segmentation[_currentPage].readingOrder, forceHard, _segmentation[_currentPage].segments);
+	this.forceUpdateReadingOrder = function () {
 		_gui.setRegionLegendColors(_presentRegions);
 		this.displayReadingOrder(_displayReadingOrder);
-		_gui.openReadingOrderSettings();
 	}
 
+	/**
+	 * Remove an element by its id from the reading order.
+	 */
 	this.removeFromReadingOrder = function (id) {
 		switch(_mode){
 			case Mode.SEGMENT:
@@ -1005,8 +1059,11 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_editor.removeGrid();
 	}
 
-	this._readingOrderContains = function (id) {
-		const readingOrder = _segmentation[_currentPage].readingOrder;
+	this._readingOrderContains = function (id,parentID=this.textlineRegister[id],type=this.getIDType(id)) {
+		const readingOrder = (type === ElementType.SEGMENT) ?
+								_segmentation[_currentPage].readingOrder :
+								_segmentation[_currentPage].segments[parentID].readingOrder;
+
 		for (let i = 0; i < readingOrder.length; i++) {
 			if (readingOrder[i] === id) {
 				return true;

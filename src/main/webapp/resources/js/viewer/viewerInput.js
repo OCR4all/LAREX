@@ -3,16 +3,27 @@ function ViewerInput(controller) {
 	this.navigationController
 	this.selector;
 
+	/**
+	 * Action fired, when an element is entered in the viewer.
+	 * e.g. via mouse hover
+	 */
 	this.enterElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
 		if(mode != ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, true);
 	}
 
+	/**
+	 * Action fired, when an element is left in the viewer.
+	 * e.g. via mouse hover
+	 */
 	this.leaveElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
 		if(mode != ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, false);
 	}
 
+	/**
+	 * Action fired, when an element is clicked in the viewer.
+	 */
 	this.clickElement = function (sectionID, event, hitTest, mode=ViewerMode.POLYGON) {
 		switch (event.event.button) {
 			// leftclick
@@ -46,6 +57,9 @@ function ViewerInput(controller) {
 		}
 	}
 
+	/**
+	 * Action fired, when the image in the viewer is dragged.
+	 */
 	this.dragImage = function (event) {
 		switch (event.event.button) {
 			// leftclick
@@ -69,12 +83,17 @@ function ViewerInput(controller) {
 		}
 	}
 
+	/**
+	 * Action fired, when the background in the viewer is dragged. 
+	 */
 	this.dragBackground = function (event) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
 				if (event.modifiers.shift) { 
 					this.selector.boxSelect(event.point);
+				} else {
+					this.navigationController.move(event.delta.x,event.delta.y);
 				}
 				break;
 			// middleclick
@@ -87,6 +106,9 @@ function ViewerInput(controller) {
 		}
 	}
 
+	/**
+	 * Action fired, when the image in the viewer is clicked.
+	 */
 	this.clickImage = function (event) {
 		switch (event.event.button) {
 			// leftclick
@@ -106,6 +128,9 @@ function ViewerInput(controller) {
 		_controller.closeContextMenu();
 	}
 
+	/**
+	 * Action fired, when the background in the viewer is clicked
+	 */
 	this.clickBackground = function (event) {
 		switch (event.event.button) {
 			// leftclick
