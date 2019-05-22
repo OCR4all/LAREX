@@ -486,8 +486,8 @@ endMovePolygonPoints() {
 		this.isEditing = false;
 
 		if (this._tempPolygon !== null) {
-			if (this._tempPolygonType === ElementType.SEGMENT) {
-				this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+			if (this._tempPolygonType === ElementType.SEGMENT || this._tempPolygonType === ElementType.TEXTLINE) {
+				this._controller.movePolygonPoints(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false), this._tempPolygonType);
 			}
 
 			if(this._tempPolygon) this._tempPolygon.remove();
@@ -612,7 +612,7 @@ endScalePolygon() {
 
 			this._tempPolygon.remove();
 
-			if (this._tempPolygonType !== ElementType.SEGMENT) 
+			if (this._tempPolygonType !== ElementType.SEGMENT && this._tempPolygonType != ElementType.TEXTLINE) 
 				this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
 
 			this._tempPolygon = null;

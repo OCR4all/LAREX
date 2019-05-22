@@ -60,8 +60,13 @@ class Selector {
 			} else {
 				//// Select polygon
 				// Unselect others if this is not of type segment or if not select multiple
-				if(mode !== Mode.SEGMENT || (elementType != ElementType.SEGMENT && elementType != ElementType.TEXTLINE) || !this.selectMultiple)
+				const currentParent = this._selectedElements.length > 0 ? this._controller.textlineRegister[this._selectedElements[0]] : undefined;
+				const selectParent =  this._selectedElements.length > 0 ? this._controller.textlineRegister[id] : undefined;
+				if(!this.selectMultiple ||
+					!((mode === Mode.SEGMENT && elementType === ElementType.SEGMENT) || 
+						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent == selectParent))){
 					this.unSelect();
+				}
 
 				if (mode === Mode.TEXT && elementType === ElementType.TEXTLINE){
 					this._controller.editLine(id);

@@ -541,8 +541,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const selectType = _selector.getSelectedPolygonType();
 		let points = _selector.getSelectedPoints();
 
-		if (points && points.length > 0 && selected.length === 1 && selectType === ElementType.SEGMENT) {
-			_editor.startMovePolygonPoints(selected[0], ElementType.SEGMENT, points);
+		if (points && points.length > 0 && selected.length === 1 
+			&& (selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE)) {
+			_editor.startMovePolygonPoints(selected[0], selectType, points);
 		}
 	}
 
@@ -561,7 +562,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		if (selected.length === 1 && points.length > 0) {
 			// Points inside of a polygon is selected => Delete points
 			if(selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE){
-				const segments = _segmentation[_currentPage].segments[selected[0]].points;
+				const segments = (selectType === ElementType.SEGMENT) ? 
+							_segmentation[_currentPage].segments[selected[0]].points:
+							_segmentation[_currentPage].segments[this.textlineRegister[selected[0]]].textlines[selected[0]].points;
 				let filteredSegments = segments;
 
 				points.forEach(p => { filteredSegments = filteredSegments.filter(s => !(s.x === p.x && s.y === p.y))});
@@ -820,28 +823,28 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.unselectAllToolBarButtons();
 	}
 
-	this.movePolygonPoints = function (id, segmentPoints, type) {
-		const switch_result = {
-			[ElementType.SEGMENT]: this.transformSegment(id,segmentPoints),
-			[ElementType.TEXTLINE]: this.transformSegment(id,segmentPoints),
-			default: "unknown"
-		}[type];
-
-		if(switch_result !== "unknown"){ 
+	this.movePolygonPoints = function (id, segmentPoints, type=this.getIDType(id)) {
+		if(type === ElementType.SEGMENT || type === ElementType.TEXTLINE){
+			this.transformSegment(id, segmentPoints, type);
 			_selector.unSelect();
-			_selector.select(id);
+			_selector.select(id,segmentPoints);
 		}
 	}
 
-	this.transformSegment = function (id, segmentPoints, type) {
-		const actionTransformSegment = new ActionTransformSegment(id, segmentPoints, _editor, _segmentation, _currentPage, this);
-		const switch_result = {
-			[ElementType.SEGMENT]: new ActionTransformSegment(id, segmentPoints, _editor, _segmentation, _currentPage, this),
-			[ElementType.TEXTLINE]: new ActionTransformSegment(id, segmentPoints, _editor, _segmentation, _currentPage, this),
-			default: "unknown"
-		}[type];
-		if(switch_result !== "unkown")
-			_actionController.addAndExecuteAction(actionTransformSegment, _currentPage);
+	this.transformSegment = function (id, segmentPoints, type=this.getIDType(id)) {
+		let action;
+		switch(type){
+			case ElementType.SEGMENT: 
+				action = new ActionTransformSegment(id, segmentPoints, _editor, _segmentation, _currentPage, this);
+				break;
+			case ElementType.TEXTLINE:
+				action =  new ActionTransformTextLine(id, segmentPoints, _editor, _segmentation, _currentPage, this);
+				break;
+			default:
+		}
+		if(action) {
+			_actionController.addAndExecuteAction(action, _currentPage);
+		}
 	}
 
 	this.scaleSelectedRegion = function () {
@@ -1035,7 +1038,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 
 	this.hasPointsSelected = function() {
-		return _selector.getSelectedPolygonType() === ElementType.SEGMENT 
+		return (_selector.getSelectedPolygonType() === ElementType.SEGMENT || _selector.getSelectedPolygonType() === ElementType.TEXTLINE)
 				&& _selector.getSelectedSegments().length === 1 
 				&& _selector.getSelectedPoints().length > 0;
 	}

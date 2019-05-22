@@ -340,6 +340,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, segmentation, pa
 function ActionRemoveTextLine(textline, editor, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _segmentID = controller.textlineRegister[textline.id];
+	const _oldTextLine = JSON.parse(JSON.stringify(textline));
 	const _oldTextLines = JSON.parse(JSON.stringify(segmentation[page].segments[_segmentID].textlines));
 
 	this.execute = function () {
@@ -357,7 +358,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller) 
 		if (_isExecuted) {
 			_isExecuted = false;
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
-			editor.addTextLine(textLine);
+			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
 
 			controller.textlineRegister[textline.id] = _segmentID;
 			console.log('Undo - Remove: {id:"' + textline.id + '"}');
