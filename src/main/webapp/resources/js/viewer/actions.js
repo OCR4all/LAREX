@@ -1,6 +1,7 @@
 function ActionController(controller) {
 	const _controller = controller;
 	const _this = this;
+	let selector;
 	let _actions = {};
 	let _actionpointers = {};
 
@@ -9,7 +10,9 @@ function ActionController(controller) {
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer < pageActions.length - 1) {
-			_controller.unSelect();
+			if(selector){
+				selector.unSelect();
+			}
 			_actionpointers[page]++;
 			pageActions[_actionpointers[page]].execute();
 		}
@@ -19,7 +22,9 @@ function ActionController(controller) {
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer >= 0) {
-			_controller.unSelect();
+			if(selector){
+				selector.unSelect();
+			}
 			pageActions[pageActionpointer].undo();
 			_actionpointers[page]--;
 		}
@@ -264,7 +269,7 @@ function ActionAddSegment(id, points, type, editor, segmentation, page, controll
 	}
 }
 
-function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
+function ActionRemoveSegment(segment, editor, segmentation, page, controller, selector) {
 	let _isExecuted = false;
 	const _segment = JSON.parse(JSON.stringify(segment));
 	const _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id, page, segmentation, controller);
@@ -287,7 +292,7 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
 
 			delete segmentation[page].segments[_segment.id];
 			editor.removeSegment(_segment.id);
-			controller.unSelectSegment(_segment.id);
+			selector.unSelectSegment(_segment.id);
 
 			_actionRemoveFromReadingOrder.execute();
 			console.log('Do - Remove: {id:"' + _segment.id + '",[..],type:"' + _segment.type + '"}');
@@ -337,7 +342,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, segmentation, pa
 	}
 }
 
-function ActionRemoveTextLine(textline, editor, segmentation, page, controller) {
+function ActionRemoveTextLine(textline, editor, segmentation, page, controller, selector) {
 	let _isExecuted = false;
 	const _segmentID = controller.textlineRegister[textline.id];
 	const _oldTextLine = JSON.parse(JSON.stringify(textline));
@@ -348,7 +353,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller) 
 			_isExecuted = true;
 			delete segmentation[page].segments[_segmentID].textlines[textline.id];
 			editor.removeSegment(textline.id);
-			controller.unSelectSegment(textline.id);
+			selector.unSelectSegment(textline.id);
 
 			delete controller.textlineRegister[textline.id]
 			console.log('Do - Remove: {id:"' + textline.id + '"}');
@@ -626,7 +631,7 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
 	}
 }
 
-function ActionChangeTextLineReadingOrder(oldReadingOrder, newReadingOrder, parentID, controller, segmentation, page) {
+function ActionChangeTextLineReadingOrder(oldReadingOrder, newReadingOrder, parentID, controller, segmentation, page, selector) {
 	let _isExecuted = false;
 	const _oldReadingOrder = JSON.parse(JSON.stringify(oldReadingOrder));
 	const _newReadingOrder = JSON.parse(JSON.stringify(newReadingOrder));
@@ -638,6 +643,9 @@ function ActionChangeTextLineReadingOrder(oldReadingOrder, newReadingOrder, pare
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
 			controller.forceUpdateReadingOrder(true);
 
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
 			console.log('Do - Change Reading order');
 		}
 	}
@@ -648,12 +656,15 @@ function ActionChangeTextLineReadingOrder(oldReadingOrder, newReadingOrder, pare
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 			controller.forceUpdateReadingOrder(true);
 
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
 			console.log('Undo - Change Reading order');
 		}
 	}
 }
 
-function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, controller) {
+function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, controller, selector) {
 	let _isExecuted = false;
 	let _oldReadingOrder;
 	let _newReadingOrder;
@@ -673,6 +684,9 @@ function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, contr
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
 			controller.forceUpdateReadingOrder(true);
+
+			if(!selector.isSegmentSelected(id))
+				selector.select(id);
 			console.log('Do - Add to Reading Order: {id:"' + id + '",[..]"}');
 		}
 	}
@@ -682,12 +696,15 @@ function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, contr
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 			controller.forceUpdateReadingOrder(true);
+
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
 			console.log('Undo - Add to Reading Order: {id:"' + id + '",[..]}');
 		}
 	}
 }
 
-function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, controller) {
+function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, controller, selector) {
 	let _isExecuted = false;
 	const _oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].segments[parentID].readingOrder));
 	let _newReadingOrder;
@@ -708,6 +725,10 @@ function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, 
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
 			controller.forceUpdateReadingOrder(true);
+
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
 			console.log('Do - Remove from Reading Order: {id:"' + id + '",[..]}');
 		}
 	}
@@ -717,6 +738,9 @@ function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, 
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 			controller.forceUpdateReadingOrder(true);
+
+			if(!selector.isSegmentSelected(id))
+				selector.select(id);
 			console.log('Undo - Remove from Reading Order: {id:"' + id + '",[..]}');
 		}
 	}

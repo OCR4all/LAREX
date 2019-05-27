@@ -91,6 +91,7 @@ class Selector {
 			this._editor.highlightContours(this._selectedElements,false);
 		} else {
 			this._selectedElements.forEach(id => this._editor.selectSegment(id,false,false));
+			this._selectedElements.forEach(id => this._editor.highlightSegment(id,false));
 		}
 		// Get everything that could be overseen
 		paper.project.selectedItems.forEach(i => {if(i.elementID) this._selectPolygon(i.elementID,false);});

@@ -64,6 +64,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			_selector = new Selector(_editor, this);
 			viewerInput.selector = _selector;
+			_actionController.selector = _selector;
 			_gui = new GUI(canvasID, _editor,_colors);
 			_gui.resizeViewerHeight();
 
@@ -585,13 +586,13 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
 				} else if (selectType === ElementType.SEGMENT) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
-					actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
+					actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector));
 				} else if (selectType === ElementType.CUT) {
 					let cut = _settings.pages[_currentPage].cuts[selected[i]];
 					actions.push(new ActionRemoveCut(cut, _editor, _settings, _currentPage));
 				} else if (selectType === ElementType.TEXTLINE) {
 					let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[i]]].textlines[selected[i]];
-					actions.push(new ActionRemoveTextLine(segment, _editor, _segmentation, _currentPage, this));
+					actions.push(new ActionRemoveTextLine(segment, _editor, _segmentation, _currentPage, this, _selector));
 				}
 			}
 			let multidelete = new ActionMultiple(actions);
@@ -618,10 +619,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				if (segment.type !== 'ImageRegion') {
 					segments.push(segment);
 					if(_mode === Mode.SEGMENT){
-						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this));
+						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector));
 					} else if(_mode === Mode.LINES){
 						parent = !parent ? this.textlineRegister[segment.id] : parent;
-						actions.push(new ActionRemoveTextLine(segment, _editor, _segmentation, _currentPage, this));
+						actions.push(new ActionRemoveTextLine(segment, _editor, _segmentation, _currentPage, this, _selector));
 					}
 				}
 			}
@@ -922,7 +923,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				const parentID = this.textlineRegister[id];
 				alreadyInReadingOrder = (alreadyInReadingOrder || this._readingOrderContains(id));
 				if (!alreadyInReadingOrder){
-					actions.push(new ActionAddTextLineToReadingOrder(id,parentID, _currentPage, _segmentation, this));
+					actions.push(new ActionAddTextLineToReadingOrder(id,parentID, _currentPage, _segmentation, this, _selector));
 				}
 			}
 		}
@@ -969,22 +970,55 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	/**
-	 * Save the current reading order via an actions tate
+	 * Save the current reading order via an action state
 	 */
 	this.saveReadingOrder = function () {
 		const tempReadingOrder = JSON.parse(JSON.stringify(_gui.getReadingOrder()));
-		const action = new ActionChangeReadingOrder( _segmentation[_currentPage].readingOrder, tempReadingOrder, this, _segmentation, _currentPage);
-		_actionController.addAndExecuteAction(action, _currentPage);
+		if(_mode === Mode.LINES){
+			const type = _selector.getSelectedPolygonType();
+			const segmentID = (type === ElementType.SEGMENT) ? _selector.getSelectedSegments()[0]
+															: this.textlineRegister[_selector.getSelectedSegments()[0]];
+			if(segmentID !== undefined && segmentID !== null){
+				if(tempReadingOrder !== _segmentation[_currentPage].segments[segmentID].readingOrder){
+					const action = new ActionChangeTextLineReadingOrder(_segmentation[_currentPage].segments[segmentID].readingOrder,
+														tempReadingOrder, segmentID, this, _segmentation, _currentPage, _selector);
+					_actionController.addAndExecuteAction(action, _currentPage);
+				}
+			}
+		}else{
+			if(tempReadingOrder !== _segmentation[_currentPage].readingOrder){
+				const action = new ActionChangeReadingOrder( _segmentation[_currentPage].readingOrder,
+													tempReadingOrder, this, _segmentation, _currentPage);
+				_actionController.addAndExecuteAction(action, _currentPage);
+			}
+		}
 	}
 
 	/**
-	 * Delete the current complete reading order
+	 * Delete the current reading order completelly
 	 */
 	this.deleteReadingOrder = function () {
-		const currentReadingOrder = _segmentation[_currentPage].readingOrder;
-		if(currentReadingOrder && currentReadingOrder.length > 0){
-			const action = new ActionChangeReadingOrder(currentReadingOrder, [], this, _segmentation, _currentPage);
-			_actionController.addAndExecuteAction(action, _currentPage);
+		if(_mode === Mode.LINES) {
+			// Delete local text line reading order
+			const type = _selector.getSelectedPolygonType();
+			const segmentID = (type === ElementType.SEGMENT) ? _selector.getSelectedSegments()[0]
+															: this.textlineRegister[_selector.getSelectedSegments()[0]];
+			if(segmentID !== undefined && segmentID !== null){
+				const currentReadingOrder = _segmentation[_currentPage].segments[segmentID].readingOrder;
+				if(currentReadingOrder && currentReadingOrder.length > 0){
+					const action = new ActionChangeTextLineReadingOrder(currentReadingOrder, [],
+																		segmentID, this,
+																		_segmentation, _currentPage, _selector);
+					_actionController.addAndExecuteAction(action, _currentPage);
+				}
+			}
+		} else {
+			// Delete global page reading order
+			const currentReadingOrder = _segmentation[_currentPage].readingOrder;
+			if(currentReadingOrder && currentReadingOrder.length > 0){
+				const action = new ActionChangeReadingOrder(currentReadingOrder, [], this, _segmentation, _currentPage);
+				_actionController.addAndExecuteAction(action, _currentPage);
+			}
 		}
 	}
 
@@ -1056,7 +1090,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				_actionController.addAndExecuteAction(new ActionRemoveFromReadingOrder(id, _currentPage, _segmentation, this), _currentPage);
 				break;
 			case Mode.LINES:
-				_actionController.addAndExecuteAction(new ActionRemoveTextLineFromReadingOrder(id, this.textlineRegister[id], _currentPage, _segmentation, this), _currentPage);
+				_actionController.addAndExecuteAction(new ActionRemoveTextLineFromReadingOrder(id, this.textlineRegister[id], _currentPage, _segmentation, this, _selector), _currentPage);
 				break;
 		}
 	}
@@ -1114,15 +1148,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				&& _selector.getSelectedPoints().length > 0;
 	}
 
-	this.unSelect = function () {
-		_selector.unSelect();
-	}
-	this.unSelectSegment = function (segmentID) {
-		_selector.unSelectSegment(segmentID);
-	}
-	this.isSegmentSelected = function (id) {
-		return _selector.isSegmentSelected(id);
-	}
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing) {

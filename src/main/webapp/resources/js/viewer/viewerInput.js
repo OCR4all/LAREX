@@ -42,7 +42,7 @@ function ViewerInput(controller) {
 			// rightclick
 			case 2:
 				if(mode == ViewerMode.POLYGON){
-					if (!_controller.isSegmentSelected(sectionID)) {
+					if (!this.selector.isSegmentSelected(sectionID)) {
 						this.selector.unSelect();
 						_controller.selectSegment(sectionID, hitTest);
 						_controller.openContextMenu(true);

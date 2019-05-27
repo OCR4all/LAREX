@@ -148,7 +148,7 @@
 								tooltip="Add a segment to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
 								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
-							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
+							<t:menuIcon jsClass="autoGenerateReadingOrder hide" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Contours combine accuracy" jsClass="contourAccuracy">
