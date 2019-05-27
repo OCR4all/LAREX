@@ -59,19 +59,51 @@ function GUI(canvas, viewer, colors) {
 		$("#contextmenu").addClass("hide");
 	}
 
-	this.setVirtualKeyboard = function (keyboard){
-		$virtualKeyboard = $(".virtual-keyboard");
-		$virtualKeyboard.empty();
+	/**
+	 * Load and set a virtual keyboard for the gui.
+	 * Keyboard can either be a list of list of characters (e.g. keyboard=[[a,b,c],[]])
+	 */
+	this.setVirtualKeyboard = function (keyboard, isRaw=false){
+		if(isRaw){
+			try{
+				keyboard = keyboard.split(/\n/).map(line => line.split(/\s+/));
+			} catch{return;}
+		}
 
 		// Clear grid before loading all items
+		$virtualKeyboard = $(".virtual-keyboard");
+		$virtualKeyboard.empty();
 		for(let x = 0; x < keyboard.length; x++){
 			const row = keyboard[x];
-			const divRow = $('<div class="vk-row row"></div>');
-			$virtualKeyboard.append(divRow);
-			for(let y = 0; y < row.length; y++){
-				divRow.append($('<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true"><a class="vk-btn btn infocus">'  + row[y] + '</a></div>'));
+			if(row.length > 0){
+				const divRow = $('<div class="vk-row row"></div>');
+				$virtualKeyboard.append(divRow);
+				for(let y = 0; y < row.length; y++){
+					if(row[y].length > 0){
+						divRow.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true">
+											<a class="vk-btn btn infocus">${row[y]}</a>
+										</div>`));
+					}
+				}
 			}
 		}
+	}
+	this.getVirtualKeyboard = function (asRaw=false){
+		let virtualKeyboard = asRaw ? "" : [];
+
+		$virtualKeyboard = $(".virtual-keyboard");
+		for(const row of $virtualKeyboard.children(".vk-row")){
+			const vkRow = [];
+			for(const btn of $(row).find(".vk-btn")){
+				vkRow.push(btn.innerHTML);
+			}
+			if(asRaw){
+				virtualKeyboard += vkRow.join(" ")+"\n";
+			}else{
+				virtualKeyboard.push(vkRow);
+			}
+		}
+		return virtualKeyboard;
 	}
 	this.lockVirtualKeyboard = function(doLock){
 		if(doLock){ 

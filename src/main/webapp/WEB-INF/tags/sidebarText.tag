@@ -4,9 +4,13 @@
 <div id="sidebar-text" class="col s12 hide">
 
 	<div class="virtual-keyboard-settings row infocus">
-		<a class="btn col s6 waves-effect waves-light tooltipped vk-upload" data-position="left" data-delay="50" data-tooltip="Add new buttons to the virtual keyboard.">
-			Load <i class="material-icons right"> file_upload </i>
+		<a class="btn col s6 waves-effect waves-light tooltipped vk-upload" 
+			data-position="left" data-delay="50" data-tooltip="Add new buttons to the virtual keyboard." 
+			onclick="$('#upload-vk-input').click()">
+			Load
+			<i class="material-icons right">file_upload</i>
 		</a>	
+		<input id="upload-vk-input" class="upload-virtual-keyboard hide" type="file">
 		<a class="btn col s6 tooltipped vk-download" data-position="left" data-delay="50" data-tooltip="Drop virtual keyboard buttons here to delete them. (Only possible if virtual keyboard is unlocked)">
 			Save <i class="material-icons right"> file_download </i>
 		</a>	

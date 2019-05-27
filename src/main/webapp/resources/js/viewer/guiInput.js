@@ -39,7 +39,7 @@ function GuiInput(navigationController, controller, gui) {
 			if (file.size < 1024 * 1024) {
 				_controller.uploadSettings(file);
 			} else {
-				alert('max upload size is 1MB')
+				_gui.warning('Can\'t upload settings files larger than 1MB.')
 			}
 		}
 	});
@@ -47,13 +47,26 @@ function GuiInput(navigationController, controller, gui) {
 		const file = this.files[0];
 		$(this).val("");
 		if (file) {
-			if (file.size < 1024 * 1024) {
+			if (file.size < 2048 * 1024) {
 				_controller.uploadSegmentation(file);
 			} else {
-				alert('max upload size is 1MB')
+				_gui.warning('Can\'t upload segmentation files larger than 2MB.')
 			}
 		}
 	});
+	$('.upload-virtual-keyboard').on('change', function(){
+		const reader = new FileReader();
+		reader.onload = function(){
+			_gui.setVirtualKeyboard(reader.result,isRaw=true);
+		}
+		if (this.files[0].size < 512 * 1024) {
+			reader.readAsText(this.files[0]);
+		} else {
+			_gui.warning('Can\'t upload virtual keybord files larger than 512kB.')
+		}
+	});
+	$('.vk-download').click(() => _controller.saveVirtualKeyboard());
+
 	$('.reload').click(() => location.reload());
 	$('.settings-image-mode').on('change', function () {
 		if (this.value) {

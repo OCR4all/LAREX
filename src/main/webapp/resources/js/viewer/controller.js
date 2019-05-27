@@ -425,6 +425,23 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		});
 	}
 
+	/**
+	 * Save the current virtual keyboard as file
+	 */
+	this.saveVirtualKeyboard = function () {
+		const virtualKeyboard = _gui.getVirtualKeyboard(asRaw=true);
+		const a = window.document.createElement('a');
+		a.href = window.URL.createObjectURL(new Blob([virtualKeyboard], { type: "text/xml;charset=utf-8" }));
+		a.download = "virtual-keyboard.txt";
+
+		// Append anchor to body.
+		document.body.appendChild(a);
+		a.click();
+
+		// Remove anchor from body
+		document.body.removeChild(a);
+	}
+
 	this.uploadSettings = function (file) {
 		_communicator.uploadSettings(file, _book.id).done((settings) => {
 			if (settings) {
