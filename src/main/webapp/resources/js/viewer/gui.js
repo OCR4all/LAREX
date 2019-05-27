@@ -252,12 +252,6 @@ function GUI(canvas, viewer, colors) {
 		return parameters;
 	}
 
-	this.setRegionLegendColors = function(regions) {
-		regions.forEach((key) => {
-			const color = _colors.getColor(key);
-			$(".legendicon." + key).css("background-color", color.toCSS());
-		});
-	}
 
 	this.forceUpdateRegionHide = function (visibleRegions) {
 		const $allSwitchBoxes = $('.regionlegend');
@@ -313,7 +307,7 @@ function GUI(canvas, viewer, colors) {
 			$('.regionDelete').addClass('hide');
 		
 		if (regionColorID) 
-			this.setRegionColor(regionColorID);
+			this.setEditRegionColor(regionColorID);
 		
 		$settingsOffset = $('#sidebarRegions').offset();
 		$regioneditor = $('#regioneditor');
@@ -335,12 +329,48 @@ function GUI(canvas, viewer, colors) {
 		$regioneditor.css({ top: $settingsOffset.top, left: $settingsOffset.left - $regioneditor.width() });
 	}
 
-	this.setRegionColor = function (colorID) {
+	this.setEditRegionColor = function (colorID) {
 		const $regioneditor = $('#regioneditor');
 		const color = _colors.unpackColor(colorID);
 		$regioneditor.find('.regionColorIcon').css("background-color", color.toCSS());
 		$regioneditor.find('#regionColor').data('colorID', colorID);
 	}
+
+	this.createSelectColors = function () {
+		const $collection = $('#regioneditorColorSelect .collection');
+		_colors.getAllColorIDs().forEach(id => {
+			const color = _colors.unpackColor(id);
+			const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color' + id + '"></li>');
+			const $icon = $('<div class="legendicon" style="background-color:' + color.toCSS() + ';"></div>');
+			$colorItem.data('colorID', id);
+			$colorItem.append($icon);
+			$collection.append($colorItem);
+		});
+	}
+
+	this.updateAvailableColors = function () {
+		$('.regioneditorColorSelectItem').addClass("hide");
+		_colors.getAvailableColorIDs().forEach((id) => {
+			$('.regioneditorColorSelectItem.color' + id).removeClass("hide");
+		});
+	}
+
+	/**
+	 * Update the colors of region legends for all supplied regions 
+	 */
+	this.updateRegionLegendColors = function(regions) {
+		let $color_style = $('#global-css-color');
+		if($color_style.length == 0){
+			$color_style = $('<style id="global-css-color"></style>');
+			$('head').append($color_style);
+		}
+		let css = "";
+		for(const region of regions){
+			css += `.legendicon.${region}{background-color:${_colors.getColor(region).toCSS()};}`;
+		}
+		$color_style.html(css);
+	}
+
 	this.closeRegionSettings = function () {
 		$('#regioneditor').addClass('hide');
 	}
@@ -605,24 +635,6 @@ function GUI(canvas, viewer, colors) {
 		} else {
 			$('.saveSettingsXML').find('.progress').addClass('hide');
 		}
-	}
-	this.setAllRegionColors = function () {
-		const $collection = $('#regioneditorColorSelect .collection');
-		_colors.getAllColorIDs().forEach(id => {
-			const color = _colors.unpackColor(id);
-			const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color' + id + '"></li>');
-			const $icon = $('<div class="legendicon" style="background-color:' + color.toCSS() + ';"></div>');
-			$colorItem.data('colorID', id);
-			$colorItem.append($icon);
-			$collection.append($colorItem);
-		});
-	}
-
-	this.updateAvailableColors = function () {
-		$('.regioneditorColorSelectItem').addClass("hide");
-		_colors.getAvailableColorIDs().forEach((id) => {
-			$('.regioneditorColorSelectItem.color' + id).removeClass("hide");
-		});
 	}
 	this.displayWarning = function (text) {
 		Materialize.toast(text, 4000);

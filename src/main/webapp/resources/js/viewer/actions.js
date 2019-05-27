@@ -127,7 +127,7 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 			_segment.type = newType;
 			viewer.updateSegment(_segment);
-			controller.forceUpdateReadingOrder(true); //TODO try not to force to update all for changing type
+			controller.forceUpdateReadingOrder(true);
 			if (_actionReadingOrder)
 				_actionReadingOrder.execute();
 			if (_actionSetFixed)

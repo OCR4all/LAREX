@@ -156,7 +156,7 @@ function GuiInput(navigationController, controller, gui) {
 		}
 	});
 	$('.regioneditorColorSelectItem').click(function () {
-		_gui.setRegionColor($(this).data('colorID'));
+		_gui.setEditRegionColor($(this).data('colorID'));
 	});
 
 	$('.collapsible-header').click(function () {

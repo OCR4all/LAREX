@@ -74,10 +74,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			_gui.setPageXMLVersion("2017-07-15");
 
-			_gui.setAllRegionColors();
+			_gui.createSelectColors();
 			_gui.updateAvailableColors();
 			_gui.addPreviewImageListener();
-			this.setMode(_mode);
 			_communicator.getVirtualKeyboard().done((keyboard) => {
 				_gui.setVirtualKeyboard(keyboard);
 			});
@@ -112,6 +111,8 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				let pageData = {};
 				_book.pages.forEach(page => pageData[page.image] = null );
 			});
+
+			this.setMode(_mode);
 		});
 	});
 
@@ -208,7 +209,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 
 			_gui.showUsedRegionLegends(_presentRegions);
 			this.displayReadingOrder(_displayReadingOrder);
-			_gui.setRegionLegendColors(_presentRegions);
+			_gui.updateRegionLegendColors(_presentRegions);
 
 			_gui.selectPage(pageNr);
 			this.endEditReadingOrder();
@@ -302,12 +303,12 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",true);
 			_editor.displayOverlay("lines",false);
-			this.displayReadingOrder(this._displayReadingOrder);
+			this.displayReadingOrder(_displayReadingOrder);
 		} else if(mode === Mode.LINES){
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
-			this.displayReadingOrder(this._displayReadingOrder);
+			this.displayReadingOrder(_displayReadingOrder);
 		} else if(mode === Mode.TEXT){
 			_editor.displayOverlay("segments",false);
 			_editor.displayOverlay("regions",false);
@@ -889,7 +890,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 				_editor.updateSegment(polygon);
 			}
 		});
-		_gui.setRegionLegendColors(_presentRegions);
+		_gui.updateRegionLegendColors(_presentRegions);
 	}
 
 	/**
@@ -980,7 +981,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	 * Display/Hide the global reading order of a page (SEGMENT Mode) or
 	 * the local text line reading order of a segment (TEXTLINE Mode).
 	 */
-	this.displayReadingOrder = function (doDisplay) {
+	this.displayReadingOrder = function (doDisplay=true) {
 		_displayReadingOrder = doDisplay;
 
 		if(doDisplay){
@@ -1024,9 +1025,16 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.displayReadingOrder(doDisplay);
 	}
 
-	this.forceUpdateReadingOrder = function () {
-		_gui.setRegionLegendColors(_presentRegions);
-		this.displayReadingOrder(_displayReadingOrder);
+	this.forceUpdateReadingOrder = function (forceDisplay=false) {
+		_gui.updateRegionLegendColors(_presentRegions);
+		if (forceDisplay){
+			this.displayReadingOrder(true);
+		}else{
+			this.displayReadingOrder(_displayReadingOrder);
+		}
+		if(_displayReadingOrder){
+			_gui.openReadingOrderSettings();
+		}
 	}
 
 	/**
