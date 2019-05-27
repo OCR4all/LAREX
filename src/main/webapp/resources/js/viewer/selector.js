@@ -19,7 +19,7 @@ class Selector {
 	 * @param {string} elementType 
 	 */
 	select(id, points, elementType=this._controller.getIDType(id)) {
-		const mode = controller.getMode();
+		const mode = this._controller.getMode();
 
 		if(elementType == ElementType.CONTOUR){			
 			if(!this.selectMultiple || this.selectedType != elementType)
@@ -238,12 +238,14 @@ class Selector {
 		if((this.selectedType === ElementType.SEGMENT || this.selectedType === ElementType.TEXTLINE) && this._selectedElements.length === 1){
 			const id = this._selectedElements[0];
 			
-			if(controller.getMode() === Mode.SEGMENT){
+			if(this._controller.getMode() === Mode.SEGMENT){
 				this._selectPolygon(id,true,true);	
 				this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
-			} else if(controller.getMode() === Mode.LINES && this.selectedType == ElementType.TEXTLINE){
-				this._selectPolygon(id,true,true);	
-				this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
+			} else if(this._controller.getMode() === Mode.LINES){
+				if(this.selectedType == ElementType.TEXTLINE){
+					this._selectPolygon(id,true,true);	
+					this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
+				}
 			} else {
 				this._selectPolygon(id,true,false);	
 			}
@@ -253,6 +255,14 @@ class Selector {
 			this._selectedElements.forEach(id => this._editor.selectSegment(id,true,false));
 		}
 
+		if(this._controller.getMode() === Mode.LINES) {
+			if((this.selectedType === ElementType.SEGMENT || this.selectedType === ElementType.TEXTLINE) && this._selectedElements.length > 0){
+				this._controller.forceUpdateReadingOrder();
+			}else{
+				this._controller.displayReadingOrder(false);
+				this._controller.forceUpdateReadingOrder();
+			}
+		}
 		if(this.selectedType === ElementType.REGION)
 			this._controller.scaleSelectedRegion();
 	}
@@ -264,7 +274,7 @@ class Selector {
 	 * @param {[number,number]} pointB 
 	 */
 	_selectInBox(pointA, pointB) {
-		const mode = controller.getMode();
+		const mode = this._controller.getMode();
 
 		if(this._selectedElements.length === 1 && 
 			((this.selectedType === ElementType.SEGMENT && mode === Mode.SEGMENT) 

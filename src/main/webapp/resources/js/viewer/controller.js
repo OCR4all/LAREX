@@ -21,7 +21,6 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	let _settings;
 	let _contours = {};
 	let _presentRegions = [];
-	let _displayReadingOrder = false;
 	let _tempID = null;
 	let _allowLoadLocal = true;
 	let _autoSegment = true;
@@ -208,7 +207,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_navigationController.zoomFit();
 
 			_gui.showUsedRegionLegends(_presentRegions);
-			this.displayReadingOrder(_displayReadingOrder);
+			this.displayReadingOrder(false);
 			_gui.updateRegionLegendColors(_presentRegions);
 
 			_gui.selectPage(pageNr);
@@ -299,23 +298,28 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	this.setMode = function(mode){
 		_gui.setMode(mode);
 
+		_mode = mode;
 		if(mode === Mode.SEGMENT){
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",true);
 			_editor.displayOverlay("lines",false);
-			this.displayReadingOrder(_displayReadingOrder);
+			if(_segmentation[_currentPage]){
+				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder,_segmentation[_currentPage].segments);
+			}else{
+				_gui.setReadingOrder([],{});
+			}
+			this.forceUpdateReadingOrder();
 		} else if(mode === Mode.LINES){
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
-			this.displayReadingOrder(_displayReadingOrder);
+			this.forceUpdateReadingOrder();
 		} else if(mode === Mode.TEXT){
 			_editor.displayOverlay("segments",false);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
 			this.displayReadingOrder(false);
 		}
-		_mode = mode;
 	}
 
 	this.getMode = function(){
@@ -904,13 +908,13 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const actions = [];
 		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 			const id = selected[i];
-			if (selectType === ElementType.SEGMENT) {
+			if (selectType === ElementType.SEGMENT && _mode === Mode.SEGMENT) {
 				let segment = _segmentation[_currentPage].segments[id];
 
 				if (!this._readingOrderContains(id) && segment.type !== 'ImageRegion'){
 					actions.push(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this));
 				}
-			} else if (selectType === ElementType.TEXTLINE) {
+			} else if (selectType === ElementType.TEXTLINE && _mode === Mode.LINES) {
 				const parentID = this.textlineRegister[id];
 				if (!this._readingOrderContains(id,parentID,selectType)){
 					actions.push(new ActionAddTextLineToReadingOrder(id,parentID, _currentPage, _segmentation, this));
@@ -982,39 +986,40 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	 * the local text line reading order of a segment (TEXTLINE Mode).
 	 */
 	this.displayReadingOrder = function (doDisplay=true) {
-		_displayReadingOrder = doDisplay;
-
 		if(doDisplay){
 			let readingOrder = []; // temp reading order either pointing to a global or local reading order
 			if(_segmentation[_currentPage] !== null){
 				if (_mode === Mode.SEGMENT) {
 					// Display the normal reading order
-					readingOrder = _segmentation[_currentPage].readingOrder;
+					readingOrder = (_segmentation[_currentPage].readingOrder || [] );
 					_gui.setReadingOrder(readingOrder, _segmentation[_currentPage].segments);
 
 				} else if(_mode === Mode.LINES) {
 					// Get TextRegion segment or parent of Textline, depending on selection
-					const selected = _selector.getSelectedSegments;
-					const selectedType = _selector.getSelectedPolygonType();
-					// Retrieve TextRegion ID
-					let segmentID; 
-					if(selectedType === Element.SEGMENT){
-						// Get segmentID of a selected TextRegion (paragraph etc.)
-						segmentID = selected.filter(id => !_segmentation[_currentPage].segments[id].type.contains("Region"))[0];
+					const selected = _selector.getSelectedSegments();
+					if(selected.length > 0){
+						const selectedType = _selector.getSelectedPolygonType();
+						// Retrieve TextRegion ID
+						let segmentID; 
+						if(selectedType === ElementType.SEGMENT){
+							// Get segmentID of a selected TextRegion (paragraph etc.)
+							segmentID = selected.filter(id => !_segmentation[_currentPage].segments[id].type.includes("Region"))[0];
 
-					} else if(selectedType === Element.TEXTLINE){ 
-						const parents = selected.map((id) => this._controller.textlineRegister[id]).sort();
-						// Create counter object for parents accurences
-						const parents_counter = {}; 
-						parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1}); 
-						// Sort and retrieve most represented/dominant parent
-						[segmentID,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
+						} else if(selectedType === ElementType.TEXTLINE){ 
+							const parents = selected.map((id) => this.textlineRegister[id]).sort();
+							// Create counter object for parents accurences
+							const parents_counter = {}; 
+							parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1}); 
+							// Sort and retrieve most represented/dominant parent
+							[segmentID,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
+						}
+						const segment = _segmentation[_currentPage].segments[segmentID];
+						readingOrder = (segment.readingOrder || []);
+						_gui.setReadingOrder(readingOrder, segment.textlines);
+					} else {
+						_gui.setReadingOrder([], {});
 					}
-					const segment = _segmentation[_currentPage].segments[segmentID];
-					readingOrder = segment.readingOrder;
-					_gui.setReadingOrder(readingOrder, segment.textlines);
 				} else {
-					readingOrder = [];
 					_gui.setReadingOrder([], {});
 				}
 			}
@@ -1029,11 +1034,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.updateRegionLegendColors(_presentRegions);
 		if (forceDisplay){
 			this.displayReadingOrder(true);
-		}else{
-			this.displayReadingOrder(_displayReadingOrder);
-		}
-		if(_displayReadingOrder){
 			_gui.openReadingOrderSettings();
+		}else{
+			this.displayReadingOrder(_gui.isReadingOrderActive());
 		}
 	}
 
@@ -1071,13 +1074,9 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const readingOrder = (type === ElementType.SEGMENT) ?
 								_segmentation[_currentPage].readingOrder :
 								_segmentation[_currentPage].segments[parentID].readingOrder;
+		
 
-		for (let i = 0; i < readingOrder.length; i++) {
-			if (readingOrder[i] === id) {
-				return true;
-			}
-		}
-		return false;
+		return readingOrder && readingOrder.includes(id);
 	}
 	// Display
 	this.selectSegment = function (sectionID, hitTest, idType=this.getIDType(sectionID)) {

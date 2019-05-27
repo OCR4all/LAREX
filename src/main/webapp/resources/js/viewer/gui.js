@@ -4,6 +4,7 @@ function GUI(canvas, viewer, colors) {
 	let _canvas = canvas;
 	let _mouse;
 	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
+	let _mode;
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
@@ -15,6 +16,7 @@ function GUI(canvas, viewer, colors) {
 	}
 
 	this.setMode = function(mode){
+		_mode = mode;
 		switch (mode) {
 			case Mode.LINES:
 				$('#sidebar-segment').addClass('hide');
@@ -358,14 +360,16 @@ function GUI(canvas, viewer, colors) {
 	/**
 	 * Update the colors of region legends for all supplied regions 
 	 */
-	this.updateRegionLegendColors = function(regions) {
+	this.updateRegionLegendColors = function() {
 		let $color_style = $('#global-css-color');
 		if($color_style.length == 0){
 			$color_style = $('<style id="global-css-color"></style>');
 			$('head').append($color_style);
 		}
 		let css = "";
-		for(const region of regions){
+
+		const regions = _colors.getAssigned();
+		for(const region of Object.keys(regions)){
 			css += `.legendicon.${region}{background-color:${_colors.getColor(region).toCSS()};}`;
 		}
 		$color_style.html(css);
@@ -375,11 +379,29 @@ function GUI(canvas, viewer, colors) {
 		$('#regioneditor').addClass('hide');
 	}
 
+	/**
+	 * Display the reading Order in the gui
+	 */
 	this.displayReadingOrder = function (doDisplay) {
+		$readingOrderList = _mode === Mode.SEGMENT ? $('#reading-order-list') : $('#reading-order-list-lines');
 		if (doDisplay) {
+			$readingOrderList.removeClass("hide");
 			_viewer.displayReadingOrder(this.getReadingOrder());
 		} else {
+			$readingOrderList.addClass("hide");
 			_viewer.hideReadingOrder();
+		}
+	}
+
+	/**
+	 * Check if the current reading order is active in the gui
+	 */
+	this.isReadingOrderActive = function () {
+		if(_mode === Mode.SEGMENT || _mode === Mode.LINES) {
+			$readingOrder = _mode === Mode.SEGMENT ? $('#reading-order-header') : $('#reading-order-header-lines');
+			return $readingOrder.hasClass("active");
+		}else{
+			return false;
 		}
 	}
 
@@ -393,18 +415,20 @@ function GUI(canvas, viewer, colors) {
 
 	/** Set the in the gui visible reading order */
 	this.setReadingOrder = function (readingOrder, segments) {
-		$readingOrderList = $('#reading-order-list');
+		$readingOrderList = _mode === Mode.SEGMENT ? $('#reading-order-list') : $('#reading-order-list-lines');
 		$readingOrderList.empty();
-		for (let index = 0; index < readingOrder.length; index++) {
-			const segment = segments[readingOrder[index]];
-			if(segment){
-				const $collectionItem = $('<li class="draggable collection-item reading-order-segment" data-id="' + segment.id + '" data-drag-group="readingorder" draggable="true"></li>');
-				const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
-				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons" data-id="' + segment.id + '">delete</i>');
-				$collectionItem.append($legendTypeIcon);
-				$collectionItem.append(segment.id.substring(0, 4) + "-" + segment.type );
-				$collectionItem.append($deleteReadingOrderSegment);
-				$readingOrderList.append($collectionItem);
+		if(readingOrder){
+			for (let index = 0; index < readingOrder.length; index++) {
+				const segment = segments[readingOrder[index]];
+				if(segment){
+					const $collectionItem = $('<li class="draggable collection-item reading-order-segment" data-id="' + segment.id + '" data-drag-group="readingorder" draggable="true"></li>');
+					const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
+					const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons" data-id="' + segment.id + '">delete</i>');
+					$collectionItem.append($legendTypeIcon);
+					$collectionItem.append(segment.id.substring(0, 4) + "-" + segment.type );
+					$collectionItem.append($deleteReadingOrderSegment);
+					$readingOrderList.append($collectionItem);
+				}
 			}
 		}
 	}
@@ -422,7 +446,8 @@ function GUI(canvas, viewer, colors) {
 	 */
 	this.getReadingOrder = function (){
 		const readingOrder = [];
-		const $readingOrderItems = $("#reading-order-list").children();
+		const $readingOrderList = _mode === Mode.SEGMENT ? $('#reading-order-list') : $('#reading-order-list-lines');
+		const $readingOrderItems = $readingOrderList.children();
 		
 		$readingOrderItems.each((i,ir) => readingOrder.push($(ir).data("id")));
 

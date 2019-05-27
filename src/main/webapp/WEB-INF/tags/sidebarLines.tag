@@ -17,9 +17,9 @@
 			</c:forEach>
 		</ul>
 	</div>
-	<ul class="collapsible row" data-collapsible="accordion">
+	<ul class="collapsible row infocus" data-collapsible="accordion">
 		<li>
-			<div id="reading-order-header" class="collapsible-header">
+			<div id="reading-order-header-lines" class="collapsible-header">
 				<i class="material-icons">reorder</i>Reading Order
 				<div class="collapsible-setting"><i class="delete-reading-order material-icons">delete</i></div>
 			</div>

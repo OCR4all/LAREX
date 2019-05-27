@@ -161,7 +161,12 @@ function GuiInput(navigationController, controller, gui) {
 
 	$('.collapsible-header').click(function () {
 		if ($(this).is('#reading-order-header')) {
-			_controller.displayReadingOrder(true);
+			const wasActive  = $(this).hasClass("active");
+			_controller.displayReadingOrder(!wasActive);
+		}else if ($(this).is('#reading-order-header-lines')) {
+			const wasActive  = $(this).hasClass("active");
+			_controller.forceUpdateReadingOrder();
+			_controller.displayReadingOrder(!wasActive);
 		} else {
 			_controller.displayReadingOrder(false);
 		}

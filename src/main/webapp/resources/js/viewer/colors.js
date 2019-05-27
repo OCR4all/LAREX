@@ -8,6 +8,10 @@ class Colors {
 		return new paper.Color(this.unpackColor(this.getColorID(segmentType)));
 	}
 
+	getAssigned(){
+		return JSON.parse(JSON.stringify(this._regionColors));
+	}
+
 	getColorID(segmentType) {
 		if (!this.hasColor(segmentType)) 
 			throw "No color for region type defined! ["+segmentType+"]";
