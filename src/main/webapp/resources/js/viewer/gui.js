@@ -414,28 +414,31 @@ function GUI(canvas, viewer, colors) {
 	}
 
 	/** Set the in the gui visible reading order */
-	this.setReadingOrder = function (readingOrder, segments) {
+	this.setReadingOrder = function (readingOrder, segments, warning="Reading order is empty") {
 		$readingOrderList = _mode === Mode.SEGMENT ? $('#reading-order-list') : $('#reading-order-list-lines');
 		$readingOrderList.empty();
-		if(readingOrder){
+		if(readingOrder && readingOrder.length > 0){
 			for (let index = 0; index < readingOrder.length; index++) {
 				const segment = segments[readingOrder[index]];
 				if(segment){
-					const $collectionItem = $('<li class="draggable collection-item reading-order-segment" data-id="' + segment.id + '" data-drag-group="readingorder" draggable="true"></li>');
-					const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
-					const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons" data-id="' + segment.id + '">delete</i>');
+					const $collectionItem = $('<li class="draggable collection-item reading-order-segment infocus" data-id="' + segment.id + '" data-drag-group="readingorder" draggable="true"></li>');
+					const $legendTypeIcon = $('<div class="legendicon infocus ' + segment.type + '"></div>');
+					const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons infocus" data-id="' + segment.id + '">delete</i>');
 					$collectionItem.append($legendTypeIcon);
-					$collectionItem.append(segment.id.substring(0, 4) + "-" + segment.type );
+					const id = segment.id;
+					$collectionItem.append(id.substring(id.length - 3, id.length) + "-" + segment.type );
 					$collectionItem.append($deleteReadingOrderSegment);
 					$readingOrderList.append($collectionItem);
 				}
 			}
+		} else{
+			$readingOrderList.append($(`<p class="warning">${warning}</p>`));
 		}
 	}
 
 	/** Open the reading order collapsible */
 	this.openReadingOrderSettings = function (){
-		$readingOrder = $("#reading-order-header");
+		const $readingOrder = _mode === Mode.SEGMENT ? $('#reading-order-header') : $('#reading-order-header-lines');
 		if(!$readingOrder.hasClass("active")){
 			$readingOrder.click();
 		}

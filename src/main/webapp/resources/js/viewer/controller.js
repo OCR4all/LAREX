@@ -692,7 +692,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		_gui.selectToolBarButton('regionBorder', true);
 	}
 	this.callbackNewRegion = function (regionpoints, regiontype) {
-		const newID = "created" + _newPolygonCounter;
+		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
 		if (!regiontype) {
 			type = _presentRegions[0];
@@ -733,7 +733,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const actions = [];
 
 		//Create 'inverted' ignore rectangle
-		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
+		actions.push(new ActionAddRegion("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
 			_editor, _settings, _currentPage));
 		_newPolygonCounter++;
 
@@ -754,7 +754,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.callbackNewSegment = function (segmentpoints) {
-		const newID = "created" + _newPolygonCounter;
+		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
 		let type = _presentRegions[0];
 		if (!type) {
@@ -773,7 +773,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.callbackNewTextLine = function (segmentpoints) {
-		const newID = "created" + _newPolygonCounter;
+		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
 		if(segmentpoints.length > 1){
 			const actionAdd = new ActionAddTextLine(newID,_tempID, segmentpoints, {},
@@ -788,7 +788,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 	}
 
 	this.callbackNewCut = function (segmentpoints) {
-		const newID = "created" + _newPolygonCounter;
+		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
 
 		const actionAdd = new ActionAddCut(newID, segmentpoints,
@@ -905,26 +905,33 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 		const selected = _editor.getSortedReadingOrder(_selector.getSelectedSegments());
 		const selectType = _selector.getSelectedPolygonType();
 
+		let alreadyInReadingOrder = false;
+
 		const actions = [];
 		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 			const id = selected[i];
+
 			if (selectType === ElementType.SEGMENT && _mode === Mode.SEGMENT) {
 				let segment = _segmentation[_currentPage].segments[id];
+				alreadyInReadingOrder = (alreadyInReadingOrder || this._readingOrderContains(id));
 
-				if (!this._readingOrderContains(id) && segment.type !== 'ImageRegion'){
+				if (!alreadyInReadingOrder && segment.type !== 'ImageRegion'){
 					actions.push(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this));
 				}
 			} else if (selectType === ElementType.TEXTLINE && _mode === Mode.LINES) {
 				const parentID = this.textlineRegister[id];
-				if (!this._readingOrderContains(id,parentID,selectType)){
+				alreadyInReadingOrder = (alreadyInReadingOrder || this._readingOrderContains(id));
+				if (!alreadyInReadingOrder){
 					actions.push(new ActionAddTextLineToReadingOrder(id,parentID, _currentPage, _segmentation, this));
 				}
 			}
 		}
 		if(actions.length > 0){
 			_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
-		}else{
-			_gui.displayWarning("You need to select a segment to add to the reading order.");
+		} else if (alreadyInReadingOrder){
+			_gui.displayWarning("The selected element is already in the reading order.");
+		} else {
+			_gui.displayWarning("You need to select an element to add to the reading order.");
 		}
 	}
 
@@ -1017,7 +1024,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 						readingOrder = (segment.readingOrder || []);
 						_gui.setReadingOrder(readingOrder, segment.textlines);
 					} else {
-						_gui.setReadingOrder([], {});
+						_gui.setReadingOrder([], {}, warning="Please select a segment");
 					}
 				} else {
 					_gui.setReadingOrder([], {});
