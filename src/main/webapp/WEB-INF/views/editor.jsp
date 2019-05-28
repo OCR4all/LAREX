@@ -183,6 +183,7 @@
 		<b:preloader/>
 		<t:regionSettings/>
 		<t:contextmenu/>
+		<t:virtualKeyboardAdd/>
 		<div id="textline-content" class="hide infocus">
 			<input id="textline-text" type="text">			
 			<span id="textline-buffer" class=""></span>

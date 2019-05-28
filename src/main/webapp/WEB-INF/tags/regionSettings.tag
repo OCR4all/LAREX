@@ -1,4 +1,4 @@
-<%@tag description="Main Body Tag" pageEncoding="UTF-8"%>
+<%@tag description="Tag for changing and displaying the settings of a region" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
 

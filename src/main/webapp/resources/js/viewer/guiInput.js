@@ -309,11 +309,13 @@ function GuiInput(navigationController, controller, gui) {
 		_gui.lockVirtualKeyboard(false);
 	});
 	$(document).on('drop','.vk-delete', function (event) {
-		//TODO does not trigger?
 		if($drag_target.data('drag-group') == "keyboard"){
 			_gui.deleteVirtualKeyboardButton($drag_target);
 		}
 	});
+	$('.vk-add').click(() =>  _gui.openAddVirtualKeyboardButton());
+	$('#vk-save').click(() => _gui.closeAddVirtualKeyboardButton(true));
+	$('#vk-cancel').click(() => _gui.closeAddVirtualKeyboardButton(false));
 
 	/* Reading Order */
 	$(document).on('dragenter','.reading-order-segment', function (event) {

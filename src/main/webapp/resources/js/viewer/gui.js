@@ -61,7 +61,10 @@ function GUI(canvas, viewer, colors) {
 
 	/**
 	 * Load and set a virtual keyboard for the gui.
-	 * Keyboard can either be a list of list of characters (e.g. keyboard=[[a,b,c],[]])
+	 * Keyboard can either be a list of list of characters (e.g. keyboard=[[a,b,c],[d,e]]) 
+	 * or a new line and whitespace seperated string 
+	 * (e.g. keyboard=`a b c
+	 * 				   d e`   )
 	 */
 	this.setVirtualKeyboard = function (keyboard, isRaw=false){
 		if(isRaw){
@@ -88,6 +91,13 @@ function GUI(canvas, viewer, colors) {
 			}
 		}
 	}
+	/**
+	 * Get the current virtual keyboard from displayed in the gui.
+	 * Keyboard can either be returned as list of list of characters (e.g. keyboard=[[a,b,c],[d,e]]) 
+	 * or a new line and whitespace seperated string (asRaw)
+	 * (e.g. keyboard=`a b c
+	 * 				   d e`   )
+	 */
 	this.getVirtualKeyboard = function (asRaw=false){
 		let virtualKeyboard = asRaw ? "" : [];
 
@@ -105,6 +115,9 @@ function GUI(canvas, viewer, colors) {
 		}
 		return virtualKeyboard;
 	}
+	/**
+	 * Lock and unlock the virtual keyboard, in order to change and lock changes in the keyboard
+	 */
 	this.lockVirtualKeyboard = function(doLock){
 		if(doLock){ 
 			$('.vk-lock').addClass("hide");
@@ -116,9 +129,28 @@ function GUI(canvas, viewer, colors) {
 			$('.vk-drag').attr("draggable",true);
 		}
 	}
+	/**
+	 * Add a string as button to the virtual keyboard
+	 */
+	this.addVirtualKeyboardButton = function (btnValue){
+		// Clear grid before loading all items
+		const row = $('.vk-row').last();
+
+		btnValue = btnValue.replace(/\s/,'');
+		if(btnValue.length > 0){
+			row.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true">
+								<a class="vk-btn btn infocus">${btnValue}</a>
+							</div>`));
+		} else {
+			this.displayWarning(`Can't add empty buttons to the virtual keyboard.`);
+		}
+	}
 	this.deleteVirtualKeyboardButton = function($button){
 		$button.remove();
 	}
+	/**
+	 * Return the length of buttons in a given row inside the virtual keyboard
+	 */
 	this.capKeyboardRowLength = function ($row){
 		$children = $row.children();
 		if($children.length > 12){
@@ -134,6 +166,26 @@ function GUI(canvas, viewer, colors) {
 				$(r).remove()
 			}
 		});
+	}
+	/**
+	 * Open the menu for adding new virtual keyboard buttons
+	 */
+	this.openAddVirtualKeyboardButton = function () {
+		$('#vk-btn-value').val('');	
+		$vk_add = $('#virtual-keyboard-add');
+		$vk_add.removeClass('hide');
+		$sidebarOffset = $('.virtual-keyboard-tools').first().offset();
+		$vk_add.css({ top: $sidebarOffset.top, left: $sidebarOffset.left - $vk_add.width() });
+	}
+	/**
+	 * Close the menu for adding new virtual keyboard buttons.
+	 * Saving the button will add it to the virtual keyboard if its value is valid.
+	 */
+	this.closeAddVirtualKeyboardButton = function (doSave=false) {
+		$('#virtual-keyboard-add').addClass("hide");
+		if(doSave){
+			this.addVirtualKeyboardButton($('#vk-btn-value').val());
+		}
 	}
 
 	this.openTextLineContent = function (textline) {

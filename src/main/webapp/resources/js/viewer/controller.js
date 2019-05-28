@@ -92,6 +92,10 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			const keyInput = new KeyInput(_navigationController, this, _gui, _selector, ["#"+canvasID,"#textline-content"]);
 			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
 			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
+			$("#regioneditor").find("input").focusin(() => keyInput.isActive = false);
+			$("#regioneditor").find("input").focusout(() => keyInput.isActive = true);
+			$("#virtual-keyboard-add").find("input").focusin(() => keyInput.isActive = false);
+			$("#virtual-keyboard-add").find("input").focusout(() => keyInput.isActive = true);
 			_guiInput = new GuiInput(_navigationController, this, _gui);
 
 			this.showPreloader(false);

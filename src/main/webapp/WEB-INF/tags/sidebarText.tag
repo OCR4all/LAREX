@@ -1,5 +1,6 @@
 <%@tag description="Edit Segment Window" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib prefix="t" tagdir="/WEB-INF/tags"%>
 
 <div id="sidebar-text" class="col s12 hide">
 
@@ -20,7 +21,7 @@
 		<a class="btn col s4 waves-effect waves-light tooltipped vk-add" data-position="left" data-delay="50" data-tooltip="Add new buttons to the virtual keyboard.">
 			<i class="material-icons"> add </i>
 		</a>	
-		<a class="btn col s4 tooltipped vk-delete" data-position="left" data-delay="50" data-tooltip="Drop virtual keyboard buttons here to delete them. (Only possible if virtual keyboard is unlocked)">
+		<a class="btn col s4 tooltipped vk-delete draggable" data-position="left" data-delay="50" data-tooltip="Drop virtual keyboard buttons here to delete them. (Only possible if virtual keyboard is unlocked)">
 			<i class="material-icons"> delete </i>
 		</a>	
 		<a class="btn col s4 waves-effect waves-light tooltipped vk-lock" data-position="left" data-delay="50" data-tooltip="Lock buttons of the virtual keyboard in place.">
@@ -52,6 +53,4 @@
 		<i class="material-icons right">file_upload</i></div>
 		<input id="upload-segmentation-input" class="uploadSegmentation hide" type="file">
 	</form>
-	
-	
 </div>

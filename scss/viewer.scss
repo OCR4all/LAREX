@@ -404,10 +404,10 @@ body{
   }
 }
 
-#regioneditor{
+#regioneditor, #virtual-keyboard-add{
   z-index:3;
   position: absolute;
-  #regioneditor-settings{
+  #regioneditor-settings, #vk-settings{
     margin: 8px;
     #regionType, #regionType *{
       cursor: pointer;
