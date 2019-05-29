@@ -20,17 +20,21 @@ import javax.xml.transform.stream.StreamResult;
 
 import org.primaresearch.dla.page.Page;
 import org.primaresearch.dla.page.io.FileInput;
+import org.primaresearch.dla.page.io.xml.DefaultXmlNames;
 import org.primaresearch.dla.page.io.xml.XmlPageReader;
 import org.primaresearch.dla.page.layout.logical.Group;
 import org.primaresearch.dla.page.layout.logical.GroupMember;
 import org.primaresearch.dla.page.layout.logical.RegionRef;
 import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
-import org.primaresearch.dla.page.layout.physical.text.TextContent;
+import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.TextContentVariant;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
 import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.maths.geometry.Polygon;
+import org.primaresearch.shared.variable.IntegerValue;
+import org.primaresearch.shared.variable.IntegerVariable;
+import org.primaresearch.shared.variable.Variable;
 import org.w3c.dom.Document;
 
 import com.web.communication.SegmentationStatus;
@@ -104,14 +108,32 @@ public class PageXMLReader {
 								pointList.add(newPoint);
 							}
 
-							// TextLine text content
-							Map<Integer,String> content = new HashMap<>();
+							//// TextLine text content
+							final Map<Integer,String> content = new HashMap<>();
+							// List of all unindexed text contents
+							final List<String> unindexedContent = new ArrayList<>();
+							int highestIndex = -1;
 							for(int i = 0; i < textLine.getTextContentVariantCount(); i++) {
-								TextContent textContent = textLine.getTextContentVariant(i);
-								content.put(i, textContent.getText());
-							}
+								TextContentVariant textContent = (TextContentVariant) textLine.getTextContentVariant(i);
 
-							textLines.put(id,new com.web.model.TextLine(id,pointList,content));
+								if(textContent.getText() != null) { 
+									Variable indexVariable = textContent.getAttributes().get(DefaultXmlNames.ATTR_index);
+									if(indexVariable != null && indexVariable instanceof IntegerVariable) {
+										//TODO currently no index can be read every index is undefined / null
+										final int index = ((IntegerValue)(indexVariable).getValue()).val;
+										content.put(index, textContent.getText());
+										highestIndex = index > highestIndex ? index : highestIndex;
+									} else {
+										unindexedContent.add(textContent.getText());
+									}
+								};
+							}
+							// Give all unindexed content an index starting above the highest recorded index in the bunch (min 0)
+							for(String contentString : unindexedContent) {
+								content.put(++highestIndex, contentString);
+							}
+							
+							textLines.put(id, new com.web.model.TextLine(id,pointList,content));
 							readingOrder.add(id);
 						}
 

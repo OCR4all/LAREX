@@ -36,6 +36,8 @@ import org.primaresearch.ident.IdRegister.InvalidIdException;
 import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.io.xml.XmlFormatVersion;
 import org.primaresearch.maths.geometry.Polygon;
+import org.primaresearch.shared.variable.IntegerValue;
+import org.primaresearch.shared.variable.IntegerVariable;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -123,8 +125,9 @@ public class PageXMLWriter {
 						for(Entry<Integer,String> content : textline.getText().entrySet()) {
 							final int id = content.getKey();
 							final TextContent textContent = (id >= pageTextLine.getTextContentVariantCount()) ?
-									pageTextLine.addTextContentVariant(): pageTextLine.getTextContentVariant(id);
+									 pageTextLine.addTextContentVariant():  pageTextLine.getTextContentVariant(id);
 							textContent.setText(content.getValue());
+							textContent.getAttributes().add(new IntegerVariable("index",new IntegerValue(id)));
 						}
 					}
 				}

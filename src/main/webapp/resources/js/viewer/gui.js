@@ -219,26 +219,26 @@ function GUI(canvas, viewer, colors) {
 			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
 			$textlinecontent.data('textline', textline);
 
-			this.saveTextLine(false,false);
+			this.saveTextLine(textline.id,false);
 		}
 	}
 
 	this.updateTextLine = function(id) {
 		if(this.tempTextline && this.tempTextline.id == id){
 			const $textlinecontent = $("#textline-content");
-			const hasPredict = 0 in this.tempTextline.text;
-			const hasGT = 1 in this.tempTextline.text;
+			const hasPredict = 1 in this.tempTextline.text;
+			const hasGT = 0 in this.tempTextline.text;
 			const $textline_text = $("#textline-text");
 			const start = $textline_text[0].selectionStart;
 			const end = $textline_text[0].selectionEnd;
 			if(hasGT){
 				$textlinecontent.addClass("line-corrected")
-				$textline_text.val(this.tempTextline.text[1]);
+				$textline_text.val(this.tempTextline.text[0]);
 			} else {
 				$textlinecontent.removeClass("line-corrected")
 				$textlinecontent.removeClass("line-saved");
 				if (hasPredict){
-					$textline_text.val(this.tempTextline.text[0]);
+					$textline_text.val(this.tempTextline.text[1]);
 				} else {
 					$textline_text.val("");
 				}
