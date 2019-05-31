@@ -61,6 +61,10 @@ public class FileConfiguration {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		// defaults
+		if(getSetting("modes") == null || getSetting("modes").equals("")) {
+			setSetting("modes", "segment lines text");
+		}
 	}
 
 	/**

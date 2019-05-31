@@ -17,9 +17,7 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
-	$('.mode-segment').click(() => _controller.setMode(Mode.SEGMENT));
-	$('.mode-lines').click(() => _controller.setMode(Mode.LINES));
-	$('.mode-text').click(() => _controller.setMode(Mode.TEXT));
+	$('.mode').click(function(){ _controller.setMode($(this).data("mode"))});
 	$('.doSegment').click(() => _controller.requestSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
 	$('.pageXMLVersionSelect').click(function () {

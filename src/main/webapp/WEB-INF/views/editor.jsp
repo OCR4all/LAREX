@@ -61,7 +61,8 @@
 				ignore: 4,
 				TextLine: 5
 		};
-		let controller = new Controller(${book.getId()},'viewerCanvas',specifiedColors,colors,globalSettings);
+		const accessible_modes = ['${globalSettings.getSetting("modes").trim().replace(" ","','")}']
+		let controller = new Controller(${book.getId()},accessible_modes,'viewerCanvas',specifiedColors,colors,globalSettings);
 		$(document).ready(function() {
 			$(".button-collapse").sideNav();
 		    $('select').material_select();
@@ -76,9 +77,9 @@
 		<div id="menu" class="grey lighten-4">
 			<div class="mainMenu">
 				<ul class="tabs">
-					<li class="tab"><a href="#segment_tab" class="mode-segment">Segments</a></li>
-					<li class="tab"><a href="#line_tab" class="mode-lines">Lines</a></li>
-					<li class="tab"><a href="#text_tab" class="mode-text">Text</a></li>
+					<li class="tab mode mode-segment" data-mode="segment"><a href="#segment_tab">Segments</a></li>
+					<li class="tab mode mode-lines" data-mode="lines"><a href="#line_tab">Lines</a></li>
+					<li class="tab mode mode-text" data-mode="text"><a href="#text_tab">Text</a></li>
 				</ul>
 
   			</div>

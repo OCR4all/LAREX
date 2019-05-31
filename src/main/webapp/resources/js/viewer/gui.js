@@ -1,10 +1,11 @@
-function GUI(canvas, viewer, colors) {
+function GUI(canvas, viewer, colors, accessible_modes) {
 	const _viewer = viewer;
 	const _colors = colors;
 	let _canvas = canvas;
 	let _mouse;
 	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
 	let _mode;
+	let _accessible_modes = accessible_modes;
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
@@ -38,6 +39,13 @@ function GUI(canvas, viewer, colors) {
 				$('#sidebar-segment').removeClass('hide');
 				$('#sidebar-lines').addClass('hide');
 				$('#sidebar-text').addClass('hide');
+		}
+	}
+
+	this.setAccessibleModes = function(modes){
+		$(".mode").addClass("hide");
+		for(const cur_mode of modes){
+			$(`.mode-${cur_mode}`).removeClass("hide");
 		}
 	}
 
@@ -786,4 +794,7 @@ function GUI(canvas, viewer, colors) {
 		});
 		
 	}
+	
+	// Init script
+	this.setAccessibleModes(accessible_modes);
 }

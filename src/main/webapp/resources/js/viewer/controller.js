@@ -2,12 +2,12 @@ var Mode = {SEGMENT:'segment',LINES:'lines',TEXT:'text'}
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
 var ElementType = {SEGMENT:'segment',REGION:'region',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
 
-function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
+function Controller(bookID, accessible_modes, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
 	const _communicator = new Communicator();
 	const _colors = new Colors(colors,regionColors);
 	this.textlineRegister = {};
-	let _mode = Mode.SEGMENT;
+	let _mode = accessible_modes[0];
 	let _selector;
 	let _gui;
 	let _guiInput;
@@ -65,7 +65,7 @@ function Controller(bookID, canvasID, regionColors, colors, globalSettings) {
 			_selector = new Selector(_editor, this);
 			viewerInput.selector = _selector;
 			_actionController.selector = _selector;
-			_gui = new GUI(canvasID, _editor,_colors);
+			_gui = new GUI(canvasID, _editor,_colors, accessible_modes);
 			_gui.resizeViewerHeight();
 
 			_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
