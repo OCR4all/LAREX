@@ -103,7 +103,8 @@ public class ViewerController {
 			@RequestParam(value = "localsave", required = false) String localsave,
 			@RequestParam(value = "savedir", required = false) String savedir,
 			@RequestParam(value = "websave", required = false) String websave,
-			@RequestParam(value = "imagefilter", required = false) String imagefilter) throws IOException {
+			@RequestParam(value = "imagefilter", required = false) String imagefilter,
+			@RequestParam(value = "modes", required = false) String modes) throws IOException {
 		if (!config.getSetting("directrequest").equals("enable")) {
 			return "redirect:/403";
 		}
@@ -124,6 +125,9 @@ public class ViewerController {
 		}
 		if (imagefilter != null) {
 			config.setSetting("imagefilter", imagefilter);
+		}
+		if (modes != null){
+			config.setSetting("modes", modes);
 		}
 		return viewer(model, bookID);
 	}
