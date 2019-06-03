@@ -5,7 +5,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	let _mouse;
 	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
 	let _mode;
-	let _accessible_modes = accessible_modes;
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
@@ -17,6 +16,17 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	}
 
 	this.setMode = function(mode){
+		// Open tab for mode if is not open already
+		const tabBtnID = {"text":".mode-text",
+					   "lines":".mode-lines",
+					   "segment":".mode-segment"}[mode];
+		const tabID = {"text":"text_tab",
+					   "lines":"line_tab",
+					   "segment":"segment_tab"}[mode];
+		if (!$(`.tab${tabBtnID} > a`).hasClass("active")) {
+			$('.mainMenu > .tabs').tabs('select_tab',tabID);
+		}
+
 		_mode = mode;
 		switch (mode) {
 			case Mode.LINES:

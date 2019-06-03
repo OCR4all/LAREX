@@ -17,7 +17,14 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
-	$('.mode').click(function(){ _controller.setMode($(this).data("mode"))});
+	let block_mode_switch = false;
+	$('.mode').click(function(){
+		if(!block_mode_switch){
+			block_mode_switch = true;
+			_controller.setMode($(this).data("mode"));
+			block_mode_switch = false;
+		}
+	});
 	$('.doSegment').click(() => _controller.requestSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
 	$('.pageXMLVersionSelect').click(function () {
