@@ -33,11 +33,17 @@ body{
 	margin: 0px !important;
 	background-color: $color3;
 
-  #viewerCanvas{
+  #viewerCanvas, #viewerText{
   	width: 100%;
   	height: 100%;
   	padding: 0px !important;
   	margin: 0px !important;
+  }
+  #viewerText {
+    position: absolute;
+    top:0px;
+    left:0px;
+    background-color: white;
   }
   canvas[resize] {
       width: 100%;

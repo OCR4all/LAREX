@@ -77,6 +77,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$("#contextmenu").addClass("hide");
 	}
 
+	this.openTextView = function(){
+		
+	}
 	/**
 	 * Load and set a virtual keyboard for the gui.
 	 * Keyboard can either be a list of list of characters (e.g. keyboard=[[a,b,c],[d,e]]) 

@@ -172,6 +172,7 @@
 			</div>
 			<div id="viewer" class="col s5 m9 l9">
 				<canvas id="viewerCanvas" class="grey darken-1" resize="true"></canvas>
+				<div id="viewerText" class="hide" resize="true"></div>
 			</div>
 
 			<div class="sidebar col s4 m2 l2">
