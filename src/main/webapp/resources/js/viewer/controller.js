@@ -1248,6 +1248,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
+	this.closeEditLine = function(){
+		_gui.closeTextLineContent();
+	}
+
 	this.saveLine = function(){
 		const textlinecontent = _gui.getTextLineContent();
 		const id = textlinecontent.id;
@@ -1367,5 +1371,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		polygon = _settings.pages[_currentPage].cuts[id];
 		if (polygon) return polygon;
+	}
+
+	this.getCurrentSegmentation = function() {
+		return _segmentation[_currentPage];
+	}
+	this.getCurrentSettings = function(){
+		return _settings[_currentPage];
 	}
 }

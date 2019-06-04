@@ -128,9 +128,14 @@ public class PageXMLReader {
 									}
 								};
 							}
-							// Give all unindexed content an index starting above the highest recorded index in the bunch (min 0)
-							for(String contentString : unindexedContent) {
-								content.put(++highestIndex, contentString);
+
+							if(content.size() == 0 && unindexedContent.size() == 1) {
+								content.put(1, unindexedContent.get(0));
+							} else {
+								// Give all unindexed content an index starting above the highest recorded index in the bunch (min 0)
+								for(String contentString : unindexedContent) {
+									content.put(++highestIndex, contentString);
+								}
 							}
 							
 							textLines.put(id, new com.web.model.TextLine(id,pointList,content));

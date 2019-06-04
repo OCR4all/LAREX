@@ -14,6 +14,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						_controller.endEditReadingOrder();
 						validKey = true;
 						break;
+					case 9: // TAB
+						_selector.selectNext(event.shiftKey);
+						validKey = true;
+						break;
 					case 13: // Enter
 						_controller.saveLine();
 						validKey = true;
@@ -85,6 +89,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						break;
 					case 16: // Shift
 						_selector.selectBox = true;
+						validKey = true;
+						break;
+					case 9: // TAB
+						_selector.selectNext(event.shiftKey);
 						validKey = true;
 						break;
 					case 89: // Y
