@@ -55,8 +55,8 @@ class Communicator {
 		return this.request("emptysegment",  {pageid:pageID,bookid:bookID});
 	}
 
-	mergeSegments(segments, pageID, bookID) {
-		return this.request("merge", {segments:segments,pageid:pageID,bookid:bookID}, DataType.JSON);
+	mergeSegments(segments) {
+		return this.request("merge", segments, DataType.JSON);
 	}
 
 	extractContours(pageid, bookid) {
@@ -65,6 +65,10 @@ class Communicator {
 	
 	combineContours(contours, pageID, bookID, accuracy) {
 		return this.request("combinecontours", {contours:contours,pageid:pageID,bookid:bookID,accuracy:accuracy}, DataType.JSON);
+	}
+
+	minAreaRect(segment) {
+		return this.request("minarearect", {id:segment.id,points:segment.points,isRelative:segment.isRelative}, DataType.JSON);
 	}
 
 	exportSegmentation(segmentation, bookID, pageXMLVersion) {

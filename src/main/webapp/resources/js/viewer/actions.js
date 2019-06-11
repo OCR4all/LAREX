@@ -499,14 +499,16 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _id = id;
-	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
-	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points));
+	const _newRegionPoints = clone(segmentPoints);
+	const _oldRegionPoints = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points);
+	const _oldMinArea = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].minArea);
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _newRegionPoints;
+			delete segment.minArea;
 			viewer.updateSegment(segment);
 			console.log('Do - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
@@ -516,6 +518,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, 
 			_isExecuted = false;
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _oldRegionPoints;
+			segment.minArea = clone(_oldMinArea);
 			viewer.updateSegment(segment);
 			console.log('Undo - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
@@ -781,4 +784,8 @@ function ActionFixSegment(id, controller, doFix = true) {
 			console.log('Undo - Fix Segment ' + id);
 		}
 	}
+}
+
+function clone(object) {
+	return JSON.parse(JSON.stringify(object));
 }

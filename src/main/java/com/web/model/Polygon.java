@@ -49,4 +49,8 @@ public class Polygon {
 	public LinkedList<Point> getPoints() {
 		return new LinkedList<Point>(points);
 	}
+	
+	public boolean isRelative() {
+		return isRelative;
+	}
 }

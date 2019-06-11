@@ -3,7 +3,6 @@ package com.web.controller;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -22,16 +21,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.communication.BasicResponse;
-import com.web.communication.ContourCombineRequest;
-import com.web.communication.MergeRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.BookSettings;
 import com.web.facade.LarexFacade;
 import com.web.model.Book;
 import com.web.model.PageAnnotations;
-import com.web.model.Point;
-import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
 import larex.geometry.regions.type.PAGERegionType;
@@ -44,7 +39,7 @@ import larex.segmentation.parameters.ImageSegType;
  */
 @Controller
 @Scope("request")
-public class ViewerController {
+public class SegmentationController {
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
@@ -71,7 +66,7 @@ public class ViewerController {
 	}
 
 	/**
-	 * Display the contents of a book in the main viewer
+	 * Open the viewer and display the contents of a book
 	 **/
 	@RequestMapping(value = "/viewer", method = RequestMethod.GET)
 	public String viewer(Model model, @RequestParam(value = "book", required = false) Integer bookID)
@@ -97,6 +92,11 @@ public class ViewerController {
 		return "editor";
 	}
 
+	
+	/**
+	 * Open the viewer with a direct request if direct request is enabled
+	 * and display the contents of a selected book.
+	 */
 	@RequestMapping(value = "/direct", method = RequestMethod.POST)
 	public String direct(Model model, @RequestParam(value = "bookpath", required = true) String bookpath,
 			@RequestParam(value = "bookname", required = true) String bookname,
@@ -132,6 +132,9 @@ public class ViewerController {
 		return viewer(model, bookID);
 	}
 
+	/**
+	 * Return the information about a book with all default settings 
+	 */
 	@RequestMapping(value = "/book", method = RequestMethod.POST)
 	public @ResponseBody BasicResponse getBook(@RequestParam("bookid") int bookID, @RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
@@ -157,34 +160,6 @@ public class ViewerController {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		return LarexFacade.emptySegmentPage(bookID, pageID, database);
-	}
-
-	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody Region merge(@RequestBody MergeRequest mergeRequest) {
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-		return LarexFacade.merge(mergeRequest.getSegments(), mergeRequest.getPage(), mergeRequest.getBookid(),
-				fileManager, database);
-	}
-
-	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody Region combinecontours(@RequestBody ContourCombineRequest combineRequest) {
-		if (combineRequest.getContours().size() > 0) {
-			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-					config.getListSetting("imagefilter"));
-			return LarexFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),
-					combineRequest.getBookid(), combineRequest.getAccuracy(), fileManager, database);
-		} else
-			return null;
-	}
-
-	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST)
-	public @ResponseBody Collection<List<Point>> extractcontours(@RequestParam("bookid") int bookID,
-			@RequestParam("pageid") int pageID) {
-
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-		return LarexFacade.extractContours(pageID, bookID, fileManager, database);
 	}
 
 	@RequestMapping(value = "/segmentedpages", method = RequestMethod.POST)

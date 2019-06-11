@@ -13,6 +13,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		zoom = Math.round(zoom * 10000) / 100;
 
 		$('.zoomvalue').text(zoom);
+		this.resizeTextLineContent();	
 	}
 
 	this.setMode = function(mode){
@@ -287,6 +288,12 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	this.resizeTextLineContent = function(){
 		$buffer = $("#textline-buffer")[0];
 		$buffer.textContent = $("#textline-text")[0].value.replace(/ /g, "\xa0");
+
+		if(this.tempTextline && this.tempTextline.minArea){
+			$("#textline-buffer, #textline-text").css({
+				'font-size': this.tempTextline.minArea.height*_viewer.getZoom()+'px'
+			})
+		}
 		$("#textline-content").css({
 			width: $buffer.offsetWidth+'px'
 		})

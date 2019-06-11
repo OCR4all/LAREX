@@ -4,17 +4,12 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.UUID;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import org.opencv.core.MatOfPoint;
 import org.opencv.core.Size;
 import org.primaresearch.ident.IdRegister.InvalidIdException;
 import org.primaresearch.io.UnsupportedFormatVersionException;
@@ -30,14 +25,10 @@ import com.web.io.SettingsWriter;
 import com.web.model.Book;
 import com.web.model.Page;
 import com.web.model.PageAnnotations;
-import com.web.model.Point;
 import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
 import larex.geometry.regions.RegionSegment;
-import larex.geometry.regions.type.RegionSubType;
-import larex.operators.Contourextractor;
-import larex.operators.Merger;
 import larex.segmentation.SegmentationResult;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
@@ -107,81 +98,6 @@ public class LarexFacade {
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	public static Region merge(List<Region> segments, int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
-		ArrayList<RegionSegment> resultRegions = new ArrayList<RegionSegment>();
-		for (Region segment : segments)
-			resultRegions.add(segment.toRegionSegment());
-
-		Book book = getBook(bookID, database);
-		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
-		page.initPage();
-		RegionSegment mergedRegion = Merger.lineMerge(resultRegions, page.getBinary().size());
-		page.clean();
-		System.gc();
-
-		return new Region(mergedRegion);
-	}
-
-	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
-		Book book = getBook(bookID, database);
-		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
-		page.initPage();
-
-		Collection<MatOfPoint> contours = Contourextractor.fromSource(page.getOriginal());
-		page.clean();
-		System.gc();
-
-		Collection<List<Point>> contourSegments = new ArrayList<>();
-		for (MatOfPoint contour : contours) {
-			LinkedList<Point> points = new LinkedList<>();
-			for (org.opencv.core.Point regionPoint : contour.toList()) {
-				points.add(new Point(regionPoint.x, regionPoint.y));
-			}
-			contourSegments.add(points);
-		}
-
-		return contourSegments;
-	}
-
-	/**
-	 * Request to combine contours (point list) to a polygon of type paragraph.
-	 * 
-	 * @param contours    Contours to combine
-	 * @param pageNr      Page from which the contours are from (for dimensions)
-	 * @param bookID      Book from with the page is from
-	 * @param accuracy    Accuracy of the combination process (between 0 and 100)
-	 * @param fileManager Filemanager to load the book/page from
-	 * @return Polygon that includes all contours
-	 */
-	public static Region combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
-			FileManager fileManager, FileDatabase database) {
-		Book book = getBook(bookID, database);
-		larex.data.Page page = getLarexPage(book.getPage(pageNr), fileManager);
-		page.initPage();
-
-		Collection<MatOfPoint> matContours = new ArrayList<>();
-		for (List<Point> contour : contours) {
-			org.opencv.core.Point[] matPoints = new org.opencv.core.Point[contour.size()];
-			for (int index = 0; index < contour.size(); index++) {
-				Point point = contour.get(index);
-				matPoints[index] = new org.opencv.core.Point(point.getX(), point.getY());
-			}
-			matContours.add(new MatOfPoint(matPoints));
-		}
-
-		
-	
-		accuracy = Math.max(0,Math.max(100,accuracy));
-				
-		double growth = 105 - 100/(accuracy/100.0);
-		
-		MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary(), growth, growth,10);
-		page.clean();
-		System.gc();
-
-		return new Region(combined, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
-	}
-
 	private static PageAnnotations segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageAnnotations segmentation = null;
 		larex.data.Page currentLarexPage = segmentLarex(settings, page, fileManager);
@@ -227,7 +143,7 @@ public class LarexFacade {
 		}
 	}
 
-	private static larex.data.Page getLarexPage(Page page, FileManager fileManager) {
+	public static larex.data.Page getLarexPage(Page page, FileManager fileManager) {
 		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 
 		if (new File(imagePath).exists()) {

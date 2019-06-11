@@ -648,7 +648,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			}
 			if (segments.length > 1) {
-				_communicator.mergeSegments(segments, _currentPage, _book.id).done((data) => {
+				_communicator.mergeSegments(segments).done((data) => {
 					const mergedSegment = data;
 					if(mergedSegment.points.length > 1){
 						if(_mode === Mode.SEGMENT){
@@ -1244,7 +1244,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.editLine = function(id){
 		if(this.getIDType(id) == ElementType.TEXTLINE){
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
-			_gui.openTextLineContent(textline);
+			if(!textline.minArea){
+				_communicator.minAreaRect(textline).done((minArea) => {
+					textline.minArea = minArea;
+					_gui.openTextLineContent(textline);
+				});
+			} else {
+				_gui.openTextLineContent(textline);
+			}
 		}
 	}
 
