@@ -25,6 +25,7 @@ class Viewer {
 		this._contours = [];
 		this._contourBounds = []; // Sorted list (top->bottom->left->right) of object of contour + contour bound
 		this._focus = null;
+		this._isDragging = false;
 		this.mode = ViewerMode.POLYGON;
 
 		document.addEventListener('visibilitychange', () => {
@@ -46,37 +47,42 @@ class Viewer {
 
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
-				let hitResult = false;
-				if(this.mode == ViewerMode.POLYGON){
-					// Check regions first
-					hitResult = this._overlays["regions"] && this._overlays["regions"].visible ?
-									this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
+				// Click on X only if not previously dragged
+				if(!this._isDragging){
+					let hitResult = false;
+					if(this.mode == ViewerMode.POLYGON){
+						// Check regions first
+						hitResult = this._overlays["regions"] && this._overlays["regions"].visible ?
+										this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
 
-					// Check textlines second
-					if(!hitResult)
+						// Check textlines second
+						if(!hitResult)
+							hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptionsTextline) : null;
+
+						// Check segments last
+						if(!hitResult)
+							hitResult = this._overlays["segments"] ? this._overlays["segments"].hitTest(event.point, this._hitOptions) : null;
+					} else if(this.mode == ViewerMode.CONTOUR){
+						hitResult = this._contourOverlay ? this.contourHitTest(event.point) : null;
+					} else if(this.mode == ViewerMode.TEXTLINE){
 						hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptionsTextline) : null;
-
-					// Check segments last
-					if(!hitResult)
-						hitResult = this._overlays["segments"] ? this._overlays["segments"].hitTest(event.point, this._hitOptions) : null;
-				} else if(this.mode == ViewerMode.CONTOUR){
-					hitResult = this._contourOverlay ? this.contourHitTest(event.point) : null;
-				} else if(this.mode == ViewerMode.TEXTLINE){
-					hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptionsTextline) : null;
-				} else {
-					throw new ValueError('Unkown selection mode: '+this.mode)
-				}
-				if(hitResult){
-					if (hitResult.item && hitResult.item.elementID) 
-						this.thisInput.clickElement(hitResult.item.elementID, event, hitResult, this.mode);
-					else
-						this.thisInput.clickImage(event);
-				} else {
-					this.thisInput.clickBackground(event);
+					} else {
+						throw new ValueError('Unkown selection mode: '+this.mode)
+					}
+					if(hitResult){
+						if (hitResult.item && hitResult.item.elementID) 
+							this.thisInput.clickElement(hitResult.item.elementID, event, hitResult, this.mode);
+						else
+							this.thisInput.clickImage(event);
+					} else {
+						this.thisInput.clickBackground(event);
+					}
 				}
 			}
+			this._isDragging = false;
 		};
 		tool.onMouseDrag = (event) => {
+			this._isDragging = true;
 			let propagate = true;
 			this._listener.forEach(listener => {
 				if (listener.onMouseDrag) {

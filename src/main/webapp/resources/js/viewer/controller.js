@@ -1242,6 +1242,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.editLine = function(id){
+		_gui.resetZoomTextline();
+		_gui.resetTextlineDelta();
 		if(this.getIDType(id) == ElementType.TEXTLINE){
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
 			if(!textline.minArea){

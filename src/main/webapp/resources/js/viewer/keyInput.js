@@ -18,8 +18,11 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						_selector.selectNext(event.shiftKey);
 						validKey = true;
 						break;
+					case 18: // ALT
+						break;
 					case 13: // Enter
 						_controller.saveLine();
+						_selector.selectNext(true);
 						validKey = true;
 						break;
 					case 83: // S
@@ -211,21 +214,29 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 	document.onkeyup = function (event) {
 		if (_this.isActive) {
 			let validKey = false;
+			const mode = _controller.getMode();
 
-			switch (event.keyCode) {
-				case 16: // Shift
-					_selector.selectBox = false;
-					validKey = true;
+			if(mode == Mode.TEXT && _gui.isTextLineContentActive()){
+				switch (event.keyCode) {
+					case 18: // ALT
 					break;
-				case 17: // CTRL
-					_selector.selectMultiple = false;
-					validKey = true;
-					break;
-				case 18: // ALT
-					document.body.style.cursor = "auto";
-					_controller.removeGrid();
-					validKey = true;
-					break;
+				}
+			} else {
+				switch (event.keyCode) {
+					case 16: // Shift
+						_selector.selectBox = false;
+						validKey = true;
+						break;
+					case 17: // CTRL
+						_selector.selectMultiple = false;
+						validKey = true;
+						break;
+					case 18: // ALT
+						document.body.style.cursor = "auto";
+						_controller.removeGrid();
+						validKey = true;
+						break;
+				}
 			}
 
 			if (validKey == true) {
@@ -241,7 +252,6 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 	$(viewerFocus.join(",")).bind(wheelEvent, function (event) {
 		if (_this.isActive && !isZooming) {
 			isZooming = true;
-			const canvasOffset = $(this).offset();
 			let scrollDirection; //positive => down, negative => up
 
 			switch (event.type) {
@@ -256,13 +266,30 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 					break;
 			}
 
-			const mousepoint = new paper.Point(event.originalEvent.pageX - canvasOffset.left,
-				event.originalEvent.pageY - canvasOffset.top);
-			if (scrollDirection < 0) {
-				_navigationController.zoomIn(0.1, mousepoint);
+			if(event.originalEvent.ctrlKey){
+				if (scrollDirection < 0) {
+					_gui.zoomInTextline(0.1);
+				} else {
+					_gui.zoomOutTextline(0.1);
+				}
+			} else if (event.originalEvent.shiftKey) {
+				if (scrollDirection < 0) {
+					_gui.moveTextline(10);
+				} else {
+					_gui.moveTextline(-10);
+				}
 			} else {
-				_navigationController.zoomOut(0.1, mousepoint);
+				const canvasOffset = $(viewerFocus[0]).offset();
+
+				const mousepoint = new paper.Point(event.originalEvent.pageX - canvasOffset.left,
+					event.originalEvent.pageY - canvasOffset.top);
+				if (scrollDirection < 0) {
+					_navigationController.zoomIn(0.1, mousepoint);
+				} else {
+					_navigationController.zoomOut(0.1, mousepoint);
+				}
 			}
+
 			isZooming = false;
 			event.preventDefault();
 		}

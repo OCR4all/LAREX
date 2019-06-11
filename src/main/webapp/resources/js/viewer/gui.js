@@ -5,6 +5,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	let _mouse;
 	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
 	let _mode;
+	let _textlineZoom = 1.0;
+	let _textlineDelta = 0;
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
@@ -14,6 +16,44 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 		$('.zoomvalue').text(zoom);
 		this.resizeTextLineContent();	
+	}
+
+	/**
+	 * Reset custom user zoom for the textline
+	 */
+	this.resetZoomTextline = function(){
+		_textlineZoom = 1;
+	}
+
+	/**
+	 * Zoom into textline with zoomfactor ]0,1[
+	 */
+	this.zoomInTextline = function(zoomFactor){
+		_textlineZoom *= (1+zoomFactor);
+		this.resizeTextLineContent();
+	}
+
+	/**
+	 * Zoom out of textline with zoomfactor ]0,1[
+	 */
+	this.zoomOutTextline = function(zoomFactor){
+		_textlineZoom *= (1-zoomFactor);
+		this.resizeTextLineContent();
+	}
+
+	/**
+	 * Reset custom user horizontal delta for the textline
+	 */
+	this.resetTextlineDelta = function(){
+		_textlineDelta = 0;
+	}
+
+	/**
+	 * Move textline with by delta
+	 */
+	this.moveTextline = function(delta){
+		_textlineDelta += delta;
+		this.placeTextLineContent();
 	}
 
 	this.setMode = function(mode){
@@ -210,18 +250,23 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		}
 	}
 
+	/**
+	 * Open the textline content, ready to edit
+	 */
 	this.openTextLineContent = function (textline) {
 		const $textlinecontent = $("#textline-content");
 		$textlinecontent.removeClass("hide");
 		
-		this.tempTextline = textline ? textline : this.tempTextline; 
-		
-		if(this.tempTextline){
+		if(!this.tempTextline || this.tempTextline.id != textline.id){
+			this.tempTextline = textline ? textline : this.tempTextline; 
 			this.updateTextLine(textline.id);
-			this.placeTextLineContent();
 		}
+		this.placeTextLineContent();
 	}
 
+	/**
+	 * Place the textline content onto the viewer
+	 */
 	this.placeTextLineContent = function(textline=this.tempTextline){
 		const $textlinecontent = $("#textline-content");
 		let anchorX = Infinity;
@@ -233,7 +278,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				anchorY = anchorY > point.y ? anchorY: point.y; 	
 			});
 
-			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX,anchorY);
+			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX+_textlineDelta,anchorY);
 			$viewerCanvas = $("#viewerCanvas")[0];
 			const left = $viewerCanvas.offsetLeft
 			const top = $viewerCanvas.offsetTop
@@ -241,10 +286,12 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
 			$textlinecontent.data('textline', textline);
 
-			this.saveTextLine(textline.id,false);
 		}
 	}
 
+	/**
+	 * Update the textline with its content
+	 */
 	this.updateTextLine = function(id) {
 		if(this.tempTextline && this.tempTextline.id == id){
 			const $textlinecontent = $("#textline-content");
@@ -253,8 +300,10 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			const $textline_text = $("#textline-text");
 			const start = $textline_text[0].selectionStart;
 			const end = $textline_text[0].selectionEnd;
+			console.log(hasGT);
 			if(hasGT){
 				$textlinecontent.addClass("line-corrected")
+				$textlinecontent.addClass("line-saved");
 				$textline_text.val(this.tempTextline.text[0]);
 			} else {
 				$textlinecontent.removeClass("line-corrected")
@@ -275,6 +324,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		}
 	}
 
+	/**
+	 * Display a save of the contents of a textline
+	 */
 	this.saveTextLine = function(id,doSave=true){
 		this.updateTextLine(id);
 		const $textlinecontent = $("#textline-content");
@@ -285,13 +337,16 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		}
 	}
 
+	/**
+	 * Resize the textline content based on its textline size and a user defined zoom
+	 */
 	this.resizeTextLineContent = function(){
 		$buffer = $("#textline-buffer")[0];
 		$buffer.textContent = $("#textline-text")[0].value.replace(/ /g, "\xa0");
 
 		if(this.tempTextline && this.tempTextline.minArea){
 			$("#textline-buffer, #textline-text").css({
-				'font-size': this.tempTextline.minArea.height*_viewer.getZoom()+'px'
+				'font-size': this.tempTextline.minArea.height*_viewer.getZoom()*_textlineZoom+'px'
 			})
 		}
 		$("#textline-content").css({

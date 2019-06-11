@@ -580,7 +580,7 @@ body{
   border: 1px solid black;
   background-color: white;
   padding: 0px;
-  margin: 1px;
+  margin: 0px;
   &.line-corrected{
     margin: 0px;
     border: 2px solid #4caf50;
@@ -595,7 +595,7 @@ body{
       height:auto;
       border-radius: 0;
       outline: none;
-      padding: 5px;
+      padding: 0px;
       margin: 0px;
       box-shadow: none;
       box-sizing: content-box;
