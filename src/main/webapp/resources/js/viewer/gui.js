@@ -56,6 +56,14 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		this.placeTextLineContent();
 	}
 
+	this.hideTextline = function(doHide=true) {
+		if(doHide) {
+			$('#textline-content').addClass("fade");
+		} else {
+			$('#textline-content').removeClass("fade");
+		}
+	}
+
 	this.setMode = function(mode){
 		// Open tab for mode if is not open already
 		const tabBtnID = {"text":".mode-text",
@@ -254,6 +262,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Open the textline content, ready to edit
 	 */
 	this.openTextLineContent = function (textline) {
+		this.hideTextline(false);
 		const $textlinecontent = $("#textline-content");
 		$textlinecontent.removeClass("hide");
 		
@@ -300,7 +309,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			const $textline_text = $("#textline-text");
 			const start = $textline_text[0].selectionStart;
 			const end = $textline_text[0].selectionEnd;
-			console.log(hasGT);
 			if(hasGT){
 				$textlinecontent.addClass("line-corrected")
 				$textlinecontent.addClass("line-saved");

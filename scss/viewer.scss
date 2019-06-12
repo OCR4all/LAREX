@@ -581,6 +581,11 @@ body{
   background-color: white;
   padding: 0px;
   margin: 0px;
+  transition: 0.3s;
+  transition-property: opacity;
+  &.fade{
+    opacity: 0.2;
+  }
   &.line-corrected{
     margin: 0px;
     border: 2px solid #4caf50;

@@ -1,6 +1,7 @@
 function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocus) {
 	this.isActive = true;
 	const _this = this;
+	const _special_keys = {};
 
 	document.onkeydown = function (event) {
 		if (_this.isActive) {
@@ -17,6 +18,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 					case 9: // TAB
 						_selector.selectNext(event.shiftKey);
 						validKey = true;
+						break;
+					case 16: // SHIFT
+						_gui.hideTextline(true);
+						_special_keys[event.keyCode] = true;
 						break;
 					case 18: // ALT
 						break;
@@ -92,6 +97,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						break;
 					case 16: // Shift
 						_selector.selectBox = true;
+						_special_keys[event.keyCode] = true;
 						validKey = true;
 						break;
 					case 9: // TAB
@@ -218,13 +224,16 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 
 			if(mode == Mode.TEXT && _gui.isTextLineContentActive()){
 				switch (event.keyCode) {
-					case 18: // ALT
-					break;
+					case 16: // Shift
+						_gui.hideTextline(false);
+						_special_keys[event.keyCode] = false;
+						break;
 				}
 			} else {
 				switch (event.keyCode) {
 					case 16: // Shift
 						_selector.selectBox = false;
+						_special_keys[event.keyCode] = false;
 						validKey = true;
 						break;
 					case 17: // CTRL
@@ -249,6 +258,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 
 	const wheelEvent = 'onwheel' in document ? 'wheel' : 'mousewheel DOMMouseScroll';
 	let isZooming = false;
+	let lastTimeout = null;
 	$(viewerFocus.join(",")).bind(wheelEvent, function (event) {
 		if (_this.isActive && !isZooming) {
 			isZooming = true;
@@ -273,6 +283,12 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 					_gui.zoomOutTextline(0.1);
 				}
 			} else if (event.originalEvent.shiftKey) {
+				// Display textline for 1 sec after scrolling
+				_gui.hideTextline(false);
+				clearTimeout(lastTimeout);
+				lastTimeout = setTimeout(() => _gui.hideTextline(_special_keys[16]),500);
+
+				// Scroll
 				if (scrollDirection < 0) {
 					_gui.moveTextline(10);
 				} else {
