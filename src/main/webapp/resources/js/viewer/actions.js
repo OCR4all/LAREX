@@ -52,6 +52,9 @@ function ActionController(controller) {
 		_actionpointers[page]++;
 	}
 
+	this.hasActions = function(page) {
+		return _actions[page] && _actions[page].length > 0;
+	}
 }
 
 //"Interface" for actions

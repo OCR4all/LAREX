@@ -30,6 +30,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	let _newPolygonCounter = 0;
 
+	// Unsaved warning
+	window.onbeforeunload = () =>  {
+		if(!this.isCurrentPageSaved() && _actionController.hasActions(_currentPage)){
+			// Warning message if browser supports it
+			return 'You have unsaved progress. Leaving the page will discard every change.\n'
+					+'Please consider saving your progress with "Save Result" or CTRL+S';
+		}
+	};
+
 	// main method
 	$(window).ready(() => {
 		// Init PaperJS
@@ -251,6 +260,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
 
+		this.setChanged(_currentPage);
+
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
 		activesettings.pages[_currentPage].segments = {};
@@ -410,7 +421,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 
+	this.isCurrentPageSaved = function(){
+		return _savedPages.includes(_currentPage);
+	}
+
 	this.setChanged = function(pageID){
+		_savedPages = _savedPages.filter(id => id !== pageID);
+		
 		_gui.addPageStatus(pageID,PageStatus.UNSAVED);
 	}
 

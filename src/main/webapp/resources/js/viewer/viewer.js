@@ -317,7 +317,7 @@ class Viewer {
 	}
 
 	addTextLine(textline){
-		this.drawPolygon(textline, false, false, this._overlays["lines"]);
+		this.drawPolygon(textline, true, false, this._overlays["lines"]);
 	}
 
 	addLine(line) {
