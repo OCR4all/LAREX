@@ -313,15 +313,18 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$textlinecontent.addClass("line-corrected")
 				$textlinecontent.addClass("line-saved");
 				$textline_text.val(this.tempTextline.text[0]);
+				this.tempTextline.type = "TextLine_gt";
 			} else {
 				$textlinecontent.removeClass("line-corrected")
 				$textlinecontent.removeClass("line-saved");
+				this.tempTextline.type = "TextLine";
 				if (hasPredict){
 					$textline_text.val(this.tempTextline.text[1]);
 				} else {
 					$textline_text.val("");
 				}
 			}
+			_viewer.updateSegment(this.tempTextline);
 
 			// Correct to last focus
 			const content_len = $textline_text.val().length;

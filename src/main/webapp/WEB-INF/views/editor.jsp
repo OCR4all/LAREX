@@ -34,6 +34,7 @@
 						new paper.Color(0,1,1),
 						new paper.Color(0,0,0),
 						new paper.Color(0.5,0,0),
+						new paper.Color(0,0.5,0),
 						new paper.Color(0.5,0.5,0.5),
 						new paper.Color(1,0,1),
 						new paper.Color(0.9,0.6,1),
@@ -45,7 +46,6 @@
 						new paper.Color(1,0.95,0.7),
 						new paper.Color(0.8,0.6,0),
 						new paper.Color(0.7,0.45,0.2),
-						new paper.Color(0,0.5,0),
 						new paper.Color(0.4,0,0.55)];
 			
 		let globalSettings ={
@@ -59,7 +59,8 @@
 				marginalia: 2,
 				page_number: 3,
 				ignore: 4,
-				TextLine: 5
+				TextLine: 5,
+				TextLine_gt: 6,
 		};
 		const accessible_modes = ['${globalSettings.getSetting("modes").trim().replace(" ","','")}']
 		let controller = new Controller(${book.getId()},accessible_modes,'viewerCanvas',specifiedColors,colors,globalSettings);

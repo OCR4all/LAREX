@@ -27,7 +27,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						break;
 					case 13: // Enter
 						_controller.saveLine();
-						_selector.selectNext(true);
+						_selector.selectNext();
 						validKey = true;
 						break;
 					case 83: // S

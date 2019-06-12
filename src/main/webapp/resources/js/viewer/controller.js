@@ -174,7 +174,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					if(pageSegment.textlines !== null){
 						Object.keys(pageSegment.textlines).forEach((linekey) => {
 							const textLine = pageSegment.textlines[linekey];
-							textLine.type = "TextLine";
+							if(textLine.text && 0 in textLine.text){
+								textLine.type = "TextLine_gt";
+							} else {
+								textLine.type = "TextLine";
+							}
 							_editor.addTextLine(textLine);
 							this.textlineRegister[textLine.id] = pageSegment.id;
 						});

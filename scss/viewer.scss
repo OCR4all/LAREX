@@ -584,6 +584,7 @@ body{
   transition: 0.3s;
   transition-property: opacity;
   &.fade{
+    transition-delay: 0.5s;
     opacity: 0.2;
   }
   &.line-corrected{
