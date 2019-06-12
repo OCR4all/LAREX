@@ -68,9 +68,11 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		// Open tab for mode if is not open already
 		const tabBtnID = {"text":".mode-text",
 					   "lines":".mode-lines",
+					   "edit":".mode-edit",
 					   "segment":".mode-segment"}[mode];
 		const tabID = {"text":"text_tab",
 					   "lines":"line_tab",
+					   "edit":"segment_tab",
 					   "segment":"segment_tab"}[mode];
 		if (!$(`.tab${tabBtnID} > a`).hasClass("active")) {
 			$('.mainMenu > .tabs').tabs('select_tab',tabID);
@@ -92,8 +94,38 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				this.displayReadingOrder(false);
 				this.closeTextLineContent();
 				break;
+			case Mode.EDIT:
+				$('.doSegment').addClass('hide');
+				$('#collapsible-parameters').addClass('hide');
+				$('#collapsible-settings').addClass('hide');
+				$('.menu-roi').addClass('hide');
+				$('.menu-region').addClass('hide');
+				$('.regionlegend').find(".switch").addClass('hide');
+				$('.regionlegendAll').addClass('hide');
+				$('.regionSegmentationSettings').addClass('hide');
+				$('.createCut').addClass('hide');
+				$('.fixSelected').addClass('hide');
+				const $autosegmentSwitchBox = $('.settings-autosegment').find('input');
+				if($autosegmentSwitchBox.prop('checked')){
+					$autosegmentSwitchBox.click();
+				}
+				this.displayReadingOrder($("#reading-order-header").hasClass("active"));
+				$('#sidebar-segment').removeClass('hide');
+				$('#sidebar-lines').addClass('hide');
+				$('#sidebar-text').addClass('hide');
+				break;
 			case Mode.SEGMENT:
 			default:
+				$('.doSegment').removeClass('hide');
+				$('#collapsible-parameters').removeClass('hide');
+				$('#collapsible-settings').removeClass('hide');
+				$('.menu-roi').removeClass('hide');
+				$('.menu-region').removeClass('hide');
+				$('.regionlegend').find(".switch").removeClass('hide');
+				$('.regionlegendAll').removeClass('hide');
+				$('.regionSegmentationSettings').removeClass('hide');
+				$('.createCut').removeClass('hide');
+				$('.fixSelected').removeClass('hide');
 				this.displayReadingOrder($("#reading-order-header").hasClass("active"));
 				$('#sidebar-segment').removeClass('hide');
 				$('#sidebar-lines').addClass('hide');
@@ -105,6 +137,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$(".mode").addClass("hide");
 		for(const cur_mode of modes){
 			$(`.mode-${cur_mode}`).removeClass("hide");
+		}
+		if(Mode.EDIT in modes && Mode.SEGMENT){
+			$(`.mode-${Mode.EDIT}`).addClass("hide");
 		}
 	}
 
@@ -561,7 +596,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Display the reading Order in the gui
 	 */
 	this.displayReadingOrder = function (doDisplay) {
-		$readingOrderList = _mode === Mode.SEGMENT ? $('#reading-order-list') : $('#reading-order-list-lines');
+		$readingOrderList = _mode === Mode.SEGMENT || _mode === Mode.EDIT ? $('#reading-order-list') : $('#reading-order-list-lines');
 		if (doDisplay) {
 			$readingOrderList.removeClass("hide");
 			_viewer.displayReadingOrder(this.getReadingOrder());
@@ -575,8 +610,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Check if the current reading order is active in the gui
 	 */
 	this.isReadingOrderActive = function () {
-		if(_mode === Mode.SEGMENT || _mode === Mode.LINES) {
-			$readingOrder = _mode === Mode.SEGMENT ? $('#reading-order-header') : $('#reading-order-header-lines');
+		if(_mode === Mode.SEGMENT || _mode === Mode.EDIT || _mode === Mode.LINES) {
+			$readingOrder = _mode === Mode.SEGMENT || _mode === Mode.EDIT ? $('#reading-order-header') : $('#reading-order-header-lines');
 			return $readingOrder.hasClass("active");
 		}else{
 			return false;
@@ -593,7 +628,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 	/** Set the in the gui visible reading order */
 	this.setReadingOrder = function (readingOrder, segments, warning="Reading order is empty") {
-		$readingOrderList = _mode === Mode.SEGMENT ? $('#reading-order-list') : $('#reading-order-list-lines');
+		$readingOrderList = _mode === Mode.SEGMENT || _mode === Mode.EDIT ? $('#reading-order-list') : $('#reading-order-list-lines');
 		$readingOrderList.empty();
 		if(readingOrder && readingOrder.length > 0){
 			for (let index = 0; index < readingOrder.length; index++) {
@@ -616,7 +651,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 	/** Open the reading order collapsible */
 	this.openReadingOrderSettings = function (){
-		const $readingOrder = _mode === Mode.SEGMENT ? $('#reading-order-header') : $('#reading-order-header-lines');
+		const $readingOrder = _mode === Mode.SEGMENT || _mode === Mode.EDIT ? $('#reading-order-header') : $('#reading-order-header-lines');
 		if(!$readingOrder.hasClass("active")){
 			$readingOrder.click();
 		}
@@ -627,7 +662,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 */
 	this.getReadingOrder = function (){
 		const readingOrder = [];
-		const $readingOrderList = _mode === Mode.SEGMENT ? $('#reading-order-list') : $('#reading-order-list-lines');
+		const $readingOrderList = _mode === Mode.SEGMENT || _mode === Mode.EDIT ? $('#reading-order-list') : $('#reading-order-list-lines');
 		const $readingOrderItems = $readingOrderList.children();
 		
 		$readingOrderItems.each((i,ir) => readingOrder.push($(ir).data("id")));

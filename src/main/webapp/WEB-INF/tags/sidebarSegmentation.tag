@@ -3,7 +3,7 @@
 
 <div id="sidebar-segment" class="col s12 hide">
 	<ul class="collapsible row" data-collapsible="accordion">
-		<li>
+		<li id="collapsible-settings">
 			<div class="collapsible-header">
 				<i class="material-icons">import_export</i>
 				<span>
@@ -52,7 +52,7 @@
 				</div>
 			</div>
 		</li>
-		<li>
+		<li id="collapsible-region">
 			<div class="collapsible-header">
 				<i class="material-icons">dashboard</i>
 				<span>
@@ -106,7 +106,7 @@
 			  	</div>
 			</div>
 		</li>
-		<li>
+		<li id="collapsible-parameters">
 			<div class="collapsible-header active">
 				<i class="material-icons">settings</i>Parameters
 			</div>

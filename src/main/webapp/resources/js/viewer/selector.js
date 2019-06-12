@@ -48,7 +48,7 @@ class Selector {
 					|| this._selectedElements[0] != id || !this.selectMultiple)
 					this.unSelect()
 				
-				if(mode === Mode.SEGMENT){
+				if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 					this._selectPolygon(id, true, true);
 					this._selectAndAddPoints(id, points);
 				}else if (mode === Mode.LINES){
@@ -64,7 +64,7 @@ class Selector {
 				const currentParent = this._selectedElements.length > 0 ? this._controller.textlineRegister[this._selectedElements[0]] : undefined;
 				const selectParent =  this._selectedElements.length > 0 ? this._controller.textlineRegister[id] : undefined;
 				if(!this.selectMultiple ||
-					!((mode === Mode.SEGMENT && elementType === ElementType.SEGMENT) || 
+					!((mode === Mode.SEGMENT || mode === Mode.EDIT && elementType === ElementType.SEGMENT) || 
 						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent == selectParent))){
 					this.unSelect();
 				}
@@ -90,7 +90,7 @@ class Selector {
 	 */
 	selectNext(reverse=false){
 		const mode = this._controller.getMode();
-		if(mode === Mode.SEGMENT){
+		if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 			if(this.selectedType == ElementType.SEGMENT || this.selectType == ElementType.REGION){
 				// Get complete select order
 				let order = this._getSelectOrder(ElementType.SEGMENT,reverse=reverse);
@@ -221,9 +221,17 @@ class Selector {
 		} else if (type === ElementType.TEXTLINE) {
 			const segments = parentID ? [parentID] : this._getSelectOrder(ElementType.SEGMENT);
 			for(const id of segments){
+				const textlinesRO = segmentation.segments[id].readingOrder;
+				if(textlinesRO && textlinesRO.length > 0){
+					order = order.concat(textlinesRO);
+				}
+
+				// Add sorted textlines
 				let textlines = Object.entries(segmentation.segments[id].textlines).map(([_,t]) => t);
+				if(textlinesRO){
+					textlines = textlines.filter(t => !textlinesRO.includes(t.id));
+				}
 				if(textlines && textlines.length > 0){
-					// Add sorted textlines
 					for(const textline of textlines){
 						addCompare(textline);
 					}
@@ -444,7 +452,7 @@ class Selector {
 		const mode = this._controller.getMode();
 
 		if(this._selectedElements.length === 1 && 
-			((this.selectedType === ElementType.SEGMENT && mode === Mode.SEGMENT) 
+			((this.selectedType === ElementType.SEGMENT && mode === Mode.SEGMENT || mode === Mode.EDIT) 
 			|| (this.selectedType === ElementType.TEXTLINE && mode === Mode.LINES))){
 			// Select points
 			const id = this._selectedElements[0];
@@ -470,7 +478,7 @@ class Selector {
 			// Select segments
 			const inbetween = this._editor.getSegmentIDsBetweenPoints(pointA, pointB);
 
-			if(mode === Mode.SEGMENT){
+			if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 				for(const id of inbetween) {
 					const idType = this._controller.getIDType(id);
 					if (idType === ElementType.SEGMENT) {

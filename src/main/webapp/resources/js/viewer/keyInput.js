@@ -143,7 +143,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						}
 						break;
 					case 51: // 3
-						if(mode === Mode.SEGMENT){
+						if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 							_controller.createRectangle(ElementType.SEGMENT);
 							validKey = true;
 						} else if(mode === Mode.LINES){
@@ -152,7 +152,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						}
 						break;
 					case 52: // 4
-						if(mode === Mode.SEGMENT){
+						if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 							_controller.createSegmentPolygon();
 							validKey = true;
 						} else if(mode === Mode.LINES){
@@ -167,13 +167,13 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						}
 						break;
 					case 54: // 6
-						if(mode === Mode.SEGMENT){
+						if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 							_controller.displayContours();
 							validKey = true;
 						}
 						break;
 					case 67: // C
-						if(mode === Mode.SEGMENT || mode === Mode.LINES){
+						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
 							_controller.mergeSelectedSegments();
 							validKey = true;
 						}

@@ -282,7 +282,7 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller, se
 	const _actionRemoveTextLines = [];
 	if(_segment.textlines != null){
 		Object.keys(_segment.textlines).forEach(id =>
-			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, segmentation, page, controller)));
+			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, segmentation, page, controller, selector)));
 	}
 	let _actionSetFixed = null;
 	if (controller.isSegmentFixed(segment.id))
@@ -360,6 +360,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 	const _segmentID = controller.textlineRegister[textline.id];
 	const _oldTextLine = JSON.parse(JSON.stringify(textline));
 	const _oldTextLines = JSON.parse(JSON.stringify(segmentation[page].segments[_segmentID].textlines));
+	const removeROAction = new ActionRemoveTextLineFromReadingOrder(textline.id, _segmentID, page, segmentation, controller, selector);
 
 	this.execute = function () {
 		if (!_isExecuted) {
@@ -367,6 +368,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 			delete segmentation[page].segments[_segmentID].textlines[textline.id];
 			editor.removeSegment(textline.id);
 			selector.unSelectSegment(textline.id);
+			removeROAction.execute();
 
 			delete controller.textlineRegister[textline.id]
 			console.log('Do - Remove: {id:"' + textline.id + '"}');
@@ -377,6 +379,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 			_isExecuted = false;
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
+			removeROAction.undo();
 
 			controller.textlineRegister[textline.id] = _segmentID;
 			console.log('Undo - Remove: {id:"' + textline.id + '"}');
@@ -726,21 +729,19 @@ function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, contr
 
 function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, controller, selector) {
 	let _isExecuted = false;
-	const _oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].segments[parentID].readingOrder));
+	let _oldReadingOrder;
 	let _newReadingOrder;
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 
+			if (!_oldReadingOrder){
+				_oldReadingOrder  = JSON.parse(JSON.stringify(segmentation[page].segments[parentID].readingOrder));
+			}
+
 			if (!_newReadingOrder) {
-				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-				for (let index = 0; index < _newReadingOrder.length; index++) {
-					if (_newReadingOrder[index] === id) {
-						_newReadingOrder.splice(index, 1);
-						break;
-					}
-				}
+				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder)).filter(i => i !== id);
 			}
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
@@ -787,5 +788,9 @@ function ActionFixSegment(id, controller, doFix = true) {
 }
 
 function clone(object) {
-	return JSON.parse(JSON.stringify(object));
+	if(object){
+		return JSON.parse(JSON.stringify(object));
+	} else {
+		return undefined;
+	}
 }

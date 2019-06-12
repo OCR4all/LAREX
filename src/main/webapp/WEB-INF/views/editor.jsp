@@ -79,6 +79,7 @@
 			<div class="mainMenu">
 				<ul class="tabs">
 					<li class="tab mode mode-segment" data-mode="segment"><a href="#segment_tab">Segments</a></li>
+					<li class="tab mode mode-edit" data-mode="edit"><a href="#segment_tab">Segments</a></li>
 					<li class="tab mode mode-lines" data-mode="lines"><a href="#line_tab">Lines</a></li>
 					<li class="tab mode mode-text" data-mode="text"><a href="#text_tab">Text</a></li>
 				</ul>
@@ -88,13 +89,13 @@
 				<div id="segment_tab">
 					<b:baseMenu/>
 					<div class="">
-						<t:menuIconCategory name="RoI" >
+						<t:menuIconCategory name="RoI" jsClass="menu-roi">
 							<t:menuIcon jsClass="setRegionOfInterest" icon="video_label"
 								tooltip="Set the Region of Interest (RoI)">RoI</t:menuIcon>
 							<t:menuIcon jsClass="createIgnore" icon="layers_clear"
 								tooltip="Create a ignore rectangle">Ignore</t:menuIcon> 
 						</t:menuIconCategory>
-						<t:menuIconCategory name="Region" >
+						<t:menuIconCategory name="Region" jsClass="menu-region">
 							<t:menuIcon jsClass="createRegionRectangle" icon="crop_5_4"
 								tooltip="Create a region rectangle (Shortcut: 1)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createRegionBorder" icon="border_left"

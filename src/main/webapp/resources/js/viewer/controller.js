@@ -1,4 +1,4 @@
-var Mode = {SEGMENT:'segment',LINES:'lines',TEXT:'text'}
+var Mode = {SEGMENT:'segment',EDIT:'edit',LINES:'lines',TEXT:'text'}
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
 var ElementType = {SEGMENT:'segment',REGION:'region',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
 
@@ -308,7 +308,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.setMode(mode);
 
 		_mode = mode;
-		if(mode === Mode.SEGMENT){
+		if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",true);
 			_editor.displayOverlay("lines",false);
@@ -643,7 +643,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				//filter special case image (do not merge images)
 				if (segment.type !== 'ImageRegion') {
 					segments.push(segment);
-					if(_mode === Mode.SEGMENT){
+					if(_mode === Mode.SEGMENT || _mode === Mode.EDIT){
 						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector));
 					} else if(_mode === Mode.LINES){
 						parent = !parent ? this.textlineRegister[segment.id] : parent;
@@ -655,7 +655,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_communicator.mergeSegments(segments).done((data) => {
 					const mergedSegment = data;
 					if(mergedSegment.points.length > 1){
-						if(_mode === Mode.SEGMENT){
+						if(_mode === Mode.SEGMENT || _mode === Mode.EDIT){
 						actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
 							_editor, _segmentation, _currentPage, this));
 						}else if(_mode === Mode.LINES){
@@ -937,7 +937,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 			const id = selected[i];
 
-			if (selectType === ElementType.SEGMENT && _mode === Mode.SEGMENT) {
+			if (selectType === ElementType.SEGMENT && _mode === Mode.SEGMENT || _mode === Mode.EDIT) {
 				let segment = _segmentation[_currentPage].segments[id];
 				alreadyInReadingOrder = (alreadyInReadingOrder || this._readingOrderContains(id));
 
@@ -1055,7 +1055,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if(doDisplay){
 			let readingOrder = []; // temp reading order either pointing to a global or local reading order
 			if(_segmentation[_currentPage] !== null){
-				if (_mode === Mode.SEGMENT) {
+				if (_mode === Mode.SEGMENT || _mode === Mode.EDIT) {
 					// Display the normal reading order
 					readingOrder = (_segmentation[_currentPage].readingOrder || [] );
 					_gui.setReadingOrder(readingOrder, _segmentation[_currentPage].segments);
@@ -1176,7 +1176,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing) {
-				if(_mode === Mode.SEGMENT || 
+				if(_mode === Mode.SEGMENT || _mode === Mode.EDIT || 
 						(_mode === Mode.LINES && 
 							(this.getIDType(sectionID) === ElementType.TEXTLINE || _selector.getSelectedSegments().length == 0))){
 					_editor.highlightSegment(sectionID, doHighlight);
