@@ -40,11 +40,11 @@ class Selector {
 			// Select logic
 			if(points && isSelected){
 				//// Select point if possible
-				if(elementType != ElementType.SEGMENT && elementType != ElementType.TEXTLINE)
+				if(elementType != ElementType.SEGMENT && mode !== Mode.EDIT && elementType != ElementType.TEXTLINE)
 					throw Error("Tried to select points of a polygon that is not a segment and not a textline. ["+elementType+"]");
 
 				// Unselect previous
-				if((mode !== Mode.SEGMENT && mode !== Mode.LINES) || this._selectedElements.length != 1
+				if((mode !== Mode.SEGMENT && mode !== Mode.EDIT && mode !== Mode.LINES) || this._selectedElements.length != 1
 					|| this._selectedElements[0] != id || !this.selectMultiple)
 					this.unSelect()
 				
@@ -64,7 +64,7 @@ class Selector {
 				const currentParent = this._selectedElements.length > 0 ? this._controller.textlineRegister[this._selectedElements[0]] : undefined;
 				const selectParent =  this._selectedElements.length > 0 ? this._controller.textlineRegister[id] : undefined;
 				if(!this.selectMultiple ||
-					!((mode === Mode.SEGMENT || mode === Mode.EDIT && elementType === ElementType.SEGMENT) || 
+					!(((mode === Mode.SEGMENT || mode === Mode.EDIT) && elementType === ElementType.SEGMENT) || 
 						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent == selectParent))){
 					this.unSelect();
 				}
@@ -407,7 +407,7 @@ class Selector {
 		if((this.selectedType === ElementType.SEGMENT || this.selectedType === ElementType.TEXTLINE) && this._selectedElements.length === 1){
 			const id = this._selectedElements[0];
 			
-			if(this._controller.getMode() === Mode.SEGMENT){
+			if(this._controller.getMode() === Mode.SEGMENT || this._controller.getMode() === Mode.EDIT){
 				this._selectPolygon(id,true,true);	
 				this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
 			} else if(this._controller.getMode() === Mode.LINES){
@@ -452,7 +452,7 @@ class Selector {
 		const mode = this._controller.getMode();
 
 		if(this._selectedElements.length === 1 && 
-			((this.selectedType === ElementType.SEGMENT && mode === Mode.SEGMENT || mode === Mode.EDIT) 
+			((this.selectedType === ElementType.SEGMENT && (mode === Mode.SEGMENT || mode === Mode.EDIT)) 
 			|| (this.selectedType === ElementType.TEXTLINE && mode === Mode.LINES))){
 			// Select points
 			const id = this._selectedElements[0];

@@ -954,7 +954,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 			const id = selected[i];
 
-			if (selectType === ElementType.SEGMENT && _mode === Mode.SEGMENT || _mode === Mode.EDIT) {
+			if (selectType === ElementType.SEGMENT && (_mode === Mode.SEGMENT || _mode === Mode.EDIT)) {
 				let segment = _segmentation[_currentPage].segments[id];
 				alreadyInReadingOrder = (alreadyInReadingOrder || this._readingOrderContains(id));
 
@@ -1129,6 +1129,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.removeFromReadingOrder = function (id) {
 		switch(_mode){
 			case Mode.SEGMENT:
+			case Mode.EDIT:
 				_actionController.addAndExecuteAction(new ActionRemoveFromReadingOrder(id, _currentPage, _segmentation, this), _currentPage);
 				break;
 			case Mode.LINES:
@@ -1193,7 +1194,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing) {
-				if(_mode === Mode.SEGMENT || _mode === Mode.EDIT || 
+				if((_mode === Mode.SEGMENT || _mode === Mode.EDIT) || 
 						(_mode === Mode.LINES && 
 							(this.getIDType(sectionID) === ElementType.TEXTLINE || _selector.getSelectedSegments().length == 0))){
 					_editor.highlightSegment(sectionID, doHighlight);
