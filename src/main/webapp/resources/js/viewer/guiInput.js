@@ -100,6 +100,8 @@ function GuiInput(navigationController, controller, gui) {
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.displayContours());
 
+	$('.displayTextView').click(() => _controller.toggleTextViewer());
+
 	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
 	$('.zoomout').click(() => _navigationController.zoomOut(0.1));
 	$('.zoomfit').click(() => _navigationController.zoomFit());
@@ -343,4 +345,11 @@ function GuiInput(navigationController, controller, gui) {
 		const id = $this.data('id');
 		_controller.removeFromReadingOrder(id);
 	});
+
+	// Text View
+	$("#viewerText").on('input','.textline-text', function() {
+		const id = $(this).closest(".textline-container").data("id");
+		_controller.resizeViewerTextLine(id);	
+	}).trigger('input');
+	
 }

@@ -3,8 +3,9 @@
  * All functionality about viewing elements in the viewer is handled here. 
  * It does not handle editing these elements. */
 class TextViewer {
-	constructor(viewerInput, colors) {
-		this.container = $("viewerText");
+	constructor(viewerInput) {
+		this.root = $("#viewerText");
+		this.container = $("#viewerTextContainer");
 		this.thisInput = viewerInput;
 		this.image;
 	}
@@ -12,17 +13,44 @@ class TextViewer {
 	setImage(id) {
 		this.image = $(`#${id}`);
 	}
+
+	/**
+	 * Display this viewer in the gui interface
+	 * 
+	 * @param {boolean} doDisplay 
+	 */
+	display(doDisplay){
+		if(doDisplay){
+			this.root.removeClass("hide");		
+		} else {
+			this.root.addClass("hide");		
+		}
+	}
+
+	isOpen(){
+		return !this.root.hasClass("hide");
+	}
+
+	/**
+	 * Clear the textViewer, by removing all existing text lines and reseting the image
+	 */
+	clear() {
+		this.image = null;
+		this.container.empty();
+	}
 	
 	/**
 	 * Add a textline to the textView with a textline-image and textline-text element
 	 */
 	addTextline(textline) {
 		const $textlineContainer = $(`<div class='textline-container' data-id='${textline.id}'></div>`);
-		this.container.append($textlineContainer);
 
 		$textlineContainer.append(this._createImageObject(textline));
+		$textlineContainer.append($("<br>"));
 		$textlineContainer.append(this._createTextObject(textline));
+		this.container.append($textlineContainer);
 
+		this.resizeTextline(textline.id);
 	}
 
 	/**
@@ -48,29 +76,22 @@ class TextViewer {
 	updateTextline(textline) {
 		$(`.textline-container[data-id='${textline.id}'] > .textline-image`).replaceWith(this._createImageObject(textline));
 		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(this._createTextObject(textline));
+		this.resizeTextline(textline.id);
 	}
 
 	highlightTextline(id, doHighlight = true) {
-		const polygon = this._polygons[id];
-		if (polygon) {
-			if (polygon.fillColor != null) {
-				if (doHighlight) {
-					polygon.fillColor.alpha = 0.6;
-				} else {
-					polygon.fillColor.alpha = polygon.fillColor.mainAlpha;
-				}
-			}
-		}
+		//TODO
+	}
+
+	resizeTextline(id){
+		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
+		const width = $('#textline-viewer-buffer').text($textline.val()).outerWidth();
+
+		$textline.outerWidth(width);
 	}
 
 	focusTextline(id, doFocus = true) {
-		this.displayOverlay("focus",doFocus);
-		const polygon = this._polygons[id];
-		if (polygon && doFocus) {
-			this._focus.removeChildren(1);
-			this._focus.addChild(new paper.Path(polygon.segments));
-		}
-		this._focus.visible = doFocus;
+		//TODO
 	}
 
 	/**
@@ -79,11 +100,11 @@ class TextViewer {
 	 * @param {*} textline 
 	 */
 	_createTextObject(textline) {
-		const $textlineText =  $(`<span class='textline-text'></span>`);
+		const $textlineText =  $(`<input class='textline-text'></input>`);
 
 		// Fill with content
-		const hasPredict = 1 in this.tempTextline.text;
-		const hasGT = 0 in this.tempTextline.text;
+		const hasPredict = 1 in textline.text;
+		const hasGT = 0 in textline.text;
 
 		if(hasGT){
 			$textlineText.addClass("line-corrected")
@@ -106,22 +127,24 @@ class TextViewer {
 	 * @param {*} textline 
 	 */
 	_createImageObject(textline) {
-		let minX = this.image.width();
-		let minY = this.image.height();
+		let minX = this.image[0].naturalWidth;
+		let minY = this.image[0].naturalHeight;
 		let maxX = 0;
 		let maxY = 0;
-		for(const x,y of textline.points){
-			minX = Math.min(x,minX);
-			minY = Math.min(y,minY);
-			maxX = Math.max(x,maxX);
-			maxY = Math.max(y,maxY);
+		for(const point of textline.points){
+			minX = Math.min(point.x,minX);
+			minY = Math.min(point.y,minY);
+			maxX = Math.max(point.x,maxX);
+			maxY = Math.max(point.y,maxY);
 		}
 
-		const $textlineImage =  $(`<canvas class='textline-image' width='${maxX - minX}' height='${maxY - minY}'/>`)
+		const width = maxX-minX;
+		const height = maxY-minY;
 
-		const ctx = $textlineImage.getContext("2d");
-		ctx.drawImage(this.image,minX,minY,maxX-minX,maxY-minY,0,0);
+		const $textlineImage =  $(`<canvas class='textline-image' width='${width}' height='${height}'/>`);
+
+		const ctx = $textlineImage[0].getContext("2d");
+		ctx.drawImage(this.image[0],minX,minY,width,height,0,0,width,height);
 		return $textlineImage;
 	}
-
 }

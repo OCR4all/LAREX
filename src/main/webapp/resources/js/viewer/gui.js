@@ -315,9 +315,10 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			});
 
 			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX+_textlineDelta,anchorY);
-			$viewerCanvas = $("#viewerCanvas")[0];
+			$viewerCanvas = $("#viewer")[0];
 			const left = $viewerCanvas.offsetLeft
 			const top = $viewerCanvas.offsetTop
+			console.log(left,top);
 
 			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
 			$textlinecontent.data('textline', textline);
@@ -423,12 +424,15 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	}
 
 	this.resizeViewerHeight = function () {
-		const $canvas = $("#" + _canvas);
+		const $canvas = $("#viewer").children();
 		const $sidebars = $('.sidebar');
 		const height = $(window).height() - $canvas.offset().top;
 
-		$canvas.height(height);
+		$canvas.outerHeight(height);
 		$sidebars.height(height);
+
+		$("#viewerText").outerWidth($("#viewerCanvas").outerWidth());
+
 		this.loadVisiblePreviewImages();
 	}
 

@@ -93,7 +93,7 @@ class Selector {
 		if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 			if(this.selectedType == ElementType.SEGMENT || this.selectType == ElementType.REGION){
 				// Get complete select order
-				let order = this._getSelectOrder(ElementType.SEGMENT,reverse=reverse);
+				let order = this.getSelectOrder(ElementType.SEGMENT,reverse=reverse);
 				if(order.length > 0){
 					if(this._selectedElements.length > 0){
 						// Retrieve the position of the last element in the order that is currently selected
@@ -112,7 +112,7 @@ class Selector {
 		} else if (mode === Mode.LINES){
 			if(this.selectedType == ElementType.SEGMENT){
 				const hasTextLines = Object.entries(this._controller.textlineRegister).map(([_,p]) => p);
-				let order = this._getSelectOrder(ElementType.SEGMENT,reverse=reverse).filter(s => hasTextLines.includes(s));
+				let order = this.getSelectOrder(ElementType.SEGMENT,reverse=reverse).filter(s => hasTextLines.includes(s));
 
 				if(order.length > 0){
 					if(this._selectedElements.length > 0){
@@ -128,14 +128,14 @@ class Selector {
 					if(segment.readingOrder && segment.readingOrder.length > 0){
 						this.select(segment.readingOrder[0]);
 					} else {
-						let subOrder = this._getSelectOrder(ElementType.TEXTLINE,reverse=reverse,segment);
+						let subOrder = this.getSelectOrder(ElementType.TEXTLINE,reverse=reverse,segment);
 						if(subOrder.length > 0){
 							this.select(subOrder[0]);
 						}
 					}
 				}
 			} else {
-				let order = this._getSelectOrder(ElementType.TEXTLINE,reverse=reverse);
+				let order = this.getSelectOrder(ElementType.TEXTLINE,reverse=reverse);
 				if(order.length > 0){
 					if(this._selectedElements.length > 0){
 						const last = reverse ? this._selectedElements.map(s => order.indexOf(s)).sort()[0]:
@@ -150,7 +150,7 @@ class Selector {
 			}
 		} else if (mode === Mode.TEXT){
 			if(this.selectedType == ElementType.TEXTLINE){
-				let order = this._getSelectOrder(ElementType.TEXTLINE,reverse=reverse);
+				let order = this.getSelectOrder(ElementType.TEXTLINE,reverse=reverse);
 				if(order.length > 0){
 					if(this._selectedElements.length > 0){
 						const last = reverse ? this._selectedElements.map(s => order.indexOf(s)).sort()[0]:
@@ -163,7 +163,7 @@ class Selector {
 					this.select(order[0]);
 				}
 			} else {
-				let order = this._getSelectOrder(ElementType.TEXTLINE,reverse=reverse);
+				let order = this.getSelectOrder(ElementType.TEXTLINE,reverse=reverse);
 				if(order.length > 0){
 					this.select(order[0]);
 				}
@@ -177,7 +177,7 @@ class Selector {
 	 * @param {*} type 
 	 * @param {*} parentID 
 	 */
-	_getSelectOrder(type=ElementType.SEGMENT,reverse=false,parentID=null){
+	getSelectOrder(type=ElementType.SEGMENT,reverse=false,parentID=null){
 		const anchors = {}; // Centers of all objects to compare
 		const addCompare = (o) => {
 			if(o.points && o.points.length > 0){
@@ -199,54 +199,54 @@ class Selector {
 
 		const segmentation = this._controller.getCurrentSegmentation();
 		let order = [];
-		if(type === ElementType.SEGMENT){
-			order = order.concat(segmentation.readingOrder);
-			let segments = Object.entries(segmentation.segments).map(([_,s]) => s)
-											.filter(s => !order.includes(s.id));
-			// Add sorted segments
-			for(const segment of segments){
-				addCompare(segment);
-			}
-			order = order.concat(segments.sort(tlbr).map(s => s.id));
-		} else if (type === ElementType.REGION){
-			let regions = [];
-			for(const [_,polygons] of Object.entries(this._controller.getCurrentSettings().regions)){
-				 regions = regions.concat(Object.keys(polygons));
-			}
-			// Add sorted regions
-			for(const region of regions){
-				addCompare(region);
-			}
-			order = order.concat(regions.sort(tlbr).map(s => s.id));
-		} else if (type === ElementType.TEXTLINE) {
-			const segments = parentID ? [parentID] : this._getSelectOrder(ElementType.SEGMENT);
-			for(const id of segments){
-				const textlinesRO = segmentation.segments[id].readingOrder;
-				if(textlinesRO && textlinesRO.length > 0){
-					order = order.concat(textlinesRO);
+		if(segmentation){
+			if(type === ElementType.SEGMENT){
+				let segments = Object.entries(segmentation.segments).map(([_,s]) => s)
+												.filter(s => !order.includes(s.id));
+				// Add sorted segments
+				for(const segment of segments){
+					addCompare(segment);
 				}
-
-				// Add sorted textlines
-				let textlines = Object.entries(segmentation.segments[id].textlines).map(([_,t]) => t);
-				if(textlinesRO){
-					textlines = textlines.filter(t => !textlinesRO.includes(t.id));
+				order = order.concat(segments.sort(tlbr).map(s => s.id));
+			} else if (type === ElementType.REGION){
+				let regions = [];
+				for(const [_,polygons] of Object.entries(this._controller.getCurrentSettings().regions)){
+					regions = regions.concat(Object.keys(polygons));
 				}
-				if(textlines && textlines.length > 0){
-					for(const textline of textlines){
-						addCompare(textline);
+				// Add sorted regions
+				for(const region of regions){
+					addCompare(region);
+				}
+				order = order.concat(regions.sort(tlbr).map(s => s.id));
+			} else if (type === ElementType.TEXTLINE) {
+				const segments = parentID ? [parentID] : this.getSelectOrder(ElementType.SEGMENT);
+				for(const id of segments){
+					const textlinesRO = segmentation.segments[id].readingOrder;
+					if(textlinesRO && textlinesRO.length > 0){
+						order = order.concat(textlinesRO);
 					}
-					order = order.concat(textlines.sort(tlbr).map(l => l.id));
-				}
-			}
-		} else if (type === ElementType.CONTOUR) {
-			// TODO, maybe?
-		}
 
+					// Add sorted textlines
+					let textlines = Object.entries(segmentation.segments[id].textlines).map(([_,t]) => t);
+					if(textlinesRO){
+						textlines = textlines.filter(t => !textlinesRO.includes(t.id));
+					}
+					if(textlines && textlines.length > 0){
+						for(const textline of textlines){
+							addCompare(textline);
+						}
+						order = order.concat(textlines.sort(tlbr).map(l => l.id));
+					}
+				}
+			} else if (type === ElementType.CONTOUR) {
+				// TODO, maybe?
+			}
+
+		}
 		if(reverse){
 			return order.reverse();
 		} else {
 			return order;
-
 		}
 	}
 

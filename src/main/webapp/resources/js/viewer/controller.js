@@ -13,6 +13,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _guiInput;
 	let _navigationController;
 	let _editor;
+	let _textViewer;
 	let _currentPage;
 	let _segmentedPages = [];
 	let _savedPages = [];
@@ -125,6 +126,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_book.pages.forEach(page => pageData[page.image] = null );
 			});
 
+			// Create Text Viewer
+			_textViewer = new TextViewer();
+
 			this.setMode(_mode);
 		});
 	});
@@ -169,9 +173,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				return false;
 			}
 
+			//// Set Editor and TextView
 			_editor.clear();
 			_editor.setImage(imageId);
-
+			_textViewer.clear();
+			_textViewer.setImage(imageId);
+			
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
 			this.textlineRegister = {};
@@ -189,6 +196,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 								textLine.type = "TextLine";
 							}
 							_editor.addTextLine(textLine);
+							_textViewer.addTextline(textLine);
 							this.textlineRegister[textLine.id] = pageSegment.id;
 						});
 					}
@@ -224,6 +232,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			_navigationController.zoomFit();
 
+
+			//// Set GUI
 			_gui.showUsedRegionLegends(_presentRegions);
 			this.displayReadingOrder(false);
 			_gui.updateRegionLegendColors(_presentRegions);
@@ -323,6 +333,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",true);
 			_editor.displayOverlay("lines",false);
+			this.displayTextViewer(false);
 			if(_segmentation[_currentPage]){
 				_gui.setReadingOrder(_segmentation[_currentPage].readingOrder,_segmentation[_currentPage].segments);
 			}else{
@@ -334,6 +345,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
 			this.forceUpdateReadingOrder();
+			this.displayTextViewer(false);
 		} else if(mode === Mode.TEXT){
 			_editor.displayOverlay("segments",false);
 			_editor.displayOverlay("regions",false);
@@ -1123,6 +1135,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	this.forceUpdateReadingOrder = function (forceDisplay=false) {
 		_gui.updateRegionLegendColors(_presentRegions);
+		_textViewer.orderTextlines(_selector.getSelectOrder(ElementType.TEXTLINE));
 		if (forceDisplay){
 			this.displayReadingOrder(true);
 			_gui.openReadingOrderSettings();
@@ -1144,6 +1157,21 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_actionController.addAndExecuteAction(new ActionRemoveTextLineFromReadingOrder(id, this.textlineRegister[id], _currentPage, _segmentation, this, _selector), _currentPage);
 				break;
 		}
+	}
+
+	//TODO Move out of controller
+	this.resizeViewerTextLine = function(id) {
+		_textViewer.resizeTextline(id);
+	}	
+
+	this.displayTextViewer = function(doDisplay){
+		_textViewer.display(doDisplay);
+		if(doDisplay){
+			_gui.closeTextLineContent();
+		}
+	}
+	this.toggleTextViewer = function(){
+		this.displayTextViewer(!_textViewer.isOpen());
 	}
 
 	this.changeImageMode = function (imageMode) {

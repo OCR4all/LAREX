@@ -29,11 +29,13 @@ body{
 }
 
 #viewer{
+  position: relative;
 	padding: 0px !important;
 	margin: 0px !important;
 	background-color: $color3;
 
-  #viewerCanvas, #viewerText{
+  #viewerCanvas{
+    position: absolute;
   	width: 100%;
   	height: 100%;
   	padding: 0px !important;
@@ -41,9 +43,46 @@ body{
   }
   #viewerText {
     position: absolute;
-    top:0px;
-    left:0px;
+    padding: 20px;
+    overflow: scroll;
     background-color: white;
+    *{
+      background-color: white;
+    }
+
+    .textline-container{
+      padding:10px;
+      &.line-corrected{
+        margin: 0px;
+        border: 2px solid #4caf50;
+      }
+      &.line-saved{
+        background-color: #c8e6c9;
+      }
+      .textline-image{
+        height: 24px;
+      }
+      input{
+          border: 1px solid black;
+          font-family: 'Andron';
+          height:auto;
+          border-radius: 0;
+          outline: none;
+          font-size: 16px;
+          padding: 0px;
+          margin: 0px;
+          box-shadow: none;
+          box-sizing: content-box;
+          transition: none;
+      }
+    }
+  }
+  #textline-viewer-buffer{
+    position: fixed;
+    font-family: 'Andron';
+    top:-100%;
+    font-size: 16px;
+    padding:2px;
   }
   canvas[resize] {
       width: 100%;

@@ -18,10 +18,11 @@
 		<script type="text/javascript" src="resources/js/viewer/communicator.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/gui.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/colors.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/viewer.js"
+		<script type="text/javascript" src="resources/js/viewer/viewer.js" 
 			canvas="viewerCanvas"></script>
 		<script type="text/javascript" src="resources/js/viewer/editor.js"
 			canvas="viewerCanvas"></script>
+		<script type="text/javascript" src="resources/js/viewer/textViewer.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/selector.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/controller.js"></script>
 
@@ -195,6 +196,8 @@
 				</div>
 				<div id="text_tab">
 					<b:baseMenu/>
+					<t:menuIcon jsClass="displayTextView" icon="subject"
+						tooltip="Open the Text Viewer">textView</t:menuIcon> 
 				</div>
 			</div>
 		</div>
@@ -205,7 +208,10 @@
 			</div>
 			<div id="viewer" class="col s5 m9 l9">
 				<canvas id="viewerCanvas" class="grey darken-1" resize="true"></canvas>
-				<div id="viewerText" class="hide" resize="true"></div>
+				<span id="textline-viewer-buffer"></span>
+				<div id="viewerText" class="hide">
+					<div id="viewerTextContainer"></div>
+				</div>
 			</div>
 
 			<div class="sidebar col s4 m2 l2">
