@@ -79,7 +79,7 @@
 			<div class="mainMenu">
 				<ul class="tabs">
 					<li class="tab mode mode-segment" data-mode="segment"><a href="#segment_tab">Segments</a></li>
-					<li class="tab mode mode-edit" data-mode="edit"><a href="#segment_tab">Segments</a></li>
+					<li class="tab mode mode-edit" data-mode="edit"><a href="#edit_tab">Segments</a></li>
 					<li class="tab mode mode-lines" data-mode="lines"><a href="#line_tab">Lines</a></li>
 					<li class="tab mode mode-text" data-mode="text"><a href="#text_tab">Text</a></li>
 				</ul>
@@ -115,6 +115,37 @@
 								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
 							<t:menuIcon jsClass="fixSelected" icon="lock"
 								tooltip="Fix/unfix segments, for it to persist a new auto segmentation. (Shortcut: F)">Fix</t:menuIcon>
+						</t:menuIconCategory>
+						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
+							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
+								tooltip="Add a segment to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
+								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
+							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
+								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
+						</t:menuIconCategory>
+						<t:menuIconCategory name="Contours combine accuracy" jsClass="contourAccuracy">
+							<a class="menuSlider col tooltipped infocus" data-position="bottom" data-delay="50" data-tooltip="Accuracy for combining contours to segments. Low accuracy to the left, high accuracy to the right."> 
+								<input id="contourSlider" type="range" id="test5" min="0" max="100" />
+							</a>
+						</t:menuIconCategory>
+					</div>
+
+				</div>
+				<div id="edit_tab">
+					<b:baseMenu/>
+					<div class="">
+						<t:menuIconCategory name="Segment" >
+							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
+								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
+							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
+								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
+							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
+								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
+						<t:menuIcon jsClass="editContours" icon="font_download"
+							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
+							<t:menuIcon jsClass="combineSelected" icon="add_circle"
+								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"

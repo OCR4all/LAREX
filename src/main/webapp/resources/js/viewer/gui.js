@@ -72,7 +72,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 					   "segment":".mode-segment"}[mode];
 		const tabID = {"text":"text_tab",
 					   "lines":"line_tab",
-					   "edit":"segment_tab",
+					   "edit":"edit_tab",
 					   "segment":"segment_tab"}[mode];
 		if (!$(`.tab${tabBtnID} > a`).hasClass("active")) {
 			$('.mainMenu > .tabs').tabs('select_tab',tabID);
@@ -98,13 +98,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$('.doSegment').addClass('hide');
 				$('#collapsible-parameters').addClass('hide');
 				$('#collapsible-settings').addClass('hide');
-				$('.menu-roi').addClass('hide');
-				$('.menu-region').addClass('hide');
 				$('.regionlegend').find(".switch").addClass('hide');
 				$('.regionlegendAll').addClass('hide');
 				$('.regionSegmentationSettings').addClass('hide');
-				$('.createCut').addClass('hide');
-				$('.fixSelected').addClass('hide');
 				const $autosegmentSwitchBox = $('.settings-autosegment').find('input');
 				if($autosegmentSwitchBox.prop('checked')){
 					$autosegmentSwitchBox.click();
@@ -119,13 +115,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$('.doSegment').removeClass('hide');
 				$('#collapsible-parameters').removeClass('hide');
 				$('#collapsible-settings').removeClass('hide');
-				$('.menu-roi').removeClass('hide');
-				$('.menu-region').removeClass('hide');
 				$('.regionlegend').find(".switch").removeClass('hide');
 				$('.regionlegendAll').removeClass('hide');
 				$('.regionSegmentationSettings').removeClass('hide');
-				$('.createCut').removeClass('hide');
-				$('.fixSelected').removeClass('hide');
 				this.displayReadingOrder($("#reading-order-header").hasClass("active"));
 				$('#sidebar-segment').removeClass('hide');
 				$('#sidebar-lines').addClass('hide');
