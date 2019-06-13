@@ -363,7 +363,11 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 	const _segmentID = controller.textlineRegister[textline.id];
 	const _oldTextLine = JSON.parse(JSON.stringify(textline));
 	const _oldTextLines = JSON.parse(JSON.stringify(segmentation[page].segments[_segmentID].textlines));
-	const removeROAction = new ActionRemoveTextLineFromReadingOrder(textline.id, _segmentID, page, segmentation, controller, selector);
+	let removeROAction = null;
+	if(segmentation[page].segments[_segmentID].readingOrder &&
+		segmentation[page].segments[_segmentID].readingOrder.includes(textline.id)){
+		removeROAction = new ActionRemoveTextLineFromReadingOrder(textline.id, _segmentID, page, segmentation, controller, selector);
+	}
 
 	this.execute = function () {
 		if (!_isExecuted) {
@@ -371,7 +375,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 			delete segmentation[page].segments[_segmentID].textlines[textline.id];
 			editor.removeSegment(textline.id);
 			selector.unSelectSegment(textline.id);
-			removeROAction.execute();
+			if(removeROAction) removeROAction.execute();
 
 			delete controller.textlineRegister[textline.id]
 			console.log('Do - Remove: {id:"' + textline.id + '"}');
@@ -382,7 +386,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 			_isExecuted = false;
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
-			removeROAction.undo();
+			if(removeROAction) removeROAction.undo();
 
 			controller.textlineRegister[textline.id] = _segmentID;
 			console.log('Undo - Remove: {id:"' + textline.id + '"}');

@@ -167,7 +167,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						}
 						break;
 					case 54: // 6
-						if(mode === Mode.SEGMENT || mode === Mode.EDIT){
+						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
 							_controller.displayContours();
 							validKey = true;
 						}

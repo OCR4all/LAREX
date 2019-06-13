@@ -507,8 +507,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 	this.createTextLinePolygon = function () {
 		const selected = _selector.getSelectedSegments();
-		if((_selector.selectedType === ElementType.SEGMENT || _selector.selectedType === ElementType.TEXTLINE)
-				&& selected.length > 0 ){
+		if(selected.length > 0 && 
+			(_selector.selectedType === ElementType.SEGMENT && this.isIDTextRegion(selected[0])) ||
+			(_selector.selectedType === ElementType.TEXTLINE && this.isIDTextRegion(this.textlineRegister[selected[0]]))) {
 			this.endEditing();
 			_tempID = _selector.selectedType === ElementType.SEGMENT ? selected[0] : this.textlineRegister[selected[0]];
 			// Check if segment region is a TextRegion
@@ -694,10 +695,17 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			const contourAccuracy = _gui.getParameters()['contourAccuracy'];
 			_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
 				if(segment.points.length > 0){
-					const action = new ActionAddSegment(segment.id, segment.points, segment.type,
-						_editor, _segmentation, _currentPage, this);
+					// Check if in Mode Lines (create TextLine or Region)
+					if(_mode === Mode.LINES && _tempID) {
+						_actionController.addAndExecuteAction(
+							new ActionAddTextLine(segment.id, _tempID, segment.points, {}, _editor, _segmentation, _currentPage, this),
+							_currentPage);
+					}else{
+						_actionController.addAndExecuteAction(
+							new ActionAddSegment(segment.id, segment.points, segment.type, _editor, _segmentation, _currentPage, this),
+							_currentPage);
+					}
 
-					_actionController.addAndExecuteAction(action, _currentPage);
 					_selector.unSelect();
 					this.openContextMenu(true);
 				} else {
@@ -1233,11 +1241,36 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
 
-	this.selectContour = function(id) {
-		_selector.select(id, null, ElementType.CONTOUR);
-	}
-
 	this.displayContours = function(display=true) {
+		// Special case display contours in LINES mode
+		// Save parent id to which the new contour/texline is to be added
+		if(_mode === Mode.LINES && display){
+			const selected = _selector.getSelectedSegments();
+			const type = _selector.getSelectedPolygonType();
+
+			if(selected.length > 0 && 
+				(_selector.selectedType === ElementType.SEGMENT && this.isIDTextRegion(selected[0])) ||
+				(_selector.selectedType === ElementType.TEXTLINE && this.isIDTextRegion(this.textlineRegister[selected[0]]))) {
+				if(type === ElementType.SEGMENT){
+					_tempID = selected[0];
+				} else if (type === ElementType.TEXTLINE){
+					const parents = selected.map((id) => this.textlineRegister[id]).sort();
+					// Create counter object for parents accurences
+					const parents_counter = {}; 
+					parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1}); 
+					// Sort and retrieve most represented/dominant parent
+					const [dominant_parent,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
+					_tempID = dominant_parent;
+				}
+			} else {
+				_gui.displayWarning('Warning: Can only add contour TextLines if a TextRegion has been selected before hand.');
+				return null;
+			}
+		} else {
+			_tempID = null;
+		}
+
+		// Display contours
 		_gui.displayContours(display);
 		if(!display || _editor.mode == ViewerMode.CONTOUR){
 			_editor.displayContours(false);
