@@ -272,7 +272,7 @@ class Selector {
 
 		this._postSelection();
 
-		this._editor.displayOverlay("focus",false);
+		this._editor.resetFocus();
 	}
 
 	/**
@@ -282,7 +282,7 @@ class Selector {
 	 */
 	unSelectSegment(segmentID) {
 		this._selectPolygon(segmentID, false, false);
-		this._editor.displayOverlay("focus",false);
+		this._editor.resetFocus();
 
 		this._postSelection();
 	}

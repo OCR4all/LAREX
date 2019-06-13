@@ -25,6 +25,7 @@ class Viewer {
 		this._contours = [];
 		this._contourBounds = []; // Sorted list (top->bottom->left->right) of object of contour + contour bound
 		this._focus = null;
+		this._focused = null;
 		this._isDragging = false;
 		this.mode = ViewerMode.POLYGON;
 
@@ -302,14 +303,42 @@ class Viewer {
 		}
 	}
 
+	/**
+	 * Focus a segment by graying out everything surounding it
+	 * 
+	 * @param {*} id 
+	 * @param {*} doFocus 
+	 */
 	focusSegment(id, doFocus = true) {
+		if(this._focused){
+			this.resetFocus();
+		}
+
 		this.displayOverlay("focus",doFocus);
 		const polygon = this._polygons[id];
-		if (polygon && doFocus) {
-			this._focus.removeChildren(1);
-			this._focus.addChild(new paper.Path(polygon.segments));
+		if(polygon){
+			if (doFocus) {
+				this._focus.removeChildren(1);
+				this._focus.addChild(new paper.Path(polygon.segments));
+				polygon.strokeWidth = 0;
+			} else {
+				polygon.strokeWidth = 1;
+			}
+			this._focused = id;
 		}
 		this._focus.visible = doFocus;
+	}
+
+	/**
+	 * Reset the focus on any segment that might be focused
+	 */
+	resetFocus(){
+		if(this._focused){
+			const focused = this._focused;
+			// Set to null before calling focusSegment, to not risk a infinite recursive loop
+			this._focused = null; 
+			this.focusSegment(focused,false);
+		}
 	}
 
 	addRegion(region) {
