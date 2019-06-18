@@ -1,4 +1,4 @@
-function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocus) {
+function KeyInput(_navigationController, _controller, _gui, _textViewer, _selector, viewerFocus) {
 	this.isActive = true;
 	const _this = this;
 	const _special_keys = {};
@@ -8,7 +8,7 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 			let validKey = false;
 			const mode = _controller.getMode();
 
-			if(mode == Mode.TEXT && _gui.isTextLineContentActive()){
+			if(mode == Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
 				switch(event.keyCode){
 					case 27: // ESC
 						_controller.escape();
@@ -20,8 +20,10 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						validKey = true;
 						break;
 					case 16: // SHIFT
-						_gui.hideTextline(true);
-						_special_keys[event.keyCode] = true;
+						if(_gui.isTextLineContentActive){
+							_gui.hideTextline(true);
+							_special_keys[event.keyCode] = true;
+						}
 						break;
 					case 18: // ALT
 						break;
@@ -53,7 +55,6 @@ function KeyInput(_navigationController, _controller, _gui, _selector,viewerFocu
 						}
 						break;
 				}
-
 			}else{
 				switch (event.keyCode) {
 					case 37: // left

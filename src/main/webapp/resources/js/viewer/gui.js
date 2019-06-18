@@ -318,7 +318,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			$viewerCanvas = $("#viewer")[0];
 			const left = $viewerCanvas.offsetLeft
 			const top = $viewerCanvas.offsetTop
-			console.log(left,top);
 
 			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
 			$textlinecontent.data('textline', textline);
@@ -352,7 +351,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 					$textline_text.val("");
 				}
 			}
-			_viewer.updateSegment(this.tempTextline);
 
 			// Correct to last focus
 			const content_len = $textline_text.val().length;

@@ -1,7 +1,8 @@
-function GuiInput(navigationController, controller, gui) {
+function GuiInput(navigationController, controller, gui, textViewer) {
 	const _navigationController = navigationController;
 	const _controller = controller;
 	const _gui = gui;
+	const _textViewer = textViewer;
 
 	$(window).click((event) => {
 		//Cancel viewer actions, if outside of viewer or a menu icon
@@ -271,6 +272,12 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.highlightSegment(id,false);
 	});
 
+	$(document).on("click",'.textline-container', function (){
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.selectSegment(id);
+	});
+
 	/**
 	 * Drag'n Drop Objects
 	 */
@@ -349,7 +356,7 @@ function GuiInput(navigationController, controller, gui) {
 	// Text View
 	$("#viewerText").on('input','.textline-text', function() {
 		const id = $(this).closest(".textline-container").data("id");
-		_controller.resizeViewerTextLine(id);	
+		_textViewer.resizeTextline(id)
+		_textViewer.saveTextLine(false,false);
 	}).trigger('input');
-	
 }

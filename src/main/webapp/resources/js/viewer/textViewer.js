@@ -10,6 +10,11 @@ class TextViewer {
 		this.image;
 	}
 
+	/**
+	 * Set the page image used for every textline
+	 * 
+	 * @param {string} id 
+	 */
 	setImage(id) {
 		this.image = $(`#${id}`);
 	}
@@ -27,6 +32,9 @@ class TextViewer {
 		}
 	}
 
+	/**
+	 * Check if the textviewer is currently opened.
+	 */
 	isOpen(){
 		return !this.root.hasClass("hide");
 	}
@@ -44,7 +52,13 @@ class TextViewer {
 	 */
 	addTextline(textline) {
 		const $textlineContainer = $(`<div class='textline-container' data-id='${textline.id}'></div>`);
-
+		if(textline.type == "TextLine_gt"){
+			$textlineContainer.addClass("line-corrected")
+			$textlineContainer.addClass("line-saved");
+		} else {
+			$textlineContainer.removeClass("line-corrected")
+			$textlineContainer.removeClass("line-saved");
+		}
 		$textlineContainer.append(this._createImageObject(textline));
 		$textlineContainer.append($("<br>"));
 		$textlineContainer.append(this._createTextObject(textline));
@@ -72,17 +86,49 @@ class TextViewer {
 		}
 	}
 
-	
+	/**
+	 * Update the content, image and status of a textline
+	 * 
+	 * @param {*} textline 
+	 */
 	updateTextline(textline) {
 		$(`.textline-container[data-id='${textline.id}'] > .textline-image`).replaceWith(this._createImageObject(textline));
 		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(this._createTextObject(textline));
+		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`);
+		if(textline.type == "TextLine_gt"){
+			$textlinecontent.addClass("line-corrected")
+			$textlinecontent.addClass("line-saved");
+		} else {
+			$textlinecontent.removeClass("line-corrected")
+			$textlinecontent.removeClass("line-saved");
+		}
 		this.resizeTextline(textline.id);
+	}
+
+	/**
+	 * Display a save of the contents of a textline
+	 * 
+	 * @param {string} id 
+	 * @param {boolean} doSave 
+	 */
+	saveTextLine(id,doSave=true){
+		const $textlinecontent = $(`.textline-container[data-id='${id}']`);
+		if(doSave){
+			$textlinecontent.addClass("line-saved")
+		}else{
+			$textlinecontent.removeClass("line-saved")
+		}
 	}
 
 	highlightTextline(id, doHighlight = true) {
 		//TODO
 	}
 
+	/**
+	 * Resize the text input of a textline depending on its content 
+	 * 
+	 * @param {string} id 
+	 */
 	resizeTextline(id){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
 		const width = $('#textline-viewer-buffer').text($textline.val()).outerWidth();
@@ -90,8 +136,37 @@ class TextViewer {
 		$textline.outerWidth(width);
 	}
 
-	focusTextline(id, doFocus = true) {
-		//TODO
+	/**
+	 * Set the pointer focus to a specified textline
+	 * 
+	 * @param {string} id 
+	 */
+	setFocus(id){
+		$(`.textline-container[data-id='${id}'] > .textline-text`).focus();
+	}
+
+	/**
+	 * Get the id of the currently focused textline or false if none is focused
+	 */
+	getFocusedId(){
+		const focused_element = document.activeElement;
+		if($(focused_element).hasClass("textline-text")){
+			return focused_element.parentElement.dataset.id;
+		}
+		return false;
+	}
+
+	/**
+	 * Retrieve the text content of a specified textline, written in the textviewer
+	 * 
+	 * @param {string} id 
+	 */
+	getText(id){
+		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
+		if($textline){
+			return $textline.val();
+		}
+		return null;
 	}
 
 	/**

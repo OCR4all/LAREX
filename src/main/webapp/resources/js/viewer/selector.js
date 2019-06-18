@@ -1,7 +1,8 @@
 class Selector {
-	constructor(editor, controller) {
+	constructor(editor, textviewer, controller) {
 		this._controller = controller;
 		this._editor = editor;
+		this._textviewer = textviewer;
 		this.selectMultiple = false;
 		this.isSelecting = false;
 		this._selectedElements = [];
@@ -70,8 +71,14 @@ class Selector {
 				}
 
 				if (mode === Mode.TEXT && elementType === ElementType.TEXTLINE){
-					this._selectPolygon(id);
-					this._controller.editLine(id);
+					if(this._textviewer.isOpen()){
+						this._textviewer.setFocus(id);
+						this.unSelect();
+						this._selectedElements = [id];
+					} else {
+						this._selectPolygon(id);
+						this._controller.editLine(id);
+					}
 				}else{
 					this._selectPolygon(id, !isSelected);
 				}

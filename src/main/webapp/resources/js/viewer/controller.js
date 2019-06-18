@@ -72,7 +72,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// Inheritance Editor extends Viewer
 			_editor = new Editor(viewerInput, _colors, this);
 
-			_selector = new Selector(_editor, this);
+			// Create Text Viewer
+			_textViewer = new TextViewer();
+
+			_selector = new Selector(_editor, _textViewer, this);
 			viewerInput.selector = _selector;
 			_actionController.selector = _selector;
 			_gui = new GUI(canvasID, _editor,_colors, accessible_modes);
@@ -99,14 +102,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 
 			// Init inputs
-			const keyInput = new KeyInput(_navigationController, this, _gui, _selector, ["#"+canvasID,"#textline-content"]);
+			const keyInput = new KeyInput(_navigationController, this, _gui, _textViewer, _selector, ["#"+canvasID,"#textline-content"]);
 			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
 			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
 			$("#regioneditor").find("input").focusin(() => keyInput.isActive = false);
 			$("#regioneditor").find("input").focusout(() => keyInput.isActive = true);
 			$("#virtual-keyboard-add").find("input").focusin(() => keyInput.isActive = false);
 			$("#virtual-keyboard-add").find("input").focusout(() => keyInput.isActive = true);
-			_guiInput = new GuiInput(_navigationController, this, _gui);
+			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer);
 
 			this.showPreloader(false);
 			this.displayPage(0);
@@ -126,8 +129,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_book.pages.forEach(page => pageData[page.image] = null );
 			});
 
-			// Create Text Viewer
-			_textViewer = new TextViewer();
 
 			this.setMode(_mode);
 		});
@@ -201,6 +202,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						});
 					}
 				});
+				_textViewer.orderTextlines(_selector.getSelectOrder(ElementType.TEXTLINE));
 			}
 
 			const regions = _settings.regions;
@@ -1159,11 +1161,26 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
-	//TODO Move out of controller
-	this.resizeViewerTextLine = function(id) {
-		_textViewer.resizeTextline(id);
-	}	
+	/**
+	 * Update the textline with its content
+	 */
+	this.updateTextLine = function(id) {
+		if(this.getIDType(id) === ElementType.TEXTLINE){
+			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
+			const hasGT = 0 in textline.text;
+			if(hasGT){
+				textline.type = "TextLine_gt";
+			} else {
+				textline.type = "TextLine";
+			}
+			_editor.updateSegment(textline);
 
+			_gui.updateTextLine(id);
+		}
+	}
+	/**
+	 * Display the  text viewer 
+	 */
 	this.displayTextViewer = function(doDisplay){
 		_textViewer.display(doDisplay);
 		if(doDisplay){
@@ -1344,9 +1361,20 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.closeTextLineContent();
 	}
 
+	/**
+	 * Save the currently open edit line
+	 */
 	this.saveLine = function(){
-		const textlinecontent = _gui.getTextLineContent();
-		const id = textlinecontent.id;
+		let id;
+		let textlinecontent;
+		if(_textViewer.isOpen()){
+			id = _textViewer.getFocusedId();
+			textlinecontent = {text:_textViewer.getText(id)};
+		} else {
+			textlinecontent = _gui.getTextLineContent();
+			id = textlinecontent.id;
+		}
+
 		if(id && this.getIDType(id) == ElementType.TEXTLINE){
 			const content = textlinecontent.text;
 			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);

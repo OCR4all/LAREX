@@ -554,8 +554,10 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 
 			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[id];
 			textline.text[0] = content;
-			gui.saveTextLine(id);
+			controller.updateTextLine(id);
 			textViewer.updateTextline(textline);
+			gui.saveTextLine(id);
+			textViewer.saveTextLine(id);
 			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
 	}
@@ -564,7 +566,7 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			_isExecuted = false;
 			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			textline.text = JSON.parse(JSON.stringify(_oldContent));
-			gui.updateTextLine(id);
+			controller.updateTextLine(id);
 			textViewer.updateTextline(textline);
 			console.log('Undo - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
