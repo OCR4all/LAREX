@@ -328,7 +328,7 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller, se
 	}
 }
 
-function ActionAddTextLine(id, segmentID, points, text, editor, segmentation, page, controller) {
+function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _textLine = { id: id, points: points,type:"TextLine", text: text, isRelative: false };
 	let _oldTextLines = (segmentation[page].segments[segmentID].textlines !== null) ? 
@@ -343,6 +343,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, segmentation, pa
 				segmentation[page].segments[segmentID].textlines[id] = JSON.parse(JSON.stringify(_textLine));
 			}
 			editor.addTextLine(_textLine);
+			textViewer.addTextline(_textline);
 			controller.textlineRegister[_textLine.id] = segmentID;
 			console.log('Do - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
 		}
@@ -352,6 +353,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, segmentation, pa
 			_isExecuted = false;
 			segmentation[page].segments[segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.removeSegment(id);
+			textViewer.removeTextline(id);
 			delete controller.textlineRegister[_textLine.id]
 			console.log('Undo - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
 		}
@@ -374,10 +376,11 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 			_isExecuted = true;
 			delete segmentation[page].segments[_segmentID].textlines[textline.id];
 			editor.removeSegment(textline.id);
+			textViewer.removeSegment(textline.id);
 			selector.unSelectSegment(textline.id);
 			if(removeROAction) removeROAction.execute();
 
-			delete controller.textlineRegister[textline.id]
+			delete controller.textlineRegister[textline.id];
 			console.log('Do - Remove: {id:"' + textline.id + '"}');
 		}
 	}
@@ -386,6 +389,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 			_isExecuted = false;
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
+			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)));
 			if(removeROAction) removeROAction.undo();
 
 			controller.textlineRegister[textline.id] = _segmentID;
@@ -506,7 +510,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 	}
 }
 
-function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, controller) {
+function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _id = id;
 	const _newRegionPoints = clone(segmentPoints);
@@ -520,6 +524,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, 
 			segment.points = _newRegionPoints;
 			delete segment.minArea;
 			viewer.updateSegment(segment);
+			textViewer.updateTextline(segment);
 			console.log('Do - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
 	}
@@ -530,12 +535,13 @@ function ActionTransformTextLine(id, segmentPoints, viewer, segmentation, page, 
 			segment.points = _oldRegionPoints;
 			segment.minArea = clone(_oldMinArea);
 			viewer.updateSegment(segment);
+			textViewer.updateTextline(segment);
 			console.log('Undo - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
 	}
 }
 
-function ActionChangeTextLineText(id, content, viewer, gui, segmentation, page, controller) {
+function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _id = id;
 	const _oldContent = JSON.parse(JSON.stringify(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].text));
@@ -549,14 +555,17 @@ function ActionChangeTextLineText(id, content, viewer, gui, segmentation, page, 
 			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[id];
 			textline.text[0] = content;
 			gui.saveTextLine(id);
+			textViewer.updateTextline(textline);
 			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
 	}
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].text = JSON.parse(JSON.stringify(_oldContent));
+			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
+			textline.text = JSON.parse(JSON.stringify(_oldContent));
 			gui.updateTextLine(id);
+			textViewer.updateTextline(textline);
 			console.log('Undo - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
 	}

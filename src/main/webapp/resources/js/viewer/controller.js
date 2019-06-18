@@ -631,7 +631,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if(selectType === ElementType.SEGMENT)
 					_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0], filteredSegments, _editor, _segmentation, _currentPage, this), _currentPage);
 				else
-					_actionController.addAndExecuteAction(new ActionTransformTextLine(selected[0], filteredSegments, _editor, _segmentation, _currentPage, this), _currentPage);
+					_actionController.addAndExecuteAction(new ActionTransformTextLine(selected[0], filteredSegments, _editor, _textViewer, _segmentation, _currentPage, this), _currentPage);
 			}
 		}else{
 			//Polygon is selected => Delete polygon
@@ -690,7 +690,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 							_editor, _segmentation, _currentPage, this));
 						}else if(_mode === Mode.LINES){
 						actions.push(new ActionAddTextLine(mergedSegment.id, parent, mergedSegment.points,
-							{}, _editor, _segmentation, _currentPage, this));
+							{}, _editor, _textViewer, _segmentation, _currentPage, this));
 						}
 
 						let mergeAction = new ActionMultiple(actions);
@@ -710,7 +710,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					// Check if in Mode Lines (create TextLine or Region)
 					if(_mode === Mode.LINES && _tempID) {
 						_actionController.addAndExecuteAction(
-							new ActionAddTextLine(segment.id, _tempID, segment.points, {}, _editor, _segmentation, _currentPage, this),
+							new ActionAddTextLine(segment.id, _tempID, segment.points, {}, _editor, _textViewer, _segmentation, _currentPage, this),
 							_currentPage);
 					}else{
 						_actionController.addAndExecuteAction(
@@ -840,7 +840,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_newPolygonCounter++;
 		if(segmentpoints.length > 1){
 			const actionAdd = new ActionAddTextLine(newID,_tempID, segmentpoints, {},
-				_editor, _segmentation, _currentPage, this);
+				_editor, _textViewer, _segmentation, _currentPage, this);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
 			this.openContextMenu(false, newID);
@@ -876,7 +876,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				action = new ActionTransformSegment(id, segmentPoints, _editor, _segmentation, _currentPage, this);
 				break;
 			case ElementType.TEXTLINE:
-				action =  new ActionTransformTextLine(id, segmentPoints, _editor, _segmentation, _currentPage, this);
+				action =  new ActionTransformTextLine(id, segmentPoints, _editor, _textViewer, _segmentation, _currentPage, this);
 				break;
 			default:
 		}
@@ -1349,7 +1349,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const id = textlinecontent.id;
 		if(id && this.getIDType(id) == ElementType.TEXTLINE){
 			const content = textlinecontent.text;
-			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _editor, _gui, _segmentation, _currentPage, this), _currentPage);
+			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
 		}
 	}
 
