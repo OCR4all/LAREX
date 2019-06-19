@@ -131,7 +131,7 @@ class TextViewer {
 	 */
 	resizeTextline(id){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
-		const width = $('#textline-viewer-buffer').text($textline.val()).outerWidth();
+		const width = $('#textline-viewer-buffer').text($textline.val().replace(/ /g, "\xa0")).outerWidth();
 
 		$textline.outerWidth(width);
 	}
@@ -169,6 +169,26 @@ class TextViewer {
 		return null;
 	}
 
+	/**
+	 * Insert a character into the current poisition on the textline
+	 * 
+	 * @param {string} character 
+	 */
+	insertCharacterTextLine(character){
+		if(this.isOpen()){
+			const id = this.getFocusedId();
+			const $input = $(`.textline-container[data-id='${id}'] > .textline-text`);
+			const start = $input[0].selectionStart;
+			const end = $input[0].selectionEnd;
+			let text = $input.val();
+
+			$input.val(text.substring(0,start)+character+text.substring(end));
+			this.resizeTextline();
+			$input.focus();
+			$input[0].selectionStart = start+character.length;
+			$input[0].selectionEnd = start+character.length;
+		}
+	}
 	/**
 	 * Create a textline text object for a given textline.
 	 * 

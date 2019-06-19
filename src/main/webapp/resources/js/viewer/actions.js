@@ -558,6 +558,9 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			textViewer.updateTextline(textline);
 			gui.saveTextLine(id);
 			textViewer.saveTextLine(id);
+			if(textViewer.isOpen()){
+				controller.selectSegment(id);
+			}
 			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
 	}
@@ -568,6 +571,9 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			textline.text = JSON.parse(JSON.stringify(_oldContent));
 			controller.updateTextLine(id);
 			textViewer.updateTextline(textline);
+			if(textViewer.isOpen()){
+				controller.selectSegment(id);
+			}
 			console.log('Undo - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
 	}

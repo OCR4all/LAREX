@@ -1237,6 +1237,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
+	this.getSelected = function(){
+		return _selector.getSelectedSegments();
+	}
 
 	this.hasPointsSelected = function() {
 		return (_selector.getSelectedPolygonType() === ElementType.SEGMENT || _selector.getSelectedPolygonType() === ElementType.TEXTLINE)

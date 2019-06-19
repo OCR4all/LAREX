@@ -311,7 +311,15 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	/* Virtual Keyboard */
 	$(document).on("click",'.vk-btn', function(event){
 		const character = $(this).text();
-		_gui.insertCharacterTextLine(character);
+		if(_textViewer.isOpen()){
+			const selected = _controller.getSelected();
+			if(selected){
+				_textViewer.setFocus(selected[0]);
+				_textViewer.insertCharacterTextLine(character);
+			}
+		}else{
+			_gui.insertCharacterTextLine(character);
+		}
 	});
 	$(document).on('drop','.vk-row', function (event) {
 		_gui.capKeyboardRowLength($(this));

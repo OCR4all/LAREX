@@ -406,6 +406,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		return !$("#textline-content").hasClass("hide");
 	}
 
+	/**
+	 * Insert a character into the current poisition on the textline
+	 */
 	this.insertCharacterTextLine = function(character){
 		if(this.isTextLineContentActive()){
 			$input = $("#textline-text");
