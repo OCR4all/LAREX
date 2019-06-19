@@ -63,10 +63,15 @@ body{
           outline: none;
           font-size: 16px;
           padding: 0px;
-          margin: 0px;
+          margin: 2px;
           box-shadow: none;
           box-sizing: content-box;
           transition: none;
+          &:focus{
+            border-color: #75757555;
+            border-width: 3px;
+            margin: 0px;
+          }
       }
       &.line-corrected{
         input {
@@ -86,6 +91,8 @@ body{
     top:-100%;
     font-size: 16px;
     padding:2px;
+    margin: 3px;
+    border: 3px solid black;
   }
   canvas[resize] {
       width: 100%;

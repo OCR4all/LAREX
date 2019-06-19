@@ -365,6 +365,6 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$("#viewerText").on('input','.textline-text', function() {
 		const id = $(this).closest(".textline-container").data("id");
 		_textViewer.resizeTextline(id)
-		_textViewer.saveTextLine(false,false);
+		_textViewer.saveTextLine(id,false);
 	}).trigger('input');
 }

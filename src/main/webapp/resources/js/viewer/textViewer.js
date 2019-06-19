@@ -114,9 +114,9 @@ class TextViewer {
 	saveTextLine(id,doSave=true){
 		const $textlinecontent = $(`.textline-container[data-id='${id}']`);
 		if(doSave){
-			$textlinecontent.addClass("line-saved")
-		}else{
-			$textlinecontent.removeClass("line-saved")
+			$textlinecontent.addClass("line-saved");
+		} else {
+			$textlinecontent.removeClass("line-saved");
 		}
 	}
 
@@ -131,7 +131,7 @@ class TextViewer {
 	 */
 	resizeTextline(id){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
-		const width = $('#textline-viewer-buffer').text($textline.val().replace(/ /g, "\xa0")).outerWidth();
+		const width = $('#textline-viewer-buffer').text($textline[0].value.replace(/ /g, "\xa0")).outerWidth();
 
 		$textline.outerWidth(width);
 	}
@@ -183,10 +183,11 @@ class TextViewer {
 			let text = $input.val();
 
 			$input.val(text.substring(0,start)+character+text.substring(end));
-			this.resizeTextline();
+			this.resizeTextline(id);
 			$input.focus();
 			$input[0].selectionStart = start+character.length;
 			$input[0].selectionEnd = start+character.length;
+			this.saveTextLine(id,false);
 		}
 	}
 	/**

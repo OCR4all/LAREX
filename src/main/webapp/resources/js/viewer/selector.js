@@ -265,8 +265,13 @@ class Selector {
 		if(this.selectedType == ElementType.CONTOUR) {
 			this._editor.highlightContours(this._selectedElements,false);
 		} else {
-			this._selectedElements.forEach(id => this._editor.selectSegment(id,false,false));
-			this._selectedElements.forEach(id => this._editor.highlightSegment(id,false));
+			for(const id of this._selectedElements){
+				this._editor.selectSegment(id,false,false);
+				this._editor.highlightSegment(id,false);
+				if(this._textviewer.isOpen()){
+					this._controller.updateTextLine(id);
+				}
+			}
 		}
 		// Get everything that could be overseen
 		paper.project.selectedItems.forEach(i => {if(i.elementID) this._selectPolygon(i.elementID,false);});
@@ -292,6 +297,9 @@ class Selector {
 		this._editor.resetFocus();
 
 		this._postSelection();
+		if(this._textviewer.isOpen()){
+			this._controller.updateTextLine(segmentID);
+		}
 	}
 
 

@@ -1176,6 +1176,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_editor.updateSegment(textline);
 
 			_gui.updateTextLine(id);
+
+			_textViewer.updateTextline(textline);
 		}
 	}
 	/**
@@ -1183,8 +1185,18 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	 */
 	this.displayTextViewer = function(doDisplay){
 		_textViewer.display(doDisplay);
+		const selected = _selector.getSelectedSegments();
 		if(doDisplay){
 			_gui.closeTextLineContent();
+			if(selected){
+				_textViewer.setFocus(selected[0]);
+			}
+		} else {
+			if(selected && this.getIDType(selected[0]) == ElementType.TEXTLINE){
+				const id = selected[0];
+				const parentID = this.textlineRegister[id];
+				_gui.openTextLineContent(_segmentation[_currentPage].segments[parentID].textlines[id]);
+			}
 		}
 	}
 	this.toggleTextViewer = function(){
@@ -1473,16 +1485,19 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.getIDType = function (id) {
-		let polygon = _segmentation[_currentPage].segments[id];
-		if (polygon) return ElementType.SEGMENT;
+		if(_segmentation && _segmentation[_currentPage]){
+			let polygon = _segmentation[_currentPage].segments[id];
+			if (polygon) return ElementType.SEGMENT;
 
-		polygon = this._getRegionByID(id);
-		if (polygon) return ElementType.REGION;
+			polygon = this._getRegionByID(id);
+			if (polygon) return ElementType.REGION;
 
-		polygon = _settings.pages[_currentPage].cuts[id];
-		if (polygon) return ElementType.CUT;
+			polygon = _settings.pages[_currentPage].cuts[id];
+			if (polygon) return ElementType.CUT;
 
-		if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
+			if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
+			}
+		return false;
 	}
 
 	this._getPolygon = function (id) {
