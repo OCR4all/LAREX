@@ -128,10 +128,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	this.setAccessibleModes = function(modes){
 		$(".mode").addClass("hide");
 		for(const cur_mode of modes){
-			$(`.mode-${cur_mode}`).removeClass("hide");
-		}
-		if(Mode.EDIT in modes && Mode.SEGMENT in modes){
-			$(`.mode-${Mode.EDIT}`).addClass("hide");
+			if(!(cur_mode === Mode.EDIT && Mode.SEGMENT in modes)){
+				$(`.mode-${cur_mode}`).removeClass("hide");
+			}
 		}
 	}
 

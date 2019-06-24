@@ -79,10 +79,10 @@
 		<div id="menu" class="grey lighten-4">
 			<div class="mainMenu">
 				<ul class="tabs">
-					<li class="tab mode mode-segment" data-mode="segment"><a href="#segment_tab">Segments</a></li>
-					<li class="tab mode mode-edit" data-mode="edit"><a href="#edit_tab">Segments</a></li>
-					<li class="tab mode mode-lines" data-mode="lines"><a href="#line_tab">Lines</a></li>
-					<li class="tab mode mode-text" data-mode="text"><a href="#text_tab">Text</a></li>
+					<li class="tab mode mode-segment hide" data-mode="segment"><a href="#segment_tab">Segments</a></li>
+					<li class="tab mode mode-edit hide" data-mode="edit"><a href="#edit_tab">Segments</a></li>
+					<li class="tab mode mode-lines hide" data-mode="lines"><a href="#line_tab">Lines</a></li>
+					<li class="tab mode mode-text hide" data-mode="text"><a href="#text_tab">Text</a></li>
 				</ul>
 
   			</div>
