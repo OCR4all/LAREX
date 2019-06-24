@@ -170,6 +170,19 @@ class TextViewer {
 	}
 
 	/**
+	 * Move the currently focused text line input by a delta value
+	 * 
+	 * @param {*} delta 
+	 */
+	moveTextInput(delta,id=this.getFocusedId()){
+		if(id){
+			const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
+			const prev_margin = parseInt($textline.css('marginLeft').replace('px',''));
+			$textline.css('marginLeft',`${prev_margin+delta}px`);
+		}
+	}
+
+	/**
 	 * Insert a character into the current poisition on the textline
 	 * 
 	 * @param {string} character 

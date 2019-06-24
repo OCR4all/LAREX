@@ -102,7 +102,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 
 			// Init inputs
-			const keyInput = new KeyInput(_navigationController, this, _gui, _textViewer, _selector, ["#"+canvasID,"#textline-content"]);
+			const keyInput = new KeyInput(_navigationController, this, _gui, _textViewer, _selector, ["#"+canvasID,"#viewer","#textline-content"]);
 			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
 			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
 			$("#regioneditor").find("input").focusin(() => keyInput.isActive = false);

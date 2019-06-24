@@ -257,11 +257,13 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 		}
 	}
 
+	// Scroll Viewer
 	const wheelEvent = 'onwheel' in document ? 'wheel' : 'mousewheel DOMMouseScroll';
 	let isZooming = false;
 	let lastTimeout = null;
 	$(viewerFocus.join(",")).bind(wheelEvent, function (event) {
 		if (_this.isActive && !isZooming) {
+			const mode = _controller.getMode();
 			isZooming = true;
 			let scrollDirection; //positive => down, negative => up
 
@@ -276,39 +278,55 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 					scrollDirection = event.originalEvent.detail;
 					break;
 			}
-
-			if(event.originalEvent.ctrlKey){
-				if (scrollDirection < 0) {
-					_gui.zoomInTextline(0.1);
-				} else {
-					_gui.zoomOutTextline(0.1);
-				}
-			} else if (event.originalEvent.shiftKey) {
-				// Display textline for 1 sec after scrolling
-				_gui.hideTextline(false);
-				clearTimeout(lastTimeout);
-				lastTimeout = setTimeout(() => _gui.hideTextline(_special_keys[16]),500);
-
-				// Scroll
-				if (scrollDirection < 0) {
-					_gui.moveTextline(10);
-				} else {
-					_gui.moveTextline(-10);
+			if(mode === Mode.TEXT && _textViewer.isOpen()){
+				if(event.originalEvent.ctrlKey){
+					if (scrollDirection < 0) {
+						//Zoom in
+					} else {
+						//Zoom out
+					}
+				} else if (event.originalEvent.shiftKey) {
+					// Scroll
+					if (scrollDirection < 0) {
+						_textViewer.moveTextInput(2);
+					} else {
+						_textViewer.moveTextInput(-2);
+					}
 				}
 			} else {
-				const canvasOffset = $(viewerFocus[0]).offset();
+				if(event.originalEvent.ctrlKey){
+					if (scrollDirection < 0) {
+						_gui.zoomInTextline(0.1);
+					} else {
+						_gui.zoomOutTextline(0.1);
+					}
+				} else if (event.originalEvent.shiftKey) {
+					// Display textline for 1 sec after scrolling
+					_gui.hideTextline(false);
+					clearTimeout(lastTimeout);
+					lastTimeout = setTimeout(() => _gui.hideTextline(_special_keys[16]),500);
 
-				const mousepoint = new paper.Point(event.originalEvent.pageX - canvasOffset.left,
-					event.originalEvent.pageY - canvasOffset.top);
-				if (scrollDirection < 0) {
-					_navigationController.zoomIn(0.1, mousepoint);
+					// Scroll
+					if (scrollDirection < 0) {
+						_gui.moveTextline(10);
+					} else {
+						_gui.moveTextline(-10);
+					}
 				} else {
-					_navigationController.zoomOut(0.1, mousepoint);
-				}
-			}
+					const canvasOffset = $(viewerFocus[0]).offset();
 
+					const mousepoint = new paper.Point(event.originalEvent.pageX - canvasOffset.left,
+						event.originalEvent.pageY - canvasOffset.top);
+					if (scrollDirection < 0) {
+						_navigationController.zoomIn(0.1, mousepoint);
+					} else {
+						_navigationController.zoomOut(0.1, mousepoint);
+					}
+				}
+			} 
 			isZooming = false;
 			event.preventDefault();
 		}
 	});
+
 }
