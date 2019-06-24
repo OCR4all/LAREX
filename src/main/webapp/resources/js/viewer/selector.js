@@ -284,7 +284,9 @@ class Selector {
 
 		this._postSelection();
 
-		this._editor.resetFocus();
+		if(this._editor.mode !== ElementType.CONTOUR){
+			this._editor.resetFocus();
+		}
 	}
 
 	/**

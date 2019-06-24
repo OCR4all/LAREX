@@ -1346,11 +1346,21 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					_editor.setContours(_contours[_currentPage]);
 					_editor.displayContours();
 					_editor.mode = ViewerMode.CONTOUR;
+
+					if(_mode === Mode.LINES && display){
+						console.log(_tempID);
+						_editor.focusSegment(_tempID);
+					}
 				});
 			} else {
 				_editor.setContours(_contours[_currentPage]);
 				_editor.displayContours();
 				_editor.mode = ViewerMode.CONTOUR;
+
+				if(_mode === Mode.LINES && display){
+						console.log(_tempID);
+					_editor.focusSegment(_tempID);
+				}
 			}
 		}
 	}
@@ -1441,6 +1451,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.closeContextMenu();
 		this.endEditing();
 		_gui.closeRegionSettings();
+		_selector.unSelect();
 	}
 	this.allowToLoadExistingSegmentation = function (allowLoadLocal) {
 		_allowLoadLocal = allowLoadLocal;
