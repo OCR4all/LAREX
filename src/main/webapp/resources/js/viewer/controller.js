@@ -643,13 +643,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
 				} else if (selectType === ElementType.SEGMENT) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
-					actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector));
+					actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector, (i == selected.length-1)));
 				} else if (selectType === ElementType.CUT) {
 					let cut = _settings.pages[_currentPage].cuts[selected[i]];
 					actions.push(new ActionRemoveCut(cut, _editor, _settings, _currentPage));
 				} else if (selectType === ElementType.TEXTLINE) {
 					let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[i]]].textlines[selected[i]];
-					actions.push(new ActionRemoveTextLine(segment, _editor, _segmentation, _currentPage, this, _selector));
+					actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1)));
 				}
 			}
 			let multidelete = new ActionMultiple(actions);
@@ -679,7 +679,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector));
 					} else if(_mode === Mode.LINES){
 						parent = !parent ? this.textlineRegister[segment.id] : parent;
-						actions.push(new ActionRemoveTextLine(segment, _editor, _segmentation, _currentPage, this, _selector));
+						actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector));
 					}
 				}
 			}

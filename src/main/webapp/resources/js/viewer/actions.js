@@ -275,12 +275,12 @@ function ActionAddSegment(id, points, type, editor, segmentation, page, controll
 	}
 }
 
-function ActionRemoveSegment(segment, editor, segmentation, page, controller, selector) {
+function ActionRemoveSegment(segment, editor, segmentation, page, controller, selector, doForceUpdate) {
 	let _isExecuted = false;
 	const _segment = JSON.parse(JSON.stringify(segment));
 	let _actionRemoveFromReadingOrder = null;
 	if(segmentation[page].readingOrder && segmentation[page].readingOrder.includes(_segment.id)){
-		_actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id, page, segmentation, controller);
+		_actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id, page, segmentation, controller, doForceUpdate);
 	}
 	const _actionRemoveTextLines = [];
 	if(_segment.textlines != null){
@@ -360,7 +360,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segm
 	}
 }
 
-function ActionRemoveTextLine(textline, editor, segmentation, page, controller, selector) {
+function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, controller, selector, doForceUpdate=true) {
 	let _isExecuted = false;
 	const _segmentID = controller.textlineRegister[textline.id];
 	const _oldTextLine = JSON.parse(JSON.stringify(textline));
@@ -368,7 +368,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 	let removeROAction = null;
 	if(segmentation[page].segments[_segmentID].readingOrder &&
 		segmentation[page].segments[_segmentID].readingOrder.includes(textline.id)){
-		removeROAction = new ActionRemoveTextLineFromReadingOrder(textline.id, _segmentID, page, segmentation, controller, selector);
+		removeROAction = new ActionRemoveTextLineFromReadingOrder(textline.id, _segmentID, page, segmentation, controller, selector, doForceUpdate);
 	}
 
 	this.execute = function () {
@@ -376,7 +376,7 @@ function ActionRemoveTextLine(textline, editor, segmentation, page, controller, 
 			_isExecuted = true;
 			delete segmentation[page].segments[_segmentID].textlines[textline.id];
 			editor.removeSegment(textline.id);
-			textViewer.removeSegment(textline.id);
+			textViewer.removeTextline(textline.id);
 			selector.unSelectSegment(textline.id);
 			if(removeROAction) removeROAction.execute();
 
@@ -639,7 +639,7 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 	}
 }
 
-function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
+function ActionRemoveFromReadingOrder(id, page, segmentation, controller, doForceUpdate=true) {
 	let _isExecuted = false;
 	const _oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].readingOrder));
 	let _newReadingOrder;
@@ -660,7 +660,8 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
 
 			if(!(JSON.stringify(_newReadingOrder) == JSON.stringify(_oldReadingOrder))){
 				segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
-				controller.forceUpdateReadingOrder(true);
+				if(doForceUpdate)
+					controller.forceUpdateReadingOrder(true);
 				console.log('Do - Remove from Reading Order: {id:"' + id + '",[..]}');
 			}
 		}
@@ -671,7 +672,8 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
 
 			if(!(JSON.stringify(_newReadingOrder) == JSON.stringify(_oldReadingOrder))){
 				segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-				controller.forceUpdateReadingOrder(true);
+				if(doForceUpdate)
+					controller.forceUpdateReadingOrder(true);
 				console.log('Undo - Remove from Reading Order: {id:"' + id + '",[..]}');
 			}
 		}
@@ -751,7 +753,7 @@ function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, contr
 	}
 }
 
-function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, controller, selector) {
+function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, controller, selector, forceUpdate=true) {
 	let _isExecuted = false;
 	let _oldReadingOrder;
 	let _newReadingOrder;
@@ -769,7 +771,8 @@ function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, 
 			}
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
-			controller.forceUpdateReadingOrder(true);
+			if(forceUpdate)
+				controller.forceUpdateReadingOrder(true);
 
 			if(!selector.isSegmentSelected(parentID))
 				selector.select(parentID);
@@ -782,7 +785,8 @@ function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, 
 			_isExecuted = false;
 
 			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-			controller.forceUpdateReadingOrder(true);
+			if(forceUpdate)
+				controller.forceUpdateReadingOrder(true);
 
 			if(!selector.isSegmentSelected(id))
 				selector.select(id);

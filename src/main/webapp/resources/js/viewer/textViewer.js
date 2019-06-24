@@ -131,9 +131,13 @@ class TextViewer {
 	 */
 	resizeTextline(id){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
-		const width = $('#textline-viewer-buffer').text($textline[0].value.replace(/ /g, "\xa0")).outerWidth();
 
-		$textline.outerWidth(width);
+		if($textline && $textline.length > 0){
+			const $buffer = $('#textline-viewer-buffer');
+			$buffer.css('fontSize',$textline.css('fontSize'));
+			const width = $buffer.text($textline[0].value.replace(/ /g, "\xa0")).outerWidth();
+			$textline.outerWidth(width);
+		}
 	}
 
 	/**
@@ -172,13 +176,48 @@ class TextViewer {
 	/**
 	 * Move the currently focused text line input by a delta value
 	 * 
-	 * @param {*} delta 
+	 * @param {number} delta 
+	 * @param {string} id (will use currently focused if none defined) 
 	 */
 	moveTextInput(delta,id=this.getFocusedId()){
 		if(id){
 			const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
 			const prev_margin = parseInt($textline.css('marginLeft').replace('px',''));
 			$textline.css('marginLeft',`${prev_margin+delta}px`);
+		}
+	}
+
+	/**
+	 * Zoom text line input 
+	 * 
+	 * @param {float} zoom_factor 
+	 * @param {string} id (will use currently focused if none defined) 
+	 */
+	zoomTextInput(zoom_factor,id=this.getFocusedId()){
+		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
+		if($textline && $textline.length > 0){
+			const prev_size = $textline.data("raw-size") ? $textline.data("raw-size") 
+								: parseInt($textline.css('fontSize').replace('px',''));
+			const new_size = prev_size*zoom_factor > 0 ? prev_size*zoom_factor : 1;
+			$textline.css('fontSize',`${new_size}px`);
+			$textline.data('raw-size',new_size);
+		}
+	}
+
+	/**
+	 * Zoom text line image 
+	 * 
+	 * @param {float} zoom_factor 
+	 * @param {string} id (will use currently focused if none defined) 
+	 */
+	zoomImage(zoom_factor,id=this.getFocusedId()){
+		const $textline = $(`.textline-container[data-id='${id}'] > .textline-image`);
+		if($textline && $textline.length > 0){
+			const prev_size = $textline.data("raw-size") ? $textline.data("raw-size") 
+								: parseInt($textline.css('height').replace('px',''));
+			const new_size = prev_size*zoom_factor > 0 ? prev_size*zoom_factor : 1;
+			$textline.css('height',`${new_size}px`);
+			$textline.data('raw-size',new_size);
 		}
 	}
 

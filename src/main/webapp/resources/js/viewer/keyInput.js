@@ -280,10 +280,24 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 			}
 			if(mode === Mode.TEXT && _textViewer.isOpen()){
 				if(event.originalEvent.ctrlKey){
+					const is_target_image = event.target && ($(event.target).parent().data("id") == _textViewer.getFocusedId()) 
+														&& event.target.classList.contains("textline-image");
 					if (scrollDirection < 0) {
 						//Zoom in
+						if(is_target_image){
+							_textViewer.zoomImage(1.1);
+						} else {
+							_textViewer.zoomTextInput(1.1);
+						}
+						_textViewer.resizeTextline(_textViewer.getFocusedId());
 					} else {
 						//Zoom out
+						if(is_target_image){
+							_textViewer.zoomImage(0.9);
+						} else {
+							_textViewer.zoomTextInput(0.9);
+						}
+						_textViewer.resizeTextline(_textViewer.getFocusedId());
 					}
 				} else if (event.originalEvent.shiftKey) {
 					// Scroll
@@ -292,6 +306,9 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 					} else {
 						_textViewer.moveTextInput(-2);
 					}
+				} else {
+					isZooming = false;
+					return;
 				}
 			} else {
 				if(event.originalEvent.ctrlKey){
