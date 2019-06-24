@@ -328,10 +328,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.setMode = function(mode){
+		let selected = _selector.getSelectedSegments();
+		_selector.unSelect();
+
 		_gui.setMode(mode);
 
 		_mode = mode;
 		if(mode === Mode.SEGMENT || mode === Mode.EDIT){
+			// Map selected items to this view
+			selected = selected.map(id => (this.getIDType(id) === ElementType.TEXTLINE) ? this.textlineRegister[id] : id);
+			// Set visibilities
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",true);
 			_editor.displayOverlay("lines",false);
@@ -343,17 +349,43 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 			this.forceUpdateReadingOrder();
 		} else if(mode === Mode.LINES){
+			// Map selected items to this view
+			selected = selected.filter(id => [ElementType.TEXTLINE,ElementType.SEGMENT].includes(this.getIDType(id)));
+			// Set visibilities
 			_editor.displayOverlay("segments",true);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
 			this.forceUpdateReadingOrder();
 			this.displayTextViewer(false);
 		} else if(mode === Mode.TEXT){
+			const postSelect = [];
+			// Map selected items to this view
+			for(const id of selected){
+				const type = this.getIDType(id);
+				if(type === ElementType.SEGMENT){
+					const order = _selector.getSelectOrder(ElementType.TEXTLINE,false,id);
+					if(order && order.length > 0) {
+						postSelect.push(order[0]);
+					}
+				} else if(type === ElementType.TEXTLINE){
+					postSelect.push(id);
+				} 
+			}
+			selected = postSelect;
+			// Set visibilities
 			_editor.displayOverlay("segments",false);
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
 			this.displayReadingOrder(false);
 		}
+		
+		// Post Selection
+		const wasMultiple = _selector.selectMultiple;
+		_selector.selectMultiple = true;
+		for(const id of selected){
+			_selector.select(id);
+		}
+		_selector.selectMultiple = wasMultiple;
 	}
 
 	this.getMode = function(){
