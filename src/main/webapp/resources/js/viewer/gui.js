@@ -393,6 +393,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 	this.closeTextLineContent = function () {
 		$("#textline-content").addClass("hide");
+		this.tempTextline = null;
 	}
 
 	this.getTextLineContent = function () {
