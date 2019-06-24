@@ -630,10 +630,21 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				let filteredSegments = segments;
 
 				points.forEach(p => { filteredSegments = filteredSegments.filter(s => !(s.x === p.x && s.y === p.y))});
-				if(selectType === ElementType.SEGMENT)
-					_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0], filteredSegments, _editor, _segmentation, _currentPage, this), _currentPage);
-				else
-					_actionController.addAndExecuteAction(new ActionTransformTextLine(selected[0], filteredSegments, _editor, _textViewer, _segmentation, _currentPage, this), _currentPage);
+				if(filteredSegments && filteredSegments.length > 0){
+					if(selectType === ElementType.SEGMENT)
+						_actionController.addAndExecuteAction(new ActionTransformSegment(selected[0], filteredSegments, _editor, _segmentation, _currentPage, this), _currentPage);
+					else
+						_actionController.addAndExecuteAction(new ActionTransformTextLine(selected[0], filteredSegments, _editor, _textViewer, _segmentation, _currentPage, this), _currentPage);
+				} else {
+					if(selectType === ElementType.SEGMENT){
+						let segment = _segmentation[_currentPage].segments[selected[0]];
+						_actionController.addAndExecuteAction(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector), _currentPage);
+					} else {
+						let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[0]]].textlines[selected[0]];
+						_actionController.addAndExecuteAction(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector), _currentPage);
+					}
+
+				}
 			}
 		}else{
 			//Polygon is selected => Delete polygon
@@ -643,13 +654,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
 				} else if (selectType === ElementType.SEGMENT) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
-					actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector, (i == selected.length-1)));
+					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
 				} else if (selectType === ElementType.CUT) {
 					let cut = _settings.pages[_currentPage].cuts[selected[i]];
 					actions.push(new ActionRemoveCut(cut, _editor, _settings, _currentPage));
 				} else if (selectType === ElementType.TEXTLINE) {
 					let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[i]]].textlines[selected[i]];
-					actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1)));
+					actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
 				}
 			}
 			let multidelete = new ActionMultiple(actions);
@@ -676,7 +687,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if (segment.type !== 'ImageRegion') {
 					segments.push(segment);
 					if(_mode === Mode.SEGMENT || _mode === Mode.EDIT){
-						actions.push(new ActionRemoveSegment(segment, _editor, _segmentation, _currentPage, this, _selector));
+						actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector));
 					} else if(_mode === Mode.LINES){
 						parent = !parent ? this.textlineRegister[segment.id] : parent;
 						actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector));
