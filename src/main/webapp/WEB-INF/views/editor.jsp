@@ -125,11 +125,6 @@
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
-						<t:menuIconCategory name="Contours combine accuracy" jsClass="contourAccuracy">
-							<a class="menuSlider col tooltipped infocus" data-position="bottom" data-delay="50" data-tooltip="Accuracy for combining contours to segments. Low accuracy to the left, high accuracy to the right."> 
-								<input id="contourSlider" type="range" id="test5" min="0" max="100" />
-							</a>
-						</t:menuIconCategory>
 					</div>
 
 				</div>
@@ -156,11 +151,6 @@
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
-						<t:menuIconCategory name="Contours combine accuracy" jsClass="contourAccuracy">
-							<a class="menuSlider col tooltipped infocus" data-position="bottom" data-delay="50" data-tooltip="Accuracy for combining contours to segments. Low accuracy to the left, high accuracy to the right."> 
-								<input id="contourSlider" type="range" id="test5" min="0" max="100" />
-							</a>
-						</t:menuIconCategory>
 					</div>
 
 				</div>
@@ -185,11 +175,6 @@
 								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder hide" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
-						</t:menuIconCategory>
-						<t:menuIconCategory name="Contours combine accuracy" jsClass="contourAccuracy">
-							<a class="menuSlider col tooltipped infocus" data-position="bottom" data-delay="50" data-tooltip="Accuracy for combining contours to segments. Low accuracy to the left, high accuracy to the right."> 
-								<input id="contourSlider" type="range" id="test5" min="0" max="100" />
-							</a>
 						</t:menuIconCategory>
 					</div>
 

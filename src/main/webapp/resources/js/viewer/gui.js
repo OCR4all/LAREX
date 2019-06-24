@@ -461,7 +461,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		parameters['textdilationY'] = $("#textdilationY").val();
 		parameters['imagedilationX'] = $("#imagedilationX").val();
 		parameters['imagedilationY'] = $("#imagedilationY").val();
-		parameters['contourAccuracy'] = $("#contourSlider").val();
 		return parameters;
 	}
 
@@ -613,14 +612,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			return $readingOrder.hasClass("active");
 		}else{
 			return false;
-		}
-	}
-
-	this.displayContours = function (doDisplay) {
-		if (doDisplay) {
-			$('.contourAccuracy').removeClass("hide");
-		} else {
-			$('.contourAccuracy').addClass("hide");
 		}
 	}
 

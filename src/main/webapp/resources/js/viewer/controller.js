@@ -706,7 +706,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		} else if(selectType === ElementType.CONTOUR){
 			const contours = selected.map(id => _contours[_currentPage][id]);
-			const contourAccuracy = _gui.getParameters()['contourAccuracy'];
+			const contourAccuracy = 50;
 			_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
 				if(segment.points.length > 0){
 					// Check if in Mode Lines (create TextLine or Region)
@@ -1331,7 +1331,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 
 		// Display contours
-		_gui.displayContours(display);
 		if(!display || _editor.mode == ViewerMode.CONTOUR){
 			_editor.displayContours(false);
 			_editor.mode = ViewerMode.POLYGON;

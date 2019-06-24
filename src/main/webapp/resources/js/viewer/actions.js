@@ -343,7 +343,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segm
 				segmentation[page].segments[segmentID].textlines[id] = JSON.parse(JSON.stringify(_textLine));
 			}
 			editor.addTextLine(_textLine);
-			textViewer.addTextline(_textline);
+			textViewer.addTextline(_textLine);
 			controller.textlineRegister[_textLine.id] = segmentID;
 			console.log('Do - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
 		}
