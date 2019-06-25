@@ -1,17 +1,140 @@
-function GUI(canvas, viewer, colors) {
+function GUI(canvas, viewer, colors, accessible_modes) {
 	const _viewer = viewer;
 	const _colors = colors;
 	let _canvas = canvas;
 	let _mouse;
 	let _visiblePageStyles = [PageStatus.TODO,PageStatus.SERVERSAVED,PageStatus.SESSIONSAVED,PageStatus.UNSAVED];
+	let _mode;
+	let _textlineZoom = 1.0;
+	let _textlineDelta = 0;
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
+	/**
+	 * Update the gui display of the viewer zoom
+	 */
 	this.updateZoom = function () {
 		let zoom = _viewer.getZoom();
 		zoom = Math.round(zoom * 10000) / 100;
 
 		$('.zoomvalue').text(zoom);
+		this.resizeTextLineContent();	
+	}
+
+	/**
+	 * Reset custom user zoom for the textline
+	 */
+	this.resetZoomTextline = function(){
+		_textlineZoom = 1;
+	}
+
+	/**
+	 * Zoom into textline with zoomfactor ]0,1[
+	 */
+	this.zoomInTextline = function(zoomFactor){
+		_textlineZoom *= (1+zoomFactor);
+		this.resizeTextLineContent();
+	}
+
+	/**
+	 * Zoom out of textline with zoomfactor ]0,1[
+	 */
+	this.zoomOutTextline = function(zoomFactor){
+		_textlineZoom *= (1-zoomFactor);
+		this.resizeTextLineContent();
+	}
+
+	/**
+	 * Reset custom user horizontal delta for the textline
+	 */
+	this.resetTextlineDelta = function(){
+		_textlineDelta = 0;
+	}
+
+	/**
+	 * Move textline with by delta
+	 */
+	this.moveTextline = function(delta){
+		_textlineDelta += delta;
+		this.placeTextLineContent();
+	}
+
+	this.hideTextline = function(doHide=true) {
+		if(doHide) {
+			$('#textline-content').addClass("fade");
+		} else {
+			$('#textline-content').removeClass("fade");
+		}
+	}
+
+	this.setMode = function(mode){
+		// Open tab for mode if is not open already
+		const tabBtnID = {"text":".mode-text",
+					   "lines":".mode-lines",
+					   "edit":".mode-edit",
+					   "segment":".mode-segment"}[mode];
+		const tabID = {"text":"text_tab",
+					   "lines":"line_tab",
+					   "edit":"edit_tab",
+					   "segment":"segment_tab"}[mode];
+		if (!$(`.tab${tabBtnID} > a`).hasClass("active")) {
+			$('.mainMenu > .tabs').tabs('select_tab',tabID);
+		}
+
+		_mode = mode;
+		switch (mode) {
+			case Mode.LINES:
+				$('#sidebar-segment').addClass('hide');
+				$('#sidebar-lines').removeClass('hide');
+				$('#sidebar-text').addClass('hide');
+				this.displayReadingOrder(false);
+				this.closeTextLineContent();
+				break;
+			case Mode.TEXT:
+				$('#sidebar-segment').addClass('hide');
+				$('#sidebar-lines').addClass('hide');
+				$('#sidebar-text').removeClass('hide');
+				this.displayReadingOrder(false);
+				this.closeTextLineContent();
+				break;
+			case Mode.EDIT:
+				$('.doSegment').addClass('hide');
+				$('#collapsible-parameters').addClass('hide');
+				$('#collapsible-settings').addClass('hide');
+				$('.regionlegend').find(".switch").addClass('hide');
+				$('.regionlegendAll').addClass('hide');
+				$('.regionSegmentationSettings').addClass('hide');
+				const $autosegmentSwitchBox = $('.settings-autosegment').find('input');
+				if($autosegmentSwitchBox.prop('checked')){
+					$autosegmentSwitchBox.click();
+				}
+				this.displayReadingOrder($("#reading-order-header").hasClass("active"));
+				$('#sidebar-segment').removeClass('hide');
+				$('#sidebar-lines').addClass('hide');
+				$('#sidebar-text').addClass('hide');
+				break;
+			case Mode.SEGMENT:
+			default:
+				$('.doSegment').removeClass('hide');
+				$('#collapsible-parameters').removeClass('hide');
+				$('#collapsible-settings').removeClass('hide');
+				$('.regionlegend').find(".switch").removeClass('hide');
+				$('.regionlegendAll').removeClass('hide');
+				$('.regionSegmentationSettings').removeClass('hide');
+				this.displayReadingOrder($("#reading-order-header").hasClass("active"));
+				$('#sidebar-segment').removeClass('hide');
+				$('#sidebar-lines').addClass('hide');
+				$('#sidebar-text').addClass('hide');
+		}
+	}
+
+	this.setAccessibleModes = function(modes){
+		$(".mode").addClass("hide");
+		for(const cur_mode of modes){
+			if(!(cur_mode === Mode.EDIT && Mode.SEGMENT in modes)){
+				$(`.mode-${cur_mode}`).removeClass("hide");
+			}
+		}
 	}
 
 	this.openContextMenu = function (doSelected, id) {
@@ -32,13 +155,288 @@ function GUI(canvas, viewer, colors) {
 		$("#contextmenu").addClass("hide");
 	}
 
+	this.openTextView = function(){
+		
+	}
+	/**
+	 * Load and set a virtual keyboard for the gui.
+	 * Keyboard can either be a list of list of characters (e.g. keyboard=[[a,b,c],[d,e]]) 
+	 * or a new line and whitespace seperated string 
+	 * (e.g. keyboard=`a b c
+	 * 				   d e`   )
+	 */
+	this.setVirtualKeyboard = function (keyboard, isRaw=false){
+		if(isRaw){
+			try{
+				keyboard = keyboard.split(/\n/).map(line => line.split(/\s+/));
+			} catch{return;}
+		}
+
+		// Clear grid before loading all items
+		$virtualKeyboard = $(".virtual-keyboard");
+		$virtualKeyboard.empty();
+		for(let x = 0; x < keyboard.length; x++){
+			const row = keyboard[x];
+			if(row.length > 0){
+				const divRow = $('<div class="vk-row row"></div>');
+				$virtualKeyboard.append(divRow);
+				for(let y = 0; y < row.length; y++){
+					if(row[y].length > 0){
+						divRow.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true">
+											<a class="vk-btn btn infocus">${row[y]}</a>
+										</div>`));
+					}
+				}
+			}
+		}
+	}
+	/**
+	 * Get the current virtual keyboard from displayed in the gui.
+	 * Keyboard can either be returned as list of list of characters (e.g. keyboard=[[a,b,c],[d,e]]) 
+	 * or a new line and whitespace seperated string (asRaw)
+	 * (e.g. keyboard=`a b c
+	 * 				   d e`   )
+	 */
+	this.getVirtualKeyboard = function (asRaw=false){
+		let virtualKeyboard = asRaw ? "" : [];
+
+		$virtualKeyboard = $(".virtual-keyboard");
+		for(const row of $virtualKeyboard.children(".vk-row")){
+			const vkRow = [];
+			for(const btn of $(row).find(".vk-btn")){
+				vkRow.push(btn.innerHTML);
+			}
+			if(asRaw){
+				virtualKeyboard += vkRow.join(" ")+"\n";
+			}else{
+				virtualKeyboard.push(vkRow);
+			}
+		}
+		return virtualKeyboard;
+	}
+	/**
+	 * Lock and unlock the virtual keyboard, in order to change and lock changes in the keyboard
+	 */
+	this.lockVirtualKeyboard = function(doLock){
+		if(doLock){ 
+			$('.vk-lock').addClass("hide");
+			$('.vk-unlock').removeClass("hide");
+			$('.vk-drag').attr("draggable",false);
+		}else{
+			$('.vk-lock').removeClass("hide");
+			$('.vk-unlock').addClass("hide");
+			$('.vk-drag').attr("draggable",true);
+		}
+	}
+	/**
+	 * Add a string as button to the virtual keyboard
+	 */
+	this.addVirtualKeyboardButton = function (btnValue){
+		// Clear grid before loading all items
+		const row = $('.vk-row').last();
+
+		btnValue = btnValue.replace(/\s/,'');
+		if(btnValue.length > 0){
+			row.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true">
+								<a class="vk-btn btn infocus">${btnValue}</a>
+							</div>`));
+		} else {
+			this.displayWarning(`Can't add empty buttons to the virtual keyboard.`);
+		}
+	}
+	this.deleteVirtualKeyboardButton = function($button){
+		$button.remove();
+	}
+	/**
+	 * Return the length of buttons in a given row inside the virtual keyboard
+	 */
+	this.capKeyboardRowLength = function ($row){
+		$children = $row.children();
+		if($children.length > 12){
+			const $newRow = $('<div class="vk-row row"></div>');
+			$newRow.insertAfter($row);
+			for(let i = 12; i < $children.length; i++){
+				$newRow.append($children[i]);
+			}
+		}
+		// Check for empty rows and delete them
+		$('.vk-row').each((i,r)=> {
+			if($(r).children().length == 0){
+				$(r).remove()
+			}
+		});
+	}
+	/**
+	 * Open the menu for adding new virtual keyboard buttons
+	 */
+	this.openAddVirtualKeyboardButton = function () {
+		$('#vk-btn-value').val('');	
+		$vk_add = $('#virtual-keyboard-add');
+		$vk_add.removeClass('hide');
+		$sidebarOffset = $('.virtual-keyboard-tools').first().offset();
+		$vk_add.css({ top: $sidebarOffset.top, left: $sidebarOffset.left - $vk_add.width() });
+	}
+	/**
+	 * Close the menu for adding new virtual keyboard buttons.
+	 * Saving the button will add it to the virtual keyboard if its value is valid.
+	 */
+	this.closeAddVirtualKeyboardButton = function (doSave=false) {
+		$('#virtual-keyboard-add').addClass("hide");
+		if(doSave){
+			this.addVirtualKeyboardButton($('#vk-btn-value').val());
+		}
+	}
+
+	/**
+	 * Open the textline content, ready to edit
+	 */
+	this.openTextLineContent = function (textline) {
+		this.hideTextline(false);
+		const $textlinecontent = $("#textline-content");
+		$textlinecontent.removeClass("hide");
+		
+		if(!this.tempTextline || this.tempTextline.id != textline.id){
+			this.tempTextline = textline ? textline : this.tempTextline; 
+			this.updateTextLine(textline.id);
+		}
+		this.placeTextLineContent();
+	}
+
+	/**
+	 * Place the textline content onto the viewer
+	 */
+	this.placeTextLineContent = function(textline=this.tempTextline){
+		const $textlinecontent = $("#textline-content");
+		let anchorX = Infinity;
+		let anchorY = 0;
+
+		if(textline){
+			textline.points.forEach((point) => {
+				anchorX = anchorX < point.x ? anchorX: point.x; 	
+				anchorY = anchorY > point.y ? anchorY: point.y; 	
+			});
+
+			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX+_textlineDelta,anchorY);
+			$viewerCanvas = $("#viewer")[0];
+			const left = $viewerCanvas.offsetLeft
+			const top = $viewerCanvas.offsetTop
+
+			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
+			$textlinecontent.data('textline', textline);
+
+		}
+	}
+
+	/**
+	 * Update the textline with its content
+	 */
+	this.updateTextLine = function(id) {
+		if(this.tempTextline && this.tempTextline.id == id){
+			const $textlinecontent = $("#textline-content");
+			const hasPredict = 1 in this.tempTextline.text;
+			const hasGT = 0 in this.tempTextline.text;
+			const $textline_text = $("#textline-text");
+			const start = $textline_text[0].selectionStart;
+			const end = $textline_text[0].selectionEnd;
+			if(hasGT){
+				$textlinecontent.addClass("line-corrected")
+				$textlinecontent.addClass("line-saved");
+				$textline_text.val(this.tempTextline.text[0]);
+				this.tempTextline.type = "TextLine_gt";
+			} else {
+				$textlinecontent.removeClass("line-corrected")
+				$textlinecontent.removeClass("line-saved");
+				this.tempTextline.type = "TextLine";
+				if (hasPredict){
+					$textline_text.val(this.tempTextline.text[1]);
+				} else {
+					$textline_text.val("");
+				}
+			}
+
+			// Correct to last focus
+			const content_len = $textline_text.val().length;
+			$textline_text.focus();
+			$textline_text[0].selectionStart = start < content_len ? start : content_len;
+			$textline_text[0].selectionEnd = end < content_len ? end : content_len;
+			this.resizeTextLineContent();
+		}
+	}
+
+	/**
+	 * Display a save of the contents of a textline
+	 */
+	this.saveTextLine = function(id,doSave=true){
+		this.updateTextLine(id);
+		const $textlinecontent = $("#textline-content");
+		if(doSave){
+			$textlinecontent.addClass("line-saved")
+		}else{
+			$textlinecontent.removeClass("line-saved")
+		}
+	}
+
+	/**
+	 * Resize the textline content based on its textline size and a user defined zoom
+	 */
+	this.resizeTextLineContent = function(){
+		$buffer = $("#textline-buffer")[0];
+		$buffer.textContent = $("#textline-text")[0].value.replace(/ /g, "\xa0");
+
+		if(this.tempTextline && this.tempTextline.minArea){
+			$("#textline-buffer, #textline-text").css({
+				'font-size': this.tempTextline.minArea.height*_viewer.getZoom()*_textlineZoom+'px'
+			})
+		}
+		$("#textline-content").css({
+			width: $buffer.offsetWidth+'px'
+		})
+	}
+
+	this.closeTextLineContent = function () {
+		$("#textline-content").addClass("hide");
+		this.tempTextline = null;
+	}
+
+	this.getTextLineContent = function () {
+		if(this.tempTextline){
+			return {id:this.tempTextline.id,text:$("#textline-text").val()};
+		}
+		return {};
+	}
+
+	this.isTextLineContentActive = function() {
+		return !$("#textline-content").hasClass("hide");
+	}
+
+	/**
+	 * Insert a character into the current poisition on the textline
+	 */
+	this.insertCharacterTextLine = function(character){
+		if(this.isTextLineContentActive()){
+			$input = $("#textline-text");
+			const start = $input[0].selectionStart;
+			const end = $input[0].selectionEnd;
+			let text = $input.val();
+
+			$input.val(text.substring(0,start)+character+text.substring(end));
+			this.resizeTextLineContent();
+			$input.focus();
+			$input[0].selectionStart = start+character.length;
+			$input[0].selectionEnd = start+character.length;
+		}
+	}
+
 	this.resizeViewerHeight = function () {
-		const $canvas = $("#" + _canvas);
+		const $canvas = $("#viewer").children();
 		const $sidebars = $('.sidebar');
 		const height = $(window).height() - $canvas.offset().top;
 
-		$canvas.height(height);
+		$canvas.outerHeight(height);
 		$sidebars.height(height);
+
+		$("#viewerText").outerWidth($("#viewerCanvas").outerWidth());
+
 		this.loadVisiblePreviewImages();
 	}
 
@@ -65,16 +463,9 @@ function GUI(canvas, viewer, colors) {
 		parameters['textdilationY'] = $("#textdilationY").val();
 		parameters['imagedilationX'] = $("#imagedilationX").val();
 		parameters['imagedilationY'] = $("#imagedilationY").val();
-		parameters['contourAccuracy'] = $("#contourSlider").val();
 		return parameters;
 	}
 
-	this.setRegionLegendColors = function(regions) {
-		regions.forEach((key) => {
-			const color = _colors.getColor(key);
-			$(".legendicon." + key).css("background-color", color.toCSS());
-		});
-	}
 
 	this.forceUpdateRegionHide = function (visibleRegions) {
 		const $allSwitchBoxes = $('.regionlegend');
@@ -130,7 +521,7 @@ function GUI(canvas, viewer, colors) {
 			$('.regionDelete').addClass('hide');
 		
 		if (regionColorID) 
-			this.setRegionColor(regionColorID);
+			this.setEditRegionColor(regionColorID);
 		
 		$settingsOffset = $('#sidebarRegions').offset();
 		$regioneditor = $('#regioneditor');
@@ -152,47 +543,122 @@ function GUI(canvas, viewer, colors) {
 		$regioneditor.css({ top: $settingsOffset.top, left: $settingsOffset.left - $regioneditor.width() });
 	}
 
-	this.setRegionColor = function (colorID) {
+	this.setEditRegionColor = function (colorID) {
 		const $regioneditor = $('#regioneditor');
 		const color = _colors.unpackColor(colorID);
 		$regioneditor.find('.regionColorIcon').css("background-color", color.toCSS());
 		$regioneditor.find('#regionColor').data('colorID', colorID);
 	}
+
+	this.createSelectColors = function () {
+		const $collection = $('#regioneditorColorSelect .collection');
+		_colors.getAllColorIDs().forEach(id => {
+			const color = _colors.unpackColor(id);
+			const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color' + id + '"></li>');
+			const $icon = $('<div class="legendicon" style="background-color:' + color.toCSS() + ';"></div>');
+			$colorItem.data('colorID', id);
+			$colorItem.append($icon);
+			$collection.append($colorItem);
+		});
+	}
+
+	this.updateAvailableColors = function () {
+		$('.regioneditorColorSelectItem').addClass("hide");
+		_colors.getAvailableColorIDs().forEach((id) => {
+			$('.regioneditorColorSelectItem.color' + id).removeClass("hide");
+		});
+	}
+
+	/**
+	 * Update the colors of region legends for all supplied regions 
+	 */
+	this.updateRegionLegendColors = function() {
+		let $color_style = $('#global-css-color');
+		if($color_style.length == 0){
+			$color_style = $('<style id="global-css-color"></style>');
+			$('head').append($color_style);
+		}
+		let css = "";
+
+		const regions = _colors.getAssigned();
+		for(const region of Object.keys(regions)){
+			css += `.legendicon.${region}{background-color:${_colors.getColor(region).toCSS()};}`;
+		}
+		$color_style.html(css);
+	}
+
 	this.closeRegionSettings = function () {
 		$('#regioneditor').addClass('hide');
 	}
 
+	/**
+	 * Display the reading Order in the gui
+	 */
 	this.displayReadingOrder = function (doDisplay) {
+		$readingOrderList = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-list') : $('#reading-order-list-lines');
 		if (doDisplay) {
-			$('.readingOrderCategory').removeClass("hide");
+			$readingOrderList.removeClass("hide");
+			_viewer.displayReadingOrder(this.getReadingOrder());
 		} else {
-			$('.readingOrderCategory').addClass("hide");
+			$readingOrderList.addClass("hide");
+			_viewer.hideReadingOrder();
 		}
 	}
 
-	this.displayContours = function (doDisplay) {
-		if (doDisplay) {
-			$('.contourAccuracy').removeClass("hide");
-		} else {
-			$('.contourAccuracy').addClass("hide");
+	/**
+	 * Check if the current reading order is active in the gui
+	 */
+	this.isReadingOrderActive = function () {
+		if(_mode === Mode.SEGMENT || _mode === Mode.EDIT || _mode === Mode.LINES) {
+			$readingOrder = _mode === (Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-header') : $('#reading-order-header-lines');
+			return $readingOrder.hasClass("active");
+		}else{
+			return false;
 		}
 	}
 
-	this.setReadingOrder = function (readingOrder, segments) {
-		$readingOrderList = $('#reading-order-list');
+	/** Set the in the gui visible reading order */
+	this.setReadingOrder = function (readingOrder, segments, warning="Reading order is empty") {
+		$readingOrderList = _mode === (Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-list') : $('#reading-order-list-lines');
 		$readingOrderList.empty();
-		for (let index = 0; index < readingOrder.length; index++) {
-			const segment = segments[readingOrder[index]];
-			if(segment){
-				const $collectionItem = $('<li class="collection-item reading-order-segment" data-id="' + segment.id + '" draggable="true"></li>');
-				const $legendTypeIcon = $('<div class="legendicon ' + segment.type + '"></div>');
-				const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons right" data-id="' + segment.id + '">delete</i>');
-				$collectionItem.append($legendTypeIcon);
-				$collectionItem.append(segment.type + "-" + segment.id.substring(0, 4));
-				$collectionItem.append($deleteReadingOrderSegment);
-				$readingOrderList.append($collectionItem);
+		if(readingOrder && readingOrder.length > 0){
+			for (let index = 0; index < readingOrder.length; index++) {
+				const segment = segments[readingOrder[index]];
+				if(segment){
+					const $collectionItem = $('<li class="draggable collection-item reading-order-segment infocus" data-id="' + segment.id + '" data-drag-group="readingorder" draggable="true"></li>');
+					const $legendTypeIcon = $('<div class="legendicon infocus ' + segment.type + '"></div>');
+					const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons infocus" data-id="' + segment.id + '">delete</i>');
+					$collectionItem.append($legendTypeIcon);
+					const id = segment.id;
+					$collectionItem.append(id.substring(id.length - 3, id.length) + "-" + segment.type );
+					$collectionItem.append($deleteReadingOrderSegment);
+					$readingOrderList.append($collectionItem);
+				}
 			}
+		} else{
+			$readingOrderList.append($(`<p class="warning">${warning}</p>`));
 		}
+	}
+
+	/** Open the reading order collapsible */
+	this.openReadingOrderSettings = function (){
+		const $readingOrder = _mode === (Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-header') : $('#reading-order-header-lines');
+		if(!$readingOrder.hasClass("active")){
+			$readingOrder.click();
+		}
+	}
+
+	/**
+	 * Get the reading order displayed in the gui (list of segment ids)
+	 */
+	this.getReadingOrder = function (){
+		const readingOrder = [];
+		const $readingOrderList = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-list') : $('#reading-order-list-lines');
+		const $readingOrderItems = $readingOrderList.children();
+		
+		$readingOrderItems.each((i,ir) => readingOrder.push($(ir).data("id")));
+
+		return readingOrder;
 	}
 
 	this.highlightSegment = function (id, doHighlight) {
@@ -209,6 +675,7 @@ function GUI(canvas, viewer, colors) {
 		$($segment1).insertBefore($segment2);
 	}
 
+
 	this.forceUpdateReadingOrder = function (readingOrder, forceHard, segments) {
 		if (forceHard) {
 			this.setReadingOrder(readingOrder, segments);
@@ -223,11 +690,11 @@ function GUI(canvas, viewer, colors) {
 
 	this.doEditReadingOrder = function (doEdit) {
 		if (doEdit) {
-			$('.createReadingOrder').addClass("hide");
+			$('.editReadingOrder').addClass("hide");
 			$('.saveReadingOrder').removeClass("hide");
 		} else {
 			$('.saveReadingOrder').addClass("hide");
-			$('.createReadingOrder').removeClass("hide");
+			$('.editReadingOrder').removeClass("hide");
 		}
 	}
 
@@ -246,8 +713,17 @@ function GUI(canvas, viewer, colors) {
 			case 'segmentPolygon':
 				$button = $('.createSegmentPolygon');
 				break;
+			case 'textlineRectangle':
+				$button = $('.createTextLineRectangle');
+				break;
+			case 'textlinePolygon':
+				$button = $('.createTextLinePolygon');
+				break;
 			case 'segmentContours':
 				$button = $('.editContours');
+				break;
+			case 'editReadingOrder':
+				$button = $('.editReadingOrder');
 				break;
 			case 'cut':
 				$button = $('.createCut');
@@ -380,7 +856,10 @@ function GUI(canvas, viewer, colors) {
 		}
 	}
 	this.setPageXMLVersion = function (version) {
-		$('#pageXMLVersion').text(version);
+		$('.pageXMLVersion').text(version);
+	}
+	this.getPageXMLVersion = function () {
+		return $('.pageXMLVersion').first().text();
 	}
 	this.setSaveSettingsInProgress = function (isInProgress) {
 		if (isInProgress) {
@@ -388,24 +867,6 @@ function GUI(canvas, viewer, colors) {
 		} else {
 			$('.saveSettingsXML').find('.progress').addClass('hide');
 		}
-	}
-	this.setAllRegionColors = function () {
-		const $collection = $('#regioneditorColorSelect .collection');
-		_colors.getAllColorIDs().forEach(id => {
-			const color = _colors.unpackColor(id);
-			const $colorItem = $('<li class="collection-item regioneditorColorSelectItem color' + id + '"></li>');
-			const $icon = $('<div class="legendicon" style="background-color:' + color.toCSS() + ';"></div>');
-			$colorItem.data('colorID', id);
-			$colorItem.append($icon);
-			$collection.append($colorItem);
-		});
-	}
-
-	this.updateAvailableColors = function () {
-		$('.regioneditorColorSelectItem').addClass("hide");
-		_colors.getAvailableColorIDs().forEach((id) => {
-			$('.regioneditorColorSelectItem.color' + id).removeClass("hide");
-		});
 	}
 	this.displayWarning = function (text) {
 		Materialize.toast(text, 4000);
@@ -445,4 +906,7 @@ function GUI(canvas, viewer, colors) {
 		});
 		
 	}
+	
+	// Init script
+	this.setAccessibleModes(accessible_modes);
 }

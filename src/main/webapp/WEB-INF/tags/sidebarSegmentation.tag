@@ -1,9 +1,9 @@
 <%@tag description="Edit Segment Window" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 
-<div class="col s12">
+<div id="sidebar-segment" class="col s12 hide">
 	<ul class="collapsible row" data-collapsible="accordion">
-		<li>
+		<li id="collapsible-settings">
 			<div class="collapsible-header">
 				<i class="material-icons">import_export</i>
 				<span>
@@ -11,8 +11,8 @@
 				</span>
 			</div>
 			<div id="import-export-settings" class="collapsible-body">
-				<a class="col s12 waves-effect waves-light btn saveSettingsXML">
-					Save Settings
+				<a class="col s6 waves-effect waves-light btn saveSettingsXML">
+					Save
 					<div class="progress hide">
 			    		<div class="indeterminate"></div>
 					</div>       
@@ -20,8 +20,8 @@
 				</a>
 
 				<form action="#">
-					<div class="btn col s12" onclick="$('#upload-input').click()">
-						Load Settings
+					<div class="btn col s6" onclick="$('#upload-input').click()">
+						Load
 						<i class="material-icons right">file_upload</i></div>
 					<input id="upload-input" class="uploadSettings hide" type="file">
 				</form>
@@ -39,7 +39,7 @@
 							</label>
 						</span>	
 					</div>
-					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if avaiable">Load now</a>
+					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if available">Load now</a>
 					<div class="col s12">
 						<span class="settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened."> 
 							<label>
@@ -52,7 +52,7 @@
 				</div>
 			</div>
 		</li>
-		<li>
+		<li id="collapsible-region">
 			<div class="collapsible-header">
 				<i class="material-icons">dashboard</i>
 				<span>
@@ -97,6 +97,7 @@
 		<li>
 			<div id="reading-order-header" class="collapsible-header">
 				<i class="material-icons">reorder</i>Reading Order
+				<div class="collapsible-setting"><i class="delete-reading-order material-icons">delete</i></div>
 			</div>
 			<div class="collapsible-body">
 				<div class="reading-order">
@@ -105,7 +106,7 @@
 			  	</div>
 			</div>
 		</li>
-		<li>
+		<li id="collapsible-parameters">
 			<div class="collapsible-header active">
 				<i class="material-icons">settings</i>Parameters
 			</div>
@@ -164,15 +165,15 @@
 		<div class="progress hide">
     		<div class="indeterminate"></div>
 		</div>       
-		<span id="pageXMLVersion">version</span>
+		<span class="pageXMLVersion">version</span>
 		<i class="material-icons right">file_download</i>
-		<div id="dropDownPageXMLCorner"></div>
+		<div class="dropDownPageXMLCorner"></div>
 	</a>
 	
-	<div id="dropDownPageXML" href="#!"class='dropdown-button' data-activates='dropdownPageXMLVersion'></div>
-	<ul id='dropdownPageXMLVersion' class='dropdown-content'>
-		<li><a class="pageXMLVersion" data-version="2017-07-15">2017-07-15</a></li>
-		<li><a class="pageXMLVersion" data-version="2010-03-19">2010-03-19</a></li>
+	<div href="#!"class='dropdown-button dropDownPageXML' data-activates='dropdownPageXMLVersion0'></div>
+	<ul id='dropdownPageXMLVersion0' class='dropdown-content'>
+		<li><a class="pageXMLVersionSelect" data-version="2017-07-15">2017-07-15</a></li>
+		<li><a class="pageXMLVersionSelect" data-version="2010-03-19">2010-03-19</a></li>
 	</ul>
 	<form action="#">
 	<div class="col s12 waves-effect waves-light btn tooltipped" onclick="$('#upload-segmentation-input').click()" data-position="left" data-delay="50" data-tooltip="Supports PageXML v2010-03-19 and v2013-07-15">

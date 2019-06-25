@@ -43,7 +43,7 @@ public class BookSettings {
 	@JsonProperty("parameters")
 	private Map<String, Integer> parameters;
 	@JsonProperty("regions")
-	protected Map<String, Region> regions;
+	protected Map<String, RegionSettings> regions;
 	@JsonProperty("global")
 	protected PageSettings globalSettings;
 	@JsonProperty("combine")
@@ -54,7 +54,7 @@ public class BookSettings {
 	@JsonCreator
 	public BookSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<PageSettings> pages,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
-			@JsonProperty("regions") Map<String, Region> regions,
+			@JsonProperty("regions") Map<String, RegionSettings> regions,
 			@JsonProperty("global") PageSettings globalSettings, @JsonProperty("combine") boolean combine,
 			@JsonProperty("imageSegType") ImageSegType imageSegType) {
 		this.bookID = bookID;
@@ -69,7 +69,7 @@ public class BookSettings {
 	public BookSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
 		this.globalSettings = new PageSettings(book.getId());
-		this.regions = new HashMap<String, Region>();
+		this.regions = new HashMap<String, RegionSettings>();
 		pages = new LinkedList<PageSettings>();
 		for (Page page : book.getPages()) {
 			pages.add(new PageSettings(page.getId()));
@@ -85,14 +85,14 @@ public class BookSettings {
 		this.combine = parameters.isCombineImages();
 		this.imageSegType = parameters.getImageSegType();
 
-		this.regions = new HashMap<String, Region>(regions);
+		this.regions = new HashMap<String, RegionSettings>(regions);
 		RegionManager regionManager = parameters.getRegionManager();
 		for (larex.geometry.regions.Region region : regionManager.getRegions()) {
 			String regionType = region.getType().toString();
 			int minSize = region.getMinSize();
 			int maxOccurances = region.getMaxOccurances();
 			PriorityPosition priorityPosition = region.getPriorityPosition();
-			com.web.model.Region guiRegion = new com.web.model.Region(regionType, minSize, maxOccurances,
+			com.web.facade.RegionSettings guiRegion = new com.web.facade.RegionSettings(regionType, minSize, maxOccurances,
 					priorityPosition);
 
 			int regionCount = 0;
@@ -104,7 +104,7 @@ public class BookSettings {
 				points.add(new Point(position.getTopLeftXPercentage(), position.getBottomRightYPercentage()));
 
 				String id = regionType.toString() + regionCount;
-				guiRegion.addPolygon(new Polygon(id, regionType, points, true));
+				guiRegion.addPolygon(new Region(id, regionType, points, true, new HashMap<>(), new ArrayList<>()));
 				regionCount++;
 			}
 
@@ -135,7 +135,7 @@ public class BookSettings {
 		lParameters.setImageSegType(this.getImageSegType());
 		lParameters.setCombineImages(this.isCombine());
 
-		for (com.web.model.Region guiRegion : regions.values()) {
+		for (com.web.facade.RegionSettings guiRegion : regions.values()) {
 			PAGERegionType regionType = TypeConverter.stringToPAGEType(guiRegion.getType());
 			int minSize = guiRegion.getMinSize();
 			int maxOccurances = guiRegion.getMaxOccurances();
@@ -151,7 +151,7 @@ public class BookSettings {
 				region.setMaxOccurances(maxOccurances);
 			}
 
-			for (Polygon polygon : guiRegion.getPolygons().values()) {
+			for (Region polygon : guiRegion.getPolygons().values()) {
 				List<Point> points = polygon.getPoints();
 				if (points.size() == 4) {
 					Point topLeft = points.get(0);
@@ -186,7 +186,7 @@ public class BookSettings {
 
 		// Set existing Geometry
 		ArrayList<RegionSegment> fixedPointLists = new ArrayList<>();
-		for (Polygon fixedSegment : this.getPage(pageID).getFixedSegments().values()) {
+		for (Region fixedSegment : this.getPage(pageID).getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : fixedSegment.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
@@ -211,8 +211,8 @@ public class BookSettings {
 		return parameters;
 	}
 
-	public Map<String, Region> getRegions() {
-		return new HashMap<String, Region>(regions);
+	public Map<String, RegionSettings> getRegions() {
+		return new HashMap<String, RegionSettings>(regions);
 	}
 
 	public void addPage(PageSettings page) {

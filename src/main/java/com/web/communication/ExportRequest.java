@@ -2,7 +2,7 @@ package com.web.communication;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.web.model.PageSegmentation;
+import com.web.model.PageAnnotations;
 
 /**
  * Communication object for the gui to request a export of a segmentation
@@ -13,13 +13,13 @@ public class ExportRequest {
 	@JsonProperty("bookid")
 	private Integer bookid;
 	@JsonProperty("segmentation")
-	private PageSegmentation segmentation;
+	private PageAnnotations segmentation;
 	@JsonProperty("version")
 	private String version;
 
 	@JsonCreator
 	public ExportRequest(@JsonProperty("bookid") Integer bookid,
-			@JsonProperty("segmentation") PageSegmentation segmentation, @JsonProperty("version") String version) {
+			@JsonProperty("segmentation") PageAnnotations segmentation, @JsonProperty("version") String version) {
 		this.bookid = bookid;
 		this.segmentation = segmentation;
 		this.version = version;
@@ -29,7 +29,7 @@ public class ExportRequest {
 		return bookid;
 	}
 
-	public PageSegmentation getSegmentation() {
+	public PageAnnotations getSegmentation() {
 		return segmentation;
 	}
 

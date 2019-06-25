@@ -27,7 +27,7 @@ public class SegmentationRequest {
 		this.allowToLoadLocal = allowToLoadLocal;
 	}
 
-	public Integer getPages() {
+	public Integer getPage() {
 		return page;
 	}
 

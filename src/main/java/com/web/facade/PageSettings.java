@@ -6,6 +6,7 @@ import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.web.model.Polygon;
+import com.web.model.Region;
 
 /**
  * Handles page sensitive settings for the algorithm
@@ -18,23 +19,23 @@ public class PageSettings {
 	@JsonProperty("cuts")
 	protected Map<String, Polygon> cuts;
 	@JsonProperty("segments")
-	protected Map<String, Polygon> fixedSegments;
+	protected Map<String, Region> fixedSegments;
 	
 	@JsonCreator
 	public PageSettings(
 			@JsonProperty("target") int pageNr,
-			@JsonProperty("cuts") Map<String,Polygon> cuts,
-			@JsonProperty("segments") Map<String,Polygon> fixedSegments){
+			@JsonProperty("cuts") Map<String, Polygon> cuts,
+			@JsonProperty("segments") Map<String,Region> fixedSegments){
 		this.pageNr = pageNr;
 		this.cuts = cuts;
 		this.fixedSegments = fixedSegments;
 	}
 	
 	public PageSettings(int pageNr){ 
-		this(pageNr, new HashMap<String,Polygon>(), new HashMap<String,Polygon>());
+		this(pageNr, new HashMap<String,Polygon>(), new HashMap<String,Region>());
 	}
 	
-	public void addCut(Polygon cut){
+	public void addCut(Region cut){
 		cuts.put(cut.getId(), cut);
 	}
 	
@@ -42,8 +43,8 @@ public class PageSettings {
 		return new HashMap<String, Polygon>(cuts);
 	}
 	
-	public Map<String, Polygon> getFixedSegments() {
-		return new HashMap<String, Polygon>(fixedSegments);
+	public Map<String, Region> getFixedSegments() {
+		return new HashMap<String, Region>(fixedSegments);
 	}
 	
 	

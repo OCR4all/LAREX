@@ -12,9 +12,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class Point {
 
 	@JsonProperty("x")
-	private double x;
+	private final double x;
 	@JsonProperty("y")
-	private double y;
+	private final double y;
 
 	@JsonCreator
 	public Point(@JsonProperty("x") double x, @JsonProperty("y") double y) {

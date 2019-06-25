@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -193,15 +195,24 @@ public class Merger {
 	 * overlapping segments
 	 * 
 	 * @param segments   Segments to merge
-	 * @param binarySize Dimensions of the image the segments are coming from
 	 * @return
 	 */
-	public static RegionSegment lineMerge(ArrayList<RegionSegment> segments, Size binarySize) {
+	public static RegionSegment lineMerge(ArrayList<RegionSegment> segments) {
 		if (segments.size() < 2) {
 			return null;
 		}
-
-		Mat temp = new Mat(binarySize, CvType.CV_8UC1, new Scalar(0));
+		
+		// Calculate binary image size via max segments x and y positions
+		final Set<Point> points = segments.stream().flatMap(s -> s.getPoints().toList().stream())
+												.collect(Collectors.toSet());
+		final double maxX = points.stream().map(p -> p.x).sorted((p1,p2) -> p2.compareTo(p1))
+										.findFirst().orElse(0.0);
+		final double maxY = points.stream().map(p -> p.y).sorted((p1,p2) -> p2.compareTo(p1))
+										.findFirst().orElse(0.0);
+		
+		
+		// Create combined segments
+		Mat temp = new Mat(new Size(maxX,maxY), CvType.CV_8UC1, new Scalar(0));
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		ArrayList<Point> cogs = new ArrayList<Point>();
 		double biggestArea = Double.MIN_VALUE;

@@ -1,16 +1,16 @@
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<%@ taglib prefix="t" tagdir="/WEB-INF/tags"%>
+<%@ taglib prefix="b" tagdir="/WEB-INF/tags/base"%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
    "http://www.w3.org/TR/html4/loose.dtd">
 
-<t:webpage>
-	<t:head>
+<b:webpage>
+	<b:head>
 		<script type="text/javascript" src="resources/js/navigation.js"></script>
 		<title>Larex - Error - <c:out value="${code}"/></title>
-	</t:head>
+	</b:head>
 
-	<t:body>
+	<b:body>
 		<div id="error_wrapper" class="container row">
 			<div id="error" class="card col s12">
 				<div id="error_main valign" class="col s12">
@@ -30,5 +30,5 @@
 				</div>
 			</div>
 		</div>
-	</t:body>
-</t:webpage>
+	</b:body>
+</b:webpage>

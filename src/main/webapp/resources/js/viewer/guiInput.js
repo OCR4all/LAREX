@@ -1,8 +1,8 @@
-function GuiInput(navigationController, controller, gui) {
+function GuiInput(navigationController, controller, gui, textViewer) {
 	const _navigationController = navigationController;
 	const _controller = controller;
 	const _gui = gui;
-	let _draggedObject = null;
+	const _textViewer = textViewer;
 
 	$(window).click((event) => {
 		//Cancel viewer actions, if outside of viewer or a menu icon
@@ -18,17 +18,24 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.openContextMenu(true);
 		return false; //prevents default contextmenu
 	});
-	$('.doSegment').click(() => _controller.doSegmentation());
+	let block_mode_switch = false;
+	$('.mode').click(function(){
+		if(!block_mode_switch){
+			block_mode_switch = true;
+			_controller.setMode($(this).data("mode"));
+			block_mode_switch = false;
+		}
+	});
+	$('.doSegment').click(() => _controller.requestSegmentation());
 	$('.exportPageXML').click(() => _controller.exportPageXML());
-	$('.pageXMLVersion').click(function () {
+	$('.pageXMLVersionSelect').click(function () {
 		const version = $(this).data('version');
 		_gui.setPageXMLVersion(version);
-		$('#dropDownPageXML').dropdown('close');
-		_controller.setPageXMLVersion(version);
+		$('.dropDownPageXML').dropdown('close');
 	});
-	$('#dropDownPageXMLCorner').click((event) => {
+	$('.dropDownPageXMLCorner').click((event) => {
 		event.stopPropagation();
-		$('#dropDownPageXML').dropdown('open');
+		$('.dropDownPageXML').dropdown('open');
 	});
 	$('.saveSettingsXML').click(() => _controller.saveSettingsXML());
 	$('#upload-input:file').on('change', function () {
@@ -38,7 +45,7 @@ function GuiInput(navigationController, controller, gui) {
 			if (file.size < 1024 * 1024) {
 				_controller.uploadSettings(file);
 			} else {
-				alert('max upload size is 1MB')
+				_gui.warning('Can\'t upload settings files larger than 1MB.')
 			}
 		}
 	});
@@ -46,13 +53,26 @@ function GuiInput(navigationController, controller, gui) {
 		const file = this.files[0];
 		$(this).val("");
 		if (file) {
-			if (file.size < 1024 * 1024) {
-				_controller.uploadExistingSegmentation(file);
+			if (file.size < 2048 * 1024) {
+				_controller.uploadSegmentation(file);
 			} else {
-				alert('max upload size is 1MB')
+				_gui.warning('Can\'t upload segmentation files larger than 2MB.')
 			}
 		}
 	});
+	$('.upload-virtual-keyboard').on('change', function(){
+		const reader = new FileReader();
+		reader.onload = function(){
+			_gui.setVirtualKeyboard(reader.result,isRaw=true);
+		}
+		if (this.files[0].size < 512 * 1024) {
+			reader.readAsText(this.files[0]);
+		} else {
+			_gui.warning('Can\'t upload virtual keybord files larger than 512kB.')
+		}
+	});
+	$('.vk-download').click(() => _controller.saveVirtualKeyboard());
+
 	$('.reload').click(() => location.reload());
 	$('.settings-image-mode').on('change', function () {
 		if (this.value) {
@@ -72,6 +92,8 @@ function GuiInput(navigationController, controller, gui) {
 	$('.createRegionBorder').click(() => _controller.createRegionBorder());
 	$('.createSegmentPolygon').click(() => _controller.createSegmentPolygon(true));
 	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
+	$('.createTextLinePolygon').click(() => _controller.createTextLinePolygon(true));
+	$('.createTextLineRectangle').click(() => _controller.createRectangle('textline'));
 	$('.createCut').click(() => _controller.createCut());
 
 	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
@@ -79,9 +101,44 @@ function GuiInput(navigationController, controller, gui) {
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.displayContours());
 
-	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
-	$('.zoomout').click(() => _navigationController.zoomOut(0.1));
-	$('.zoomfit').click(() => _navigationController.zoomFit());
+	$('.displayTextView').click(() => _controller.toggleTextViewer());
+
+	$('.zoomin').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobalImage(0.05);
+		} else {
+			_navigationController.zoomIn(0.1);
+		}
+	});
+	$('.zoomout').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobalImage(-0.05);
+		} else {
+			_navigationController.zoomOut(0.1);
+		}
+	});
+	$('.zoomin_second').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobalText(0.05);
+		}
+	});
+	$('.zoomout_second').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobalText(-0.05);
+		}
+	});
+	$('.zoomfit').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.resetGlobalImageZoom();
+		} else {
+			_navigationController.zoomFit();
+		}
+	});
+	$('.zoomfit_second').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.resetGlobalTextZoom();
+		}
+	});
 
 	$('.moveright').click(() => _navigationController.move(10, 0));
 	$('.moveleft').click(() => _navigationController.move(-10, 0));
@@ -153,16 +210,25 @@ function GuiInput(navigationController, controller, gui) {
 		}
 	});
 	$('.regioneditorColorSelectItem').click(function () {
-		_gui.setRegionColor($(this).data('colorID'));
+		_gui.setEditRegionColor($(this).data('colorID'));
 	});
 
 	$('.collapsible-header').click(function () {
 		if ($(this).is('#reading-order-header')) {
-			_controller.displayReadingOrder(true);
+			const wasActive  = $(this).hasClass("active");
+			_controller.displayReadingOrder(!wasActive);
+		}else if ($(this).is('#reading-order-header-lines')) {
+			const wasActive  = $(this).hasClass("active");
+			_controller.forceUpdateReadingOrder();
+			_controller.displayReadingOrder(!wasActive);
 		} else {
 			_controller.displayReadingOrder(false);
 		}
 	});
+	$('#textline-text').on('input', function() {
+		_gui.resizeTextLineContent();
+		_gui.saveTextLine(false,false);
+	}).trigger('input');
 
 	// Set begin
 	const $loadSwitchBox = $('.settings-load-existing-xml').find('input');
@@ -182,13 +248,20 @@ function GuiInput(navigationController, controller, gui) {
 		_controller.allowToAutosegment($switchBox.prop('checked'));
 	});
 
-	$('.loadExistingSegmentation').click(() => _controller.loadExistingSegmentation());
+	$('.loadExistingSegmentation').click(() => _controller.requestSegmentation(true));
+
+	$('.addToReadingOrder').click(() => _controller.addSelectedToReadingOrder());
 
 	$('.autoGenerateReadingOrder').click(() => _controller.autoGenerateReadingOrder());
 
-	$('.createReadingOrder').click(() => _controller.createReadingOrder());
+	$('.editReadingOrder').click(() => _controller.toggleEditReadingOrder());
 
-	$('.saveReadingOrder').click(() => _controller.endCreateReadingOrder());
+	$('.saveReadingOrder').click(() => _controller.toggleEditReadingOrder());
+
+	$('.delete-reading-order').click((e) => {
+		_controller.deleteReadingOrder()
+		e.stopPropagation();
+	});
 
 	$('#pageLegend > .pageIconTodo').click(function(event) { 
 		$this = $(this);
@@ -215,62 +288,116 @@ function GuiInput(navigationController, controller, gui) {
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
 
-	this.addDynamicListeners = () => {
-		let _hasBeenDropped = false;
+	/*** Dynamically added listeners 
+	 * (Add Listeners to document and use selector in on function)
+	 ***/
+	let _hasBeenDropped = false;
 
-		$('.reading-order-segment').mouseover(function () {
-			const $this = $(this);
-			const id = $this.data('id');
-			_controller.enterSegment(id);
-		});
+	$(document).on("mouseover",'.reading-order-segment',function () {
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.highlightSegment(id,true);
+	});
 
-		$('.reading-order-segment').mouseleave(function () {
-			const $this = $(this);
-			const id = $this.data('id');
-			_controller.leaveSegment(id);
-		});
+	$(document).on("mouseleave",'.reading-order-segment',function () {
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.highlightSegment(id,false);
+	});
 
-		$('.reading-order-segment').on('dragstart', function (event) {
-			const $this = $(this);
-			_draggedObject = $this;
-			_hasBeenDropped = false;
-		});
+	$(document).on("click",'.textline-container', function (){
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.selectSegment(id);
+	});
 
-		$('.reading-order-segment').on('dragover', (event) => false);
+	/**
+	 * Drag'n Drop Objects
+	 */
+	let $drag_target = null;
+	$(document).on('dragstart','.draggable', function (event) {
+		_hasBeenDropped = false;
+		$drag_target = $(this);
+		event.originalEvent.dataTransfer.setData('Text', this.id);
+	});
+	$(document).on('dragover','.draggable', (event) => false);
+	$(document).on('dragleave','.draggable', function (event) {
+		$(this).removeClass('draggable-target');
+	});
+	$(document).on('dragenter','.draggable', function (event) {
+		const $this = $(this);
+		if($this.data("drag-group") == $(event.target).data('drag-group')){
+			$this.addClass('draggable-target');
+		}
+	});
+	$(document).on('drop','.draggable', function (event) {
+		const $this = $(this);
 
-		$('.reading-order-segment').on('dragleave', function (event) {
-			$(this).removeClass('dragedOver');
-			event.preventDefault();
-			return false;
-		});
+		if($drag_target && $this.data("drag-group") == $drag_target.data('drag-group')){
+			$drag_target.insertBefore($this);
+		}
+	});
+	$(document).on('dragend','.draggable', (event) => {
+		$('.draggable').removeClass("draggable-target");
+	});
 
-		$('.reading-order-segment').on('dragenter', function (event) {
-			const $this = $(this);
-			$this.addClass('dragedOver');
-			if (_draggedObject) {
-				_controller.setBeforeInReadingOrder(_draggedObject.data('id'), $(event.target).data('id'), false);
+	/* Virtual Keyboard */
+	$(document).on("click",'.vk-btn', function(event){
+		const character = $(this).text();
+		if(_textViewer.isOpen()){
+			const selected = _controller.getSelected();
+			if(selected){
+				_textViewer.setFocus(selected[0]);
+				_textViewer.insertCharacterTextLine(character);
 			}
-			return true;
-		});
+		}else{
+			_gui.insertCharacterTextLine(character);
+		}
+	});
+	$(document).on('drop','.vk-row', function (event) {
+		_gui.capKeyboardRowLength($(this));
+	});
+	$(document).on("click",'.vk-lock', function(event){
+		_gui.lockVirtualKeyboard(true);
+	});
+	$(document).on("click",'.vk-unlock', function(event){
+		_gui.lockVirtualKeyboard(false);
+	});
+	$(document).on('drop','.vk-delete', function (event) {
+		if($drag_target.data('drag-group') == "keyboard"){
+			_gui.deleteVirtualKeyboardButton($drag_target);
+		}
+	});
+	$('.vk-add').click(() =>  _gui.openAddVirtualKeyboardButton());
+	$('#vk-save').click(() => _gui.closeAddVirtualKeyboardButton(true));
+	$('#vk-cancel').click(() => _gui.closeAddVirtualKeyboardButton(false));
 
-		$('.reading-order-segment').on('drop', function (event) {
-			const $this = $(this);
-			$this.removeClass('dragedOver');
-			if (_draggedObject) {
-				_controller.setBeforeInReadingOrder(_draggedObject.data('id'), $(event.target).data('id'), true);
-			}
-			_hasBeenDropped = true;
-		});
+	/* Reading Order */
+	$(document).on('dragenter','.reading-order-segment', function (event) {
+		const $this = $(this);
+	});
+	$(document).on('drop','.reading-order-segment', function (event) {
+		const $this = $(this);
+		const $other = $(event.target);
+		if ($this.data("drag-group") == $other.data('drag-group')) {
+			_gui.setBeforeInReadingOrder($this.data('id'), $other.data('id'));
+			_controller.saveReadingOrder();
+		}
+		_hasBeenDropped = true;
+	});
 
-		$('.reading-order-segment').on('dragend', (event) => {
-			if (!_hasBeenDropped) {
-				_controller.forceUpdateReadingOrder();
-			}
-		});
-		$('.delete-reading-order-segment').click(function () {
-			const $this = $(this);
-			const id = $this.data('id');
-			_controller.removeFromReadingOrder(id);
-		});
-	}
+	$(document).on('dragend','.reading-order-segment', (event) => {
+	});
+	$(document).on("click",'.delete-reading-order-segment', function () {
+		const $this = $(this);
+		const id = $this.data('id');
+		_controller.removeFromReadingOrder(id);
+	});
+
+	// Text View
+	$("#viewerText").on('input','.textline-text', function() {
+		const id = $(this).closest(".textline-container").data("id");
+		_textViewer.resizeTextline(id)
+		_textViewer.saveTextLine(id,false);
+	}).trigger('input');
 }

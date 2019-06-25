@@ -92,6 +92,15 @@ public class FileManager {
 	}
 
 	/**
+	 * Get the path to the default virtual keyboard.
+	 * 
+	 * @return local default virtual keyboard path
+	 */
+	public String getVirtualKeyboardFile() {
+		return servletContext.getRealPath("WEB-INF" + File.separator + "virtualKeyboard.txt");
+	}
+
+	/**
 	 * Change the local disc books path
 	 * 
 	 * @param booksPath path the bookspath is about to point to

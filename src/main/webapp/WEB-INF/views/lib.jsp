@@ -1,17 +1,17 @@
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-<%@ taglib prefix="t" tagdir="/WEB-INF/tags"%>
+<%@ taglib prefix="b" tagdir="/WEB-INF/tags/base"%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
    "http://www.w3.org/TR/html4/loose.dtd">
 
-<t:webpage>
-	<t:head>
+<b:webpage>
+	<b:head>
 		<script type="text/javascript" src="resources/js/navigation.js"></script>
 		<link rel="stylesheet" href="resources/css/lib.css">
 		<title>Larex - Library</title>
-	</t:head>
+	</b:head>
 
-	<t:body>
+	<b:body>
 		<div id="menu" class="grey lighten-4">
 			<div class="mainMenu">
 				<ul class="tabs">
@@ -42,5 +42,5 @@
 				</div>
 			</div>
 		</div>
-	</t:body>
-</t:webpage>
+	</b:body>
+</b:webpage>

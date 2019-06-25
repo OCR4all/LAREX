@@ -18,7 +18,7 @@ import larex.segmentation.SegmentationResult;
  * segment polygons.
  * 
  */
-public class PageSegmentation {
+public class PageAnnotations {
 	@JsonProperty("fileName")
 	private String fileName;
 	@JsonProperty("width")
@@ -28,20 +28,20 @@ public class PageSegmentation {
 	@JsonProperty("page")
 	private int pageNr;
 	@JsonProperty("segments")
-	private Map<String, Polygon> segments;
+	private Map<String, Region> segments;
 	@JsonProperty("readingOrder")
 	private List<String> readingOrder;
 	@JsonProperty("status")
 	private SegmentationStatus status;
 
-	public PageSegmentation(String fileName, int width, int height, int pageNr, Map<String, Polygon> segments) {
+	public PageAnnotations(String fileName, int width, int height, int pageNr, Map<String, Region> segments) {
 		this(fileName, width, height, pageNr, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
 	}
 
 	@JsonCreator
-	public PageSegmentation(@JsonProperty("fileName") String fileName, @JsonProperty("width") int width,
+	public PageAnnotations(@JsonProperty("fileName") String fileName, @JsonProperty("width") int width,
 			@JsonProperty("height") int height, @JsonProperty("page") int pageNr,
-			@JsonProperty("segments") Map<String, Polygon> segments, @JsonProperty("status") SegmentationStatus status,
+			@JsonProperty("segments") Map<String, Region> segments, @JsonProperty("status") SegmentationStatus status,
 			@JsonProperty("readingOrder") List<String> readingOrder) {
 		this.pageNr = pageNr;
 		this.segments = segments;
@@ -52,11 +52,11 @@ public class PageSegmentation {
 		this.height = height;
 	}
 
-	public PageSegmentation(String fileName, int width, int height, ArrayList<RegionSegment> regions, int pageNr) {
-		Map<String, Polygon> segments = new HashMap<String, Polygon>();
+	public PageAnnotations(String fileName, int width, int height, ArrayList<RegionSegment> regions, int pageNr) {
+		Map<String, Region> segments = new HashMap<String, Region>();
 
 		for (RegionSegment region : regions) {
-			Polygon segment = new Polygon(region);
+			Region segment = new Region(region);
 			segments.put(segment.getId(), segment);
 		}
 
@@ -73,7 +73,7 @@ public class PageSegmentation {
 		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
 
 		for (String poly : this.getSegments().keySet()) {
-			Polygon polygon = this.getSegments().get(poly);
+			Region polygon = this.getSegments().get(poly);
 			regions.add(polygon.toRegionSegment());
 		}
 		SegmentationResult result = new SegmentationResult(regions);
@@ -94,8 +94,8 @@ public class PageSegmentation {
 		return pageNr;
 	}
 
-	public Map<String, Polygon> getSegments() {
-		return new HashMap<String, Polygon>(segments);
+	public Map<String, Region> getSegments() {
+		return new HashMap<String, Region>(segments);
 	}
 
 	public SegmentationStatus getStatus() {

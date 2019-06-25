@@ -1,7 +1,7 @@
 const DataType = {SIMPLE:0,JSON:1,BYTE:2};
 
 class Communicator {
-	request(url,data,uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON){
+	request(url,data={},uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON){
 		// Deferred object for function status
 		const status = $.Deferred();
 
@@ -51,12 +51,12 @@ class Communicator {
 		return this.request("segment", {settings:settings,page:page,allowLoadLocal:allowLoadLocal}, DataType.JSON);
 	}
 
-	emptySegmentation(settings, page) {
-		return this.request("emptysegment", {settings:settings,page:page,allowLoadLocal:false}, DataType.JSON);
+	emptySegmentation(bookID, pageID) {
+		return this.request("emptysegment",  {pageid:pageID,bookid:bookID});
 	}
 
-	mergeSegments(segments, pageID, bookID) {
-		return this.request("merge", {segments:segments,pageid:pageID,bookid:bookID}, DataType.JSON);
+	mergeSegments(segments) {
+		return this.request("merge", segments, DataType.JSON);
 	}
 
 	extractContours(pageid, bookid) {
@@ -65,6 +65,10 @@ class Communicator {
 	
 	combineContours(contours, pageID, bookID, accuracy) {
 		return this.request("combinecontours", {contours:contours,pageid:pageID,bookid:bookID,accuracy:accuracy}, DataType.JSON);
+	}
+
+	minAreaRect(segment) {
+		return this.request("minarearect", {id:segment.id,points:segment.points,isRelative:segment.isRelative}, DataType.JSON);
 	}
 
 	exportSegmentation(segmentation, bookID, pageXMLVersion) {
@@ -79,6 +83,10 @@ class Communicator {
 		return this.request("segmentedpages", {bookid:bookID});
 	}
 	
+	getVirtualKeyboard() { 
+		return this.request("virtualkeyboard");
+	}
+
 	uploadSettings(file, bookID) {
 		const formData = new FormData();
 		formData.append("file", file);

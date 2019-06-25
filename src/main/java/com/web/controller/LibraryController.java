@@ -29,6 +29,14 @@ public class LibraryController {
 	@Autowired
 	private FileConfiguration config;
 
+	/**
+	 * Display a list of all books present in the book path. Clicking on a book will
+	 * open it in the larex view.
+	 * 
+	 * @param model
+	 * @return
+	 * @throws IOException
+	 */
 	@RequestMapping(value = "/")
 	public String home(Model model) throws IOException {
 		// Reset config
@@ -40,8 +48,7 @@ public class LibraryController {
 		}
 		File bookPath = new File(fileManager.getLocalBooksPath());
 		bookPath.isDirectory();
-		FileDatabase database = new FileDatabase(bookPath,
-				config.getListSetting("imagefilter"));
+		FileDatabase database = new FileDatabase(bookPath, config.getListSetting("imagefilter"));
 		Library lib = new Library(database);
 
 		model.addAttribute("library", lib);

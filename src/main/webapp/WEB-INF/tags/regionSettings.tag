@@ -1,6 +1,5 @@
-<%@tag description="Main Body Tag" pageEncoding="UTF-8"%>
+<%@tag description="Tag for changing and displaying the settings of a region" pageEncoding="UTF-8"%>
 <%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
-
 
 
 <div id="regioneditor" class="card hide infocus">
@@ -16,19 +15,21 @@
 			</ul>
 		</div>
 		
-		<div class="col s12 regionSetting">
-			<span class="settings-input">minSize</span>
-			<span class="settings-input">
-				<input value="" id="regionMinSize" class="input-number"
-					type="number" class="validate" size="4" />
-			</span>
-		</div>
-		<div class="col s12 regionSetting ">
-			<span class="settings-input hide">maxOccurence</span>
-			<span class="settings-input hide">
-				<input value="" id="regionMaxOccurances" class="input-number"
-					type="number" class="validate" size="4" />
-			</span>
+		<div class="row regionSegmentationSettings">
+			<div class="col s12 regionSetting">
+				<span class="settings-input">minSize</span>
+				<span class="settings-input">
+					<input value="" id="regionMinSize" class="input-number"
+						type="number" class="validate" size="4" />
+				</span>
+			</div>
+			<div class="col s12 regionSetting">
+				<span class="settings-input hide">maxOccurence</span>
+				<span class="settings-input hide">
+					<input value="" id="regionMaxOccurances" class="input-number"
+						type="number" class="validate" size="4" />
+				</span>
+			</div> 
 		</div>
 		<div class="col s12 regionSetting regionColorSettings">
 			<div class="legendicon regionColorIcon"></div>

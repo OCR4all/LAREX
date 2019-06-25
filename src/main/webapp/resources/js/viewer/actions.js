@@ -1,6 +1,7 @@
 function ActionController(controller) {
 	const _controller = controller;
 	const _this = this;
+	let selector;
 	let _actions = {};
 	let _actionpointers = {};
 
@@ -9,7 +10,9 @@ function ActionController(controller) {
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer < pageActions.length - 1) {
-			_controller.unSelect();
+			if(selector){
+				selector.unSelect();
+			}
 			_actionpointers[page]++;
 			pageActions[_actionpointers[page]].execute();
 		}
@@ -19,7 +22,9 @@ function ActionController(controller) {
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
 		if (pageActions && pageActionpointer >= 0) {
-			_controller.unSelect();
+			if(selector){
+				selector.unSelect();
+			}
 			pageActions[pageActionpointer].undo();
 			_actionpointers[page]--;
 		}
@@ -47,6 +52,9 @@ function ActionController(controller) {
 		_actionpointers[page]++;
 	}
 
+	this.hasActions = function(page) {
+		return _actions[page] && _actions[page].length > 0;
+	}
 }
 
 //"Interface" for actions
@@ -70,7 +78,7 @@ function ActionMultiple(actions) {
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			for (let i = 0, actioncount = actions.length; i < actioncount; i++) {
+			for (let i = actions.length-1; i >= 0; i--) {
 				actions[i].undo();
 			}
 		}
@@ -115,8 +123,9 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 	let _segment = segmentation[page].segments[id];
 	const _oldType = _segment.type;
 	let _actionReadingOrder = null;
-	if (newType === 'ImageRegion')
+	if (newType === 'ImageRegion' && segmentation[page].readingOrder && segmentation[page].readingOrder.includes(id)){
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(id, page, segmentation, controller);
+	}
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
 		_actionSetFixed = new ActionFixSegment(id, controller, true);
@@ -127,7 +136,8 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 			_segment.type = newType;
 			viewer.updateSegment(_segment);
-			controller.forceUpdateReadingOrder(true); //TODO try not to force to update all for changing type
+			if(segmentation[page].readingOrder.includes(id))
+				controller.forceUpdateReadingOrder(true); 
 			if (_actionReadingOrder)
 				_actionReadingOrder.execute();
 			if (_actionSetFixed)
@@ -141,7 +151,8 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 			_segment.type = _oldType;
 			viewer.updateSegment(_segment);
-			controller.forceUpdateReadingOrder(true);
+			if(segmentation[page].readingOrder.includes(id))
+				controller.forceUpdateReadingOrder(true);
 			if (_actionReadingOrder)
 				_actionReadingOrder.undo();
 			if (_actionSetFixed)
@@ -264,10 +275,21 @@ function ActionAddSegment(id, points, type, editor, segmentation, page, controll
 	}
 }
 
-function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
+function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, controller, selector, doForceUpdate) {
 	let _isExecuted = false;
 	const _segment = JSON.parse(JSON.stringify(segment));
-	const _actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id, page, segmentation, controller);
+	let _actionRemoveFromReadingOrder = null;
+	if(segmentation[page].readingOrder && segmentation[page].readingOrder.includes(_segment.id)){
+		_actionRemoveFromReadingOrder = new ActionRemoveFromReadingOrder(segment.id, page, segmentation, controller, doForceUpdate);
+	}
+	const _actionRemoveTextLines = [];
+	if(_segment.textlines != null){
+		const ids = Object.keys(_segment.textlines);
+		for(const [index,id] of ids.entries()){
+			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, textViewer, segmentation, page, controller, selector,(index === ids.length-1 || index==0)));
+		}	
+	}
+	const multiRemove = new ActionMultiple(_actionRemoveTextLines);
 	let _actionSetFixed = null;
 	if (controller.isSegmentFixed(segment.id))
 		_actionSetFixed = new ActionFixSegment(segment.id, controller, true);
@@ -277,11 +299,14 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
 			_isExecuted = true;
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
+
+			_actionRemoveTextLines.forEach(action => action.execute());
+
 			delete segmentation[page].segments[_segment.id];
 			editor.removeSegment(_segment.id);
-			controller.unSelectSegment(_segment.id);
+			selector.unSelectSegment(_segment.id);
 
-			_actionRemoveFromReadingOrder.execute();
+			multiRemove.execute();
 			console.log('Do - Remove: {id:"' + _segment.id + '",[..],type:"' + _segment.type + '"}');
 		}
 	}
@@ -290,10 +315,85 @@ function ActionRemoveSegment(segment, editor, segmentation, page, controller) {
 			_isExecuted = false;
 			segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			editor.addSegment(_segment);
-			_actionRemoveFromReadingOrder.undo();
+
+			if(_actionRemoveFromReadingOrder)
+				_actionRemoveFromReadingOrder.undo();
+
 			if (_actionSetFixed)
 				_actionSetFixed.execute();
+
+			multiRemove.undo();
 			console.log('Undo - Remove: {id:"' + _segment.id + '",[..],type:"' + _segment.type + '"}');
+		}
+	}
+}
+
+function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _textLine = { id: id, points: points,type:"TextLine", text: text, isRelative: false };
+	let _oldTextLines = (segmentation[page].segments[segmentID].textlines !== null) ? 
+			JSON.parse(JSON.stringify(segmentation[page].segments[segmentID].textlines)) : {}
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			if(segmentation[page].segments[segmentID].textlines === null){
+				segmentation[page].segments[segmentID].textlines = {[id]: JSON.parse(JSON.stringify(_textLine))};
+			}else{
+				segmentation[page].segments[segmentID].textlines[id] = JSON.parse(JSON.stringify(_textLine));
+			}
+			editor.addTextLine(_textLine);
+			textViewer.addTextline(_textLine);
+			controller.textlineRegister[_textLine.id] = segmentID;
+			console.log('Do - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			segmentation[page].segments[segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
+			editor.removeSegment(id);
+			textViewer.removeTextline(id);
+			delete controller.textlineRegister[_textLine.id]
+			console.log('Undo - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
+		}
+	}
+}
+
+function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, controller, selector, doForceUpdate=true) {
+	let _isExecuted = false;
+	const _segmentID = controller.textlineRegister[textline.id];
+	const _oldTextLine = JSON.parse(JSON.stringify(textline));
+	const _oldTextLines = JSON.parse(JSON.stringify(segmentation[page].segments[_segmentID].textlines));
+	let removeROAction = null;
+	if(segmentation[page].segments[_segmentID].readingOrder &&
+		segmentation[page].segments[_segmentID].readingOrder.includes(textline.id)){
+		removeROAction = new ActionRemoveTextLineFromReadingOrder(textline.id, _segmentID, page, segmentation, controller, selector, doForceUpdate);
+	}
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			delete segmentation[page].segments[_segmentID].textlines[textline.id];
+			editor.removeSegment(textline.id);
+			textViewer.removeTextline(textline.id);
+			selector.unSelectSegment(textline.id);
+			if(removeROAction) removeROAction.execute();
+
+			delete controller.textlineRegister[textline.id];
+			console.log('Do - Remove: {id:"' + textline.id + '"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
+			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
+			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)));
+			if(removeROAction) removeROAction.undo();
+
+			controller.textlineRegister[textline.id] = _segmentID;
+			console.log('Undo - Remove: {id:"' + textline.id + '"}');
 		}
 	}
 }
@@ -410,6 +510,74 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 	}
 }
 
+function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _id = id;
+	const _newRegionPoints = clone(segmentPoints);
+	const _oldRegionPoints = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points);
+	const _oldMinArea = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].minArea);
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
+			segment.points = _newRegionPoints;
+			delete segment.minArea;
+			viewer.updateSegment(segment);
+			textViewer.updateTextline(segment);
+			console.log('Do - Transform TextLine: {id:"' + _id + ' [..]}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
+			segment.points = _oldRegionPoints;
+			segment.minArea = clone(_oldMinArea);
+			viewer.updateSegment(segment);
+			textViewer.updateTextline(segment);
+			console.log('Undo - Transform TextLine: {id:"' + _id + ' [..]}');
+		}
+	}
+}
+
+function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _id = id;
+	const _oldContent = JSON.parse(JSON.stringify(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].text));
+	if (!controller.isSegmentFixed(id))
+		_actionSetFixed = new ActionFixSegment(id, controller, true);
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+
+			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[id];
+			textline.text[0] = content;
+			controller.updateTextLine(id);
+			textViewer.updateTextline(textline);
+			gui.saveTextLine(id);
+			textViewer.saveTextLine(id);
+			if(textViewer.isOpen()){
+				controller.selectSegment(id);
+			}
+			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
+			textline.text = JSON.parse(JSON.stringify(_oldContent));
+			controller.updateTextLine(id);
+			textViewer.updateTextline(textline);
+			if(textViewer.isOpen()){
+				controller.selectSegment(id);
+			}
+			console.log('Undo - Change TextLine text: {id:"' + _id + ' [..]}');
+		}
+	}
+}
 function ActionChangeReadingOrder(oldReadingOrder, newReadingOrder, controller, segmentation, page) {
 	let _isExecuted = false;
 	const _oldReadingOrder = JSON.parse(JSON.stringify(oldReadingOrder));
@@ -437,7 +605,43 @@ function ActionChangeReadingOrder(oldReadingOrder, newReadingOrder, controller, 
 	}
 }
 
-function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
+function ActionAddToReadingOrder(segment, page, segmentation, controller) {
+	let _isExecuted = false;
+	let _oldReadingOrder;
+	let _newReadingOrder;
+
+	this.execute = function () {
+		if (!_isExecuted && segment.type !== 'ImageRegion') {
+			_isExecuted = true;
+
+			if (!_oldReadingOrder) {
+				_oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].readingOrder));
+			}
+
+			if (!_newReadingOrder) {
+				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+				_newReadingOrder.push(segment.id);
+			}
+
+			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+			controller.selectSegment(segment);
+			controller.forceUpdateReadingOrder(true);
+			console.log('Do - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted && segment.type !== 'ImageRegion') {
+			_isExecuted = false;
+
+			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+			controller.selectSegment(segment);
+			controller.forceUpdateReadingOrder(true);
+			console.log('Undo - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
+		}
+	}
+}
+
+function ActionRemoveFromReadingOrder(id, page, segmentation, controller, doForceUpdate=true) {
 	let _isExecuted = false;
 	const _oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].readingOrder));
 	let _newReadingOrder;
@@ -456,8 +660,130 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
 				}
 			}
 
-			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+			if(!(JSON.stringify(_newReadingOrder) == JSON.stringify(_oldReadingOrder))){
+				segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+				if(doForceUpdate)
+					controller.forceUpdateReadingOrder(true);
+				console.log('Do - Remove from Reading Order: {id:"' + id + '",[..]}');
+			}
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+
+			if(!(JSON.stringify(_newReadingOrder) == JSON.stringify(_oldReadingOrder))){
+				segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+				if(doForceUpdate)
+					controller.forceUpdateReadingOrder(true);
+				console.log('Undo - Remove from Reading Order: {id:"' + id + '",[..]}');
+			}
+		}
+	}
+}
+
+function ActionChangeTextLineReadingOrder(oldReadingOrder, newReadingOrder, parentID, controller, segmentation, page, selector) {
+	let _isExecuted = false;
+	const _oldReadingOrder = JSON.parse(JSON.stringify(oldReadingOrder));
+	const _newReadingOrder = JSON.parse(JSON.stringify(newReadingOrder));
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+
+			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
 			controller.forceUpdateReadingOrder(true);
+
+			console.log('Do - Change Reading order');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+
+			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
+			controller.forceUpdateReadingOrder(true);
+
+			console.log('Undo - Change Reading order');
+		}
+	}
+}
+
+function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, controller, selector) {
+	let _isExecuted = false;
+	let _oldReadingOrder;
+	let _newReadingOrder;
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+
+			if (!_oldReadingOrder) {
+				_oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].segments[parentID].readingOrder));
+			}
+
+			if (!_newReadingOrder) {
+				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+				_newReadingOrder.push(id);
+			}
+
+			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+
+			if(!selector.isSegmentSelected(id))
+				selector.select(id);
+
+			controller.forceUpdateReadingOrder(true);
+			console.log('Do - Add to Reading Order: {id:"' + id + '",[..]"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+
+			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
+			controller.forceUpdateReadingOrder(true);
+			console.log('Undo - Add to Reading Order: {id:"' + id + '",[..]}');
+		}
+	}
+}
+
+function ActionRemoveTextLineFromReadingOrder(id, parentID, page, segmentation, controller, selector, forceUpdate=true) {
+	let _isExecuted = false;
+	let _oldReadingOrder;
+	let _newReadingOrder;
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+
+			if (!_oldReadingOrder){
+				_oldReadingOrder  = JSON.parse(JSON.stringify(segmentation[page].segments[parentID].readingOrder));
+			}
+
+			if (!_newReadingOrder) {
+				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder)).filter(i => i !== id);
+			}
+
+			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
+
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
+			if(forceUpdate)
+				controller.forceUpdateReadingOrder(true);
+
 			console.log('Do - Remove from Reading Order: {id:"' + id + '",[..]}');
 		}
 	}
@@ -465,42 +791,20 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller) {
 		if (_isExecuted) {
 			_isExecuted = false;
 
-			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-			controller.forceUpdateReadingOrder(true);
+			segmentation[page].segments[parentID].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
+
+			if(!selector.isSegmentSelected(parentID))
+				selector.select(parentID);
+
+			selector.isSegmentSelected(parentID);
+
+			if(forceUpdate)
+				controller.forceUpdateReadingOrder(true);
 			console.log('Undo - Remove from Reading Order: {id:"' + id + '",[..]}');
 		}
 	}
 }
 
-function ActionAddToReadingOrder(segment, page, segmentation, controller) {
-	let _isExecuted = false;
-	const _oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].readingOrder));
-	let _newReadingOrder;
-
-	this.execute = function () {
-		if (!_isExecuted && segment.type !== 'ImageRegion') {
-			_isExecuted = true;
-
-			if (!_newReadingOrder) {
-				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-				_newReadingOrder.push(segment.id);
-			}
-
-			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
-			controller.forceUpdateReadingOrder(true);
-			console.log('Do - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
-		}
-	}
-	this.undo = function () {
-		if (_isExecuted && segment.type !== 'ImageRegion') {
-			_isExecuted = false;
-
-			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-			controller.forceUpdateReadingOrder(true);
-			console.log('Undo - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
-		}
-	}
-}
 function ActionFixSegment(id, controller, doFix = true) {
 	let _isExecuted = false;
 
@@ -518,5 +822,13 @@ function ActionFixSegment(id, controller, doFix = true) {
 			controller.fixSegment(id, !doFix);
 			console.log('Undo - Fix Segment ' + id);
 		}
+	}
+}
+
+function clone(object) {
+	if(object){
+		return JSON.parse(JSON.stringify(object));
+	} else {
+		return undefined;
 	}
 }
