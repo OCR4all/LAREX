@@ -35,20 +35,32 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 					case 187: // +
 					case 171: // +
 						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
-							_textViewer.zoomGlobal(0.05);
+							if(event.ctrlKey){
+								_textViewer.zoomGlobalText(0.05);
+							}else{
+								_textViewer.zoomGlobalImage(0.05);
+							}
 							validKey = true;
 						}
 						break;
 					case 189: // -
 					case 173: // -
 						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
-							_textViewer.zoomGlobal(-0.05);
+							if(event.ctrlKey){
+								_textViewer.zoomGlobalText(-0.05);
+							}else{
+								_textViewer.zoomGlobalImage(-0.05);
+							}
 							validKey = true;
 						}
 						break;
 					case 32: // space
 						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
-							_textViewer.resetGlobalZoom();
+							if(event.ctrlKey){
+								_textViewer.resetGlobalTextZoom();
+							} else {
+								_textViewer.resetGlobalImageZoom();
+							}
 							validKey = true;
 						}
 						break;

@@ -105,23 +105,38 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 
 	$('.zoomin').click(() => {
 		if(_textViewer.isOpen()){
-			_textViewer.zoomGlobal(0.05);
+			_textViewer.zoomGlobalImage(0.05);
 		} else {
 			_navigationController.zoomIn(0.1);
 		}
 	});
 	$('.zoomout').click(() => {
 		if(_textViewer.isOpen()){
-			_textViewer.zoomGlobal(-0.05);
+			_textViewer.zoomGlobalImage(-0.05);
 		} else {
 			_navigationController.zoomOut(0.1);
 		}
 	});
+	$('.zoomin_second').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobalText(0.05);
+		}
+	});
+	$('.zoomout_second').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobalText(-0.05);
+		}
+	});
 	$('.zoomfit').click(() => {
 		if(_textViewer.isOpen()){
-			_textViewer.resetGlobalZoom();
+			_textViewer.resetGlobalImageZoom();
 		} else {
 			_navigationController.zoomFit();
+		}
+	});
+	$('.zoomfit_second').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.resetGlobalTextZoom();
 		}
 	});
 
