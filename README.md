@@ -139,6 +139,20 @@ false: no action after saving
 
 e.g. websave:true
 
+### modes ###
+Set the accessible modes in the Larex gui `<value>=[[segment][edit][lines][text]]`
+A combination of the modes "segment", "edit", "lines" and "text" can be set as 
+a space separated string. 
+e.g. modes:segment lines
+
+The order of those modes in the string also determines which mode is opened
+on startup, with the first in the list being opened as main mode.
+The mode "segment" can be replaced with "edit" in order to hide all auto 
+segmentation features. ("edit" will be ignored if both are present)
+
+[Default]modes:segment lines text
+
+
 ### directrequest ###
 This setting enables or disables the direct open feature.
 
@@ -162,6 +176,7 @@ The easiest direct request would be via a html form with the values *bookpath*, 
 	websave: <input type="text" name="websave"/><br>
 	localsave: <input type="text" name="localsave"/><br>
 	savedir: <input type="text" name="savedir"/><br>
+	modes: <input type="text" name="modes"/><br>
 	<input type="submit"/>
 </form>
 ```

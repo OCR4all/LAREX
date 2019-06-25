@@ -8,8 +8,8 @@ class TextViewer {
 		this.container = $("#viewerTextContainer");
 		this.thisInput = viewerInput;
 		this.image;
-		this.zoomImage = 1;
-		this.zoomText = 1;
+		this._zoomImage = 1;
+		this._zoomText = 1;
 		this._baseImageSize = 35;
 		this._baseFontSize = 20;
 	}
@@ -200,8 +200,8 @@ class TextViewer {
 	 * Display the zoom of the text viewer in the gui
 	 */
 	displayZoom(){
-		$('.zoomvalue').text(Math.round(this.zoomImage * 10000) / 100);
-		$('.zoomvalue_second').text(Math.round(this.zoomText * 10000) / 100);
+		$('.zoomvalue').text(Math.round(this._zoomImage * 10000) / 100);
+		$('.zoomvalue_second').text(Math.round(this._zoomText * 10000) / 100);
 	}
 
 	/**
@@ -210,8 +210,8 @@ class TextViewer {
 	 * @param {*} zoom_factor 
 	 */
 	zoomGlobalImage(zoom_factor){
-		this.zoomImage += zoom_factor;
-		this.zoomImage = this.zoomImage > 0 ? this.zoomImage : 0.05;
+		this._zoomImage += zoom_factor;
+		this._zoomImage = this._zoomImage > 0 ? this._zoomImage : 0.05;
 		for(const textline of $(`.textline-container`)){
 			this.zoomBase($(textline).data("id"));
 		}
@@ -224,8 +224,8 @@ class TextViewer {
 	 * @param {*} zoom_factor 
 	 */
 	zoomGlobalText(zoom_factor){
-		this.zoomText += zoom_factor;
-		this.zoomText = this.zoomText > 0 ? this.zoomText : 0.05;
+		this._zoomText += zoom_factor;
+		this._zoomText = this._zoomText > 0 ? this._zoomText : 0.05;
 		for(const textline of $(`.textline-container`)){
 			this.zoomBase($(textline).data("id"));
 		}
@@ -236,7 +236,7 @@ class TextViewer {
 	 * Reset the global image zoom to 100% 
 	 */
 	resetGlobalImageZoom(){
-		this.zoomImage = 1;
+		this._zoomImage = 1;
 		for(const textline of $(`.textline-container`)){
 			this.zoomBase($(textline).data("id"));
 		}
@@ -247,7 +247,7 @@ class TextViewer {
 	 * Reset the global text zoom to 100% 
 	 */
 	resetGlobalTextZoom(){
-		this.zoomText = 1;
+		this._zoomText = 1;
 		for(const textline of $(`.textline-container`)){
 			this.zoomBase($(textline).data("id"));
 		}
@@ -262,14 +262,14 @@ class TextViewer {
 	zoomBase(id){
 		const $textline_text = $(`.textline-container[data-id='${id}'] > .textline-text`);
 		if($textline_text && $textline_text.length > 0){
-			const new_size = this._baseFontSize*this.zoomText;
+			const new_size = this._baseFontSize*this._zoomText;
 			$textline_text.css('fontSize',`${new_size}px`);
 			$textline_text.data('raw-size',new_size);
 		}
 
 		const $textline_image = $(`.textline-container[data-id='${id}'] > .textline-image`);
 		if($textline_image && $textline_image.length > 0){
-			const new_size = this._baseImageSize*this.zoomImage;
+			const new_size = this._baseImageSize*this._zoomImage;
 			$textline_image.css('height',`${new_size}px`);
 			$textline_image.data('raw-size',new_size);
 		}
