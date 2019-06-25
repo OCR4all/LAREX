@@ -234,7 +234,7 @@ body{
 }
 
 .virtual-keyboard{
-  margin: 5px 0px 5px 0px;
+  margin: 0px 0px 5px 0px;
   .row{
     margin:0px;
     .col{
@@ -250,11 +250,22 @@ body{
     margin:0px;
     text-transform: none;
     padding: 0px 5px 0px 5px;
+    background-color: #03a9f4;
   }
   .draggable-target{
     margin-left: 5px !important;
     //pointer-events: none;
   }
+}
+
+.virtual-keyboard-settings, .virtual-keyboard-tools{
+  margin: 0px;
+  .btn{
+    background-color: #0277bd;
+  }
+} 
+.virtual-keyboard-tools{
+  margin-bottom: 20px;
 }
 
 #pagecontainer{
@@ -671,19 +682,4 @@ body{
     bottom:-100%;
     min-width:30px;
   }
-}
-
-.grid-stack-item-content {
-  color: #2c3e50;
-  text-align: center;
-  background-color: #d3d3d3;
-  border: 1px solid #808080;
-}
-.grid-stack-item-content * {
-}
-.grid-stack-item-content span {
-  cursor: all-scroll;
-}
-.grid-stack-item-content button {
-  cursor: pointer;
 }
