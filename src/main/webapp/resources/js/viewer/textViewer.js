@@ -146,6 +146,7 @@ class TextViewer {
 	 * @param {string} id 
 	 */
 	setFocus(id){
+		$(`.textline-container[data-id=${id}]`)[0].scrollIntoView({block:"center",behavior:"smooth"});
 		$(`.textline-container[data-id='${id}'] > .textline-text`).focus();
 	}
 
