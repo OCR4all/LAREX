@@ -32,6 +32,26 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						_selector.selectNext();
 						validKey = true;
 						break;
+					case 187: // +
+					case 171: // +
+						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
+							_textViewer.zoomGlobal(0.05);
+							validKey = true;
+						}
+						break;
+					case 189: // -
+					case 173: // -
+						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
+							_textViewer.zoomGlobal(-0.05);
+							validKey = true;
+						}
+						break;
+					case 32: // space
+						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
+							_textViewer.resetGlobalZoom();
+							validKey = true;
+						}
+						break;
 					case 83: // S
 						if (event.ctrlKey) {
 							_controller.exportPageXML();
@@ -85,10 +105,12 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						}
 						break;
 					case 187: // +
+					case 171: // +
 						_navigationController.zoomIn(0.1);
 						validKey = true;
 						break;
 					case 189: // -
+					case 173: // +
 						_navigationController.zoomOut(0.1);
 						validKey = true;
 						break;

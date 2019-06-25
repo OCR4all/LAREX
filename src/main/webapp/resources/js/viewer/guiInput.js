@@ -103,9 +103,27 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 
 	$('.displayTextView').click(() => _controller.toggleTextViewer());
 
-	$('.zoomin').click(() => _navigationController.zoomIn(0.1));
-	$('.zoomout').click(() => _navigationController.zoomOut(0.1));
-	$('.zoomfit').click(() => _navigationController.zoomFit());
+	$('.zoomin').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobal(0.05);
+		} else {
+			_navigationController.zoomIn(0.1);
+		}
+	});
+	$('.zoomout').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.zoomGlobal(-0.05);
+		} else {
+			_navigationController.zoomOut(0.1);
+		}
+	});
+	$('.zoomfit').click(() => {
+		if(_textViewer.isOpen()){
+			_textViewer.resetGlobalZoom();
+		} else {
+			_navigationController.zoomFit();
+		}
+	});
 
 	$('.moveright').click(() => _navigationController.move(10, 0));
 	$('.moveleft').click(() => _navigationController.move(-10, 0));

@@ -10,6 +10,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
+	/**
+	 * Update the gui display of the viewer zoom
+	 */
 	this.updateZoom = function () {
 		let zoom = _viewer.getZoom();
 		zoom = Math.round(zoom * 10000) / 100;

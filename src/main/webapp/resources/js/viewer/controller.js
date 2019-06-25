@@ -234,6 +234,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			_navigationController.zoomFit();
 
+			if(_textViewer.isOpen()){
+				_textViewer.displayZoom();
+			}
+
 
 			//// Set GUI
 			_gui.showUsedRegionLegends(_presentRegions);
@@ -1234,12 +1238,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(selected){
 				_textViewer.setFocus(selected[0]);
 			}
+			_textViewer.displayZoom();
 		} else {
 			if(selected && this.getIDType(selected[0]) == ElementType.TEXTLINE){
 				const id = selected[0];
 				const parentID = this.textlineRegister[id];
 				_gui.openTextLineContent(_segmentation[_currentPage].segments[parentID].textlines[id]);
 			}
+			_gui.updateZoom();
 		}
 	}
 	this.toggleTextViewer = function(){

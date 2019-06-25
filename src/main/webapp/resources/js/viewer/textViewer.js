@@ -8,6 +8,9 @@ class TextViewer {
 		this.container = $("#viewerTextContainer");
 		this.thisInput = viewerInput;
 		this.image;
+		this.zoom = 1;
+		this._baseImageSize = 35;
+		this._baseFontSize = 20;
 	}
 
 	/**
@@ -64,6 +67,7 @@ class TextViewer {
 		$textlineContainer.append(this._createTextObject(textline));
 		this.container.append($textlineContainer);
 
+		this.zoomBase(textline.id);
 		this.resizeTextline(textline.id);
 	}
 
@@ -102,6 +106,7 @@ class TextViewer {
 			$textlinecontent.removeClass("line-corrected")
 			$textlinecontent.removeClass("line-saved");
 		}
+		this.zoomBase(textline.id);
 		this.resizeTextline(textline.id);
 	}
 
@@ -146,8 +151,22 @@ class TextViewer {
 	 * @param {string} id 
 	 */
 	setFocus(id){
-		$(`.textline-container[data-id=${id}]`)[0].scrollIntoView({block:"center",behavior:"smooth"});
-		$(`.textline-container[data-id='${id}'] > .textline-text`).focus();
+		const $textline = $(`.textline-container[data-id=${id}]`);
+		if($textline  && $textline.length > 0){
+			$textline[0].scrollIntoView({block:"center",behavior:"smooth"});
+			$(`.textline-container[data-id='${id}'] > .textline-text`).focus();
+		}
+	}
+
+	/**
+	 * Check if any textline is focused in the text viewer
+	 */
+	isAnyLineFocused(){
+		const focused_element = document.activeElement;
+		if($(focused_element).hasClass("textline-text")){
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -172,6 +191,61 @@ class TextViewer {
 			return $textline.val();
 		}
 		return null;
+	}
+
+	/**
+	 * Display the zoom of the text viewer in the gui
+	 */
+	displayZoom(){
+		$('.zoomvalue').text(Math.round(this.zoom * 10000) / 100);
+	}
+
+	/**
+	 * Zoom all textlines 
+	 * 
+	 * @param {*} zoom_factor 
+	 */
+	zoomGlobal(zoom_factor){
+		this.zoom += zoom_factor;
+		this.zoom = this.zoom > 0 ? this.zoom : 0.05;
+		for(const textline of $(`.textline-container`)){
+			this.zoomBase($(textline).data("id"));
+		}
+		this.displayZoom();
+	}
+
+	/**
+	 * Reset the global zoom to 100% 
+	 */
+	resetGlobalZoom(){
+		this.zoom = 1;
+		for(const textline of $(`.textline-container`)){
+			this.zoomBase($(textline).data("id"));
+		}
+		this.displayZoom();
+	}
+
+	/**
+	 * Reset current zoom and set to global base zoom
+	 * 
+	 * @param {*} id 
+	 */
+	zoomBase(id){
+		const $textline_text = $(`.textline-container[data-id='${id}'] > .textline-text`);
+		if($textline_text && $textline_text.length > 0){
+			const new_size = this._baseFontSize*this.zoom;
+			$textline_text.css('fontSize',`${new_size}px`);
+			$textline_text.data('raw-size',new_size);
+		}
+
+		const $textline_image = $(`.textline-container[data-id='${id}'] > .textline-image`);
+		if($textline_image && $textline_image.length > 0){
+			const new_size = this._baseImageSize*this.zoom;
+			$textline_image.css('height',`${new_size}px`);
+			$textline_image.data('raw-size',new_size);
+		}
+
+		this.resizeTextline(id);
 	}
 
 	/**
