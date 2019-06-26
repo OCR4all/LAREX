@@ -24,7 +24,7 @@ public class ImageLoader {
 	public static Mat readOriginal(File filepath) {
 		Mat image = null;
 		if(filepath.isFile()) {
-			image = Imgcodecs.imread(filepath.getAbsolutePath(),Imgcodecs.CV_LOAD_IMAGE_UNCHANGED);
+			image = Imgcodecs.imread(filepath.getAbsolutePath());
 		}
 		if(image == null) {
 			throw new IllegalArgumentException("No image exists at "+filepath.getAbsolutePath());
