@@ -1,5 +1,6 @@
 package com.web.facade;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
+import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.RotatedRect;
@@ -14,6 +16,7 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import com.web.controller.FileManager;
+import com.web.io.ImageLoader;
 import com.web.model.Book;
 import com.web.model.Point;
 import com.web.model.Polygon;
@@ -52,11 +55,11 @@ public class ImageProcessingFacade {
 
 	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
 		Book book = database.getBook(bookID);
-		larex.data.Page page = LarexFacade.getLarexPage(book.getPage(pageNr), fileManager);
-		page.initPage();
+		File imagePath = LarexFacade.getImagePath(book.getPage(pageNr), fileManager);
 
-		Collection<MatOfPoint> contours = Contourextractor.fromSource(page.getOriginal());
-		MemoryCleaner.clean(page);
+		Mat gray = ImageLoader.readGray(imagePath);
+		Collection<MatOfPoint> contours = Contourextractor.fromGray(gray);
+		MemoryCleaner.clean(gray);
 
 		Collection<List<Point>> contourSegments = new ArrayList<>();
 		for (final MatOfPoint contour : contours) {
@@ -84,8 +87,7 @@ public class ImageProcessingFacade {
 	public static Region combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
 			FileManager fileManager, FileDatabase database) {
 		Book book = database.getBook(bookID);
-		larex.data.Page page = LarexFacade.getLarexPage(book.getPage(pageNr), fileManager);
-		page.initPage();
+		File imagePath = LarexFacade.getImagePath(book.getPage(pageNr), fileManager);
 
 		Collection<MatOfPoint> matContours = new ArrayList<>();
 		for (List<Point> contour : contours) {
@@ -102,9 +104,8 @@ public class ImageProcessingFacade {
 				
 		double growth = 105 - 100/(accuracy/100.0);
 		
-		final MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary().size(), growth, growth, 10);
+		final MatOfPoint combined = Merger.smearMerge(matContours, ImageLoader.readDimensions(imagePath), growth, growth, 10);
 		MemoryCleaner.clean(matContours);
-		MemoryCleaner.clean(page);
 
 		LinkedList<Point> points = new LinkedList<Point>();
 		for (org.opencv.core.Point regionPoint : combined.toList()) {

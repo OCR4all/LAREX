@@ -15,6 +15,36 @@ import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.parameters.Parameters;
 
 public class SettingsReader {
+	/**
+	 * Read a settingsfile from a document into Parameters
+	 * 
+	 * @param document
+	 * @param resized
+	 * @return
+	 */
+	public static Parameters loadSettings(Document document, Size resized) {
+		Parameters parameters = null;
+		try {
+			document.getDocumentElement().normalize();
+
+			Element parameterElement = (Element) document.getElementsByTagName("parameters").item(0);
+
+			NodeList regionNodes = document.getElementsByTagName("region");
+			RegionManager regionmanager = extractRegions(regionNodes, resized);
+			parameters = extractParameters(parameterElement, regionmanager);
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.out.println("Reading XML file failed!");
+		}
+		return parameters;
+	}
+	/**
+	 * Extract the Position data of a position elements
+	 * 
+	 * @param positionElements
+	 * @param resized
+	 * @return
+	 */
 	private static ArrayList<RelativePosition> extractPositions(NodeList positionElements, Size resized) {
 		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
@@ -68,6 +98,13 @@ public class SettingsReader {
 		return regionManager;
 	}
 
+	/**
+	 * Extract parameters from a parameter Element
+	 * 
+	 * @param parameterElement
+	 * @param regionmanager
+	 * @return
+	 */
 	private static Parameters extractParameters(Element parameterElement, RegionManager regionmanager) {
 		Parameters parameters = new Parameters(regionmanager,
 				Integer.parseInt(parameterElement.getAttribute("verticalResolution")));
@@ -80,20 +117,4 @@ public class SettingsReader {
 		return parameters;
 	}
 
-	public static Parameters loadSettings(Document document, Size resized) {
-		Parameters parameters = null;
-		try {
-			document.getDocumentElement().normalize();
-
-			Element parameterElement = (Element) document.getElementsByTagName("parameters").item(0);
-
-			NodeList regionNodes = document.getElementsByTagName("region");
-			RegionManager regionmanager = extractRegions(regionNodes, resized);
-			parameters = extractParameters(parameterElement, regionmanager);
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("Reading XML file failed!");
-		}
-		return parameters;
-	}
 }

@@ -44,6 +44,29 @@ public class Contourextractor {
 	}
 
 	/**
+	 * Find all contours on a binary copy of the gray image
+	 * 
+	 * @param source Gray image to search contours in
+	 * @return Collection of contours that are present in a binary copy of the
+	 *         source image
+	 */
+	public static Collection<MatOfPoint> fromGray(final Mat gray) {
+		Mat inverted = null;
+		if (gray.type() != CvType.CV_8UC1) {
+			inverted = new Mat(gray.size(), gray.type());
+			Imgproc.threshold(gray, inverted, 0, 255, Imgproc.THRESH_OTSU);
+			MemoryCleaner.clean(gray);
+			Core.bitwise_not(inverted, inverted);
+		} else {
+			inverted = gray.clone();
+		}
+
+		Collection<MatOfPoint> contours = fromInverted(inverted);
+		MemoryCleaner.clean(inverted);
+
+		return contours;
+	}
+	/**
 	 * Find all contours on an inverted binary image
 	 * 
 	 * @param invertedBinary Image to search contours in

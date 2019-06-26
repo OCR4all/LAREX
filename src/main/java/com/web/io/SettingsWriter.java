@@ -19,6 +19,42 @@ import larex.segmentation.parameters.Parameters;
 
 public class SettingsWriter {
 
+	/**
+	 * Save parameters as a xml file onto the disc drive
+	 * 
+	 * @param outputPath Path to write the file to
+	 * @param parameters Parameters to save
+	 */
+	public static void saveSettings(String outputPath, Parameters parameters) {
+		Document document = getSettingsXML(parameters);
+		try {
+			// write content into xml file
+			TransformerFactory transformerFactory = TransformerFactory.newInstance();
+			Transformer transformer;
+			
+				transformer = transformerFactory.newTransformer();
+			DOMSource source = new DOMSource(document);
+
+			if(!outputPath.endsWith(File.separator)) {
+				outputPath += File.separator;
+			}
+			
+			outputPath += "Settings.xml";
+			
+			FileOutputStream output = new FileOutputStream(new File(outputPath));
+			StreamResult result = new StreamResult(output);
+			transformer.transform(source, result);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Save parameters to a settings xml document
+	 * 
+	 * @param parameters Parameters to save
+	 * @return
+	 */
 	public static Document getSettingsXML(Parameters parameters) {
 		try {
 			DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
@@ -73,31 +109,5 @@ public class SettingsWriter {
 			e.printStackTrace();
 		}
 		return null;
-	}
-	
-
-	public static void saveSettings(String outputPath, Parameters parameters) {
-		Document document = getSettingsXML(parameters);
-		try {
-			// write content into xml file
-			TransformerFactory transformerFactory = TransformerFactory.newInstance();
-			Transformer transformer;
-			
-				transformer = transformerFactory.newTransformer();
-			DOMSource source = new DOMSource(document);
-
-			if(!outputPath.endsWith(File.separator)) {
-				outputPath += File.separator;
-			}
-			
-			outputPath += "Settings.xml";
-			
-			FileOutputStream output = new FileOutputStream(new File(outputPath));
-			StreamResult result = new StreamResult(output);
-			transformer.transform(source, result);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		
 	}
 }

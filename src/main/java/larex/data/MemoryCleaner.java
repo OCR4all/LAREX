@@ -20,8 +20,6 @@ public class MemoryCleaner {
 		elements.forEach(c -> {
 			if(c instanceof Mat) {
 				clean((Mat) c);
-			} else if(c instanceof Page) {
-				clean((Page) c);
 			} else if(c instanceof PointList) {
 				clean((PointList) c);
 			} else {
@@ -43,19 +41,6 @@ public class MemoryCleaner {
 		}
 	}
 	
-	/**
-	 * Clean the memory of all pages provided to this function
-	 * 
-	 * @param pages Pages to clean
-	 */
-	public static void clean(Page... pages) {
-		for(Page page: pages) {
-			if(page != null) {
-				page.clean();
-			}
-		}
-	}
-
 	/**
 	 * Clean the memory of all pointlists provided to this function
 	 * 
