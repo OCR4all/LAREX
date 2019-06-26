@@ -1,12 +1,16 @@
 package larex.geometry;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;
 
 public class ExistingGeometry {
@@ -30,14 +34,13 @@ public class ExistingGeometry {
 		final Mat result = image.clone();
 
 		// Resize
-		ArrayList<ArrayList<Point>> ocvPointLists = new ArrayList<ArrayList<Point>>();
-		for (RegionSegment pointList : fixedRegionSegments)
-			ocvPointLists.add(new ArrayList<>(pointList.getResizedPoints(scaleFactor).toList()));
-		for (PointList cut : cuts)
-			ocvPointLists.add(new ArrayList<>(cut.getResizedPoints(scaleFactor).toList()));
+		final List<MatOfPoint> contours = fixedRegionSegments.stream().map(s -> s.getResizedPoints(scaleFactor))
+											.collect(Collectors.toList());
+		Imgproc.drawContours(result, contours, -1, new Scalar(0), -1);
+		MemoryCleaner.clean(contours);
 
-		// Convert and draw
-		for (ArrayList<Point> ocvPoints : ocvPointLists) {
+		for (PointList cut : cuts) {
+			ArrayList<Point> ocvPoints = new ArrayList<>(cut.getResizedPoints(scaleFactor).toList());
 			if (ocvPoints != null && ocvPoints.size() > 1) {
 				Point lastPoint = ocvPoints.get(0);
 
