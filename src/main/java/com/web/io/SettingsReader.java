@@ -108,7 +108,6 @@ public class SettingsReader {
 	private static Parameters extractParameters(Element parameterElement, RegionManager regionmanager) {
 		Parameters parameters = new Parameters(regionmanager,
 				Integer.parseInt(parameterElement.getAttribute("verticalResolution")));
-		parameters.setBinaryThresh(Integer.parseInt(parameterElement.getAttribute("binaryThresh")));
 		parameters.setImageRemovalDilationX(Integer.parseInt(parameterElement.getAttribute("imageDilationX")));
 		parameters.setImageRemovalDilationY(Integer.parseInt(parameterElement.getAttribute("imageDilationY")));
 		parameters.setTextDilationX(Integer.parseInt(parameterElement.getAttribute("textDilationX")));

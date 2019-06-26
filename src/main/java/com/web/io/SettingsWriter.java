@@ -67,7 +67,6 @@ public class SettingsWriter {
 			Element parametersElement = document.createElement("parameters");
 
 			parametersElement.setAttribute("verticalResolution", "" + parameters.getDesiredImageHeight());
-			parametersElement.setAttribute("binaryThresh", "" + parameters.getBinaryThresh());
 			parametersElement.setAttribute("imageDilationX", "" + parameters.getImageRemovalDilationX());
 			parametersElement.setAttribute("imageDilationY", "" + parameters.getImageRemovalDilationY());
 			parametersElement.setAttribute("textDilationX", "" + parameters.getTextDilationX());

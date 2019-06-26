@@ -76,7 +76,6 @@ public class BookSettings {
 		}
 		this.parameters = new HashMap<String, Integer>();
 
-		this.parameters.put("binarythreash", parameters.getBinaryThresh());
 		this.parameters.put("textdilationX", parameters.getTextDilationX());
 		this.parameters.put("textdilationY", parameters.getTextDilationY());
 		this.parameters.put("imagedilationX", parameters.getImageRemovalDilationX());
@@ -127,7 +126,6 @@ public class BookSettings {
 			region.setPositions(new ArrayList<RelativePosition>());
 		}
 
-		lParameters.setBinaryThresh(parameters.get("binarythreash"));
 		lParameters.setTextDilationX(parameters.get("textdilationX"));
 		lParameters.setTextDilationY(parameters.get("textdilationY"));
 		lParameters.setImageRemovalDilationX(parameters.get("imagedilationX"));

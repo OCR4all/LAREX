@@ -20,13 +20,13 @@ public class RegionManager {
 		ArrayList<Region> regions = new ArrayList<Region>();
 
 		Region imageRegion = new Region(new PAGERegionType(RegionType.ImageRegion), 
-				DEFAULT_Parameters.getImageMinSizeDefault(), -1, null, null);
+				DEFAULT_Parameters.IMAGE_MIN_SIZE_DEFAULT, -1, null, null);
 		Region paragraphRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.paragraph), 
-				DEFAULT_Parameters.getParagraphMinSizeDefault(), -1, null, null);
+				DEFAULT_Parameters.PARAGRAPH_MIN_SIZE_DEFAULT, -1, null, null);
 		Region marginaliaRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.marginalia), 
-				DEFAULT_Parameters.getMarginaliaMinSizeDefault(), -1, null, null);
+				DEFAULT_Parameters.MARGINALIA_MIN_SIZE_DEFAULT, -1, null, null);
 		Region pageNumberRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.page_number), 
-				DEFAULT_Parameters.getPageNumberMinSizeDefault(), 1, PriorityPosition.top, null);
+				DEFAULT_Parameters.PAGE_NUMBER_MIN_SIZE_DEFAULT, 1, PriorityPosition.top, null);
 		Region ignoreRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.ignore), 0, -1, null, null);
 
 		regions.add(imageRegion);
