@@ -337,6 +337,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_gui.setMode(mode);
 
+		if(_mode != mode) {
+			this.endEditing();
+		}
+
 		_mode = mode;
 		if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 			// Map selected items to this view
