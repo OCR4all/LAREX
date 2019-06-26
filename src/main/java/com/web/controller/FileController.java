@@ -50,6 +50,8 @@ import com.web.facade.LarexFacade;
 import com.web.model.PageAnnotations;
 import com.web.model.database.FileDatabase;
 
+import larex.data.MemoryCleaner;
+
 /**
  * Communication Controller to handle requests for the main viewer/editor.
  * Handles requests about displaying book scans and segmentations.
@@ -110,40 +112,34 @@ public class FileController {
 
 			if (doResize) {
 				// load Mat
-				Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
+				final Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
 				// resize
-				Mat resizeImage = new Mat();
+				final Mat resizeImage = new Mat();
 				int width = 300;
 				int height = (int) (imageMat.rows() * ((width * 1.0) / imageMat.cols()));
 				Size sz = new Size(width, height);
 				Imgproc.resize(imageMat, resizeImage, sz);
-				imageMat.release();
-				imageMat = resizeImage;
+				MemoryCleaner.clean(imageMat);
 
 				// Convert to png
-				BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
+				BufferedImage bufferedImage = convertMatToBufferedImage(resizeImage);
+				MemoryCleaner.clean(resizeImage);
 				try (ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream()) {
 					ImageIO.write(bufferedImage, "png", byteArrayOut);
 					imageBytes = byteArrayOut.toByteArray();
 				}
-
-				// Remove Garbage
-				imageMat.release();
-				System.gc();
 			} else {
 				if (imageFile.getName().endsWith("tif") || imageFile.getName().endsWith("tiff")) {
 					// load Mat
-					Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
+					final Mat imageMat = Imgcodecs.imread(imageFile.getAbsolutePath());
 
 					// Convert to png
 					BufferedImage bufferedImage = convertMatToBufferedImage(imageMat);
+					MemoryCleaner.clean(imageMat);
 					try (ByteArrayOutputStream byteArrayOut = new ByteArrayOutputStream()) {
 						ImageIO.write(bufferedImage, "png", byteArrayOut);
 						imageBytes = byteArrayOut.toByteArray();
 					}
-
-					// Remove Garbage
-					imageMat.release();
 				} else
 					imageBytes = Files.readAllBytes(imageFile.toPath());
 			}
@@ -280,7 +276,7 @@ public class FileController {
 		return keyboard;
 	}
 
-	private BufferedImage convertMatToBufferedImage(Mat imageMat) {
+	private BufferedImage convertMatToBufferedImage(final Mat imageMat) {
 		BufferedImage bufferedImage = null;
 		int imageHeight = imageMat.rows();
 		int imageWidth = imageMat.cols();

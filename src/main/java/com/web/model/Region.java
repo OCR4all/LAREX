@@ -41,15 +41,11 @@ public class Region extends Polygon{
 		this.readingOrder = readingOrder;
 	}
 
-	public Region(MatOfPoint mat, String id, String type) {
-		super(mat,id);
+	public Region(LinkedList<Point> points, String id, String type) {
+		super(points,id);
 		this.type = type;
 		this.textlines = new HashMap<>();
 		this.readingOrder = new ArrayList<>();
-	}
-
-	public Region(RegionSegment region) {
-		this(region.getPoints(), region.getId(), region.getType().toString());
 	}
 
 	/**
@@ -64,7 +60,7 @@ public class Region extends Polygon{
 			points.add(new org.opencv.core.Point(segmentPoint.getX(), segmentPoint.getY()));
 		}
 
-		MatOfPoint resultPoints = new MatOfPoint();
+		final MatOfPoint resultPoints = new MatOfPoint();
 		resultPoints.fromList(points);
 
 		return new RegionSegment(TypeConverter.stringToPAGEType(this.getType()), resultPoints, this.getId());

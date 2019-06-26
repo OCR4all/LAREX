@@ -8,7 +8,7 @@ public class Candidate {
 	private MatOfPoint contour;
 	private Rect boundingRect;
 	
-	public Candidate(MatOfPoint contour, Rect boundingRect) {
+	public Candidate(final MatOfPoint contour, Rect boundingRect) {
 		setContour(contour);
 		setBoundingRect(boundingRect);
 	}
@@ -17,7 +17,7 @@ public class Candidate {
 		return contour;
 	}
 
-	public void setContour(MatOfPoint contour) {
+	public void setContour(final MatOfPoint contour) {
 		this.contour = contour;
 	}
 

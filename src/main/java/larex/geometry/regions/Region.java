@@ -2,8 +2,8 @@ package larex.geometry.regions;
 
 import java.util.ArrayList;
 
-import org.opencv.core.Mat;
 import org.opencv.core.Rect;
+import org.opencv.core.Size;
 
 import larex.geometry.positions.PriorityPosition;
 import larex.geometry.positions.RelativePosition;
@@ -21,7 +21,7 @@ public class Region {
 	private int maxOccurances;
 	private final PriorityPosition priorityPosition;
 
-	private static Mat activeMat;
+	private static Size activeMat;
 
 	public Region(PAGERegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
 			ArrayList<RelativePosition> positions) {
@@ -60,7 +60,7 @@ public class Region {
 		return null;
 	}
 
-	public void calcPositionRects(Mat image) {
+	public void calcPositionRects(Size image) {
 		setActiveMat(image);
 
 		for (RelativePosition position : positions) {
@@ -151,11 +151,7 @@ public class Region {
 		return priorityPosition;
 	}
 
-	public Mat getActiveMat() {
-		return activeMat;
-	}
-
-	public void setActiveMat(Mat activeMat) {
+	public void setActiveMat(Size activeMat) {
 		Region.activeMat = activeMat;
 	}
 }

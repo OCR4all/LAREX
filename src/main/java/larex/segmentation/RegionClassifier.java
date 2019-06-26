@@ -95,7 +95,7 @@ public class RegionClassifier {
 		ArrayList<Candidate> candidates = new ArrayList<Candidate>();
 		int minSize = determineMinimumSize();
 
-		for (MatOfPoint contour : contours) {
+		for (final MatOfPoint contour : contours) {
 			Rect boundingRect = Imgproc.boundingRect(contour);
 
 			if (boundingRect.area() > minSize) {

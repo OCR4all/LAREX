@@ -14,15 +14,16 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
+import larex.data.MemoryCleaner;
 import larex.operators.Contourextractor;
 import larex.segmentation.parameters.ImageSegType;
 
 public class ImageSegmentation {
 	
-	public static ArrayList<MatOfPoint> combineContours(ArrayList<MatOfPoint> contours, Mat image, ImageSegType type) {
-		Mat binary = new Mat(image.size(), CvType.CV_8U, new Scalar(0));
+	public static ArrayList<MatOfPoint> combineContours(ArrayList<MatOfPoint> contours, final Mat image, ImageSegType type) {
+		final Mat binary = new Mat(image.size(), CvType.CV_8U, new Scalar(0));
 		
-		for (MatOfPoint contour : contours) {
+		for (final MatOfPoint contour : contours) {
 			if(type.equals(ImageSegType.STRAIGHT_RECT)) {
 				Rect rect = Imgproc.boundingRect(contour);
 				Imgproc.rectangle(binary, rect.tl(), rect.br(), new Scalar(255), -1);
@@ -35,15 +36,16 @@ public class ImageSegmentation {
 		}
 		
 		ArrayList<MatOfPoint> results = new ArrayList<>(Contourextractor.fromInverted(binary));
+		MemoryCleaner.clean(binary);
 		
 		return results;
 	}
 
-	public static ArrayList<MatOfPoint> detectTextContours(Mat binary, int minSize) {
+	public static ArrayList<MatOfPoint> detectTextContours(final Mat binary, int minSize) {
 		Collection<MatOfPoint> contours = Contourextractor.fromInverted(binary);
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();
 
-		for (MatOfPoint contour : contours) {
+		for (final MatOfPoint contour : contours) {
 			Rect rect = Imgproc.boundingRect(contour);
 
 			if (rect.area() > minSize) {
@@ -54,11 +56,11 @@ public class ImageSegmentation {
 		return results;
 	}
 	
-	public static ArrayList<MatOfPoint> detectImageContours(Mat binary, int minSize, ImageSegType type, boolean combine) {
+	public static ArrayList<MatOfPoint> detectImageContours(final Mat binary, int minSize, ImageSegType type, boolean combine) {
 		Collection<MatOfPoint> contours = Contourextractor.fromInverted(binary);
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();
 
-		for (MatOfPoint contour : contours) {
+		for (final MatOfPoint contour : contours) {
 			if(type.equals(ImageSegType.STRAIGHT_RECT)) {
 				Rect rect = Imgproc.boundingRect(contour);
 				

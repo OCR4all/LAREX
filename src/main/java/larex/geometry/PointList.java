@@ -6,15 +6,17 @@ import java.util.UUID;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 
+import larex.data.MemoryCleaner;
+
 public class PointList {
 	private final String id;
 	private MatOfPoint points;
 
-	public PointList(MatOfPoint points) {
+	public PointList(final MatOfPoint points) {
 		this(points, UUID.randomUUID().toString());
 	}
 
-	public PointList(MatOfPoint points, String id) {
+	public PointList(final MatOfPoint points, String id) {
 		this.points = points;
 		this.id = id;
 	}
@@ -58,5 +60,9 @@ public class PointList {
 
 	public String getId() {
 		return id;
+	}
+	
+	public void clean() {
+		MemoryCleaner.clean(points);
 	}
 }

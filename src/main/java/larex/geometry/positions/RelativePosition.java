@@ -1,8 +1,8 @@
 package larex.geometry.positions;
 
-import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
+import org.opencv.core.Size;
 
 public class RelativePosition {
 
@@ -28,26 +28,26 @@ public class RelativePosition {
 		setBottomRightYPercentage(bottomRightYPercentage);
 	}
 
-	public RelativePosition(Rect rect, Mat image) {
+	public RelativePosition(Rect rect, Size image) {
 		updateRect(rect, image);
 	}
 
-	public void updateRect(Rect rect, Mat image) {
+	public void updateRect(Rect rect, Size image) {
 		this.openCVRect = rect;
 		calcPercentages(image);
 	}
 
-	public void calcPercentages(Mat image) {
+	public void calcPercentages(Size image) {
 		if (openCVRect != null) {
 			double topLeftX = openCVRect.x;
 			double topLeftY = openCVRect.y;
 			double bottomRightX = openCVRect.br().x;
 			double bottomRightY = openCVRect.br().y;
 
-			double tempTopLeftXPerc = topLeftX / image.width();
-			double tempTopLeftYPerc = topLeftY / image.height();
-			double tempBottomRightXPerc = bottomRightX / image.width();
-			double tempBottomRightYPerc = bottomRightY / image.height();
+			double tempTopLeftXPerc = topLeftX / image.width;
+			double tempTopLeftYPerc = topLeftY / image.height;
+			double tempBottomRightXPerc = bottomRightX / image.width;
+			double tempBottomRightYPerc = bottomRightY / image.height;
 
 			if (Math.abs(tempTopLeftXPerc - topLeftXPercentage) > 0.01) {
 				setTopLeftXPercentage(tempTopLeftXPerc);
@@ -64,24 +64,24 @@ public class RelativePosition {
 		}
 	}
 
-	public Rect calcRect(Mat image) {
-		double tempTopLeftX = image.width() * topLeftXPercentage;
-		double tempTopLeftY = image.height() * topLeftYPercentage;
-		double tempBottomRightX = image.width() * bottomRightXPercentage;
-		double tempBottomRightY = image.height() * bottomRightYPercentage;
+	public Rect calcRect(Size image) {
+		double tempTopLeftX = image.width * topLeftXPercentage;
+		double tempTopLeftY = image.height * topLeftYPercentage;
+		double tempBottomRightX = image.width * bottomRightXPercentage;
+		double tempBottomRightY = image.height * bottomRightYPercentage;
 
-		int topLeftX = (int) (image.width() * topLeftXPercentage);
-		int topLeftY = (int) (image.height() * topLeftYPercentage);
-		int bottomRightX = (int) (image.width() * bottomRightXPercentage);
-		int bottomRightY = (int) (image.height() * bottomRightYPercentage);
+		int topLeftX = (int) (image.width * topLeftXPercentage);
+		int topLeftY = (int) (image.height * topLeftYPercentage);
+		int bottomRightX = (int) (image.width * bottomRightXPercentage);
+		int bottomRightY = (int) (image.height * bottomRightYPercentage);
 
 		if (roundedUpTopLeftX) {
 			roundedUpTopLeftX = false;
 		} else {
 			topLeftX = (int) (tempTopLeftX + 1);
 
-			if (topLeftX > image.width() - 1) {
-				topLeftX = image.width() - 1;
+			if (topLeftX > image.width - 1) {
+				topLeftX = (int) image.width - 1;
 			}
 
 			roundedUpTopLeftX = true;
@@ -92,8 +92,8 @@ public class RelativePosition {
 		} else {
 			topLeftY = (int) (tempTopLeftY + 1);
 
-			if (topLeftY > image.height() - 1) {
-				topLeftY = image.height() - 1;
+			if (topLeftY > image.height - 1) {
+				topLeftY = (int) image.height - 1;
 			}
 
 			roundedUpTopLeftY = true;
@@ -104,8 +104,8 @@ public class RelativePosition {
 		} else {
 			bottomRightX = (int) (tempBottomRightX + 1);
 
-			if (bottomRightX > image.width() - 1) {
-				bottomRightX = image.width() - 1;
+			if (bottomRightX > (int) image.width - 1) {
+				bottomRightX = (int) image.width - 1;
 			}
 
 			roundedUpBottomRightX = true;
@@ -116,8 +116,8 @@ public class RelativePosition {
 		} else {
 			bottomRightY = (int) (tempBottomRightY + 1);
 
-			if (bottomRightY > image.height() - 1) {
-				bottomRightY = image.height() - 1;
+			if (bottomRightY > (int) image.height - 1) {
+				bottomRightY = (int) image.height - 1;
 			}
 
 			roundedUpBottomRightY = true;
@@ -132,12 +132,12 @@ public class RelativePosition {
 			topLeftY = 0;
 		}
 
-		if (bottomRightX == image.width() - 2) {
-			bottomRightX = image.width() - 1;
+		if (bottomRightX == image.width - 2) {
+			bottomRightX = (int) image.width - 1;
 		}
 
-		if (bottomRightY == image.height() - 2) {
-			bottomRightY = image.height() - 1;
+		if (bottomRightY == image.height - 2) {
+			bottomRightY = (int) image.height - 1;
 		}
 
 		// argh

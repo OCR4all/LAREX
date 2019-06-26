@@ -21,6 +21,7 @@ import com.web.model.Rectangle;
 import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
+import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.RegionSubType;
 import larex.operators.Contourextractor;
@@ -38,9 +39,15 @@ public class ImageProcessingFacade {
 			resultRegions.add(segment.toRegionSegment());
 
 		RegionSegment mergedRegion = Merger.lineMerge(resultRegions);
-		System.gc();
+		MemoryCleaner.clean(resultRegions);
 
-		return new Region(mergedRegion);
+		LinkedList<Point> points = new LinkedList<Point>();
+		for (org.opencv.core.Point regionPoint : mergedRegion.getPoints().toList()) {
+			points.add(new Point(regionPoint.x, regionPoint.y));
+		}
+		MemoryCleaner.clean(mergedRegion);
+
+		return new Region(points, mergedRegion.getId(), mergedRegion.getType().toString());
 	}
 
 	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
@@ -49,16 +56,16 @@ public class ImageProcessingFacade {
 		page.initPage();
 
 		Collection<MatOfPoint> contours = Contourextractor.fromSource(page.getOriginal());
-		page.clean();
-		System.gc();
+		MemoryCleaner.clean(page);
 
 		Collection<List<Point>> contourSegments = new ArrayList<>();
-		for (MatOfPoint contour : contours) {
+		for (final MatOfPoint contour : contours) {
 			LinkedList<Point> points = new LinkedList<>();
 			for (org.opencv.core.Point regionPoint : contour.toList()) {
 				points.add(new Point(regionPoint.x, regionPoint.y));
 			}
 			contourSegments.add(points);
+			MemoryCleaner.clean(contour);
 		}
 
 		return contourSegments;
@@ -95,11 +102,16 @@ public class ImageProcessingFacade {
 				
 		double growth = 105 - 100/(accuracy/100.0);
 		
-		MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary(), growth, growth,10);
-		page.clean();
-		System.gc();
+		final MatOfPoint combined = Merger.smearMerge(matContours, page.getBinary().size(), growth, growth, 10);
+		MemoryCleaner.clean(matContours);
+		MemoryCleaner.clean(page);
 
-		return new Region(combined, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
+		LinkedList<Point> points = new LinkedList<Point>();
+		for (org.opencv.core.Point regionPoint : combined.toList()) {
+			points.add(new Point(regionPoint.x, regionPoint.y));
+		}
+		MemoryCleaner.clean(combined);
+		return new Region(points, UUID.randomUUID().toString(), RegionSubType.paragraph.toString());
 	}
 	
 	/**
@@ -112,7 +124,10 @@ public class ImageProcessingFacade {
 		final org.opencv.core.Point[] origPoints = segment.getPoints().stream()
 			.map(p -> new org.opencv.core.Point(p.getX(),p.getY())).toArray(org.opencv.core.Point[]::new);
 
-		final RotatedRect rotated = Imgproc.minAreaRect(new MatOfPoint2f(origPoints));
+		final MatOfPoint2f origPointMap = new MatOfPoint2f(origPoints);
+		final RotatedRect rotated = Imgproc.minAreaRect(origPointMap);
+
+		MemoryCleaner.clean(origPointMap);
 	
 		final LinkedList<Point> points = new LinkedList<>();
 		final org.opencv.core.Point center = rotated.center;

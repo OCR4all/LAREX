@@ -28,6 +28,7 @@ import com.web.model.PageAnnotations;
 import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
+import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;
 import larex.segmentation.SegmentationResult;
 import larex.segmentation.Segmenter;
@@ -131,10 +132,8 @@ public class LarexFacade {
 			Segmenter segmenter = new Segmenter(parameters);
 			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
 			currentLarexPage.setSegmentationResult(segmentationResult);
+			MemoryCleaner.clean(currentLarexPage);
 
-			currentLarexPage.clean();
-
-			System.gc();
 			return currentLarexPage;
 		} else {
 			System.err.println(
@@ -166,11 +165,10 @@ public class LarexFacade {
 			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
 			currentLarexPage.initPage();
 
-			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());
-			settings = new BookSettings(parameters, book);
+			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary().size());
+			MemoryCleaner.clean(currentLarexPage);
 
-			currentLarexPage.clean();
-			System.gc();
+			settings = new BookSettings(parameters, book);
 		} catch (SAXException e) {
 			e.printStackTrace();
 		} catch (IOException e) {

@@ -2,6 +2,7 @@ package com.web.model;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +57,12 @@ public class PageAnnotations {
 		Map<String, Region> segments = new HashMap<String, Region>();
 
 		for (RegionSegment region : regions) {
-			Region segment = new Region(region);
+			LinkedList<Point> points = new LinkedList<Point>();
+			for (org.opencv.core.Point regionPoint : region.getPoints().toList()) {
+				points.add(new Point(regionPoint.x, regionPoint.y));
+			}
+
+			Region segment = new Region(points, region.getId(), region.getType().toString());
 			segments.put(segment.getId(), segment);
 		}
 

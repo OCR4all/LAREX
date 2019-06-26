@@ -2,7 +2,7 @@ package com.web.io;
 
 import java.util.ArrayList;
 
-import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -15,7 +15,7 @@ import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.parameters.Parameters;
 
 public class SettingsReader {
-	private static ArrayList<RelativePosition> extractPositions(NodeList positionElements, Mat resized) {
+	private static ArrayList<RelativePosition> extractPositions(NodeList positionElements, Size resized) {
 		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
 		for (int i = 0; i < positionElements.getLength(); i++) {
@@ -43,7 +43,7 @@ public class SettingsReader {
 		return positions;
 	}
 
-	private static RegionManager extractRegions(NodeList regionNodes, Mat resized) {
+	private static RegionManager extractRegions(NodeList regionNodes, Size resized) {
 		RegionManager regionManager = new RegionManager();
 		regionManager.setRegions(new ArrayList<Region>());
 
@@ -80,7 +80,7 @@ public class SettingsReader {
 		return parameters;
 	}
 
-	public static Parameters loadSettings(Document document, Mat resized) {
+	public static Parameters loadSettings(Document document, Size resized) {
 		Parameters parameters = null;
 		try {
 			document.getDocumentElement().normalize();

@@ -26,8 +26,8 @@ public class ExistingGeometry {
 	 * @param scaleFactor Scale factor of the image
 	 * @return Clone of the image with drawn in geometry
 	 */
-	public Mat drawIntoImage(Mat image, double scaleFactor) {
-		Mat result = image.clone();
+	public Mat drawIntoImage(final Mat image, double scaleFactor) {
+		final Mat result = image.clone();
 
 		// Resize
 		ArrayList<ArrayList<Point>> ocvPointLists = new ArrayList<ArrayList<Point>>();

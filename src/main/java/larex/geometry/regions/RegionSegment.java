@@ -12,11 +12,11 @@ public class RegionSegment extends PointList{
 
 	private PAGERegionType type;
 
-	public RegionSegment(PAGERegionType type, MatOfPoint points) {
+	public RegionSegment(PAGERegionType type, final MatOfPoint points) {
 		this(type, points, UUID.randomUUID().toString());
 	}
 
-	public RegionSegment(PAGERegionType type, MatOfPoint points, String id) {
+	public RegionSegment(PAGERegionType type, final MatOfPoint points, String id) {
 		super(points,id);
 		this.type = type;
 	}

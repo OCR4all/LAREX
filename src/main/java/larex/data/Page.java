@@ -43,10 +43,12 @@ public class Page {
 		this.original = Imgcodecs.imread(imagePath);
 
 		this.binary = new Mat();
-		Mat gray = new Mat();
+		final Mat gray = new Mat();
 		
 		Imgproc.cvtColor(original, gray, Imgproc.COLOR_BGR2GRAY);
 		Imgproc.threshold(gray, binary, -1, 255, Imgproc.THRESH_BINARY);
+
+		MemoryCleaner.clean(gray);
 	}
 
 	/**
@@ -54,11 +56,11 @@ public class Page {
 	 */
 	public void clean() {
 		if (this.original != null) {
-			this.original.release();
+			MemoryCleaner.clean(this.original);
 			this.original = null;
 		}
 		if (this.binary != null) {
-			this.binary.release();
+			MemoryCleaner.clean(this.binary);
 			this.binary = null;
 		}
 	}

@@ -14,91 +14,93 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import larex.data.MemoryCleaner;
+
 public class ImageProcessor {
 
-	public static Mat erode(Mat binary, Size kernelSize) {
-		Mat result = new Mat();
-		Mat kernel = Mat.ones(kernelSize, CvType.CV_8U);
+	public static Mat erode(final Mat binary, Size kernelSize) {
+		final Mat result = new Mat();
+		final Mat kernel = Mat.ones(kernelSize, CvType.CV_8U);
 		Imgproc.erode(binary, result, kernel);
-
+		MemoryCleaner.clean(kernel);
 		return result;
 	}
 
-	public static Mat dilate(Mat binary, Size kernelSize) {
-		Mat result = new Mat();
-		Mat kernel = Mat.ones(kernelSize, CvType.CV_8U);
+	public static Mat dilate(final Mat binary, Size kernelSize) {
+		final Mat result = new Mat();
+		final Mat kernel = Mat.ones(kernelSize, CvType.CV_8U);
 		Imgproc.dilate(binary, result, kernel);
-
+		MemoryCleaner.clean(kernel);
 		return result;
 	}
 
-	public static Mat calcEdges(Mat gray, int threshLow, int threshHigh) {
-		Mat edges = new Mat();
+	public static Mat calcEdges(final Mat gray, int threshLow, int threshHigh) {
+		final Mat edges = new Mat();
 		Imgproc.Canny(gray, edges, threshLow, threshHigh);
 
 		return edges;
 	}
 
-	public static Mat calcEdgesAfterBlurring(Mat gray, int threshLow, int threshHigh, int kernel) {
-		Mat blurred = new Mat();
+	public static Mat calcEdgesAfterBlurring(final Mat gray, int threshLow, int threshHigh, int kernel) {
+		final Mat blurred = new Mat();
 		Imgproc.medianBlur(gray, blurred, kernel);
 
-		Mat edges = new Mat();
+		final Mat edges = new Mat();
 		Imgproc.Canny(blurred, edges, threshLow, threshHigh);
-
+		MemoryCleaner.clean(blurred);
 		return edges;
 	}
 
-	public static Mat invertImage(Mat binary) {
-		Mat inverted = new Mat(binary.size(), binary.type(), new Scalar(255));
+	public static Mat invertImage(final Mat binary) {
+		final Mat inverted = new Mat(binary.size(), binary.type(), new Scalar(255));
 		Core.subtract(inverted, binary, inverted);
 
 		return inverted;
 	}
 
-	public static Mat histEqual(Mat gray) {
-		Mat result = new Mat();
+	public static Mat histEqual(final Mat gray) {
+		final Mat result = new Mat();
 		Imgproc.equalizeHist(gray, result);
 
 		return result;
 	}
 
-	public static Mat blurrImage(Mat gray, int kernelSize) {
-		Mat result = new Mat();
+	public static Mat blurrImage(final Mat gray, int kernelSize) {
+		final Mat result = new Mat();
 		Imgproc.medianBlur(gray, result, kernelSize);
 
 		return result;
 	}
 
-	public static Mat calcGray(Mat source) {
-		Mat gray = new Mat();
+	public static Mat calcGray(final Mat source) {
+		final Mat gray = new Mat();
 		Imgproc.cvtColor(source, gray, Imgproc.COLOR_BGR2GRAY);
 
 		return gray;
 	}
 
-	public static Mat calcBinary(Mat gray) {
-		Mat binary = new Mat();
+	public static Mat calcBinary(final Mat gray) {
+		final Mat binary = new Mat();
 		Imgproc.threshold(gray, binary, 0, 255, Imgproc.THRESH_OTSU);
 
 		return binary;
 	}
 
-	public static Mat calcBinaryFromThresh(Mat gray, int thresh) {
-		Mat binary = new Mat();
+	public static Mat calcBinaryFromThresh(final Mat gray, int thresh) {
+		final Mat binary = new Mat();
 		Imgproc.threshold(gray, binary, thresh, 255, Imgproc.THRESH_BINARY);
 
 		return binary;
 	}
 
-	public static Mat calcBinaryFromTopAndBottom(Mat source, int percentage) {
+	public static Mat calcBinaryFromTopAndBottom(final Mat source, int percentage) {
 		int topBottomHeight = source.height() * percentage / 100;
 
-		Mat top = source.submat(new Rect(new Point(0, 0), new Point(source.width() - 1, topBottomHeight)));
-		Mat bottom = source.submat(new Rect(new Point(0, source.height() - 1 - topBottomHeight),
+		final Mat top = source.submat(new Rect(new Point(0, 0), new Point(source.width() - 1, topBottomHeight)));
+		final Mat bottom = source.submat(new Rect(new Point(0, source.height() - 1 - topBottomHeight),
 				new Point(source.width() - 1, source.height() - 1)));
 
-		Mat topBottom = new Mat(new Size(top.width(), top.height() + bottom.height()), top.type());
+		final Mat topBottom = new Mat(new Size(top.width(), top.height() + bottom.height()), top.type());
 
 		for (int y = 0; y < top.rows(); y++) {
 			for (int x = 0; x < top.cols(); x++) {
@@ -106,24 +108,28 @@ public class ImageProcessor {
 				topBottom.put(top.height() + y, x, bottom.get(y, x));
 			}
 		}
+		MemoryCleaner.clean(top,bottom);
 
-		Mat grayTopBottom = ImageProcessor.calcGray(topBottom);
+
+		final Mat grayTopBottom = ImageProcessor.calcGray(topBottom);
+		MemoryCleaner.clean(topBottom);
 		Scalar avgGray = Core.mean(grayTopBottom);
 		int avg = (int) (avgGray.val[0] * 0.9);
 
-		Mat gray = ImageProcessor.calcGray(source);
-		Mat binary = new Mat();
+		final Mat gray = ImageProcessor.calcGray(source);
+		final Mat binary = new Mat();
 		Imgproc.threshold(gray, binary, avg, 255, Imgproc.THRESH_BINARY);
+		MemoryCleaner.clean(gray);
 
 		return binary;
 	}
 
-	public static Mat resize(Mat source, int desiredHeight) {
+	public static Mat resize(final Mat source, int desiredHeight) {
 		if (desiredHeight == -1) {
 			return source;
 		}
 
-		Mat result = new Mat();
+		final Mat result = new Mat();
 
 		double scaleFactor = (double) source.rows() / desiredHeight;
 		Imgproc.resize(source, result, new Size(source.cols() / scaleFactor, desiredHeight));
@@ -132,7 +138,7 @@ public class ImageProcessor {
 	}
 
 	public static Mat img2Mat(BufferedImage in) {
-		Mat out;
+		final Mat out;
 		byte[] data;
 		int r, g, b;
 
@@ -173,7 +179,7 @@ public class ImageProcessor {
 		return out;
 	}
 
-	public static BufferedImage mat2Img(Mat in) {
+	public static BufferedImage mat2Img(final Mat in) {
 		BufferedImage out;
 		byte[] data = new byte[in.width() * in.height() * (int) in.elemSize()];
 		int type;
@@ -191,7 +197,7 @@ public class ImageProcessor {
 		return out;
 	}
 
-	public static Point calcCenterOfGravity(MatOfPoint input) {
+	public static Point calcCenterOfGravity(final MatOfPoint input) {
 		Point[] points = input.toArray();
 
 		double sumX = 0;
@@ -209,7 +215,7 @@ public class ImageProcessor {
 	}
 
 	// {tl, tr, br, bl}
-	public static Point[] findLinePointOrder(MatOfPoint input) {
+	public static Point[] findLinePointOrder(final MatOfPoint input) {
 		Point[] points = input.toArray();
 		Point[] result = new Point[4];
 
@@ -270,14 +276,15 @@ public class ImageProcessor {
 		return result;
 	}
 
-	public static double[] calcAverageBackground(Mat original) {
+	public static double[] calcAverageBackground(final Mat original) {
 		if (original.channels() == 1) {
 			return calcAverageBackgroundGray(original);
 		}
 
-		Mat gray = new Mat();
-		Mat binary = new Mat();
+		final Mat gray = new Mat();
+		final Mat binary = new Mat();
 		Imgproc.threshold(gray, binary, -1, 255, Imgproc.THRESH_OTSU);
+		MemoryCleaner.clean(gray);
 
 		double sumRed = 0;
 		double sumGreen = 0;
@@ -295,16 +302,16 @@ public class ImageProcessor {
 				}
 			}
 		}
+		MemoryCleaner.clean(binary);
 
 		double[] avgBackground = { sumBlue / cnt, sumGreen / cnt, sumRed / cnt };
 
-		releaseAll(gray, binary);
 		
 		return avgBackground;
 	}
 
-	public static double[] calcAverageBackgroundGray(Mat gray) {
-		Mat binary = new Mat();
+	public static double[] calcAverageBackgroundGray(final Mat gray) {
+		final Mat binary = new Mat();
 		Imgproc.threshold(gray, binary, -1, 255, Imgproc.THRESH_OTSU);
 
 		double sum = 0;
@@ -322,22 +329,12 @@ public class ImageProcessor {
 
 		double[] avgBackground = { sum / cnt };
 
-		releaseAll(binary);
+		MemoryCleaner.clean(binary);
 		
 		return avgBackground;
 	}
 	
-	public static void releaseAll(Mat... mats) {
-		for(Mat mat : mats) {
-			if (mat != null) {
-				mat.release();
-				mat = null;
-			}
-		}
-	}
-	
-
-	public static Point calcCenterOfGravityOCV(MatOfPoint input,
+	public static Point calcCenterOfGravityOCV(final MatOfPoint input,
 			boolean forceCogInContour) {
 		Point[] points = input.toArray();
 

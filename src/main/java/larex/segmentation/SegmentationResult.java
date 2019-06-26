@@ -42,7 +42,7 @@ public class SegmentationResult {
 
 	private boolean rectIsWithinText(Rect rect) {
 		for (RegionSegment region : regions) {
-			MatOfPoint2f contour2f = new MatOfPoint2f(region.getPoints().toArray());
+			final MatOfPoint2f contour2f = new MatOfPoint2f(region.getPoints().toArray());
 
 			if (Imgproc.pointPolygonTest(contour2f, rect.tl(), false) > 0
 					&& Imgproc.pointPolygonTest(contour2f, rect.br(), false) > 0) {

@@ -10,6 +10,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import larex.data.MemoryCleaner;
 import larex.geometry.positions.RelativePosition;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionSegment;
@@ -32,7 +33,7 @@ public class Segmenter {
 		setParameters(parameters);
 	}
 
-	public SegmentationResult segment(Mat original) {
+	public SegmentationResult segment(final Mat original) {
 		// initialize image and regions
 		init(original, parameters);
 
@@ -50,7 +51,7 @@ public class Segmenter {
 		ArrayList<MatOfPoint> texts = detectText();
 		ArrayList<RegionSegment> results = classifyText(texts);
 
-		for (MatOfPoint image : images) {
+		for (final MatOfPoint image : images) {
 			RegionSegment result = new RegionSegment(new PAGERegionType(RegionType.ImageRegion), image);
 			results.add(result);
 		}
@@ -75,7 +76,7 @@ public class Segmenter {
 		return segResult;
 	}
 
-	private void fillFixedSegments(Mat original) {
+	private void fillFixedSegments(final Mat original) {
 		ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 
@@ -116,6 +117,7 @@ public class Segmenter {
 		}
 
 		ArrayList<MatOfPoint> texts = ImageSegmentation.detectTextContours(dilate, minSize);
+		MemoryCleaner.clean(dilate);
 
 		return texts;
 	}
@@ -140,9 +142,11 @@ public class Segmenter {
 		ArrayList<MatOfPoint> images = ImageSegmentation.detectImageContours(dilate, imageRegion.getMinSize(), type,
 				parameters.isCombineImages());
 
-		for (MatOfPoint tempContour : images) {
+		for (final MatOfPoint tempContour : images) {
 			Imgproc.fillConvexPoly(binary, tempContour, new Scalar(0));
 		}
+
+		MemoryCleaner.clean(dilate);
 
 		return images;
 	}
@@ -157,8 +161,9 @@ public class Segmenter {
 				for (RelativePosition position : region.getPositions()) {
 					if (position.isFixed()) {
 						Rect rect = position.getOpenCVRect();
-						Mat removed = binary.clone();
+						final Mat removed = binary.clone();
 						Imgproc.rectangle(removed, rect.tl(), rect.br(), new Scalar(0), -1);
+						MemoryCleaner.clean(this.binary);
 						this.binary = removed;
 
 						if (region.getType().getType().equals(RegionType.ImageRegion)) {
@@ -194,7 +199,7 @@ public class Segmenter {
 		return null;
 	}
 
-	private void calcTrueRegionSize(Mat image, ArrayList<Region> regions) {
+	private void calcTrueRegionSize(Size image, ArrayList<Region> regions) {
 		for (Region region : regions) {
 			region.calcPositionRects(image);
 		}
@@ -202,25 +207,21 @@ public class Segmenter {
 		this.regions = new ArrayList<Region>(regions);
 	}
 
-	private void init(Mat original, Parameters parameters) {
+	private void init(final Mat original, Parameters parameters) {
 		this.scaleFactor = parameters.getScaleFactor(original.height());
-		Mat resized = ImageProcessor.resize(original, parameters.getDesiredImageHeight());
-		Mat gray = ImageProcessor.calcGray(resized);
+		final Mat resized = ImageProcessor.resize(original, parameters.getDesiredImageHeight());
+		final Mat gray = ImageProcessor.calcGray(resized);
 		// calculate region size
-		calcTrueRegionSize(resized, parameters.getRegionManager().getRegions());
+		calcTrueRegionSize(resized.size(), parameters.getRegionManager().getRegions());
+		MemoryCleaner.clean(resized);
 
 		// binarize
 		int binaryThresh = parameters.getBinaryThresh();
-		Mat binary = new Mat();
-
-		if (binaryThresh == -1) {
-			binary = ImageProcessor.calcBinary(gray);
-		} else {
-			binary = ImageProcessor.calcBinaryFromThresh(gray, binaryThresh);
-		}
-
-		binary = ImageProcessor.invertImage(binary);
-		this.binary = binary;
+		final Mat binary = (binaryThresh == -1) ? ImageProcessor.calcBinary(gray)
+										: ImageProcessor.calcBinaryFromThresh(gray, binaryThresh);
+		MemoryCleaner.clean(gray);
+		this.binary = ImageProcessor.invertImage(binary);
+		MemoryCleaner.clean(binary);
 	}
 
 	public void setParameters(Parameters parameters) {
