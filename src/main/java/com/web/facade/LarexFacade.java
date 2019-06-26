@@ -125,9 +125,8 @@ public class LarexFacade {
 			Mat original = ImageLoader.readOriginal(imageFile);
 
 			Parameters parameters = settings.toParameters(original.size(), page.getId());
-			Segmenter segmenter = new Segmenter(parameters);
 
-			SegmentationResult result = segmenter.segment(original);
+			SegmentationResult result = Segmenter.segment(original,parameters);
 			MemoryCleaner.clean(original);
 			return result;
 		} else {

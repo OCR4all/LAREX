@@ -1,21 +1,19 @@
 package larex.segmentation;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
-import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import larex.data.MemoryCleaner;
-import larex.geometry.positions.RelativePosition;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.PAGERegionType;
-import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.imageProcessing.ImageProcessor;
 import larex.segmentation.parameters.ImageSegType;
@@ -23,48 +21,60 @@ import larex.segmentation.parameters.Parameters;
 
 public class Segmenter {
 
-	private Parameters parameters;
-	private ArrayList<Region> regions;
+	public static SegmentationResult segment(final Mat original, Parameters parameters) {
+		final double scaleFactor = parameters.getScaleFactor(original.height());
+		final ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 
-	private Mat binary;
-	private double scaleFactor;
+		//// Downscale for faster calculation
+		// Calculate downscaled binary
+		final Mat resized = ImageProcessor.resize(original, parameters.getDesiredImageHeight());
+		final Mat gray = ImageProcessor.calcGray(resized);
+		MemoryCleaner.clean(resized);
+		final Mat binary = ImageProcessor.calcInvertedBinary(gray);
+		MemoryCleaner.clean(gray);
+		
+		// calculate downscaled regions
+		final ArrayList<Region> regions = parameters.getRegionManager().getRegions();
+		for (Region region : regions) {
+			region.calcPositionRects(binary.size());
+		}
 
-	public Segmenter(Parameters parameters) {
-		setParameters(parameters);
-	}
-
-	public SegmentationResult segment(final Mat original) {
-		// initialize image and regions
-		init(original, parameters);
-
-		// handle fixed regions and detect images
-		Region imageRegion = getImageRegion();
-		Region ignoreRegion = getIgnoreRegion();
-
-		fillFixedSegments(original);
-
-		ArrayList<MatOfPoint> fixed = processFixedRegions(imageRegion, ignoreRegion);
-		ArrayList<MatOfPoint> images = detectImages(imageRegion, parameters.getImageSegType());
-		images.addAll(fixed);
-
-		// detect and classify text regionss
-		ArrayList<MatOfPoint> texts = detectText();
-		ArrayList<RegionSegment> results = classifyText(texts);
-
+		//// Preprocess
+		// fill fixed segments in the image
+		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor))
+											.collect(Collectors.toList());
+		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
+		MemoryCleaner.clean(contours);
+		
+		
+		//// Detection
+		ArrayList<RegionSegment> results = new ArrayList<RegionSegment>();
+		// detect images 
+		Region imageRegion = regions.stream().filter((r) -> r.getType().getType().equals(RegionType.ImageRegion)).findFirst().get();
+		ArrayList<MatOfPoint> images = detectImages(binary, imageRegion, parameters.getImageSegType(), parameters, scaleFactor);
 		for (final MatOfPoint image : images) {
 			RegionSegment result = new RegionSegment(new PAGERegionType(RegionType.ImageRegion), image);
 			results.add(result);
 		}
 
+		// detect and classify text regions
+		ArrayList<MatOfPoint> texts = detectText(binary, regions, parameters, scaleFactor);
+		MemoryCleaner.clean(binary);
+		// classify
+		RegionClassifier regionClassifier = new RegionClassifier(regions);
+		results.addAll(regionClassifier.classifyRegions(texts));
+		
+
+		//// Create final result
 		// Apply scale correction
 		ArrayList<RegionSegment> scaled = new ArrayList<>();
 		for (RegionSegment result : results) {
 			scaled.add(result.getResized(1.0 / parameters.getScaleFactor(original.height())));
+			MemoryCleaner.clean(result);
 		}
 		results = scaled;
 
 		// Add fixed segments
-		ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 		for (RegionSegment segment : fixedSegments) {
 			results.add(new RegionSegment(segment.getType(), segment.getPoints(), segment.getId()));
 		}
@@ -76,26 +86,7 @@ public class Segmenter {
 		return segResult;
 	}
 
-	private void fillFixedSegments(final Mat original) {
-		ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
-		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-
-		// Add fixed segments
-		for (RegionSegment segment : fixedSegments) {
-			contours.add(segment.getResizedPoints(this.scaleFactor));
-		}
-
-		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
-	}
-
-	private ArrayList<RegionSegment> classifyText(ArrayList<MatOfPoint> texts) {
-		RegionClassifier regionClassifier = new RegionClassifier(regions);
-		ArrayList<RegionSegment> classifiedRegions = regionClassifier.classifyRegions(texts);
-
-		return classifiedRegions;
-	}
-
-	private ArrayList<MatOfPoint> detectText() {
+	private static ArrayList<MatOfPoint> detectText(final Mat binary, ArrayList<Region> regions, Parameters parameters, double scaleFactor) {
 		Mat dilate = new Mat();
 
 		if (parameters.getTextDilationX() == 0 || parameters.getTextDilationY() == 0) {
@@ -122,7 +113,7 @@ public class Segmenter {
 		return texts;
 	}
 
-	private ArrayList<MatOfPoint> detectImages(Region imageRegion, ImageSegType type) {
+	private static ArrayList<MatOfPoint> detectImages(Mat binary, Region imageRegion, ImageSegType type, Parameters parameters, double scaleFactor) {
 		if (type.equals(ImageSegType.NONE)) {
 			return new ArrayList<MatOfPoint>();
 		}
@@ -150,82 +141,4 @@ public class Segmenter {
 
 		return images;
 	}
-
-	// TODO: remove redundancy
-	private ArrayList<MatOfPoint> processFixedRegions(Region imageRegion, Region ignoreRegion) {
-		ArrayList<MatOfPoint> fixed = new ArrayList<MatOfPoint>();
-
-		for (Region region : regions) {
-			if ((region.getType().getType().equals(RegionType.ImageRegion) ||
-					RegionSubType.ignore.equals(region.getType().getSubtype()))) {
-				for (RelativePosition position : region.getPositions()) {
-					if (position.isFixed()) {
-						Rect rect = position.getOpenCVRect();
-						final Mat removed = binary.clone();
-						Imgproc.rectangle(removed, rect.tl(), rect.br(), new Scalar(0), -1);
-						MemoryCleaner.clean(this.binary);
-						this.binary = removed;
-
-						if (region.getType().getType().equals(RegionType.ImageRegion)) {
-							Point[] points = { rect.tl(), new Point(rect.br().x, rect.tl().y), rect.br(),
-									new Point(rect.tl().x, rect.br().y) };
-							fixed.add(new MatOfPoint(points));
-						}
-					}
-				}
-			}
-		}
-
-		return fixed;
-	}
-
-	private Region getIgnoreRegion() {
-		for (Region region : regions) {
-			if (RegionSubType.ignore.equals(region.getType().getSubtype())) {
-				return region;
-			}
-		}
-
-		return null;
-	}
-
-	private Region getImageRegion() {
-		for (Region region : regions) {
-			if ((region.getType().getType().equals(RegionType.ImageRegion))) {
-				return region;
-			}
-		}
-
-		return null;
-	}
-
-	private void calcTrueRegionSize(Size image, ArrayList<Region> regions) {
-		for (Region region : regions) {
-			region.calcPositionRects(image);
-		}
-
-		this.regions = new ArrayList<Region>(regions);
-	}
-
-	private void init(final Mat original, Parameters parameters) {
-		this.scaleFactor = parameters.getScaleFactor(original.height());
-		final Mat resized = ImageProcessor.resize(original, parameters.getDesiredImageHeight());
-		final Mat gray = ImageProcessor.calcGray(resized);
-		// calculate region size
-		calcTrueRegionSize(resized.size(), parameters.getRegionManager().getRegions());
-		MemoryCleaner.clean(resized);
-
-		// binarize
-		int binaryThresh = parameters.getBinaryThresh();
-		final Mat binary = (binaryThresh == -1) ? ImageProcessor.calcBinary(gray)
-										: ImageProcessor.calcBinaryFromThresh(gray, binaryThresh);
-		MemoryCleaner.clean(gray);
-		this.binary = ImageProcessor.invertImage(binary);
-		MemoryCleaner.clean(binary);
-	}
-
-	public void setParameters(Parameters parameters) {
-		this.parameters = parameters;
-	}
-
 }

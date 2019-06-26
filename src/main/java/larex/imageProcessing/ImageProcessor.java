@@ -45,11 +45,12 @@ public class ImageProcessor {
 		return binary;
 	}
 
-	public static Mat calcBinaryFromThresh(final Mat gray, int thresh) {
+	public static Mat calcInvertedBinary(final Mat gray) {
 		final Mat binary = new Mat();
-		Imgproc.threshold(gray, binary, thresh, 255, Imgproc.THRESH_BINARY);
-
-		return binary;
+		Imgproc.threshold(gray, binary, 0, 255, Imgproc.THRESH_OTSU);
+		final Mat inverted = invertImage(binary);
+		MemoryCleaner.clean(binary);
+		return inverted;
 	}
 
 	public static Mat resize(final Mat source, int desiredHeight) {
