@@ -11,6 +11,7 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import larex.data.MemoryCleaner;
+import larex.geometry.ExistingGeometry;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.PAGERegionType;
@@ -21,9 +22,17 @@ import larex.segmentation.parameters.Parameters;
 
 public class Segmenter {
 
+	/**
+	 * Segment an image based on presented parameters
+	 * 
+	 * @param original Image to segment
+	 * @param parameters Parameters to use for the segmentation
+	 * @return Segmentation of the document image
+	 */
 	public static SegmentationResult segment(final Mat original, Parameters parameters) {
 		final double scaleFactor = parameters.getScaleFactor(original.height());
 		final ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
+		final ExistingGeometry existingGeometry = parameters.getExistingGeometry();
 
 		//// Downscale for faster calculation
 		// Calculate downscaled binary
@@ -51,14 +60,18 @@ public class Segmenter {
 		ArrayList<RegionSegment> results = new ArrayList<RegionSegment>();
 		// detect images 
 		Region imageRegion = regions.stream().filter((r) -> r.getType().getType().equals(RegionType.ImageRegion)).findFirst().get();
-		ArrayList<MatOfPoint> images = detectImages(binary, imageRegion, parameters.getImageSegType(), parameters, scaleFactor);
+		ArrayList<MatOfPoint> images = detectImages(binary, imageRegion, parameters.getImageSegType(), existingGeometry,
+				parameters.getImageRemovalDilationX(), parameters.getImageRemovalDilationY(), scaleFactor, parameters.isCombineImages());
 		for (final MatOfPoint image : images) {
 			RegionSegment result = new RegionSegment(new PAGERegionType(RegionType.ImageRegion), image);
 			results.add(result);
+			// Fill image regions in to remove them from further detections
+			Imgproc.fillConvexPoly(binary, image, new Scalar(0));
 		}
 
 		// detect and classify text regions
-		ArrayList<MatOfPoint> texts = detectText(binary, regions, parameters, scaleFactor);
+		ArrayList<MatOfPoint> texts = detectText(binary, regions, existingGeometry, parameters.getTextDilationX(),
+				parameters.getTextDilationY(), scaleFactor);
 		MemoryCleaner.clean(binary);
 		// classify
 		RegionClassifier regionClassifier = new RegionClassifier(regions);
@@ -86,18 +99,30 @@ public class Segmenter {
 		return segResult;
 	}
 
-	private static ArrayList<MatOfPoint> detectText(final Mat binary, ArrayList<Region> regions, Parameters parameters, double scaleFactor) {
+	/**
+	 * Detect text regions in the image binary
+	 * 
+	 * @param binary
+	 * @param regions
+	 * @param existingGeometry
+	 * @param textdilationX
+	 * @param textdilationY
+	 * @param scaleFactor
+	 * @return
+	 */
+	private static ArrayList<MatOfPoint> detectText(final Mat binary, ArrayList<Region> regions, ExistingGeometry existingGeometry,
+													int textdilationX, int textdilationY, double scaleFactor) {
 		Mat dilate = new Mat();
 
-		if (parameters.getTextDilationX() == 0 || parameters.getTextDilationY() == 0) {
+		if (textdilationX == 0 || textdilationY == 0) {
 			dilate = binary.clone();
 		} else {
-			dilate = ImageProcessor.dilate(binary,
-					new Size(parameters.getTextDilationX(), parameters.getTextDilationY()));
+			dilate = ImageProcessor.dilate(binary, new Size(textdilationX, textdilationY));
 		}
 
 		// draw user defined lines
-		dilate = parameters.getExistingGeometry().drawIntoImage(dilate, scaleFactor);
+		final Mat workImage = existingGeometry.drawIntoImage(dilate, scaleFactor);
+		MemoryCleaner.clean(dilate);
 
 		int minSize = Integer.MAX_VALUE;
 
@@ -107,37 +132,47 @@ public class Segmenter {
 			}
 		}
 
-		ArrayList<MatOfPoint> texts = ImageSegmentation.detectTextContours(dilate, minSize);
-		MemoryCleaner.clean(dilate);
+		ArrayList<MatOfPoint> texts = ImageSegmentation.detectTextContours(workImage, minSize);
+		MemoryCleaner.clean(workImage);
 
 		return texts;
 	}
 
-	private static ArrayList<MatOfPoint> detectImages(Mat binary, Region imageRegion, ImageSegType type, Parameters parameters, double scaleFactor) {
+	/**
+	 * Detect image regions in the image binary
+	 * 
+	 * @param binary
+	 * @param imageRegion
+	 * @param type
+	 * @param existingGeometry
+	 * @param imageRemovalDilationX
+	 * @param imageRemovalDilationY
+	 * @param scaleFactor
+	 * @param combineImages
+	 * @return
+	 */
+	private static ArrayList<MatOfPoint> detectImages(Mat binary, Region imageRegion, ImageSegType type, ExistingGeometry existingGeometry,
+													int imageRemovalDilationX, int imageRemovalDilationY, double scaleFactor, boolean combineImages) {
 		if (type.equals(ImageSegType.NONE)) {
 			return new ArrayList<MatOfPoint>();
 		}
 
 		Mat dilate = null;
 
-		if (parameters.getImageRemovalDilationX() == 0 || parameters.getImageRemovalDilationY() == 0) {
+		if (imageRemovalDilationX == 0 || imageRemovalDilationY == 0) {
 			dilate = binary.clone();
 		} else {
-			dilate = ImageProcessor.dilate(binary,
-					new Size(parameters.getImageRemovalDilationX(), parameters.getImageRemovalDilationY()));
+			dilate = ImageProcessor.dilate(binary, new Size(imageRemovalDilationX, imageRemovalDilationY));
 		}
 
 		// draw user defined lines
-		dilate = parameters.getExistingGeometry().drawIntoImage(dilate, scaleFactor);
-
-		ArrayList<MatOfPoint> images = ImageSegmentation.detectImageContours(dilate, imageRegion.getMinSize(), type,
-				parameters.isCombineImages());
-
-		for (final MatOfPoint tempContour : images) {
-			Imgproc.fillConvexPoly(binary, tempContour, new Scalar(0));
-		}
-
+		final Mat workImage = existingGeometry.drawIntoImage(dilate, scaleFactor);
 		MemoryCleaner.clean(dilate);
+
+		ArrayList<MatOfPoint> images = ImageSegmentation.detectImageContours(workImage, imageRegion.getMinSize(), type,
+				combineImages);
+
+		MemoryCleaner.clean(workImage);
 
 		return images;
 	}
