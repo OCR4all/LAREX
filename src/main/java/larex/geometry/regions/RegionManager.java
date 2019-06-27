@@ -1,7 +1,8 @@
 package larex.geometry.regions;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import larex.geometry.positions.PriorityPosition;
 import larex.geometry.regions.type.PAGERegionType;
@@ -11,53 +12,58 @@ import larex.segmentation.parameters.DEFAULT_Parameters;
 
 public class RegionManager {
 
-	private static Collection<Region> regions;
+	private static Map<PAGERegionType,Region> regions;
 
+	public RegionManager(Collection<Region> regions) {
+		for(Region region : regions) addRegion(region);
+	}
+	
 	public RegionManager() {
-		initRegions();
+		regions = new HashMap<>();
+		// Set default regions
+		final PAGERegionType image = new PAGERegionType(RegionType.ImageRegion);
+		regions.put(image,new Region(image, DEFAULT_Parameters.IMAGE_MIN_SIZE_DEFAULT, -1, null, null));
+
+		final PAGERegionType paragraph = new PAGERegionType(RegionType.TextRegion, RegionSubType.paragraph);
+		regions.put(paragraph, new Region(paragraph, DEFAULT_Parameters.PARAGRAPH_MIN_SIZE_DEFAULT, -1, null, null));
+		
+		final PAGERegionType marginalia = new PAGERegionType(RegionType.TextRegion, RegionSubType.marginalia);
+		regions.put(marginalia, new Region(marginalia, DEFAULT_Parameters.MARGINALIA_MIN_SIZE_DEFAULT, -1, null, null));
+		
+		final PAGERegionType pagenumber = new PAGERegionType(RegionType.TextRegion, RegionSubType.page_number);
+		regions.put(pagenumber, new Region(pagenumber, DEFAULT_Parameters.PAGE_NUMBER_MIN_SIZE_DEFAULT, 1, PriorityPosition.top, null));
+		
+		final PAGERegionType ignore = new PAGERegionType(RegionType.TextRegion, RegionSubType.ignore);
+		regions.put(ignore, new Region(ignore, 0, -1, null, null));
+
 	}
 
-	public void initRegions() {
-		ArrayList<Region> regions = new ArrayList<Region>();
-
-		Region imageRegion = new Region(new PAGERegionType(RegionType.ImageRegion), 
-				DEFAULT_Parameters.IMAGE_MIN_SIZE_DEFAULT, -1, null, null);
-		Region paragraphRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.paragraph), 
-				DEFAULT_Parameters.PARAGRAPH_MIN_SIZE_DEFAULT, -1, null, null);
-		Region marginaliaRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.marginalia), 
-				DEFAULT_Parameters.MARGINALIA_MIN_SIZE_DEFAULT, -1, null, null);
-		Region pageNumberRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.page_number), 
-				DEFAULT_Parameters.PAGE_NUMBER_MIN_SIZE_DEFAULT, 1, PriorityPosition.top, null);
-		Region ignoreRegion = new Region(new PAGERegionType(RegionType.TextRegion,RegionSubType.ignore), 0, -1, null, null);
-
-		regions.add(imageRegion);
-		regions.add(paragraphRegion);
-		regions.add(marginaliaRegion);
-		regions.add(pageNumberRegion);
-		regions.add(ignoreRegion);
-
-		setRegions(regions);
-	}
-
+	/**
+	 * Get a region by its type.
+	 * 
+	 * @param type
+	 * @return
+	 */
 	public Region getRegionByType(PAGERegionType type) {
-		for (Region region : regions) {
-			if (region.getType().equals(type)) {
-				return region;
-			}
-		}
-
-		return null;
+		return regions.getOrDefault(type, null);
 	}
 
+	/**
+	 * Add a region to the collection of regions.
+	 * (Will overwrite if a region of the same type already exists in the collection)
+	 * 
+	 * @param region
+	 */
 	public void addRegion(Region region) {
-		regions.add(region);
+		regions.put(region.getType(), region);
 	}
 
+	/**
+	 * Retrieve a collection of all regions
+	 * 
+	 * @return
+	 */
 	public Collection<Region> getRegions() {
-		return regions;
-	}
-
-	public void setRegions(Collection<Region> regions) {
-		RegionManager.regions = regions;
+		return regions.values();
 	}
 }
