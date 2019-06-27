@@ -1,6 +1,7 @@
 package com.web.model;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -53,7 +54,7 @@ public class PageAnnotations {
 		this.height = height;
 	}
 
-	public PageAnnotations(String fileName, int width, int height, ArrayList<RegionSegment> regions, int pageNr) {
+	public PageAnnotations(String fileName, int width, int height, Collection<RegionSegment> regions, int pageNr) {
 		Map<String, Region> segments = new HashMap<String, Region>();
 
 		for (RegionSegment region : regions) {

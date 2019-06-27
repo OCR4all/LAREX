@@ -1,6 +1,7 @@
 package larex.geometry;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -15,10 +16,10 @@ import larex.geometry.regions.RegionSegment;
 
 public class ExistingGeometry {
 
-	private ArrayList<RegionSegment> fixedRegionSegments;
-	private ArrayList<PointList> cuts;
+	private Collection<RegionSegment> fixedRegionSegments;
+	private Collection<PointList> cuts;
 
-	public ExistingGeometry(ArrayList<RegionSegment> fixedRegionSegments, ArrayList<PointList> cuts) {
+	public ExistingGeometry(Collection<RegionSegment> fixedRegionSegments, Collection<PointList> cuts) {
 		this.fixedRegionSegments = fixedRegionSegments;
 		this.cuts = cuts;
 	}
@@ -55,11 +56,11 @@ public class ExistingGeometry {
 		return result;
 	}
 
-	public ArrayList<RegionSegment> getFixedRegionSegments() {
+	public Collection<RegionSegment> getFixedRegionSegments() {
 		return fixedRegionSegments;
 	}
 
-	public ArrayList<PointList> getCuts() {
+	public Collection<PointList> getCuts() {
 		return cuts;
 	}
 }

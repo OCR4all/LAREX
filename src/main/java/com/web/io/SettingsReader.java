@@ -1,6 +1,7 @@
 package com.web.io;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 import org.opencv.core.Size;
 import org.w3c.dom.Document;
@@ -45,7 +46,7 @@ public class SettingsReader {
 	 * @param resized
 	 * @return
 	 */
-	private static ArrayList<RelativePosition> extractPositions(NodeList positionElements, Size resized) {
+	private static Collection<RelativePosition> extractPositions(NodeList positionElements, Size resized) {
 		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
 		for (int i = 0; i < positionElements.getLength(); i++) {
@@ -88,7 +89,7 @@ public class SettingsReader {
 			String priority = regionElement.getAttribute("priority");
 
 			NodeList positionElements = regionElement.getElementsByTagName("position");
-			ArrayList<RelativePosition> positions = extractPositions(positionElements, resized);
+			Collection<RelativePosition> positions = extractPositions(positionElements, resized);
 
 			Region region = new Region(type, subtype, minSize, maxOccurances, priority, new ArrayList<RelativePosition>());
 			region.setPositions(positions);

@@ -1,6 +1,7 @@
 package larex.geometry.regions;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 import org.opencv.core.Rect;
 import org.opencv.core.Size;
@@ -16,7 +17,7 @@ public class Region {
 	private final PAGERegionType type;
 	private int minSize;
 
-	private ArrayList<RelativePosition> positions;
+	private Collection<RelativePosition> positions;
 
 	private int maxOccurances;
 	private final PriorityPosition priorityPosition;
@@ -131,11 +132,11 @@ public class Region {
 		this.minSize = minSize;
 	}
 
-	public ArrayList<RelativePosition> getPositions() {
+	public Collection<RelativePosition> getPositions() {
 		return positions;
 	}
 
-	public void setPositions(ArrayList<RelativePosition> positions) {
+	public void setPositions(Collection<RelativePosition> positions) {
 		this.positions = positions;
 	}
 

@@ -1,6 +1,8 @@
 package larex.segmentation;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Rect;
@@ -11,10 +13,10 @@ import larex.geometry.regions.type.RegionType;
 
 public class SegmentationResult {
 
-	private ArrayList<RegionSegment> regions;
-	private ArrayList<RegionSegment> readingOrder;
+	private Collection<RegionSegment> regions;
+	private List<RegionSegment> readingOrder;
 
-	public SegmentationResult(ArrayList<RegionSegment> regions) {
+	public SegmentationResult(Collection<RegionSegment> regions) {
 		this.regions = regions;
 		setReadingOrder(new ArrayList<RegionSegment>());
 	}
@@ -28,7 +30,7 @@ public class SegmentationResult {
 		return null;
 	}
 	
-	private ArrayList<RegionSegment> identifyImageList() {
+	private Collection<RegionSegment> identifyImageList() {
 		ArrayList<RegionSegment> images = new ArrayList<RegionSegment>();
 
 		for (RegionSegment region : regions) {
@@ -54,7 +56,7 @@ public class SegmentationResult {
 	}
 
 	public void removeImagesWithinText() {
-		ArrayList<RegionSegment> imageList = identifyImageList();
+		Collection<RegionSegment> imageList = identifyImageList();
 
 		if (imageList.size() == 0) {
 			return;
@@ -74,15 +76,15 @@ public class SegmentationResult {
 		regions.addAll(keep);
 	}
 
-	public ArrayList<RegionSegment> getRegions() {
+	public Collection<RegionSegment> getRegions() {
 		return regions;
 	}
 
-	public ArrayList<RegionSegment> getReadingOrder() {
+	public Collection<RegionSegment> getReadingOrder() {
 		return readingOrder;
 	}
 
-	public void setReadingOrder(ArrayList<RegionSegment> readingOrder) {
+	public void setReadingOrder(List<RegionSegment> readingOrder) {
 		this.readingOrder = readingOrder;
 	}
 }

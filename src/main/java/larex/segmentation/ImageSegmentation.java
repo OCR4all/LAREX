@@ -20,7 +20,7 @@ import larex.segmentation.parameters.ImageSegType;
 
 public class ImageSegmentation {
 	
-	public static ArrayList<MatOfPoint> combineContours(ArrayList<MatOfPoint> contours, final Mat image, ImageSegType type) {
+	public static Collection<MatOfPoint> combineContours(Collection<MatOfPoint> contours, final Mat image, ImageSegType type) {
 		final Mat binary = new Mat(image.size(), CvType.CV_8U, new Scalar(0));
 		
 		for (final MatOfPoint contour : contours) {
@@ -41,7 +41,7 @@ public class ImageSegmentation {
 		return results;
 	}
 
-	public static ArrayList<MatOfPoint> detectTextContours(final Mat binary, int minSize) {
+	public static Collection<MatOfPoint> detectTextContours(final Mat binary, int minSize) {
 		Collection<MatOfPoint> contours = Contourextractor.fromInverted(binary);
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();
 
@@ -56,7 +56,7 @@ public class ImageSegmentation {
 		return results;
 	}
 	
-	public static ArrayList<MatOfPoint> detectImageContours(final Mat binary, int minSize, ImageSegType type, boolean combine) {
+	public static Collection<MatOfPoint> detectImageContours(final Mat binary, int minSize, ImageSegType type, boolean combine) {
 		Collection<MatOfPoint> contours = Contourextractor.fromInverted(binary);
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();
 
@@ -89,7 +89,7 @@ public class ImageSegmentation {
 
 		if (combine) {
 			if(type.equals(ImageSegType.STRAIGHT_RECT) || type.equals(ImageSegType.ROTATED_RECT)) {
-				ArrayList<MatOfPoint> combinedResults = combineContours(results, binary, type);
+				Collection<MatOfPoint> combinedResults = combineContours(results, binary, type);
 				
 				return combinedResults;
 			}

@@ -1,6 +1,7 @@
 package larex.segmentation;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,7 +32,7 @@ public class Segmenter {
 	 */
 	public static SegmentationResult segment(final Mat original, Parameters parameters) {
 		final double scaleFactor = parameters.getScaleFactor(original.height());
-		final ArrayList<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
+		final Collection<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 		final ExistingGeometry existingGeometry = parameters.getExistingGeometry();
 
 		//// Downscale for faster calculation
@@ -43,7 +44,7 @@ public class Segmenter {
 		MemoryCleaner.clean(gray);
 		
 		// calculate downscaled regions
-		final ArrayList<Region> regions = parameters.getRegionManager().getRegions();
+		final Collection<Region> regions = parameters.getRegionManager().getRegions();
 		for (Region region : regions) {
 			region.calcPositionRects(binary.size());
 		}
@@ -57,10 +58,10 @@ public class Segmenter {
 		
 		
 		//// Detection
-		ArrayList<RegionSegment> results = new ArrayList<RegionSegment>();
+		Collection<RegionSegment> results = new ArrayList<RegionSegment>();
 		// detect images 
 		Region imageRegion = regions.stream().filter((r) -> r.getType().getType().equals(RegionType.ImageRegion)).findFirst().get();
-		ArrayList<MatOfPoint> images = detectImages(binary, imageRegion, parameters.getImageSegType(), existingGeometry,
+		Collection<MatOfPoint> images = detectImages(binary, imageRegion, parameters.getImageSegType(), existingGeometry,
 				parameters.getImageRemovalDilationX(), parameters.getImageRemovalDilationY(), scaleFactor, parameters.isCombineImages());
 		for (final MatOfPoint image : images) {
 			RegionSegment result = new RegionSegment(new PAGERegionType(RegionType.ImageRegion), image);
@@ -70,7 +71,7 @@ public class Segmenter {
 		}
 
 		// detect and classify text regions
-		ArrayList<MatOfPoint> texts = detectText(binary, regions, existingGeometry, parameters.getTextDilationX(),
+		Collection<MatOfPoint> texts = detectText(binary, regions, existingGeometry, parameters.getTextDilationX(),
 				parameters.getTextDilationY(), scaleFactor);
 		MemoryCleaner.clean(binary);
 		// classify
@@ -110,7 +111,7 @@ public class Segmenter {
 	 * @param scaleFactor
 	 * @return
 	 */
-	private static ArrayList<MatOfPoint> detectText(final Mat binary, ArrayList<Region> regions, ExistingGeometry existingGeometry,
+	private static Collection<MatOfPoint> detectText(final Mat binary, Collection<Region> regions, ExistingGeometry existingGeometry,
 													int textdilationX, int textdilationY, double scaleFactor) {
 		Mat dilate = new Mat();
 
@@ -132,7 +133,7 @@ public class Segmenter {
 			}
 		}
 
-		ArrayList<MatOfPoint> texts = ImageSegmentation.detectTextContours(workImage, minSize);
+		Collection<MatOfPoint> texts = ImageSegmentation.detectTextContours(workImage, minSize);
 		MemoryCleaner.clean(workImage);
 
 		return texts;
@@ -151,7 +152,7 @@ public class Segmenter {
 	 * @param combineImages
 	 * @return
 	 */
-	private static ArrayList<MatOfPoint> detectImages(Mat binary, Region imageRegion, ImageSegType type, ExistingGeometry existingGeometry,
+	private static Collection<MatOfPoint> detectImages(Mat binary, Region imageRegion, ImageSegType type, ExistingGeometry existingGeometry,
 													int imageRemovalDilationX, int imageRemovalDilationY, double scaleFactor, boolean combineImages) {
 		if (type.equals(ImageSegType.NONE)) {
 			return new ArrayList<MatOfPoint>();
@@ -169,7 +170,7 @@ public class Segmenter {
 		final Mat workImage = existingGeometry.drawIntoImage(dilate, scaleFactor);
 		MemoryCleaner.clean(dilate);
 
-		ArrayList<MatOfPoint> images = ImageSegmentation.detectImageContours(workImage, imageRegion.getMinSize(), type,
+		Collection<MatOfPoint> images = ImageSegmentation.detectImageContours(workImage, imageRegion.getMinSize(), type,
 				combineImages);
 
 		MemoryCleaner.clean(workImage);

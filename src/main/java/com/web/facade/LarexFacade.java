@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -106,7 +107,7 @@ public class LarexFacade {
 		SegmentationResult segmentationResult = segmentLarex(settings, page, fileManager);
 
 		if (segmentationResult != null) {
-			ArrayList<RegionSegment> regions = segmentationResult.getRegions();
+			Collection<RegionSegment> regions = segmentationResult.getRegions();
 
 			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), regions,
 					page.getId());

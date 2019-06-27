@@ -1,6 +1,7 @@
 package larex.segmentation;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Rect;
@@ -15,11 +16,11 @@ import larex.geometry.regions.type.RegionType;
 
 public class RegionClassifier {
 
-	private ArrayList<Region> regions;
-	private ArrayList<RegionSegment> results;
-	private ArrayList<Candidate> candidates;
+	private Collection<Region> regions;
+	private Collection<RegionSegment> results;
+	private Collection<Candidate> candidates;
 
-	public RegionClassifier(ArrayList<Region> regions) {
+	public RegionClassifier(Collection<Region> regions) {
 		preprocessRegions(regions);
 		setResults(new ArrayList<RegionSegment>());
 	}
@@ -34,7 +35,7 @@ public class RegionClassifier {
 		return false;
 	}
 
-	public ArrayList<Candidate> checkMaxOccUnbounded(ArrayList<Candidate> candidates, Region region) {
+	public Collection<Candidate> checkMaxOccUnbounded(Collection<Candidate> candidates, Region region) {
 		ArrayList<Candidate> remainingCandidates = new ArrayList<Candidate>();
 		remainingCandidates.addAll(candidates);
 
@@ -51,7 +52,7 @@ public class RegionClassifier {
 		return remainingCandidates;
 	}
 
-	public ArrayList<Candidate> checkMaxOccOne(ArrayList<Candidate> candidates, Region region) {
+	public Collection<Candidate> checkMaxOccOne(Collection<Candidate> candidates, Region region) {
 		Candidate candidate = MaxOccOneFinder.findMaxOccOne(candidates, region);
 
 		if (candidate != null) {
@@ -64,15 +65,15 @@ public class RegionClassifier {
 		return candidates;
 	}
 
-	public ArrayList<RegionSegment> classifyRegions(ArrayList<MatOfPoint> contours) {
+	public Collection<RegionSegment> classifyRegions(Collection<MatOfPoint> contours) {
 		setCandidates(calcCandidates(contours));
 
-		for (int i = 0; i < regions.size(); i++) {
-			if (regions.get(i).getMaxOccurances() == -1) {
-				ArrayList<Candidate> remainingCandidates = checkMaxOccUnbounded(candidates, regions.get(i));
+		for(Region region : regions) {
+			if (region.getMaxOccurances() == -1) {
+				Collection<Candidate> remainingCandidates = checkMaxOccUnbounded(candidates, region);
 				setCandidates(remainingCandidates);
 			} else {
-				setCandidates(checkMaxOccOne(candidates, regions.get(i)));
+				setCandidates(checkMaxOccOne(candidates, region));
 			}
 		}
 
@@ -91,7 +92,7 @@ public class RegionClassifier {
 		return minSize;
 	}
 
-	public ArrayList<Candidate> calcCandidates(ArrayList<MatOfPoint> contours) {
+	public Collection<Candidate> calcCandidates(Collection<MatOfPoint> contours) {
 		ArrayList<Candidate> candidates = new ArrayList<Candidate>();
 		int minSize = determineMinimumSize();
 
@@ -109,7 +110,7 @@ public class RegionClassifier {
 
 	// get rid of ignore and image regions, place maxOcc = 1 regions first and
 	// paragraph regions last
-	public void preprocessRegions(ArrayList<Region> regions) {
+	public void preprocessRegions(Collection<Region> regions) {
 		ArrayList<Region> processedRegions = new ArrayList<Region>();
 		ArrayList<Region> maxOccOne = new ArrayList<Region>();
 		Region paragraphRegion = null;
@@ -134,15 +135,15 @@ public class RegionClassifier {
 		setRegions(processedRegions);
 	}
 
-	public void setRegions(ArrayList<Region> regions) {
+	public void setRegions(Collection<Region> regions) {
 		this.regions = regions;
 	}
 
-	public void setResults(ArrayList<RegionSegment> results) {
+	public void setResults(Collection<RegionSegment> results) {
 		this.results = results;
 	}
 
-	public void setCandidates(ArrayList<Candidate> candidates) {
+	public void setCandidates(Collection<Candidate> candidates) {
 		this.candidates = candidates;
 	}
 }

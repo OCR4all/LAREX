@@ -1,6 +1,7 @@
 package larex.segmentation;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
 import org.opencv.core.Rect;
 
@@ -20,7 +21,7 @@ public class MaxOccOneFinder {
 		return false;
 	}
 	
-	public static ArrayList<Candidate> checkPositions(ArrayList<Candidate> candidates, Region region) {
+	public static Collection<Candidate> checkPositions(Collection<Candidate> candidates, Region region) {
 		ArrayList<Candidate> withinPosition = new ArrayList<Candidate>();
 	
 		for(Candidate candidate : candidates) {
@@ -32,7 +33,7 @@ public class MaxOccOneFinder {
 		return withinPosition;
 	}
 	
-	public static Candidate findMaxOccOne(ArrayList<Candidate> candidates, Region region) {
+	public static Candidate findMaxOccOne(Collection<Candidate> candidates, Region region) {
 		//TODO Remove because rarely used
 		candidates = checkPositions(candidates, region);
 		
@@ -52,7 +53,7 @@ public class MaxOccOneFinder {
 		return calcTopRect(candidates, minSize);
 	}
 
-	public static Candidate calcTopRect(ArrayList<Candidate> candidates, int minSize) {
+	public static Candidate calcTopRect(Collection<Candidate> candidates, int minSize) {
 		Candidate topCandidate = null;
 		int bottomPixelY = Integer.MAX_VALUE;
 
@@ -68,7 +69,7 @@ public class MaxOccOneFinder {
 		return topCandidate;
 	}
 
-	public static Candidate calcBottomRect(ArrayList<Candidate> candidates, int minSize) {
+	public static Candidate calcBottomRect(Collection<Candidate> candidates, int minSize) {
 		Candidate bottomCandidate = null;
 		int bottomPixelY = -1;
 
@@ -84,7 +85,7 @@ public class MaxOccOneFinder {
 		return bottomCandidate;
 	}
 
-	public static Candidate calcLeftRect(ArrayList<Candidate> candidates, int minSize) {
+	public static Candidate calcLeftRect(Collection<Candidate> candidates, int minSize) {
 		Candidate leftCandidate = null;
 		int leftPixelX = Integer.MAX_VALUE;
 
@@ -100,7 +101,7 @@ public class MaxOccOneFinder {
 		return leftCandidate;
 	}
 
-	public static Candidate calcRightRect(ArrayList<Candidate> candidates, int minSize) {
+	public static Candidate calcRightRect(Collection<Candidate> candidates, int minSize) {
 		Candidate rightCandidate = null;
 		int rightPixelX = -1;
 
