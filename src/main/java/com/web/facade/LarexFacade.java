@@ -4,12 +4,14 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.primaresearch.ident.IdRegister.InvalidIdException;
 import org.primaresearch.io.UnsupportedFormatVersionException;
@@ -18,6 +20,7 @@ import org.xml.sax.SAXException;
 
 import com.web.communication.SegmentationStatus;
 import com.web.controller.FileManager;
+import com.web.io.ImageLoader;
 import com.web.io.PageXMLReader;
 import com.web.io.PageXMLWriter;
 import com.web.io.SettingsReader;
@@ -28,8 +31,8 @@ import com.web.model.PageAnnotations;
 import com.web.model.Region;
 import com.web.model.database.FileDatabase;
 
+import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;
-import larex.segmentation.SegmentationResult;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 
@@ -48,7 +51,7 @@ public class LarexFacade {
 				+ ".xml";
 
 		if (allowLocalResults && new File(xmlPath).exists()) {
-			PageAnnotations segmentation = PageXMLReader.loadSegmentationResultFromDisc(xmlPath);;
+			PageAnnotations segmentation = PageXMLReader.loadPageAnnotationsFromDisc(xmlPath);;
 			segmentation.setStatus(SegmentationStatus.LOADED);
 			return segmentation;
 		} else {
@@ -100,16 +103,12 @@ public class LarexFacade {
 
 	private static PageAnnotations segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageAnnotations segmentation = null;
-		larex.data.Page currentLarexPage = segmentLarex(settings, page, fileManager);
+		Collection<RegionSegment> segmentationResult = segmentLarex(settings, page, fileManager);
 
-		if (currentLarexPage != null) {
-			SegmentationResult segmentationResult = currentLarexPage.getSegmentationResult();
-			currentLarexPage.setSegmentationResult(segmentationResult);
+		if (segmentationResult != null) {
 
-			ArrayList<RegionSegment> regions = segmentationResult.getRegions();
-
-			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), regions,
-					page.getId());
+			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(),
+					segmentationResult, page.getId());
 		} else {
 			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
 					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
@@ -117,25 +116,18 @@ public class LarexFacade {
 		return segmentation;
 	}
 
-	private static larex.data.Page segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
+	private static Collection<RegionSegment> segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
 		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 
-		if (new File(imagePath).exists()) {
-			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
-			currentLarexPage.initPage();
+		File imageFile = new File(imagePath);
+		if (imageFile.exists()) {
+			Mat original = ImageLoader.readOriginal(imageFile);
 
-			Size pagesize = currentLarexPage.getOriginal().size();
+			Parameters parameters = settings.toParameters(original.size(), page.getId());
 
-			Parameters parameters = settings.toParameters(pagesize, page.getId());
-
-			Segmenter segmenter = new Segmenter(parameters);
-			SegmentationResult segmentationResult = segmenter.segment(currentLarexPage.getOriginal());
-			currentLarexPage.setSegmentationResult(segmentationResult);
-
-			currentLarexPage.clean();
-
-			System.gc();
-			return currentLarexPage;
+			Collection<RegionSegment> result = Segmenter.segment(original,parameters);
+			MemoryCleaner.clean(original);
+			return result;
 		} else {
 			System.err.println(
 					"Warning: Image file could not be found. Segmentation result will be empty. File: " + imagePath);
@@ -143,13 +135,8 @@ public class LarexFacade {
 		}
 	}
 
-	public static larex.data.Page getLarexPage(Page page, FileManager fileManager) {
-		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
-
-		if (new File(imagePath).exists()) {
-			return new larex.data.Page(imagePath);
-		}
-		return null;
+	public static File getImagePath(Page page, FileManager fileManager) {
+		return new File(fileManager.getLocalBooksPath() + File.separator + page.getImage());
 	}
 
 	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager, FileDatabase database) {
@@ -163,14 +150,10 @@ public class LarexFacade {
 			Book book = getBook(bookID, database);
 			Page page = book.getPage(0);
 			String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
-			larex.data.Page currentLarexPage = new larex.data.Page(imagePath);
-			currentLarexPage.initPage();
 
-			Parameters parameters = SettingsReader.loadSettings(document, currentLarexPage.getBinary());
+			Parameters parameters = SettingsReader.loadSettings(document, ImageLoader.readDimensions(new File(imagePath)));
+
 			settings = new BookSettings(parameters, book);
-
-			currentLarexPage.clean();
-			System.gc();
 		} catch (SAXException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -186,7 +169,7 @@ public class LarexFacade {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 
-			return PageXMLReader.getSegmentationResult(dBuilder.parse(stream));
+			return PageXMLReader.getPageAnnotations(dBuilder.parse(stream));
 		} catch (SAXException e) {
 			e.printStackTrace();
 		} catch (IOException e) {

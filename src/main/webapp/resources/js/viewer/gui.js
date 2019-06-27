@@ -441,7 +441,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	}
 
 	this.setParameters = function (parameters, imageMode, combineMode) {
-		$("#binarythreash").val(parameters['binarythreash']);
 		$("#textdilationX").val(parameters['textdilationX']);
 		$("#textdilationY").val(parameters['textdilationY']);
 		$("#imagedilationX").val(parameters['imagedilationX']);
@@ -458,7 +457,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 	this.getParameters = function () {
 		const parameters = {};
-		parameters['binarythreash'] = $("#binarythreash").val();
 		parameters['textdilationX'] = $("#textdilationX").val();
 		parameters['textdilationY'] = $("#textdilationY").val();
 		parameters['imagedilationX'] = $("#imagedilationX").val();

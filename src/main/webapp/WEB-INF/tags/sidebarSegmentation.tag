@@ -112,13 +112,6 @@
 			</div>
 			<div class="collapsible-body">
 				<div id="parameter-settings">
-					<div class="hide">
-						<p class="settings-header settings-input" >Binary Thresh</p>
-						<p class="settings-input">
-							<input value="" id="binarythreash" class="input-number"
-								type="number" class="validate" size="4" />
-						</p>
-					</div>
 					<div>
 						<p class="settings-header settings-input">Text Dilation</p>
 						<p class="settings-input">

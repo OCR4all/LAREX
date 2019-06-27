@@ -20,18 +20,6 @@ public class PAGERegionType {
 		this(type,null);
 	}
 	
-	@Override
-	public boolean equals(Object obj) {
-		if (obj instanceof PAGERegionType) {
-			PAGERegionType objTemp = (PAGERegionType) obj;
-
-			return objTemp.type.equals(type) && 
-					((objTemp.subtype == null && subtype == null) || 
-							(objTemp.subtype != null && objTemp.subtype.equals(subtype)));
-		}
-		return false;
-	}
-	
 	public RegionType getType() {
 		return type;
 	}
@@ -63,5 +51,27 @@ public class PAGERegionType {
 			}
 		}
 		return regionTypes;
+	}
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((subtype == null) ? 0 : subtype.hashCode());
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if(obj instanceof PAGERegionType) {
+			PAGERegionType other = (PAGERegionType) obj;
+			if(subtype != null) {
+				return subtype.equals(other.getSubtype());
+			} else {
+				return type.equals(other.getType());
+			}
+		}
+		return false;
 	}
 } 

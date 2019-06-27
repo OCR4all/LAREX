@@ -1,9 +1,10 @@
 package larex.geometry.regions;
 
 import java.util.ArrayList;
+import java.util.Collection;
 
-import org.opencv.core.Mat;
 import org.opencv.core.Rect;
+import org.opencv.core.Size;
 
 import larex.geometry.positions.PriorityPosition;
 import larex.geometry.positions.RelativePosition;
@@ -16,12 +17,12 @@ public class Region {
 	private final PAGERegionType type;
 	private int minSize;
 
-	private ArrayList<RelativePosition> positions;
+	private Collection<RelativePosition> positions;
 
 	private int maxOccurances;
 	private final PriorityPosition priorityPosition;
 
-	private static Mat activeMat;
+	private static Size activeMat;
 
 	public Region(PAGERegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
 			ArrayList<RelativePosition> positions) {
@@ -60,7 +61,7 @@ public class Region {
 		return null;
 	}
 
-	public void calcPositionRects(Mat image) {
+	public void calcPositionRects(Size image) {
 		setActiveMat(image);
 
 		for (RelativePosition position : positions) {
@@ -131,11 +132,11 @@ public class Region {
 		this.minSize = minSize;
 	}
 
-	public ArrayList<RelativePosition> getPositions() {
+	public Collection<RelativePosition> getPositions() {
 		return positions;
 	}
 
-	public void setPositions(ArrayList<RelativePosition> positions) {
+	public void setPositions(Collection<RelativePosition> positions) {
 		this.positions = positions;
 	}
 
@@ -151,11 +152,25 @@ public class Region {
 		return priorityPosition;
 	}
 
-	public Mat getActiveMat() {
-		return activeMat;
+	public void setActiveMat(Size activeMat) {
+		Region.activeMat = activeMat;
+	}
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + "Region".hashCode();
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		return result;
 	}
 
-	public void setActiveMat(Mat activeMat) {
-		Region.activeMat = activeMat;
+	@Override
+	public boolean equals(Object obj) {
+		if(obj instanceof Region) {
+			Region otherRegion = (Region) obj;
+			return type.equals(otherRegion.getType());
+		}
+		return false;
 	}
 }

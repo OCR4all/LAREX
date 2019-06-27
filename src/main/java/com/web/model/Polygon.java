@@ -2,8 +2,6 @@ package com.web.model;
 
 import java.util.LinkedList;
 
-import org.opencv.core.MatOfPoint;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -31,12 +29,7 @@ public class Polygon {
 		this.isRelative = isRelative;
 	}
 
-	public Polygon(MatOfPoint mat, String id) {
-		LinkedList<Point> points = new LinkedList<Point>();
-		for (org.opencv.core.Point regionPoint : mat.toList()) {
-			points.add(new Point(regionPoint.x, regionPoint.y));
-		}
-
+	public Polygon(LinkedList<Point> points, String id) {
 		this.id = id;
 		this.points = points;
 		this.isRelative = false;

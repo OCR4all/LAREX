@@ -3,6 +3,7 @@ package com.web.facade;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +77,6 @@ public class BookSettings {
 		}
 		this.parameters = new HashMap<String, Integer>();
 
-		this.parameters.put("binarythreash", parameters.getBinaryThresh());
 		this.parameters.put("textdilationX", parameters.getTextDilationX());
 		this.parameters.put("textdilationY", parameters.getTextDilationY());
 		this.parameters.put("imagedilationX", parameters.getImageRemovalDilationX());
@@ -120,14 +120,9 @@ public class BookSettings {
 	 */
 	public Parameters toParameters(Size pagesize) {
 		// Set Parameters
-		RegionManager regionmanager = new RegionManager();
-		Parameters lParameters = new Parameters(new RegionManager(), (int) pagesize.height);
+		RegionManager regionmanager = new RegionManager(new HashSet<>());
+		Parameters lParameters = new Parameters(regionmanager, (int) pagesize.height);
 
-		for (larex.geometry.regions.Region region : regionmanager.getRegions()) {
-			region.setPositions(new ArrayList<RelativePosition>());
-		}
-
-		lParameters.setBinaryThresh(parameters.get("binarythreash"));
 		lParameters.setTextDilationX(parameters.get("textdilationX"));
 		lParameters.setTextDilationY(parameters.get("textdilationY"));
 		lParameters.setImageRemovalDilationX(parameters.get("imagedilationX"));
@@ -141,15 +136,9 @@ public class BookSettings {
 			int maxOccurances = guiRegion.getMaxOccurances();
 			PriorityPosition priorityPosition = guiRegion.getPriorityPosition();
 
-			larex.geometry.regions.Region region = regionmanager.getRegionByType(regionType);
-			if (region == null) {
-				region = new larex.geometry.regions.Region(regionType, minSize, maxOccurances, priorityPosition,
-						new ArrayList<RelativePosition>());
-				regionmanager.addRegion(region);
-			} else {
-				region.setMinSize(minSize);
-				region.setMaxOccurances(maxOccurances);
-			}
+			larex.geometry.regions.Region region = new larex.geometry.regions.Region(regionType, minSize, maxOccurances, priorityPosition,
+					new ArrayList<RelativePosition>());
+			regionmanager.addRegion(region);
 
 			for (Region polygon : guiRegion.getPolygons().values()) {
 				List<Point> points = polygon.getPoints();

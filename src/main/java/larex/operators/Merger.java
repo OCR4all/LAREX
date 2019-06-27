@@ -18,6 +18,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.PAGERegionType;
 import larex.imageProcessing.ImageProcessor;
@@ -39,10 +40,10 @@ public class Merger {
 	 * Combine contours in a source image via smearing with default growth values
 	 * 
 	 * @param contours Contours to combine
-	 * @param source   Source image that includes the contours
+	 * @param source   Size of the source image that includes the contours
 	 * @return MatOfPoint contour that includes all contours
 	 */
-	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Mat source) {
+	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Size source) {
 		return smearMerge(contours, source, 2.5, 1.5, 10);
 	}
 
@@ -51,22 +52,22 @@ public class Merger {
 	 * to potentially speed up on contours with a large distance inbetween
 	 * 
 	 * @param contours Contours to combine
-	 * @param source   Source image that includes the contours
+	 * @param source   Size of the source image that includes the contours
 	 * @param growthY  Vertical growth factor that is applied every time a smearing
 	 *                 iteration does not change the combined contour count
 	 * @param growthX  Horizontal growth factor that is applied every time a
 	 *                 smearing iteration does not change the combined contour count
 	 * @return MatOfPoint contour that includes all contours
 	 */
-	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Mat source, double growthY, double growthX , int maxIterations) {
+	public static MatOfPoint smearMerge(Collection<MatOfPoint> contours, Size source, double growthY, double growthX , int maxIterations) {
 		if (contours.size() < 1)
 			throw new IllegalArgumentException("Can't combine 0 contours.");
 
 		List<MatOfPoint> workingContours = new ArrayList<>(contours);
 
-		Mat resultImage = new Mat(source.rows(), source.cols(), CvType.CV_8UC1, new Scalar(0));
+		final Mat resultImage = new Mat(source, CvType.CV_8UC1, new Scalar(0));
 		Imgproc.drawContours(resultImage, new ArrayList<>(workingContours), -1, new Scalar(255), -1);
-		Mat workImage = resultImage.clone();
+		final Mat workImage = resultImage.clone();
 
 		double growingX = 1;
 		double growingY = 1;
@@ -85,7 +86,7 @@ public class Merger {
 			// Calc center x and y via moments
 			final List<Integer> heights = new ArrayList<>();
 			final List<Integer> widths = new ArrayList<>();
-			for (MatOfPoint contour : workingContours) {
+			for (final MatOfPoint contour : workingContours) {
 				final Rect bounds = Imgproc.boundingRect(contour);
 
 				top = bounds.y <= top ? bounds.y - 1 : top;
@@ -138,7 +139,7 @@ public class Merger {
 				}
 			}
 
-			workingContours = new ArrayList<>(Contourextractor.fromSource(resultImage));
+			workingContours = new ArrayList<>(Contourextractor.fromInverted(resultImage));
 			int contourCount = workingContours.size();
 
 			if (previousContourCount == contourCount) {
@@ -159,14 +160,13 @@ public class Merger {
 
 			previousContourCount = contourCount;
 			
-				
 			// Fallback convex hull
 			if(it++ > maxIterations) {
 				MatOfInt hull = new MatOfInt();
-				MatOfPoint contour_points = new MatOfPoint(workingContours.stream().flatMap(c -> c.toList().stream()).toArray(Point[]::new));
+				final MatOfPoint contour_points = new MatOfPoint(workingContours.stream().flatMap(c -> c.toList().stream()).toArray(Point[]::new));
 				Imgproc.convexHull(contour_points, hull);
 				
-				MatOfPoint contour_hull = new MatOfPoint();
+				final MatOfPoint contour_hull = new MatOfPoint();
 				
 				contour_hull.create((int) hull.size().height,1,CvType.CV_32SC2);
 
@@ -183,10 +183,11 @@ public class Merger {
 
 		// Draw small border to account for shrinking
 		Imgproc.drawContours(resultImage, new ArrayList<>(workingContours), -1, new Scalar(255), 2);
-		workingContours = new ArrayList<>(Contourextractor.fromSource(resultImage));
-		resultImage.release();
-		workImage.release();
-		System.gc();
+
+		workingContours = new ArrayList<>(Contourextractor.fromInverted(resultImage));
+
+		// Clean Memory
+		MemoryCleaner.clean(resultImage,workImage);
 		return workingContours.get(0);
 	}
 
@@ -212,14 +213,14 @@ public class Merger {
 		
 		
 		// Create combined segments
-		Mat temp = new Mat(new Size(maxX,maxY), CvType.CV_8UC1, new Scalar(0));
+		final Mat temp = new Mat(new Size(maxX,maxY), CvType.CV_8UC1, new Scalar(0));
 		ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		ArrayList<Point> cogs = new ArrayList<Point>();
 		double biggestArea = Double.MIN_VALUE;
 		PAGERegionType biggestRegionType = segments.get(0).getType();
 
 		for (RegionSegment region : segments) {
-			MatOfPoint regionContour = region.getPoints();
+			final MatOfPoint regionContour = region.getPoints();
 			contours.add(regionContour);
 
 			Point cog = ImageProcessor.calcCenterOfGravityOCV(region.getPoints(), true);
@@ -267,8 +268,7 @@ public class Merger {
 		}
 
 		contours = new ArrayList<>(Contourextractor.fromInverted(temp));
-
-		temp.release();
+		MemoryCleaner.clean(temp);
 		
 		RegionSegment newResult = new RegionSegment(biggestRegionType, contours.get(0));
 

@@ -7,7 +7,6 @@ public class Parameters {
 
 	// Processing Parameters
 	private int desiredImageHeight;
-	private int binaryThresh;
 
 	private int imageRemovalDilationX;
 	private int imageRemovalDilationY;
@@ -32,14 +31,13 @@ public class Parameters {
 	public Parameters(RegionManager regionManager,int originalHeight) {
 		this.regionManager = regionManager;
 
-		this.desiredImageHeight = DEFAULT_Parameters.getImageHeightDefault();
-		this.binaryThresh = DEFAULT_Parameters.getBinaryThreshDefault();
+		this.desiredImageHeight = DEFAULT_Parameters.IMAGE_HEIGHT_DEFAULT;
 
-		this.imageRemovalDilationX = DEFAULT_Parameters.getImageRemovalDilationXDefault();
-		this.imageRemovalDilationY = DEFAULT_Parameters.getImageRemovalDilationYDefault();
+		this.imageRemovalDilationX = DEFAULT_Parameters.IMAGE_REMOVAL_DILATION_X_DEFAULT;
+		this.imageRemovalDilationY = DEFAULT_Parameters.IMAGE_REMOVAL_DILATION_Y_DEFAULT;
 
-		this.textDilationX = DEFAULT_Parameters.getTextRemovalDilationXDefault();
-		this.textDilationY = DEFAULT_Parameters.getTextRemovalDilationYDefault();
+		this.textDilationX = DEFAULT_Parameters.TEXT_REMOVAL_DILATION_X_DEFAULT;
+		this.textDilationY = DEFAULT_Parameters.TEXT_REMOVAL_DILATION_Y_DEFAULT;
 
 		setImageSegType(ImageSegType.ROTATED_RECT);
 		setCombineImages(true);
@@ -59,14 +57,6 @@ public class Parameters {
 	
 	public int getDesiredImageHeight() {
 		return desiredImageHeight;
-	}
-
-	public int getBinaryThresh() {
-		return binaryThresh;
-	}
-
-	public void setBinaryThresh(int binaryThresh) {
-		this.binaryThresh = binaryThresh;
 	}
 
 	public int getImageRemovalDilationX() {

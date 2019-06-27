@@ -1,8 +1,10 @@
 package com.web.io;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
 
-import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -15,7 +17,37 @@ import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.parameters.Parameters;
 
 public class SettingsReader {
-	private static ArrayList<RelativePosition> extractPositions(NodeList positionElements, Mat resized) {
+	/**
+	 * Read a settingsfile from a document into Parameters
+	 * 
+	 * @param document
+	 * @param resized
+	 * @return
+	 */
+	public static Parameters loadSettings(Document document, Size resized) {
+		Parameters parameters = null;
+		try {
+			document.getDocumentElement().normalize();
+
+			Element parameterElement = (Element) document.getElementsByTagName("parameters").item(0);
+
+			NodeList regionNodes = document.getElementsByTagName("region");
+			RegionManager regionmanager = extractRegions(regionNodes, resized);
+			parameters = extractParameters(parameterElement, regionmanager);
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.out.println("Reading XML file failed!");
+		}
+		return parameters;
+	}
+	/**
+	 * Extract the Position data of a position elements
+	 * 
+	 * @param positionElements
+	 * @param resized
+	 * @return
+	 */
+	private static Collection<RelativePosition> extractPositions(NodeList positionElements, Size resized) {
 		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
 		for (int i = 0; i < positionElements.getLength(); i++) {
@@ -43,9 +75,8 @@ public class SettingsReader {
 		return positions;
 	}
 
-	private static RegionManager extractRegions(NodeList regionNodes, Mat resized) {
-		RegionManager regionManager = new RegionManager();
-		regionManager.setRegions(new ArrayList<Region>());
+	private static RegionManager extractRegions(NodeList regionNodes, Size resized) {
+		RegionManager regionManager = new RegionManager(new HashSet<>());
 
 		for (int i = 0; i < regionNodes.getLength(); i++) {
 			Element regionElement = (Element) regionNodes.item(i);
@@ -58,7 +89,7 @@ public class SettingsReader {
 			String priority = regionElement.getAttribute("priority");
 
 			NodeList positionElements = regionElement.getElementsByTagName("position");
-			ArrayList<RelativePosition> positions = extractPositions(positionElements, resized);
+			Collection<RelativePosition> positions = extractPositions(positionElements, resized);
 
 			Region region = new Region(type, subtype, minSize, maxOccurances, priority, new ArrayList<RelativePosition>());
 			region.setPositions(positions);
@@ -68,10 +99,16 @@ public class SettingsReader {
 		return regionManager;
 	}
 
+	/**
+	 * Extract parameters from a parameter Element
+	 * 
+	 * @param parameterElement
+	 * @param regionmanager
+	 * @return
+	 */
 	private static Parameters extractParameters(Element parameterElement, RegionManager regionmanager) {
 		Parameters parameters = new Parameters(regionmanager,
 				Integer.parseInt(parameterElement.getAttribute("verticalResolution")));
-		parameters.setBinaryThresh(Integer.parseInt(parameterElement.getAttribute("binaryThresh")));
 		parameters.setImageRemovalDilationX(Integer.parseInt(parameterElement.getAttribute("imageDilationX")));
 		parameters.setImageRemovalDilationY(Integer.parseInt(parameterElement.getAttribute("imageDilationY")));
 		parameters.setTextDilationX(Integer.parseInt(parameterElement.getAttribute("textDilationX")));
@@ -80,20 +117,4 @@ public class SettingsReader {
 		return parameters;
 	}
 
-	public static Parameters loadSettings(Document document, Mat resized) {
-		Parameters parameters = null;
-		try {
-			document.getDocumentElement().normalize();
-
-			Element parameterElement = (Element) document.getElementsByTagName("parameters").item(0);
-
-			NodeList regionNodes = document.getElementsByTagName("region");
-			RegionManager regionmanager = extractRegions(regionNodes, resized);
-			parameters = extractParameters(parameterElement, regionmanager);
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("Reading XML file failed!");
-		}
-		return parameters;
-	}
 }

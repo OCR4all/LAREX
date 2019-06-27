@@ -48,7 +48,13 @@ import larex.geometry.regions.type.TypeConverter;
 
 public class PageXMLReader {
 
-	public static PageAnnotations getSegmentationResult(Document document) {
+	/**
+	 * Read a document to extract the PageAnnotations
+	 * 
+	 * @param document PageXML document
+	 * @return PageAnnotations inside the document
+	 */
+	public static PageAnnotations getPageAnnotations(Document document) {
 		// Convert document to PAGE xml Page
 		XmlPageReader reader = new XmlPageReader(null); // null ^= without validation
 		Page page = null;
@@ -182,7 +188,13 @@ public class PageXMLReader {
 		return null;
 	}
 
-	public static PageAnnotations loadSegmentationResultFromDisc(String pageXMLInputPath) {
+	/**
+	 * Read the PageAnnotations of a PageXML file from the disc drive
+	 * 
+	 * @param pageXMLInputPath Path to the PageXML file
+	 * @return PageAnnotations inside the document
+	 */
+	public static PageAnnotations loadPageAnnotationsFromDisc(String pageXMLInputPath) {
 		PageAnnotations segResult = null;
 
 		try {
@@ -190,7 +202,7 @@ public class PageXMLReader {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(inputFile);
-			segResult = getSegmentationResult(document);
+			segResult = getPageAnnotations(document);
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.out.println("Reading XML file failed!");

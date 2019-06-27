@@ -234,15 +234,17 @@ class Selector {
 					}
 
 					// Add sorted textlines
-					let textlines = Object.entries(segmentation.segments[id].textlines).map(([_,t]) => t);
-					if(textlinesRO){
-						textlines = textlines.filter(t => !textlinesRO.includes(t.id));
-					}
-					if(textlines && textlines.length > 0){
-						for(const textline of textlines){
-							addCompare(textline);
+					if(segmentation.segments[id].textlines){
+						let textlines = Object.entries(segmentation.segments[id].textlines).map(([_,t]) => t);
+						if(textlinesRO){
+							textlines = textlines.filter(t => !textlinesRO.includes(t.id));
 						}
-						order = order.concat(textlines.sort(tlbr).map(l => l.id));
+						if(textlines && textlines.length > 0){
+							for(const textline of textlines){
+								addCompare(textline);
+							}
+							order = order.concat(textlines.sort(tlbr).map(l => l.id));
+						}
 					}
 				}
 			} else if (type === ElementType.CONTOUR) {

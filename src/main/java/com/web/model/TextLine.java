@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
-import org.opencv.core.MatOfPoint;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -46,18 +44,6 @@ public class TextLine extends Polygon {
 	 */
 	public TextLine(String id, LinkedList<Point> points, Map<Integer, String> text) {
 		this(id, points, text, false);
-	}
-
-	/**
-	 * Constructor to parse a MatOfPoint OpenCV object to a TextLine
-	 * 
-	 * @param mat
-	 * @param id
-	 * @param text
-	 */
-	public TextLine(MatOfPoint mat, String id, Map<Integer, String> text) {
-		super(mat, id);
-		this.text = text;
 	}
 
 	/**
