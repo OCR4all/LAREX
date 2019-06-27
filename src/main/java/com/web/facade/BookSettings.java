@@ -119,12 +119,8 @@ public class BookSettings {
 	 */
 	public Parameters toParameters(Size pagesize) {
 		// Set Parameters
-		RegionManager regionmanager = new RegionManager();
+		RegionManager regionmanager = new RegionManager(new ArrayList<>());
 		Parameters lParameters = new Parameters(new RegionManager(), (int) pagesize.height);
-
-		for (larex.geometry.regions.Region region : regionmanager.getRegions()) {
-			region.setPositions(new ArrayList<RelativePosition>());
-		}
 
 		lParameters.setTextDilationX(parameters.get("textdilationX"));
 		lParameters.setTextDilationY(parameters.get("textdilationY"));

@@ -13,7 +13,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.web.communication.SegmentationStatus;
 
 import larex.geometry.regions.RegionSegment;
-import larex.segmentation.SegmentationResult;
 
 /**
  * Segmentation result of a specific page. Contains a pageNr and the resulting
@@ -76,27 +75,6 @@ public class PageAnnotations {
 		this.height = height;
 	}
 	
-	public SegmentationResult toSegmentationResult() {
-		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
-
-		for (String poly : this.getSegments().keySet()) {
-			Region polygon = this.getSegments().get(poly);
-			regions.add(polygon.toRegionSegment());
-		}
-		SegmentationResult result = new SegmentationResult(regions);
-
-		// Reading Order
-		ArrayList<RegionSegment> readingOrder = new ArrayList<RegionSegment>();
-		List<String> readingOrderStrings = this.getReadingOrder();
-		for (String regionID : readingOrderStrings) {
-			RegionSegment region = result.getRegionByID(regionID);
-			if (region != null) {
-				readingOrder.add(region);
-			}
-		}
-		result.setReadingOrder(readingOrder);
-		return result;
-	}
 	public int getPage() {
 		return pageNr;
 	}

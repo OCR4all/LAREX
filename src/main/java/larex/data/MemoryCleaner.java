@@ -5,6 +5,7 @@ import java.util.Collection;
 import org.opencv.core.Mat;
 
 import larex.geometry.PointList;
+import larex.segmentation.Candidate;
 
 /**
  * Release the memory of provided objects
@@ -21,6 +22,8 @@ public class MemoryCleaner {
 			if(c instanceof Mat) {
 				clean((Mat) c);
 			} else if(c instanceof PointList) {
+				clean((PointList) c);
+			} else if(c instanceof Candidate) {
 				clean((PointList) c);
 			} else {
 				throw new IllegalArgumentException("Can not clean objects of type " + c.getClass().getSimpleName());
@@ -48,6 +51,19 @@ public class MemoryCleaner {
 	 */
 	public static void clean(PointList... points) {
 		for(PointList point: points) {
+			if(point != null) {
+				point.clean();
+			}
+		}
+	}
+
+	/**
+	 * Clean the memory of all candidates provided to this function
+	 * 
+	 * @param candidate Candidate to clean
+	 */
+	public static void clean(Candidate... candidate) {
+		for(Candidate point: candidate) {
 			if(point != null) {
 				point.clean();
 			}

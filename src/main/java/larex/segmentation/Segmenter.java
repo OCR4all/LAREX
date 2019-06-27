@@ -3,10 +3,13 @@ package larex.segmentation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
@@ -30,7 +33,7 @@ public class Segmenter {
 	 * @param parameters Parameters to use for the segmentation
 	 * @return Segmentation of the document image
 	 */
-	public static SegmentationResult segment(final Mat original, Parameters parameters) {
+	public static Collection<RegionSegment> segment(final Mat original, Parameters parameters) {
 		final double scaleFactor = parameters.getScaleFactor(original.height());
 		final Collection<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 		final ExistingGeometry existingGeometry = parameters.getExistingGeometry();
@@ -44,7 +47,7 @@ public class Segmenter {
 		MemoryCleaner.clean(gray);
 		
 		// calculate downscaled regions
-		final Collection<Region> regions = parameters.getRegionManager().getRegions();
+		final Set<Region> regions = parameters.getRegionManager().getRegions();
 		for (Region region : regions) {
 			region.calcPositionRects(binary.size());
 		}
@@ -75,8 +78,8 @@ public class Segmenter {
 				parameters.getTextDilationY(), scaleFactor);
 		MemoryCleaner.clean(binary);
 		// classify
-		RegionClassifier regionClassifier = new RegionClassifier(regions);
-		results.addAll(regionClassifier.classifyRegions(texts));
+		results.addAll(RegionClassifier.classifyRegions(regions, texts));
+		//MemoryCleaner.clean(texts);
 		
 
 		//// Create final result
@@ -84,7 +87,7 @@ public class Segmenter {
 		ArrayList<RegionSegment> scaled = new ArrayList<>();
 		for (RegionSegment result : results) {
 			scaled.add(result.getResized(1.0 / parameters.getScaleFactor(original.height())));
-			MemoryCleaner.clean(result);
+			//MemoryCleaner.clean(result);
 		}
 		results = scaled;
 
@@ -93,11 +96,25 @@ public class Segmenter {
 			results.add(new RegionSegment(segment.getType(), segment.getPoints(), segment.getId()));
 		}
 
-		// Set result
-		SegmentationResult segResult = new SegmentationResult(results);
-		segResult.removeImagesWithinText();
+		// Filter images that are inside text
+		List<RegionSegment> imageList = results.stream().filter(
+				r -> r.getType().getType().equals(RegionType.ImageRegion)).collect(Collectors.toList());
 
-		return segResult;
+		for (RegionSegment image : imageList) {
+			Rect imageRect = Imgproc.boundingRect(image.getPoints());
+
+			for (RegionSegment region : results) {
+				final MatOfPoint2f contour2f = new MatOfPoint2f(region.getPoints().toArray());
+
+				if (Imgproc.pointPolygonTest(contour2f, imageRect.tl(), false) > 0
+						&& Imgproc.pointPolygonTest(contour2f, imageRect.br(), false) > 0) {
+					results.remove(image);
+					break;
+				}
+			}
+		}
+
+		return results;
 	}
 
 	/**

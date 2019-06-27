@@ -2,7 +2,9 @@ package larex.geometry.regions;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import larex.geometry.positions.PriorityPosition;
 import larex.geometry.regions.type.PAGERegionType;
@@ -35,7 +37,6 @@ public class RegionManager {
 		
 		final PAGERegionType ignore = new PAGERegionType(RegionType.TextRegion, RegionSubType.ignore);
 		regions.put(ignore, new Region(ignore, 0, -1, null, null));
-
 	}
 
 	/**
@@ -63,7 +64,7 @@ public class RegionManager {
 	 * 
 	 * @return
 	 */
-	public Collection<Region> getRegions() {
-		return regions.values();
+	public Set<Region> getRegions() {
+		return new HashSet<>(regions.values());
 	}
 }

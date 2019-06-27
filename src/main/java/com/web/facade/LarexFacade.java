@@ -33,7 +33,6 @@ import com.web.model.database.FileDatabase;
 
 import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;
-import larex.segmentation.SegmentationResult;
 import larex.segmentation.Segmenter;
 import larex.segmentation.parameters.Parameters;
 
@@ -104,13 +103,12 @@ public class LarexFacade {
 
 	private static PageAnnotations segment(BookSettings settings, Page page, FileManager fileManager) {
 		PageAnnotations segmentation = null;
-		SegmentationResult segmentationResult = segmentLarex(settings, page, fileManager);
+		Collection<RegionSegment> segmentationResult = segmentLarex(settings, page, fileManager);
 
 		if (segmentationResult != null) {
-			Collection<RegionSegment> regions = segmentationResult.getRegions();
 
-			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), regions,
-					page.getId());
+			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(),
+					segmentationResult, page.getId());
 		} else {
 			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
 					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
@@ -118,7 +116,7 @@ public class LarexFacade {
 		return segmentation;
 	}
 
-	private static SegmentationResult segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
+	private static Collection<RegionSegment> segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
 		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 
 		File imageFile = new File(imagePath);
@@ -127,7 +125,7 @@ public class LarexFacade {
 
 			Parameters parameters = settings.toParameters(original.size(), page.getId());
 
-			SegmentationResult result = Segmenter.segment(original,parameters);
+			Collection<RegionSegment> result = Segmenter.segment(original,parameters);
 			MemoryCleaner.clean(original);
 			return result;
 		} else {

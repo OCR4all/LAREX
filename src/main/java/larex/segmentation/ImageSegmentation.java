@@ -50,6 +50,8 @@ public class ImageSegmentation {
 
 			if (rect.area() > minSize) {
 				results.add(contour);
+			} else {
+				MemoryCleaner.clean(contour);
 			}
 		}
 		
