@@ -139,7 +139,7 @@ public class Merger {
 				}
 			}
 
-			workingContours = new ArrayList<>(Contourextractor.fromSource(resultImage));
+			workingContours = new ArrayList<>(Contourextractor.fromInverted(resultImage));
 			int contourCount = workingContours.size();
 
 			if (previousContourCount == contourCount) {
@@ -160,7 +160,6 @@ public class Merger {
 
 			previousContourCount = contourCount;
 			
-				
 			// Fallback convex hull
 			if(it++ > maxIterations) {
 				MatOfInt hull = new MatOfInt();
@@ -185,7 +184,7 @@ public class Merger {
 		// Draw small border to account for shrinking
 		Imgproc.drawContours(resultImage, new ArrayList<>(workingContours), -1, new Scalar(255), 2);
 
-		workingContours = new ArrayList<>(Contourextractor.fromSource(resultImage));
+		workingContours = new ArrayList<>(Contourextractor.fromInverted(resultImage));
 
 		// Clean Memory
 		MemoryCleaner.clean(resultImage,workImage);
