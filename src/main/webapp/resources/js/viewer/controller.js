@@ -188,7 +188,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				Object.keys(pageSegments).forEach((key) => {
 					const pageSegment = pageSegments[key];
 					_editor.addSegment(pageSegment, this.isSegmentFixed(key));
-					if(pageSegment.textlines !== null){
+					if(pageSegment.textlines){
 						Object.keys(pageSegment.textlines).forEach((linekey) => {
 							const textLine = pageSegment.textlines[linekey];
 							if(textLine.text && 0 in textLine.text){

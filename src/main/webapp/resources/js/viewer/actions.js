@@ -331,13 +331,13 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _textLine = { id: id, points: points,type:"TextLine", text: text, isRelative: false };
-	let _oldTextLines = (segmentation[page].segments[segmentID].textlines !== null) ? 
+	let _oldTextLines = (segmentation[page].segments[segmentID].textlines) ? 
 			JSON.parse(JSON.stringify(segmentation[page].segments[segmentID].textlines)) : {}
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			if(segmentation[page].segments[segmentID].textlines === null){
+			if(!segmentation[page].segments[segmentID].textlines){
 				segmentation[page].segments[segmentID].textlines = {[id]: JSON.parse(JSON.stringify(_textLine))};
 			}else{
 				segmentation[page].segments[segmentID].textlines[id] = JSON.parse(JSON.stringify(_textLine));
