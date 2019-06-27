@@ -2,12 +2,15 @@ package larex.segmentation;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Rect;
 import org.opencv.imgproc.Imgproc;
 
+import larex.data.MemoryCleaner;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.PAGERegionType;
@@ -26,9 +29,9 @@ public class RegionClassifier {
 	 */
 	public static Collection<RegionSegment> classifyRegions(Set<Region> regions, Collection<MatOfPoint> contours) {
 		Collection<RegionSegment> results = new ArrayList<>();
-		Collection<Region> workregions = preprocessRegions(regions);
+		List<Region> workregions = filterAndOrderRegions(regions);
 
-		Collection<Candidate> candidates = calcCandidates(workregions, contours);
+		List<Candidate> candidates = calcCandidates(workregions, contours);
 		for(Region region : workregions) {
 			if (region.getMaxOccurances() == -1) {
 				// Check max occurrence unbound
@@ -56,6 +59,11 @@ public class RegionClassifier {
 				}
 			}
 		}
+		
+		// Clean unused candidates
+		for (Candidate candidate : candidates) {
+			MemoryCleaner.clean(candidate);
+		}
 
 		return results;
 	}
@@ -72,7 +80,7 @@ public class RegionClassifier {
 		return minSize;
 	}
 
-	private static Collection<Candidate> calcCandidates(Collection<Region> regions, Collection<MatOfPoint> contours) {
+	private static List<Candidate> calcCandidates(Collection<Region> regions, Collection<MatOfPoint> contours) {
 		ArrayList<Candidate> candidates = new ArrayList<Candidate>();
 		int minSize = determineMinimumSize(regions);
 
@@ -80,8 +88,7 @@ public class RegionClassifier {
 			Rect boundingRect = Imgproc.boundingRect(contour);
 
 			if (boundingRect.area() > minSize) {
-				Candidate candidate = new Candidate(contour, boundingRect);
-				candidates.add(candidate);
+				candidates.add(new Candidate(contour, boundingRect));
 			}
 		}
 
@@ -90,9 +97,9 @@ public class RegionClassifier {
 
 	// get rid of ignore and image regions, place maxOcc = 1 regions first and
 	// paragraph regions last
-	private static Collection<Region> preprocessRegions(Set<Region> regions) {
-		ArrayList<Region> processedRegions = new ArrayList<Region>();
-		ArrayList<Region> maxOccOne = new ArrayList<Region>();
+	private static List<Region> filterAndOrderRegions(Set<Region> regions) {
+		List<Region> processedRegions = new ArrayList<Region>();
+		Set<Region> maxOccOne = new HashSet<Region>();
 		Region paragraphRegion = null;
 
 		for (Region region : regions) {

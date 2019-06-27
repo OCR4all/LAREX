@@ -155,4 +155,22 @@ public class Region {
 	public void setActiveMat(Size activeMat) {
 		Region.activeMat = activeMat;
 	}
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + "Region".hashCode();
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if(obj instanceof Region) {
+			Region otherRegion = (Region) obj;
+			return type.equals(otherRegion.getType());
+		}
+		return false;
+	}
 }

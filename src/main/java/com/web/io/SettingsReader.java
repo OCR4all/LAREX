@@ -2,6 +2,7 @@ package com.web.io;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 
 import org.opencv.core.Size;
 import org.w3c.dom.Document;
@@ -75,7 +76,7 @@ public class SettingsReader {
 	}
 
 	private static RegionManager extractRegions(NodeList regionNodes, Size resized) {
-		RegionManager regionManager = new RegionManager(new ArrayList<Region>());
+		RegionManager regionManager = new RegionManager(new HashSet<>());
 
 		for (int i = 0; i < regionNodes.getLength(); i++) {
 			Element regionElement = (Element) regionNodes.item(i);

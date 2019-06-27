@@ -79,7 +79,6 @@ public class Segmenter {
 		MemoryCleaner.clean(binary);
 		// classify
 		results.addAll(RegionClassifier.classifyRegions(regions, texts));
-		//MemoryCleaner.clean(texts);
 		
 
 		//// Create final result

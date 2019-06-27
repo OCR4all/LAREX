@@ -1,6 +1,5 @@
 package larex.geometry.regions;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -16,7 +15,7 @@ public class RegionManager {
 
 	private static Map<PAGERegionType,Region> regions;
 
-	public RegionManager(Collection<Region> regions) {
+	public RegionManager(Set<Region> regions) {
 		for(Region region : regions) addRegion(region);
 	}
 	
