@@ -19,6 +19,7 @@ import larex.geometry.ExistingGeometry;
 import larex.geometry.regions.Region;
 import larex.geometry.regions.RegionSegment;
 import larex.geometry.regions.type.PAGERegionType;
+import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.imageProcessing.ImageProcessor;
 import larex.segmentation.parameters.ImageSegType;
@@ -48,8 +49,12 @@ public class Segmenter {
 		
 		// calculate downscaled regions
 		final Set<Region> regions = parameters.getRegionManager().getRegions();
+		Region ignoreRegion = null;
 		for (Region region : regions) {
 			region.calcPositionRects(binary.size());
+			if(RegionSubType.ignore == region.getType().getSubtype()) {
+				ignoreRegion = region;
+			}
 		}
 
 		//// Preprocess
@@ -58,13 +63,17 @@ public class Segmenter {
 											.collect(Collectors.toList());
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
 		MemoryCleaner.clean(contours);
-		
+		// fill ignore in the image
+		if(ignoreRegion != null) {
+			ignoreRegion.getPositions().stream().map(p -> p.getOpenCVRect())
+					.forEach(r -> Imgproc.rectangle(binary, r.tl(), r.br(), new Scalar(0), -1));
+		}
 		
 		//// Detection
 		Collection<RegionSegment> results = new ArrayList<RegionSegment>();
 		// detect images 
 		Region imageRegion = regions.stream().filter((r) -> r.getType().getType().equals(RegionType.ImageRegion)).findFirst().get();
-		Collection<MatOfPoint> images = detectImages(binary, imageRegion, parameters.getImageSegType(), existingGeometry,
+		Collection<MatOfPoint> images = detectImages(binary, imageRegion, ignoreRegion, parameters.getImageSegType(), existingGeometry,
 				parameters.getImageRemovalDilationX(), parameters.getImageRemovalDilationY(), scaleFactor, parameters.isCombineImages());
 		for (final MatOfPoint image : images) {
 			RegionSegment result = new RegionSegment(new PAGERegionType(RegionType.ImageRegion), image);
@@ -143,10 +152,19 @@ public class Segmenter {
 
 		int minSize = Integer.MAX_VALUE;
 
+		Region ignoreRegion = null;
 		for (Region region : regions) {
 			if (region.getMinSize() < minSize) {
 				minSize = region.getMinSize();
 			}
+			if(RegionSubType.ignore == region.getType().getSubtype()) {
+				ignoreRegion = region;
+			}
+		}
+		// fill ignore in the image
+		if(ignoreRegion != null) {
+			ignoreRegion.getPositions().stream().map(p -> p.getOpenCVRect())
+					.forEach(r -> Imgproc.rectangle(workImage, r.tl(), r.br(), new Scalar(0), -1));
 		}
 
 		Collection<MatOfPoint> texts = ImageSegmentation.detectTextContours(workImage, minSize);
@@ -168,7 +186,7 @@ public class Segmenter {
 	 * @param combineImages
 	 * @return
 	 */
-	private static Collection<MatOfPoint> detectImages(Mat binary, Region imageRegion, ImageSegType type, ExistingGeometry existingGeometry,
+	private static Collection<MatOfPoint> detectImages(Mat binary, Region imageRegion, Region ignoreRegion,ImageSegType type, ExistingGeometry existingGeometry,
 													int imageRemovalDilationX, int imageRemovalDilationY, double scaleFactor, boolean combineImages) {
 		if (type.equals(ImageSegType.NONE)) {
 			return new ArrayList<MatOfPoint>();
@@ -185,6 +203,11 @@ public class Segmenter {
 		// draw user defined lines
 		final Mat workImage = existingGeometry.drawIntoImage(dilate, scaleFactor);
 		MemoryCleaner.clean(dilate);
+		// fill ignore in the image
+		if(ignoreRegion != null) {
+			ignoreRegion.getPositions().stream().map(p -> p.getOpenCVRect())
+					.forEach(r -> Imgproc.rectangle(workImage, r.tl(), r.br(), new Scalar(0), -1));
+		}
 
 		Collection<MatOfPoint> images = ImageSegmentation.detectImageContours(workImage, imageRegion.getMinSize(), type,
 				combineImages);
