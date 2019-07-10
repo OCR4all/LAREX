@@ -82,11 +82,9 @@ public class LarexFacade {
 			return PageXMLWriter.getPageXML(segmentation, segmentation.getFileName(), segmentation.getWidth(),
 					segmentation.getHeight(), version);
 		} catch (UnsupportedFormatVersionException e) {
-			System.out.println(e.toString());
 			e.printStackTrace();
 			return null;
 		} catch (InvalidIdException e) {
-			System.out.println(e.toString());
 			e.printStackTrace();
 			return null;
 		}

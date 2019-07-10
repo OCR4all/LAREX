@@ -1401,7 +1401,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					_editor.mode = ViewerMode.CONTOUR;
 
 					if(_mode === Mode.LINES && display){
-						console.log(_tempID);
 						_editor.focusSegment(_tempID);
 					}
 				});
@@ -1411,7 +1410,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_editor.mode = ViewerMode.CONTOUR;
 
 				if(_mode === Mode.LINES && display){
-						console.log(_tempID);
 					_editor.focusSegment(_tempID);
 				}
 			}
