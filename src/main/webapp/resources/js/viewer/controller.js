@@ -138,6 +138,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.escape();
 		_currentPage = pageNr;
 
+		_textViewer.setLoading(true);
 		this.showPreloader(true);
 
 		// Check if page is to be segmented or if segmentation can be loaded
@@ -237,6 +238,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(_textViewer.isOpen()){
 				_textViewer.displayZoom();
 			}
+			_textViewer.setLoading(false);
 
 
 			//// Set GUI

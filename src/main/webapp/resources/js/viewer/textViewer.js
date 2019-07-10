@@ -57,6 +57,13 @@ class TextViewer {
 		this.container.empty();
 	}
 	
+	setLoading(doLoad){
+		if(doLoad){
+			$('#viewerTextContainer').addClass("is-loading");
+		} else {
+			$('#viewerTextContainer').removeClass("is-loading");
+		}
+	}
 	/**
 	 * Add a textline to the textView with a textline-image and textline-text element
 	 */
