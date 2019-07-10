@@ -24,10 +24,10 @@
 		<a class="btn col s4 tooltipped vk-delete draggable" data-position="left" data-delay="50" data-tooltip="Drop virtual keyboard buttons here to delete them. (Only possible if virtual keyboard is unlocked)">
 			<i class="material-icons"> delete </i>
 		</a>	
-		<a class="btn col s4 waves-effect waves-light tooltipped vk-lock" data-position="left" data-delay="50" data-tooltip="Lock buttons of the virtual keyboard in place.">
+		<a class="btn col s4 waves-effect waves-light tooltipped hide vk-lock" data-position="left" data-delay="50" data-tooltip="Lock buttons of the virtual keyboard in place.">
 			<i class="material-icons"> lock_open </i>
 		</a>	
-		<a class="btn col s4 waves-effect waves-light tooltipped hide vk-unlock" data-position="left" data-delay="50" data-tooltip="Unlock buttons of the virtual keyboard in order to move them.">
+		<a class="btn col s4 waves-effect waves-light tooltipped vk-unlock" data-position="left" data-delay="50" data-tooltip="Unlock buttons of the virtual keyboard in order to move them.">
 			<i class="material-icons"> lock </i>
 		</a>	
 	</div>

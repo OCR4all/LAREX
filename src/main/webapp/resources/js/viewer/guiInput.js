@@ -324,6 +324,7 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$(document).on('dragover','.draggable', (event) => false);
 	$(document).on('dragleave','.draggable', function (event) {
 		$(this).removeClass('draggable-target');
+		event.preventDefault();
 	});
 	$(document).on('dragenter','.draggable', function (event) {
 		const $this = $(this);

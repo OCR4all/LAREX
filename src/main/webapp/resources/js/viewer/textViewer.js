@@ -330,7 +330,7 @@ class TextViewer {
 	}
 
 	/**
-	 * Insert a character into the current poisition on the textline
+	 * Insert a character into the current position on the textline
 	 * 
 	 * @param {string} character 
 	 */
