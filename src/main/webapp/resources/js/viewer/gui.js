@@ -135,6 +135,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$(`.mode-${cur_mode}`).removeClass("hide");
 			}
 		}
+		if (modes.length === 1){
+			$(".mainMenu .tabs").addClass("hide")
+		}
 	}
 
 	this.openContextMenu = function (doSelected, id) {
