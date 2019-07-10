@@ -32,9 +32,13 @@ class TextViewer {
 		if(doDisplay){
 			this.root.removeClass("hide");		
 			$(".zoom_second").removeClass("hide");
+			$('.hideTextView').removeClass('hide');
+			$('.displayTextView').addClass('hide');
 		} else {
 			this.root.addClass("hide");		
 			$(".zoom_second").addClass("hide");
+			$('.hideTextView').addClass('hide');
+			$('.displayTextView').removeClass('hide');
 		}
 	}
 

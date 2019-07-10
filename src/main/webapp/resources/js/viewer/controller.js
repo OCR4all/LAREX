@@ -385,6 +385,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
 			this.displayReadingOrder(false);
+			this.displayTextViewer(true);
 		}
 		
 		// Post Selection
@@ -1234,7 +1235,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	/**
 	 * Display the  text viewer 
 	 */
-	this.displayTextViewer = function(doDisplay){
+	this.displayTextViewer = function(doDisplay=true){
 		_textViewer.display(doDisplay);
 		const selected = _selector.getSelectedSegments();
 		if(doDisplay){
@@ -1251,9 +1252,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 			_gui.updateZoom();
 		}
-	}
-	this.toggleTextViewer = function(){
-		this.displayTextViewer(!_textViewer.isOpen());
 	}
 
 	this.changeImageMode = function (imageMode) {

@@ -101,7 +101,8 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.displayContours());
 
-	$('.displayTextView').click(() => _controller.toggleTextViewer());
+	$('.displayTextView').click(() => _controller.displayTextViewer(true));
+	$('.hideTextView').click(() => _controller.displayTextViewer(false));
 
 	$('.zoomin').click(() => {
 		if(_textViewer.isOpen()){
