@@ -208,13 +208,19 @@ class Selector {
 		let order = [];
 		if(segmentation){
 			if(type === ElementType.SEGMENT){
+				order = segmentation.readingOrder ? segmentation.readingOrder : [];
 				let segments = Object.entries(segmentation.segments).map(([_,s]) => s)
 												.filter(s => !order.includes(s.id));
-				// Add sorted segments
+				// Add segments anchors to compare
 				for(const segment of segments){
 					addCompare(segment);
 				}
-				order = order.concat(segments.sort(tlbr).map(s => s.id));
+				// Add sorted segments that are not in readingOrder 
+				for(const id of segments.sort(tlbr).map(s => s.id)){
+					if(!order.includes(id)){
+						order.push(id);
+					}
+				}
 			} else if (type === ElementType.REGION){
 				let regions = [];
 				for(const [_,polygons] of Object.entries(this._controller.getCurrentSettings().regions)){
