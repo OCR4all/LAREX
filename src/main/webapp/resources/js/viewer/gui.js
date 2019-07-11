@@ -135,6 +135,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$(`.mode-${cur_mode}`).removeClass("hide");
 			}
 		}
+		if (modes.length === 1){
+			$(".mainMenu .tabs").addClass("hide")
+		}
 	}
 
 	this.openContextMenu = function (doSelected, id) {
@@ -182,7 +185,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$virtualKeyboard.append(divRow);
 				for(let y = 0; y < row.length; y++){
 					if(row[y].length > 0){
-						divRow.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true">
+						divRow.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="false">
 											<a class="vk-btn btn infocus">${row[y]}</a>
 										</div>`));
 					}
@@ -237,7 +240,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 		btnValue = btnValue.replace(/\s/,'');
 		if(btnValue.length > 0){
-			row.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="true">
+			row.append($(`<div class="vk-drag draggable col s1 infocus" data-drag-group="keyboard" draggable="false">
 								<a class="vk-btn btn infocus">${btnValue}</a>
 							</div>`));
 		} else {

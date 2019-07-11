@@ -138,6 +138,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.escape();
 		_currentPage = pageNr;
 
+		_textViewer.setLoading(true);
 		this.showPreloader(true);
 
 		// Check if page is to be segmented or if segmentation can be loaded
@@ -237,6 +238,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(_textViewer.isOpen()){
 				_textViewer.displayZoom();
 			}
+			_textViewer.setLoading(false);
 
 
 			//// Set GUI
@@ -385,6 +387,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_editor.displayOverlay("regions",false);
 			_editor.displayOverlay("lines",true);
 			this.displayReadingOrder(false);
+			this.displayTextViewer(true);
 		}
 		
 		// Post Selection
@@ -1234,7 +1237,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	/**
 	 * Display the  text viewer 
 	 */
-	this.displayTextViewer = function(doDisplay){
+	this.displayTextViewer = function(doDisplay=true){
 		_textViewer.display(doDisplay);
 		const selected = _selector.getSelectedSegments();
 		if(doDisplay){
@@ -1251,9 +1254,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 			_gui.updateZoom();
 		}
-	}
-	this.toggleTextViewer = function(){
-		this.displayTextViewer(!_textViewer.isOpen());
 	}
 
 	this.changeImageMode = function (imageMode) {
@@ -1401,7 +1401,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					_editor.mode = ViewerMode.CONTOUR;
 
 					if(_mode === Mode.LINES && display){
-						console.log(_tempID);
 						_editor.focusSegment(_tempID);
 					}
 				});
@@ -1411,7 +1410,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_editor.mode = ViewerMode.CONTOUR;
 
 				if(_mode === Mode.LINES && display){
-						console.log(_tempID);
 					_editor.focusSegment(_tempID);
 				}
 			}

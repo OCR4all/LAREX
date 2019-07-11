@@ -32,9 +32,13 @@ class TextViewer {
 		if(doDisplay){
 			this.root.removeClass("hide");		
 			$(".zoom_second").removeClass("hide");
+			$('.hideTextView').removeClass('hide');
+			$('.displayTextView').addClass('hide');
 		} else {
 			this.root.addClass("hide");		
 			$(".zoom_second").addClass("hide");
+			$('.hideTextView').addClass('hide');
+			$('.displayTextView').removeClass('hide');
 		}
 	}
 
@@ -53,6 +57,13 @@ class TextViewer {
 		this.container.empty();
 	}
 	
+	setLoading(doLoad){
+		if(doLoad){
+			$('#viewerTextContainer').addClass("is-loading");
+		} else {
+			$('#viewerTextContainer').removeClass("is-loading");
+		}
+	}
 	/**
 	 * Add a textline to the textView with a textline-image and textline-text element
 	 */
@@ -326,7 +337,7 @@ class TextViewer {
 	}
 
 	/**
-	 * Insert a character into the current poisition on the textline
+	 * Insert a character into the current position on the textline
 	 * 
 	 * @param {string} character 
 	 */

@@ -182,7 +182,9 @@
 				<div id="text_tab">
 					<b:baseMenu/>
 					<t:menuIcon jsClass="displayTextView" icon="subject"
-						tooltip="Open the Text Viewer">textView</t:menuIcon> 
+						tooltip="Switch to Text View.">textView</t:menuIcon> 
+					<t:menuIcon jsClass="hideTextView hide" icon="description"
+						tooltip="Switch to Page View.">pageView</t:menuIcon> 
 				</div>
 			</div>
 		</div>
