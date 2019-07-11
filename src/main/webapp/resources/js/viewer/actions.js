@@ -300,13 +300,16 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
 
-			_actionRemoveTextLines.forEach(action => action.execute());
+			multiRemove.execute();
 
 			delete segmentation[page].segments[_segment.id];
+
+			if(_actionRemoveFromReadingOrder)
+				_actionRemoveFromReadingOrder.execute();
+
 			editor.removeSegment(_segment.id);
 			selector.unSelectSegment(_segment.id);
 
-			multiRemove.execute();
 			console.log('Do - Remove: {id:"' + _segment.id + '",[..],type:"' + _segment.type + '"}');
 		}
 	}
@@ -652,11 +655,9 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller, doForc
 
 			if (!_newReadingOrder) {
 				_newReadingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-				for (let index = 0; index < _newReadingOrder.length; index++) {
-					if (_newReadingOrder[index] === id) {
-						_newReadingOrder.splice(index, 1);
-						break;
-					}
+				const readingOrderIndex = _newReadingOrder.indexOf(id);
+				if(readingOrderIndex > -1){
+					_newReadingOrder.splice(readingOrderIndex, 1);
 				}
 			}
 

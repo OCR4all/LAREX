@@ -208,7 +208,7 @@ class Selector {
 		let order = [];
 		if(segmentation){
 			if(type === ElementType.SEGMENT){
-				order = segmentation.readingOrder ? segmentation.readingOrder : [];
+				order = segmentation.readingOrder ? JSON.parse(JSON.stringify(segmentation.readingOrder)) : [];
 				let segments = Object.entries(segmentation.segments).map(([_,s]) => s)
 												.filter(s => !order.includes(s.id));
 				// Add segments anchors to compare
