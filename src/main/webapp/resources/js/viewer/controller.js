@@ -138,8 +138,28 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.escape();
 		_currentPage = pageNr;
 
-		_textViewer.setLoading(true);
+		const imageId = _book.pages[_currentPage].id + "image";
+		// Check if image is loadedreadingOrder
+		const image = $('#' + imageId);
+		if (!image[0]) {
+			_communicator.loadImage(_book.pages[_currentPage].image, imageId).done(() => this.displayPage(pageNr));
+			return false;
+		}
+		if (!image[0].complete) {
+			// break until image is loaded
+			image.load(() => this.displayPage(pageNr));
+			return false;
+		}
 		this.showPreloader(true);
+
+		//// Set Editor and TextView
+		_editor.clear();
+		_editor.setImage(imageId);
+		_navigationController.zoomFit();
+		_textViewer.clear();
+		_textViewer.setImage(imageId);
+
+		_textViewer.setLoading(true);
 
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
@@ -162,24 +182,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			}
 		} else {
-			const imageId = _book.pages[_currentPage].id + "image";
-			// Check if image is loadedreadingOrder
-			const image = $('#' + imageId);
-			if (!image[0]) {
-				_communicator.loadImage(_book.pages[_currentPage].image, imageId).done(() => this.displayPage(pageNr));
-				return false;
-			}
-			if (!image[0].complete) {
-				// break until image is loaded
-				image.load(() => this.displayPage(pageNr));
-				return false;
-			}
-
-			//// Set Editor and TextView
-			_editor.clear();
-			_editor.setImage(imageId);
-			_textViewer.clear();
-			_textViewer.setImage(imageId);
 			
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
@@ -431,8 +433,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					Object.keys(page.segments).forEach((id) => {
 						let segment = page.segments[id];
 						if ($.inArray(segment.type, _presentRegions) == -1) {
-							//TODO as Action
+							//Add missing region
 							this.changeRegionSettings(segment.type, 0, -1);
+							_colors.assignAvailableColor(segment.type);
 							const colorID = _colors.getColorID(segment.type);
 							this.setRegionColor(segment.type,colorID);
 							missingRegions.push(segment.type);
