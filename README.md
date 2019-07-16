@@ -23,7 +23,7 @@ For this guide tomcat version 7 is used.
 `apt-get install openjdk-8-jdk`
 
 #### Clone Repository
-`git clone git@github.com:OCR4all/LAREX.git`
+`git clone https://github.com/OCR4all/LAREX.git`
 
 #### Compile
 run `mvn clean install -f LAREX/pom.xml`.
