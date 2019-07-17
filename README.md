@@ -68,11 +68,11 @@ To verify the Tomcat installation use homebrew’s services utility. Tomcat shou
 
 #### Clone Repository
 Run in your desired project directory
-`git clone https://github.com/chreul/LAREX.git`
+`git clone https://github.com/OCR4all/LAREX.git`
 to clone the repository.
 
 #### Compile
-run `mvn clean install -f LAREX/Larex/pom.xml`.
+run `mvn clean install -f LAREX/pom.xml`.
 
 #### Copy or link the created war file to tomcat
 Either: `sudo ln -s $PWD/LAREX/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
