@@ -58,8 +58,8 @@ class Editor extends Viewer {
 					imageCanvas.addChild(this._tempPoint);
 					this._tempPolygon = new paper.Path();
 					this._tempPolygon.add(this._tempPoint); //Add Point for mouse movement
-					this._tempPolygon.fillColor = '#bdbdbd';
-					this._tempPolygon.strokeColor = '#424242';
+					this._tempPolygon.fillColor = 'gray';
+					this._tempPolygon.strokeColor = 'black';
 					this._tempPolygon.opacity = 0.3;
 					this._tempPolygon.closed = true;
 					switch(borderStyle){
@@ -776,7 +776,8 @@ displayReadingOrder(readingOrder) {
 		for (let index = 0; index < readingOrder.length; index++) {
 			const segment = this.getPolygon(readingOrder[index]);
 			if (segment) {
-				this._readingOrder.add(new paper.Segment(segment.bounds.center));
+				const center = this.calculateVisualPolygonCenter(segment);
+				this._readingOrder.add(new paper.Segment(center));
 				const label = new paper.Group();
 				const text = new paper.PointText({
 					content: index,
@@ -785,7 +786,7 @@ displayReadingOrder(readingOrder) {
 					fontWeight: 'bold',
 					fontSize: '18pt',
 				});
-				text.bounds.center = segment.bounds.center;
+				text.bounds.center = center;
 
 				const background = new paper.Path.Circle(text.bounds.center,text.bounds.height/2);
 				background.fillColor = new paper.Color(1, 1, 1, 0.8);
@@ -800,6 +801,43 @@ displayReadingOrder(readingOrder) {
 			}
 		}
 	}
+}
+
+/**
+ * Find a visual center of a polygon, inside the polygon
+ * 
+ * @param {*} polygon 
+ */
+calculateVisualPolygonCenter(polygon, maxIterations=5, simplify=true){
+	let workPolygon = new paper.Path(polygon.segments);
+	workPolygon.closed = true;
+	// Simplify polygon to reduce performance hit.
+	if(simplify){
+		workPolygon.simplify();
+	}
+	let workRect = workPolygon.bounds;
+
+	while(maxIterations--){
+		if(workPolygon.contains(workRect.center)){
+			return workRect.center;
+		} else {
+			const workingGroup = [
+				new paper.Rectangle(new paper.Point(workRect.left, workRect.top), workRect.center),
+				new paper.Rectangle(new paper.Point(workRect.right, workRect.top), workRect.center),
+				new paper.Rectangle(new paper.Point(workRect.left, workRect.bottom), workRect.center),
+				new paper.Rectangle(new paper.Point(workRect.right, workRect.bottom), workRect.center)
+			];
+			let maxArea = 0;
+			for(const rect of workingGroup){
+				const overlapArea = new paper.Path.Rectangle(rect).intersect(workPolygon).area;
+				if(overlapArea > maxArea){
+					maxArea = overlapArea;
+					workRect = rect;
+				}
+			}
+		}
+	}
+	return workRect.center; 
 }
 
 startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, cleanup = () => {}, update = (targetID,point) => {}){
