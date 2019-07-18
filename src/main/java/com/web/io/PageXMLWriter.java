@@ -141,7 +141,7 @@ public class PageXMLWriter {
 
 		// ReadingOrder
 		ReadingOrder xmlReadingOrder = layout.createReadingOrder();
-
+		xmlReadingOrder.getRoot().setOrdered(true);
 		List<String> readingOrder = result.getReadingOrder();
 		for (String regionID : readingOrder) {
 			xmlReadingOrder.getRoot().addRegionRef(idMap.get(regionID).toString());
