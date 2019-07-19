@@ -148,7 +148,7 @@ public class FileController {
 			HttpHeaders headers = new HttpHeaders();
 
 			headers.setLastModified(imageFile.lastModified());
-			headers.setCacheControl("no-cache");
+			headers.setCacheControl("no-store, no-cache");
 			headers.setContentType(MediaType.IMAGE_PNG);
 			headers.setContentLength(imageBytes.length);
 
