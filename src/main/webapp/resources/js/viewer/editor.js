@@ -24,11 +24,20 @@ class Editor extends Viewer {
 		
 		this._pointSelector;
 		this._pointSelectorListener;
+		this._centers = {}
 	}
 
-	updatePolygon(elementID){
-		super.updatePolygon(elementID);
-		this.endEditing();
+	updateSegment(segment) {
+		super.updateSegment(segment);
+		this._centers[segment.id] = null;
+		if(this._readingOrder && this._readingOrder.visible){
+
+		}
+	}
+
+	removeSegment(id) {
+		super.removeSegment(id);
+		this._centers[id] = null;
 	}
 
 	/* Start a rectangle, that is updated on mouse movement. Functions/Status updates at start, end and while updating the rectangles can be supplied.
@@ -774,9 +783,10 @@ displayReadingOrder(readingOrder) {
 		this._guiOverlay.removeChildren();
 
 		for (let index = 0; index < readingOrder.length; index++) {
-			const segment = this.getPolygon(readingOrder[index]);
+			const id = readingOrder[index];
+			const segment = this.getPolygon(id);
 			if (segment) {
-				const center = this.calculateVisualPolygonCenter(segment);
+				const center = this.calculateVisualPolygonCenter(id,segment);
 				this._readingOrder.add(new paper.Segment(center));
 				const label = new paper.Group();
 				const text = new paper.PointText({
@@ -808,36 +818,44 @@ displayReadingOrder(readingOrder) {
  * 
  * @param {*} polygon 
  */
-calculateVisualPolygonCenter(polygon, maxIterations=5, simplify=true){
-	let workPolygon = new paper.Path(polygon.segments);
-	workPolygon.closed = true;
-	// Simplify polygon to reduce performance hit.
-	if(simplify){
-		workPolygon.simplify();
-	}
-	let workRect = workPolygon.bounds;
+calculateVisualPolygonCenter(id, polygon, maxIterations=10, simplify=false){
+	if(this._centers[id]) {
+		const c = this._centers[id];
+		return this._convertGlobalToCanvas(c.x,c.y);
+	} else {
+		let workPolygon = new paper.Path(polygon.segments);
+		workPolygon.closed = true;
+		// Simplify polygon to reduce performance hit.
+		if(simplify){
+			workPolygon.simplify();
+		}
+		let workRect = workPolygon.bounds;
 
-	while(maxIterations--){
-		if(workPolygon.contains(workRect.center)){
-			return workRect.center;
-		} else {
-			const workingGroup = [
-				new paper.Rectangle(new paper.Point(workRect.left, workRect.top), workRect.center),
-				new paper.Rectangle(new paper.Point(workRect.right, workRect.top), workRect.center),
-				new paper.Rectangle(new paper.Point(workRect.left, workRect.bottom), workRect.center),
-				new paper.Rectangle(new paper.Point(workRect.right, workRect.bottom), workRect.center)
-			];
-			let maxArea = 0;
-			for(const rect of workingGroup){
-				const overlapArea = new paper.Path.Rectangle(rect).intersect(workPolygon).area;
-				if(overlapArea > maxArea){
-					maxArea = overlapArea;
-					workRect = rect;
+		while(maxIterations--){
+			if(workPolygon.contains(workRect.center)){
+				this._centers[id] = this._convertCanvasToGlobal(workRect.center.x, workRect.center.y, false);
+				return workRect.center;
+			} else {
+				const workingGroup = [
+					new paper.Rectangle(new paper.Point(workRect.left, workRect.top), workRect.center),
+					new paper.Rectangle(new paper.Point(workRect.right, workRect.top), workRect.center),
+					new paper.Rectangle(new paper.Point(workRect.left, workRect.bottom), workRect.center),
+					new paper.Rectangle(new paper.Point(workRect.right, workRect.bottom), workRect.center)
+				];
+
+				let maxArea = 0;
+				for(const rect of workingGroup){
+					const overlapArea = new paper.Path.Rectangle(rect).intersect(workPolygon).area;
+					if(overlapArea > maxArea){
+						maxArea = overlapArea;
+						workRect = rect;
+					}
 				}
 			}
 		}
+		this._centers[id] = this._convertCanvasToGlobal(workRect.center.x,workRect.center.y);
+		return workRect.center; 
 	}
-	return workRect.center; 
 }
 
 startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, cleanup = () => {}, update = (targetID,point) => {}){
