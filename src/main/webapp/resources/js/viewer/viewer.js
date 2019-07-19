@@ -10,6 +10,7 @@ class Viewer {
 		this._imageWidth;
 		this._imageHeight;
 		this._polygons = {};
+		this._image;
 		this._imageCanvas = new paper.Group();
 		this._overlays = {};
 		this._contourOverlayID = "overlay";
@@ -439,7 +440,7 @@ class Viewer {
 	}
 
 	getBoundaries() {
-		return this._imageCanvas.bounds;
+		return this._image.bounds;
 	}
 
 	// Navigation
@@ -486,7 +487,7 @@ class Viewer {
 		this._imageCanvas.scale(1 / this._currentZoom);
 
 		const viewSize = paper.view.viewSize;
-		const imageSize = this._imageCanvas.bounds.size;
+		const imageSize = this.getBoundaries().size;
 
 		// calculate best ratios/scales
 		const scaleWidth = viewSize.width / imageSize.width;
@@ -505,10 +506,6 @@ class Viewer {
 	move(x, y) {
 		const delta = new paper.Point(x, y);
 		this.movePoint(delta);
-	}
-
-	getImageCanvas() {
-		return imageCanvas;
 	}
 
 	//Protected Functions (are public but should bee seen as protected)
@@ -599,6 +596,7 @@ class Viewer {
 	// private helper functions
 	_drawImage() {
 		const image = new paper.Raster(this._imageID);
+		this._image = image;
 		this._imageWidth = image.width;
 		this._imageHeight = image.height;
 		image.style = {
@@ -732,7 +730,7 @@ class Viewer {
 
 	_createEmptyOverlay(name){
 		// Rectangle dummy to force empty group size to image size
-		const rect = new paper.Path.Rectangle(this._imageCanvas.bounds);
+		const rect = new paper.Path.Rectangle(this.getBoundaries());
 
 		// Create overlay canvas
 		const overlay = new paper.Group();
@@ -788,7 +786,7 @@ class Viewer {
 	}
 
 	_convertGlobalToCanvas(x, y) {
-		const imagePosition = this._imageCanvas.bounds;
+		const imagePosition = this.getBoundaries();
 		const canvasX = x * this._currentZoom + imagePosition.x;
 		const canvasY = y * this._currentZoom + imagePosition.y;
 
@@ -796,7 +794,7 @@ class Viewer {
 	}
 
 	_convertPercentToCanvas(x, y) {
-		const imagePosition = this._imageCanvas.bounds;
+		const imagePosition = this.getBoundaries();
 		const canvasX = (x * imagePosition.width) + imagePosition.x;
 		const canvasY = (y * imagePosition.height) + imagePosition.y;
 
