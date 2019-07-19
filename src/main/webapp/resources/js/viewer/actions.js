@@ -497,6 +497,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 			viewer.updateSegment(segment);
 			if (_actionSetFixed)
 				_actionSetFixed.execute();
+			controller.forceUpdateReadingOrder();
 			console.log('Do - Transform Segment: {id:"' + _id + ' [..]}');
 		}
 	}
@@ -508,6 +509,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
 			viewer.updateSegment(segment);
+			controller.forceUpdateReadingOrder();
 			console.log('Undo - Transform Segment: {id:"' + _id + ' [..]}');
 		}
 	}
@@ -528,6 +530,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 			delete segment.minArea;
 			viewer.updateSegment(segment);
 			textViewer.updateTextline(segment);
+			controller.forceUpdateReadingOrder();
 			console.log('Do - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
 	}
@@ -539,6 +542,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 			segment.minArea = clone(_oldMinArea);
 			viewer.updateSegment(segment);
 			textViewer.updateTextline(segment);
+			controller.forceUpdateReadingOrder();
 			console.log('Undo - Transform TextLine: {id:"' + _id + ' [..]}');
 		}
 	}
