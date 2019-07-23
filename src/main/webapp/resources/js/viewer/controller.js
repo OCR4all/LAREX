@@ -684,21 +684,21 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				} else {
 					if(selectType === ElementType.SEGMENT){
 						let segment = _segmentation[_currentPage].segments[selected[0]];
-						_actionController.addAndExecuteAction(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector), _currentPage);
+						_actionController.addAndExecuteAction(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, true), _currentPage);
 					} else {
 						let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[0]]].textlines[selected[0]];
-						_actionController.addAndExecuteAction(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector), _currentPage);
+						_actionController.addAndExecuteAction(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, true), _currentPage);
 					}
 
 				}
 			}
-		}else{
+		} else {
 			//Polygon is selected => Delete polygon
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				if (selectType === ElementType.REGION) {
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
-				} else if (selectType === ElementType.SEGMENT) {
+				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
 				} else if (selectType === ElementType.CUT) {
@@ -1175,9 +1175,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 							// Sort and retrieve most represented/dominant parent
 							[segmentID,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
 						}
-						const segment = _segmentation[_currentPage].segments[segmentID];
-						readingOrder = (segment.readingOrder || []);
-						_gui.setReadingOrder(readingOrder, segment.textlines);
+						// Undefined segmentID points to non TextRegion region
+						if(segmentID) {
+							const segment = _segmentation[_currentPage].segments[segmentID];
+							readingOrder = (segment.readingOrder || []);
+							_gui.setReadingOrder(readingOrder, segment.textlines);
+						} else {
+							_gui.setReadingOrder(readingOrder, []);
+						}
 					} else {
 						_gui.setReadingOrder([], {}, warning="Please select a segment");
 					}
@@ -1224,17 +1229,20 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.updateTextLine = function(id) {
 		if(this.getIDType(id) === ElementType.TEXTLINE){
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
-			const hasGT = 0 in textline.text;
-			if(hasGT){
-				textline.type = "TextLine_gt";
-			} else {
-				textline.type = "TextLine";
+			// Check if the update request came for a deleted textline
+			if(textline){
+				const hasGT = 0 in textline.text;
+				if(hasGT){
+					textline.type = "TextLine_gt";
+				} else {
+					textline.type = "TextLine";
+				}
+				_editor.updateSegment(textline);
+
+				_gui.updateTextLine(id);
+
+				_textViewer.updateTextline(textline);
 			}
-			_editor.updateSegment(textline);
-
-			_gui.updateTextLine(id);
-
-			_textViewer.updateTextline(textline);
 		}
 	}
 	/**

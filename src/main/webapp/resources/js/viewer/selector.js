@@ -209,6 +209,7 @@ class Selector {
 		if(segmentation){
 			if(type === ElementType.SEGMENT){
 				order = segmentation.readingOrder ? JSON.parse(JSON.stringify(segmentation.readingOrder)) : [];
+				order.filter(id => Object.keys(segmentation.segments).includes(id));
 				let segments = Object.entries(segmentation.segments).map(([_,s]) => s)
 												.filter(s => !order.includes(s.id));
 				// Add segments anchors to compare
@@ -234,22 +235,24 @@ class Selector {
 			} else if (type === ElementType.TEXTLINE) {
 				const segments = parentID ? [parentID] : this.getSelectOrder(ElementType.SEGMENT);
 				for(const id of segments){
-					const textlinesRO = segmentation.segments[id].readingOrder;
-					if(textlinesRO && textlinesRO.length > 0){
-						order = order.concat(textlinesRO);
-					}
-
-					// Add sorted textlines
-					if(segmentation.segments[id].textlines){
-						let textlines = Object.entries(segmentation.segments[id].textlines).map(([_,t]) => t);
-						if(textlinesRO){
-							textlines = textlines.filter(t => !textlinesRO.includes(t.id));
+					if(Object.keys(segmentation.segments).includes(id)){
+						const textlinesRO = segmentation.segments[id].readingOrder;
+						if(textlinesRO && textlinesRO.length > 0){
+							order = order.concat(textlinesRO);
 						}
-						if(textlines && textlines.length > 0){
-							for(const textline of textlines){
-								addCompare(textline);
+
+						// Add sorted textlines
+						if(segmentation.segments[id].textlines){
+							let textlines = Object.entries(segmentation.segments[id].textlines).map(([_,t]) => t);
+							if(textlinesRO){
+								textlines = textlines.filter(t => !textlinesRO.includes(t.id));
 							}
-							order = order.concat(textlines.sort(tlbr).map(l => l.id));
+							if(textlines && textlines.length > 0){
+								for(const textline of textlines){
+									addCompare(textline);
+								}
+								order = order.concat(textlines.sort(tlbr).map(l => l.id));
+							}
 						}
 					}
 				}
