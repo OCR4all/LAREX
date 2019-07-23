@@ -286,7 +286,8 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 	if(_segment.textlines != null){
 		const ids = Object.keys(_segment.textlines);
 		for(const [index,id] of ids.entries()){
-			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, textViewer, segmentation, page, controller, selector,(index === ids.length-1 || index==0)));
+			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, textViewer, segmentation,
+				page, controller, selector,(index === ids.length-1 || index==0)));
 		}	
 	}
 	const multiRemove = new ActionMultiple(_actionRemoveTextLines);
@@ -306,6 +307,11 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 
 			if(_actionRemoveFromReadingOrder)
 				_actionRemoveFromReadingOrder.execute();
+
+			const mode = controller.getMode();
+			if(mode == Mode.EDIT || mode == Mode.SEGMENT)
+				controller.forceUpdateReadingOrder(doForceUpdate);
+			
 
 			editor.removeSegment(_segment.id);
 			selector.unSelectSegment(_segment.id);
@@ -667,7 +673,8 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller, doForc
 
 			if(!(JSON.stringify(_newReadingOrder) == JSON.stringify(_oldReadingOrder))){
 				segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
-				if(doForceUpdate)
+				const mode = controller.getMode();
+				if(doForceUpdate && (mode == Mode.EDIT || mode == Mode.SEGMENT))
 					controller.forceUpdateReadingOrder(true);
 				console.log('Do - Remove from Reading Order: {id:"' + id + '",[..]}');
 			}
