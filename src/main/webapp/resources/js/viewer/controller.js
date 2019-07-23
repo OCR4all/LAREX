@@ -684,10 +684,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				} else {
 					if(selectType === ElementType.SEGMENT){
 						let segment = _segmentation[_currentPage].segments[selected[0]];
-						_actionController.addAndExecuteAction(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector), _currentPage);
+						_actionController.addAndExecuteAction(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, true), _currentPage);
 					} else {
 						let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[0]]].textlines[selected[0]];
-						_actionController.addAndExecuteAction(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector), _currentPage);
+						_actionController.addAndExecuteAction(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, true), _currentPage);
 					}
 
 				}
@@ -1229,17 +1229,20 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.updateTextLine = function(id) {
 		if(this.getIDType(id) === ElementType.TEXTLINE){
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
-			const hasGT = 0 in textline.text;
-			if(hasGT){
-				textline.type = "TextLine_gt";
-			} else {
-				textline.type = "TextLine";
+			// Check if the update request came for a deleted textline
+			if(textline){
+				const hasGT = 0 in textline.text;
+				if(hasGT){
+					textline.type = "TextLine_gt";
+				} else {
+					textline.type = "TextLine";
+				}
+				_editor.updateSegment(textline);
+
+				_gui.updateTextLine(id);
+
+				_textViewer.updateTextline(textline);
 			}
-			_editor.updateSegment(textline);
-
-			_gui.updateTextLine(id);
-
-			_textViewer.updateTextline(textline);
 		}
 	}
 	/**
