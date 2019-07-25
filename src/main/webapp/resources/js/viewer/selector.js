@@ -64,17 +64,24 @@ class Selector {
 				// Unselect others if this is not of type segment or if not select multiple
 				const currentParent = this._selectedElements.length > 0 ? this._controller.textlineRegister[this._selectedElements[0]] : undefined;
 				const selectParent =  this._selectedElements.length > 0 ? this._controller.textlineRegister[id] : undefined;
-				if(!this.selectMultiple ||
-					!(((mode === Mode.SEGMENT || mode === Mode.EDIT) && elementType === ElementType.SEGMENT) || 
-						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent == selectParent))){
+				if( !this._textviewer.isOpen() && 
+					(!this.selectMultiple || !(
+						((mode === Mode.SEGMENT || mode === Mode.EDIT) && elementType === ElementType.SEGMENT) || 
+						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent === selectParent)))
+						){
+							console.log("Unselect",mode,elementType,isSelected);
 					this.unSelect();
 				}
 
 				if (mode === Mode.TEXT && elementType === ElementType.TEXTLINE){
 					if(this._textviewer.isOpen()){
 						this._textviewer.setFocus(id);
-						this.unSelect();
-						this._selectedElements = [id];
+						console.log("Select",id,this._selectedElements);
+						if(!isSelected){
+							console.log("Reselect");
+							this.unSelect();
+							this._selectedElements = [id];
+						}
 					} else {
 						this._selectPolygon(id);
 						this._controller.editLine(id);
