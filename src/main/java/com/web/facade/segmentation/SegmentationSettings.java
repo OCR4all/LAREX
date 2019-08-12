@@ -45,6 +45,8 @@ public class SegmentationSettings {
 	private Map<String, Integer> parameters;
 	@JsonProperty("regions")
 	protected Map<String, RegionArea> regions;
+	@JsonProperty("regionTypes")
+	protected Map<String, Integer> regionTypes;
 	@JsonProperty("combine")
 	protected boolean combine;
 	@JsonProperty("imageSegType")
@@ -54,6 +56,7 @@ public class SegmentationSettings {
 	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<FixedGeometry> pages,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
 			@JsonProperty("regions") Map<String, RegionArea> regions,
+			@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
 			@JsonProperty("combine") boolean combine,
 			@JsonProperty("imageSegType") ImageSegType imageSegType) {
 		this.bookID = bookID;
@@ -62,8 +65,18 @@ public class SegmentationSettings {
 		this.parameters = parameters;
 		this.combine = combine;
 		this.imageSegType = imageSegType;
+		this.regionTypes = new HashMap<String, Integer>();
+		int i = 0;
+		for (PAGERegionType type : PAGERegionType.values()) {
+			regionTypes.put(type.toString(), i);
+			i++;
+		}
 	}
 
+	public SegmentationSettings(Book book) {
+		this(new Parameters(), book);
+	}
+	
 	public SegmentationSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
 		this.regions = new HashMap<String, RegionArea>();
@@ -105,6 +118,12 @@ public class SegmentationSettings {
 			}
 
 			this.regions.put(regionType, guiRegion);
+		}
+		this.regionTypes = new HashMap<>();
+		int i = 0;
+		for (PAGERegionType type : PAGERegionType.values()) {
+			regionTypes.put(type.toString(), i);
+			i++;
 		}
 	}
 
@@ -204,6 +223,10 @@ public class SegmentationSettings {
 
 	public boolean isCombine() {
 		return combine;
+	}
+	
+	public Map<String, Integer> getRegionTypes() {
+		return regionTypes;
 	}
 
 }

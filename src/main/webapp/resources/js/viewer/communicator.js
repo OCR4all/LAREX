@@ -43,8 +43,8 @@ class Communicator {
 		return status;
 	}
 			
-	loadBook(bookID, pageID) { 
-		return this.request("book", {bookid:bookID,pageid:pageID});
+	loadBook(bookID) { 
+		return this.request("book", {bookid:bookID});
 	}
 
 	segmentBook(settings, page, allowLoadLocal) {
@@ -79,6 +79,10 @@ class Communicator {
 		return this.request("downloadSettings", {settings:settings,page:0}, DataType.JSON, DataType.BYTE);
 	}
 	
+	getSettings(bookID) { 
+		return this.request("segmentation/settings", {bookid:bookID});
+	}
+
 	getSegmented(bookID) { 
 		return this.request("segmentedpages", {bookid:bookID});
 	}

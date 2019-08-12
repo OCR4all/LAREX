@@ -54,18 +54,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_currentPage = 0;
 		this.showPreloader(true);
-		_communicator.loadBook(bookID, _currentPage).done((data) => {
-			_book = data.book;
-			_settings = data.settings;
+		_communicator.loadBook(bookID).done((book) => {
+			_book = book;
 
-			const regions = _settings.regions;
-			Object.keys(regions).forEach((key) => {
-				const region = regions[key];
-
-				if (region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0) {
-					_presentRegions.push(region.type);
-				}
-			});
 			// Init the viewer
 			const viewerInput = new ViewerInput(this);
 
@@ -78,10 +69,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_selector = new Selector(_editor, _textViewer, this);
 			viewerInput.selector = _selector;
 			_actionController.selector = _selector;
-			_gui = new GUI(canvasID, _editor,_colors, accessible_modes);
+			_gui = new GUI(canvasID, _editor, _colors, accessible_modes);
 			_gui.resizeViewerHeight();
 
-			_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
@@ -132,6 +122,22 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_book.pages.forEach(page => pageData[page.image] = null );
 			});
 
+
+			// Add settings if mode is included
+			if(accessible_modes.includes("segment")){
+				_communicator.getSettings(bookID).done((settings) => {
+					_settings = settings;
+					const regions = _settings.regions;
+					Object.keys(regions).forEach((key) => {
+						const region = regions[key];
+
+						if (region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0) {
+							_presentRegions.push(region.type);
+						}
+					});
+					_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
+				});
+			}
 
 			this.setMode(_mode);
 		});

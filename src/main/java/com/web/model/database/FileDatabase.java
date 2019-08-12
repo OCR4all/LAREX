@@ -194,7 +194,7 @@ public class FileDatabase {
 	}
 
 	/**
-	 * Read book contents of a book from the folder structure.
+	 * Read contents of a book from the folder structure.
 	 * 
 	 * @param bookFile File pointing to the folder of the book that is to be loaded
 	 * @param bookID   Identifier that is to be used for the loaded book
