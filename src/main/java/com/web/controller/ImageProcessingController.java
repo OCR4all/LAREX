@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.web.communication.ContourCombineRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.ImageProcessingFacade;
+import com.web.io.FileManager;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.Rectangle;

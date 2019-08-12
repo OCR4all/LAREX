@@ -5,7 +5,7 @@
 	<div class="col s12">
 		<c:forEach items="${book.getPages()}" var="bookpage">
 			<div class="changePage pageImageContainer emptyImage emptyPreview card col s12"
-						data-title="${book.getName()}/${bookpage.getFileName()}" data-bookpath="${bookPath}" data-page="${bookpage.getId()}" data-image="${bookpage.getImage()}">
+						data-title="${book.getName()}/${bookpage.getFileName()}" data-page="${bookpage.getId()}" data-image="${bookpage.getImage()}">
 			</div>
 		</c:forEach>
 	</div>

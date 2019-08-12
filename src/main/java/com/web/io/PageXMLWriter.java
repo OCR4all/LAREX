@@ -59,14 +59,14 @@ public class PageXMLWriter {
 	 * @throws UnsupportedFormatVersionException
 	 * @throws InvalidIdException
 	 */
-	public static Document getPageXML(PageAnnotations result, String imageName, int width, int height,
-			String pageXMLVersion) throws UnsupportedFormatVersionException, InvalidIdException {
+	public static Document getPageXML(PageAnnotations result, String pageXMLVersion)
+			throws UnsupportedFormatVersionException  {
 
 		// Start PAGE xml
 		XmlFormatVersion version = new XmlFormatVersion(pageXMLVersion);
 		Page page = new Page(PageXmlInputOutput.getSchemaModel(version));
 
-		page.setImageFilename(imageName);
+		page.setImageFilename(result.getFileName());
 
 		// Create page and meta data
 		MetaData metadata = page.getMetaData();
@@ -75,7 +75,7 @@ public class PageXMLWriter {
 
 		// Create page layout
 		PageLayout layout = page.getLayout();
-		layout.setSize(width, height);
+		layout.setSize(result.getWidth(), result.getHeight());
 
 		// Add Regions
 		Map<String, Id> idMap = new HashMap<>();

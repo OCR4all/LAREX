@@ -69,7 +69,6 @@ class Selector {
 						((mode === Mode.SEGMENT || mode === Mode.EDIT) && elementType === ElementType.SEGMENT) || 
 						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent === selectParent)))
 						){
-							console.log("Unselect",mode,elementType,isSelected);
 					this.unSelect();
 				}
 

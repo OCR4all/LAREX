@@ -23,14 +23,16 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.web.communication.BasicResponse;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
-import com.web.facade.BookSettings;
-import com.web.facade.LarexFacade;
+import com.web.facade.segmentation.LarexFacade;
+import com.web.facade.segmentation.SegmentationSettings;
+import com.web.io.FileManager;
 import com.web.model.Book;
 import com.web.model.PageAnnotations;
 import com.web.model.database.FileDatabase;
 
 import larex.geometry.regions.type.PAGERegionType;
 import larex.segmentation.parameters.ImageSegType;
+import larex.segmentation.parameters.Parameters;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.
@@ -86,7 +88,7 @@ public class SegmentationController {
 		model.addAttribute("book", book);
 		model.addAttribute("regionTypes", getRegionTypes());
 		model.addAttribute("imageSegTypes", getImageregionTypes());
-		model.addAttribute("bookPath", fileManager.getURLBooksPath());
+		model.addAttribute("bookPath", "images/books/");
 		model.addAttribute("globalSettings", config);
 
 		return "editor";
@@ -140,7 +142,7 @@ public class SegmentationController {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		Book book = database.getBook(bookID);
-		BookSettings settings = LarexFacade.getDefaultSettings(book);
+		SegmentationSettings settings =  new SegmentationSettings(new Parameters(), book);
 
 		BasicResponse bookview = new BasicResponse(book, settings);
 		return bookview;

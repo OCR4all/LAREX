@@ -2,7 +2,7 @@ package com.web.communication;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.web.facade.BookSettings;
+import com.web.facade.segmentation.SegmentationSettings;
 
 /**
  * Communication object for the gui to request the segmentation of different
@@ -13,14 +13,14 @@ import com.web.facade.BookSettings;
 public class SegmentationRequest {
 
 	@JsonProperty("settings")
-	private BookSettings settings;
+	private SegmentationSettings settings;
 	@JsonProperty("page")
 	private Integer page;
 	@JsonProperty("allowLoadLocal")
 	private boolean allowToLoadLocal;
 
 	@JsonCreator
-	public SegmentationRequest(@JsonProperty("settings") BookSettings settings, @JsonProperty("page") Integer page,
+	public SegmentationRequest(@JsonProperty("settings") SegmentationSettings settings, @JsonProperty("page") Integer page,
 			@JsonProperty("allowLoadLocal") boolean allowToLoadLocal) {
 		this.page = page;
 		this.settings = settings;
@@ -31,7 +31,7 @@ public class SegmentationRequest {
 		return page;
 	}
 
-	public BookSettings getSettings() {
+	public SegmentationSettings getSettings() {
 		return settings;
 	}
 

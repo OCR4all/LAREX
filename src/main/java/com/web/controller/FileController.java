@@ -45,8 +45,10 @@ import org.w3c.dom.Document;
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
-import com.web.facade.BookSettings;
-import com.web.facade.LarexFacade;
+import com.web.facade.segmentation.LarexFacade;
+import com.web.facade.segmentation.SegmentationSettings;
+import com.web.io.FileManager;
+import com.web.io.PageXMLWriter;
 import com.web.model.PageAnnotations;
 import com.web.model.database.FileDatabase;
 
@@ -184,21 +186,22 @@ public class FileController {
 	@RequestMapping(value = "/exportXML", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
-			final Document pageXML = LarexFacade.getPageXML(request.getSegmentation(), request.getVersion());
+			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion());
+			final String name = request.getSegmentation().getName();
 
 			switch (config.getSetting("localsave")) {
 			case "bookpath":
 				FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 					config.getListSetting("imagefilter"));
-				LarexFacade.savePageXMLLocal(
-						fileManager.getLocalBooksPath() + File.separator
-								+ LarexFacade.getBook(request.getBookid(), database).getName(),
-						request.getSegmentation().getName(), pageXML);
+
+				String bookdir = fileManager.getLocalBooksPath() + File.separator
+									+ LarexFacade.getBook(request.getBookid(), database).getName();
+				PageXMLWriter.saveDocument(pageXML, name, bookdir);
 				break;
 			case "savedir":
 				String savedir = config.getSetting("savedir");
 				if (savedir != null && !savedir.equals("")) {
-					LarexFacade.savePageXMLLocal(savedir, request.getSegmentation().getName(), pageXML);
+					PageXMLWriter.saveDocument(pageXML, name, savedir);
 				} else {
 					System.err.println("Warning: Save dir is not set. File could not been saved.");
 				}
@@ -219,7 +222,7 @@ public class FileController {
 	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
 		try {
-			return convertDocumentToByte(LarexFacade.getSettingsXML(exportRequest.getSettings()), "settings.xml");
+			return convertDocumentToByte(LarexFacade.getSettingsXML(exportRequest.getSettings(), exportRequest.getPage()), "settings.xml");
 		} catch (Exception e) {
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
@@ -233,12 +236,11 @@ public class FileController {
 	 * @return
 	 */
 	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
-	public @ResponseBody BookSettings uploadSettings(@RequestParam("file") MultipartFile file,
+	public @ResponseBody SegmentationSettings uploadSettings(@RequestParam("file") MultipartFile file,
 			@RequestParam("bookID") int bookID) {
-		BookSettings settings = null;
+		SegmentationSettings settings = null;
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
-		LarexFacade.getDefaultSettings(LarexFacade.getBook(bookID, database));
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();

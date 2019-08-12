@@ -1,4 +1,4 @@
-package com.web.facade;
+package com.web.facade.segmentation;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +14,7 @@ import larex.geometry.positions.PriorityPosition;
  * the Larex algorithm
  *
  */
-public class RegionSettings {
+public class RegionArea {
 	@JsonProperty("type")
 	private String type;
 	@JsonProperty("polygons")
@@ -27,7 +27,7 @@ public class RegionSettings {
 	private PriorityPosition priorityPosition;
 
 	@JsonCreator
-	public RegionSettings(@JsonProperty("type") String type, @JsonProperty("polygons") Map<String, Region> polygons,
+	public RegionArea(@JsonProperty("type") String type, @JsonProperty("polygons") Map<String, Region> polygons,
 			@JsonProperty("minSize") int minSize, @JsonProperty("maxOccurances") int maxOccurances,
 			@JsonProperty("priorityPosition") PriorityPosition priorityPosition) {
 		this.type = type;
@@ -37,7 +37,7 @@ public class RegionSettings {
 		this.priorityPosition = priorityPosition;
 	}
 
-	public RegionSettings(String type, int minSize, int maxOccurances, PriorityPosition priorityPosition) {
+	public RegionArea(String type, int minSize, int maxOccurances, PriorityPosition priorityPosition) {
 		this(type, new HashMap<String, Region>(), minSize, maxOccurances, priorityPosition);
 	}
 

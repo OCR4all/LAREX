@@ -888,10 +888,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			if($p.offset().top < windowsHeight+pixelBuffer){
 				const imageSrc = $p.data("image");
 				const imageId = $p.data("page");
-				const bookpath = $p.data("bookpath");
 				const title = $p.data("title");
 
-				const $image = $('<img class="pageImage" alt="'+title+'" title="'+title+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
+				const $image = $('<img class="pageImage" alt="'+title+'" title="'+title+'" src="images/books/'+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
 				const $status = $('<div class="pagestatus">'+
 									'<i class="material-icons pagestatusIcon pageIconTodo circle">assignment_late</i>'+
 									'<i class="material-icons pagestatusIcon pageIconSession circle  hide">save</i>'+

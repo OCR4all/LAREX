@@ -103,6 +103,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			// Init inputs
 			const keyInput = new KeyInput(_navigationController, this, _gui, _textViewer, _selector, ["#"+canvasID,"#viewer","#textline-content"]);
+			$("#"+canvasID).find("input").focusin(() => keyInput.isActive = false);
+			$("#"+canvasID).find("input").focusout(() => keyInput.isActive = true);
+			
 			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
 			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
 			$("#regioneditor").find("input").focusin(() => keyInput.isActive = false);
@@ -667,6 +670,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const points = _selector.getSelectedPoints();
 		const selectType = _selector.getSelectedPolygonType();
 
+		console.log(selectType,selected);
 		if (selected.length === 1 && points.length > 0) {
 			// Points inside of a polygon is selected => Delete points
 			if(selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE){
@@ -696,7 +700,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			//Polygon is selected => Delete polygon
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+				console.log(selectType);
 				if (selectType === ElementType.REGION) {
+					console.log("Test");
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
 				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];

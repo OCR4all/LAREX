@@ -1,4 +1,4 @@
-package com.web.facade;
+package com.web.facade.segmentation;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -13,16 +13,13 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
-import org.primaresearch.ident.IdRegister.InvalidIdException;
-import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
 import com.web.communication.SegmentationStatus;
-import com.web.controller.FileManager;
+import com.web.io.FileManager;
 import com.web.io.ImageLoader;
 import com.web.io.PageXMLReader;
-import com.web.io.PageXMLWriter;
 import com.web.io.SettingsReader;
 import com.web.io.SettingsWriter;
 import com.web.model.Book;
@@ -42,7 +39,7 @@ import larex.segmentation.parameters.Parameters;
  */
 public class LarexFacade {
 
-	public static PageAnnotations segmentPage(BookSettings settings, int pageNr, boolean allowLocalResults,
+	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr, boolean allowLocalResults,
 			FileManager fileManager, FileDatabase database) {
 		Book book = getBook(settings.getBookID(), database);
 
@@ -73,33 +70,12 @@ public class LarexFacade {
 		return segmentation;
 	}
 
-	public static BookSettings getDefaultSettings(Book book) {
-		return new BookSettings(new Parameters(), book);
-	}
-
-	public static Document getPageXML(PageAnnotations segmentation, String version) {
-		try {
-			return PageXMLWriter.getPageXML(segmentation, segmentation.getFileName(), segmentation.getWidth(),
-					segmentation.getHeight(), version);
-		} catch (UnsupportedFormatVersionException e) {
-			e.printStackTrace();
-			return null;
-		} catch (InvalidIdException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-	public static void savePageXMLLocal(String saveDir, String filename, Document document) {
-		PageXMLWriter.saveDocument(document, filename, saveDir);
-	}
-
-	public static Document getSettingsXML(BookSettings settings) {
-		Parameters parameters = settings.toParameters(new Size());
+	public static Document getSettingsXML(SegmentationSettings settings, int page) {
+		Parameters parameters = settings.toParameters(new Size(), page);
 		return SettingsWriter.getSettingsXML(parameters);
 	}
 
-	private static PageAnnotations segment(BookSettings settings, Page page, FileManager fileManager) {
+	private static PageAnnotations segment(SegmentationSettings settings, Page page, FileManager fileManager) {
 		PageAnnotations segmentation = null;
 		Collection<RegionSegment> segmentationResult = segmentLarex(settings, page, fileManager);
 
@@ -114,7 +90,7 @@ public class LarexFacade {
 		return segmentation;
 	}
 
-	private static Collection<RegionSegment> segmentLarex(BookSettings settings, Page page, FileManager fileManager) {
+	private static Collection<RegionSegment> segmentLarex(SegmentationSettings settings, Page page, FileManager fileManager) {
 		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 
 		File imageFile = new File(imagePath);
@@ -137,8 +113,8 @@ public class LarexFacade {
 		return new File(fileManager.getLocalBooksPath() + File.separator + page.getImage());
 	}
 
-	public static BookSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager, FileDatabase database) {
-		BookSettings settings = null;
+	public static SegmentationSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager, FileDatabase database) {
+		SegmentationSettings settings = null;
 
 		try(ByteArrayInputStream stream = new ByteArrayInputStream(settingsFile)){
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -151,7 +127,7 @@ public class LarexFacade {
 
 			Parameters parameters = SettingsReader.loadSettings(document, ImageLoader.readDimensions(new File(imagePath)));
 
-			settings = new BookSettings(parameters, book);
+			settings = new SegmentationSettings(parameters, book);
 		} catch (SAXException e) {
 			e.printStackTrace();
 		} catch (IOException e) {

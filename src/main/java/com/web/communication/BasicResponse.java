@@ -5,7 +5,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.web.facade.BookSettings;
+import com.web.facade.segmentation.SegmentationSettings;
 import com.web.model.Book;
 
 import larex.geometry.regions.type.PAGERegionType;
@@ -20,13 +20,13 @@ public class BasicResponse {
 	@JsonProperty("book")
 	private Book book;
 	@JsonProperty("settings")
-	private BookSettings settings;
+	private SegmentationSettings settings;
 	@JsonProperty("regionTypes")
 	protected Map<String, Integer> regionTypes;
 
 	@JsonCreator
 	public BasicResponse(@JsonProperty("book") Book book,
-			@JsonProperty("settings") BookSettings settings) {
+			@JsonProperty("settings") SegmentationSettings settings) {
 		this.book = book;
 		this.settings = settings;
 	}
@@ -35,7 +35,7 @@ public class BasicResponse {
 		return book;
 	}
 
-	public BookSettings getSettings() {
+	public SegmentationSettings getSettings() {
 		return settings;
 	}
 

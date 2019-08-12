@@ -15,7 +15,8 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-import com.web.controller.FileManager;
+import com.web.facade.segmentation.LarexFacade;
+import com.web.io.FileManager;
 import com.web.io.ImageLoader;
 import com.web.model.Book;
 import com.web.model.Point;

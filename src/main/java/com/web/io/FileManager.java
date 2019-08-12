@@ -1,4 +1,4 @@
-package com.web.controller;
+package com.web.io;
 
 import java.io.File;
 
@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 @Scope("session")
 /**
  * FileManager to manage essential resources paths.
- * Converts and provides url resources paths and local disc paths.
  */
 public class FileManager {
 
@@ -32,49 +31,12 @@ public class FileManager {
 	}
 
 	/**
-	 * Get the web url path, starting after the domain, for the resources folder
-	 * 
-	 * @return url path of the resources folder, starting at domain/
-	 */
-	public String getURLResourcesPath() {
-		return "resources" + File.separator;
-	}
-
-	/**
-	 * Get the web url path, starting after the domain, for book images
-	 * 
-	 * @return url path of the book images, starting at domain/
-	 */
-	public String getURLBooksPath() {
-		return "images" + File.separator + "books" + File.separator;
-	}
-
-	/**
-	 * Get the local disc path to the resources folder
-	 * 
-	 * @return disc path to the resources folder
-	 */
-	public String getLocalResourcesPath() {
-		return convertURLPathToLocalPath(getURLResourcesPath());
-	}
-
-	/**
 	 * Get the local disc path to the books folder
 	 * 
 	 * @return disc path to the books folder
 	 */
 	public String getLocalBooksPath() {
 		return booksPath;
-	}
-
-	/**
-	 * Convert a url path to a disc path
-	 * 
-	 * @param urlPath url path starting after the domain
-	 * @return local disc path
-	 */
-	public String convertURLPathToLocalPath(String urlPath) {
-		return servletContext.getRealPath(urlPath);
 	}
 
 	/**

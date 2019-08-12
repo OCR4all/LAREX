@@ -1,4 +1,4 @@
-package com.web.facade;
+package com.web.facade.segmentation;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,31 +12,23 @@ import com.web.model.Region;
  * Handles page sensitive settings for the algorithm
  * 
  */
-public class PageSettings {
+public class FixedGeometry {
 
-	@JsonProperty("target")
-	protected int pageNr;
 	@JsonProperty("cuts")
 	protected Map<String, Polygon> cuts;
 	@JsonProperty("segments")
 	protected Map<String, Region> fixedSegments;
 	
 	@JsonCreator
-	public PageSettings(
-			@JsonProperty("target") int pageNr,
+	public FixedGeometry(
 			@JsonProperty("cuts") Map<String, Polygon> cuts,
 			@JsonProperty("segments") Map<String,Region> fixedSegments){
-		this.pageNr = pageNr;
 		this.cuts = cuts;
 		this.fixedSegments = fixedSegments;
 	}
 	
-	public PageSettings(int pageNr){ 
-		this(pageNr, new HashMap<String,Polygon>(), new HashMap<String,Region>());
-	}
-	
-	public void addCut(Region cut){
-		cuts.put(cut.getId(), cut);
+	public FixedGeometry(){ 
+		this(new HashMap<String,Polygon>(), new HashMap<String,Region>());
 	}
 	
 	public Map<String, Polygon> getCuts() {
@@ -45,10 +37,5 @@ public class PageSettings {
 	
 	public Map<String, Region> getFixedSegments() {
 		return new HashMap<String, Region>(fixedSegments);
-	}
-	
-	
-	public int getTarget() {
-		return pageNr;
 	}
 }

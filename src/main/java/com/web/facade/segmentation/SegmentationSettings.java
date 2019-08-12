@@ -1,5 +1,5 @@
 
-package com.web.facade;
+package com.web.facade.segmentation;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,31 +35,28 @@ import larex.segmentation.parameters.Parameters;
  * segmentation algorithm
  * 
  */
-public class BookSettings {
+public class SegmentationSettings {
 
 	@JsonProperty("book")
 	protected int bookID;
 	@JsonProperty("pages")
-	private LinkedList<PageSettings> pages;
+	private LinkedList<FixedGeometry> pages;
 	@JsonProperty("parameters")
 	private Map<String, Integer> parameters;
 	@JsonProperty("regions")
-	protected Map<String, RegionSettings> regions;
-	@JsonProperty("global")
-	protected PageSettings globalSettings;
+	protected Map<String, RegionArea> regions;
 	@JsonProperty("combine")
 	protected boolean combine;
 	@JsonProperty("imageSegType")
 	private ImageSegType imageSegType;
 
 	@JsonCreator
-	public BookSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<PageSettings> pages,
+	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<FixedGeometry> pages,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
-			@JsonProperty("regions") Map<String, RegionSettings> regions,
-			@JsonProperty("global") PageSettings globalSettings, @JsonProperty("combine") boolean combine,
+			@JsonProperty("regions") Map<String, RegionArea> regions,
+			@JsonProperty("combine") boolean combine,
 			@JsonProperty("imageSegType") ImageSegType imageSegType) {
 		this.bookID = bookID;
-		this.globalSettings = globalSettings;
 		this.regions = regions;
 		this.pages = pages;
 		this.parameters = parameters;
@@ -67,13 +64,12 @@ public class BookSettings {
 		this.imageSegType = imageSegType;
 	}
 
-	public BookSettings(Parameters parameters, Book book) {
+	public SegmentationSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
-		this.globalSettings = new PageSettings(book.getId());
-		this.regions = new HashMap<String, RegionSettings>();
-		pages = new LinkedList<PageSettings>();
+		this.regions = new HashMap<String, RegionArea>();
+		pages = new LinkedList<FixedGeometry>();
 		for (Page page : book.getPages()) {
-			pages.add(new PageSettings(page.getId()));
+			pages.add(new FixedGeometry());
 		}
 		this.parameters = new HashMap<String, Integer>();
 
@@ -85,14 +81,14 @@ public class BookSettings {
 		this.combine = parameters.isCombineImages();
 		this.imageSegType = parameters.getImageSegType();
 
-		this.regions = new HashMap<String, RegionSettings>(regions);
+		this.regions = new HashMap<String, RegionArea>(regions);
 		RegionManager regionManager = parameters.getRegionManager();
 		for (larex.geometry.regions.Region region : regionManager.getRegions()) {
 			String regionType = region.getType().toString();
 			int minSize = region.getMinSize();
 			int maxOccurances = region.getMaxOccurances();
 			PriorityPosition priorityPosition = region.getPriorityPosition();
-			com.web.facade.RegionSettings guiRegion = new com.web.facade.RegionSettings(regionType, minSize, maxOccurances,
+			com.web.facade.segmentation.RegionArea guiRegion = new com.web.facade.segmentation.RegionArea(regionType, minSize, maxOccurances,
 					priorityPosition);
 
 			int regionCount = 0;
@@ -113,24 +109,26 @@ public class BookSettings {
 	}
 
 	/**
-	 * Get general parameters from these book settings, without ExistingGeometry
+	 * Get specific page parameters from these book settings, with Existing Geometry
+	 * of the page
 	 * 
 	 * @param pagesize
+	 * @param pageID
 	 * @return
 	 */
-	public Parameters toParameters(Size pagesize) {
+	public Parameters toParameters(Size pagesize, int pageID) {
 		// Set Parameters
 		RegionManager regionmanager = new RegionManager(new HashSet<>());
-		Parameters lParameters = new Parameters(regionmanager, (int) pagesize.height);
+		Parameters parameters = new Parameters(regionmanager, (int) pagesize.height);
 
-		lParameters.setTextDilationX(parameters.get("textdilationX"));
-		lParameters.setTextDilationY(parameters.get("textdilationY"));
-		lParameters.setImageRemovalDilationX(parameters.get("imagedilationX"));
-		lParameters.setImageRemovalDilationY(parameters.get("imagedilationY"));
-		lParameters.setImageSegType(this.getImageSegType());
-		lParameters.setCombineImages(this.isCombine());
+		parameters.setTextDilationX(this.parameters.get("textdilationX"));
+		parameters.setTextDilationY(this.parameters.get("textdilationY"));
+		parameters.setImageRemovalDilationX(this.parameters.get("imagedilationX"));
+		parameters.setImageRemovalDilationY(this.parameters.get("imagedilationY"));
+		parameters.setImageSegType(this.getImageSegType());
+		parameters.setCombineImages(this.isCombine());
 
-		for (com.web.facade.RegionSettings guiRegion : regions.values()) {
+		for (com.web.facade.segmentation.RegionArea guiRegion : regions.values()) {
 			PAGERegionType regionType = TypeConverter.stringToPAGEType(guiRegion.getType());
 			int minSize = guiRegion.getMinSize();
 			int maxOccurances = guiRegion.getMaxOccurances();
@@ -155,23 +153,7 @@ public class BookSettings {
 					}
 				}
 			}
-
 		}
-
-		return lParameters;
-	}
-
-	/**
-	 * Get specific page parameters from these book settings, with Existing Geometry
-	 * of the page
-	 * 
-	 * @param pagesize
-	 * @param pageID
-	 * @return
-	 */
-	public Parameters toParameters(Size pagesize, int pageID) {
-		// Set Parameters
-		Parameters parameters = this.toParameters(pagesize);
 
 		// Set existing Geometry
 		ArrayList<RegionSegment> fixedPointLists = new ArrayList<>();
@@ -200,19 +182,11 @@ public class BookSettings {
 		return parameters;
 	}
 
-	public Map<String, RegionSettings> getRegions() {
-		return new HashMap<String, RegionSettings>(regions);
+	public Map<String, RegionArea> getRegions() {
+		return new HashMap<String, RegionArea>(regions);
 	}
 
-	public void addPage(PageSettings page) {
-		pages.add(page);
-	}
-
-	public LinkedList<PageSettings> getPages() {
-		return new LinkedList<PageSettings>(pages);
-	}
-
-	public PageSettings getPage(int pageNr) {
+	public FixedGeometry getPage(int pageNr) {
 		return pages.get(pageNr);
 	}
 
@@ -222,10 +196,6 @@ public class BookSettings {
 
 	public int getBookID() {
 		return bookID;
-	}
-
-	public PageSettings getGlobalSettings() {
-		return globalSettings;
 	}
 
 	public ImageSegType getImageSegType() {
