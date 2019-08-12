@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.web.communication.SegmentationStatus;
 
@@ -20,8 +19,8 @@ import larex.geometry.regions.RegionSegment;
  * 
  */
 public class PageAnnotations {
-	@JsonProperty("fileName")
-	private String fileName;
+	@JsonProperty("name")
+	private String name;
 	@JsonProperty("width")
 	private int width;
 	@JsonProperty("height")
@@ -35,12 +34,12 @@ public class PageAnnotations {
 	@JsonProperty("status")
 	private SegmentationStatus status;
 
-	public PageAnnotations(String fileName, int width, int height, int pageNr, Map<String, Region> segments) {
-		this(fileName, width, height, pageNr, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
+	public PageAnnotations(String name, int width, int height, int pageNr, Map<String, Region> segments) {
+		this(name, width, height, pageNr, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
 	}
 
 	@JsonCreator
-	public PageAnnotations(@JsonProperty("fileName") String fileName, @JsonProperty("width") int width,
+	public PageAnnotations(@JsonProperty("name") String name, @JsonProperty("width") int width,
 			@JsonProperty("height") int height, @JsonProperty("page") int pageNr,
 			@JsonProperty("segments") Map<String, Region> segments, @JsonProperty("status") SegmentationStatus status,
 			@JsonProperty("readingOrder") List<String> readingOrder) {
@@ -48,12 +47,12 @@ public class PageAnnotations {
 		this.segments = segments;
 		this.status = status;
 		this.readingOrder = readingOrder;
-		this.fileName = fileName;
+		this.name = name;
 		this.width = width;
 		this.height = height;
 	}
 
-	public PageAnnotations(String fileName, int width, int height, Collection<RegionSegment> regions, int pageNr) {
+	public PageAnnotations(String name, int width, int height, Collection<RegionSegment> regions, int pageNr) {
 		Map<String, Region> segments = new HashMap<String, Region>();
 
 		for (RegionSegment region : regions) {
@@ -70,7 +69,7 @@ public class PageAnnotations {
 		this.segments = segments;
 		this.status = SegmentationStatus.SUCCESS;
 		this.readingOrder = new ArrayList<String>();
-		this.fileName = fileName;
+		this.name = name;
 		this.width = width;
 		this.height = height;
 	}
@@ -99,13 +98,8 @@ public class PageAnnotations {
 		this.readingOrder = readingOrder;
 	}
 
-	public String getFileName() {
-		return fileName;
-	}
-
-	@JsonIgnore
 	public String getName() {
-		return fileName.substring(0, fileName.lastIndexOf("."));
+		return name;
 	}
 
 	public int getHeight() {

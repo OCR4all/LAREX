@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -13,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -147,7 +147,7 @@ public class FileDatabase {
 
 		// sort book files/folders
 		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(files));
-		sortedFiles.sort(new FileNameComparator());// Because lambda throws exception
+		sortedFiles.sort((File o1, File o2) -> o1.getName().compareTo(o2.getName()));
 
 		for (File bookFile : sortedFiles) {
 			if (bookFile.isDirectory()) {
@@ -206,20 +206,26 @@ public class FileDatabase {
 		LinkedList<Page> pages = new LinkedList<Page>();
 		int pageCounter = 0;
 
-		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(bookFile.listFiles()));
-
-		// Because lambda throws exception
-		sortedFiles.sort(new FileNameComparator());
-		for (File pageFile : sortedFiles) {
-			if (pageFile.isFile()) {
-				String fileName = pageFile.getName();
-
-				if (hasSupportedImageFile(fileName)
-						&& (filterSubExtensions.isEmpty() || hasValidSubExtension(fileName))) {
-					int width = 0;
-					int height = 0;
-
-					try (ImageInputStream in = ImageIO.createImageInputStream(pageFile)) {
+		Map<String, List<File>> imageFiles = Arrays.stream(bookFile.listFiles()).filter(f -> f.isFile())
+				.filter(f -> hasSupportedImageFile(f.getName()) && (filterSubExtensions.isEmpty() || hasValidSubExtension(f.getName())))
+				.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
+		
+		ArrayList<String> sortedImages = new ArrayList<>(imageFiles.keySet());
+		sortedImages.sort((String o1, String o2) -> o1.compareTo(o2));
+		
+		for (String pageName : sortedImages) {
+			Map<String, List<File>> groupedImages = imageFiles.get(pageName).stream()
+					.collect(Collectors.groupingBy(f -> extractSubExtension(f.getName())));
+			List<String> images = new ArrayList<>();
+			
+			int width = -1;
+			int height = -1;
+			for(String subExtension: filterSubExtensions) {
+				List<File> subImages = groupedImages.get(subExtension);
+				
+				for(File subImage: subImages) {
+					if(width == -1 && height == -1)
+					try (ImageInputStream in = ImageIO.createImageInputStream(subImages)) {
 						final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
 						if (readers.hasNext()) {
 							ImageReader reader = readers.next();
@@ -232,14 +238,12 @@ public class FileDatabase {
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-
-					String pagePath = bookName + File.separator + fileName;
-					String pageName = filterSubExtensions.isEmpty() ? fileName : removeSubExtension(fileName);
-
-					pages.add(new Page(pageCounter, pageName, pagePath, width, height));
-					pageCounter++;
+					images.add(bookName + File.separator + subImage.getName());
 				}
 			}
+
+			pages.add(new Page(pageCounter, pageName, images, width, height));
+			pageCounter++;
 		}
 
 		Book book = new Book(bookID, bookName, pages);
@@ -268,14 +272,23 @@ public class FileDatabase {
 	 * @return True if has valid sub extension, else False
 	 */
 	private Boolean hasValidSubExtension(String filepath) {
-		String[] extensionArray = filepath.split("\\.");
-		if (extensionArray.length > 1) {
-			String extension = extensionArray[extensionArray.length - 2];
-			return filterSubExtensions.contains(extension);
-		}
-		return false;
+		return filterSubExtensions.contains(extractSubExtension(filepath));
 	}
 
+	/**
+	 * Extract the sub extension
+	 * 
+	 * @param filepath File to extract from
+	 * @return sub extension
+	 */
+	private String extractSubExtension(String filepath) {
+		String[] extensionArray = filepath.split("\\.");
+		if (extensionArray.length > 1) {
+			return extensionArray[extensionArray.length - 2];
+		}
+		return "";
+	}
+	
 	/**
 	 * Remove a sub extension from a file name. e.g. 0001.bin.png = 0001.png
 	 * 
@@ -291,10 +304,18 @@ public class FileDatabase {
 		return filename;
 	}
 
-	private class FileNameComparator implements Comparator<File> {
-		@Override
-		public int compare(File o1, File o2) {
-			return o1.getName().compareTo(o2.getName());
+	/**
+	 * Remove all extensions from a file name. e.g. 0001.bin.png = 0001
+	 * 
+	 * @param filename File name to be cleaned
+	 * @return File name without extensions
+	 */
+	private String removeAllExtensions(String filename) {
+		if (hasValidSubExtension(filename)) {
+			int extPointPos = filename.lastIndexOf(".");
+			int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
+			return filename.substring(0, subExtPointPos);
 		}
+		return filename;
 	}
 }

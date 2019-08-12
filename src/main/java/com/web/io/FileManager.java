@@ -7,6 +7,8 @@ import javax.servlet.ServletContext;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
+import com.web.model.Page;
+
 @Component
 @Scope("session")
 /**
@@ -69,6 +71,10 @@ public class FileManager {
 	 */
 	public void setLocalBooksPath(String booksPath) {
 		this.booksPath = new File(booksPath).getAbsolutePath();
+	}
+
+	public File getImagePath(Page page) {
+		return new File(this.getLocalBooksPath() + File.separator + page.getImage().get(0));
 	}
 
 	/**

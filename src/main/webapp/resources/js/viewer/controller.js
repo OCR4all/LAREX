@@ -119,7 +119,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// init Search
 			$(document).ready(function(){
 				let pageData = {};
-				_book.pages.forEach(page => pageData[page.image] = null );
+				_book.pages.forEach(page => pageData[page.image[0]] = null );
 			});
 
 
@@ -151,7 +151,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		// Check if image is loadedreadingOrder
 		const image = $('#' + imageId);
 		if (!image[0]) {
-			_communicator.loadImage(_book.pages[_currentPage].image, imageId).done(() => this.displayPage(pageNr));
+			_communicator.loadImage(_book.pages[_currentPage].image[0], imageId).done(() => this.displayPage(pageNr));
 			return false;
 		}
 		if (!image[0].complete) {
@@ -480,8 +480,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (globalSettings.downloadPage) {
 				var a = window.document.createElement('a');
 				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
-				const fileName = _book.pages[_currentPage].fileName;
-				a.download = _book.name + "_" + fileName.substring(0, fileName.lastIndexOf(".")) + ".xml";
+				const fileName = _book.pages[_currentPage].name;
+				a.download = _book.name + "_" + name + ".xml";
 
 				// Append anchor to body.
 				document.body.appendChild(a);

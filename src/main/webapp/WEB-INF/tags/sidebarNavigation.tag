@@ -5,7 +5,16 @@
 	<div class="col s12">
 		<c:forEach items="${book.getPages()}" var="bookpage">
 			<div class="changePage pageImageContainer emptyImage emptyPreview card col s12"
-						data-title="${book.getName()}/${bookpage.getFileName()}" data-page="${bookpage.getId()}" data-image="${bookpage.getImage()}">
+						data-title="${book.getName()}/${bookpage.getName()}" data-page="${bookpage.getId()}" data-image="${bookpage.getImage().get(0)}">
+				<c:if test="${book.getPages().size > 1}">
+					<section class="image_versions">
+						<c:forEach items="${book.getPages()}" var="version" varStatus="loop">
+							<div class="image_version">
+								<c:out value="${loop.index}"/>
+							</div>
+						</c:forEach>
+					</section>
+				</c:if>	
 			</div>
 		</c:forEach>
 	</div>

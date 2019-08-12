@@ -15,7 +15,6 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-import com.web.facade.segmentation.LarexFacade;
 import com.web.io.FileManager;
 import com.web.io.ImageLoader;
 import com.web.model.Book;
@@ -56,7 +55,7 @@ public class ImageProcessingFacade {
 
 	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
 		Book book = database.getBook(bookID);
-		File imagePath = LarexFacade.getImagePath(book.getPage(pageNr), fileManager);
+		File imagePath = fileManager.getImagePath(book.getPage(pageNr));
 
 		Mat gray = ImageLoader.readGray(imagePath);
 		Collection<MatOfPoint> contours = Contourextractor.fromGray(gray);
@@ -88,7 +87,7 @@ public class ImageProcessingFacade {
 	public static Region combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
 			FileManager fileManager, FileDatabase database) {
 		Book book = database.getBook(bookID);
-		File imagePath = LarexFacade.getImagePath(book.getPage(pageNr), fileManager);
+		File imagePath = fileManager.getImagePath(book.getPage(pageNr));
 
 		Collection<MatOfPoint> matContours = new ArrayList<>();
 		for (List<Point> contour : contours) {

@@ -66,7 +66,7 @@ public class PageXMLWriter {
 		XmlFormatVersion version = new XmlFormatVersion(pageXMLVersion);
 		Page page = new Page(PageXmlInputOutput.getSchemaModel(version));
 
-		page.setImageFilename(result.getFileName());
+		page.setImageFilename(result.getName()+".png");
 
 		// Create page and meta data
 		MetaData metadata = page.getMetaData();

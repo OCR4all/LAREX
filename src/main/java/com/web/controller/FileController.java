@@ -209,7 +209,7 @@ public class FileController {
 			case "none":
 			case "default":
 			}
-			return convertDocumentToByte(pageXML, request.getSegmentation().getFileName());
+			return convertDocumentToByte(pageXML, request.getSegmentation().getName());
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);

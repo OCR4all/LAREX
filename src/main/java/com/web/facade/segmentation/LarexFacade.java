@@ -64,7 +64,7 @@ public class LarexFacade {
 
 		ArrayList<RegionSegment> regions = new ArrayList<RegionSegment>();
 
-		PageAnnotations segmentation =  new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), regions,
+		PageAnnotations segmentation =  new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), regions,
 				page.getId());
 		segmentation.setStatus(SegmentationStatus.EMPTY);
 		return segmentation;
@@ -81,17 +81,17 @@ public class LarexFacade {
 
 		if (segmentationResult != null) {
 
-			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(),
+			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
 					segmentationResult, page.getId());
 		} else {
-			segmentation = new PageAnnotations(page.getFileName(), page.getWidth(), page.getHeight(), page.getId(),
+			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId(),
 					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
 		}
 		return segmentation;
 	}
 
 	private static Collection<RegionSegment> segmentLarex(SegmentationSettings settings, Page page, FileManager fileManager) {
-		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
+		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage().get(0);
 
 		File imageFile = new File(imagePath);
 		if (imageFile.exists()) {
@@ -109,9 +109,6 @@ public class LarexFacade {
 		}
 	}
 
-	public static File getImagePath(Page page, FileManager fileManager) {
-		return new File(fileManager.getLocalBooksPath() + File.separator + page.getImage());
-	}
 
 	public static SegmentationSettings readSettings(byte[] settingsFile, int bookID, FileManager fileManager, FileDatabase database) {
 		SegmentationSettings settings = null;
@@ -123,9 +120,8 @@ public class LarexFacade {
 
 			Book book = getBook(bookID, database);
 			Page page = book.getPage(0);
-			String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage();
 
-			Parameters parameters = SettingsReader.loadSettings(document, ImageLoader.readDimensions(new File(imagePath)));
+			Parameters parameters = SettingsReader.loadSettings(document, new Size(page.getWidth(),page.getHeight()));
 
 			settings = new SegmentationSettings(parameters, book);
 		} catch (SAXException e) {
