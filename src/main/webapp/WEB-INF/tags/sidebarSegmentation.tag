@@ -132,10 +132,10 @@
 						<p class="settings-header settings-input" >Image Segmentation</p>
 						<div class="input-field settings-input">
 							<select class="settings-image-mode">
-									<option value="NONE">None</option>
-									<option value="CONTOUR_ONLY">Contour only</option>
-									<option value="STRAIGHT_RECT">Straight rectangle</option>
-									<option value="ROTATED_RECT">Rotated rectangle</option>
+								<option value="NONE">None</option>
+								<option value="CONTOUR_ONLY">Contour only</option>
+								<option value="STRAIGHT_RECT">Straight rectangle</option>
+								<option value="ROTATED_RECT">Rotated rectangle</option>
 							</select>
 						</div>
 						<div class="">

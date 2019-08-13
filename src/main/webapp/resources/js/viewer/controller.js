@@ -119,7 +119,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// init Search
 			$(document).ready(function(){
 				let pageData = {};
-				_book.pages.forEach(page => pageData[page.image[0]] = null );
+				_book.pages.forEach(page => pageData[page.images[0]] = null );
 			});
 
 
@@ -143,15 +143,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	});
 
-	this.displayPage = function (pageNr) {
+	this.displayPage = function (pageNr, imageNr=0) {
 		this.escape();
 		_currentPage = pageNr;
 
-		const imageId = _book.pages[_currentPage].id + "image";
+		const imageId = _book.pages[_currentPage].id + "image" + imageNr;
 		// Check if image is loadedreadingOrder
 		const image = $('#' + imageId);
 		if (!image[0]) {
-			_communicator.loadImage(_book.pages[_currentPage].image[0], imageId).done(() => this.displayPage(pageNr));
+			_communicator.loadImage(_book.pages[_currentPage].images[imageNr], imageId).done(() => this.displayPage(pageNr, imageNr));
 			return false;
 		}
 		if (!image[0].complete) {
@@ -257,7 +257,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.displayReadingOrder(false);
 			_gui.updateRegionLegendColors(_presentRegions);
 
-			_gui.selectPage(pageNr);
+			_gui.selectPage(pageNr, imageNr);
 			this.endEditReadingOrder();
 			this.showPreloader(false);
 
@@ -676,7 +676,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const points = _selector.getSelectedPoints();
 		const selectType = _selector.getSelectedPolygonType();
 
-		console.log(selectType,selected);
 		if (selected.length === 1 && points.length > 0) {
 			// Points inside of a polygon is selected => Delete points
 			if(selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE){
@@ -706,9 +705,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			//Polygon is selected => Delete polygon
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				console.log(selectType);
 				if (selectType === ElementType.REGION) {
-					console.log("Test");
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
 				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];

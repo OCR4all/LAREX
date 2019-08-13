@@ -91,7 +91,7 @@ public class LarexFacade {
 	}
 
 	private static Collection<RegionSegment> segmentLarex(SegmentationSettings settings, Page page, FileManager fileManager) {
-		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImage().get(0);
+		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
 
 		File imageFile = new File(imagePath);
 		if (imageFile.exists()) {

@@ -1,23 +1,20 @@
 package com.web.model.database;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
+import org.opencv.core.Size;
 
+import com.web.io.ImageLoader;
 import com.web.model.Book;
 import com.web.model.Page;
 
@@ -206,44 +203,47 @@ public class FileDatabase {
 		LinkedList<Page> pages = new LinkedList<Page>();
 		int pageCounter = 0;
 
-		Map<String, List<File>> imageFiles = Arrays.stream(bookFile.listFiles()).filter(f -> f.isFile())
-				.filter(f -> hasSupportedImageFile(f.getName()) && (filterSubExtensions.isEmpty() || hasValidSubExtension(f.getName())))
-				.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
-		
-		ArrayList<String> sortedImages = new ArrayList<>(imageFiles.keySet());
-		sortedImages.sort((String o1, String o2) -> o1.compareTo(o2));
-		
-		for (String pageName : sortedImages) {
-			Map<String, List<File>> groupedImages = imageFiles.get(pageName).stream()
-					.collect(Collectors.groupingBy(f -> extractSubExtension(f.getName())));
-			List<String> images = new ArrayList<>();
-			
-			int width = -1;
-			int height = -1;
-			for(String subExtension: filterSubExtensions) {
-				List<File> subImages = groupedImages.get(subExtension);
-				
-				for(File subImage: subImages) {
-					if(width == -1 && height == -1)
-					try (ImageInputStream in = ImageIO.createImageInputStream(subImages)) {
-						final Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
-						if (readers.hasNext()) {
-							ImageReader reader = readers.next();
-							reader.setInput(in);
-							width = reader.getWidth(0);
-							height = reader.getHeight(0);
+		if(filterSubExtensions.isEmpty()) {
+			// Interpret every image as its own page
+			List<File> imageFiles = Arrays.stream(bookFile.listFiles()).filter(f -> f.isFile())
+					.filter(f -> hasSupportedImageFile(f.getName()))
+					.collect(Collectors.toList());
 
-							reader.dispose();
-						}
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					images.add(bookName + File.separator + subImage.getName());
-				}
+			for(File imageFile: imageFiles) {
+				Size imageSize = ImageLoader.readDimensions(imageFile);
+				String name = removeAllExtensions(imageFile.getName());
+				String imageURL = bookName + File.separator + imageFile.getName();
+				pages.add(new Page(pageCounter++, name, Arrays.asList(imageURL), (int) imageSize.width, (int) imageSize.height));
 			}
+			
+		}else {
+			// Combine images with the same base name and different (sub)extensions
+			Map<String, List<File>> imageFiles = Arrays.stream(bookFile.listFiles()).filter(f -> f.isFile())
+					.filter(f -> hasSupportedImageFile(f.getName()) && (filterSubExtensions.isEmpty() || hasValidSubExtension(f.getName())))
+					.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
+			
+			ArrayList<String> sortedImages = new ArrayList<>(imageFiles.keySet());
+			sortedImages.sort((String o1, String o2) -> o1.compareTo(o2));
+			
+			for (String pageName : sortedImages) {
+				Map<String, List<File>> groupedImages = imageFiles.get(pageName).stream()
+						.collect(Collectors.groupingBy(f -> extractSubExtension(f.getName())));
+				List<String> images = new ArrayList<>();
+				
+				Size imageSize = null;
+				for(String subExtension: filterSubExtensions) {
+					List<File> subImages = groupedImages.get(subExtension);
+					
+					for(File subImage: subImages) {
+						if(imageSize == null) {
+							imageSize = ImageLoader.readDimensions(subImage);
+						}
+						images.add(bookName + File.separator + subImage.getName());
+					}
+				}
 
-			pages.add(new Page(pageCounter, pageName, images, width, height));
-			pageCounter++;
+				pages.add(new Page(pageCounter++, pageName, images, (int) imageSize.width, (int) imageSize.height));
+			}
 		}
 
 		Book book = new Book(bookID, bookName, pages);

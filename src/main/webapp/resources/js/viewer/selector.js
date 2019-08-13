@@ -75,9 +75,7 @@ class Selector {
 				if (mode === Mode.TEXT && elementType === ElementType.TEXTLINE){
 					if(this._textviewer.isOpen()){
 						this._textviewer.setFocus(id);
-						console.log("Select",id,this._selectedElements);
 						if(!isSelected){
-							console.log("Reselect");
 							this.unSelect();
 							this._selectedElements = [id];
 						}

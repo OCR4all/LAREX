@@ -752,9 +752,14 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$buttons.removeClass('invert');
 	}
 
-	this.selectPage = function (page) {
+	this.selectPage = function (page, imageNr) {
 		$('.pageImageContainer').removeClass('selected');
-		$('.pageImageContainer[data-page~="' + page + '"]').addClass('selected');
+		const $page_container = $('.pageImageContainer[data-page~="' + page + '"]');
+		$page_container.addClass('selected');
+
+		$('.image_version').removeClass('selected');
+		$page_container.find('.image_version[data-imagenr~="' + imageNr + '"]').addClass("selected");
+
 		this.scrollToPage(page);
 	}
 

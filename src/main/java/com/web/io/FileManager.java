@@ -74,7 +74,7 @@ public class FileManager {
 	}
 
 	public File getImagePath(Page page) {
-		return new File(this.getLocalBooksPath() + File.separator + page.getImage().get(0));
+		return new File(this.getLocalBooksPath() + File.separator + page.getImages().get(0));
 	}
 
 	/**

@@ -4,12 +4,10 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 	const _special_keys = {};
 
 	document.onkeydown = function (event) {
-		console.log(_this.isActive);
 		if (_this.isActive) {
 			let validKey = false;
 			const mode = _controller.getMode();
 
-			console.log(mode,event.keyCode);
 			if(mode == Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
 				switch(event.keyCode){
 					case 27: // ESC
@@ -158,7 +156,6 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						}
 						break;
 					case 46: // DELETE
-						console.log("xxx");
 						_controller.deleteSelected();
 						validKey = true;
 						break;

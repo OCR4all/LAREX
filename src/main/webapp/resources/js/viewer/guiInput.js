@@ -150,7 +150,11 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
-	$('.changePage').click(function () { _controller.displayPage($(this).data("page")) });
+	$('.changePage').click(function (e) {
+		_controller.displayPage($(this).data("page"), $(this).data("imagenr"));
+		e.stopPropagation();
+		return true;
+	});
 	$('.regionlegend').click(function () {
 		const $this = $(this);
 		const $switchBox = $this.find('input');

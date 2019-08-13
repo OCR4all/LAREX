@@ -66,10 +66,8 @@ public class SegmentationController {
 
 	@RequestMapping(value = "/segmentation/settings", method = RequestMethod.POST)
 	public @ResponseBody SegmentationSettings getBook(@RequestParam("bookid") int bookID) {
-		System.out.println("1");
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
-		System.out.println("2");
 
 		return new SegmentationSettings(database.getBook(bookID));
 	}

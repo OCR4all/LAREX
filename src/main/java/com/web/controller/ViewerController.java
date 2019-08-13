@@ -134,7 +134,7 @@ public class ViewerController {
 		return database.getBook(bookID);
 	}
 
-	private SortedMap<String, Integer> getRegionTypes() {
+	private static SortedMap<String, Integer> getRegionTypes() {
 		SortedMap<String, Integer> regionTypes = new TreeMap<String, Integer>((c1, c2) -> {
 			if (c1.contains("Region") && !c2.contains("Region"))
 				return 1;

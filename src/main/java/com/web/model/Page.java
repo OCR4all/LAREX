@@ -18,7 +18,7 @@ public class Page {
 	@JsonProperty("name")
 	private String name;
 	@JsonProperty("images")
-	private List<String> image;
+	private List<String> images;
 	@JsonProperty("width")
 	private int width;
 	@JsonProperty("height")
@@ -29,7 +29,7 @@ public class Page {
 			@JsonProperty("width") int width, @JsonProperty("height") int height) {
 		this.id = id;
 		this.name = name;
-		this.image = images;
+		this.images = images;
 		this.height = height;
 		this.width = width;
 	}
@@ -38,8 +38,8 @@ public class Page {
 		return id;
 	}
 
-	public List<String> getImage() {
-		return image;
+	public List<String> getImages() {
+		return images;
 	}
 
 	public int getHeight() {
