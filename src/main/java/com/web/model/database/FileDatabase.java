@@ -216,7 +216,7 @@ public class FileDatabase {
 				pages.add(new Page(pageCounter++, name, Arrays.asList(imageURL), (int) imageSize.width, (int) imageSize.height));
 			}
 			
-		}else {
+		} else {
 			// Combine images with the same base name and different (sub)extensions
 			Map<String, List<File>> imageFiles = Arrays.stream(bookFile.listFiles()).filter(f -> f.isFile())
 					.filter(f -> hasSupportedImageFile(f.getName()) && (filterSubExtensions.isEmpty() || hasValidSubExtension(f.getName())))
@@ -234,11 +234,13 @@ public class FileDatabase {
 				for(String subExtension: filterSubExtensions) {
 					List<File> subImages = groupedImages.get(subExtension);
 					
-					for(File subImage: subImages) {
-						if(imageSize == null) {
-							imageSize = ImageLoader.readDimensions(subImage);
+					if(subImages != null) {
+						for(File subImage: subImages) {
+							if(imageSize == null) {
+								imageSize = ImageLoader.readDimensions(subImage);
+							}
+							images.add(bookName + File.separator + subImage.getName());
 						}
-						images.add(bookName + File.separator + subImage.getName());
 					}
 				}
 

@@ -105,7 +105,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer);
 
 			this.showPreloader(false);
-			this.displayPage(0);
 
 			// on resize
 			$(window).resize(() => {
@@ -115,29 +114,26 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			});
 
-
 			// init Search
 			$(document).ready(function(){
 				let pageData = {};
 				_book.pages.forEach(page => pageData[page.images[0]] = null );
 			});
 
-
 			// Add settings if mode is included
-			if(accessible_modes.includes("segment")){
-				_communicator.getSettings(bookID).done((settings) => {
-					_settings = settings;
-					const regions = _settings.regions;
-					Object.keys(regions).forEach((key) => {
-						const region = regions[key];
+			_communicator.getSettings(bookID).done((settings) => {
+				_settings = settings;
+				const regions = _settings.regions;
+				Object.keys(regions).forEach((key) => {
+					const region = regions[key];
 
-						if (region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0) {
-							_presentRegions.push(region.type);
-						}
-					});
-					_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
+					if (region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0) {
+						_presentRegions.push(region.type);
+					}
 				});
-			}
+				_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
+				this.displayPage(0);
+			});
 
 			this.setMode(_mode);
 		});
