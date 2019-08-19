@@ -93,6 +93,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			// Init inputs
 			const keyInput = new KeyInput(_navigationController, this, _gui, _textViewer, _selector, ["#"+canvasID,"#viewer","#textline-content"]);
+			$("#"+canvasID).click(() => keyInput.isActive = true);
 			$("#"+canvasID).find("input").focusin(() => keyInput.isActive = false);
 			$("#"+canvasID).find("input").focusout(() => keyInput.isActive = true);
 			
@@ -702,6 +703,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				if (selectType === ElementType.REGION) {
+					console.log("Delete!!");
 					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
 				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];

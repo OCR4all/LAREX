@@ -1,6 +1,6 @@
 function ViewerInput(controller) {
 	const _controller = controller;
-	this.navigationController
+	this.navigationController;
 	this.selector;
 
 	/**
