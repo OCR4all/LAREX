@@ -15,6 +15,7 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
+import com.web.io.FileDatabase;
 import com.web.io.FileManager;
 import com.web.io.ImageLoader;
 import com.web.model.Book;
@@ -22,7 +23,6 @@ import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.Rectangle;
 import com.web.model.Region;
-import com.web.model.database.FileDatabase;
 
 import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;

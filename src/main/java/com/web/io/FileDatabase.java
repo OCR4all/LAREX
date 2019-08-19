@@ -1,4 +1,4 @@
-package com.web.model.database;
+package com.web.io;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -44,7 +44,7 @@ public class FileDatabase {
 	private Map<Integer, File> books;
 	private File databaseFolder;
 	private List<String> supportedFileExtensions;
-	private List<String> filterSubExtensions;
+	private List<String> imageSubFilter;
 
 	/**
 	 * Initialize a FileDatabase with its root databaseFolder, all supported image
@@ -68,13 +68,13 @@ public class FileDatabase {
 	 * 
 	 * @param databaseFolder          Root database folder containing all books
 	 * @param supportedFileExtensions supported image types to load
-	 * @param filterSubExtensions     file extensions that are to be filtered
+	 * @param imageSubFilter     file extensions that are to be filtered
 	 */
-	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions, List<String> filterSubExtensions) {
+	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions, List<String> imageSubFilter) {
 		this.databaseFolder = databaseFolder;
 		this.books = new HashMap<Integer, File>();
 		this.supportedFileExtensions = new ArrayList<String>(supportedFileExtensions);
-		this.filterSubExtensions = new ArrayList<String>(filterSubExtensions);
+		this.imageSubFilter = new ArrayList<String>(imageSubFilter);
 	}
 
 	/**
@@ -97,10 +97,10 @@ public class FileDatabase {
 	 * save 0001.xml etc.)
 	 * 
 	 * @param databaseFolder          Root database folder containing all books
-	 * @param filterSubExtensions     file extensions that are to be filtered
+	 * @param imageSubFilter     file extensions that are to be filtered
 	 */
-	public FileDatabase(File databaseFolder, List<String> filterSubExtensions) {
-		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"), filterSubExtensions);
+	public FileDatabase(File databaseFolder, List<String> imageSubFilter) {
+		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"), imageSubFilter);
 	}
 
 	/**
@@ -203,10 +203,10 @@ public class FileDatabase {
 		LinkedList<Page> pages = new LinkedList<Page>();
 		int pageCounter = 0;
 
-		if(filterSubExtensions.isEmpty()) {
+		if(imageSubFilter.isEmpty()) {
 			// Interpret every image as its own page
-			List<File> imageFiles = Arrays.stream(bookFile.listFiles()).filter(f -> f.isFile())
-					.filter(f -> hasSupportedImageFile(f.getName()))
+			List<File> imageFiles = Arrays.stream(bookFile.listFiles())
+					.filter(f -> isSupportedImage(f))
 					.collect(Collectors.toList());
 
 			for(File imageFile: imageFiles) {
@@ -218,8 +218,8 @@ public class FileDatabase {
 			
 		} else {
 			// Combine images with the same base name and different (sub)extensions
-			Map<String, List<File>> imageFiles = Arrays.stream(bookFile.listFiles()).filter(f -> f.isFile())
-					.filter(f -> hasSupportedImageFile(f.getName()) && (filterSubExtensions.isEmpty() || hasValidSubExtension(f.getName())))
+			Map<String, List<File>> imageFiles = Arrays.stream(bookFile.listFiles())
+					.filter(f -> isSupportedImage(f) && (imageSubFilter.isEmpty() || passesSubFilter(f.getName())))
 					.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
 			
 			ArrayList<String> sortedImages = new ArrayList<>(imageFiles.keySet());
@@ -231,8 +231,9 @@ public class FileDatabase {
 				List<String> images = new ArrayList<>();
 				
 				Size imageSize = null;
-				for(String subExtension: filterSubExtensions) {
-					List<File> subImages = groupedImages.get(subExtension);
+				for(String subExtension: imageSubFilter) {
+					List<File> subImages = !subExtension.equals(".") ? groupedImages.get(subExtension)
+												: groupedImages.get("");
 					
 					if(subImages != null) {
 						for(File subImage: subImages) {
@@ -258,23 +259,31 @@ public class FileDatabase {
 	 * @param filepath File to be checked
 	 * @return True if is supported, else False
 	 */
-	private Boolean hasSupportedImageFile(String filepath) {
-		String[] extensionArray = filepath.split("\\.");
-		if (extensionArray.length > 0) {
-			String extension = extensionArray[extensionArray.length - 1];
-			return supportedFileExtensions.contains(extension);
+	private Boolean isSupportedImage(File filepath) {
+		if (filepath.isFile()) {
+			String[] extensionArray = filepath.getName().split("\\.");
+			if (extensionArray.length > 0) {
+				String extension = extensionArray[extensionArray.length - 1];
+				return supportedFileExtensions.contains(extension);
+			}
 		}
 		return false;
 	}
 
 	/**
-	 * Check if a file has a valid sub extension, for the filtering
+	 * Check if a file has a valid sub extension, for the filtering or
+	 * has none while the filter contains "."
 	 * 
 	 * @param filepath File to be checked
 	 * @return True if has valid sub extension, else False
 	 */
-	private Boolean hasValidSubExtension(String filepath) {
-		return filterSubExtensions.contains(extractSubExtension(filepath));
+	private Boolean passesSubFilter(String filepath) {
+		final String extension = extractSubExtension(filepath);
+		if (extension.equals("") && imageSubFilter.contains(".")) {
+			return true;
+		} else {
+			return imageSubFilter.contains(extension);
+		}
 	}
 
 	/**
@@ -285,7 +294,7 @@ public class FileDatabase {
 	 */
 	private String extractSubExtension(String filepath) {
 		String[] extensionArray = filepath.split("\\.");
-		if (extensionArray.length > 1) {
+		if (extensionArray.length > 2) {
 			return extensionArray[extensionArray.length - 2];
 		}
 		return "";
@@ -298,7 +307,7 @@ public class FileDatabase {
 	 * @return File name without sub extension
 	 */
 	private String removeSubExtension(String filename) {
-		if (hasValidSubExtension(filename)) {
+		if (passesSubFilter(filename)) {
 			int extPointPos = filename.lastIndexOf(".");
 			int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
 			return filename.substring(0, subExtPointPos) + filename.substring(extPointPos);
@@ -313,10 +322,13 @@ public class FileDatabase {
 	 * @return File name without extensions
 	 */
 	private String removeAllExtensions(String filename) {
-		if (hasValidSubExtension(filename)) {
+		if (passesSubFilter(filename)) {
 			int extPointPos = filename.lastIndexOf(".");
 			int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
-			return filename.substring(0, subExtPointPos);
+			if(subExtPointPos > 0)
+				return filename.substring(0, subExtPointPos);
+			else
+				return filename.substring(0, extPointPos);
 		}
 		return filename;
 	}

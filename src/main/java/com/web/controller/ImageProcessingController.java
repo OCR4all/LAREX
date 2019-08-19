@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import com.web.communication.ContourCombineRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.ImageProcessingFacade;
+import com.web.io.FileDatabase;
 import com.web.io.FileManager;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.Rectangle;
 import com.web.model.Region;
-import com.web.model.database.FileDatabase;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.

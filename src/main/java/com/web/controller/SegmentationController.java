@@ -19,9 +19,9 @@ import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.segmentation.LarexFacade;
 import com.web.facade.segmentation.SegmentationSettings;
+import com.web.io.FileDatabase;
 import com.web.io.FileManager;
 import com.web.model.PageAnnotations;
-import com.web.model.database.FileDatabase;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.

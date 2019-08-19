@@ -18,9 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.config.FileConfiguration;
+import com.web.io.FileDatabase;
 import com.web.io.FileManager;
 import com.web.model.Book;
-import com.web.model.database.FileDatabase;
 
 import larex.geometry.regions.type.PAGERegionType;
 

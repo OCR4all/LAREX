@@ -12,9 +12,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.web.config.FileConfiguration;
+import com.web.io.FileDatabase;
 import com.web.io.FileManager;
 import com.web.model.Library;
-import com.web.model.database.FileDatabase;
 
 /**
  * Communication Controller to handle simple requests about the book library.

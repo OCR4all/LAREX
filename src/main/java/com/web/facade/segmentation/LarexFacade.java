@@ -17,6 +17,7 @@ import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
 import com.web.communication.SegmentationStatus;
+import com.web.io.FileDatabase;
 import com.web.io.FileManager;
 import com.web.io.ImageLoader;
 import com.web.io.PageXMLReader;
@@ -26,7 +27,6 @@ import com.web.model.Book;
 import com.web.model.Page;
 import com.web.model.PageAnnotations;
 import com.web.model.Region;
-import com.web.model.database.FileDatabase;
 
 import larex.data.MemoryCleaner;
 import larex.geometry.regions.RegionSegment;

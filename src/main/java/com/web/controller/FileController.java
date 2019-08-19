@@ -6,10 +6,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.annotation.PostConstruct;
@@ -47,10 +47,10 @@ import com.web.communication.SegmentationRequest;
 import com.web.config.FileConfiguration;
 import com.web.facade.segmentation.LarexFacade;
 import com.web.facade.segmentation.SegmentationSettings;
+import com.web.io.FileDatabase;
 import com.web.io.FileManager;
 import com.web.io.PageXMLWriter;
 import com.web.model.PageAnnotations;
-import com.web.model.database.FileDatabase;
 
 import larex.data.MemoryCleaner;
 
@@ -97,13 +97,19 @@ public class FileController {
 			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
 		try {
 			// Find file with image name
-			File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
-			File[] matchingFiles = directory.listFiles(new FilenameFilter() {
-				public boolean accept(File dir, String name) {
-					return name.startsWith(image) && (name.endsWith("png") || name.endsWith("jpg")
-							|| name.endsWith("jpeg") || name.endsWith("tif") || name.endsWith("tiff"));
+			final File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
+			final String imageName = image.replace(".png", "");
+			
+			final File[] matchingFiles = directory.listFiles((File dir, String name) -> {
+					final int extStart = name.lastIndexOf(".");
+					if (extStart > 0 && name.substring(0, extStart).equals(imageName)) {
+						final String extension = name.substring(extStart + 1);
+						return Arrays.asList("png", "jpg", "jpeg", "tif", "tiff").contains(extension);
+					} else {
+						return false;
+					}
 				}
-			});
+			);
 
 			if (matchingFiles.length == 0)
 				throw new IOException("File does not exist");
