@@ -16,7 +16,11 @@ import larex.geometry.regions.type.PAGERegionType;
 import larex.geometry.regions.type.TypeConverter;
 import larex.segmentation.parameters.Parameters;
 
-public class SettingsReader {
+/**
+ * SegmentationSettingsReader is the main way to read segmentation settings xmls into 
+ * Parameters for the segmentation steps.
+ */
+public class SegmentationSettingsReader {
 	/**
 	 * Read a settingsfile from a document into Parameters
 	 * 

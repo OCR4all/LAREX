@@ -11,10 +11,9 @@ import larex.geometry.positions.PriorityPosition;
 
 /**
  * A collection of all polygons of one region type with different settings for
- * the Larex algorithm
- *
+ * the Larex Segmentation algorithm
  */
-public class RegionArea {
+public class SegmentationRegionArea {
 	@JsonProperty("type")
 	private String type;
 	@JsonProperty("polygons")
@@ -27,7 +26,7 @@ public class RegionArea {
 	private PriorityPosition priorityPosition;
 
 	@JsonCreator
-	public RegionArea(@JsonProperty("type") String type, @JsonProperty("polygons") Map<String, Region> polygons,
+	public SegmentationRegionArea(@JsonProperty("type") String type, @JsonProperty("polygons") Map<String, Region> polygons,
 			@JsonProperty("minSize") int minSize, @JsonProperty("maxOccurances") int maxOccurances,
 			@JsonProperty("priorityPosition") PriorityPosition priorityPosition) {
 		this.type = type;
@@ -37,7 +36,7 @@ public class RegionArea {
 		this.priorityPosition = priorityPosition;
 	}
 
-	public RegionArea(String type, int minSize, int maxOccurances, PriorityPosition priorityPosition) {
+	public SegmentationRegionArea(String type, int minSize, int maxOccurances, PriorityPosition priorityPosition) {
 		this(type, new HashMap<String, Region>(), minSize, maxOccurances, priorityPosition);
 	}
 

@@ -46,6 +46,10 @@ import larex.geometry.regions.type.RegionSubType;
 import larex.geometry.regions.type.RegionType;
 import larex.geometry.regions.type.TypeConverter;
 
+/**
+ * PageXMLReader is a converter for PageXML files into the PageAnnotations
+ * format used in this tool.
+ */
 public class PageXMLReader {
 
 	/**
@@ -181,8 +185,8 @@ public class PageXMLReader {
 					}
 				}
 			}
-			return new PageAnnotations(page.getImageFilename(), width, height, 0, resRegions, SegmentationStatus.LOADED,
-					newReadingOrder);
+			return new PageAnnotations(page.getImageFilename(), width, height, resRegions,
+					SegmentationStatus.LOADED, newReadingOrder);
 		}
 
 		return null;

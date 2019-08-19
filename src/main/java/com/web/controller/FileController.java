@@ -44,11 +44,11 @@ import org.w3c.dom.Document;
 
 import com.web.communication.ExportRequest;
 import com.web.communication.SegmentationRequest;
-import com.web.config.FileConfiguration;
+import com.web.config.LarexConfiguration;
 import com.web.facade.segmentation.LarexFacade;
 import com.web.facade.segmentation.SegmentationSettings;
 import com.web.io.FileDatabase;
-import com.web.io.FileManager;
+import com.web.io.FilePathManager;
 import com.web.io.PageXMLWriter;
 import com.web.model.PageAnnotations;
 
@@ -65,9 +65,9 @@ public class FileController {
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
-	private FileManager fileManager;
+	private FilePathManager fileManager;
 	@Autowired
-	private FileConfiguration config;
+	private LarexConfiguration config;
 
 	/**
 	 * Initialize the controller by loading the fileManager and settings if not
@@ -201,7 +201,7 @@ public class FileController {
 					config.getListSetting("imagefilter"));
 
 				String bookdir = fileManager.getLocalBooksPath() + File.separator
-									+ LarexFacade.getBook(request.getBookid(), database).getName();
+									+ database.getBookName(request.getBookid());
 				PageXMLWriter.saveDocument(pageXML, name, bookdir);
 				break;
 			case "savedir":

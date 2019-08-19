@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.web.communication.ContourCombineRequest;
-import com.web.config.FileConfiguration;
+import com.web.config.LarexConfiguration;
 import com.web.facade.ImageProcessingFacade;
 import com.web.io.FileDatabase;
-import com.web.io.FileManager;
+import com.web.io.FilePathManager;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.Rectangle;
@@ -32,9 +32,9 @@ import com.web.model.Region;
 @Scope("request")
 public class ImageProcessingController {
 	@Autowired
-	private FileManager fileManager;
+	private FilePathManager fileManager;
 	@Autowired
-	private FileConfiguration config;
+	private LarexConfiguration config;
 
 	/**
 	 * Merge segments together by connecting them with lines starting from their center.
@@ -52,8 +52,8 @@ public class ImageProcessingController {
 		if (combineRequest.getContours().size() > 0) {
 			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 					config.getListSetting("imagefilter"));
-			return ImageProcessingFacade.combineContours(combineRequest.getContours(), combineRequest.getPage(),
-					combineRequest.getBookid(), combineRequest.getAccuracy(), fileManager, database);
+			return ImageProcessingFacade.combineContours(combineRequest.getContours(), combineRequest.getPageWidth(), 
+					combineRequest.getPageHeight(), combineRequest.getAccuracy(), fileManager, database);
 		} else
 			return null;
 	}

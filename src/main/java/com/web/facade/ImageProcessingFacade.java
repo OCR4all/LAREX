@@ -16,7 +16,7 @@ import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import com.web.io.FileDatabase;
-import com.web.io.FileManager;
+import com.web.io.FilePathManager;
 import com.web.io.ImageLoader;
 import com.web.model.Book;
 import com.web.model.Point;
@@ -53,7 +53,7 @@ public class ImageProcessingFacade {
 		return new Region(points, mergedRegion.getId(), mergedRegion.getType().toString());
 	}
 
-	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FileManager fileManager, FileDatabase database) {
+	public static Collection<List<Point>> extractContours(int pageNr, int bookID, FilePathManager fileManager, FileDatabase database) {
 		Book book = database.getBook(bookID);
 		File imagePath = fileManager.getImagePath(book.getPage(pageNr));
 
@@ -84,10 +84,8 @@ public class ImageProcessingFacade {
 	 * @param fileManager Filemanager to load the book/page from
 	 * @return Polygon that includes all contours
 	 */
-	public static Region combineContours(Collection<List<Point>> contours, int pageNr, int bookID, int accuracy,
-			FileManager fileManager, FileDatabase database) {
-		Book book = database.getBook(bookID);
-		File imagePath = fileManager.getImagePath(book.getPage(pageNr));
+	public static Region combineContours(Collection<List<Point>> contours, int pageWidth, int pageHeight, int accuracy,
+			FilePathManager fileManager, FileDatabase database) {
 
 		Collection<MatOfPoint> matContours = new ArrayList<>();
 		for (List<Point> contour : contours) {
@@ -104,7 +102,7 @@ public class ImageProcessingFacade {
 				
 		double growth = 105 - 100/(accuracy/100.0);
 		
-		final MatOfPoint combined = Merger.smearMerge(matContours, ImageLoader.readDimensions(imagePath), growth, growth, 10);
+		final MatOfPoint combined = Merger.smearMerge(matContours, new Size(pageWidth, pageHeight), growth, growth, 10);
 		MemoryCleaner.clean(matContours);
 
 		LinkedList<Point> points = new LinkedList<Point>();

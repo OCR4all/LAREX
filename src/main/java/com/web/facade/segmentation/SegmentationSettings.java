@@ -13,7 +13,6 @@ import org.opencv.core.Size;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.web.model.Book;
-import com.web.model.Page;
 import com.web.model.Point;
 import com.web.model.Polygon;
 import com.web.model.Region;
@@ -31,7 +30,7 @@ import larex.segmentation.parameters.ImageSegType;
 import larex.segmentation.parameters.Parameters;
 
 /**
- * Handels all parameters and settings passing through the gui to the
+ * Handles all parameters and settings passing through the gui to the
  * segmentation algorithm
  * 
  */
@@ -44,7 +43,7 @@ public class SegmentationSettings {
 	@JsonProperty("parameters")
 	private Map<String, Integer> parameters;
 	@JsonProperty("regions")
-	protected Map<String, RegionArea> regions;
+	protected Map<String, SegmentationRegionArea> regions;
 	@JsonProperty("regionTypes")
 	protected Map<String, Integer> regionTypes;
 	@JsonProperty("combine")
@@ -55,7 +54,7 @@ public class SegmentationSettings {
 	@JsonCreator
 	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<FixedGeometry> pages,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
-			@JsonProperty("regions") Map<String, RegionArea> regions,
+			@JsonProperty("regions") Map<String, SegmentationRegionArea> regions,
 			@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
 			@JsonProperty("combine") boolean combine,
 			@JsonProperty("imageSegType") ImageSegType imageSegType) {
@@ -79,9 +78,9 @@ public class SegmentationSettings {
 	
 	public SegmentationSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
-		this.regions = new HashMap<String, RegionArea>();
+		this.regions = new HashMap<String, SegmentationRegionArea>();
 		pages = new LinkedList<FixedGeometry>();
-		for (Page page : book.getPages()) {
+		for (int pageIndex = book.getPages().size(); pageIndex > 0; pageIndex--) {
 			pages.add(new FixedGeometry());
 		}
 		this.parameters = new HashMap<String, Integer>();
@@ -94,14 +93,14 @@ public class SegmentationSettings {
 		this.combine = parameters.isCombineImages();
 		this.imageSegType = parameters.getImageSegType();
 
-		this.regions = new HashMap<String, RegionArea>(regions);
+		this.regions = new HashMap<String, SegmentationRegionArea>(regions);
 		RegionManager regionManager = parameters.getRegionManager();
 		for (larex.geometry.regions.Region region : regionManager.getRegions()) {
 			String regionType = region.getType().toString();
 			int minSize = region.getMinSize();
 			int maxOccurances = region.getMaxOccurances();
 			PriorityPosition priorityPosition = region.getPriorityPosition();
-			com.web.facade.segmentation.RegionArea guiRegion = new com.web.facade.segmentation.RegionArea(regionType, minSize, maxOccurances,
+			com.web.facade.segmentation.SegmentationRegionArea guiRegion = new com.web.facade.segmentation.SegmentationRegionArea(regionType, minSize, maxOccurances,
 					priorityPosition);
 
 			int regionCount = 0;
@@ -147,7 +146,7 @@ public class SegmentationSettings {
 		parameters.setImageSegType(this.getImageSegType());
 		parameters.setCombineImages(this.isCombine());
 
-		for (com.web.facade.segmentation.RegionArea guiRegion : regions.values()) {
+		for (com.web.facade.segmentation.SegmentationRegionArea guiRegion : regions.values()) {
 			PAGERegionType regionType = TypeConverter.stringToPAGEType(guiRegion.getType());
 			int minSize = guiRegion.getMinSize();
 			int maxOccurances = guiRegion.getMaxOccurances();
@@ -201,8 +200,8 @@ public class SegmentationSettings {
 		return parameters;
 	}
 
-	public Map<String, RegionArea> getRegions() {
-		return new HashMap<String, RegionArea>(regions);
+	public Map<String, SegmentationRegionArea> getRegions() {
+		return new HashMap<String, SegmentationRegionArea>(regions);
 	}
 
 	public FixedGeometry getPage(int pageNr) {

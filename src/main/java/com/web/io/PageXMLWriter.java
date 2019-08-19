@@ -47,6 +47,10 @@ import com.web.model.Point;
 import larex.geometry.regions.type.PAGERegionType;
 import larex.geometry.regions.type.TypeConverter;
 
+/**
+ * PageXMLWriter is a converter for the PageAnnotations used in this tool 
+ * to PageXML annotations.
+ */
 public class PageXMLWriter {
 
 	/**

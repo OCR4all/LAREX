@@ -16,34 +16,30 @@ import larex.geometry.regions.RegionSegment;
 /**
  * Segmentation result of a specific page. Contains a pageNr and the resulting
  * segment polygons.
- * 
  */
 public class PageAnnotations {
 	@JsonProperty("name")
-	private String name;
+	private final String name;
 	@JsonProperty("width")
-	private int width;
+	private final int width;
 	@JsonProperty("height")
-	private int height;
-	@JsonProperty("page")
-	private int pageNr;
+	private final int height;
 	@JsonProperty("segments")
-	private Map<String, Region> segments;
+	private final Map<String, Region> segments;
 	@JsonProperty("readingOrder")
-	private List<String> readingOrder;
+	private final List<String> readingOrder;
 	@JsonProperty("status")
-	private SegmentationStatus status;
+	private final SegmentationStatus status;
 
-	public PageAnnotations(String name, int width, int height, int pageNr, Map<String, Region> segments) {
-		this(name, width, height, pageNr, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
+	public PageAnnotations(String name, int width, int height, Map<String, Region> segments) {
+		this(name, width, height, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
 	}
 
 	@JsonCreator
 	public PageAnnotations(@JsonProperty("name") String name, @JsonProperty("width") int width,
-			@JsonProperty("height") int height, @JsonProperty("page") int pageNr,
+			@JsonProperty("height") int height,
 			@JsonProperty("segments") Map<String, Region> segments, @JsonProperty("status") SegmentationStatus status,
 			@JsonProperty("readingOrder") List<String> readingOrder) {
-		this.pageNr = pageNr;
 		this.segments = segments;
 		this.status = status;
 		this.readingOrder = readingOrder;
@@ -52,7 +48,8 @@ public class PageAnnotations {
 		this.height = height;
 	}
 
-	public PageAnnotations(String name, int width, int height, Collection<RegionSegment> regions, int pageNr) {
+	public PageAnnotations(String name, int width, int height, int pageNr, 
+			Collection<RegionSegment> regions,  SegmentationStatus status) {
 		Map<String, Region> segments = new HashMap<String, Region>();
 
 		for (RegionSegment region : regions) {
@@ -65,19 +62,14 @@ public class PageAnnotations {
 			segments.put(segment.getId(), segment);
 		}
 
-		this.pageNr = pageNr;
 		this.segments = segments;
-		this.status = SegmentationStatus.SUCCESS;
+		this.status = status;
 		this.readingOrder = new ArrayList<String>();
 		this.name = name;
 		this.width = width;
 		this.height = height;
 	}
 	
-	public int getPage() {
-		return pageNr;
-	}
-
 	public Map<String, Region> getSegments() {
 		return new HashMap<String, Region>(segments);
 	}
@@ -86,16 +78,8 @@ public class PageAnnotations {
 		return status;
 	}
 
-	public void setStatus(SegmentationStatus status) {
-		this.status = status;
-	}
-
 	public List<String> getReadingOrder() {
 		return new ArrayList<String>(readingOrder);
-	}
-
-	public void setReadingOrder(List<String> readingOrder) {
-		this.readingOrder = readingOrder;
 	}
 
 	public String getName() {

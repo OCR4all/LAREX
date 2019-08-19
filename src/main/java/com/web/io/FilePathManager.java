@@ -12,9 +12,10 @@ import com.web.model.Page;
 @Component
 @Scope("session")
 /**
- * FileManager to manage essential resources paths.
+ * FilePathManager is used to manage essential resources paths, locally and in the url.
+ * This manager must be initialized with a current ServletContext to provide correct url paths.
  */
-public class FileManager {
+public class FilePathManager {
 
 	private boolean isInit = false;
 	private ServletContext servletContext;

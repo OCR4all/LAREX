@@ -15,12 +15,13 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /**
- * Handler for to load the Larex configuration file
- *
+ * Handler to load and provide settings written in the LAREX configuration file.
+ * The larex.config file is either at "src/main/webapp/WEB-INF/larex.config" or if 
+ * the "LAREX_CONFIG" system variable is defined under "$LAREX_CONFIG".
  */
 @Component
 @Scope("session")
-public class FileConfiguration {
+public class LarexConfiguration {
 
 	private Map<String, String> configurations;
 

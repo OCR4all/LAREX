@@ -769,7 +769,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		} else if(selectType === ElementType.CONTOUR){
 			const contours = selected.map(id => _contours[_currentPage][id]);
 			const contourAccuracy = 50;
-			_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
+			const width = _book.pages[_currentPage].width;
+			const height = _book.pages[_currentPage].height;
+			_communicator.combineContours(contours,width,height,contourAccuracy).done((segment) => {
 				if(segment.points.length > 0){
 					// Check if in Mode Lines (create TextLine or Region)
 					if(_mode === Mode.LINES && _tempID) {

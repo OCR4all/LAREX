@@ -17,9 +17,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.web.config.FileConfiguration;
+import com.web.config.LarexConfiguration;
 import com.web.io.FileDatabase;
-import com.web.io.FileManager;
+import com.web.io.FilePathManager;
 import com.web.model.Book;
 
 import larex.geometry.regions.type.PAGERegionType;
@@ -35,9 +35,9 @@ public class ViewerController {
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
-	private FileManager fileManager;
+	private FilePathManager fileManager;
 	@Autowired
-	private FileConfiguration config;
+	private LarexConfiguration config;
 
 	/**
 	 * Initialize the controller by loading the fileManager and settings if not

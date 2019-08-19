@@ -36,8 +36,11 @@ import com.web.model.Page;
  * Page images can be filtered by subExtensions.
  * <page_name>.<sub_extension>.<image_extension>
  * e.g. 0001.png 0001.bin.png, 0001.nrm.png with the filter "bin" will ignore 
- * everything but 0001.bin.png and treat 0001.bin.png as 0001.png 
+ * everything but 0001.bin.png and treat 0001.bin.png as 0001.png.
  * (will load and save 0001.xml etc.)
+ * Multiple subextensions can be combined and images with the same base name will
+ * then be grouped together.
+ * ("." is a substitute for "no subextension")
  */
 public class FileDatabase {
 
@@ -168,6 +171,19 @@ public class FileDatabase {
 		File bookFile = books.get(id);
 
 		return readBook(bookFile, id);
+	}
+	
+	/**
+	 * Retrieve name of a book without loading it into ram
+	 * 
+	 * @param id Identifier of the book
+	 * @return Name of the book
+	 */
+	public String getBookName(int id) {
+		if (books == null || !books.containsKey(id)) {
+			listBookFiles();
+		}
+		return books.get(id).getName();
 	}
 
 	/**
@@ -300,21 +316,6 @@ public class FileDatabase {
 		return "";
 	}
 	
-	/**
-	 * Remove a sub extension from a file name. e.g. 0001.bin.png = 0001.png
-	 * 
-	 * @param filename File name to be cleaned
-	 * @return File name without sub extension
-	 */
-	private String removeSubExtension(String filename) {
-		if (passesSubFilter(filename)) {
-			int extPointPos = filename.lastIndexOf(".");
-			int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
-			return filename.substring(0, subExtPointPos) + filename.substring(extPointPos);
-		}
-		return filename;
-	}
-
 	/**
 	 * Remove all extensions from a file name. e.g. 0001.bin.png = 0001
 	 * 

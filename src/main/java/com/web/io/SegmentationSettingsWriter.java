@@ -17,7 +17,11 @@ import larex.geometry.positions.RelativePosition;
 import larex.geometry.regions.Region;
 import larex.segmentation.parameters.Parameters;
 
-public class SettingsWriter {
+/**
+ * SegmentationSettingsWriter is the main way to save Parameters for the segmentation steps 
+ * into segmentation settings xmls. 
+ */
+public class SegmentationSettingsWriter {
 
 	/**
 	 * Save parameters as a xml file onto the disc drive

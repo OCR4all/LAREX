@@ -11,9 +11,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import com.web.config.FileConfiguration;
+import com.web.config.LarexConfiguration;
 import com.web.io.FileDatabase;
-import com.web.io.FileManager;
+import com.web.io.FilePathManager;
 import com.web.model.Library;
 
 /**
@@ -26,9 +26,9 @@ public class LibraryController {
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
-	private FileManager fileManager;
+	private FilePathManager fileManager;
 	@Autowired
-	private FileConfiguration config;
+	private LarexConfiguration config;
 
 	/**
 	 * Display a list of all books present in the book path. Clicking on a book will
