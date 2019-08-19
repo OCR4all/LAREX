@@ -94,6 +94,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// Init inputs
 			const keyInput = new KeyInput(_navigationController, this, _gui, _textViewer, _selector, ["#"+canvasID,"#viewer","#textline-content"]);
 			$("#"+canvasID).click(() => keyInput.isActive = true);
+			$("#"+canvasID).mouseover(() => keyInput.isActive = true);
 			$("#"+canvasID).find("input").focusin(() => keyInput.isActive = false);
 			$("#"+canvasID).find("input").focusout(() => keyInput.isActive = true);
 			

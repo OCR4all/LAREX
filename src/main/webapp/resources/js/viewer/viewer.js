@@ -51,28 +51,31 @@ class Viewer {
 			if(propagate){
 				// Click on X only if not previously dragged
 				if(!this._isDragging){
-					let hitResult = false;
+					let hitResults = false;
 					if(this.mode == ViewerMode.POLYGON){
 						// Check regions first
-						hitResult = this._overlays["regions"] && this._overlays["regions"].visible ?
-										this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
+						hitResults = this._overlays["regions"] && this._overlays["regions"].visible ?
+										this._overlays["regions"].hitTestAll(event.point, this._hitOptions) : null;
 
 						// Check textlines second
-						if(!hitResult)
-							hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptionsTextline) : null;
+						if(!hitResults || hitResults.length == 0)
+							hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsTextline) : null;
 
 						// Check segments last
-						if(!hitResult)
-							hitResult = this._overlays["segments"] ? this._overlays["segments"].hitTest(event.point, this._hitOptions) : null;
+						if(!hitResults || hitResults.length == 0)
+							hitResults = this._overlays["segments"] ? this._overlays["segments"].hitTestAll(event.point, this._hitOptions) : null;
 					} else if(this.mode == ViewerMode.CONTOUR){
-						hitResult = this._contourOverlay ? this.contourHitTest(event.point) : null;
+						hitResults = this._contourOverlay ? this.contourHitTest(event.point) : null;
 					} else if(this.mode == ViewerMode.TEXTLINE){
-						hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptionsTextline) : null;
+						hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsTextline) : null;
 					} else {
 						throw new ValueError('Unkown selection mode: '+this.mode)
 					}
-					if(hitResult){
-						if (hitResult.item && hitResult.item.elementID) 
+					hitResults = hitResults.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area));
+					if(hitResults && hitResults.length > 0){
+						hitResults = hitResults.filter(hr => hr.item && hr.item.elementID);
+						const hitResult = hitResults[0];
+						if (hitResult) 
 							this.thisInput.clickElement(hitResult.item.elementID, event, hitResult, this.mode);
 						else
 							this.thisInput.clickImage(event);
@@ -118,17 +121,21 @@ class Viewer {
 			if(propagate){
 				if(this.mode == ViewerMode.POLYGON){
 					// Check regions first
-					let hitResult = this._overlays["regions"] ? this._overlays["regions"].hitTest(event.point, this._hitOptions) : null;
+					let hitResults = this._overlays["regions"] && this._overlays["regions"].visible ?
+									this._overlays["regions"].hitTestAll(event.point, this._hitOptions) : null;
 
 					// Check textlines second
-					if(!hitResult)
-						hitResult = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTest(event.point,this._hitOptions) : null;
+					if(!hitResults || hitResults.length == 0)
+						hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsTextline) : null;
 
 					// Check segments last
-					if(!hitResult)
-						hitResult = this._overlays["segments"] ? this._overlays["segments"].hitTest(event.point, this._hitOptions) : null;
+					if(!hitResults || hitResults.length == 0)
+						hitResults = this._overlays["segments"] ? this._overlays["segments"].hitTestAll(event.point, this._hitOptions) : null;
 
-					if(hitResult){
+					hitResults = hitResults.filter(hr => hr.item && hr.item.elementID)
+									.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area));
+					if(hitResults && hitResults.length > 0){
+						const hitResult = hitResults[0];
 						const new_highlight = hitResult.item ? hitResult.item.elementID : null;
 
 						if(this._highlighted && new_highlight !== this._highlighted)
