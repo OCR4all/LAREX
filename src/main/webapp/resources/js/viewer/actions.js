@@ -491,6 +491,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 	const _id = id;
 	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
 	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[_id].points));
+	const _orientation = segmentation[page].segments[_id].orientation;
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
 		_actionSetFixed = new ActionFixSegment(id, controller, true);
@@ -500,6 +501,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 			_isExecuted = true;
 			let segment = segmentation[page].segments[_id];
 			segment.points = _newRegionPoints;
+			segment.orientation = null;
 			viewer.updateSegment(segment);
 			if (_actionSetFixed)
 				_actionSetFixed.execute();
@@ -512,6 +514,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 			_isExecuted = false;
 			let segment = segmentation[page].segments[_id];
 			segment.points = _oldRegionPoints;
+			segment.orientation = _orientation;
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
 			viewer.updateSegment(segment);
@@ -527,12 +530,14 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 	const _newRegionPoints = clone(segmentPoints);
 	const _oldRegionPoints = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points);
 	const _oldMinArea = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].minArea);
+	const _orientation = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].orientation;
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _newRegionPoints;
+			segment.orientation = null;
 			delete segment.minArea;
 			viewer.updateSegment(segment);
 			textViewer.updateTextline(segment);
@@ -546,6 +551,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _oldRegionPoints;
 			segment.minArea = clone(_oldMinArea);
+			segment.orientation = _orientation;
 			viewer.updateSegment(segment);
 			textViewer.updateTextline(segment);
 			controller.forceUpdateReadingOrder();

@@ -1,7 +1,6 @@
 package com.web.io;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -12,7 +11,6 @@ import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
@@ -26,6 +24,8 @@ import org.primaresearch.dla.page.layout.logical.Group;
 import org.primaresearch.dla.page.layout.logical.GroupMember;
 import org.primaresearch.dla.page.layout.logical.RegionRef;
 import org.primaresearch.dla.page.layout.physical.Region;
+import org.primaresearch.dla.page.layout.physical.impl.CustomRegion;
+import org.primaresearch.dla.page.layout.physical.impl.NoiseRegion;
 import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.TextContentVariant;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
@@ -76,15 +76,7 @@ public class PageXMLReader {
 			// Read into PAGE xml
 			page = reader.read(new FileInput(tempPAGExml));
 			tempPAGExml.delete();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} catch (UnsupportedFormatVersionException e) {
-			e.printStackTrace();
-		} catch (TransformerConfigurationException e) {
-			e.printStackTrace();
-		} catch (TransformerException e) {
+		} catch (IOException | UnsupportedFormatVersionException | TransformerException e) {
 			e.printStackTrace();
 		}
 
@@ -96,6 +88,10 @@ public class PageXMLReader {
 				// Get Type
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
+				
+				Double orientation = !(region instanceof CustomRegion || region instanceof NoiseRegion) ? 
+						PrimaLibHelper.getOrientation(region) : null;
+				
 				final Map<String,com.web.model.TextLine> textLines = new HashMap<>();
 				final List<String> readingOrder = new ArrayList<>();
 				
@@ -129,7 +125,6 @@ public class PageXMLReader {
 								if(textContent.getText() != null) { 
 									Variable indexVariable = textContent.getAttributes().get(DefaultXmlNames.ATTR_index);
 									if(indexVariable != null && indexVariable instanceof IntegerVariable) {
-										//TODO currently no index can be read every index is undefined / null
 										final int index = ((IntegerValue)(indexVariable).getValue()).val;
 										content.put(index, textContent.getText());
 										highestIndex = index > highestIndex ? index : highestIndex;
@@ -168,7 +163,7 @@ public class PageXMLReader {
 				String id = region.getId().toString();
 				if (!pointList.isEmpty()) {
 					resRegions.put(id, new com.web.model.Region(id, new PAGERegionType(type, subtype).toString(),
-							pointList, false, textLines, readingOrder));
+							pointList, orientation, false, textLines, readingOrder));
 				}
 			}
 			final int height = page.getLayout().getHeight();

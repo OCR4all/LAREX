@@ -100,7 +100,7 @@ public class SegmentationSettings {
 			int minSize = region.getMinSize();
 			int maxOccurances = region.getMaxOccurances();
 			PriorityPosition priorityPosition = region.getPriorityPosition();
-			com.web.facade.segmentation.SegmentationRegionArea guiRegion = new com.web.facade.segmentation.SegmentationRegionArea(regionType, minSize, maxOccurances,
+			SegmentationRegionArea guiRegion = new SegmentationRegionArea(regionType, minSize, maxOccurances,
 					priorityPosition);
 
 			int regionCount = 0;
@@ -112,7 +112,7 @@ public class SegmentationSettings {
 				points.add(new Point(position.getTopLeftXPercentage(), position.getBottomRightYPercentage()));
 
 				String id = regionType.toString() + regionCount;
-				guiRegion.addPolygon(new Region(id, regionType, points, true, new HashMap<>(), new ArrayList<>()));
+				guiRegion.addPolygon(new Region(id, regionType, points, null, true, new HashMap<>(), new ArrayList<>()));
 				regionCount++;
 			}
 

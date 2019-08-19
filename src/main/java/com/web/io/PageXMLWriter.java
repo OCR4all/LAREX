@@ -90,7 +90,6 @@ public class PageXMLWriter {
 			RegionType regionType = TypeConverter.enumRegionTypeToPrima(type.getType());
 
 			Region region = layout.createRegion(regionType);
-
 			Polygon poly = new Polygon();
 
 			for (Point point : regionSegment.getPoints()) {
@@ -135,10 +134,12 @@ public class PageXMLWriter {
 						}
 					}
 				}
-
 			}
 
 			region.setCoords(poly);
+			if(regionSegment.getOrientation() != null) {
+				PrimaLibHelper.setOrientation(region, regionSegment.getOrientation());
+			}
 
 			idMap.put(regionSegment.getId(), region.getId());
 		}
