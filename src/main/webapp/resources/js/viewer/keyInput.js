@@ -173,13 +173,13 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						break;
 					case 49: // 1
 						if(mode === Mode.SEGMENT){
-							_controller.createRectangle(ElementType.REGION);
+							_controller.createRectangle(ElementType.AREA);
 							validKey = true;
 						}
 						break;
 					case 50: // 2
 						if(mode === Mode.SEGMENT){
-							_controller.createRegionBorder();
+							_controller.createRegionAreaBorder();
 							validKey = true;
 						}
 						break;

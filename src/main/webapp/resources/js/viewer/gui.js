@@ -703,10 +703,10 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		let $button = null;
 		switch (option) {
 			case 'regionRectangle':
-				$button = $('.createRegionRectangle');
+				$button = $('.createRegionAreaRectangle');
 				break;
 			case 'regionBorder':
-				$button = $('.createRegionBorder');
+				$button = $('.createRegionAreaBorder');
 				break;
 			case 'segmentRectangle':
 				$button = $('.createSegmentRectangle');

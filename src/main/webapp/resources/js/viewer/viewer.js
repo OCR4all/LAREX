@@ -54,8 +54,8 @@ class Viewer {
 					let hitResults = false;
 					if(this.mode == ViewerMode.POLYGON){
 						// Check regions first
-						hitResults = this._overlays["regions"] && this._overlays["regions"].visible ?
-										this._overlays["regions"].hitTestAll(event.point, this._hitOptions) : null;
+						hitResults = this._overlays["areas"] && this._overlays["areas"].visible ?
+										this._overlays["areas"].hitTestAll(event.point, this._hitOptions) : null;
 
 						// Check textlines second
 						if(!hitResults || hitResults.length == 0)
@@ -123,8 +123,8 @@ class Viewer {
 			if(propagate){
 				if(this.mode == ViewerMode.POLYGON){
 					// Check regions first
-					let hitResults = this._overlays["regions"] && this._overlays["regions"].visible ?
-									this._overlays["regions"].hitTestAll(event.point, this._hitOptions) : null;
+					let hitResults = this._overlays["areas"] && this._overlays["areas"].visible ?
+									this._overlays["areas"].hitTestAll(event.point, this._hitOptions) : null;
 
 					// Check textlines second
 					if(!hitResults || hitResults.length == 0)
@@ -205,8 +205,8 @@ class Viewer {
 		this._imageCanvas.addChild(this._overlays["segments"]);
 
 		// Create region canvas
-		this._createEmptyOverlay("regions");
-		this._imageCanvas.addChild(this._overlays["regions"]);
+		this._createEmptyOverlay("areas");
+		this._imageCanvas.addChild(this._overlays["areas"]);
 
 		// Create line canvas
 		this._createEmptyOverlay("lines");
@@ -354,8 +354,8 @@ class Viewer {
 		}
 	}
 
-	addRegion(region) {
-		this.drawPolygon(region, true, false, this._overlays["regions"]);
+	addArea(region) {
+		this.drawPolygon(region, true, false, this._overlays["areas"]);
 	}
 
 	addTextLine(textline){
@@ -370,7 +370,7 @@ class Viewer {
 		this.removeSegment(lineID);
 	}
 
-	removeRegion(regionID) {
+	removeArea(regionID) {
 		this.endEditing();
 		this.removeSegment(regionID);
 	}

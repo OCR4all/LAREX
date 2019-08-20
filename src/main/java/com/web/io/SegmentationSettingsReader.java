@@ -97,7 +97,7 @@ public class SegmentationSettingsReader {
 
 			Region region = new Region(type, subtype, minSize, maxOccurances, priority, new ArrayList<RelativePosition>());
 			region.setPositions(positions);
-			regionManager.addRegion(region);
+			regionManager.addArea(region);
 		}
 
 		return regionManager;

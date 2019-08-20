@@ -94,8 +94,6 @@ class Editor extends Viewer {
 							}
 						} else {
 							throw new Error("Edit Mode is left while still creating a Rectangle");
-							//this._endRectangle(endFunction,this._tempPolygon);
-							//this.removeListener(listener);
 						}
 					}
 					imageCanvas.addChild(this._tempPolygon);
@@ -153,14 +151,14 @@ class Editor extends Viewer {
 						case 'segment':
 							this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(rectangle, false));
 							break;
-						case 'region':
-							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true));
+						case 'area':
+							this._controller.callbackNewArea(this._convertCanvasPolygonToGlobal(rectangle, true));
 							break;
 						case 'textline':
 							this._controller.callbackNewTextLine(this._convertCanvasPolygonToGlobal(rectangle, false));
 							break;
 						case 'ignore':
-							this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(rectangle, true), 'ignore');
+							this._controller.callbackNewArea(this._convertCanvasPolygonToGlobal(rectangle, true), 'ignore');
 							break;
 						case 'roi':
 						default:
@@ -260,8 +258,8 @@ class Editor extends Viewer {
 				this._tempPolygon.selected = false;
 				if (this._tempPolygonType === ElementType.SEGMENT) {
 					this._controller.callbackNewSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
-				} else if(this._tempPolygonType === ElementType.REGION) {
-					this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
+				} else if(this._tempPolygonType === ElementType.AREA) {
+					this._controller.callbackNewArea(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				} else if(this._tempPolygonType === ElementType.TEXTLINE) {
 					this._controller.callbackNewTextLine(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				}
@@ -418,8 +416,8 @@ endCreateBorder() {
 		this.isEditing = false;
 
 		if (this._tempPolygon != null) {
-			if (this._tempPolygonType === ElementType.REGION) {
-				this._controller.callbackNewRegion(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
+			if (this._tempPolygonType === ElementType.AREA) {
+				this._controller.callbackNewArea(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 			}
 
 			this._tempPolygon.remove();

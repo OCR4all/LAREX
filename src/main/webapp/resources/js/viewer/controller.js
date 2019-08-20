@@ -1,6 +1,6 @@
 var Mode = {SEGMENT:'segment',EDIT:'edit',LINES:'lines',TEXT:'text'}
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
-var ElementType = {SEGMENT:'segment',REGION:'region',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
+var ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
 
 function Controller(bookID, accessible_modes, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -216,7 +216,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				// Iterate over all Polygons in Region
 				Object.keys(region.polygons).forEach((polygonKey) => {
 					let polygon = region.polygons[polygonKey];
-					_editor.addRegion(polygon);
+					_editor.addArea(polygon);
 
 					if (!_visibleRegions[region.type] & region.type !== 'ignore') {
 						_editor.hideSegment(polygon.id, true);
@@ -381,7 +381,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			selected = selected.map(id => (this.getIDType(id) === ElementType.TEXTLINE) ? this.textlineRegister[id] : id);
 			// Set visibilities
 			_editor.displayOverlay("segments",true);
-			_editor.displayOverlay("regions",true);
+			_editor.displayOverlay("areas",true);
 			_editor.displayOverlay("lines",false);
 			this.displayTextViewer(false);
 			if(_segmentation[_currentPage]){
@@ -395,7 +395,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			selected = selected.filter(id => [ElementType.TEXTLINE,ElementType.SEGMENT].includes(this.getIDType(id)));
 			// Set visibilities
 			_editor.displayOverlay("segments",true);
-			_editor.displayOverlay("regions",false);
+			_editor.displayOverlay("areas",false);
 			_editor.displayOverlay("lines",true);
 			this.forceUpdateReadingOrder();
 			this.displayTextViewer(false);
@@ -416,7 +416,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			selected = postSelect;
 			// Set visibilities
 			_editor.displayOverlay("segments",false);
-			_editor.displayOverlay("regions",false);
+			_editor.displayOverlay("areas",false);
 			_editor.displayOverlay("lines",true);
 			this.displayReadingOrder(false);
 			this.displayTextViewer(true);
@@ -579,7 +579,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			case ElementType.SEGMENT:
 				_gui.selectToolBarButton('segmentRectangle', true);
 				break;
-			case ElementType.REGION:
+			case ElementType.AREA:
 				_gui.selectToolBarButton('regionRectangle', true);
 				break;
 			case ElementType.TEXTLINE:
@@ -606,7 +606,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			const selected = _selector.getSelectedSegments();
 			const selectType = _selector.getSelectedPolygonType();
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				if (selectType === ElementType.REGION) {
+				if (selectType === ElementType.AREA) {
 				} else if (selectType === ElementType.SEGMENT) {
 					let wasFixed = $.inArray(selected[i], _fixedGeometry[_currentPage].segments) > -1;
 					actions.push(new ActionFixSegment(selected[i], this, !wasFixed));
@@ -671,8 +671,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			//Polygon is selected => Delete polygon
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				if (selectType === ElementType.REGION) {
-					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
+				if (selectType === ElementType.AREA) {
+					actions.push(new ActionRemoveRegionArea(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
 				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
@@ -767,15 +767,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
 		const selectedlength = selected.length;
-		if (selectType === ElementType.REGION || selectType === ElementType.SEGMENT){
+		if (selectType === ElementType.AREA || selectType === ElementType.SEGMENT){
 			if (selectedlength || selectedlength > 0) {
 				const actions = [];
 				for (let i = 0; i < selectedlength; i++) {
-					if (selectType === ElementType.REGION) {
+					if (selectType === ElementType.AREA) {
 						const regionPolygon = this._getRegionByID(selected[i]);
-						actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings, _currentPage, this));
+						actions.push(new ActionChangeTypeRegionArea(regionPolygon, newType, _editor, _settings, _currentPage, this));
 
-						this.hideRegion(newType, false);
+						this.hideRegionArea(newType, false);
 					} else if (selectType === ElementType.SEGMENT) {
 						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
 					}
@@ -786,13 +786,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 	
-	this.createRegionBorder = function () {
+	this.createRegionAreaBorder = function () {
 		this.endEditing();
-		_editor.startCreateBorder(ElementType.REGION);
+		_editor.startCreateBorder(ElementType.AREA);
 		_gui.selectToolBarButton('regionBorder', true);
 	}
 
-	this.callbackNewRegion = function (regionpoints, regiontype) {
+	this.callbackNewArea = function (regionpoints, regiontype) {
 		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
 		if (!regiontype) {
@@ -805,7 +805,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 
 		if(regionpoints && this._countUniquePoints(regionpoints) > 3){
-			const actionAdd = new ActionAddRegion(newID, regionpoints, type,
+			const actionAdd = new ActionAddRegionArea(newID, regionpoints, type,
 				_editor, _settings, _currentPage);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
@@ -839,19 +839,19 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			const actions = [];
 
 			//Create 'inverted' ignore rectangle
-			actions.push(new ActionAddRegion("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
+			actions.push(new ActionAddRegionArea("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
 				_editor, _settings, _currentPage));
 			_newPolygonCounter++;
 
-			actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
+			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
 				_editor, _settings, _currentPage));
 			_newPolygonCounter++;
 
-			actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
+			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
 				_editor, _settings, _currentPage));
 			_newPolygonCounter++;
 
-			actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
+			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
 				_editor, _settings, _currentPage));
 			_newPolygonCounter++;
 
@@ -940,30 +940,30 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const selectType = _selector.getSelectedPolygonType();
 		const selected = _selector.getSelectedSegments();
 
-		if (selectType === ElementType.REGION && selected.length === 1) 
-			_editor.startScalePolygon(selected[0], ElementType.REGION);
+		if (selectType === ElementType.AREA && selected.length === 1) 
+			_editor.startScalePolygon(selected[0], ElementType.AREA);
 	}
 
 	this.transformRegion = function (regionID, regionSegments) {
 		const polygonType = this.getIDType(regionID);
-		if (polygonType === ElementType.REGION) {
+		if (polygonType === ElementType.AREA) {
 			let regionType = this._getRegionByID(regionID).type;
-			let actionTransformRegion = new ActionTransformRegion(regionID, regionSegments, regionType, _editor, _settings, _currentPage, this);
+			let actionTransformRegion = new ActionTransformRegionArea(regionID, regionSegments, regionType, _editor, _settings, _currentPage, this);
 			_actionController.addAndExecuteAction(actionTransformRegion, _currentPage);
-			this.hideRegion(regionType, false);
+			this.hideRegionArea(regionType, false);
 			_selector.select(regionID);
 		}
 	}
 
 	this.changeRegionType = function (id, type) {
 		const polygonType = this.getIDType(id);
-		if (polygonType === ElementType.REGION) {
+		if (polygonType === ElementType.AREA) {
 			const regionPolygon = this._getRegionByID(id);
 			if (regionPolygon.type != type) {
-				let actionChangeType = new ActionChangeTypeRegionPolygon(regionPolygon, type, _editor, _settings, _currentPage, this);
+				let actionChangeType = new ActionChangeTypeRegionArea(regionPolygon, type, _editor, _settings, _currentPage, this);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
-			this.hideRegion(type, false);
+			this.hideRegionArea(type, false);
 		} else if (polygonType === ElementType.SEGMENT) {
 			if (_segmentation[_currentPage].segments[id].type != type) {
 				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
@@ -1332,7 +1332,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		});
 	}
-	this.hideRegion = function (regionType, doHide) {
+	this.hideRegionArea = function (regionType, doHide) {
 		_visibleRegions[regionType] = !doHide;
 
 		const region = _settings.regions[regionType];
@@ -1463,7 +1463,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	this.deleteRegionSettings = function (regionType) {
 		if ($.inArray(regionType, _presentRegions) >= 0 && regionType != 'ImageRegion' && regionType != 'paragraph') {
-			_actionController.addAndExecuteAction(new ActionRemoveCompleteRegion(regionType, this, _editor, _settings, this), _currentPage);
+			_actionController.addAndExecuteAction(new ActionRemoveRegionType(regionType, this, _editor, _settings, this), _currentPage);
 		}
 	}
 
@@ -1478,11 +1478,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.openContextMenu = function (doSelected, id) {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
-		if (doSelected && selected && selected.length > 0 && (selectType === ElementType.REGION || selectType === ElementType.SEGMENT)) {
+		if (doSelected && selected && selected.length > 0 && (selectType === ElementType.AREA || selectType === ElementType.SEGMENT)) {
 			_gui.openContextMenu(doSelected, id);
 		} else {
 			let polygonType = this.getIDType(id);
-			if (polygonType === ElementType.REGION || polygonType === ElementType.SEGMENT) {
+			if (polygonType === ElementType.AREA || polygonType === ElementType.SEGMENT) {
 				_gui.openContextMenu(doSelected, id);
 			}
 		}
@@ -1535,7 +1535,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let type = "Region";
 		if(elementType === ElementType.SEGMENT){
 			type = _segmentation[_currentPage].segments[id].type;
-		}else if(elementType === ElementType.REGION){
+		}else if(elementType === ElementType.AREA){
 			type = this._getRegionByID(id).type;
 		}
 		return (type !== "ignore" && !type.includes("Region"));
@@ -1547,7 +1547,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (polygon) return ElementType.SEGMENT;
 
 			polygon = this._getRegionByID(id);
-			if (polygon) return ElementType.REGION;
+			if (polygon) return ElementType.AREA;
 
 			if(_fixedGeometry[_currentPage] && _fixedGeometry[_currentPage].cuts){
 				polygon = _fixedGeometry[_currentPage].cuts[id];

@@ -16,7 +16,7 @@ public class RegionManager {
 	private static Map<PAGERegionType,Region> regions;
 
 	public RegionManager(Set<Region> regions) {
-		for(Region region : regions) addRegion(region);
+		for(Region region : regions) addArea(region);
 	}
 	
 	public RegionManager() {
@@ -54,7 +54,7 @@ public class RegionManager {
 	 * 
 	 * @param region
 	 */
-	public void addRegion(Region region) {
+	public void addArea(Region region) {
 		regions.put(region.getType(), region);
 	}
 

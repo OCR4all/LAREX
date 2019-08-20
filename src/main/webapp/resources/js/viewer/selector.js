@@ -261,7 +261,7 @@ class Selector {
 						order.push(id);
 					}
 				}
-			} else if (type === ElementType.REGION){
+			} else if (type === ElementType.AREA){
 				let regions = [];
 				for(const [_,polygons] of Object.entries(this._controller.getCurrentSettings().regions)){
 					regions = regions.concat(Object.keys(polygons));
@@ -514,7 +514,7 @@ class Selector {
 				this._controller.closeEditLine();
 			}
 		}
-		if(this.selectedType === ElementType.REGION)
+		if(this.selectedType === ElementType.AREA)
 			this._controller.scaleSelectedRegion();
 	}
 

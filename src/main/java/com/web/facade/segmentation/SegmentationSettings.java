@@ -150,7 +150,7 @@ public class SegmentationSettings {
 
 			larex.geometry.regions.Region region = new larex.geometry.regions.Region(regionType, minSize, maxOccurances, priorityPosition,
 					new ArrayList<RelativePosition>());
-			regionmanager.addRegion(region);
+			regionmanager.addArea(region);
 
 			for (Region polygon : guiRegion.getPolygons().values()) {
 				List<Point> points = polygon.getPoints();

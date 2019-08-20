@@ -86,11 +86,11 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 			_controller.changeImageCombine(doCombine);
 		}
 	});
-	$('.createRegionRectangle').click(() => _controller.createRectangle('region'));
+	$('.createRegionAreaRectangle').click(() => _controller.createRectangle('area'));
 	$('.setRegionOfInterest').click(() => _controller.createRectangle('roi'));
 
 	$('.createIgnore').click(() => _controller.createRectangle('ignore'));
-	$('.createRegionBorder').click(() => _controller.createRegionBorder());
+	$('.createRegionAreaBorder').click(() => _controller.createRegionAreaBorder());
 	$('.createSegmentPolygon').click(() => _controller.createSegmentPolygon(true));
 	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
 	$('.createTextLinePolygon').click(() => _controller.createTextLinePolygon(true));
@@ -159,7 +159,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	$('.regionlegend').click(function () {
 		const $this = $(this);
 		const $switchBox = $this.find('input');
-		_controller.hideRegion($this.data('type'), !$switchBox.prop('checked'));
+		_controller.hideRegionArea($this.data('type'), !$switchBox.prop('checked'));
 	});
 	$('.regionlegendAll').click(function () {
 		const $switchBox = $(this).find('input');
