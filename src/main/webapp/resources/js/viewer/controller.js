@@ -449,7 +449,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				var a = window.document.createElement('a');
 				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
 				const fileName = _book.pages[_currentPage].name;
-				a.download = _book.name + "_" + name + ".xml";
+				a.download = _book.name + "_" + fileName + ".xml";
 
 				// Append anchor to body.
 				document.body.appendChild(a);
