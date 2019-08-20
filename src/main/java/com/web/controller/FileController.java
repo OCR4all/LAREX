@@ -43,7 +43,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
 
 import com.web.communication.ExportRequest;
-import com.web.communication.SegmentationRequest;
 import com.web.config.LarexConfiguration;
 import com.web.facade.segmentation.LarexFacade;
 import com.web.facade.segmentation.SegmentationSettings;
@@ -226,9 +225,9 @@ public class FileController {
 	 * Download the current segmentation settings as response.
 	 */
 	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
-	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationRequest exportRequest) {
+	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationSettings settings) {
 		try {
-			return convertDocumentToByte(LarexFacade.getSettingsXML(exportRequest.getSettings(), exportRequest.getPage()), "settings.xml");
+			return convertDocumentToByte(LarexFacade.getSettingsXML(settings), "settings.xml");
 		} catch (Exception e) {
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}

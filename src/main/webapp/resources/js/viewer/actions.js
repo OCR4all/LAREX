@@ -407,14 +407,17 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 	}
 }
 
-function ActionAddCut(id, points, editor, settings, page) {
+function ActionAddCut(id, points, editor, fixedGeometry, page) {
 	let _isExecuted = false;
 	const _cut = { id: id, points: points, type: 'other', isRelative: false };
+	if(!fixedGeometry[page]){
+		fixedGeometry[page] = {};
+	}
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			settings.pages[page].cuts[_cut.id] = _cut;
+			fixedGeometry[page].cuts[_cut.id] = _cut;
 			editor.addLine(_cut);
 			console.log('Do - Add Cut: {id:"' + _cut.id + '",[..]}');
 		}
@@ -422,22 +425,25 @@ function ActionAddCut(id, points, editor, settings, page) {
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			delete settings.pages[page].cuts[_cut.id];
+			delete fixedGeometry[page].cuts[_cut.id];
 			editor.removeLine(_cut.id);
 			console.log('Undo - Add Cut: {id:"' + _cut.id + '",[..]}');
 		}
 	}
 }
 
-function ActionRemoveCut(cut, editor, settings, page) {
+function ActionRemoveCut(cut, editor, fixedGeometry, page) {
 	let _isExecuted = false;
 	const _cut = JSON.parse(JSON.stringify(cut));
+	if(!fixedGeometry[page]){
+		fixedGeometry[page] = {};
+	}
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 
-			delete settings.pages[page].cuts[_cut.id];
+			delete fixedGeometry[page].cuts[_cut.id];
 			editor.removeSegment(_cut.id);
 			console.log('Do - Remove Cut: {id:"' + _cut.id + '",[..],type:"' + _cut.type + '"}');
 		}
@@ -446,7 +452,7 @@ function ActionRemoveCut(cut, editor, settings, page) {
 		if (_isExecuted) {
 			_isExecuted = false;
 
-			settings.pages[page].cuts[_cut.id] = JSON.parse(JSON.stringify(_cut));
+			fixedGeometry[page].cuts[_cut.id] = JSON.parse(JSON.stringify(_cut));
 			editor.addLine(_cut);
 			console.log('Undo - Remove Cut: {id:"' + _cut.id + '",[..],type:"' + _cut.type + '"}');
 		}

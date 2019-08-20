@@ -76,7 +76,7 @@ class Communicator {
 	}
 
 	exportSettings(settings) {
-		return this.request("downloadSettings", {settings:settings,page:0}, DataType.JSON, DataType.BYTE);
+		return this.request("downloadSettings", settings, DataType.JSON, DataType.BYTE);
 	}
 	
 	getSettings(bookID) { 

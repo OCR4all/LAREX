@@ -26,7 +26,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _allowLoadLocal = true;
 	let _autoSegment = true;
 	let _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
-	let _fixedSegments = {};
+	let _fixedGeometry = {};
 	let _editReadingOrder = false;
 
 	let _newPolygonCounter = 0;
@@ -238,7 +238,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			});
 
-			const pageCuts = _settings.pages[_currentPage].cuts;
+			if(!_fixedGeometry[_currentPage])
+				_fixedGeometry[_currentPage] = {segments:[],cuts:{}};
+
+			const pageCuts = _fixedGeometry[_currentPage].cuts;
 			// Iterate over FixedSegment-"Map" (Object in JS)
 			Object.keys(pageCuts).forEach((key) => _editor.addLine(pageCuts[key]));
 
@@ -291,9 +294,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
-		activesettings.pages[_currentPage].segments = {};
-		if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-		_fixedSegments[_currentPage].forEach(s => activesettings.pages[_currentPage].segments[s] = _segmentation[_currentPage].segments[s]);
+		activesettings.fixedGeometry = {segments:{},cuts:{}};
+		if (_fixedGeometry[_currentPage]) {
+			if (_fixedGeometry[_currentPage].segments) 
+				_fixedGeometry[_currentPage].segments.forEach(
+					s => activesettings.fixedGeometry.segments[s] = _segmentation[_currentPage].segments[s]);
+			if (_fixedGeometry[_currentPage].cuts) 
+				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
+		}
 
 		_communicator.segmentBook(activesettings, _currentPage, allowLoadLocal).done((result) => {
 			const failedSegmentations = [];
@@ -556,13 +564,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.fixSegment = function (id, doFix = true) {
-		if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-		let arrayPosition = $.inArray(id, _fixedSegments[_currentPage]);
+		let arrayPosition = $.inArray(id, _fixedGeometry[_currentPage].segments);
 		if (doFix && arrayPosition < 0) {
-			_fixedSegments[_currentPage].push(id)
+			_fixedGeometry[_currentPage].segments.push(id)
 		} else if (!doFix && arrayPosition > -1) {
-			//remove from _fixedSegments
-			_fixedSegments[_currentPage].splice(arrayPosition, 1);
+			//remove from fixed segments
+			_fixedGeometry[_currentPage].segments.splice(arrayPosition, 1);
 		}
 		_editor.fixSegment(id, doFix);
 	}
@@ -639,8 +646,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				if (selectType === ElementType.REGION) {
 				} else if (selectType === ElementType.SEGMENT) {
-					if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-					let wasFixed = $.inArray(selected[i], _fixedSegments[_currentPage]) > -1;
+					let wasFixed = $.inArray(selected[i], _fixedGeometry[_currentPage].segments) > -1;
 					actions.push(new ActionFixSegment(selected[i], this, !wasFixed));
 				} else if (selectType === ElementType.CUT) {
 				}
@@ -710,8 +716,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
 				} else if (selectType === ElementType.CUT) {
-					let cut = _settings.pages[_currentPage].cuts[selected[i]];
-					actions.push(new ActionRemoveCut(cut, _editor, _settings, _currentPage));
+					let cut = _fixedGeometry[_currentPage].cuts[selected[i]];
+					actions.push(new ActionRemoveCut(cut, _editor, _fixedGeometry, _currentPage));
 				} else if (selectType === ElementType.TEXTLINE) {
 					let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[i]]].textlines[selected[i]];
 					actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
@@ -924,7 +930,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_newPolygonCounter++;
 
 		const actionAdd = new ActionAddCut(newID, segmentpoints,
-			_editor, _settings, _currentPage);
+			_editor, _fixedGeometry, _currentPage);
 
 		_actionController.addAndExecuteAction(actionAdd, _currentPage);
 		_gui.unselectAllToolBarButtons();
@@ -1534,11 +1540,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.isSegmentFixed = function (id) {
-		if (!_fixedSegments[_currentPage])
-			_fixedSegments[_currentPage] = [];
-
-		let isFixed = ($.inArray(id, _fixedSegments[_currentPage]) !== -1);
-		return isFixed;
+		if (_fixedGeometry[_currentPage] && _fixedGeometry[_currentPage].segments) {
+			return ($.inArray(id, _fixedGeometry[_currentPage].segments) !== -1);
+		} else {
+			return false;
+		}
 	}
 
 	this._getRegionByID = function (id) {
@@ -1574,8 +1580,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			polygon = this._getRegionByID(id);
 			if (polygon) return ElementType.REGION;
 
-			polygon = _settings.pages[_currentPage].cuts[id];
-			if (polygon) return ElementType.CUT;
+			if(_fixedGeometry[_currentPage] && _fixedGeometry[_currentPage].cuts){
+				polygon = _fixedGeometry[_currentPage].cuts[id];
+				if (polygon) return ElementType.CUT;
+			}
 
 			if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
 			}
@@ -1589,7 +1597,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		polygon = this._getRegionByID(id);
 		if (polygon) return polygon;
 
-		polygon = _settings.pages[_currentPage].cuts[id];
+		polygon = _fixedGeometry[_currentPage].cuts[id];
 		if (polygon) return polygon;
 	}
 

@@ -38,8 +38,8 @@ public class SegmentationSettings {
 
 	@JsonProperty("book")
 	protected int bookID;
-	@JsonProperty("pages")
-	private LinkedList<FixedGeometry> pages;
+	@JsonProperty("fixedGeometry")
+	private FixedGeometry fixedGeometry;
 	@JsonProperty("parameters")
 	private Map<String, Integer> parameters;
 	@JsonProperty("regions")
@@ -52,7 +52,7 @@ public class SegmentationSettings {
 	private ImageSegType imageSegType;
 
 	@JsonCreator
-	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("pages") LinkedList<FixedGeometry> pages,
+	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
 			@JsonProperty("regions") Map<String, SegmentationRegionArea> regions,
 			@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
@@ -60,7 +60,7 @@ public class SegmentationSettings {
 			@JsonProperty("imageSegType") ImageSegType imageSegType) {
 		this.bookID = bookID;
 		this.regions = regions;
-		this.pages = pages;
+		this.fixedGeometry = fixedGeometry;
 		this.parameters = parameters;
 		this.combine = combine;
 		this.imageSegType = imageSegType;
@@ -79,10 +79,7 @@ public class SegmentationSettings {
 	public SegmentationSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
 		this.regions = new HashMap<String, SegmentationRegionArea>();
-		pages = new LinkedList<FixedGeometry>();
-		for (int pageIndex = book.getPages().size(); pageIndex > 0; pageIndex--) {
-			pages.add(new FixedGeometry());
-		}
+		fixedGeometry = new FixedGeometry();
 		this.parameters = new HashMap<String, Integer>();
 
 		this.parameters.put("textdilationX", parameters.getTextDilationX());
@@ -131,10 +128,9 @@ public class SegmentationSettings {
 	 * of the page
 	 * 
 	 * @param pagesize
-	 * @param pageID
 	 * @return
 	 */
-	public Parameters toParameters(Size pagesize, int pageID) {
+	public Parameters toParameters(Size pagesize) {
 		// Set Parameters
 		RegionManager regionmanager = new RegionManager(new HashSet<>());
 		Parameters parameters = new Parameters(regionmanager, (int) pagesize.height);
@@ -175,7 +171,7 @@ public class SegmentationSettings {
 
 		// Set existing Geometry
 		ArrayList<RegionSegment> fixedPointLists = new ArrayList<>();
-		for (Region fixedSegment : this.getPage(pageID).getFixedSegments().values()) {
+		for (Region fixedSegment : this.fixedGeometry.getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : fixedSegment.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
@@ -187,7 +183,7 @@ public class SegmentationSettings {
 
 		// Set existing cuts
 		ArrayList<PointList> cuts = new ArrayList<>();
-		for (Polygon cut : this.getPage(pageID).getCuts().values()) {
+		for (Polygon cut : this.fixedGeometry.getCuts().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : cut.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
@@ -202,10 +198,6 @@ public class SegmentationSettings {
 
 	public Map<String, SegmentationRegionArea> getRegions() {
 		return new HashMap<String, SegmentationRegionArea>(regions);
-	}
-
-	public FixedGeometry getPage(int pageNr) {
-		return pages.get(pageNr);
 	}
 
 	public Map<String, Integer> getParameters() {

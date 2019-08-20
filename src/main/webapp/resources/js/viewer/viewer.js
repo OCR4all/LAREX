@@ -132,8 +132,10 @@ class Viewer {
 					if(!hitResults || hitResults.length == 0)
 						hitResults = this._overlays["segments"] ? this._overlays["segments"].hitTestAll(event.point, this._hitOptions) : null;
 
-					hitResults = hitResults.filter(hr => hr.item && hr.item.elementID)
-									.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area));
+					hitResults = hitResults ?
+									hitResults.filter(hr => hr.item && hr.item.elementID)
+										.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area))
+									: hitResults;
 					if(hitResults && hitResults.length > 0){
 						const hitResult = hitResults[0];
 						const new_highlight = hitResult.item ? hitResult.item.elementID : null;

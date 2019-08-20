@@ -67,8 +67,8 @@ public class LarexFacade {
 		return segmentation;
 	}
 
-	public static Document getSettingsXML(SegmentationSettings settings, int page) {
-		Parameters parameters = settings.toParameters(new Size(), page);
+	public static Document getSettingsXML(SegmentationSettings settings) {
+		Parameters parameters = settings.toParameters(new Size());
 		return SegmentationSettingsWriter.getSettingsXML(parameters);
 	}
 
@@ -94,7 +94,7 @@ public class LarexFacade {
 		if (imageFile.exists()) {
 			Mat original = ImageLoader.readOriginal(imageFile);
 
-			Parameters parameters = settings.toParameters(original.size(), page.getId());
+			Parameters parameters = settings.toParameters(original.size());
 
 			Collection<RegionSegment> result = Segmenter.segment(original,parameters);
 			MemoryCleaner.clean(original);
