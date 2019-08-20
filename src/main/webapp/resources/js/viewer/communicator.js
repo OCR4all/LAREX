@@ -52,8 +52,16 @@ class Communicator {
 		return this.request("data/virtualkeyboard");
 	}
 
+	getPageAnnotations(bookid, pageid) {
+		return this.request("data/page/annotations", {bookid:bookid, pageid:pageid});
+	}
+
+	getHaveAnnotations(bookID) { 
+		return this.request("data/status/all/annotations", {bookid:bookID});
+	}
+
 	// Segmentation
-	segmentBook(settings, page, allowLoadLocal) {
+	segmentPage(settings, page, allowLoadLocal) {
 		return this.request("segmentation/segment", {settings:settings,page:page,allowLoadLocal:allowLoadLocal}, DataType.JSON);
 	}
 
@@ -63,10 +71,6 @@ class Communicator {
 
 	getSettings(bookID) { 
 		return this.request("segmentation/settings", {bookid:bookID});
-	}
-
-	getSegmented(bookID) { 
-		return this.request("segmentation/segmentedpages", {bookid:bookID});
 	}
 	
 	// Processing

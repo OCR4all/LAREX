@@ -69,6 +69,10 @@ public class PageAnnotations {
 		this.width = width;
 		this.height = height;
 	}
+
+	public PageAnnotations(String name, int width, int height, int pageNr) {
+		this(name, width, height, pageNr, new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY);
+	}
 	
 	public Map<String, Region> getSegments() {
 		return new HashMap<String, Region>(segments);

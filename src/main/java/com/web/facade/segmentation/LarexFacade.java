@@ -44,10 +44,10 @@ public class LarexFacade {
 		Book book = database.getBook(settings.getBookID());
 
 		Page page = book.getPage(pageNr);
-		String xmlPath = fileManager.getLocalBooksPath() + File.separator + book.getName() + File.separator + page.getName()
-				+ ".xml";
+		File xmlPath = new File(fileManager.getLocalBooksPath() + File.separator +
+								book.getName() + File.separator + page.getName() + ".xml");
 
-		if (allowLocalResults && new File(xmlPath).exists()) {
+		if (allowLocalResults && xmlPath.exists()) {
 			return PageXMLReader.loadPageAnnotationsFromDisc(xmlPath);
 		} else {
 			PageAnnotations segmentation = segment(settings, page, fileManager);

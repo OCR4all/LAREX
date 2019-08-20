@@ -1,16 +1,11 @@
 package com.web.controller;
 
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
@@ -49,15 +44,13 @@ import com.web.facade.segmentation.SegmentationSettings;
 import com.web.io.FileDatabase;
 import com.web.io.FilePathManager;
 import com.web.io.PageXMLWriter;
-import com.web.model.Book;
 import com.web.model.PageAnnotations;
 
 import larex.data.MemoryCleaner;
 
 /**
- * Communication Controller to handle requests for the main viewer/editor.
- * Handles requests about displaying book scans and segmentations.
- * 
+ * Communication Controller to provide file contents 
+ * and process save and export requests
  */
 @Controller
 @Scope("request")
@@ -87,42 +80,6 @@ public class FileController {
 		}
 	}
 	
-	/**
-	 * Return informations about a book
-	 */
-	@RequestMapping(value = "data/book", method = RequestMethod.POST)
-	public @ResponseBody Book getBook(@RequestParam("bookid") int bookID) {
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-
-		return database.getBook(bookID);
-	}
-
-	/**
-	 * Retrieve the default virtual keyboard.
-	 * 
-	 * @param file
-	 * @param bookID
-	 * @return
-	 */
-	@RequestMapping(value = "data/virtualkeyboard", method = RequestMethod.POST)
-	public @ResponseBody List<String[]> virtualKeyboard() {
-		File virtualKeyboard = new File(fileManager.getVirtualKeyboardFile());
-
-		List<String[]> keyboard = new ArrayList<>();
-		try(BufferedReader br = new BufferedReader(new FileReader(virtualKeyboard))) {
-			String st; 
-			while ((st = br.readLine()) != null) 
-				if(st.replace("\\s+", "").length() > 0) 
-					keyboard.add(st.split("\\s+"));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} 
-		return keyboard;
-	}
-
 	/**
 	 * Request an image of a book, by book name and image name.
 	 * Use resize to get a downscaled preview image, with a width of 300px.

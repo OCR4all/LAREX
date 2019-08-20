@@ -193,14 +193,13 @@ public class PageXMLReader {
 	 * @param pageXMLInputPath Path to the PageXML file
 	 * @return PageAnnotations inside the document
 	 */
-	public static PageAnnotations loadPageAnnotationsFromDisc(String pageXMLInputPath) {
+	public static PageAnnotations loadPageAnnotationsFromDisc(File pageXMLInputPath) {
 		PageAnnotations segResult = null;
 
 		try {
-			File inputFile = new File(pageXMLInputPath);
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			Document document = dBuilder.parse(inputFile);
+			Document document = dBuilder.parse(pageXMLInputPath);
 			segResult = getPageAnnotations(document);
 		} catch (Exception e) {
 			e.printStackTrace();

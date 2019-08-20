@@ -193,7 +193,7 @@ public class FileDatabase {
 	 * @return Collection of all book pages in the selected book with a segmentation
 	 *         file
 	 */
-	public Collection<Integer> getSegmentedPageIDs(int bookID) {
+	public Collection<Integer> getPagesWithAnnotations(int bookID) {
 		Collection<Integer> segmentedIds = new HashSet<>();
 
 		Book book = getBook(bookID);

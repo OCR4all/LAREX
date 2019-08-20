@@ -175,21 +175,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			} else {
 				if(!_allowLoadLocal){
 					this._requestEmptySegmentation();
-				}else{
-					// Check if pages has local segmentation only if autoSegment is not allowed
-					_communicator.getSegmented(_book.id).done((pages) =>{
-						hasLocal = pages.includes(pageNr);
-						pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
-						if(_allowLoadLocal && hasLocal){
-							this.requestSegmentation(_allowLoadLocal);
-						} else {
-							this._requestEmptySegmentation();
-						}
-					});
+				} else {
+					this.loadAnnotations();
 				}
 			}
 		} else {
-			
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
 			this.textlineRegister = {};
@@ -286,6 +276,20 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.showUsedRegionLegends(_presentRegions);
 	}
 
+	this.loadAnnotations = function () {
+		//Update setting parameters
+		_settings.parameters = _gui.getParameters();
+
+		_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
+			this._setPage(_currentPage, result);
+			this.displayPage(_currentPage);
+
+			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
+				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
+			})
+		});
+	}
+
 	this.requestSegmentation = function (allowLoadLocal) {
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
@@ -303,23 +307,32 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
 		}
 
-		_communicator.segmentBook(activesettings, _currentPage, allowLoadLocal).done((result) => {
-			const failedSegmentations = [];
+		_communicator.segmentPage(activesettings, _currentPage, allowLoadLocal).done((result) => {
+			this._setPage(_currentPage, result);
+			this.displayPage(_currentPage);
+
+			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
+				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
+			})
+		});
+	}
+
+	this._setPage = function(pageid, result){
 			const missingRegions = [];
 
-			_gui.highlightLoadedPage(_currentPage, false);
+			_gui.highlightLoadedPage(pageid, false);
 			switch (result.status) {
 				case 'LOADED':
-					_gui.highlightLoadedPage(_currentPage, true);
+					_gui.highlightLoadedPage(pageid, true);
 				case 'SUCCESS':
-					_segmentation[_currentPage] = result;
+					_segmentation[pageid] = result;
 
-					_actionController.resetActions(_currentPage);
+					_actionController.resetActions(pageid);
 					//check if all necessary regions are available
 					Object.keys(result.segments).forEach((id) => {
 						let segment = result.segments[id];
 						if ($.inArray(segment.type, _presentRegions) == -1) {
-							//TODO as Action
+							//Add missing region
 							this.changeRegionSettings(segment.type, 0, -1);
 							if(!_colors.hasColor(segment.type)){
 								_colors.assignAvailableColor(segment.type)
@@ -332,7 +345,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					this.forceUpdateReadingOrder();
 					break;
 				default:
-					failedSegmentations.push(_currentPage);
 			}
 
 			_segmentedPages.push(_currentPage);
@@ -340,13 +352,26 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_gui.displayWarning('Warning: Some regions were missing and have been added.');
 			}
 
-			this.displayPage(_currentPage);
 			_gui.highlightSegmentedPages(_segmentedPages);
+	} 
 
-			_communicator.getSegmented(_book.id).done((pages) =>{
-				pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
-			})
+	this._requestEmptySegmentation = function () {
+		_communicator.emptySegmentation(_book.id, _currentPage).done((result) => {
+			_gui.highlightLoadedPage(_currentPage, false);
+			_segmentation[_currentPage] = result;
 
+			this.displayPage(_currentPage);
+		});
+		_segmentedPages.push(_currentPage);
+	}
+
+	this.uploadSegmentation = function (file) {
+		this.showPreloader(true);
+
+		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
+			this._setPage(_currentPage,page);
+			this.displayPage(_currentPage);
+			this.showPreloader(false);
 		});
 	}
 
@@ -418,59 +443,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	this.getMode = function(){
 		return _mode;
-	}
-
-	this._requestEmptySegmentation = function () {
-		_communicator.emptySegmentation(_book.id, _currentPage).done((result) => {
-			_gui.highlightLoadedPage(_currentPage, false);
-			_segmentation[_currentPage] = result;
-
-			this.displayPage(_currentPage);
-		});
-		_segmentedPages.push(_currentPage);
-	}
-
-	this.uploadSegmentation = function (file) {
-
-		this.showPreloader(true);
-
-		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
-			const failedSegmentations = [];
-			const missingRegions = [];
-
-			switch (page.status) {
-				case 'LOADED':
-					_segmentation[_currentPage] = page;
-
-					_actionController.resetActions(_currentPage);
-
-					//check if all necessary regions are available
-					Object.keys(page.segments).forEach((id) => {
-						let segment = page.segments[id];
-						if ($.inArray(segment.type, _presentRegions) == -1) {
-							//Add missing region
-							this.changeRegionSettings(segment.type, 0, -1);
-							_colors.assignAvailableColor(segment.type);
-							const colorID = _colors.getColorID(segment.type);
-							this.setRegionColor(segment.type,colorID);
-							missingRegions.push(segment.type);
-						}
-					});
-					this.forceUpdateReadingOrder();
-					break;
-				default:
-					failedSegmentations.push(_currentPage);
-			}
-
-			_segmentedPages.push(_currentPage);
-			if (missingRegions.length > 0) {
-				_gui.displayWarning('Warning: Some regions were missing and have been added.');
-			}
-
-			this.displayPage(_currentPage);
-			this.showPreloader(false);
-			_gui.highlightSegmentedPages(_segmentedPages);
-		});
 	}
 
 	this.exportPageXML = function () {

@@ -74,8 +74,25 @@ public class FilePathManager {
 		this.booksPath = new File(booksPath).getAbsolutePath();
 	}
 
+	/**
+	 * Find the local disc path to a page image
+	 * 
+	 * @param page
+	 * @return
+	 */
 	public File getImagePath(Page page) {
 		return new File(this.getLocalBooksPath() + File.separator + page.getImages().get(0));
+	}
+
+	/**
+	 * Find the local disc path to a page annotations file
+	 * 
+	 * @param bookname
+	 * @param pagename
+	 * @return
+	 */
+	public File getAnnotationPath(String bookname, String pagename) {
+		return new File(this.getLocalBooksPath() + File.separator + bookname + File.separator + pagename + ".xml");
 	}
 
 	/**
