@@ -381,13 +381,22 @@ class Selector {
 	}
 
 	/**
+	 * Check if points of a single element are currently selected
+	 */
+	hasElementPointsSelected() {
+		return (this.getSelectedPolygonType() === ElementType.SEGMENT || this.getSelectedPolygonType() === ElementType.TEXTLINE)
+				&& this.getSelectedSegments().length === 1 
+				&& this.getSelectedPoints().length > 0;
+	}
+
+	/**
 	 * Helper function for the selection/deselection of a polygon by its id.
 	 * 
 	 * @param {string} id 	Id of the poilygon that is to be selected
 	 * @param {Boolean} doSelect 	True=Select polygon, False=Unselect polygon
 	 * @param {Boolean} displayPoints 	True:Display the points of the polygon, False: Do not display the points of the polygon
 	 */
-	_selectPolygon(id, doSelect = true, displayPoints = false){
+	_selectPolygon(id, doSelect = true, displayPoints = false) {
 		const selectIndex = this._selectedElements.indexOf(id);
 		const isInList = selectIndex >= 0;
 		if (doSelect){ 

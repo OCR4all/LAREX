@@ -104,7 +104,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			$("#regioneditor").find("input").focusout(() => keyInput.isActive = true);
 			$("#virtual-keyboard-add").find("input").focusin(() => keyInput.isActive = false);
 			$("#virtual-keyboard-add").find("input").focusout(() => keyInput.isActive = true);
-			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer);
+			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer, _selector);
 
 			this.showPreloader(false);
 
@@ -729,7 +729,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 						let mergeAction = new ActionMultiple(actions);
 						_actionController.addAndExecuteAction(mergeAction, _currentPage);
-						this.selectSegment(mergedSegment.id);
+						this.selectElement(mergedSegment.id);
 						this.openContextMenu(true);
 					} else {
 						_gui.displayWarning("Combination of segments resulted in a segment with to few points. Segment will be ignored.");
@@ -785,11 +785,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		}
 	}
+	
 	this.createRegionBorder = function () {
 		this.endEditing();
 		_editor.startCreateBorder(ElementType.REGION);
 		_gui.selectToolBarButton('regionBorder', true);
 	}
+
 	this.callbackNewRegion = function (regionpoints, regiontype) {
 		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
@@ -1264,15 +1266,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const readingOrder = (type === ElementType.SEGMENT) ?
 								_segmentation[_currentPage].readingOrder :
 								_segmentation[_currentPage].segments[parentID].readingOrder;
-		
 
 		return readingOrder && readingOrder.includes(id);
 	}
 	// Display
-	this.selectSegment = function (sectionID, hitTest, idType=this.getIDType(sectionID)) {
+	this.selectElement = function (sectionID, hitTest, idType=this.getIDType(sectionID)) {
 		if (_editReadingOrder && idType === ElementType.SEGMENT) {
 
-			const segment = this._getPolygon(sectionID);
+			const segment = _segmentation[_currentPage].segments[sectionID];
 			if (!this._readingOrderContains(sectionID)) {
 				_actionController.addAndExecuteAction(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this), _currentPage);
 			}
@@ -1289,17 +1290,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.closeContextMenu();
 		}
 	}
-
-	this.getSelected = function(){
-		return _selector.getSelectedSegments();
-	}
-
-	this.hasPointsSelected = function() {
-		return (_selector.getSelectedPolygonType() === ElementType.SEGMENT || _selector.getSelectedPolygonType() === ElementType.TEXTLINE)
-				&& _selector.getSelectedSegments().length === 1 
-				&& _selector.getSelectedPoints().length > 0;
-	}
-
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing) {
@@ -1458,11 +1448,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		region.minSize = minSize;
 		region.maxOccurances = maxOccurances;
 	}
+
 	this.deleteRegionSettings = function (regionType) {
 		if ($.inArray(regionType, _presentRegions) >= 0 && regionType != 'ImageRegion' && regionType != 'paragraph') {
 			_actionController.addAndExecuteAction(new ActionRemoveCompleteRegion(regionType, this, _editor, _settings, this), _currentPage);
 		}
 	}
+
 	this.showPreloader = function (doShow) {
 		if (doShow) {
 			$('#preloader').removeClass('hide');
@@ -1470,6 +1462,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			$('#preloader').addClass('hide');
 		}
 	}
+
 	this.openContextMenu = function (doSelected, id) {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
@@ -1482,9 +1475,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		}
 	}
+	
 	this.closeContextMenu = function () {
 		_gui.closeContextMenu();
 	}
+	
 	this.escape = function () {
 		_selector.unSelect();
 		this.closeContextMenu();
@@ -1492,6 +1487,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.closeRegionSettings();
 		_selector.unSelect();
 	}
+
 	this.allowToLoadExistingSegmentation = function (allowLoadLocal) {
 		_allowLoadLocal = allowLoadLocal;
 	}
@@ -1549,17 +1545,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
 			}
 		return false;
-	}
-
-	this._getPolygon = function (id) {
-		let polygon = _segmentation[_currentPage].segments[id];
-		if (polygon) return polygon;
-
-		polygon = this._getRegionByID(id);
-		if (polygon) return polygon;
-
-		polygon = _fixedGeometry[_currentPage].cuts[id];
-		if (polygon) return polygon;
 	}
 
 	this.getCurrentSegmentation = function() {

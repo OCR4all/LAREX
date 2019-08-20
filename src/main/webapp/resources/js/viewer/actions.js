@@ -584,7 +584,7 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			gui.saveTextLine(id);
 			textViewer.saveTextLine(id);
 			if(textViewer.isOpen()){
-				controller.selectSegment(id);
+				controller.selectElement(id);
 			}
 			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
@@ -597,7 +597,7 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			controller.updateTextLine(id);
 			textViewer.updateTextline(textline);
 			if(textViewer.isOpen()){
-				controller.selectSegment(id);
+				controller.selectElement(id);
 			}
 			console.log('Undo - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
@@ -649,7 +649,7 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 			}
 
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
-			controller.selectSegment(segment);
+			controller.selectElement(segment);
 			controller.forceUpdateReadingOrder(true);
 			console.log('Do - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
 		}
@@ -659,7 +659,7 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 			_isExecuted = false;
 
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-			controller.selectSegment(segment);
+			controller.selectElement(segment);
 			controller.forceUpdateReadingOrder(true);
 			console.log('Undo - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
 		}

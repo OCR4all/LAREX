@@ -1,8 +1,9 @@
-function GuiInput(navigationController, controller, gui, textViewer) {
+function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	const _navigationController = navigationController;
 	const _controller = controller;
 	const _gui = gui;
 	const _textViewer = textViewer;
+	const _selector = selector;
 
 	$(window).click((event) => {
 		//Cancel viewer actions, if outside of viewer or a menu icon
@@ -313,7 +314,7 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$(document).on("click",'.textline-container', function (){
 		const $this = $(this);
 		const id = $this.data('id');
-		_controller.selectSegment(id);
+		_controller.selectElement(id);
 	});
 
 	/**
@@ -351,7 +352,7 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$(document).on("click",'.vk-btn', function(event){
 		const character = $(this).text();
 		if(_textViewer.isOpen()){
-			const selected = _controller.getSelected();
+			const selected = _selector.getSelected();
 			if(selected){
 				_textViewer.setFocus(selected[0]);
 				_textViewer.insertCharacterTextLine(character);

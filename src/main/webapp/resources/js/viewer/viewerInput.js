@@ -29,9 +29,9 @@ function ViewerInput(controller) {
 			// leftclick
 			case 0:
 				if(mode == ViewerMode.POLYGON){
-					_controller.selectSegment(sectionID, hitTest);
+					_controller.selectElement(sectionID, hitTest);
 				} else if(mode == ViewerMode.CONTOUR){
-					_controller.selectSegment(sectionID,null,ElementType.CONTOUR);
+					_controller.selectElement(sectionID,null,ElementType.CONTOUR);
 				} else {
 					throw new ValueError('Unkown selection mode: '+mode);
 				}
@@ -44,7 +44,7 @@ function ViewerInput(controller) {
 				if(mode == ViewerMode.POLYGON){
 					if (!this.selector.isSegmentSelected(sectionID)) {
 						this.selector.unSelect();
-						_controller.selectSegment(sectionID, hitTest);
+						_controller.selectElement(sectionID, hitTest);
 						_controller.openContextMenu(true);
 					}
 					_controller.endEditReadingOrder();
@@ -67,7 +67,7 @@ function ViewerInput(controller) {
 				if (event.modifiers.shift) {
 					this.selector.boxSelect(event.point);
 				} else {
-					if(_controller.hasPointsSelected())
+					if(this.selector.hasElementPointsSelected())
 						_controller.moveSelectedPoints();
 					else
 						this.navigationController.move(event.delta.x,event.delta.y);
