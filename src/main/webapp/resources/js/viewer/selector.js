@@ -102,23 +102,21 @@ class Selector {
 	selectNext(reverse=false){
 		const mode = this._controller.getMode();
 		if(mode === Mode.SEGMENT || mode === Mode.EDIT){
-			if(this.selectedType == ElementType.SEGMENT || this.selectType == ElementType.REGION){
-				// Get complete select order
-				let order = this.getSelectOrder(ElementType.SEGMENT,reverse=reverse);
-				if(order.length > 0){
-					if(this._selectedElements.length > 0){
-						// Retrieve the position of the last element in the order that is currently selected
-						const last = reverse ? this._selectedElements.map(s => order.indexOf(s)).sort()[0]:
-											  this._selectedElements.map(s => order.indexOf(s)).sort().reverse()[0];
-						if(last > -1){
-							// Reorder
-							order = order.slice(last+1).concat(order.slice(0,last+1));
-						}
+			// Get complete select order
+			let order = this.getSelectOrder(ElementType.SEGMENT,reverse=reverse);
+			if(order.length > 0){
+				if(this._selectedElements.length > 0){
+					// Retrieve the position of the last element in the order that is currently selected
+					const last = reverse ? this._selectedElements.map(s => order.indexOf(s)).sort()[0]:
+											this._selectedElements.map(s => order.indexOf(s)).sort().reverse()[0];
+					if(last > -1){
+						// Reorder
+						order = order.slice(last+1).concat(order.slice(0,last+1));
 					}
-					/* Select the first element after the selected elements
-					 * or loop to the first element in the reading order */
-					this.select(order[0]);
 				}
+				/* Select the first element after the selected elements
+					* or loop to the first element in the reading order */
+				this.select(order[0]);
 			}
 		} else if (mode === Mode.LINES){
 			if(this.selectedType == ElementType.SEGMENT){
