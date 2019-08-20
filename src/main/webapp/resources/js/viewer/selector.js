@@ -181,6 +181,43 @@ class Selector {
 	}
 
 	/**
+	 * Select all objects in SEGMENT, EDIT or LINES mode.
+	 * 
+	 * SEGMENT|EDIT: Select all Regions
+	 * LINES: Select all textlines inside a currently selected Region
+	 */
+	selectAll(){
+		const mode = this._controller.getMode();
+		if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES) {
+			const segmentation = this._controller.getCurrentSegmentation();
+			if(segmentation){
+				if(mode === Mode.SEGMENT || mode === Mode.EDIT){
+					this.unSelect();
+					this.selectedType = ElementType.SEGMENT;
+					this._selectedElements = Object.values(segmentation.segments).map(s => s.id);
+					this._postSelection();
+				} else if (mode === Mode.LINES){
+					if(this.selectedType == ElementType.TEXTLINE && this._selectedElements.length > 0){
+						const parent = segmentation.segments[this._controller.textlineRegister[this._selectedElements[0]]];
+						this.unSelect();
+						this._selectedElements = Object.values(parent.textlines).map(s => s.id);
+						this._postSelection();
+					} else if (this.selectedType == ElementType.SEGMENT && this._selectedElements.length > 0){
+						this.selectedType = ElementType.TEXTLINE;
+						const parents = this._selectedElements.map(id => [id, Object.keys(segmentation.segments[id].textlines)])
+											.filter(p => (p[1] && p[1].length > 0));
+						if(parents.length > 0) {
+							const sortedParents = parents.sort((a,b) => b[1].length - a[1].length);
+							this._selectedElements = sortedParents[0][1];
+							this._postSelection();
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/**
 	 * Retrieve the current order of selection for all objects of a given type
 	 * 
 	 * @param {*} type 

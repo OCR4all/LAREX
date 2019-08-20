@@ -139,6 +139,12 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						_selector.selectNext(event.shiftKey);
 						validKey = true;
 						break;
+					case 65: // A
+						if (event.ctrlKey) {
+							_selector.selectAll();
+							validKey = true;
+						}
+						break;
 					case 89: // Y
 						if (event.ctrlKey) {
 							_controller.redo();
