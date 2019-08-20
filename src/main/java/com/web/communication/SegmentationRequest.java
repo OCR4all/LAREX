@@ -16,15 +16,11 @@ public class SegmentationRequest {
 	private SegmentationSettings settings;
 	@JsonProperty("page")
 	private Integer page;
-	@JsonProperty("allowLoadLocal")
-	private boolean allowToLoadLocal;
 
 	@JsonCreator
-	public SegmentationRequest(@JsonProperty("settings") SegmentationSettings settings, @JsonProperty("page") Integer page,
-			@JsonProperty("allowLoadLocal") boolean allowToLoadLocal) {
+	public SegmentationRequest(@JsonProperty("settings") SegmentationSettings settings, @JsonProperty("page") Integer page) {
 		this.page = page;
 		this.settings = settings;
-		this.allowToLoadLocal = allowToLoadLocal;
 	}
 
 	public Integer getPage() {
@@ -33,9 +29,5 @@ public class SegmentationRequest {
 
 	public SegmentationSettings getSettings() {
 		return settings;
-	}
-
-	public boolean isAllowToLoadLocal() {
-		return allowToLoadLocal;
 	}
 }

@@ -61,8 +61,7 @@ public class SegmentationController {
 	public @ResponseBody PageAnnotations segment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
-		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPage(),
-				segmentationRequest.isAllowToLoadLocal(), fileManager, database);
+		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPage(), fileManager, database);
 	}
 
 	@RequestMapping(value = "segmentation/settings", method = RequestMethod.POST)

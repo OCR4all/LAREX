@@ -61,8 +61,8 @@ class Communicator {
 	}
 
 	// Segmentation
-	segmentPage(settings, page, allowLoadLocal) {
-		return this.request("segmentation/segment", {settings:settings,page:page,allowLoadLocal:allowLoadLocal}, DataType.JSON);
+	segmentPage(settings, page) {
+		return this.request("segmentation/segment", {settings:settings,page:page}, DataType.JSON);
 	}
 
 	emptySegmentation(bookID, pageID) {

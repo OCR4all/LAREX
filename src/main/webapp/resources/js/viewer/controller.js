@@ -170,15 +170,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-			if(_autoSegment){
-				this.requestSegmentation(_allowLoadLocal);
-			} else {
-				if(!_allowLoadLocal){
-					this._requestEmptySegmentation();
-				} else {
+			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
+				if(_allowLoadLocal && pages.includes(_currentPage)){
 					this.loadAnnotations();
+				} else if(_autoSegment){
+					this.requestSegmentation();
+				} else {
+					this._requestEmptySegmentation();
 				}
-			}
+				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
+			})
 		} else {
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
@@ -278,15 +279,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	this.loadAnnotations = function () {
 		//Update setting parameters
-		_settings.parameters = _gui.getParameters();
-
 		_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
 			this._setPage(_currentPage, result);
 			this.displayPage(_currentPage);
-
-			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
-				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
-			})
 		});
 	}
 
@@ -310,11 +305,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_communicator.segmentPage(activesettings, _currentPage, allowLoadLocal).done((result) => {
 			this._setPage(_currentPage, result);
 			this.displayPage(_currentPage);
-
-			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
-				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
-			})
 		});
+	}
+
+	this._requestEmptySegmentation = function () {
+		_communicator.emptySegmentation(_book.id, _currentPage).done((result) => {
+			_gui.highlightLoadedPage(_currentPage, false);
+			this._setPage(_currentPage, result);
+			this.displayPage(_currentPage);
+		});
+		_segmentedPages.push(_currentPage);
 	}
 
 	this._setPage = function(pageid, result){
@@ -354,16 +354,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			_gui.highlightSegmentedPages(_segmentedPages);
 	} 
-
-	this._requestEmptySegmentation = function () {
-		_communicator.emptySegmentation(_book.id, _currentPage).done((result) => {
-			_gui.highlightLoadedPage(_currentPage, false);
-			_segmentation[_currentPage] = result;
-
-			this.displayPage(_currentPage);
-		});
-		_segmentedPages.push(_currentPage);
-	}
 
 	this.uploadSegmentation = function (file) {
 		this.showPreloader(true);

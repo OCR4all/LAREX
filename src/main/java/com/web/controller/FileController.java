@@ -1,6 +1,7 @@
 package com.web.controller;
 
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -10,6 +11,9 @@ import java.util.Arrays;
 import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
@@ -36,6 +40,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 
 import com.web.communication.ExportRequest;
 import com.web.config.LarexConfiguration;
@@ -43,6 +48,7 @@ import com.web.facade.segmentation.LarexFacade;
 import com.web.facade.segmentation.SegmentationSettings;
 import com.web.io.FileDatabase;
 import com.web.io.FilePathManager;
+import com.web.io.PageXMLReader;
 import com.web.io.PageXMLWriter;
 import com.web.model.PageAnnotations;
 
@@ -50,7 +56,7 @@ import larex.data.MemoryCleaner;
 
 /**
  * Communication Controller to provide file contents 
- * and process save and export requests
+ * and process save as well as export requests
  */
 @Controller
 @Scope("request")
@@ -168,12 +174,13 @@ public class FileController {
 			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
 		PageAnnotations result = null;
 		if (!file.isEmpty()) {
-			try {
-				byte[] bytes = file.getBytes();
-				FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-				result = LarexFacade.readPageXML(bytes, pageNr, bookID, database);
-			} catch (Exception e) {
+			try (ByteArrayInputStream stream = new ByteArrayInputStream(file.getBytes())){
+				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+				DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+
+				return PageXMLReader.getPageAnnotations(dBuilder.parse(stream));
+			} catch (SAXException | IOException | ParserConfigurationException e) {
+				return null;
 			}
 		}
 		return result;
