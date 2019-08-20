@@ -804,53 +804,61 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			type = regiontype;
 		}
 
-		const actionAdd = new ActionAddRegion(newID, regionpoints, type,
-			_editor, _settings, _currentPage);
+		if(regionpoints && this._countUniquePoints(regionpoints) > 3){
+			const actionAdd = new ActionAddRegion(newID, regionpoints, type,
+				_editor, _settings, _currentPage);
 
-		_actionController.addAndExecuteAction(actionAdd, _currentPage);
-		if (!regiontype) {
-			this.openContextMenu(false, newID);
+			_actionController.addAndExecuteAction(actionAdd, _currentPage);
+			if (!regiontype) {
+				this.openContextMenu(false, newID);
+			}
+		} else {
+			_gui.displayWarning("Regions need at least three unique points. Region will be ignored.")
 		}
 		_gui.unselectAllToolBarButtons();
 	}
 
 	this.callbackNewRoI = function (regionpoints) {
-		let left = 1;
-		let right = 0;
-		let top = 1;
-		let down = 0;
+		if(regionpoints && regionpoints.length > 2 && this._countUniquePoints(regionpoints) > 1){
+			let left = 1;
+			let right = 0;
+			let top = 1;
+			let down = 0;
 
-		$.each(regionpoints, function (index, point) {
-			if (point.x < left)
-				left = point.x;
-			if (point.x > right)
-				right = point.x;
-			if (point.y < top)
-				top = point.y;
-			if (point.y > down)
-				down = point.y;
-		});
+			$.each(regionpoints, function (index, point) {
+				if (point.x < left)
+					left = point.x;
+				if (point.x > right)
+					right = point.x;
+				if (point.y < top)
+					top = point.y;
+				if (point.y > down)
+					down = point.y;
+			});
 
-		const actions = [];
+			const actions = [];
 
-		//Create 'inverted' ignore rectangle
-		actions.push(new ActionAddRegion("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			//Create 'inverted' ignore rectangle
+			actions.push(new ActionAddRegion("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
+				_editor, _settings, _currentPage));
+			_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
+				_editor, _settings, _currentPage));
+			_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
+				_editor, _settings, _currentPage));
+			_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
+				_editor, _settings, _currentPage));
+			_newPolygonCounter++;
 
-		_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
+			_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
+		} else {
+			_gui.displayWarning("Region Areas need at least three unique points. Area will be ignored.")
+		}
 		_gui.unselectAllToolBarButtons();
 	}
 
@@ -861,14 +869,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if (!type) {
 			type = "other";
 		}
-		if(segmentpoints.length > 1){
+		if(segmentpoints && this._countUniquePoints(segmentpoints) > 3){
 			const actionAdd = new ActionAddSegment(newID, segmentpoints, type,
 				_editor, _segmentation, _currentPage, this);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
 			this.openContextMenu(false, newID);
 		} else {
-			_gui.displayWarning("The system tried to create an invalid segment with to few points. Segment will be ignored.")
+			_gui.displayWarning("Region need at least three unique points. Region will be ignored.")
 		}
 		_gui.unselectAllToolBarButtons();
 	}
@@ -876,14 +884,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.callbackNewTextLine = function (segmentpoints) {
 		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
-		if(segmentpoints.length > 1){
+		if(segmentpoints && this._countUniquePoints(segmentpoints) > 3){
 			const actionAdd = new ActionAddTextLine(newID,_tempID, segmentpoints, {},
 				_editor, _textViewer, _segmentation, _currentPage, this);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
 			this.openContextMenu(false, newID);
 		} else {
-			_gui.displayWarning("The system tried to create an invalid textline with to few points. Segment will be ignored.")
+			_gui.displayWarning("Textlines need at least three unique points. Textline will be ignored.")
 		}
 		_gui.unselectAllToolBarButtons();
 	}
@@ -897,6 +905,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_actionController.addAndExecuteAction(actionAdd, _currentPage);
 		_gui.unselectAllToolBarButtons();
+	}
+
+	this._countUniquePoints = function(points){
+		return (new Set(points.map(s => JSON.stringify(s)))).size;
 	}
 
 	this.movePolygonPoints = function (id, segmentPoints, type=this.getIDType(id)) {
