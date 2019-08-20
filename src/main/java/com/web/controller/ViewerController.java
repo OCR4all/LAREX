@@ -97,10 +97,10 @@ public class ViewerController {
 			@RequestParam(value = "imagefilter", required = false) String imagefilter,
 			@RequestParam(value = "modes", required = false) String modes) throws IOException {
 		if (!config.getSetting("directrequest").equals("enable")) {
-			return "redirect:/403";
+			return "redirect:/error/403";
 		}
 		if (!new File(bookpath + File.separator + bookname).exists()) {
-			return "redirect:/400";
+			return "redirect:/error/400";
 		}
 		fileManager.setLocalBooksPath(bookpath);
 		int bookID = bookname.hashCode();
@@ -123,16 +123,6 @@ public class ViewerController {
 		return viewer(model, bookID);
 	}
 
-	/**
-	 * Return informations about a book
-	 */
-	@RequestMapping(value = "/book", method = RequestMethod.POST)
-	public @ResponseBody Book getBook(@RequestParam("bookid") int bookID) {
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-
-		return database.getBook(bookID);
-	}
 
 	private static SortedMap<String, Integer> getRegionTypes() {
 		SortedMap<String, Integer> regionTypes = new TreeMap<String, Integer>((c1, c2) -> {

@@ -56,7 +56,7 @@ public class SegmentationController {
 		}
 	}
 
-	@RequestMapping(value = "/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	@RequestMapping(value = "/segmentation/segment", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageAnnotations segment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
@@ -71,7 +71,7 @@ public class SegmentationController {
 
 		return new SegmentationSettings(database.getBook(bookID));
 	}
-	@RequestMapping(value = "/emptysegment", method = RequestMethod.POST)
+	@RequestMapping(value = "/segmentation/empty", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations emptysegment(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
@@ -79,7 +79,7 @@ public class SegmentationController {
 		return LarexFacade.emptySegmentPage(bookID, pageID, database);
 	}
 
-	@RequestMapping(value = "/segmentedpages", method = RequestMethod.POST)
+	@RequestMapping(value = "/segmentation/segmentedpages", method = RequestMethod.POST)
 	public @ResponseBody Collection<Integer> getOnServer(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));

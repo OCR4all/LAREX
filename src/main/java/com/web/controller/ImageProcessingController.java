@@ -39,7 +39,7 @@ public class ImageProcessingController {
 	/**
 	 * Merge segments together by connecting them with lines starting from their center.
 	 */
-	@RequestMapping(value = "/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	@RequestMapping(value = "process/regions/merge", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Region merge(@RequestBody List<Region> segments) {
 		return ImageProcessingFacade.merge(segments);
 	}
@@ -47,7 +47,7 @@ public class ImageProcessingController {
 	/**
 	 * Combine contours from an image together, via smearing.
 	 */
-	@RequestMapping(value = "/combinecontours", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	@RequestMapping(value = "process/contours/combine", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody Region combinecontours(@RequestBody ContourCombineRequest combineRequest) {
 		if (combineRequest.getContours().size() > 0) {
 			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
@@ -65,7 +65,7 @@ public class ImageProcessingController {
 	 * @param pageID
 	 * @return
 	 */
-	@RequestMapping(value = "/extractcontours", method = RequestMethod.POST)
+	@RequestMapping(value = "process/contours/extract", method = RequestMethod.POST)
 	public @ResponseBody Collection<List<Point>> extractcontours(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 
@@ -74,7 +74,7 @@ public class ImageProcessingController {
 		return ImageProcessingFacade.extractContours(pageID, bookID, fileManager, database);
 	}
 	
-	@RequestMapping(value = "/minarearect", method = RequestMethod.POST)
+	@RequestMapping(value = "process/polygons/minarearect", method = RequestMethod.POST)
 	public @ResponseBody Rectangle getMinAreaRect(@RequestBody Polygon polygon) {
 		return ImageProcessingFacade.getMinAreaRectangle(polygon);
 	}

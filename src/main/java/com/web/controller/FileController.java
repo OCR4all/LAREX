@@ -49,6 +49,7 @@ import com.web.facade.segmentation.SegmentationSettings;
 import com.web.io.FileDatabase;
 import com.web.io.FilePathManager;
 import com.web.io.PageXMLWriter;
+import com.web.model.Book;
 import com.web.model.PageAnnotations;
 
 import larex.data.MemoryCleaner;
@@ -86,6 +87,42 @@ public class FileController {
 		}
 	}
 	
+	/**
+	 * Return informations about a book
+	 */
+	@RequestMapping(value = "data/book", method = RequestMethod.POST)
+	public @ResponseBody Book getBook(@RequestParam("bookid") int bookID) {
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
+
+		return database.getBook(bookID);
+	}
+
+	/**
+	 * Retrieve the default virtual keyboard.
+	 * 
+	 * @param file
+	 * @param bookID
+	 * @return
+	 */
+	@RequestMapping(value = "data/virtualkeyboard", method = RequestMethod.POST)
+	public @ResponseBody List<String[]> virtualKeyboard() {
+		File virtualKeyboard = new File(fileManager.getVirtualKeyboardFile());
+
+		List<String[]> keyboard = new ArrayList<>();
+		try(BufferedReader br = new BufferedReader(new FileReader(virtualKeyboard))) {
+			String st; 
+			while ((st = br.readLine()) != null) 
+				if(st.replace("\\s+", "").length() > 0) 
+					keyboard.add(st.split("\\s+"));
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} 
+		return keyboard;
+	}
+
 	/**
 	 * Request an image of a book, by book name and image name.
 	 * Use resize to get a downscaled preview image, with a width of 300px.
@@ -169,7 +206,7 @@ public class FileController {
 	 * Upload a segmentation to potentially save in the database and load back into the gui.
 	 * 
 	 */
-	@RequestMapping(value = "/uploadSegmentation", method = RequestMethod.POST)
+	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") MultipartFile file,
 			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
 		PageAnnotations result = null;
@@ -188,7 +225,7 @@ public class FileController {
 	/**
 	 * Export a segmentation per PAGE xml to download and or in the database.
 	 */
-	@RequestMapping(value = "/exportXML", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	@RequestMapping(value = "file/export/annotations", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
 			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion());
@@ -224,7 +261,7 @@ public class FileController {
 	/**
 	 * Download the current segmentation settings as response.
 	 */
-	@RequestMapping(value = "/downloadSettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
+	@RequestMapping(value = "file/download/segmentsettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationSettings settings) {
 		try {
 			return convertDocumentToByte(LarexFacade.getSettingsXML(settings), "settings.xml");
@@ -240,7 +277,7 @@ public class FileController {
 	 * @param bookID
 	 * @return
 	 */
-	@RequestMapping(value = "/uploadSettings", method = RequestMethod.POST)
+	@RequestMapping(value = "file/upload/segmentsettings", method = RequestMethod.POST)
 	public @ResponseBody SegmentationSettings uploadSettings(@RequestParam("file") MultipartFile file,
 			@RequestParam("bookID") int bookID) {
 		SegmentationSettings settings = null;
@@ -256,31 +293,6 @@ public class FileController {
 		}
 
 		return settings;
-	}
-
-	/**
-	 * Retrieve the default virtual keyboard.
-	 * 
-	 * @param file
-	 * @param bookID
-	 * @return
-	 */
-	@RequestMapping(value = "/virtualkeyboard", method = RequestMethod.POST)
-	public @ResponseBody List<String[]> virtualKeyboard() {
-		File virtualKeyboard = new File(fileManager.getVirtualKeyboardFile());
-
-		List<String[]> keyboard = new ArrayList<>();
-		try(BufferedReader br = new BufferedReader(new FileReader(virtualKeyboard))) {
-			String st; 
-			while ((st = br.readLine()) != null) 
-				if(st.replace("\\s+", "").length() > 0) 
-					keyboard.add(st.split("\\s+"));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} 
-		return keyboard;
 	}
 
 	private BufferedImage convertMatToBufferedImage(final Mat imageMat) {

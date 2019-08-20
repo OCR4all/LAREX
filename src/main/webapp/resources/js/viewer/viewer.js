@@ -71,7 +71,9 @@ class Viewer {
 					} else {
 						throw new ValueError('Unkown selection mode: '+this.mode)
 					}
-					hitResults = hitResults.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area));
+					if(hitResults) {
+						hitResults = hitResults.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area));
+					}
 					if(hitResults && hitResults.length > 0){
 						hitResults = hitResults.filter(hr => hr.item && hr.item.elementID);
 						const hitResult = hitResults[0];
@@ -132,10 +134,11 @@ class Viewer {
 					if(!hitResults || hitResults.length == 0)
 						hitResults = this._overlays["segments"] ? this._overlays["segments"].hitTestAll(event.point, this._hitOptions) : null;
 
-					hitResults = hitResults ?
-									hitResults.filter(hr => hr.item && hr.item.elementID)
-										.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area))
-									: hitResults;
+					if(hitResults) {
+						hitResults = hitResults.filter(hr => hr.item && hr.item.elementID)
+										.sort((a,b) => Math.abs(a.item.area) - Math.abs(b.item.area));
+					}
+
 					if(hitResults && hitResults.length > 0){
 						const hitResult = hitResults[0];
 						const new_highlight = hitResult.item ? hitResult.item.elementID : null;
@@ -691,13 +694,13 @@ class Viewer {
 		if(hit_contours.length > 0){
 			hit_contours.sort((a,b) => {return a.bounds.area-b.bounds.area});
 			const id = hit_contours[0].id;	
-			return {type:'contour',item:{elementID:id,points:this._contours[id]}};
+			return [{type:'contour',item:{elementID:id,points:this._contours[id]}}];
 		} else{
 			const image_bounds = this.getBoundaries();
 			if(image_bounds.left <= point.x && point.x <= image_bounds.right && image_bounds.top <= point.y && point.y <= image_bounds.bottom)
-				return {type:'image'}
+				return [{type:'image'}]
 
-			return null; // No contour nor the background was hit
+			return []; // No contour nor the background was hit
 		}
 	}
 
