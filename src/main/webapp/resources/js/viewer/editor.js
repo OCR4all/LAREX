@@ -24,7 +24,7 @@ class Editor extends Viewer {
 		
 		this._pointSelector;
 		this._pointSelectorListener;
-		this._centers = {}
+		this._centers = {};
 	}
 
 	updateSegment(segment) {
@@ -809,6 +809,11 @@ displayReadingOrder(readingOrder) {
 			}
 		}
 	}
+}
+
+clear(){
+	super.clear();
+	this._centers = {};
 }
 
 /**
