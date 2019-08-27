@@ -43,7 +43,7 @@ public class SegmentationSettings {
 	@JsonProperty("parameters")
 	private Map<String, Integer> parameters;
 	@JsonProperty("regions")
-	protected Map<String, SegmentationRegionArea> regions;
+	protected Map<String, RegionSettings> regions;
 	@JsonProperty("regionTypes")
 	protected Map<String, Integer> regionTypes;
 	@JsonProperty("combine")
@@ -54,7 +54,7 @@ public class SegmentationSettings {
 	@JsonCreator
 	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
 			@JsonProperty("parameters") Map<String, Integer> parameters,
-			@JsonProperty("regions") Map<String, SegmentationRegionArea> regions,
+			@JsonProperty("regions") Map<String, RegionSettings> regions,
 			@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
 			@JsonProperty("combine") boolean combine,
 			@JsonProperty("imageSegType") ImageSegType imageSegType) {
@@ -78,7 +78,7 @@ public class SegmentationSettings {
 	
 	public SegmentationSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
-		this.regions = new HashMap<String, SegmentationRegionArea>();
+		this.regions = new HashMap<String, RegionSettings>();
 		fixedGeometry = new FixedGeometry();
 		this.parameters = new HashMap<String, Integer>();
 
@@ -90,14 +90,14 @@ public class SegmentationSettings {
 		this.combine = parameters.isCombineImages();
 		this.imageSegType = parameters.getImageSegType();
 
-		this.regions = new HashMap<String, SegmentationRegionArea>(regions);
+		this.regions = new HashMap<String, RegionSettings>(regions);
 		RegionManager regionManager = parameters.getRegionManager();
 		for (larex.geometry.regions.Region region : regionManager.getRegions()) {
 			String regionType = region.getType().toString();
 			int minSize = region.getMinSize();
 			int maxOccurances = region.getMaxOccurances();
 			PriorityPosition priorityPosition = region.getPriorityPosition();
-			SegmentationRegionArea guiRegion = new SegmentationRegionArea(regionType, minSize, maxOccurances,
+			RegionSettings guiRegion = new RegionSettings(regionType, minSize, maxOccurances,
 					priorityPosition);
 
 			int regionCount = 0;
@@ -109,7 +109,7 @@ public class SegmentationSettings {
 				points.add(new Point(position.getTopLeftXPercentage(), position.getBottomRightYPercentage()));
 
 				String id = regionType.toString() + regionCount;
-				guiRegion.addPolygon(new Region(id, regionType, points, null, true, new HashMap<>(), new ArrayList<>()));
+				guiRegion.addArea(new Region(id, regionType, points, null, true, new HashMap<>(), new ArrayList<>()));
 				regionCount++;
 			}
 
@@ -142,7 +142,7 @@ public class SegmentationSettings {
 		parameters.setImageSegType(this.getImageSegType());
 		parameters.setCombineImages(this.isCombine());
 
-		for (com.web.facade.segmentation.SegmentationRegionArea guiRegion : regions.values()) {
+		for (com.web.facade.segmentation.RegionSettings guiRegion : regions.values()) {
 			PAGERegionType regionType = TypeConverter.stringToPAGEType(guiRegion.getType());
 			int minSize = guiRegion.getMinSize();
 			int maxOccurances = guiRegion.getMaxOccurances();
@@ -152,7 +152,7 @@ public class SegmentationSettings {
 					new ArrayList<RelativePosition>());
 			regionmanager.addArea(region);
 
-			for (Region polygon : guiRegion.getPolygons().values()) {
+			for (Region polygon : guiRegion.getAreas().values()) {
 				List<Point> points = polygon.getPoints();
 				if (points.size() == 4) {
 					Point topLeft = points.get(0);
@@ -196,8 +196,8 @@ public class SegmentationSettings {
 		return parameters;
 	}
 
-	public Map<String, SegmentationRegionArea> getRegions() {
-		return new HashMap<String, SegmentationRegionArea>(regions);
+	public Map<String, RegionSettings> getRegions() {
+		return new HashMap<String, RegionSettings>(regions);
 	}
 
 	public Map<String, Integer> getParameters() {

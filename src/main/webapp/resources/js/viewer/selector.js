@@ -262,15 +262,15 @@ class Selector {
 					}
 				}
 			} else if (type === ElementType.AREA){
-				let regions = [];
-				for(const [_,polygons] of Object.entries(this._controller.getCurrentSettings().regions)){
-					regions = regions.concat(Object.keys(polygons));
+				let areas = [];
+				for(const [_,areaPolygons] of Object.entries(this._controller.getCurrentSettings().regions)){
+					areas = areas.concat(Object.keys(areaPolygons));
 				}
 				// Add sorted regions
-				for(const region of regions){
-					addCompare(region);
+				for(const areas of areas){
+					addCompare(areas);
 				}
-				order = order.concat(regions.sort(tlbr).map(s => s.id));
+				order = order.concat(areas.sort(tlbr).map(s => s.id));
 			} else if (type === ElementType.TEXTLINE) {
 				const segments = parentID ? [parentID] : this.getSelectOrder(ElementType.SEGMENT);
 				for(const id of segments){
@@ -515,7 +515,7 @@ class Selector {
 			}
 		}
 		if(this.selectedType === ElementType.AREA)
-			this._controller.scaleSelectedRegion();
+			this._controller.scaleSelectedRegionArea();
 	}
 
 	/**

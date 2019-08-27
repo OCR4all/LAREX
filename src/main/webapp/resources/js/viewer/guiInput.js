@@ -97,7 +97,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	$('.createTextLineRectangle').click(() => _controller.createRectangle('textline'));
 	$('.createCut').click(() => _controller.createCut());
 
-	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
+	$('.combineSelected').click(() => _controller.mergeSelected());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.displayContours());
@@ -159,14 +159,14 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	$('.regionlegend').click(function () {
 		const $this = $(this);
 		const $switchBox = $this.find('input');
-		_controller.hideRegionArea($this.data('type'), !$switchBox.prop('checked'));
+		_controller.hideRegionAreas($this.data('type'), !$switchBox.prop('checked'));
 	});
 	$('.regionlegendAll').click(function () {
 		const $switchBox = $(this).find('input');
 		const $allSwitchBoxes = $('.regionlegend').find('input');
 		$allSwitchBoxes.prop('checked', $switchBox.prop('checked'))
 
-		_controller.hideAllRegions(!$switchBox.prop('checked'));
+		_controller.hideAllRegionAreas(!$switchBox.prop('checked'));
 	});
 	$('.regionSettings, #regioneditorSelect .collection-item').click(function () { _controller.openRegionSettings($(this).data("type")) });
 	$('.regionCreate').click(function () { _controller.openRegionSettings() });

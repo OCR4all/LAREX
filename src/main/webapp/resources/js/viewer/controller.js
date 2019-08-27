@@ -213,9 +213,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if(!_colors.hasColor(region.type));
 					_colors.assignAvailableColor(region.type);
 
-				// Iterate over all Polygons in Region
-				Object.keys(region.polygons).forEach((polygonKey) => {
-					let polygon = region.polygons[polygonKey];
+				// Iterate over all Areas of a Region
+				Object.keys(region.areas).forEach((areaKey) => {
+					let polygon = region.areas[areaKey];
 					_editor.addArea(polygon);
 
 					if (!_visibleRegions[region.type] & region.type !== 'ignore') {
@@ -518,7 +518,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
 
 				this.displayPage(_currentPage);
-				this.hideAllRegions(true);
+				this.hideAllRegionAreas(true);
 				_gui.forceUpdateRegionHide(_visibleRegions);
 				_actionController.resetActions(_currentPage);
 			}
@@ -672,7 +672,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				if (selectType === ElementType.AREA) {
-					actions.push(new ActionRemoveRegionArea(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
+					actions.push(new ActionRemoveRegionArea(this._getRegionByID(selected[i]), _editor, _settings, this));
 				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
@@ -689,7 +689,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		} 
 	}
 
-	this.mergeSelectedSegments = function () {
+	this.mergeSelected = function () {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
 
@@ -775,7 +775,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						const regionPolygon = this._getRegionByID(selected[i]);
 						actions.push(new ActionChangeTypeRegionArea(regionPolygon, newType, _editor, _settings, _currentPage, this));
 
-						this.hideRegionArea(newType, false);
+						this.hideRegionAreas(newType, false);
 					} else if (selectType === ElementType.SEGMENT) {
 						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
 					}
@@ -806,7 +806,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		if(regionpoints && this._countUniquePoints(regionpoints) > 3){
 			const actionAdd = new ActionAddRegionArea(newID, regionpoints, type,
-				_editor, _settings, _currentPage);
+				_editor, _settings);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
 			if (!regiontype) {
@@ -840,19 +840,19 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			//Create 'inverted' ignore rectangle
 			actions.push(new ActionAddRegionArea("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
-				_editor, _settings, _currentPage));
+				_editor, _settings));
 			_newPolygonCounter++;
 
 			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
-				_editor, _settings, _currentPage));
+				_editor, _settings));
 			_newPolygonCounter++;
 
 			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
-				_editor, _settings, _currentPage));
+				_editor, _settings));
 			_newPolygonCounter++;
 
 			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
-				_editor, _settings, _currentPage));
+				_editor, _settings));
 			_newPolygonCounter++;
 
 			_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
@@ -935,7 +935,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
-	this.scaleSelectedRegion = function () {
+	this.scaleSelectedRegionArea = function () {
 		_editor.endEditing();
 		const selectType = _selector.getSelectedPolygonType();
 		const selected = _selector.getSelectedSegments();
@@ -944,13 +944,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_editor.startScalePolygon(selected[0], ElementType.AREA);
 	}
 
-	this.transformRegion = function (regionID, regionSegments) {
+	this.transformRegionArea = function (regionID, areaPolygon) {
 		const polygonType = this.getIDType(regionID);
 		if (polygonType === ElementType.AREA) {
 			let regionType = this._getRegionByID(regionID).type;
-			let actionTransformRegion = new ActionTransformRegionArea(regionID, regionSegments, regionType, _editor, _settings, _currentPage, this);
+			let actionTransformRegion = new ActionTransformRegionArea(regionID, areaPolygon, regionType, _editor, _settings, _currentPage, this);
 			_actionController.addAndExecuteAction(actionTransformRegion, _currentPage);
-			this.hideRegionArea(regionType, false);
+			this.hideRegionAreas(regionType, false);
 			_selector.select(regionID);
 		}
 	}
@@ -963,7 +963,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				let actionChangeType = new ActionChangeTypeRegionArea(regionPolygon, type, _editor, _settings, _currentPage, this);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
-			this.hideRegionArea(type, false);
+			this.hideRegionAreas(type, false);
 		} else if (polygonType === ElementType.SEGMENT) {
 			if (_segmentation[_currentPage].segments[id].type != type) {
 				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
@@ -1001,8 +1001,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
-		Object.keys(region.polygons).forEach((polygonKey) => {
-			let polygon = region.polygons[polygonKey];
+		Object.keys(region.areas).forEach((polygonKey) => {
+			let polygon = region.areas[polygonKey];
 			if (polygon.type === regionType) {
 				_editor.updateSegment(polygon);
 			}
@@ -1317,14 +1317,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_gui.highlightSegment(sectionID, doHighlight);
 		}
 	}
-	this.hideAllRegions = function (doHide) {
+	this.hideAllRegionAreas = function (doHide) {
 		// Iterate over Regions-"Map" (Object in JS)
 		Object.keys(_settings.regions).forEach((key) => {
 			const region = _settings.regions[key];
 			if (region.type !== 'ignore') {
 				// Iterate over all Polygons in Region
-				Object.keys(region.polygons).forEach((polygonKey) => {
-					let polygon = region.polygons[polygonKey];
+				Object.keys(region.areas).forEach((polygonKey) => {
+					let polygon = region.areas[polygonKey];
 					_editor.hideSegment(polygon.id, doHide);
 				});
 
@@ -1332,14 +1332,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		});
 	}
-	this.hideRegionArea = function (regionType, doHide) {
+	this.hideRegionAreas = function (regionType, doHide) {
 		_visibleRegions[regionType] = !doHide;
 
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
-		Object.keys(region.polygons).forEach((polygonKey) => {
-			let polygon = region.polygons[polygonKey];
-			_editor.hideSegment(polygon.id, doHide);
+		Object.keys(region.areas).forEach((polygonKey) => {
+			let area = region.areas[polygonKey];
+			_editor.hideSegment(area.id, doHide);
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
@@ -1452,7 +1452,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if (!region) {
 			region = {};
 			region.type = regionType;
-			region.polygons = {};
+			region.areas = {};
 			_settings.regions[regionType] = region;
 			_presentRegions.push(regionType);
 			_gui.showUsedRegionLegends(_presentRegions);
@@ -1517,17 +1517,17 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this._getRegionByID = function (id) {
-		let regionPolygon;
+		let regionArea;
 		Object.keys(_settings.regions).some((key) => {
 			let region = _settings.regions[key];
 
-			let polygon = region.polygons[id];
-			if (polygon) {
-				regionPolygon = polygon;
+			let area = region.areas[id];
+			if (area) {
+				regionArea = area;
 				return true;
 			}
 		});
-		return regionPolygon;
+		return regionArea;
 	}
 
 	this.isIDTextRegion = function(id){

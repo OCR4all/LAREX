@@ -620,7 +620,7 @@ endScalePolygon() {
 			this._tempPolygon.remove();
 
 			if (this._tempPolygonType !== ElementType.SEGMENT && this._tempPolygonType != ElementType.TEXTLINE) 
-				this._controller.transformRegion(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
+				this._controller.transformRegionArea(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
 
 			this._tempPolygon = null;
 		}

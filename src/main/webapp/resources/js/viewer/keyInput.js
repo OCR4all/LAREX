@@ -215,7 +215,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						break;
 					case 67: // C
 						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
-							_controller.mergeSelectedSegments();
+							_controller.mergeSelected();
 							validKey = true;
 						}
 						break;

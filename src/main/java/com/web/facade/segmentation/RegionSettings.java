@@ -13,11 +13,11 @@ import larex.geometry.positions.PriorityPosition;
  * A collection of all polygons of one region type with different settings for
  * the Larex Segmentation algorithm
  */
-public class SegmentationRegionArea {
+public class RegionSettings {
 	@JsonProperty("type")
 	private String type;
-	@JsonProperty("polygons")
-	private Map<String, Region> polygons;
+	@JsonProperty("areas")
+	private Map<String, Region> areas;
 	@JsonProperty("minSize")
 	private int minSize;
 	@JsonProperty("maxOccurances")
@@ -26,17 +26,17 @@ public class SegmentationRegionArea {
 	private PriorityPosition priorityPosition;
 
 	@JsonCreator
-	public SegmentationRegionArea(@JsonProperty("type") String type, @JsonProperty("polygons") Map<String, Region> polygons,
+	public RegionSettings(@JsonProperty("type") String type, @JsonProperty("areas") Map<String, Region> areas,
 			@JsonProperty("minSize") int minSize, @JsonProperty("maxOccurances") int maxOccurances,
 			@JsonProperty("priorityPosition") PriorityPosition priorityPosition) {
 		this.type = type;
-		this.polygons = polygons;
+		this.areas = areas;
 		this.minSize = minSize;
 		this.maxOccurances = maxOccurances;
 		this.priorityPosition = priorityPosition;
 	}
 
-	public SegmentationRegionArea(String type, int minSize, int maxOccurances, PriorityPosition priorityPosition) {
+	public RegionSettings(String type, int minSize, int maxOccurances, PriorityPosition priorityPosition) {
 		this(type, new HashMap<String, Region>(), minSize, maxOccurances, priorityPosition);
 	}
 
@@ -44,12 +44,12 @@ public class SegmentationRegionArea {
 		return type;
 	}
 
-	public Map<String, Region> getPolygons() {
-		return new HashMap<String, Region>(polygons);
+	public Map<String, Region> getAreas() {
+		return new HashMap<String, Region>(areas);
 	}
 
-	public void addPolygon(Region polygon) {
-		polygons.put(polygon.getId(), polygon);
+	public void addArea(Region area) {
+		areas.put(area.getId(), area);
 	}
 
 	public int getMaxOccurances() {
