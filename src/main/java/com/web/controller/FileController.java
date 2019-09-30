@@ -166,7 +166,7 @@ public class FileController {
 	}
 
 	/**
-	 * Upload a segmentation to potentially save in the database and load back into the gui.
+	 * Upload a segmentation to load back into the gui.
 	 * 
 	 */
 	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST)
@@ -187,13 +187,14 @@ public class FileController {
 	}
 
 	/**
-	 * Export a segmentation per PAGE xml to download and or in the database.
+	 * Export a segmentation per PAGE xml to download and or adding it to the database.
 	 */
 	@RequestMapping(value = "file/export/annotations", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
 			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion());
 			final String name = request.getSegmentation().getName();
+			final String xmlName = name.substring(0,name.lastIndexOf("."))+".xml";
 
 			switch (config.getSetting("localsave")) {
 			case "bookpath":
@@ -202,12 +203,12 @@ public class FileController {
 
 				String bookdir = fileManager.getLocalBooksPath() + File.separator
 									+ database.getBookName(request.getBookid());
-				PageXMLWriter.saveDocument(pageXML, name, bookdir);
+				PageXMLWriter.saveDocument(pageXML, xmlName, bookdir);
 				break;
 			case "savedir":
 				String savedir = config.getSetting("savedir");
 				if (savedir != null && !savedir.equals("")) {
-					PageXMLWriter.saveDocument(pageXML, name, savedir);
+					PageXMLWriter.saveDocument(pageXML, xmlName, savedir);
 				} else {
 					System.err.println("Warning: Save dir is not set. File could not been saved.");
 				}
