@@ -139,6 +139,12 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						_selector.selectNext(event.shiftKey);
 						validKey = true;
 						break;
+					case 65: // A
+						if (event.ctrlKey) {
+							_selector.selectAll();
+							validKey = true;
+						}
+						break;
 					case 89: // Y
 						if (event.ctrlKey) {
 							_controller.redo();
@@ -167,13 +173,13 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						break;
 					case 49: // 1
 						if(mode === Mode.SEGMENT){
-							_controller.createRectangle(ElementType.REGION);
+							_controller.createRectangle(ElementType.AREA);
 							validKey = true;
 						}
 						break;
 					case 50: // 2
 						if(mode === Mode.SEGMENT){
-							_controller.createRegionBorder();
+							_controller.createRegionAreaBorder();
 							validKey = true;
 						}
 						break;
@@ -209,7 +215,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						break;
 					case 67: // C
 						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
-							_controller.mergeSelectedSegments();
+							_controller.mergeSelected();
 							validKey = true;
 						}
 						break;

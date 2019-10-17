@@ -85,35 +85,35 @@ function ActionMultiple(actions) {
 	}
 }
 
-function ActionChangeTypeRegionPolygon(regionPolygon, newType, viewer, settings, page, controller) {
+function ActionChangeTypeRegionArea(area, newType, viewer, settings, page, controller) {
 	let _isExecuted = false;
-	const _oldType = regionPolygon.type;
+	const _oldType = area.type;
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			regionPolygon.type = newType;
-			delete settings.regions[_oldType].polygons[regionPolygon.id];
-			settings.regions[newType].polygons[regionPolygon.id] = regionPolygon;
-			viewer.updateSegment(regionPolygon);
+			area.type = newType;
+			delete settings.regions[_oldType].areas[area.id];
+			settings.regions[newType].areas[area.id] = area;
+			viewer.updateSegment(area);
 			if (controller != null) {
-				controller.hideRegion(newType, false);
+				controller.hideRegionAreas(newType, false);
 			}
-			console.log('Do - Change Type: {id:"' + regionPolygon.id + '",[..],type:"' + _oldType + '->' + newType + '"}');
+			console.log('Do - Change Type: {id:"' + area.id + '",[..],type:"' + _oldType + '->' + newType + '"}');
 		}
 	}
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
 
-			regionPolygon.type = _oldType;
-			delete settings.regions[newType].polygons[regionPolygon.id];
-			settings.regions[_oldType].polygons[regionPolygon.id] = regionPolygon;
-			viewer.updateSegment(regionPolygon);
+			area.type = _oldType;
+			delete settings.regions[newType].areas[area.id];
+			settings.regions[_oldType].areas[area.id] = area;
+			viewer.updateSegment(area);
 			if (controller != null) {
-				controller.hideRegion(_oldType, false);
+				controller.hideRegionAreas(_oldType, false);
 			}
-			console.log('Undo - Change Type: {id:"' + regionPolygon.id + '",[..],type:"' + _oldType + '->' + newType + '"}');
+			console.log('Undo - Change Type: {id:"' + area.id + '",[..],type:"' + _oldType + '->' + newType + '"}');
 		}
 	}
 }
@@ -162,58 +162,56 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 	}
 }
 
-function ActionAddRegion(id, points, type, editor, settings, page, controller) {
+function ActionAddRegionArea(id, points, type, editor, settings) {
 	let _isExecuted = false;
-	const _region = { id: id, points: points, type: type, isRelative: true };
+	const _area = { id: id, points: points, type: type, isRelative: true };
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			settings.regions[type].polygons[_region.id] = _region;
-			editor.addRegion(_region);
-			if (controller != null)
-				controller.hideRegion(_region.type, false);
+			settings.regions[type].areas[_area.id] = _area;
+			editor.addArea(_area);
 
-			console.log('Do - Add Region Polygon: {id:"' + _region.id + '",[..],type:"' + _region.type + '"}');
+			console.log('Do - Add Region Area: {id:"' + _area.id + '",[..],type:"' + _area.type + '"}');
 		}
 	}
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			delete settings.regions[type].polygons[_region.id];
-			editor.removeRegion(_region.id);
-			console.log('Undo - Add Region Polygon: {id:"' + _region.id + '",type:"' + _region.type + '"}');
+			delete settings.regions[type].areas[_area.id];
+			editor.removeArea(_area.id);
+			console.log('Undo - Add Region Area: {id:"' + _area.id + '",type:"' + _area.type + '"}');
 		}
 	}
 }
 
-function ActionRemoveRegion(regionPolygon, editor, settings, page, controller) {
+function ActionRemoveRegionArea(regionPolygon, editor, settings, controller) {
 	let _isExecuted = false;
-	const _region = regionPolygon;
+	const _area = regionPolygon;
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 
-			delete settings.regions[_region.type].polygons[_region.id];
-			editor.removeRegion(_region.id);
-			console.log('Do - Remove Region Polygon: {id:"' + _region.id + '",[..],type:"' + _region.type + '"}');
+			delete settings.regions[_area.type].areas[_area.id];
+			editor.removeArea(_area.id);
+			console.log('Do - Remove Region Area: {id:"' + _area.id + '",[..],type:"' + _area.type + '"}');
 		}
 	}
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			settings.regions[_region.type].polygons[_region.id] = _region;
-			editor.addRegion(_region);
+			settings.regions[_area.type].areas[_area.id] = _area;
+			editor.addArea(_area);
 			if (controller != null) {
-				controller.hideRegion(_region.type, false);
+				controller.hideRegionAreas(_area.type, false);
 			}
-			console.log('Undo - Remove Region Polygon: {id:"' + _region.id + '",[..],type:"' + _region.type + '"}');
+			console.log('Undo - Remove Region Area: {id:"' + _area.id + '",[..],type:"' + _area.type + '"}');
 		}
 	}
 }
 
-function ActionRemoveCompleteRegion(regionType, controller, editor, settings, controller) {
+function ActionRemoveRegionType(regionType, controller, editor, settings, controller) {
 	let _isExecuted = false;
 	const _region = JSON.parse(JSON.stringify(settings.regions[regionType]));
 
@@ -224,8 +222,8 @@ function ActionRemoveCompleteRegion(regionType, controller, editor, settings, co
 			controller.removePresentRegions(_region.type);
 
 			// Iterate over all Polygons in Region
-			Object.keys(_region.polygons).forEach(function (polygonKey) {
-				editor.removeRegion(polygonKey);
+			Object.keys(_region.areas).forEach(function (polygonKey) {
+				editor.removeArea(polygonKey);
 			});
 
 			delete settings.regions[_region.type];
@@ -240,9 +238,9 @@ function ActionRemoveCompleteRegion(regionType, controller, editor, settings, co
 			controller.addPresentRegions(_region.type);
 
 			// Iterate over all Polygons in Region
-			Object.keys(_region.polygons).forEach(function (polygonKey) {
-				editor.addRegion(_region.polygons[polygonKey]);
-				controller.hideRegion(_region.type, false);
+			Object.keys(_region.areas).forEach(function (polygonKey) {
+				editor.addArea(_region.areas[polygonKey]);
+				controller.hideRegionAreas(_region.type, false);
 			});
 
 			console.log('Undo - Remove Region "' + _region.type + '"}');
@@ -407,14 +405,17 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 	}
 }
 
-function ActionAddCut(id, points, editor, settings, page) {
+function ActionAddCut(id, points, editor, fixedGeometry, page) {
 	let _isExecuted = false;
 	const _cut = { id: id, points: points, type: 'other', isRelative: false };
+	if(!fixedGeometry[page]){
+		fixedGeometry[page] = {};
+	}
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			settings.pages[page].cuts[_cut.id] = _cut;
+			fixedGeometry[page].cuts[_cut.id] = _cut;
 			editor.addLine(_cut);
 			console.log('Do - Add Cut: {id:"' + _cut.id + '",[..]}');
 		}
@@ -422,22 +423,25 @@ function ActionAddCut(id, points, editor, settings, page) {
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			delete settings.pages[page].cuts[_cut.id];
+			delete fixedGeometry[page].cuts[_cut.id];
 			editor.removeLine(_cut.id);
 			console.log('Undo - Add Cut: {id:"' + _cut.id + '",[..]}');
 		}
 	}
 }
 
-function ActionRemoveCut(cut, editor, settings, page) {
+function ActionRemoveCut(cut, editor, fixedGeometry, page) {
 	let _isExecuted = false;
 	const _cut = JSON.parse(JSON.stringify(cut));
+	if(!fixedGeometry[page]){
+		fixedGeometry[page] = {};
+	}
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 
-			delete settings.pages[page].cuts[_cut.id];
+			delete fixedGeometry[page].cuts[_cut.id];
 			editor.removeSegment(_cut.id);
 			console.log('Do - Remove Cut: {id:"' + _cut.id + '",[..],type:"' + _cut.type + '"}');
 		}
@@ -446,28 +450,28 @@ function ActionRemoveCut(cut, editor, settings, page) {
 		if (_isExecuted) {
 			_isExecuted = false;
 
-			settings.pages[page].cuts[_cut.id] = JSON.parse(JSON.stringify(_cut));
+			fixedGeometry[page].cuts[_cut.id] = JSON.parse(JSON.stringify(_cut));
 			editor.addLine(_cut);
 			console.log('Undo - Remove Cut: {id:"' + _cut.id + '",[..],type:"' + _cut.type + '"}');
 		}
 	}
 }
 
-function ActionTransformRegion(id, regionPolygon, regionType, viewer, settings, page, controller) {
+function ActionTransformRegionArea(id, areaPoints, regionType, viewer, settings, page, controller) {
 	let _isExecuted = false;
 	const _id = id;
 	const _regionType = regionType;
-	const _newRegionPoints = JSON.parse(JSON.stringify(regionPolygon));
-	const _oldRegionPoints = JSON.parse(JSON.stringify(settings.regions[_regionType].polygons[_id].points));
+	const _newAreaPoints = JSON.parse(JSON.stringify(areaPoints));
+	const _oldAreaPoints = JSON.parse(JSON.stringify(settings.regions[_regionType].areas[_id].points));
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			let region = settings.regions[_regionType].polygons[_id];
-			region.points = _newRegionPoints;
-			viewer.updateSegment(region);
+			let area = settings.regions[_regionType].areas[_id];
+			area.points = _newAreaPoints;
+			viewer.updateSegment(area);
 			if (controller != null) {
-				controller.hideRegion(_regionType, false);
+				controller.hideRegionAreas(_regionType, false);
 			}
 			console.log('Do - Transform Region: {id:"' + _id + ' [..]}');
 		}
@@ -475,11 +479,11 @@ function ActionTransformRegion(id, regionPolygon, regionType, viewer, settings, 
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
-			let region = settings.regions[_regionType].polygons[_id];
-			region.points = _oldRegionPoints;
-			viewer.updateSegment(region);
+			let area = settings.regions[_regionType].areas[_id];
+			area.points = _oldAreaPoints;
+			viewer.updateSegment(area);
 			if (controller != null) {
-				controller.hideRegion(_regionType, false);
+				controller.hideRegionAreas(_regionType, false);
 			}
 			console.log('Undo - Transform Region: {id:"' + _id + ' [..]}');
 		}
@@ -491,6 +495,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 	const _id = id;
 	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
 	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[_id].points));
+	const _orientation = segmentation[page].segments[_id].orientation;
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
 		_actionSetFixed = new ActionFixSegment(id, controller, true);
@@ -500,6 +505,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 			_isExecuted = true;
 			let segment = segmentation[page].segments[_id];
 			segment.points = _newRegionPoints;
+			segment.orientation = null;
 			viewer.updateSegment(segment);
 			if (_actionSetFixed)
 				_actionSetFixed.execute();
@@ -512,6 +518,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 			_isExecuted = false;
 			let segment = segmentation[page].segments[_id];
 			segment.points = _oldRegionPoints;
+			segment.orientation = _orientation;
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
 			viewer.updateSegment(segment);
@@ -527,12 +534,14 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 	const _newRegionPoints = clone(segmentPoints);
 	const _oldRegionPoints = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points);
 	const _oldMinArea = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].minArea);
+	const _orientation = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].orientation;
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _newRegionPoints;
+			segment.orientation = null;
 			delete segment.minArea;
 			viewer.updateSegment(segment);
 			textViewer.updateTextline(segment);
@@ -546,6 +555,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
 			segment.points = _oldRegionPoints;
 			segment.minArea = clone(_oldMinArea);
+			segment.orientation = _orientation;
 			viewer.updateSegment(segment);
 			textViewer.updateTextline(segment);
 			controller.forceUpdateReadingOrder();
@@ -572,7 +582,7 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			gui.saveTextLine(id);
 			textViewer.saveTextLine(id);
 			if(textViewer.isOpen()){
-				controller.selectSegment(id);
+				controller.selectElement(id);
 			}
 			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
@@ -585,7 +595,7 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			controller.updateTextLine(id);
 			textViewer.updateTextline(textline);
 			if(textViewer.isOpen()){
-				controller.selectSegment(id);
+				controller.selectElement(id);
 			}
 			console.log('Undo - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
@@ -637,7 +647,7 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 			}
 
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
-			controller.selectSegment(segment);
+			controller.selectElement(segment);
 			controller.forceUpdateReadingOrder(true);
 			console.log('Do - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
 		}
@@ -647,7 +657,7 @@ function ActionAddToReadingOrder(segment, page, segmentation, controller) {
 			_isExecuted = false;
 
 			segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
-			controller.selectSegment(segment);
+			controller.selectElement(segment);
 			controller.forceUpdateReadingOrder(true);
 			console.log('Undo - Add to Reading Order: {id:"' + segment.id + '",[..],type:"' + segment.type + '"}');
 		}

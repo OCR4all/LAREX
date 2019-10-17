@@ -1,8 +1,9 @@
-function GuiInput(navigationController, controller, gui, textViewer) {
+function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	const _navigationController = navigationController;
 	const _controller = controller;
 	const _gui = gui;
 	const _textViewer = textViewer;
+	const _selector = selector;
 
 	$(window).click((event) => {
 		//Cancel viewer actions, if outside of viewer or a menu icon
@@ -85,18 +86,18 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 			_controller.changeImageCombine(doCombine);
 		}
 	});
-	$('.createRegionRectangle').click(() => _controller.createRectangle('region'));
+	$('.createRegionAreaRectangle').click(() => _controller.createRectangle('area'));
 	$('.setRegionOfInterest').click(() => _controller.createRectangle('roi'));
 
 	$('.createIgnore').click(() => _controller.createRectangle('ignore'));
-	$('.createRegionBorder').click(() => _controller.createRegionBorder());
+	$('.createRegionAreaBorder').click(() => _controller.createRegionAreaBorder());
 	$('.createSegmentPolygon').click(() => _controller.createSegmentPolygon(true));
 	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
 	$('.createTextLinePolygon').click(() => _controller.createTextLinePolygon(true));
 	$('.createTextLineRectangle').click(() => _controller.createRectangle('textline'));
 	$('.createCut').click(() => _controller.createCut());
 
-	$('.combineSelected').click(() => _controller.mergeSelectedSegments());
+	$('.combineSelected').click(() => _controller.mergeSelected());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.displayContours());
@@ -150,18 +151,22 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
-	$('.changePage').click(function () { _controller.displayPage($(this).data("page")) });
+	$('.changePage').click(function (e) {
+		_controller.displayPage($(this).data("page"), $(this).data("imagenr"));
+		e.stopPropagation();
+		return true;
+	});
 	$('.regionlegend').click(function () {
 		const $this = $(this);
 		const $switchBox = $this.find('input');
-		_controller.hideRegion($this.data('type'), !$switchBox.prop('checked'));
+		_controller.hideRegionAreas($this.data('type'), !$switchBox.prop('checked'));
 	});
 	$('.regionlegendAll').click(function () {
 		const $switchBox = $(this).find('input');
 		const $allSwitchBoxes = $('.regionlegend').find('input');
 		$allSwitchBoxes.prop('checked', $switchBox.prop('checked'))
 
-		_controller.hideAllRegions(!$switchBox.prop('checked'));
+		_controller.hideAllRegionAreas(!$switchBox.prop('checked'));
 	});
 	$('.regionSettings, #regioneditorSelect .collection-item').click(function () { _controller.openRegionSettings($(this).data("type")) });
 	$('.regionCreate').click(function () { _controller.openRegionSettings() });
@@ -309,7 +314,7 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$(document).on("click",'.textline-container', function (){
 		const $this = $(this);
 		const id = $this.data('id');
-		_controller.selectSegment(id);
+		_controller.selectElement(id);
 	});
 
 	/**
@@ -347,7 +352,7 @@ function GuiInput(navigationController, controller, gui, textViewer) {
 	$(document).on("click",'.vk-btn', function(event){
 		const character = $(this).text();
 		if(_textViewer.isOpen()){
-			const selected = _controller.getSelected();
+			const selected = _selector.getSelected();
 			if(selected){
 				_textViewer.setFocus(selected[0]);
 				_textViewer.insertCharacterTextLine(character);

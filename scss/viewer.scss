@@ -448,7 +448,7 @@ body{
   &.segmentError:before {
     transform: rotate(-45deg);
   }
-  &.emptyImage:before{
+  &.emptyImage:after{
     content:"";
     display:block;
     padding-top:140%;
@@ -480,8 +480,8 @@ body{
   }
 }
 
-.pagestatus, #pageLegend{
-  .pagestatusIcon{
+.pagestatus, #pageLegend {
+  .pagestatusIcon {
     font-size: 16px;
     padding: 3px;
     margin: 0px;
@@ -494,7 +494,24 @@ body{
     }
   }
 }
-
+.image_versions {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  .image_version {
+    font-size: 12px;
+    padding: 3px;
+    margin: 0px;
+    color: $color4;
+    background-color: $color3;
+    flex: 1;
+    text-align: center;
+    &:hover, &.selected{
+      background-color: $color1;
+    }
+  }
+}
 #regioneditor, #virtual-keyboard-add{
   z-index:3;
   position: absolute;

@@ -6,7 +6,7 @@
 
     <groupId>de.uniwue</groupId>
     <artifactId>Larex</artifactId>
-    <version>0.1.8-7</version>
+    <version>0.2.0</version>
     <packaging>war</packaging>
 
     <name>Larex</name>
@@ -91,12 +91,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.9.9</version>
+            <version>2.10.0</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.9.9.1</version>
+            <version>2.10.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.openpnp/opencv -->

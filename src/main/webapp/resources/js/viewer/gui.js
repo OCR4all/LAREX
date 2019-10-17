@@ -703,10 +703,10 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		let $button = null;
 		switch (option) {
 			case 'regionRectangle':
-				$button = $('.createRegionRectangle');
+				$button = $('.createRegionAreaRectangle');
 				break;
 			case 'regionBorder':
-				$button = $('.createRegionBorder');
+				$button = $('.createRegionAreaBorder');
 				break;
 			case 'segmentRectangle':
 				$button = $('.createSegmentRectangle');
@@ -752,9 +752,14 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$buttons.removeClass('invert');
 	}
 
-	this.selectPage = function (page) {
+	this.selectPage = function (page, imageNr) {
 		$('.pageImageContainer').removeClass('selected');
-		$('.pageImageContainer[data-page~="' + page + '"]').addClass('selected');
+		const $page_container = $('.pageImageContainer[data-page~="' + page + '"]');
+		$page_container.addClass('selected');
+
+		$('.image_version').removeClass('selected');
+		$page_container.find('.image_version[data-imagenr~="' + imageNr + '"]').addClass("selected");
+
 		this.scrollToPage(page);
 	}
 
@@ -888,10 +893,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			if($p.offset().top < windowsHeight+pixelBuffer){
 				const imageSrc = $p.data("image");
 				const imageId = $p.data("page");
-				const bookpath = $p.data("bookpath");
 				const title = $p.data("title");
 
-				const $image = $('<img class="pageImage" alt="'+title+'" title="'+title+'" src="'+bookpath+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
+				const $image = $('<img class="pageImage" alt="'+title+'" title="'+title+'" src="images/books/'+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
 				const $status = $('<div class="pagestatus">'+
 									'<i class="material-icons pagestatusIcon pageIconTodo circle">assignment_late</i>'+
 									'<i class="material-icons pagestatusIcon pageIconSession circle  hide">save</i>'+

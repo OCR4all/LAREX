@@ -30,10 +30,10 @@
 							</thead>
 							<tbody>
 								<c:forEach items="${library.getSortedBooks()}" var="bookentry">
-									<tr id="${bookentry.getId()}" class="bookopen">
+									<tr id="${bookentry.getKey()}" class="bookopen">
 										<td>
 											<i class="material-icons">book</i></td>
-										<td>${bookentry.getName()}</td>
+										<td>${bookentry.getValue()}</td>
 									</tr>
 								</c:forEach>
 							</tbody>

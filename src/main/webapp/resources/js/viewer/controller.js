@@ -1,6 +1,6 @@
 var Mode = {SEGMENT:'segment',EDIT:'edit',LINES:'lines',TEXT:'text'}
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
-var ElementType = {SEGMENT:'segment',REGION:'region',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
+var ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
 
 function Controller(bookID, accessible_modes, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -26,7 +26,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _allowLoadLocal = true;
 	let _autoSegment = true;
 	let _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
-	let _fixedSegments = {};
+	let _fixedGeometry = {};
 	let _editReadingOrder = false;
 
 	let _newPolygonCounter = 0;
@@ -54,18 +54,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_currentPage = 0;
 		this.showPreloader(true);
-		_communicator.loadBook(bookID, _currentPage).done((data) => {
-			_book = data.book;
-			_settings = data.settings;
+		_communicator.loadBook(bookID).done((book) => {
+			_book = book;
 
-			const regions = _settings.regions;
-			Object.keys(regions).forEach((key) => {
-				const region = regions[key];
-
-				if (region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0) {
-					_presentRegions.push(region.type);
-				}
-			});
 			// Init the viewer
 			const viewerInput = new ViewerInput(this);
 
@@ -78,10 +69,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_selector = new Selector(_editor, _textViewer, this);
 			viewerInput.selector = _selector;
 			_actionController.selector = _selector;
-			_gui = new GUI(canvasID, _editor,_colors, accessible_modes);
+			_gui = new GUI(canvasID, _editor, _colors, accessible_modes);
 			_gui.resizeViewerHeight();
 
-			_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
@@ -103,16 +93,20 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			// Init inputs
 			const keyInput = new KeyInput(_navigationController, this, _gui, _textViewer, _selector, ["#"+canvasID,"#viewer","#textline-content"]);
+			$("#"+canvasID).click(() => keyInput.isActive = true);
+			$("#"+canvasID).mouseover(() => keyInput.isActive = true);
+			$("#"+canvasID).find("input").focusin(() => keyInput.isActive = false);
+			$("#"+canvasID).find("input").focusout(() => keyInput.isActive = true);
+			
 			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
 			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
 			$("#regioneditor").find("input").focusin(() => keyInput.isActive = false);
 			$("#regioneditor").find("input").focusout(() => keyInput.isActive = true);
 			$("#virtual-keyboard-add").find("input").focusin(() => keyInput.isActive = false);
 			$("#virtual-keyboard-add").find("input").focusout(() => keyInput.isActive = true);
-			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer);
+			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer, _selector);
 
 			this.showPreloader(false);
-			this.displayPage(0);
 
 			// on resize
 			$(window).resize(() => {
@@ -122,27 +116,40 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			});
 
-
 			// init Search
 			$(document).ready(function(){
 				let pageData = {};
-				_book.pages.forEach(page => pageData[page.image] = null );
+				_book.pages.forEach(page => pageData[page.images[0]] = null );
 			});
 
+			// Add settings if mode is included
+			_communicator.getSettings(bookID).done((settings) => {
+				_settings = settings;
+				const regions = _settings.regions;
+				Object.keys(regions).forEach((key) => {
+					const region = regions[key];
+
+					if (region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0) {
+						_presentRegions.push(region.type);
+					}
+				});
+				_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
+				this.displayPage(0);
+			});
 
 			this.setMode(_mode);
 		});
 	});
 
-	this.displayPage = function (pageNr) {
+	this.displayPage = function (pageNr, imageNr=0) {
 		this.escape();
 		_currentPage = pageNr;
 
-		const imageId = _book.pages[_currentPage].id + "image";
+		const imageId = _book.pages[_currentPage].id + "image" + imageNr;
 		// Check if image is loadedreadingOrder
 		const image = $('#' + imageId);
 		if (!image[0]) {
-			_communicator.loadImage(_book.pages[_currentPage].image, imageId).done(() => this.displayPage(pageNr));
+			_communicator.loadImage(_book.pages[_currentPage].images[imageNr], imageId).done(() => this.displayPage(pageNr, imageNr));
 			return false;
 		}
 		if (!image[0].complete) {
@@ -163,26 +170,17 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
-			if(_autoSegment){
-				this.requestSegmentation(_allowLoadLocal);
-			} else {
-				if(!_allowLoadLocal){
+			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
+				if(_allowLoadLocal && pages.includes(_currentPage)){
+					this.loadAnnotations();
+				} else if(_autoSegment){
+					this.requestSegmentation();
+				} else {
 					this._requestEmptySegmentation();
-				}else{
-					// Check if pages has local segmentation only if autoSegment is not allowed
-					_communicator.getSegmented(_book.id).done((pages) =>{
-						hasLocal = pages.includes(pageNr);
-						pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
-						if(_allowLoadLocal && hasLocal){
-							this.requestSegmentation(_allowLoadLocal);
-						} else {
-							this._requestEmptySegmentation();
-						}
-					});
 				}
-			}
+				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
+			})
 		} else {
-			
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
 			this.textlineRegister = {};
@@ -215,10 +213,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if(!_colors.hasColor(region.type));
 					_colors.assignAvailableColor(region.type);
 
-				// Iterate over all Polygons in Region
-				Object.keys(region.polygons).forEach((polygonKey) => {
-					let polygon = region.polygons[polygonKey];
-					_editor.addRegion(polygon);
+				// Iterate over all Areas of a Region
+				Object.keys(region.areas).forEach((areaKey) => {
+					let polygon = region.areas[areaKey];
+					_editor.addArea(polygon);
 
 					if (!_visibleRegions[region.type] & region.type !== 'ignore') {
 						_editor.hideSegment(polygon.id, true);
@@ -231,7 +229,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			});
 
-			const pageCuts = _settings.pages[_currentPage].cuts;
+			if(!_fixedGeometry[_currentPage])
+				_fixedGeometry[_currentPage] = {segments:[],cuts:{}};
+
+			const pageCuts = _fixedGeometry[_currentPage].cuts;
 			// Iterate over FixedSegment-"Map" (Object in JS)
 			Object.keys(pageCuts).forEach((key) => _editor.addLine(pageCuts[key]));
 
@@ -248,7 +249,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.displayReadingOrder(false);
 			_gui.updateRegionLegendColors(_presentRegions);
 
-			_gui.selectPage(pageNr);
+			_gui.selectPage(pageNr, imageNr);
 			this.endEditReadingOrder();
 			this.showPreloader(false);
 
@@ -276,6 +277,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.showUsedRegionLegends(_presentRegions);
 	}
 
+	this.loadAnnotations = function () {
+		//Update setting parameters
+		_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
+			this._setPage(_currentPage, result);
+			this.displayPage(_currentPage);
+		});
+	}
+
 	this.requestSegmentation = function (allowLoadLocal) {
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
@@ -284,27 +293,46 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
-		activesettings.pages[_currentPage].segments = {};
-		if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-		_fixedSegments[_currentPage].forEach(s => activesettings.pages[_currentPage].segments[s] = _segmentation[_currentPage].segments[s]);
+		activesettings.fixedGeometry = {segments:{},cuts:{}};
+		if (_fixedGeometry[_currentPage]) {
+			if (_fixedGeometry[_currentPage].segments) 
+				_fixedGeometry[_currentPage].segments.forEach(
+					s => activesettings.fixedGeometry.segments[s] = _segmentation[_currentPage].segments[s]);
+			if (_fixedGeometry[_currentPage].cuts) 
+				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
+		}
 
-		_communicator.segmentBook(activesettings, _currentPage, allowLoadLocal).done((result) => {
-			const failedSegmentations = [];
+		_communicator.segmentPage(activesettings, _currentPage, allowLoadLocal).done((result) => {
+			this._setPage(_currentPage, result);
+			this.displayPage(_currentPage);
+		});
+	}
+
+	this._requestEmptySegmentation = function () {
+		_communicator.emptySegmentation(_book.id, _currentPage).done((result) => {
+			_gui.highlightLoadedPage(_currentPage, false);
+			this._setPage(_currentPage, result);
+			this.displayPage(_currentPage);
+		});
+		_segmentedPages.push(_currentPage);
+	}
+
+	this._setPage = function(pageid, result){
 			const missingRegions = [];
 
-			_gui.highlightLoadedPage(_currentPage, false);
+			_gui.highlightLoadedPage(pageid, false);
 			switch (result.status) {
 				case 'LOADED':
-					_gui.highlightLoadedPage(_currentPage, true);
+					_gui.highlightLoadedPage(pageid, true);
 				case 'SUCCESS':
-					_segmentation[_currentPage] = result;
+					_segmentation[pageid] = result;
 
-					_actionController.resetActions(_currentPage);
+					_actionController.resetActions(pageid);
 					//check if all necessary regions are available
 					Object.keys(result.segments).forEach((id) => {
 						let segment = result.segments[id];
 						if ($.inArray(segment.type, _presentRegions) == -1) {
-							//TODO as Action
+							//Add missing region
 							this.changeRegionSettings(segment.type, 0, -1);
 							if(!_colors.hasColor(segment.type)){
 								_colors.assignAvailableColor(segment.type)
@@ -317,7 +345,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					this.forceUpdateReadingOrder();
 					break;
 				default:
-					failedSegmentations.push(_currentPage);
 			}
 
 			_segmentedPages.push(_currentPage);
@@ -325,13 +352,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_gui.displayWarning('Warning: Some regions were missing and have been added.');
 			}
 
-			this.displayPage(_currentPage);
 			_gui.highlightSegmentedPages(_segmentedPages);
+	} 
 
-			_communicator.getSegmented(_book.id).done((pages) =>{
-				pages.forEach(page => { _gui.addPageStatus(page,PageStatus.SERVERSAVED)});
-			})
+	this.uploadSegmentation = function (file) {
+		this.showPreloader(true);
 
+		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
+			this._setPage(_currentPage,page);
+			this.displayPage(_currentPage);
+			this.showPreloader(false);
 		});
 	}
 
@@ -351,7 +381,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			selected = selected.map(id => (this.getIDType(id) === ElementType.TEXTLINE) ? this.textlineRegister[id] : id);
 			// Set visibilities
 			_editor.displayOverlay("segments",true);
-			_editor.displayOverlay("regions",true);
+			_editor.displayOverlay("areas",true);
 			_editor.displayOverlay("lines",false);
 			this.displayTextViewer(false);
 			if(_segmentation[_currentPage]){
@@ -365,7 +395,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			selected = selected.filter(id => [ElementType.TEXTLINE,ElementType.SEGMENT].includes(this.getIDType(id)));
 			// Set visibilities
 			_editor.displayOverlay("segments",true);
-			_editor.displayOverlay("regions",false);
+			_editor.displayOverlay("areas",false);
 			_editor.displayOverlay("lines",true);
 			this.forceUpdateReadingOrder();
 			this.displayTextViewer(false);
@@ -386,7 +416,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			selected = postSelect;
 			// Set visibilities
 			_editor.displayOverlay("segments",false);
-			_editor.displayOverlay("regions",false);
+			_editor.displayOverlay("areas",false);
 			_editor.displayOverlay("lines",true);
 			this.displayReadingOrder(false);
 			this.displayTextViewer(true);
@@ -405,59 +435,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		return _mode;
 	}
 
-	this._requestEmptySegmentation = function () {
-		_communicator.emptySegmentation(_book.id, _currentPage).done((result) => {
-			_gui.highlightLoadedPage(_currentPage, false);
-			_segmentation[_currentPage] = result;
-
-			this.displayPage(_currentPage);
-		});
-		_segmentedPages.push(_currentPage);
-	}
-
-	this.uploadSegmentation = function (file) {
-
-		this.showPreloader(true);
-
-		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
-			const failedSegmentations = [];
-			const missingRegions = [];
-
-			switch (page.status) {
-				case 'LOADED':
-					_segmentation[_currentPage] = page;
-
-					_actionController.resetActions(_currentPage);
-
-					//check if all necessary regions are available
-					Object.keys(page.segments).forEach((id) => {
-						let segment = page.segments[id];
-						if ($.inArray(segment.type, _presentRegions) == -1) {
-							//Add missing region
-							this.changeRegionSettings(segment.type, 0, -1);
-							_colors.assignAvailableColor(segment.type);
-							const colorID = _colors.getColorID(segment.type);
-							this.setRegionColor(segment.type,colorID);
-							missingRegions.push(segment.type);
-						}
-					});
-					this.forceUpdateReadingOrder();
-					break;
-				default:
-					failedSegmentations.push(_currentPage);
-			}
-
-			_segmentedPages.push(_currentPage);
-			if (missingRegions.length > 0) {
-				_gui.displayWarning('Warning: Some regions were missing and have been added.');
-			}
-
-			this.displayPage(_currentPage);
-			this.showPreloader(false);
-			_gui.highlightSegmentedPages(_segmentedPages);
-		});
-	}
-
 	this.exportPageXML = function () {
 		_gui.setExportingInProgress(true);
 
@@ -471,8 +448,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (globalSettings.downloadPage) {
 				var a = window.document.createElement('a');
 				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
-				const fileName = _book.pages[_currentPage].fileName;
-				a.download = _book.name + "_" + fileName.substring(0, fileName.lastIndexOf(".")) + ".xml";
+				const fileName = _book.pages[_currentPage].name;
+				a.download = _book.name + "_" + fileName + ".xml";
 
 				// Append anchor to body.
 				document.body.appendChild(a);
@@ -541,7 +518,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_gui.setParameters(_settings.parameters, _settings.imageSegType, _settings.combine);
 
 				this.displayPage(_currentPage);
-				this.hideAllRegions(true);
+				this.hideAllRegionAreas(true);
 				_gui.forceUpdateRegionHide(_visibleRegions);
 				_actionController.resetActions(_currentPage);
 			}
@@ -549,13 +526,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.fixSegment = function (id, doFix = true) {
-		if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-		let arrayPosition = $.inArray(id, _fixedSegments[_currentPage]);
+		let arrayPosition = $.inArray(id, _fixedGeometry[_currentPage].segments);
 		if (doFix && arrayPosition < 0) {
-			_fixedSegments[_currentPage].push(id)
+			_fixedGeometry[_currentPage].segments.push(id)
 		} else if (!doFix && arrayPosition > -1) {
-			//remove from _fixedSegments
-			_fixedSegments[_currentPage].splice(arrayPosition, 1);
+			//remove from fixed segments
+			_fixedGeometry[_currentPage].segments.splice(arrayPosition, 1);
 		}
 		_editor.fixSegment(id, doFix);
 	}
@@ -603,7 +579,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			case ElementType.SEGMENT:
 				_gui.selectToolBarButton('segmentRectangle', true);
 				break;
-			case ElementType.REGION:
+			case ElementType.AREA:
 				_gui.selectToolBarButton('regionRectangle', true);
 				break;
 			case ElementType.TEXTLINE:
@@ -630,10 +606,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			const selected = _selector.getSelectedSegments();
 			const selectType = _selector.getSelectedPolygonType();
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				if (selectType === ElementType.REGION) {
+				if (selectType === ElementType.AREA) {
 				} else if (selectType === ElementType.SEGMENT) {
-					if (!_fixedSegments[_currentPage]) _fixedSegments[_currentPage] = [];
-					let wasFixed = $.inArray(selected[i], _fixedSegments[_currentPage]) > -1;
+					let wasFixed = $.inArray(selected[i], _fixedGeometry[_currentPage].segments) > -1;
 					actions.push(new ActionFixSegment(selected[i], this, !wasFixed));
 				} else if (selectType === ElementType.CUT) {
 				}
@@ -696,14 +671,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			//Polygon is selected => Delete polygon
 			const actions = [];
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
-				if (selectType === ElementType.REGION) {
-					actions.push(new ActionRemoveRegion(this._getRegionByID(selected[i]), _editor, _settings, _currentPage, this));
+				if (selectType === ElementType.AREA) {
+					actions.push(new ActionRemoveRegionArea(this._getRegionByID(selected[i]), _editor, _settings, this));
 				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
 					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
 				} else if (selectType === ElementType.CUT) {
-					let cut = _settings.pages[_currentPage].cuts[selected[i]];
-					actions.push(new ActionRemoveCut(cut, _editor, _settings, _currentPage));
+					let cut = _fixedGeometry[_currentPage].cuts[selected[i]];
+					actions.push(new ActionRemoveCut(cut, _editor, _fixedGeometry, _currentPage));
 				} else if (selectType === ElementType.TEXTLINE) {
 					let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[i]]].textlines[selected[i]];
 					actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
@@ -714,7 +689,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		} 
 	}
 
-	this.mergeSelectedSegments = function () {
+	this.mergeSelected = function () {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
 
@@ -754,7 +729,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 						let mergeAction = new ActionMultiple(actions);
 						_actionController.addAndExecuteAction(mergeAction, _currentPage);
-						this.selectSegment(mergedSegment.id);
+						this.selectElement(mergedSegment.id);
 						this.openContextMenu(true);
 					} else {
 						_gui.displayWarning("Combination of segments resulted in a segment with to few points. Segment will be ignored.");
@@ -764,7 +739,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		} else if(selectType === ElementType.CONTOUR){
 			const contours = selected.map(id => _contours[_currentPage][id]);
 			const contourAccuracy = 50;
-			_communicator.combineContours(contours,_currentPage,_book.id,contourAccuracy).done((segment) => {
+			const width = _book.pages[_currentPage].width;
+			const height = _book.pages[_currentPage].height;
+			_communicator.combineContours(contours,width,height,contourAccuracy).done((segment) => {
 				if(segment.points.length > 0){
 					// Check if in Mode Lines (create TextLine or Region)
 					if(_mode === Mode.LINES && _tempID) {
@@ -790,15 +767,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
 		const selectedlength = selected.length;
-		if (selectType === ElementType.REGION || selectType === ElementType.SEGMENT){
+		if (selectType === ElementType.AREA || selectType === ElementType.SEGMENT){
 			if (selectedlength || selectedlength > 0) {
 				const actions = [];
 				for (let i = 0; i < selectedlength; i++) {
-					if (selectType === ElementType.REGION) {
+					if (selectType === ElementType.AREA) {
 						const regionPolygon = this._getRegionByID(selected[i]);
-						actions.push(new ActionChangeTypeRegionPolygon(regionPolygon, newType, _editor, _settings, _currentPage, this));
+						actions.push(new ActionChangeTypeRegionArea(regionPolygon, newType, _editor, _settings, _currentPage, this));
 
-						this.hideRegion(newType, false);
+						this.hideRegionAreas(newType, false);
 					} else if (selectType === ElementType.SEGMENT) {
 						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
 					}
@@ -808,12 +785,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		}
 	}
-	this.createRegionBorder = function () {
+	
+	this.createRegionAreaBorder = function () {
 		this.endEditing();
-		_editor.startCreateBorder(ElementType.REGION);
+		_editor.startCreateBorder(ElementType.AREA);
 		_gui.selectToolBarButton('regionBorder', true);
 	}
-	this.callbackNewRegion = function (regionpoints, regiontype) {
+
+	this.callbackNewArea = function (regionpoints, regiontype) {
 		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
 		if (!regiontype) {
@@ -825,53 +804,61 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			type = regiontype;
 		}
 
-		const actionAdd = new ActionAddRegion(newID, regionpoints, type,
-			_editor, _settings, _currentPage);
+		if(regionpoints && this._countUniquePoints(regionpoints) > 3){
+			const actionAdd = new ActionAddRegionArea(newID, regionpoints, type,
+				_editor, _settings);
 
-		_actionController.addAndExecuteAction(actionAdd, _currentPage);
-		if (!regiontype) {
-			this.openContextMenu(false, newID);
+			_actionController.addAndExecuteAction(actionAdd, _currentPage);
+			if (!regiontype) {
+				this.openContextMenu(false, newID);
+			}
+		} else {
+			_gui.displayWarning("Regions need at least three unique points. Region will be ignored.")
 		}
 		_gui.unselectAllToolBarButtons();
 	}
 
 	this.callbackNewRoI = function (regionpoints) {
-		let left = 1;
-		let right = 0;
-		let top = 1;
-		let down = 0;
+		if(regionpoints && regionpoints.length > 2 && this._countUniquePoints(regionpoints) > 1){
+			let left = 1;
+			let right = 0;
+			let top = 1;
+			let down = 0;
 
-		$.each(regionpoints, function (index, point) {
-			if (point.x < left)
-				left = point.x;
-			if (point.x > right)
-				right = point.x;
-			if (point.y < top)
-				top = point.y;
-			if (point.y > down)
-				down = point.y;
-		});
+			$.each(regionpoints, function (index, point) {
+				if (point.x < left)
+					left = point.x;
+				if (point.x > right)
+					right = point.x;
+				if (point.y < top)
+					top = point.y;
+				if (point.y > down)
+					down = point.y;
+			});
 
-		const actions = [];
+			const actions = [];
 
-		//Create 'inverted' ignore rectangle
-		actions.push(new ActionAddRegion("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			//Create 'inverted' ignore rectangle
+			actions.push(new ActionAddRegionArea("c" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: top }, { x: 0, y: top }], 'ignore',
+				_editor, _settings));
+			_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: 0, y: 0 }, { x: left, y: 0 }, { x: left, y: 1 }, { x: 0, y: 1 }], 'ignore',
+				_editor, _settings));
+			_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: 0, y: down }, { x: 1, y: down }, { x: 1, y: 1 }, { x: 0, y: 1 }], 'ignore',
+				_editor, _settings));
+			_newPolygonCounter++;
 
-		actions.push(new ActionAddRegion("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
-			_editor, _settings, _currentPage));
-		_newPolygonCounter++;
+			actions.push(new ActionAddRegionArea("created" + _newPolygonCounter, [{ x: right, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: right, y: 1 }], 'ignore',
+				_editor, _settings));
+			_newPolygonCounter++;
 
-		_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
+			_actionController.addAndExecuteAction(new ActionMultiple(actions), _currentPage);
+		} else {
+			_gui.displayWarning("Region Areas need at least three unique points. Area will be ignored.")
+		}
 		_gui.unselectAllToolBarButtons();
 	}
 
@@ -882,14 +869,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if (!type) {
 			type = "other";
 		}
-		if(segmentpoints.length > 1){
+		if(segmentpoints && this._countUniquePoints(segmentpoints) > 3){
 			const actionAdd = new ActionAddSegment(newID, segmentpoints, type,
 				_editor, _segmentation, _currentPage, this);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
 			this.openContextMenu(false, newID);
 		} else {
-			_gui.displayWarning("The system tried to create an invalid segment with to few points. Segment will be ignored.")
+			_gui.displayWarning("Region need at least three unique points. Region will be ignored.")
 		}
 		_gui.unselectAllToolBarButtons();
 	}
@@ -897,14 +884,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.callbackNewTextLine = function (segmentpoints) {
 		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
-		if(segmentpoints.length > 1){
+		if(segmentpoints && this._countUniquePoints(segmentpoints) > 3){
 			const actionAdd = new ActionAddTextLine(newID,_tempID, segmentpoints, {},
 				_editor, _textViewer, _segmentation, _currentPage, this);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
 			this.openContextMenu(false, newID);
 		} else {
-			_gui.displayWarning("The system tried to create an invalid textline with to few points. Segment will be ignored.")
+			_gui.displayWarning("Textlines need at least three unique points. Textline will be ignored.")
 		}
 		_gui.unselectAllToolBarButtons();
 	}
@@ -914,10 +901,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_newPolygonCounter++;
 
 		const actionAdd = new ActionAddCut(newID, segmentpoints,
-			_editor, _settings, _currentPage);
+			_editor, _fixedGeometry, _currentPage);
 
 		_actionController.addAndExecuteAction(actionAdd, _currentPage);
 		_gui.unselectAllToolBarButtons();
+	}
+
+	this._countUniquePoints = function(points){
+		return (new Set(points.map(s => JSON.stringify(s)))).size;
 	}
 
 	this.movePolygonPoints = function (id, segmentPoints, type=this.getIDType(id)) {
@@ -944,35 +935,35 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
-	this.scaleSelectedRegion = function () {
+	this.scaleSelectedRegionArea = function () {
 		_editor.endEditing();
 		const selectType = _selector.getSelectedPolygonType();
 		const selected = _selector.getSelectedSegments();
 
-		if (selectType === ElementType.REGION && selected.length === 1) 
-			_editor.startScalePolygon(selected[0], ElementType.REGION);
+		if (selectType === ElementType.AREA && selected.length === 1) 
+			_editor.startScalePolygon(selected[0], ElementType.AREA);
 	}
 
-	this.transformRegion = function (regionID, regionSegments) {
+	this.transformRegionArea = function (regionID, areaPolygon) {
 		const polygonType = this.getIDType(regionID);
-		if (polygonType === ElementType.REGION) {
+		if (polygonType === ElementType.AREA) {
 			let regionType = this._getRegionByID(regionID).type;
-			let actionTransformRegion = new ActionTransformRegion(regionID, regionSegments, regionType, _editor, _settings, _currentPage, this);
+			let actionTransformRegion = new ActionTransformRegionArea(regionID, areaPolygon, regionType, _editor, _settings, _currentPage, this);
 			_actionController.addAndExecuteAction(actionTransformRegion, _currentPage);
-			this.hideRegion(regionType, false);
+			this.hideRegionAreas(regionType, false);
 			_selector.select(regionID);
 		}
 	}
 
 	this.changeRegionType = function (id, type) {
 		const polygonType = this.getIDType(id);
-		if (polygonType === ElementType.REGION) {
+		if (polygonType === ElementType.AREA) {
 			const regionPolygon = this._getRegionByID(id);
 			if (regionPolygon.type != type) {
-				let actionChangeType = new ActionChangeTypeRegionPolygon(regionPolygon, type, _editor, _settings, _currentPage, this);
+				let actionChangeType = new ActionChangeTypeRegionArea(regionPolygon, type, _editor, _settings, _currentPage, this);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
-			this.hideRegion(type, false);
+			this.hideRegionAreas(type, false);
 		} else if (polygonType === ElementType.SEGMENT) {
 			if (_segmentation[_currentPage].segments[id].type != type) {
 				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
@@ -1010,8 +1001,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
-		Object.keys(region.polygons).forEach((polygonKey) => {
-			let polygon = region.polygons[polygonKey];
+		Object.keys(region.areas).forEach((polygonKey) => {
+			let polygon = region.areas[polygonKey];
 			if (polygon.type === regionType) {
 				_editor.updateSegment(polygon);
 			}
@@ -1287,15 +1278,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const readingOrder = (type === ElementType.SEGMENT) ?
 								_segmentation[_currentPage].readingOrder :
 								_segmentation[_currentPage].segments[parentID].readingOrder;
-		
 
 		return readingOrder && readingOrder.includes(id);
 	}
 	// Display
-	this.selectSegment = function (sectionID, hitTest, idType=this.getIDType(sectionID)) {
+	this.selectElement = function (sectionID, hitTest, idType=this.getIDType(sectionID)) {
 		if (_editReadingOrder && idType === ElementType.SEGMENT) {
 
-			const segment = this._getPolygon(sectionID);
+			const segment = _segmentation[_currentPage].segments[sectionID];
 			if (!this._readingOrderContains(sectionID)) {
 				_actionController.addAndExecuteAction(new ActionAddToReadingOrder(segment, _currentPage, _segmentation, this), _currentPage);
 			}
@@ -1312,17 +1302,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.closeContextMenu();
 		}
 	}
-
-	this.getSelected = function(){
-		return _selector.getSelectedSegments();
-	}
-
-	this.hasPointsSelected = function() {
-		return (_selector.getSelectedPolygonType() === ElementType.SEGMENT || _selector.getSelectedPolygonType() === ElementType.TEXTLINE)
-				&& _selector.getSelectedSegments().length === 1 
-				&& _selector.getSelectedPoints().length > 0;
-	}
-
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing) {
@@ -1338,14 +1317,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_gui.highlightSegment(sectionID, doHighlight);
 		}
 	}
-	this.hideAllRegions = function (doHide) {
+	this.hideAllRegionAreas = function (doHide) {
 		// Iterate over Regions-"Map" (Object in JS)
 		Object.keys(_settings.regions).forEach((key) => {
 			const region = _settings.regions[key];
 			if (region.type !== 'ignore') {
 				// Iterate over all Polygons in Region
-				Object.keys(region.polygons).forEach((polygonKey) => {
-					let polygon = region.polygons[polygonKey];
+				Object.keys(region.areas).forEach((polygonKey) => {
+					let polygon = region.areas[polygonKey];
 					_editor.hideSegment(polygon.id, doHide);
 				});
 
@@ -1353,14 +1332,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		});
 	}
-	this.hideRegion = function (regionType, doHide) {
+	this.hideRegionAreas = function (regionType, doHide) {
 		_visibleRegions[regionType] = !doHide;
 
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
-		Object.keys(region.polygons).forEach((polygonKey) => {
-			let polygon = region.polygons[polygonKey];
-			_editor.hideSegment(polygon.id, doHide);
+		Object.keys(region.areas).forEach((polygonKey) => {
+			let area = region.areas[polygonKey];
+			_editor.hideSegment(area.id, doHide);
 		});
 		_gui.forceUpdateRegionHide(_visibleRegions);
 	}
@@ -1473,7 +1452,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if (!region) {
 			region = {};
 			region.type = regionType;
-			region.polygons = {};
+			region.areas = {};
 			_settings.regions[regionType] = region;
 			_presentRegions.push(regionType);
 			_gui.showUsedRegionLegends(_presentRegions);
@@ -1481,11 +1460,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		region.minSize = minSize;
 		region.maxOccurances = maxOccurances;
 	}
+
 	this.deleteRegionSettings = function (regionType) {
 		if ($.inArray(regionType, _presentRegions) >= 0 && regionType != 'ImageRegion' && regionType != 'paragraph') {
-			_actionController.addAndExecuteAction(new ActionRemoveCompleteRegion(regionType, this, _editor, _settings, this), _currentPage);
+			_actionController.addAndExecuteAction(new ActionRemoveRegionType(regionType, this, _editor, _settings, this), _currentPage);
 		}
 	}
+
 	this.showPreloader = function (doShow) {
 		if (doShow) {
 			$('#preloader').removeClass('hide');
@@ -1493,21 +1474,24 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			$('#preloader').addClass('hide');
 		}
 	}
+
 	this.openContextMenu = function (doSelected, id) {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
-		if (doSelected && selected && selected.length > 0 && (selectType === ElementType.REGION || selectType === ElementType.SEGMENT)) {
+		if (doSelected && selected && selected.length > 0 && (selectType === ElementType.AREA || selectType === ElementType.SEGMENT)) {
 			_gui.openContextMenu(doSelected, id);
 		} else {
 			let polygonType = this.getIDType(id);
-			if (polygonType === ElementType.REGION || polygonType === ElementType.SEGMENT) {
+			if (polygonType === ElementType.AREA || polygonType === ElementType.SEGMENT) {
 				_gui.openContextMenu(doSelected, id);
 			}
 		}
 	}
+	
 	this.closeContextMenu = function () {
 		_gui.closeContextMenu();
 	}
+	
 	this.escape = function () {
 		_selector.unSelect();
 		this.closeContextMenu();
@@ -1515,6 +1499,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.closeRegionSettings();
 		_selector.unSelect();
 	}
+
 	this.allowToLoadExistingSegmentation = function (allowLoadLocal) {
 		_allowLoadLocal = allowLoadLocal;
 	}
@@ -1524,25 +1509,25 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.isSegmentFixed = function (id) {
-		if (!_fixedSegments[_currentPage])
-			_fixedSegments[_currentPage] = [];
-
-		let isFixed = ($.inArray(id, _fixedSegments[_currentPage]) !== -1);
-		return isFixed;
+		if (_fixedGeometry[_currentPage] && _fixedGeometry[_currentPage].segments) {
+			return ($.inArray(id, _fixedGeometry[_currentPage].segments) !== -1);
+		} else {
+			return false;
+		}
 	}
 
 	this._getRegionByID = function (id) {
-		let regionPolygon;
+		let regionArea;
 		Object.keys(_settings.regions).some((key) => {
 			let region = _settings.regions[key];
 
-			let polygon = region.polygons[id];
-			if (polygon) {
-				regionPolygon = polygon;
+			let area = region.areas[id];
+			if (area) {
+				regionArea = area;
 				return true;
 			}
 		});
-		return regionPolygon;
+		return regionArea;
 	}
 
 	this.isIDTextRegion = function(id){
@@ -1550,7 +1535,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let type = "Region";
 		if(elementType === ElementType.SEGMENT){
 			type = _segmentation[_currentPage].segments[id].type;
-		}else if(elementType === ElementType.REGION){
+		}else if(elementType === ElementType.AREA){
 			type = this._getRegionByID(id).type;
 		}
 		return (type !== "ignore" && !type.includes("Region"));
@@ -1562,25 +1547,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (polygon) return ElementType.SEGMENT;
 
 			polygon = this._getRegionByID(id);
-			if (polygon) return ElementType.REGION;
+			if (polygon) return ElementType.AREA;
 
-			polygon = _settings.pages[_currentPage].cuts[id];
-			if (polygon) return ElementType.CUT;
+			if(_fixedGeometry[_currentPage] && _fixedGeometry[_currentPage].cuts){
+				polygon = _fixedGeometry[_currentPage].cuts[id];
+				if (polygon) return ElementType.CUT;
+			}
 
 			if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
 			}
 		return false;
-	}
-
-	this._getPolygon = function (id) {
-		let polygon = _segmentation[_currentPage].segments[id];
-		if (polygon) return polygon;
-
-		polygon = this._getRegionByID(id);
-		if (polygon) return polygon;
-
-		polygon = _settings.pages[_currentPage].cuts[id];
-		if (polygon) return polygon;
 	}
 
 	this.getCurrentSegmentation = function() {

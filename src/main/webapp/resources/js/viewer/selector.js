@@ -69,16 +69,13 @@ class Selector {
 						((mode === Mode.SEGMENT || mode === Mode.EDIT) && elementType === ElementType.SEGMENT) || 
 						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent === selectParent)))
 						){
-							console.log("Unselect",mode,elementType,isSelected);
 					this.unSelect();
 				}
 
 				if (mode === Mode.TEXT && elementType === ElementType.TEXTLINE){
 					if(this._textviewer.isOpen()){
 						this._textviewer.setFocus(id);
-						console.log("Select",id,this._selectedElements);
 						if(!isSelected){
-							console.log("Reselect");
 							this.unSelect();
 							this._selectedElements = [id];
 						}
@@ -105,23 +102,21 @@ class Selector {
 	selectNext(reverse=false){
 		const mode = this._controller.getMode();
 		if(mode === Mode.SEGMENT || mode === Mode.EDIT){
-			if(this.selectedType == ElementType.SEGMENT || this.selectType == ElementType.REGION){
-				// Get complete select order
-				let order = this.getSelectOrder(ElementType.SEGMENT,reverse=reverse);
-				if(order.length > 0){
-					if(this._selectedElements.length > 0){
-						// Retrieve the position of the last element in the order that is currently selected
-						const last = reverse ? this._selectedElements.map(s => order.indexOf(s)).sort()[0]:
-											  this._selectedElements.map(s => order.indexOf(s)).sort().reverse()[0];
-						if(last > -1){
-							// Reorder
-							order = order.slice(last+1).concat(order.slice(0,last+1));
-						}
+			// Get complete select order
+			let order = this.getSelectOrder(ElementType.SEGMENT,reverse=reverse);
+			if(order.length > 0){
+				if(this._selectedElements.length > 0){
+					// Retrieve the position of the last element in the order that is currently selected
+					const last = reverse ? this._selectedElements.map(s => order.indexOf(s)).sort()[0]:
+											this._selectedElements.map(s => order.indexOf(s)).sort().reverse()[0];
+					if(last > -1){
+						// Reorder
+						order = order.slice(last+1).concat(order.slice(0,last+1));
 					}
-					/* Select the first element after the selected elements
-					 * or loop to the first element in the reading order */
-					this.select(order[0]);
 				}
+				/* Select the first element after the selected elements
+					* or loop to the first element in the reading order */
+				this.select(order[0]);
 			}
 		} else if (mode === Mode.LINES){
 			if(this.selectedType == ElementType.SEGMENT){
@@ -186,6 +181,43 @@ class Selector {
 	}
 
 	/**
+	 * Select all objects in SEGMENT, EDIT or LINES mode.
+	 * 
+	 * SEGMENT|EDIT: Select all Regions
+	 * LINES: Select all textlines inside a currently selected Region
+	 */
+	selectAll(){
+		const mode = this._controller.getMode();
+		if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES) {
+			const segmentation = this._controller.getCurrentSegmentation();
+			if(segmentation){
+				if(mode === Mode.SEGMENT || mode === Mode.EDIT){
+					this.unSelect();
+					this.selectedType = ElementType.SEGMENT;
+					this._selectedElements = Object.values(segmentation.segments).map(s => s.id);
+					this._postSelection();
+				} else if (mode === Mode.LINES){
+					if(this.selectedType == ElementType.TEXTLINE && this._selectedElements.length > 0){
+						const parent = segmentation.segments[this._controller.textlineRegister[this._selectedElements[0]]];
+						this.unSelect();
+						this._selectedElements = Object.values(parent.textlines).map(s => s.id);
+						this._postSelection();
+					} else if (this.selectedType == ElementType.SEGMENT && this._selectedElements.length > 0){
+						this.selectedType = ElementType.TEXTLINE;
+						const parents = this._selectedElements.map(id => [id, Object.keys(segmentation.segments[id].textlines)])
+											.filter(p => (p[1] && p[1].length > 0));
+						if(parents.length > 0) {
+							const sortedParents = parents.sort((a,b) => b[1].length - a[1].length);
+							this._selectedElements = sortedParents[0][1];
+							this._postSelection();
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/**
 	 * Retrieve the current order of selection for all objects of a given type
 	 * 
 	 * @param {*} type 
@@ -229,16 +261,16 @@ class Selector {
 						order.push(id);
 					}
 				}
-			} else if (type === ElementType.REGION){
-				let regions = [];
-				for(const [_,polygons] of Object.entries(this._controller.getCurrentSettings().regions)){
-					regions = regions.concat(Object.keys(polygons));
+			} else if (type === ElementType.AREA){
+				let areas = [];
+				for(const [_,areaPolygons] of Object.entries(this._controller.getCurrentSettings().regions)){
+					areas = areas.concat(Object.keys(areaPolygons));
 				}
 				// Add sorted regions
-				for(const region of regions){
-					addCompare(region);
+				for(const areas of areas){
+					addCompare(areas);
 				}
-				order = order.concat(regions.sort(tlbr).map(s => s.id));
+				order = order.concat(areas.sort(tlbr).map(s => s.id));
 			} else if (type === ElementType.TEXTLINE) {
 				const segments = parentID ? [parentID] : this.getSelectOrder(ElementType.SEGMENT);
 				for(const id of segments){
@@ -384,13 +416,22 @@ class Selector {
 	}
 
 	/**
+	 * Check if points of a single element are currently selected
+	 */
+	hasElementPointsSelected() {
+		return (this.getSelectedPolygonType() === ElementType.SEGMENT || this.getSelectedPolygonType() === ElementType.TEXTLINE)
+				&& this.getSelectedSegments().length === 1 
+				&& this.getSelectedPoints().length > 0;
+	}
+
+	/**
 	 * Helper function for the selection/deselection of a polygon by its id.
 	 * 
 	 * @param {string} id 	Id of the poilygon that is to be selected
 	 * @param {Boolean} doSelect 	True=Select polygon, False=Unselect polygon
 	 * @param {Boolean} displayPoints 	True:Display the points of the polygon, False: Do not display the points of the polygon
 	 */
-	_selectPolygon(id, doSelect = true, displayPoints = false){
+	_selectPolygon(id, doSelect = true, displayPoints = false) {
 		const selectIndex = this._selectedElements.indexOf(id);
 		const isInList = selectIndex >= 0;
 		if (doSelect){ 
@@ -473,8 +514,8 @@ class Selector {
 				this._controller.closeEditLine();
 			}
 		}
-		if(this.selectedType === ElementType.REGION)
-			this._controller.scaleSelectedRegion();
+		if(this.selectedType === ElementType.AREA)
+			this._controller.scaleSelectedRegionArea();
 	}
 
 	/**

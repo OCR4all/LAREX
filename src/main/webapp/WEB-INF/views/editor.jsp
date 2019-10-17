@@ -96,32 +96,32 @@
 							<t:menuIcon jsClass="createIgnore" icon="layers_clear"
 								tooltip="Create a ignore rectangle">Ignore</t:menuIcon> 
 						</t:menuIconCategory>
-						<t:menuIconCategory name="Region" jsClass="menu-region">
-							<t:menuIcon jsClass="createRegionRectangle" icon="crop_5_4"
-								tooltip="Create a region rectangle (Shortcut: 1)">Rectangle</t:menuIcon>
-							<t:menuIcon jsClass="createRegionBorder" icon="border_left"
-								tooltip="Create a region border (Shortcut: 2)">Border</t:menuIcon>
+						<t:menuIconCategory name="Area" jsClass="menu-region">
+							<t:menuIcon jsClass="createRegionAreaRectangle" icon="crop_5_4"
+								tooltip="Create an area rectangle in which to find regions (Shortcut: 1)">Rectangle</t:menuIcon>
+							<t:menuIcon jsClass="createRegionAreaBorder" icon="border_left"
+								tooltip="Create an area border in which to find regions (Shortcut: 2)">Border</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
-						<t:menuIconCategory name="Segment" >
+						<t:menuIconCategory name="Region" >
 							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
-								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
+								tooltip="Create a fixed region rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
-								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
+								tooltip="Create a fixed region polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
-								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
+								tooltip="Create a cut line that forces the segmentation algorithm to split regions. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<t:menuIcon jsClass="editContours" icon="font_download"
-							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
+							tooltip="Select contours to combine (with 'C') to regions (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 							<t:menuIcon jsClass="combineSelected" icon="add_circle"
-								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
+								tooltip="Combine selected regions or contours (Shortcut: C)">Combine</t:menuIcon>
 							<t:menuIcon jsClass="fixSelected" icon="lock"
-								tooltip="Fix/unfix segments, for it to persist a new auto segmentation. (Shortcut: F)">Fix</t:menuIcon>
+								tooltip="Fix/unfix region, for it to persist a new segmentation. (Shortcut: F)">Fix</t:menuIcon>
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
-								tooltip="Add a segment to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+								tooltip="Add a region to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
-								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
+								tooltip="Add multiple regions to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
@@ -131,23 +131,23 @@
 				<div id="edit_tab">
 					<b:baseMenu/>
 					<div class="">
-						<t:menuIconCategory name="Segment" >
+						<t:menuIconCategory name="Region" >
 							<t:menuIcon jsClass="createSegmentRectangle" icon="crop_5_4"
-								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
+								tooltip="Create a fixed region rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSegmentPolygon" icon="star_border"
-								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
+								tooltip="Create a fixed region polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
-								tooltip="Create a cut line that forces the segmentation algorithm to split segments. Double click to end (Shortcut: 5)">Line</t:menuIcon>
+								tooltip="Create a cut line that forces the segmentation algorithm to split regions. Double click to end (Shortcut: 5)">Line</t:menuIcon>
 						<t:menuIcon jsClass="editContours" icon="font_download"
-							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
+							tooltip="Select contours to combine (with 'C') to regions (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 							<t:menuIcon jsClass="combineSelected" icon="add_circle"
-								tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
+								tooltip="Combine selected regions or contours (Shortcut: C)">Combine</t:menuIcon>
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
-								tooltip="Add a segment to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+								tooltip="Add a regions to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
-								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
+								tooltip="Add multiple regions to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
@@ -159,20 +159,20 @@
 					<div class="">
 						<t:menuIconCategory name="Lines" >
 							<t:menuIcon jsClass="createTextLineRectangle" icon="crop_5_4"
-								tooltip="Create a fixed segment rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
+								tooltip="Create a fixed textline rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createTextLinePolygon" icon="star_border"
-								tooltip="Create a fixed segment polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
+								tooltip="Create a fixed textline polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 						<t:menuIcon jsClass="editContours" icon="font_download"
-							tooltip="Select contours to combine (with 'C') to segments (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
+							tooltip="Select contours to combine (with 'C') to textlines (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 						<t:menuIcon jsClass="combineSelected" icon="add_circle"
-							tooltip="Combine selected segments or contours (Shortcut: C)">Combine</t:menuIcon>
+							tooltip="Combine selected textlines or contours (Shortcut: C)">Combine</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
-								tooltip="Add a segment to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+								tooltip="Add a textline to the reading order inside a region (Shortcut: R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
-								tooltip="Add multiple segments to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
+								tooltip="Add multiple textlines to the reading order inside a region. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder hide" icon="subject"
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
