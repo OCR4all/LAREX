@@ -194,7 +194,9 @@ public class FileController {
 		try {
 			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion());
 			final String name = request.getSegmentation().getName();
-			final String xmlName = name.substring(0,name.lastIndexOf("."))+".xml";
+
+			final String xmlName =  name.lastIndexOf(".") == -1 ? name + ".xml" 
+								: name.substring(0, name.lastIndexOf("."))+".xml";
 
 			switch (config.getSetting("localsave")) {
 			case "bookpath":

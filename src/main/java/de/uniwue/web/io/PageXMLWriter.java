@@ -179,15 +179,11 @@ public class PageXMLWriter {
 			Transformer transformer = transformerFactory.newTransformer();
 			DOMSource source = new DOMSource(document);
 
-			if (!outputFolder.endsWith(File.separator)) {
+			if (!outputFolder.endsWith(File.separator)) 
 				outputFolder += File.separator;
-			}
 
-			String outputPath = outputFolder;
-
-			if (!outputFolder.endsWith(".xml")) {
-				outputPath += fileName + ".xml";
-			}
+			final String outputPath = outputFolder + fileName;
+			
 
 			FileOutputStream output = new FileOutputStream(new File(outputPath));
 			StreamResult result = new StreamResult(output);
