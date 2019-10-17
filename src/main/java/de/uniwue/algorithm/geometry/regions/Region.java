@@ -1,5 +1,6 @@
 package de.uniwue.algorithm.geometry.regions;
 
+import java.util.Arrays;
 import java.util.Collection;
 
 import de.uniwue.algorithm.geometry.positions.PriorityPosition;
@@ -30,6 +31,11 @@ public class Region {
 		} else {
 			this.positions = positions;
 		}
+	}
+
+	public Region(PAGERegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
+			RelativePosition... positions) {
+		this(type,minSize,maxOccurances,priorityPosition,Arrays.asList(positions));
 	}
 
 	public Region(String typeString, String subTypeString, int minSize, int maxOccurances, String priorityString,
