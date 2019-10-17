@@ -22,6 +22,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
@@ -259,23 +260,15 @@ public class FileController {
 		return settings;
 	}
 
-	private BufferedImage convertMatToBufferedImage(final Mat imageMat) {
-		BufferedImage bufferedImage = null;
-		int imageHeight = imageMat.rows();
-		int imageWidth = imageMat.cols();
-		byte[] data = new byte[imageHeight * imageWidth * (int) imageMat.elemSize()];
-		int type;
-		imageMat.get(0, 0, data);
+	private BufferedImage convertMatToBufferedImage(final Mat imageMat) throws IOException {
+		final MatOfByte imageBuffer = new MatOfByte();
+		
+		Imgcodecs.imencode(".png", imageMat, imageBuffer);
+		final byte imagebytes[] = imageBuffer.toArray();
+		
+		imageBuffer.release();
 
-		if (imageMat.channels() == 1)
-			type = BufferedImage.TYPE_BYTE_GRAY;
-		else
-			type = BufferedImage.TYPE_3BYTE_BGR;
-
-		bufferedImage = new BufferedImage(imageWidth, imageHeight, type);
-
-		bufferedImage.getRaster().setDataElements(0, 0, imageWidth, imageHeight, data);
-		return bufferedImage;
+		return ImageIO.read(new ByteArrayInputStream(imagebytes));
 	}
 
 	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {
