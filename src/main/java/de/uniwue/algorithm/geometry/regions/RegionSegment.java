@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.UUID;
 
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.Size;
 
 import de.uniwue.algorithm.geometry.PointList;
 import de.uniwue.algorithm.geometry.regions.type.PAGERegionType;
@@ -34,10 +35,11 @@ public class RegionSegment extends PointList{
 	 * Returns the a copy of this region with resized points
 	 * 
 	 * @param scaleFactor Prefered_Image_Height/Original_Image_Height
+	 * @param origDimensions Original dimension of the image. Used to prevent overflow
 	 * @return The converted and scaled clone.
 	 */
-	public RegionSegment getResized(double scaleFactor) {
-		return new RegionSegment(type, getResizedPoints(scaleFactor));
+	public RegionSegment getResized(double scaleFactor, Size origDimensions) {
+		return new RegionSegment(type, getResizedPoints(scaleFactor, origDimensions));
 	}
 
 	public PAGERegionType getType() {

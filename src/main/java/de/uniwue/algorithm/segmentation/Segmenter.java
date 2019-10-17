@@ -51,7 +51,6 @@ public class Segmenter {
 		final Set<Region> regions = parameters.getRegionManager().getRegions();
 		Region ignoreRegion = null;
 		for (Region region : regions) {
-			region.calcPositionRects(binary.size());
 			if(RegionSubType.ignore == region.getType().getSubtype()) {
 				ignoreRegion = region;
 			}
@@ -59,13 +58,13 @@ public class Segmenter {
 
 		//// Preprocess
 		// fill fixed segments in the image
-		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor))
+		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor, original.size()))
 											.collect(Collectors.toList());
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
 		MemoryCleaner.clean(contours);
 		// fill ignore in the image
 		if(ignoreRegion != null) {
-			ignoreRegion.getPositions().stream().map(p -> p.getOpenCVRect())
+			ignoreRegion.getPositions().stream().map(p -> p.getRect(binary.size()))
 					.forEach(r -> Imgproc.rectangle(binary, r.tl(), r.br(), new Scalar(0), -1));
 		}
 		
@@ -85,17 +84,18 @@ public class Segmenter {
 		// detect and classify text regions
 		Collection<MatOfPoint> texts = detectText(binary, regions, existingGeometry, parameters.getTextDilationX(),
 				parameters.getTextDilationY(), scaleFactor);
-		MemoryCleaner.clean(binary);
+
 		// classify
-		results.addAll(RegionClassifier.classifyRegions(regions, texts));
+		results.addAll(RegionClassifier.classifyRegions(regions, texts, binary.size()));
+		MemoryCleaner.clean(binary);
 		
 
 		//// Create final result
 		// Apply scale correction
 		ArrayList<RegionSegment> scaled = new ArrayList<>();
 		for (RegionSegment result : results) {
-			scaled.add(result.getResized(1.0 / parameters.getScaleFactor(original.height())));
-			//MemoryCleaner.clean(result);
+			scaled.add(result.getResized(1.0 / parameters.getScaleFactor(original.height()), original.size()));
+			MemoryCleaner.clean(result);
 		}
 		results = scaled;
 
@@ -163,7 +163,7 @@ public class Segmenter {
 		}
 		// fill ignore in the image
 		if(ignoreRegion != null) {
-			ignoreRegion.getPositions().stream().map(p -> p.getOpenCVRect())
+			ignoreRegion.getPositions().stream().map(p -> p.getRect(workImage.size()))
 					.forEach(r -> Imgproc.rectangle(workImage, r.tl(), r.br(), new Scalar(0), -1));
 		}
 
@@ -205,7 +205,7 @@ public class Segmenter {
 		MemoryCleaner.clean(dilate);
 		// fill ignore in the image
 		if(ignoreRegion != null) {
-			ignoreRegion.getPositions().stream().map(p -> p.getOpenCVRect())
+			ignoreRegion.getPositions().stream().map(p -> p.getRect(workImage.size()))
 					.forEach(r -> Imgproc.rectangle(workImage, r.tl(), r.br(), new Scalar(0), -1));
 		}
 

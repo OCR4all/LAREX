@@ -1,16 +1,10 @@
 package de.uniwue.algorithm.geometry.regions;
 
-import java.util.ArrayList;
 import java.util.Collection;
-
-import org.opencv.core.Rect;
-import org.opencv.core.Size;
 
 import de.uniwue.algorithm.geometry.positions.PriorityPosition;
 import de.uniwue.algorithm.geometry.positions.RelativePosition;
 import de.uniwue.algorithm.geometry.regions.type.PAGERegionType;
-import de.uniwue.algorithm.geometry.regions.type.RegionSubType;
-import de.uniwue.algorithm.geometry.regions.type.RegionType;
 import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 
 public class Region {
@@ -22,10 +16,9 @@ public class Region {
 	private int maxOccurances;
 	private final PriorityPosition priorityPosition;
 
-	private static Size activeMat;
 
 	public Region(PAGERegionType type, int minSize, int maxOccurances, PriorityPosition priorityPosition,
-			ArrayList<RelativePosition> positions) {
+			Collection<RelativePosition> positions) {
 		this.type = type;
 
 		this.minSize = minSize;
@@ -33,15 +26,14 @@ public class Region {
 		this.priorityPosition = priorityPosition;
 
 		if (positions == null) {
-			initRegions();
-			calcPositionRects();
+			throw new IllegalArgumentException("Positions can't be null.");
 		} else {
-			setPositions(positions);
+			this.positions = positions;
 		}
 	}
 
 	public Region(String typeString, String subTypeString, int minSize, int maxOccurances, String priorityString,
-			ArrayList<RelativePosition> positions) {
+			Collection<RelativePosition> positions) {
 		this(TypeConverter.stringToPAGEType(typeString,subTypeString), minSize, maxOccurances,
 				calcPriorityPosition(maxOccurances, priorityString), positions);
 	}
@@ -61,60 +53,6 @@ public class Region {
 		return null;
 	}
 
-	public void calcPositionRects(Size image) {
-		setActiveMat(image);
-
-		for (RelativePosition position : positions) {
-			Rect rect = position.calcRect(image);
-			position.updateRect(rect, activeMat);
-		}
-	}
-
-	public void calcPositionRects() {
-		if (activeMat != null) {
-			calcPositionRects(activeMat);
-		}
-	}
-
-	public void initRegions() {
-		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
-
-		if(type.getType().equals(RegionType.TextRegion)) {
-			if (type.getSubtype().equals(RegionSubType.paragraph)) {
-				RelativePosition position = new RelativePosition(0, 0, 1, 1);
-				positions.add(position);
-			} else if (type.getSubtype().equals(RegionSubType.marginalia)) {
-				RelativePosition leftPosition = new RelativePosition(0, 0, 0.25, 1);
-				RelativePosition rightPosition = new RelativePosition(0.75, 0, 1, 1);
-				positions.add(leftPosition);
-				positions.add(rightPosition);
-			} else if (type.getSubtype().equals(RegionSubType.page_number)) {
-				RelativePosition topPosition = new RelativePosition(0, 0, 1, 0.2);
-				positions.add(topPosition);
-			} else if (type.getSubtype().equals(RegionSubType.header) || type.getSubtype().equals(RegionSubType.heading)) {
-				RelativePosition bottomPosition = new RelativePosition(0, 0, 1, 0.2);
-				positions.add(bottomPosition);
-			} else if (type.getSubtype().equals(RegionSubType.footer) || type.getSubtype().equals(RegionSubType.footnote)
-					|| type.getSubtype().equals(RegionSubType.footnote_continued)) {
-				RelativePosition bottomPosition = new RelativePosition(0, 0.8, 1, 1);
-				positions.add(bottomPosition);
-			} else if (!type.getSubtype().equals(RegionSubType.ignore)) {
-				RelativePosition defaultPosition = new RelativePosition(0.2, 0.2, 0.8, 0.8);
-				positions.add(defaultPosition);
-			}
-		} else if(!type.getType().equals(RegionType.ImageRegion)) {
-			RelativePosition defaultPosition = new RelativePosition(0.2, 0.2, 0.8, 0.8);
-			positions.add(defaultPosition);
-		}
-
-		setPositions(positions);
-	}
-
-	public void addPosition(RelativePosition position) {
-		positions.add(position);
-		position.calcPercentages(activeMat);
-		calcPositionRects();
-	}
 
 	public PAGERegionType getType() {
 		return type;
@@ -136,10 +74,6 @@ public class Region {
 		return positions;
 	}
 
-	public void setPositions(Collection<RelativePosition> positions) {
-		this.positions = positions;
-	}
-
 	public int getMaxOccurances() {
 		return maxOccurances;
 	}
@@ -152,10 +86,6 @@ public class Region {
 		return priorityPosition;
 	}
 
-	public void setActiveMat(Size activeMat) {
-		Region.activeMat = activeMat;
-	}
-	
 	@Override
 	public int hashCode() {
 		final int prime = 31;

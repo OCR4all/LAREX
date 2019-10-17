@@ -36,7 +36,7 @@ public class SegmentationSettingsReader {
 			Element parameterElement = (Element) document.getElementsByTagName("parameters").item(0);
 
 			NodeList regionNodes = document.getElementsByTagName("region");
-			RegionManager regionmanager = extractRegions(regionNodes, resized);
+			RegionManager regionmanager = extractRegions(regionNodes);
 			parameters = extractParameters(parameterElement, regionmanager);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -48,10 +48,9 @@ public class SegmentationSettingsReader {
 	 * Extract the Position data of a position elements
 	 * 
 	 * @param positionElements
-	 * @param resized
 	 * @return
 	 */
-	private static Collection<RelativePosition> extractPositions(NodeList positionElements, Size resized) {
+	private static Collection<RelativePosition> extractPositions(NodeList positionElements) {
 		ArrayList<RelativePosition> positions = new ArrayList<RelativePosition>();
 
 		for (int i = 0; i < positionElements.getLength(); i++) {
@@ -72,14 +71,13 @@ public class SegmentationSettingsReader {
 
 			RelativePosition position = new RelativePosition(x1, y1, x2, y2);
 			position.setFixed(isFixed);
-			position.updateRect(position.calcRect(resized), resized);
 			positions.add(position);
 		}
 
 		return positions;
 	}
 
-	private static RegionManager extractRegions(NodeList regionNodes, Size resized) {
+	private static RegionManager extractRegions(NodeList regionNodes) {
 		RegionManager regionManager = new RegionManager(new HashSet<>());
 
 		for (int i = 0; i < regionNodes.getLength(); i++) {
@@ -93,10 +91,9 @@ public class SegmentationSettingsReader {
 			String priority = regionElement.getAttribute("priority");
 
 			NodeList positionElements = regionElement.getElementsByTagName("position");
-			Collection<RelativePosition> positions = extractPositions(positionElements, resized);
+			final Collection<RelativePosition> positions = extractPositions(positionElements);
 
-			Region region = new Region(type, subtype, minSize, maxOccurances, priority, new ArrayList<RelativePosition>());
-			region.setPositions(positions);
+			Region region = new Region(type, subtype, minSize, maxOccurances, priority, positions);
 			regionManager.addArea(region);
 		}
 

@@ -2,6 +2,7 @@
 package de.uniwue.web.facade.segmentation;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -103,10 +104,10 @@ public class SegmentationSettings {
 			int regionCount = 0;
 			for (RelativePosition position : region.getPositions()) {
 				LinkedList<Point> points = new LinkedList<Point>();
-				points.add(new Point(position.getTopLeftXPercentage(), position.getTopLeftYPercentage()));
-				points.add(new Point(position.getBottomRightXPercentage(), position.getTopLeftYPercentage()));
-				points.add(new Point(position.getBottomRightXPercentage(), position.getBottomRightYPercentage()));
-				points.add(new Point(position.getTopLeftXPercentage(), position.getBottomRightYPercentage()));
+				points.add(new Point(position.left(), position.top()));
+				points.add(new Point(position.right(), position.top()));
+				points.add(new Point(position.right(), position.bottom()));
+				points.add(new Point(position.left(), position.bottom()));
 
 				String id = regionType.toString() + regionCount;
 				guiRegion.addArea(new Region(id, regionType, points, null, true, new HashMap<>(), new ArrayList<>()));
@@ -148,10 +149,8 @@ public class SegmentationSettings {
 			int maxOccurances = guiRegion.getMaxOccurances();
 			PriorityPosition priorityPosition = guiRegion.getPriorityPosition();
 
-			de.uniwue.algorithm.geometry.regions.Region region = new de.uniwue.algorithm.geometry.regions.Region(regionType, minSize, maxOccurances, priorityPosition,
-					new ArrayList<RelativePosition>());
-			regionmanager.addArea(region);
 
+			Collection<RelativePosition> positions = new ArrayList<>();
 			for (Region polygon : guiRegion.getAreas().values()) {
 				List<Point> points = polygon.getPoints();
 				if (points.size() == 4) {
@@ -159,14 +158,18 @@ public class SegmentationSettings {
 					Point bottomRight = points.get(2);
 					RelativePosition position = new RelativePosition(topLeft.getX(), topLeft.getY(), bottomRight.getX(),
 							bottomRight.getY());
-					region.addPosition(position);
+					positions.add(position);
 
 					// Set Ignore Region to fixed
-					if (RegionSubType.ignore.equals(region.getType().getSubtype())) {
+					if (RegionSubType.ignore.equals(regionType.getSubtype())) {
 						position.setFixed(true);
 					}
 				}
 			}
+			de.uniwue.algorithm.geometry.regions.Region region = new de.uniwue.algorithm.geometry.regions.Region(
+											regionType, minSize, maxOccurances, priorityPosition,
+											positions);
+			regionmanager.addArea(region);
 		}
 
 		// Set existing Geometry

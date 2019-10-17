@@ -5,9 +5,11 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Rect;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
 import de.uniwue.algorithm.data.MemoryCleaner;
@@ -25,9 +27,10 @@ public class RegionClassifier {
 	 * 
 	 * @param regions
 	 * @param contours
+	 * @param imageSize
 	 * @return
 	 */
-	public static Collection<RegionSegment> classifyRegions(Set<Region> regions, Collection<MatOfPoint> contours) {
+	public static Collection<RegionSegment> classifyRegions(Set<Region> regions, Collection<MatOfPoint> contours, Size imageSize) {
 		Collection<RegionSegment> results = new ArrayList<>();
 		List<Region> workregions = filterAndOrderRegions(regions);
 
@@ -39,8 +42,9 @@ public class RegionClassifier {
 				for (Candidate candidate : candidateIter) {
 					final Rect rect = candidate.getBoundingRect();
 
-					final boolean isWithinRegion = region.getPositions().stream().anyMatch(
-							p -> p.getOpenCVRect().contains(rect.tl()) && p.getOpenCVRect().contains(rect.br()));
+					Collection<Rect> rects = region.getPositions().stream().map(p -> p.getRect(imageSize)).collect(Collectors.toList());
+					final boolean isWithinRegion = rects.stream().anyMatch(
+							p -> p.contains(rect.tl()) && p.contains(rect.br()));
 
 					if (rect.area() > region.getMinSize() && isWithinRegion) {
 						results.add(new RegionSegment(region.getType(), candidate.getContour()));
@@ -49,7 +53,7 @@ public class RegionClassifier {
 				}
 			} else {
 				// Check max occurrence one
-				Candidate candidate = MaxOccOneFinder.findMaxOccOne(candidates, region);
+				Candidate candidate = MaxOccOneFinder.findMaxOccOne(candidates, region, imageSize);
 
 				if (candidate != null) {
 					RegionSegment newResult = new RegionSegment(region.getType(), candidate.getContour());

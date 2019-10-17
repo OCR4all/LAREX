@@ -92,10 +92,10 @@ public class SegmentationSettingsWriter {
 				for (RelativePosition position : region.getPositions()) {
 					Element positionElement = document.createElement("position");
 
-					positionElement.setAttribute("x1", "" + position.getTopLeftXPercentage());
-					positionElement.setAttribute("y1", "" + position.getTopLeftYPercentage());
-					positionElement.setAttribute("x2", "" + position.getBottomRightXPercentage());
-					positionElement.setAttribute("y2", "" + position.getBottomRightYPercentage());
+					positionElement.setAttribute("x1", "" + position.left());
+					positionElement.setAttribute("y1", "" + position.top());
+					positionElement.setAttribute("x2", "" + position.right());
+					positionElement.setAttribute("y2", "" + position.bottom());
 					positionElement.setAttribute("fixed", "" + position.isFixed());
 
 					regionElement.appendChild(positionElement);

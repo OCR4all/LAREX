@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 import org.opencv.core.Rect;
+import org.opencv.core.Size;
 
 import de.uniwue.algorithm.geometry.positions.PriorityPosition;
 import de.uniwue.algorithm.geometry.positions.RelativePosition;
@@ -11,9 +12,10 @@ import de.uniwue.algorithm.geometry.regions.Region;
 
 public class MaxOccOneFinder {
 
-	public static boolean isWithinRegion(Rect toCheck, Region region) {
+	public static boolean isWithinRegion(Rect toCheck, Region region, Size imageSize) {
 		for (RelativePosition position : region.getPositions()) {
-			if (position.getOpenCVRect().contains(toCheck.tl()) && position.getOpenCVRect().contains(toCheck.br())) {
+			Rect rect = position.getRect(imageSize);
+			if (rect.contains(toCheck.tl()) && rect.contains(toCheck.br())) {
 				return true;
 			}
 		}
@@ -21,11 +23,11 @@ public class MaxOccOneFinder {
 		return false;
 	}
 	
-	public static Collection<Candidate> checkPositions(Collection<Candidate> candidates, Region region) {
+	public static Collection<Candidate> checkPositions(Collection<Candidate> candidates, Region region, Size imageSize) {
 		ArrayList<Candidate> withinPosition = new ArrayList<Candidate>();
 	
 		for(Candidate candidate : candidates) {
-			if(isWithinRegion(candidate.getBoundingRect(), region)) {
+			if(isWithinRegion(candidate.getBoundingRect(), region, imageSize)) {
 				withinPosition.add(candidate);
 			}
 		}
@@ -33,9 +35,9 @@ public class MaxOccOneFinder {
 		return withinPosition;
 	}
 	
-	public static Candidate findMaxOccOne(Collection<Candidate> candidates, Region region) {
+	public static Candidate findMaxOccOne(Collection<Candidate> candidates, Region region, Size imageSize) {
 		//TODO Remove because rarely used
-		candidates = checkPositions(candidates, region);
+		candidates = checkPositions(candidates, region, imageSize);
 		
 		int minSize = region.getMinSize();
 		PriorityPosition priorityPosition = region.getPriorityPosition();

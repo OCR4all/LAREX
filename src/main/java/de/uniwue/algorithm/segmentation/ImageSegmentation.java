@@ -2,6 +2,7 @@ package de.uniwue.algorithm.segmentation;
 
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 
 import org.opencv.core.CvType;
@@ -43,6 +44,8 @@ public class ImageSegmentation {
 
 	public static Collection<MatOfPoint> detectTextContours(final Mat binary, int minSize) {
 		Collection<MatOfPoint> contours = Contourextractor.fromInverted(binary);
+		contours.stream().flatMap(c -> Arrays.stream(c.toArray())).filter(
+				p -> p.x > binary.size().width || p.y > binary.size().height).forEach(e -> System.out.println("Point: "+e));
 		ArrayList<MatOfPoint> results = new ArrayList<MatOfPoint>();
 
 		for (final MatOfPoint contour : contours) {

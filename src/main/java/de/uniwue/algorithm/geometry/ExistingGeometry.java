@@ -35,13 +35,13 @@ public class ExistingGeometry {
 		final Mat result = image.clone();
 
 		// Resize
-		final List<MatOfPoint> contours = fixedRegionSegments.stream().map(s -> s.getResizedPoints(scaleFactor))
+		final List<MatOfPoint> contours = fixedRegionSegments.stream().map(s -> s.getResizedPoints(scaleFactor, image.size()))
 											.collect(Collectors.toList());
 		Imgproc.drawContours(result, contours, -1, new Scalar(0), -1);
 		MemoryCleaner.clean(contours);
 
 		for (PointList cut : cuts) {
-			ArrayList<Point> ocvPoints = new ArrayList<>(cut.getResizedPoints(scaleFactor).toList());
+			ArrayList<Point> ocvPoints = new ArrayList<>(cut.getResizedPoints(scaleFactor, image.size()).toList());
 			if (ocvPoints != null && ocvPoints.size() > 1) {
 				Point lastPoint = ocvPoints.get(0);
 

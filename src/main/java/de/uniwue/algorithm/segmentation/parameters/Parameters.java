@@ -21,11 +21,7 @@ public class Parameters {
 	private boolean combineImages;
 
 	public Parameters() {
-		this(new RegionManager());
-	}
-	
-	public Parameters(RegionManager regionManager) {
-		this(regionManager,0);
+		this(new RegionManager(), 0);
 	}
 	
 	public Parameters(RegionManager regionManager,int originalHeight) {
