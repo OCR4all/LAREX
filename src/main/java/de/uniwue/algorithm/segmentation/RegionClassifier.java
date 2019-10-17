@@ -43,9 +43,8 @@ public class RegionClassifier {
 				for (Candidate candidate : candidateIter) {
 					final Rect rect = candidate.getBoundingRect();
 
-					Collection<Rect> rects = region.getPositions().stream().map(p -> p.getRect(imageSize)).collect(Collectors.toList());
-					final boolean isWithinRegion = rects.stream().anyMatch(
-							p -> p.contains(rect.tl()) && p.contains(rect.br()));
+					Collection<Rect> positionRects = region.getPositions().stream().map(p -> p.getRect(imageSize)).collect(Collectors.toList());
+					final boolean isWithinRegion = positionRects.stream().anyMatch(p -> p.contains(rect.tl()) && p.contains(rect.br()));
 
 					if (rect.area() > region.getMinSize() && isWithinRegion) {
 						results.add(new RegionSegment(region.getType(), candidate.getContour()));
