@@ -47,7 +47,14 @@ public class Segmenter {
 		final Mat binary = ImageProcessor.calcInvertedBinary(gray);
 		MemoryCleaner.clean(gray);
 		
-		// calculate downscaled regions
+		//// Preprocess
+		// fill fixed segments in the image
+		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor, original.size()))
+											.collect(Collectors.toList());
+		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
+		MemoryCleaner.clean(contours);
+
+		// regions
 		final Set<Region> regions = parameters.getRegionManager().getRegions();
 		Region ignoreRegion = null;
 		for (Region region : regions) {
@@ -55,14 +62,7 @@ public class Segmenter {
 				ignoreRegion = region;
 			}
 		}
-
-		//// Preprocess
-		// fill fixed segments in the image
-		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor, original.size()))
-											.collect(Collectors.toList());
-		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
-		MemoryCleaner.clean(contours);
-		// fill ignore in the image
+		// fill ignore region in the image
 		if(ignoreRegion != null) {
 			ignoreRegion.getPositions().stream().map(p -> p.getRect(binary.size()))
 					.forEach(r -> Imgproc.rectangle(binary, r.tl(), r.br(), new Scalar(0), -1));
