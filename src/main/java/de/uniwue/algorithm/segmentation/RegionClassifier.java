@@ -3,6 +3,7 @@ package de.uniwue.algorithm.segmentation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,7 +33,7 @@ public class RegionClassifier {
 	 */
 	public static Collection<RegionSegment> classifyRegions(Set<Region> regions, Collection<MatOfPoint> contours, Size imageSize) {
 		Collection<RegionSegment> results = new ArrayList<>();
-		List<Region> workregions = filterAndOrderRegions(regions);
+		LinkedHashSet<Region> workregions = filterAndOrderRegions(regions);
 
 		List<Candidate> candidates = calcCandidates(workregions, contours);
 		for(Region region : workregions) {
@@ -101,8 +102,8 @@ public class RegionClassifier {
 
 	// get rid of ignore and image regions, place maxOcc = 1 regions first and
 	// paragraph regions last
-	private static List<Region> filterAndOrderRegions(Set<Region> regions) {
-		List<Region> processedRegions = new ArrayList<Region>();
+	private static LinkedHashSet<Region> filterAndOrderRegions(Set<Region> regions) {
+		LinkedHashSet<Region> processedRegions = new LinkedHashSet<Region>();
 		Set<Region> maxOccOne = new HashSet<Region>();
 		Region paragraphRegion = null;
 
