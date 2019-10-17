@@ -24,7 +24,7 @@
 		</init-param>
 		<init-param>
 			<param-name>contextConfigLocation</param-name>
-			<param-value>com.web</param-value>
+			<param-value>de.uniwue</param-value>
 		</init-param>
 		<load-on-startup>1</load-on-startup>
 	</servlet>
