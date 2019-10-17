@@ -6,7 +6,7 @@
 
     <groupId>de.uniwue</groupId>
     <artifactId>Larex</artifactId>
-    <version>0.2.0d</version>
+    <version>0.2.0</version>
     <packaging>war</packaging>
 
     <name>Larex</name>
