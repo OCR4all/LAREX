@@ -240,10 +240,10 @@ public class FileDatabase {
 					.filter(f -> isSupportedImage(f) && (imageSubFilter.isEmpty() || passesSubFilter(f.getName())))
 					.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
 			
-			ArrayList<String> sortedImages = new ArrayList<>(imageFiles.keySet());
-			sortedImages.sort((String o1, String o2) -> o1.compareTo(o2));
+			ArrayList<String> sortedPages = new ArrayList<>(imageFiles.keySet());
+			sortedPages.sort((String o1, String o2) -> o1.compareTo(o2));
 			
-			for (String pageName : sortedImages) {
+			for (String pageName : sortedPages) {
 				Map<String, List<File>> groupedImages = imageFiles.get(pageName).stream()
 						.collect(Collectors.groupingBy(f -> extractSubExtension(f.getName())));
 				List<String> images = new ArrayList<>();
@@ -326,12 +326,17 @@ public class FileDatabase {
 	 */
 	private String removeAllExtensions(String filename) {
 		if (passesSubFilter(filename)) {
-			int extPointPos = filename.lastIndexOf(".");
-			int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
+			final int extPointPos = filename.lastIndexOf(".");
+			final int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
 			if(subExtPointPos > 0)
 				return filename.substring(0, subExtPointPos);
 			else
 				return filename.substring(0, extPointPos);
+		} else {
+			final int extensionPointer = filename.lastIndexOf(".");
+			if(extensionPointer > 0)
+				return filename.substring(0, extensionPointer);
+			
 		}
 		return filename;
 	}

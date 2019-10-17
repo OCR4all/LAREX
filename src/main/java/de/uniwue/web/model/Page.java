@@ -15,8 +15,15 @@ public class Page {
 
 	@JsonProperty("id")
 	private int id;
+	/**
+	 * Name of the page (does not include image extensions)
+	 * Does not include sub extensions if imageSubFilter is active
+	 */
 	@JsonProperty("name")
 	private String name;
+	/**
+	 * (Multiple) image(s) representing this page
+	 */
 	@JsonProperty("images")
 	private List<String> images;
 	@JsonProperty("width")

@@ -193,10 +193,8 @@ public class FileController {
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
 			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion());
-			final String name = request.getSegmentation().getName();
 
-			final String xmlName =  name.lastIndexOf(".") == -1 ? name + ".xml" 
-								: name.substring(0, name.lastIndexOf("."))+".xml";
+			final String xmlName =  request.getSegmentation().getName() + ".xml";
 
 			switch (config.getSetting("localsave")) {
 			case "bookpath":

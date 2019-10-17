@@ -1,6 +1,7 @@
 package de.uniwue.web.model;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -18,6 +19,10 @@ import de.uniwue.web.communication.SegmentationStatus;
  * segment polygons.
  */
 public class PageAnnotations {
+	/**
+	 * Name of the page (does not include image extensions)
+	 * Does not include sub extensions if imageSubFilter is active
+	 */
 	@JsonProperty("name")
 	private final String name;
 	@JsonProperty("width")
@@ -31,10 +36,6 @@ public class PageAnnotations {
 	@JsonProperty("status")
 	private final SegmentationStatus status;
 
-	public PageAnnotations(String name, int width, int height, Map<String, Region> segments) {
-		this(name, width, height, segments, SegmentationStatus.SUCCESS, new ArrayList<String>());
-	}
-
 	@JsonCreator
 	public PageAnnotations(@JsonProperty("name") String name, @JsonProperty("width") int width,
 			@JsonProperty("height") int height,
@@ -46,6 +47,7 @@ public class PageAnnotations {
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		checkNameValidity(name);
 	}
 
 	public PageAnnotations(String name, int width, int height, int pageNr, 
@@ -68,6 +70,7 @@ public class PageAnnotations {
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		checkNameValidity(name);
 	}
 
 	public PageAnnotations(String name, int width, int height, int pageNr) {
@@ -96,5 +99,16 @@ public class PageAnnotations {
 
 	public int getWidth() {
 		return width;
+	}
+	
+	private static void checkNameValidity(String name) {
+		final List<String> imageExtensions = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
+		for (String ext : imageExtensions) {
+			if(name.toLowerCase().endsWith(ext))
+				System.err.println("[Warning] Page name '"+name+"' ends with an image extension ('"+ext+"').\n"+
+								   "\tThis should not happen unless '"+ext+"' is part of the page name.\n"+
+								   "\te.g. '"+name+".png'");
+		}
+		
 	}
 }

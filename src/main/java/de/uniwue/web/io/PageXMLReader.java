@@ -179,7 +179,13 @@ public class PageXMLReader {
 					}
 				}
 			}
-			return new PageAnnotations(page.getImageFilename(), width, height, resRegions,
+			
+			// Pagename
+			final String imageName = page.getImageFilename();
+			final String pageName = imageName.lastIndexOf(".") > 0 ? 
+					imageName.substring(0, imageName.lastIndexOf(".")) : imageName;
+			
+			return new PageAnnotations(pageName, width, height, resRegions,
 					SegmentationStatus.LOADED, newReadingOrder);
 		}
 
