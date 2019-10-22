@@ -1,3 +1,4 @@
+![larex](documentation/larex.gif)
 # LAREX
 
 [![Build Status](https://travis-ci.org/OCR4all/LAREX.svg?branch=master)](https://travis-ci.org/OCR4all/LAREX)
@@ -17,10 +18,11 @@ Please feel free to visit the [tool homepage](https://go.uniwue.de/larex) and th
   * [Mac OS X](#mac-os-x)
 - [Usage](#usage)
 - [Configuration](#configuration)
+- [Related Publications](#related-publications)
 
 _Additional information about developing for LAREX [see here](documentation/development.md)_
 
-## Installing
+## Installation
 
 ### Linux
 This guide uses tomcat 7 and Ubuntu (please adjust accordingly for your setup)
@@ -40,7 +42,7 @@ This guide uses tomcat 7 and Ubuntu (please adjust accordingly for your setup)
 	* (To start Tomcat automatically at system boot `systemctl enable tomcat8`)
 
 ### Windows
-This guide uses eclipse to simplify the setup
+This guide uses eclipse to simplify the setup on Windows
 
 * Install _Eclipse IDE for Enterprise Java Developers_ from the [official website](https://www.eclipse.org/downloads/packages/)
 * Download tomcat 8 or up from the [official website](http://tomcat.apache.org/download-90.cgi)
@@ -79,17 +81,22 @@ This guid uses homebrew (please adjust accordingly for your setup)
 
 
 ## Usage
+
 ### Access in browser
 Go to `localhost:8080/Larex`.
 
 ### Using your own images and books
 You can add your own books by copying them to src/webapp/resources/books
 
-(Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/webapp/WEB-INF/larex.config). See [*Configuration*](#configuration) for more information).
+(Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.config). See section [*Configuration*](#configuration) for more information).
 .
+### More information
+Detailed information about the usage of LAREX can be found in the OCR4all [getting started](https://github.com/OCR4all/getting_started) guides.
+
+See sections and chapters about _Segmentation_, _Ground Truth Correction_ and _Post Correction_.
 
 ## Configuration ##
-Larex contains a configuration file ([`src/webapp/WEB-INF/larex.config`](https://github.com/OCR4all/LAREX/blob/master/src/webapp/WEB-INF/larex.config)) with a few settings that can be set before running the application.
+Larex contains a configuration file ([`src/webapp/WEB-INF/larex.config`](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.config)) with a few settings that can be set before running the application.
 
 ### bookpath ###
 The setting *bookpath* sets the file path of the books folder.
