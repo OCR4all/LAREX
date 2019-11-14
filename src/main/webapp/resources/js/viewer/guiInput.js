@@ -352,7 +352,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	$(document).on("click",'.vk-btn', function(event){
 		const character = $(this).text();
 		if(_textViewer.isOpen()){
-			const selected = _selector.getSelected();
+			const selected = _selector.getSelectedSegments();
 			if(selected){
 				_textViewer.setFocus(selected[0]);
 				_textViewer.insertCharacterTextLine(character);
