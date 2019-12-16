@@ -201,7 +201,7 @@
 				</div>
 			</div>
 
-			<div class="sidebar col s4 m2 l2">
+			<div id="sidebarSegmentWrapper" class="sidebar col s4 m2 l2">
 			<t:sidebarSegmentation/>
 			<t:sidebarLines/>
 			<t:sidebarText/>
