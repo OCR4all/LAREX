@@ -115,6 +115,10 @@ body{
   }
 }
 
+#sidebarSegmentWrapper{
+  overflow-y: auto;
+}
+
 .sidebar{
     z-index: 2;
     position:relative;
