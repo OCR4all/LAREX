@@ -25,20 +25,20 @@ _Additional information about developing for LAREX [see here](documentation/deve
 ## Installation
 
 ### Linux
-This guide uses tomcat 7 and Ubuntu (please adjust accordingly for your setup)
+This guide uses tomcat 8 and Ubuntu (please adjust accordingly for your setup)
 
 * Install required packages: 
-	`apt-get install tomcat7 maven openjdk-8-jdk`
+	`apt-get install tomcat8 maven openjdk-8-jdk`
 * Clone Repository: 
 	`git clone https://github.com/OCR4all/LAREX.git`
 * Compile: 
 	`mvn clean install -f LAREX/pom.xml`.
 * Copy or link the created war file to tomcat:
-	* Copy `cp LAREX/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
-	* Link: `sudo ln -s $PWD/LAREX/target/Larex.war /var/lib/tomcat7/webapps/Larex.war`
+	* Copy `cp LAREX/target/Larex.war /var/lib/tomcat8/webapps/Larex.war`
+	* Link: `sudo ln -s $PWD/LAREX/target/Larex.war /var/lib/tomcat8/webapps/Larex.war`
 * Start Tomcat:
 	`systemctl start tomcat8`
-	* (Restart Tomcat via `systemctl restart tomcat7`)
+	* (Restart Tomcat via `systemctl restart tomcat8`)
 	* (To start Tomcat automatically at system boot `systemctl enable tomcat8`)
 
 ### Windows
