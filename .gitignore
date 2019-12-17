@@ -41,7 +41,8 @@ local.properties
 .target
 .classpath
 .project
-
 #vim
 *~
 *.swp
+#intelliJ
+*.iml

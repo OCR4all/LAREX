@@ -30,6 +30,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _editReadingOrder = false;
 
 	let _newPolygonCounter = 0;
+	let _pastId;
 
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
@@ -1296,6 +1297,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				points = [_editor._convertCanvasToGlobal(nearestPoint.x, nearestPoint.y)];
 				_selector.select(sectionID, points);
 			} else {
+				if(this.getMode() === Mode.TEXT && _pastId && _pastId != sectionID) {
+					this.saveLineById(_pastId);
+				}
+				_pastId = sectionID;
 				_selector.select(sectionID, null, idType);
 			}
 
@@ -1440,6 +1445,19 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			id = textlinecontent.id;
 		}
 
+		if(id && this.getIDType(id) == ElementType.TEXTLINE){
+			const content = textlinecontent.text;
+			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
+		}
+	}
+
+	this.saveLineById = function(id) {
+		let textlinecontent;
+		if(_textViewer.isOpen()){
+			textlinecontent = {text:_textViewer.getText(id)};
+		} else {
+			textlinecontent = _gui.getTextLineContent();
+		}
 		if(id && this.getIDType(id) == ElementType.TEXTLINE){
 			const content = textlinecontent.text;
 			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
