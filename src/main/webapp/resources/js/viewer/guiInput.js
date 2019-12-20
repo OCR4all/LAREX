@@ -311,10 +311,18 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 		_controller.highlightSegment(id,false);
 	});
 
-	$(document).on("click",'.textline-container', function (){
+	$(document).on("click",'.textline-text', function (){
 		const $this = $(this);
-		const id = $this.data('id');
+		const id = $this.parent().data('id');
 		_controller.selectElement(id);
+	});
+
+	$(document).on("click",'.textline-container', function (e){
+		if($(e.target).closest(".textline-text").length === 0){
+			console.log("Save on Deselect triggered");
+			_controller.saveLineOnDeselect();
+			_selector.unSelect();
+		}
 	});
 
 	/**

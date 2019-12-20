@@ -1455,12 +1455,22 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let textlinecontent;
 		if(_textViewer.isOpen()){
 			textlinecontent = {text:_textViewer.getText(id)};
-		} else {
-			textlinecontent = _gui.getTextLineContent();
+			if(id && this.getIDType(id) == ElementType.TEXTLINE){
+				const content = textlinecontent.text;
+				_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
+			}
 		}
-		if(id && this.getIDType(id) == ElementType.TEXTLINE){
-			const content = textlinecontent.text;
-			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
+	}
+
+	this.saveLineOnDeselect = function() {
+		let textlinecontent;
+		if(_pastId){
+			textlinecontent = {text:_textViewer.getText(_pastId)};
+			if(_pastId){
+				const content = textlinecontent.text;
+				_actionController.addAndExecuteAction(new ActionChangeTextLineText(_pastId, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
+			}
+			_pastId = null;
 		}
 	}
 
