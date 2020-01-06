@@ -45,6 +45,16 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	}
 
 	/**
+	 * Update the gui display of the selected page
+	 */
+	this.updateSelectedPage = function (page) {
+		const $select = $('.menuPageSelector');
+		$select.find(`[data-page=${page}]`).prop('selected', true);
+		$select.material_select('destroy');
+		$select.material_select();
+	}
+
+	/**
 	 * Reset custom user horizontal delta for the textline
 	 */
 	this.resetTextlineDelta = function(){
