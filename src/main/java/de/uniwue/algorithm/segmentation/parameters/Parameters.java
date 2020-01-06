@@ -35,7 +35,7 @@ public class Parameters {
 		this.textDilationX = DEFAULT_Parameters.TEXT_REMOVAL_DILATION_X_DEFAULT;
 		this.textDilationY = DEFAULT_Parameters.TEXT_REMOVAL_DILATION_Y_DEFAULT;
 
-		setImageSegType(ImageSegType.ROTATED_RECT);
+		setImageSegType(ImageSegType.STRAIGHT_RECT);
 		setCombineImages(true);
 	}
 
