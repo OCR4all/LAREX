@@ -3,9 +3,6 @@
 <%@ taglib prefix="t" tagdir="/WEB-INF/tags"%>
 
 <div class="">
-	<t:menuIcon url="${pageContext.request.contextPath}/" jsClass="open" icon="folder_open"
-		tooltip="Open a different book">Open</t:menuIcon>
-	<div class="menuIconDivider col"></div>
 	<t:menuIconCategory name="Image Zoom" jsClass="zoom_primary">
 		<t:menuIcon jsClass="zoomout" icon="zoom_out"
 			tooltip="Zoom the image out (Shortcut: - or scroll wheel)">Zoom out</t:menuIcon>
