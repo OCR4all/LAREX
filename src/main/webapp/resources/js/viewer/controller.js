@@ -31,6 +31,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	let _newPolygonCounter = 0;
 	let _pastId;
+	let _initialTextView = true;
 
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
@@ -420,7 +421,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_editor.displayOverlay("areas",false);
 			_editor.displayOverlay("lines",true);
 			this.displayReadingOrder(false);
-			this.displayTextViewer(true);
+			_initialTextView ? (this.displayTextViewer(true), _initialTextView = false) : this.displayTextViewer(_textViewer.isOpen());
 		}
 		
 		// Post Selection
