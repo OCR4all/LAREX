@@ -13,6 +13,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 					case 27: // ESC
 						_controller.escape();
 						_controller.endEditReadingOrder();
+						_selector.unSelect();
 						validKey = true;
 						break;
 					case 9: // TAB
