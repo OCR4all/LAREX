@@ -412,7 +412,11 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	// Text View
 	$("#viewerText").on('input','.textline-text', function() {
 		const id = $(this).closest(".textline-container").data("id");
-		_textViewer.resizeTextline(id)
+		_textViewer.resizeTextline(id);
 		_textViewer.saveTextLine(id,false);
 	}).trigger('input');
+
+	$("#displayPrediction").click(function(){
+		_textViewer._displayPredictedText();
+	})
 }

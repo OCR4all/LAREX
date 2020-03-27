@@ -78,7 +78,8 @@ class TextViewer {
 		}
 		$textlineContainer.append(this._createImageObject(textline));
 		$textlineContainer.append($("<br>"));
-		$textlineContainer.append(this._createTextObject(textline));
+		$textlineContainer.append(this._createTextObject(textline)[0]);
+		$textlineContainer.append(this._createTextObject(textline)[1]);
 		this.container.append($textlineContainer);
 
 		this.zoomBase(textline.id);
@@ -111,7 +112,8 @@ class TextViewer {
 	 */
 	updateTextline(textline) {
 		$(`.textline-container[data-id='${textline.id}'] > .textline-image`).replaceWith(this._createImageObject(textline));
-		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(this._createTextObject(textline));
+		$(`.textline-container[data-id='${textline.id}'] > .pred-text`).replaceWith(this._createTextObject(textline)[0]);
+		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(this._createTextObject(textline)[1]);
 		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`);
 		if(textline.type == "TextLine_gt"){
 			$textlinecontent.addClass("line-corrected")
@@ -122,6 +124,7 @@ class TextViewer {
 		}
 		this.zoomBase(textline.id);
 		this.resizeTextline(textline.id);
+		this._displayPredictedText();
 	}
 
 	/**
@@ -370,10 +373,10 @@ class TextViewer {
 		const hasGT = 0 in textline.text;
 
 		if(hasGT){
-			$textlineText.addClass("line-corrected")
+			$textlineText.addClass("line-corrected");
 			$textlineText.val(textline.text[0]);
 		} else {
-			$textlineText.removeClass("line-corrected")
+			$textlineText.removeClass("line-corrected");
 			$textlineText.removeClass("line-saved");
 			if (hasPredict){
 				$textlineText.val(textline.text[1]);
@@ -381,7 +384,11 @@ class TextViewer {
 				$textlineText.val("");
 			}
 		}
-		return $textlineText;
+
+		const pred_text = hasPredict ? textline.text[1] : "";
+		const $predText = $(`<p class="pred-text">${pred_text}</p>`);
+
+		return [$predText, ($textlineText)];
 	}
 
 	/**
@@ -423,5 +430,16 @@ class TextViewer {
 		// Add image into clipping area
 		ctx.drawImage(this.image[0],minX,minY,width,height,0,0,width,height);
 		return $textlineImage;
+	}
+	/**
+	 * Checks whether predicted text should get displayed
+	 *
+	 */
+	_displayPredictedText(){
+		if($("#displayPrediction").is(":checked")){
+			$(".line-corrected").prev(".pred-text").show();
+		}else{
+			$(".pred-text").hide();
+		}
 	}
 }

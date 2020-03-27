@@ -31,7 +31,17 @@
 			<i class="material-icons"> lock </i>
 		</a>	
 	</div>
-
+	<ul class="collapsible">
+		<li>
+			<div class="collapsible-header"><i class="material-icons">settings</i>Settings</div>
+			<div class="collapsible-body">
+				<div id="textMode-options">
+					<input type="checkbox" id="displayPrediction"/>
+					<label for="displayPrediction">Display Prediction</label>
+				</div>
+			</div>
+		</li>
+	</ul>
 	<a class="col s12 waves-effect waves-light btn exportPageXML tooltipped" data-position="left" data-delay="50" data-tooltip="Save the current segmentation as PageXML (Shortcut: CTRL+S)">
 		Save Result
 		<div class="progress hide">
