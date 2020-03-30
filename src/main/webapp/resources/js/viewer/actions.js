@@ -584,6 +584,7 @@ function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, pa
 			if(textViewer.isOpen()){
 				controller.selectElement(id);
 			}
+
 			console.log('Do - Change TextLine text: {id:"' + _id + ' [..]}');
 		}
 	}

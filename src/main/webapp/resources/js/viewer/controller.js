@@ -243,6 +243,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			if(_textViewer.isOpen()){
 				_textViewer.displayZoom();
+				_textViewer._displayPredictedText();
 			}
 			_textViewer.setLoading(false);
 
