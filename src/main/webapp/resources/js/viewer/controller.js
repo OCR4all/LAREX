@@ -146,6 +146,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.displayPage = function (pageNr, imageNr=0) {
 		this.escape();
 		_currentPage = pageNr;
+		_gui.updateSelectedPage(_currentPage);
 
 		const imageId = _book.pages[_currentPage].id + "image" + imageNr;
 		// Check if image is loadedreadingOrder
@@ -321,6 +322,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this._setPage = function(pageid, result){
+			_pastId = null;
+
 			const missingRegions = [];
 
 			_gui.highlightLoadedPage(pageid, false);
@@ -1528,6 +1531,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.endEditing();
 		_gui.closeRegionSettings();
 		_selector.unSelect();
+		_pastId = null;
 	}
 
 	this.allowToLoadExistingSegmentation = function (allowLoadLocal) {
