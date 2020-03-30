@@ -274,6 +274,12 @@ class TextViewer {
 	 * @param {*} id 
 	 */
 	zoomBase(id){
+		const $textline_prediction = $(`.textline-container[data-id='${id}'] > .pred-text`);
+		if($textline_prediction && $textline_prediction.length > 0){
+			const new_size = this._baseFontSize*this._zoomText;
+			$textline_prediction.css('fontSize',`${new_size}px`);
+		}
+
 		const $textline_text = $(`.textline-container[data-id='${id}'] > .textline-text`);
 		if($textline_text && $textline_text.length > 0){
 			const new_size = this._baseFontSize*this._zoomText;
