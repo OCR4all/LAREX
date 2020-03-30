@@ -146,6 +146,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.displayPage = function (pageNr, imageNr=0) {
 		this.escape();
 		_currentPage = pageNr;
+		_gui.updateSelectedPage(_currentPage);
 
 		const imageId = _book.pages[_currentPage].id + "image" + imageNr;
 		// Check if image is loadedreadingOrder

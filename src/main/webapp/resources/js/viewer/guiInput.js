@@ -152,7 +152,15 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	$('.redo').click(() => _controller.redo());
 
 	$('.changePage').click(function (e) {
-		_controller.displayPage($(this).data("page"), $(this).data("imagenr"));
+		const $page = $(this).data("page");
+		_gui.updateSelectedPage($page);
+		_controller.displayPage($page, $(this).data("imagenr"));
+		e.stopPropagation();
+		return true;
+	});
+	$('.menuPageSelector').change(function (e) {
+		let $selected = $(".menuPageSelector").find(":selected");
+		_controller.displayPage($selected.data("page"));
 		e.stopPropagation();
 		return true;
 	});
