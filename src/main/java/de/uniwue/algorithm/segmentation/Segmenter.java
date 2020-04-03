@@ -83,7 +83,7 @@ public class Segmenter {
 
 		// detect and classify text regions
 		Collection<MatOfPoint> texts = detectText(binary, regions, existingGeometry, parameters.getTextDilationX(),
-				parameters.getTextDilationY(), scaleFactor);
+				parameters.getTextDilationY(), scaleFactor, images);
 
 		// classify
 		results.addAll(RegionClassifier.classifyRegions(regions, texts, binary.size()));
@@ -144,6 +144,10 @@ public class Segmenter {
 			dilate = binary.clone();
 		} else {
 			dilate = ImageProcessor.dilate(binary, new Size(textdilationX, textdilationY));
+		}
+
+		for (final MatOfPoint image : images) {
+			Imgproc.fillConvexPoly(dilate, image, new Scalar(0));
 		}
 
 		// draw user defined lines
