@@ -137,7 +137,7 @@ public class Segmenter {
 	 * @return
 	 */
 	private static Collection<MatOfPoint> detectText(final Mat binary, Collection<Region> regions, ExistingGeometry existingGeometry,
-													int textdilationX, int textdilationY, double scaleFactor) {
+													int textdilationX, int textdilationY, double scaleFactor, Collection<MatOfPoint> images) {
 		Mat dilate = new Mat();
 
 		if (textdilationX == 0 || textdilationY == 0) {
