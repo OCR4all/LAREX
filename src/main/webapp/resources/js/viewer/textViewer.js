@@ -421,18 +421,6 @@ class TextViewer {
 
 		const ctx = $textlineImage[0].getContext("2d");
 
-		// Start clipping area
-		ctx.beginPath();
-		const transposed_points = textline.points.map(point => [point.x-minX,point.y-minY]);
-		if(transposed_points.length > 0){
-			ctx.moveTo(...transposed_points[0]);
-			for(const [x,y] of transposed_points){
-				ctx.lineTo(x,y);
-			}
-			ctx.closePath();
-			ctx.fill();
-			ctx.clip();
-		}
 		// Add image into clipping area
 		ctx.drawImage(this.image[0],minX,minY,width,height,0,0,width,height);
 		return $textlineImage;
