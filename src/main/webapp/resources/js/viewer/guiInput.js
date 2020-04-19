@@ -1,7 +1,8 @@
-function GuiInput(navigationController, controller, gui, textViewer, selector) {
+function GuiInput(navigationController, controller, gui, textViewer, selector, communicator) {
 	const _navigationController = navigationController;
 	const _controller = controller;
 	const _gui = gui;
+	const _communicator = communicator;
 	const _textViewer = textViewer;
 	const _selector = selector;
 
@@ -391,6 +392,12 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 			_gui.deleteVirtualKeyboardButton($drag_target);
 		}
 	});
+	$('.vk-preset-entry').click(function() {
+		let preset_language = $(this).data("language");
+		_communicator.getPresetVirtualKeyboard(preset_language).done((keyboard) => {
+			_gui.setVirtualKeyboard(keyboard);
+		});
+	})
 	$('.vk-add').click(() =>  _gui.openAddVirtualKeyboardButton());
 	$('#vk-save').click(() => _gui.closeAddVirtualKeyboardButton(true));
 	$('#vk-cancel').click(() => _gui.closeAddVirtualKeyboardButton(false));
