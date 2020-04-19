@@ -52,6 +52,10 @@ class Communicator {
 		return this.request("data/virtualkeyboard");
 	}
 
+	getPresetVirtualKeyboard(language){
+		return this.request("data/virtualkeyboardPreset", {language: language})
+	}
+
 	getPageAnnotations(bookid, pageid) {
 		return this.request("data/page/annotations", {bookid:bookid, pageid:pageid});
 	}

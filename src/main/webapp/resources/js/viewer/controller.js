@@ -106,7 +106,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			$("#regioneditor").find("input").focusout(() => keyInput.isActive = true);
 			$("#virtual-keyboard-add").find("input").focusin(() => keyInput.isActive = false);
 			$("#virtual-keyboard-add").find("input").focusout(() => keyInput.isActive = true);
-			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer, _selector);
+			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer, _selector, _communicator);
 
 			this.showPreloader(false);
 
