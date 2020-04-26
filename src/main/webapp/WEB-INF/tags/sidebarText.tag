@@ -15,7 +15,7 @@
 		<a class="btn col s4 tooltipped vk-download" data-position="left" data-delay="50" data-tooltip="Save Virtual Keyboard to file.">
 			Save <i class="material-icons right"> file_download </i>
 		</a>
-		<a class='btn col s4 waves-effect waves-light tooltipped vk-preset dropdown-button' href='#' data-position="left" data-delay="50" data-tooltip="Add new buttons to the virtual keyboard."
+		<a class='btn col s4 waves-effect waves-light tooltipped vk-preset dropdown-button' href='#' data-position="left" data-delay="50" data-tooltip="Use predefined virtual keyboard."
 		   data-activates='vk-preset-dropdown'>Preset <i class="material-icons right">arrow_drop_down</i></a>
 		<ul id='vk-preset-dropdown' class='dropdown-content'>
 			<li><a href="#!" class="vk-preset-entry" data-language="default">Default</a></li>
