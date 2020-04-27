@@ -121,7 +121,7 @@
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
-								tooltip="Add a region to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+								tooltip="Add a region to the reading order (Shortcut: R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
 								tooltip="Add multiple regions to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
@@ -147,7 +147,7 @@
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
-								tooltip="Add a regions to the reading order. (Shortcut: R)">readingOrder</t:menuIcon>
+								tooltip="Add a regions to the reading order (Shortcut: R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
 								tooltip="Add multiple regions to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
