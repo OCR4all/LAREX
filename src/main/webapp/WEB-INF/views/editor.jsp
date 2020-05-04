@@ -68,6 +68,7 @@
 		$(document).ready(function() {
 			$(".button-collapse").sideNav();
 		    $('select').material_select();
+			$('.modal').modal();
 		    $('.dropdown-button').dropdown();
 		});
 		</script>
@@ -77,6 +78,7 @@
 	</b:head>
 
 	<body>
+		<t:virtualKeyboardPresetModal/>
 		<div id="menu" class="grey lighten-4">
 			<div class="mainMenu">
 				<ul class="tabs">

@@ -23,6 +23,8 @@
 			<li><a href="#!" class="vk-preset-entry" data-language="portuguese">Portuguese</a></li>
 			<li><a href="#!" class="vk-preset-entry" data-language="romanian">Romanian</a></li>
 			<li><a href="#!" class="vk-preset-entry" data-language="hungarian">Hungarian</a></li>
+
+			<li><a href="#vk-preset-modal" class="vk-preset-info modal-trigger"><i class="material-icons left">info</i>Info</a></li>
 		</ul>
 	</div>
 	<div class="virtual-keyboard infocus"> </div>
