@@ -32,6 +32,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _newPolygonCounter = 0;
 	let _pastId;
 	let _initialTextView = true;
+	let _imageVersion = 0;
 
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
@@ -143,7 +144,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	});
 
-	this.displayPage = function (pageNr, imageNr=0) {
+	this.displayPage = function (pageNr, imageNr=_imageVersion) {
 		this.escape();
 		_currentPage = pageNr;
 		_gui.updateSelectedPage(_currentPage);
@@ -260,6 +261,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// Open current Mode
 			this.setMode(_mode);
 		}
+	}
+
+	this.setImageVersion = function(imageVersion) {
+		_imageVersion = imageVersion;
 	}
 
 	this.redo = function () {

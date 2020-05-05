@@ -9,7 +9,7 @@
 				<c:if test="${bookpage.getImages().size() > 1}">
 					<ul class="image_versions">
 						<c:forEach items="${bookpage.getImages()}" var="version" varStatus="loop">
-							<li class="changePage image_version" data-page="${bookpage.getId()}" data-imagenr="${loop.index}" title="${version}">
+							<li class="image_version" data-page="${bookpage.getId()}" data-imagenr="${loop.index}" title="${version}">
 								<c:out value="${loop.index}"/>
 							</li>
 						</c:forEach>
