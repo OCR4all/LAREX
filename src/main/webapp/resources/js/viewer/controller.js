@@ -153,7 +153,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		// Check if image is loadedreadingOrder
 		const image = $('#' + imageId);
 		if (!image[0]) {
-			_communicator.loadImage(_book.pages[_currentPage].images[imageNr], imageId).done(() => this.displayPage(pageNr, imageNr));
+			if(_book.pages[_currentPage].images[imageNr] === undefined){
+				_communicator.loadImage(_book.pages[_currentPage].images[0], imageId).done(() => this.displayPage(pageNr, imageNr));
+				this.setImageVersion(0);
+			}else{
+				_communicator.loadImage(_book.pages[_currentPage].images[imageNr], imageId).done(() => this.displayPage(pageNr, imageNr));
+			}
 			return false;
 		}
 		if (!image[0].complete) {
