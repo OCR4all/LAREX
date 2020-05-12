@@ -89,7 +89,16 @@ Go to `localhost:8080/Larex`.
 You can add your own books by copying them to src/webapp/resources/books
 
 (Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.config). See section [*Configuration*](#configuration) for more information).
-.
+
+Book directories must have the following structure:
+```
+* bookDir/
+* ├── <book_name>/ 
+* │    ├── <page_name>.png 
+* │    └── <page_name>.xml
+* └── <book2_name>/
+*      └── …
+```
 ### More information
 Detailed information about the usage of LAREX can be found in the OCR4all [getting started](https://github.com/OCR4all/getting_started) guides.
 
