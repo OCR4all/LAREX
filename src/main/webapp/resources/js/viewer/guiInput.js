@@ -440,6 +440,23 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer.saveTextLine(id,false);
 	}).trigger('input');
 
+	/**
+	 * Batch Segmentation Modal
+	 */
+	$("#selectAllBatch").click(function () {
+		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
+	});
+
+	$(".doBatchSegment").click(function (){
+		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
+			return $(this).data("page");
+		});
+		const save_pages = $("#batchSaveSegmentation").is(":checked");
+
+		_controller.requestBatchSegmentation(false, selected_pages.toArray(),
+			save_pages);
+	});
+
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();
 	})

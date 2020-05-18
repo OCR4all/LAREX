@@ -76,7 +76,7 @@
 		<link rel="stylesheet" href="resources/css/viewer.css">
 		<title>Larex - Editor</title>
 	</b:head>
-
+	<t:batchSegmentModal/>
 	<body>
 		<t:virtualKeyboardPresetModal/>
 		<div id="menu" class="grey lighten-4">

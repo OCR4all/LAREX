@@ -117,6 +117,15 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							}
 						}
 						break;
+					case 66: // B
+						if(event.ctrlKey) {
+							if (mode === Mode.SEGMENT) {
+								_controller.openBatchSegmentModal();
+
+								validKey = true;
+							}
+						}
+						break;
 					case 187: // +
 					case 171: // +
 						_navigationController.zoomIn(0.1);
