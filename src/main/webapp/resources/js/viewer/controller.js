@@ -322,11 +322,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_communicator.batchSegmentPage(activesettings, pages, save, _book.id, _gui.getPageXMLVersion()).done((results) => {
 			for(const [index, result] of results.entries()){
 				this.setChanged(pages[index]);
-				if(save){
-					_savedPages.push(pages[index]);
-					_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
-				}
 				this._setPage(pages[index], result);
+				_savedPages.push(pages[index]);
+				_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
+				// if(save){
+				// 	_savedPages.push(pages[index]);
+				// 	_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
+				// }
 			}
 			this.displayPage(pages[0])
 			Materialize.toast("Batch segmentation successful.", 1500, "green")
