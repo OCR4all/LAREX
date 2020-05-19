@@ -152,13 +152,22 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
-	$('.changePage').click(function (e) {
+	$('.changePage').not('.image_version').click(function (e) {
 		const $page = $(this).data("page");
 		_gui.updateSelectedPage($page);
-		_controller.displayPage($page, $(this).data("imagenr"));
+		_controller.displayPage($page);
 		e.stopPropagation();
 		return true;
 	});
+	$('.image_version').click(function (e) {
+		const $page = $(this).data("page");
+		_gui.updateSelectedPage($page);
+		_controller.displayPage($page, $(this).data("imagenr"));
+		_controller.setImageVersion($(this).data("imagenr"));
+		e.stopPropagation();
+		return true;
+	});
+
 	$('.menuPageSelector').change(function (e) {
 		let $selected = $(".menuPageSelector").find(":selected");
 		_controller.displayPage($selected.data("page"));
@@ -430,6 +439,23 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer.resizeTextline(id);
 		_textViewer.saveTextLine(id,false);
 	}).trigger('input');
+
+	/**
+	 * Batch Segmentation Modal
+	 */
+	$("#selectAllBatch").click(function () {
+		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
+	});
+
+	$(".doBatchSegment").click(function (){
+		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
+			return $(this).data("page");
+		});
+		const save_pages = $("#batchSaveSegmentation").is(":checked");
+
+		_controller.requestBatchSegmentation(false, selected_pages.toArray(),
+			save_pages);
+	});
 
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();

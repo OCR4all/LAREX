@@ -69,6 +69,11 @@ class Communicator {
 		return this.request("segmentation/segment", {settings:settings,page:page}, DataType.JSON);
 	}
 
+	batchSegmentPage(settings, pages, save, bookID, pageXMLVersion){
+		return this.request("segmentation/batchSegment", {settings:settings, pages:pages, save:save,
+			bookid:bookID, version:pageXMLVersion}, DataType.JSON)
+	}
+
 	emptySegmentation(bookID, pageID) {
 		return this.request("segmentation/empty",  {pageid:pageID,bookid:bookID});
 	}
