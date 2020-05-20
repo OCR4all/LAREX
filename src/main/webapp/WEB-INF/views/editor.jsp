@@ -90,6 +90,8 @@
 
   			</div>
 			<div class="secondMenu">
+				<t:menuIcon url="${pageContext.request.contextPath}/" id="openDir" jsClass="open" icon="folder_open"
+							tooltip="Open a different book">Open</t:menuIcon>
 				<t:menuDropdown/>
 				<div id="segment_tab">
 					<b:baseMenu/>

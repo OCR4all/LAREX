@@ -74,7 +74,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_actionController.selector = _selector;
 			_gui = new GUI(canvasID, _editor, _colors, accessible_modes);
 			_gui.resizeViewerHeight();
-
+			_communicator.getOCR4allMode().done((data) => {
+				if(data){
+					_gui.setOCR4allGUI()
+				}
+			});
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 

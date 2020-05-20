@@ -136,4 +136,8 @@ class Communicator {
 		});
 		return status;
 	}
+
+	getOCR4allMode(){
+		return this.request("config/ocr4all", {}, DataType.JSON);
+	}
 }

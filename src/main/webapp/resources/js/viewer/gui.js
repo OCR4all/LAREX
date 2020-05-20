@@ -11,6 +11,14 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	$(document).mousemove((event) => _mouse = { x: event.pageX, y: event.pageY });
 
 	/**
+	 * Set GUI display depending on whether LAREX is used in conjunction with OCR4all
+	 * or not.
+	 */
+	this.setOCR4allGUI = function() {
+		$("#openDir").hide();
+	}
+
+	/**
 	 * Update the gui display of the viewer zoom
 	 */
 	this.updateZoom = function () {
