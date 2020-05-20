@@ -5,7 +5,7 @@
     <div class="modal-content">
         <h4>Virtual Keyboard Preset Info</h4>
         <p>For improving existing virtual keyboard presets or contributing your own presets, please visit our
-            <a href="https://github.com/OCR4all/virtual_keyboards">public repository</a> or contact us at
+            <a href="https://github.com/OCR4all/virtual_keyboards" target="_blank">public repository</a> or contact us at
             <a href="mailto:ocr4all@uni-wuerzburg.de">ocr4all@uni-wuerzburg.de</a>.</p>
     </div>
     <div class="modal-footer">
