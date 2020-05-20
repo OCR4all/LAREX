@@ -74,11 +74,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_actionController.selector = _selector;
 			_gui = new GUI(canvasID, _editor, _colors, accessible_modes);
 			_gui.resizeViewerHeight();
-			_communicator.getOCR4allMode().done((data) => {
-				if(data){
-					_gui.setOCR4allGUI()
-				}
-			});
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
@@ -90,7 +85,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_communicator.getVirtualKeyboard().done((keyboard) => {
 				_gui.setVirtualKeyboard(keyboard);
 			});
-
+			_communicator.getOCR4allMode().done((data) => {
+				if(data){
+					_gui.setOCR4allGUI()
+				}
+			});
 			_navigationController = new NavigationController(_gui,_editor,this.getMode);
 			viewerInput.navigationController = _navigationController;
 			// setup paper again because of pre-resize bug
