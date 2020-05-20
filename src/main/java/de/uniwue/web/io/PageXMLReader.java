@@ -96,7 +96,9 @@ public class PageXMLReader {
 				
 				if (type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
-					subtype = TypeConverter.stringToSubType((textRegion).getTextType());
+                                        if (textRegion.getTextType() != null) {
+                                            subtype = TypeConverter.stringToSubType(textRegion.getTextType());
+                                        }
 
 					// Extract Text
 					for (LowLevelTextObject text : textRegion.getTextObjectsSorted()) {
