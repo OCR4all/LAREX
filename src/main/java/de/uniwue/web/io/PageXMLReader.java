@@ -125,7 +125,7 @@ public class PageXMLReader {
 
 								if(textContent.getText() != null) { 
 									Variable indexVariable = textContent.getAttributes().get(DefaultXmlNames.ATTR_index);
-									if(indexVariable != null && indexVariable instanceof IntegerVariable) {
+									if(indexVariable != null && indexVariable instanceof IntegerVariable && indexVariable.getValue() != null) {
 										final int index = ((IntegerValue)(indexVariable).getValue()).val;
 										content.put(index, textContent.getText());
 										highestIndex = index > highestIndex ? index : highestIndex;
