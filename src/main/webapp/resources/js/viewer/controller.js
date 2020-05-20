@@ -57,6 +57,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_currentPage = 0;
 		this.showPreloader(true);
+		_communicator.getOCR4allMode().done((ocr4allMode) => {
+			if(ocr4allMode){
+				$("#openDir").hide();
+			}
+		});
 		_communicator.loadBook(bookID).done((book) => {
 			_book = book;
 
@@ -84,11 +89,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_gui.addPreviewImageListener();
 			_communicator.getVirtualKeyboard().done((keyboard) => {
 				_gui.setVirtualKeyboard(keyboard);
-			});
-			_communicator.getOCR4allMode().done((data) => {
-				if(data){
-					_gui.setOCR4allGUI()
-				}
 			});
 			_navigationController = new NavigationController(_gui,_editor,this.getMode);
 			viewerInput.navigationController = _navigationController;
