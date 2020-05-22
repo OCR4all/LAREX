@@ -388,11 +388,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					let segment = result.segments[id];
 					if ($.inArray(segment.type, _presentRegions) === -1) {
 						//Add missing region
-						this.changeRegionSettings(segment.type, 0, -1);
+						_controller.changeRegionSettings(segment.type, 0, -1);
 						if(!_colors.hasColor(segment.type)){
 							_colors.assignAvailableColor(segment.type)
 							const colorID = _colors.getColorID(segment.type);
-							this.setRegionColor(segment.type,colorID);
+							_controller.setRegionColor(segment.type,colorID);
 						}
 						missingRegions.push(segment.type);
 					}
