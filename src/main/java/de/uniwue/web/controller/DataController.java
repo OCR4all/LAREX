@@ -157,4 +157,14 @@ public class DataController {
 		}
 		return keyboard;
 	}
+
+	/**
+	 * Returns whether LAREX is configured to be used in conjunction with OCR4all or not.
+	 */
+	@RequestMapping(value = "config/ocr4all", method = RequestMethod.POST, headers = "Accept=*/*",
+			produces = "application/json")
+	public @ResponseBody Boolean isOCR4allMode() {
+		String ocr4allMode = config.getSetting("ocr4all");
+		return ocr4allMode.equals("enable");
+	}
 }
