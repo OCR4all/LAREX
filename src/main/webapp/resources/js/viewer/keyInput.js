@@ -13,6 +13,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 					case 27: // ESC
 						_controller.escape();
 						_controller.endEditReadingOrder();
+						_selector.unSelect();
 						validKey = true;
 						break;
 					case 9: // TAB
@@ -112,6 +113,15 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						} else {
 							if(mode === Mode.SEGMENT){
 								_controller.requestSegmentation()
+								validKey = true;
+							}
+						}
+						break;
+					case 66: // B
+						if(event.ctrlKey) {
+							if (mode === Mode.SEGMENT) {
+								_controller.openBatchSegmentModal();
+
 								validKey = true;
 							}
 						}

@@ -88,7 +88,7 @@ public class PageXMLReader {
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
 				
-				Double orientation = !(region instanceof CustomRegion || region instanceof NoiseRegion) ? 
+				Double orientation = !(region instanceof CustomRegion || region instanceof NoiseRegion || type == RegionType.UnknownRegion) ?
 						PrimaLibHelper.getOrientation(region) : null;
 				
 				final Map<String,de.uniwue.web.model.TextLine> textLines = new HashMap<>();

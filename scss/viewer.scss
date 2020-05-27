@@ -299,7 +299,7 @@ body{
   cursor: pointer;
 }
 #menu{
-  z-index:2;
+  z-index:3;
   .menuIcon{
     width: 40px;
     height: 40px;
@@ -403,6 +403,36 @@ body{
       font-size: 10px;
       padding: 0px !important;
       margin: 0px !important;
+    }
+  }
+}
+
+.menuPageSelector{
+  .caret{
+    z-index: 3;
+    color: $color1;
+    pointer-events:none;
+    margin-right: 2px;
+  }
+  input {
+    height: 23px !important;
+    width: 100px !important;
+    background-color: $color4 !important;
+    color: $color1 !important;
+    padding: 0px 0px 0px 0px !important;
+    margin: 0px !important;
+    font-size: 14px !important;
+    text-indent: 34%;
+  }
+  ul {
+    li {
+      span{
+        color: $color1;
+        &:hover{
+          background-color: $color3;
+          color: $color2;
+        }
+      }
     }
   }
 }
@@ -681,6 +711,20 @@ body{
   }
 }
 
+#textMode-options{
+  label{
+    margin: 10px 10px 20px 20px;
+    color: black;
+  }
+}
+
+.pred-text{
+  display: none;
+  font-size: 20px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 #textline-content{
   z-index: 1; 
   position: absolute;
@@ -722,4 +766,30 @@ body{
     bottom:-100%;
     min-width:30px;
   }
+}
+
+#vk-preset-modal {
+  width: 35%;
+}
+
+#batchSegmentConfirmationModal{
+  top: 33% !important;
+  width: 45%;
+}
+
+.collapsible-body-batch{
+  background-color: white;
+  padding: 10px 0 10px 20px;
+}
+
+#batchRunning{
+  display: none;
+}
+
+label{
+  color: black !important;
+}
+
+#batch-segmentation-progress{
+  display: none;
 }

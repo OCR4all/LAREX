@@ -1,7 +1,8 @@
-function GuiInput(navigationController, controller, gui, textViewer, selector) {
+function GuiInput(navigationController, controller, gui, textViewer, selector, communicator) {
 	const _navigationController = navigationController;
 	const _controller = controller;
 	const _gui = gui;
+	const _communicator = communicator;
 	const _textViewer = textViewer;
 	const _selector = selector;
 
@@ -151,8 +152,25 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
-	$('.changePage').click(function (e) {
-		_controller.displayPage($(this).data("page"), $(this).data("imagenr"));
+	$('.changePage').not('.image_version').click(function (e) {
+		const $page = $(this).data("page");
+		_gui.updateSelectedPage($page);
+		_controller.displayPage($page);
+		e.stopPropagation();
+		return true;
+	});
+	$('.image_version').click(function (e) {
+		const $page = $(this).data("page");
+		_gui.updateSelectedPage($page);
+		_controller.displayPage($page, $(this).data("imagenr"));
+		_controller.setImageVersion($(this).data("imagenr"));
+		e.stopPropagation();
+		return true;
+	});
+
+	$('.menuPageSelector').change(function (e) {
+		let $selected = $(".menuPageSelector").find(":selected");
+		_controller.displayPage($selected.data("page"));
 		e.stopPropagation();
 		return true;
 	});
@@ -383,6 +401,12 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 			_gui.deleteVirtualKeyboardButton($drag_target);
 		}
 	});
+	$('.vk-preset-entry').click(function() {
+		let preset_language = $(this).data("language");
+		_communicator.getPresetVirtualKeyboard(preset_language).done((keyboard) => {
+			_gui.setVirtualKeyboard(keyboard);
+		});
+	})
 	$('.vk-add').click(() =>  _gui.openAddVirtualKeyboardButton());
 	$('#vk-save').click(() => _gui.closeAddVirtualKeyboardButton(true));
 	$('#vk-cancel').click(() => _gui.closeAddVirtualKeyboardButton(false));
@@ -412,7 +436,28 @@ function GuiInput(navigationController, controller, gui, textViewer, selector) {
 	// Text View
 	$("#viewerText").on('input','.textline-text', function() {
 		const id = $(this).closest(".textline-container").data("id");
-		_textViewer.resizeTextline(id)
+		_textViewer.resizeTextline(id);
 		_textViewer.saveTextLine(id,false);
 	}).trigger('input');
+
+	/**
+	 * Batch Segmentation Modal
+	 */
+	$("#selectAllBatch").click(function () {
+		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
+	});
+
+	$(".doBatchSegment").click(function (){
+		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
+			return $(this).data("page");
+		});
+		const save_pages = $("#batchSaveSegmentation").is(":checked");
+
+		_controller.requestBatchSegmentation(false, selected_pages.toArray(),
+			save_pages);
+	});
+
+	$("#displayPrediction").click(function(){
+		_textViewer._displayPredictedText();
+	})
 }

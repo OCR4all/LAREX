@@ -32,6 +32,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _newPolygonCounter = 0;
 	let _pastId;
 	let _initialTextView = true;
+	let _imageVersion = 0;
 
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
@@ -56,6 +57,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_currentPage = 0;
 		this.showPreloader(true);
+		_communicator.getOCR4allMode().done((ocr4allMode) => {
+			if(ocr4allMode){
+				$("#openDir").hide();
+			}
+		});
 		_communicator.loadBook(bookID).done((book) => {
 			_book = book;
 
@@ -73,7 +79,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_actionController.selector = _selector;
 			_gui = new GUI(canvasID, _editor, _colors, accessible_modes);
 			_gui.resizeViewerHeight();
-
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
@@ -85,7 +90,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_communicator.getVirtualKeyboard().done((keyboard) => {
 				_gui.setVirtualKeyboard(keyboard);
 			});
-
 			_navigationController = new NavigationController(_gui,_editor,this.getMode);
 			viewerInput.navigationController = _navigationController;
 			// setup paper again because of pre-resize bug
@@ -106,7 +110,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			$("#regioneditor").find("input").focusout(() => keyInput.isActive = true);
 			$("#virtual-keyboard-add").find("input").focusin(() => keyInput.isActive = false);
 			$("#virtual-keyboard-add").find("input").focusout(() => keyInput.isActive = true);
-			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer, _selector);
+			_guiInput = new GuiInput(_navigationController, this, _gui, _textViewer, _selector, _communicator);
 
 			this.showPreloader(false);
 
@@ -143,15 +147,21 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	});
 
-	this.displayPage = function (pageNr, imageNr=0) {
+	this.displayPage = function (pageNr, imageNr=_imageVersion) {
 		this.escape();
 		_currentPage = pageNr;
+		_gui.updateSelectedPage(_currentPage);
 
 		const imageId = _book.pages[_currentPage].id + "image" + imageNr;
 		// Check if image is loadedreadingOrder
 		const image = $('#' + imageId);
 		if (!image[0]) {
-			_communicator.loadImage(_book.pages[_currentPage].images[imageNr], imageId).done(() => this.displayPage(pageNr, imageNr));
+			if(_book.pages[_currentPage].images[imageNr] === undefined){
+				_communicator.loadImage(_book.pages[_currentPage].images[0], imageId).done(() => this.displayPage(pageNr, imageNr));
+				this.setImageVersion(0);
+			}else{
+				_communicator.loadImage(_book.pages[_currentPage].images[imageNr], imageId).done(() => this.displayPage(pageNr, imageNr));
+			}
 			return false;
 		}
 		if (!image[0].complete) {
@@ -242,6 +252,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			if(_textViewer.isOpen()){
 				_textViewer.displayZoom();
+				_textViewer._displayPredictedText();
 			}
 			_textViewer.setLoading(false);
 
@@ -258,6 +269,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// Open current Mode
 			this.setMode(_mode);
 		}
+	}
+
+	this.setImageVersion = function(imageVersion) {
+		_imageVersion = imageVersion;
 	}
 
 	this.redo = function () {
@@ -284,6 +299,44 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
 			this._setPage(_currentPage, result);
 			this.displayPage(_currentPage);
+		});
+	}
+
+	this.requestBatchSegmentation = function (allowLoadLocal, pages, save){
+		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
+		_batchSegmentationPreloader.show();
+
+		//Update setting parameters
+		_settings.parameters = _gui.getParameters();
+
+		//Add fixed Segments to settings
+		const activesettings = JSON.parse(JSON.stringify(_settings));
+		for(let page of pages){
+			activesettings.fixedGeometry = {segments:{},cuts:{}};
+			if (_fixedGeometry[page]) {
+				if (_fixedGeometry[page].segments)
+					_fixedGeometry[page].segments.forEach(
+						s => activesettings.fixedGeometry.segments[s] = _segmentation[page].segments[s]);
+				if (_fixedGeometry[page].cuts)
+					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
+			}
+		}
+
+		_communicator.batchSegmentPage(activesettings, pages, save, _book.id, _gui.getPageXMLVersion()).done((results) => {
+			for(const [index, result] of results.entries()){
+				this.setChanged(pages[index]);
+				this._setPage(pages[index], result);
+				_savedPages.push(pages[index]);
+				_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
+				// if(save){
+				// 	_savedPages.push(pages[index]);
+				// 	_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
+				// }
+			}
+			this.displayPage(pages[0])
+			Materialize.toast("Batch segmentation successful.", 1500, "green")
+			_batchSegmentationPreloader.hide();
+			$(".modal").modal("close");
 		});
 	}
 
@@ -320,31 +373,40 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this._setPage = function(pageid, result){
+			_pastId = null;
+
 			const missingRegions = [];
 
 			_gui.highlightLoadedPage(pageid, false);
+
+			function preparePage(_controller){
+				_segmentation[pageid] = result;
+
+				_actionController.resetActions(pageid);
+				//check if all necessary regions are available
+				Object.keys(result.segments).forEach((id) => {
+					let segment = result.segments[id];
+					if ($.inArray(segment.type, _presentRegions) === -1) {
+						//Add missing region
+						_controller.changeRegionSettings(segment.type, 0, -1);
+						if(!_colors.hasColor(segment.type)){
+							_colors.assignAvailableColor(segment.type)
+							const colorID = _colors.getColorID(segment.type);
+							_controller.setRegionColor(segment.type,colorID);
+						}
+						missingRegions.push(segment.type);
+					}
+				});
+				_controller.forceUpdateReadingOrder();
+			}
+
 			switch (result.status) {
 				case 'LOADED':
 					_gui.highlightLoadedPage(pageid, true);
+					preparePage(this);
+					break;
 				case 'SUCCESS':
-					_segmentation[pageid] = result;
-
-					_actionController.resetActions(pageid);
-					//check if all necessary regions are available
-					Object.keys(result.segments).forEach((id) => {
-						let segment = result.segments[id];
-						if ($.inArray(segment.type, _presentRegions) == -1) {
-							//Add missing region
-							this.changeRegionSettings(segment.type, 0, -1);
-							if(!_colors.hasColor(segment.type)){
-								_colors.assignAvailableColor(segment.type)
-								const colorID = _colors.getColorID(segment.type);
-								this.setRegionColor(segment.type,colorID);
-							}
-							missingRegions.push(segment.type);
-						}
-					});
-					this.forceUpdateReadingOrder();
+					preparePage(this);
 					break;
 				default:
 			}
@@ -437,20 +499,20 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		return _mode;
 	}
 
-	this.exportPageXML = function () {
+	this.exportPageXML = function (_page = _currentPage) {
 		_gui.setExportingInProgress(true);
 
-		_communicator.exportSegmentation(_segmentation[_currentPage], _book.id, _gui.getPageXMLVersion()).done((data) => {
+		_communicator.exportSegmentation(_segmentation[_page], _book.id, _gui.getPageXMLVersion()).done((data) => {
 			// Set export finished
-			_savedPages.push(_currentPage);
+			_savedPages.push(_page);
 			_gui.setExportingInProgress(false);
-			_gui.addPageStatus(_currentPage,PageStatus.SESSIONSAVED);
+			_gui.addPageStatus(_page,PageStatus.SESSIONSAVED);
 
 			// Download
 			if (globalSettings.downloadPage) {
 				var a = window.document.createElement('a');
 				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
-				const fileName = _book.pages[_currentPage].name;
+				const fileName = _book.pages[_page].name;
 				a.download = _book.name + "_" + fileName + ".xml";
 
 				// Append anchor to body.
@@ -1050,10 +1112,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
-	this.autoGenerateReadingOrder = function () {
+	this.autoGenerateReadingOrder = function (_page = _currentPage) {
 		this.endEditReadingOrder();
 		let readingOrder = [];
-		const pageSegments = _segmentation[_currentPage].segments;
+		const pageSegments = _segmentation[_page].segments;
 
 		// Iterate over Segment-"Map" (Object in JS)
 		Object.keys(pageSegments).forEach((key) => {
@@ -1063,7 +1125,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		});
 		readingOrder = _editor.getSortedReadingOrder(readingOrder);
-		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_currentPage].readingOrder, readingOrder, this, _segmentation, _currentPage), _currentPage);
+		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_page].readingOrder, readingOrder, this, _segmentation, _page), _page);
 	}
 
 	/**
@@ -1527,6 +1589,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.endEditing();
 		_gui.closeRegionSettings();
 		_selector.unSelect();
+		_pastId = null;
 	}
 
 	this.allowToLoadExistingSegmentation = function (allowLoadLocal) {
@@ -1593,5 +1656,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 	this.getCurrentSettings = function(){
 		return _settings[_currentPage];
+	}
+
+	this.openBatchSegmentModal = function(){
+		$("#batchSegmentModal").modal("open");
 	}
 }
