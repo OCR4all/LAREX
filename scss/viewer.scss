@@ -767,3 +767,29 @@ body{
     min-width:30px;
   }
 }
+
+#vk-preset-modal {
+  width: 35%;
+}
+
+#batchSegmentConfirmationModal{
+  top: 33% !important;
+  width: 45%;
+}
+
+.collapsible-body-batch{
+  background-color: white;
+  padding: 10px 0 10px 20px;
+}
+
+#batchRunning{
+  display: none;
+}
+
+label{
+  color: black !important;
+}
+
+#batch-segmentation-progress{
+  display: none;
+}

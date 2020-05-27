@@ -41,7 +41,7 @@
 					</div>
 					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if available">Load now</a>
 					<div class="col s12">
-						<span class="settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened."> 
+						<span class="settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened">
 							<label>
 								<input type="checkbox" checked="checked"> 
 									<span class="lever"></span>
@@ -153,7 +153,10 @@
 		</li>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment tooltipped" data-position="left" data-delay="50" data-tooltip="Segment the current page automatically (Shortcut: CTRL+Space)">Segment</a>
-	
+	<!-- <a class="col s12 waves-effect waves-light btn doBatch tooltipped" href="#batchSegmentModal" data-position="left" data-delay="50" data-tooltip="Batch segment multiple pages automatically (Shortcut: CTRL+B)">
+		Batch Segment
+	</a> -->
+
 	<a class="col s12 waves-effect waves-light btn exportPageXML tooltipped" data-position="left" data-delay="50" data-tooltip="Save the current segmentation as PageXML (Shortcut: CTRL+S)">
 		Save Result
 		<div class="progress hide">

@@ -9,7 +9,7 @@
 				<c:if test="${bookpage.getImages().size() > 1}">
 					<ul class="image_versions">
 						<c:forEach items="${bookpage.getImages()}" var="version" varStatus="loop">
-							<li class="changePage image_version" data-page="${bookpage.getId()}" data-imagenr="${loop.index}" title="${version}">
+							<li class="image_version" data-page="${bookpage.getId()}" data-imagenr="${loop.index}" title="${version}">
 								<c:out value="${loop.index}"/>
 							</li>
 						</c:forEach>
@@ -22,11 +22,11 @@
 </div>
 <div id="pageLegend" class="col s12">
 	<i class="material-icons pagestatusIcon pageIconTodo circle tooltipped checked"
-		data-position="top" data-delay="50" data-tooltip="There is no segmentation for this page." >assignment_late</i>
+		data-position="top" data-delay="50" data-tooltip="There is no segmentation for this page" >assignment_late</i>
 	<i class="material-icons pagestatusIcon pageIconUnsaved circle tooltipped checked"
-		data-position="top" data-delay="50" data-tooltip="Current segmentation may be unsaved.">warning</i>
+		data-position="top" data-delay="50" data-tooltip="Current segmentation may be unsaved">warning</i>
 	<i class="material-icons pagestatusIcon pageIconSession circle tooltipped checked"
-		data-position="top" data-delay="50" data-tooltip="Segmentation was saved in this session.">save</i>
+		data-position="top" data-delay="50" data-tooltip="Segmentation was saved in this session">save</i>
 	<i class="material-icons pagestatusIcon pageIconServer circle tooltipped checked"
-		data-position="top" data-delay="50" data-tooltip="There is a segmentation for this page on the server.">lock</i>
+		data-position="top" data-delay="50" data-tooltip="There is a segmentation for this page on the server">lock</i>
 </div>
