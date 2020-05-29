@@ -125,6 +125,7 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 	let _actionReadingOrder = null;
 	if (newType === 'ImageRegion' && segmentation[page].readingOrder && segmentation[page].readingOrder.includes(id)){
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(id, page, segmentation, controller);
+		controller.forceUpdateReadingOrder(true);
 	}
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
@@ -136,8 +137,6 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 			_segment.type = newType;
 			viewer.updateSegment(_segment);
-			if(segmentation[page].readingOrder.includes(id))
-				controller.forceUpdateReadingOrder(true); 
 			if (_actionReadingOrder)
 				_actionReadingOrder.execute();
 			if (_actionSetFixed)
@@ -211,7 +210,7 @@ function ActionRemoveRegionArea(regionPolygon, editor, settings, controller) {
 	}
 }
 
-function ActionRemoveRegionType(regionType, controller, editor, settings, controller) {
+function ActionRemoveRegionType(regionType, controller, editor, settings) {
 	let _isExecuted = false;
 	const _region = JSON.parse(JSON.stringify(settings.regions[regionType]));
 
