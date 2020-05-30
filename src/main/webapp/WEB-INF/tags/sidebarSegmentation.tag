@@ -30,8 +30,8 @@
 					<div class="col s12">
 						<span class="settings-header">Advanced Settings</span>
 					</div>
-					<div class="col s12">
-						<span class="settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable"> 
+					<div class="advanced-setting col s12">
+						<span class="settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable">
 							<label>
 								<input type="checkbox" checked="checked"> 
 									<span class="lever"></span>
@@ -40,7 +40,7 @@
 						</span>	
 					</div>
 					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if available">Load now</a>
-					<div class="col s12">
+					<div class="advanced-setting col s12">
 						<span class="settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened">
 							<label>
 								<input type="checkbox" checked="checked"> 
@@ -48,6 +48,15 @@
 								Auto segment page 
 							</label>
 						</span>	
+					</div>
+					<div class="advanced-setting col s12">
+						<span class="switch tooltipped" id="settings-hint-reading-order" data-position="bottom" data-delay="50" data-tooltip="Automatically opens reading oder menu for actions which alter an existing reading order">
+							<label>
+								<input type="checkbox" checked="checked">
+									<span class="lever"></span>
+								Reading Order hints
+							</label>
+						</span>
 					</div>
 				</div>
 			</div>

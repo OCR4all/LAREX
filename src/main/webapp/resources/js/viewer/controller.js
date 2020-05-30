@@ -1253,9 +1253,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.forceUpdateReadingOrder = function (forceDisplay=false) {
+		let _readingOrderDisplaySetting = $("#settings-hint-reading-order").find('input').prop('checked');
 		_gui.updateRegionLegendColors(_presentRegions);
 		_textViewer.orderTextlines(_selector.getSelectOrder(ElementType.TEXTLINE));
-		if (forceDisplay){
+		if (forceDisplay && _readingOrderDisplaySetting){
 			this.displayReadingOrder(true);
 			_gui.openReadingOrderSettings();
 		}else{
