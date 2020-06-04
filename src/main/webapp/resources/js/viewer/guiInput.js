@@ -460,4 +460,17 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();
 	})
+
+	/**
+	 * Page Selection Dropdown
+	 */
+	$("#viewerCanvas").click(function(){
+		const $pageSelect = $(".menuPageSelector")
+
+		$pageSelect.material_select("destroy");
+		$pageSelect.material_select();
+	})
+
+
+
 }
