@@ -150,7 +150,7 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 			_segment.type = _oldType;
 			viewer.updateSegment(_segment);
-			if(segmentation[page].readingOrder.includes(id))
+			if(segmentation[page].readingOrder.includes(id) && newType === "ImageRegion")
 				controller.forceUpdateReadingOrder(true);
 			if (_actionReadingOrder)
 				_actionReadingOrder.undo();
