@@ -87,6 +87,12 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
+					case 33: //page up
+						_controller.adjacentPage("prev");
+						break;
+					case 34: //page down
+						_controller.adjacentPage("next");
+						break;
 				}
 			}else{
 				switch (event.keyCode) {
