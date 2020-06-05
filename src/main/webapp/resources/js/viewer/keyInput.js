@@ -250,6 +250,12 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
+					case 33: //page up
+						_controller.adjacentPage("prev");
+						break;
+					case 34: //page down
+						_controller.adjacentPage("next");
+						break;
 					case 18: // ALT
 						//document.body.style.cursor = "move";
 

@@ -417,7 +417,28 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 
 			_gui.highlightSegmentedPages(_segmentedPages);
-	} 
+	}
+
+	this.adjacentPage = function(direction){
+		let _newPage;
+
+		switch (direction) {
+			case "prev":
+				_newPage = _currentPage - 1;
+				if ($(`.changePage[data-page="${_newPage}" ]`).length) {
+					_gui.updateSelectedPage(_newPage);
+					this.displayPage(_newPage)
+				}
+				break;
+			case "next":
+				_newPage = _currentPage + 1;
+				if ($(`.changePage[data-page="${_newPage}" ]`).length) {
+					_gui.updateSelectedPage(_newPage);
+					this.displayPage(_newPage)
+				}
+				break;
+		}
+	}
 
 	this.uploadSegmentation = function (file) {
 		this.showPreloader(true);
