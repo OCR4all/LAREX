@@ -47,9 +47,7 @@ public class TypeConverter {
 	 */
 	public static RegionType stringToMainType(String typeString) {
 		try {
-			RegionType type = RegionType.valueOf(typeString);
-
-			return type;
+			return RegionType.valueOf(typeString);
 		} catch (IllegalArgumentException e) {
 			return null;
 		}

@@ -44,6 +44,7 @@ public class ImageProcessingFacade {
 		MemoryCleaner.clean(resultRegions);
 
 		LinkedList<Point> points = new LinkedList<Point>();
+		assert mergedRegion != null;
 		for (org.opencv.core.Point regionPoint : mergedRegion.getPoints().toList()) {
 			points.add(new Point(regionPoint.x, regionPoint.y));
 		}
