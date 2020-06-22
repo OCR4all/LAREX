@@ -113,10 +113,8 @@ public class DataController {
 
 	/**
 	 * Retrieve the default virtual keyboard.
-	 * 
-	 * @param file
-	 * @param bookID
-	 * @return
+	 *
+	 * @return default virtual keyboard
 	 */
 	@RequestMapping(value = "data/virtualkeyboard", method = RequestMethod.POST)
 	public @ResponseBody List<String[]> virtualKeyboard() {
@@ -128,11 +126,9 @@ public class DataController {
 			while ((st = br.readLine()) != null) 
 				if(st.replace("\\s+", "").length() > 0) 
 					keyboard.add(st.split("\\s+"));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
-		} 
+		}
 		return keyboard;
 	}
 

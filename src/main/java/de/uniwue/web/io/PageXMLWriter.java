@@ -96,6 +96,7 @@ public class PageXMLWriter {
 			}
 
 			// Check for TextRegion
+			assert regionType != null;
 			if (regionType.getName().equals(RegionType.TextRegion.getName())) {
 				final TextRegion textRegion = ((TextRegion) region);
 				textRegion.setTextType(TypeConverter.subTypeToString(type.getSubtype()));

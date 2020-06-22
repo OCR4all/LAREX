@@ -91,9 +91,8 @@ public class ImageSegmentation {
 
 		if (combine) {
 			if(type.equals(ImageSegType.STRAIGHT_RECT) || type.equals(ImageSegType.ROTATED_RECT)) {
-				Collection<MatOfPoint> combinedResults = combineContours(results, binary, type);
-				
-				return combinedResults;
+
+				return combineContours(results, binary, type);
 			}
 		}
 		

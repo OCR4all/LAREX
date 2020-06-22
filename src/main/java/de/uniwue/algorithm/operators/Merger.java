@@ -49,7 +49,7 @@ public class Merger {
 
 	/**
 	 * Combine contours in a source image via smearing with x and y growth factors
-	 * to potentially speed up on contours with a large distance inbetween
+	 * to potentially speed up on contours with a large distance in-between
 	 * 
 	 * @param contours Contours to combine
 	 * @param source   Size of the source image that includes the contours
@@ -119,14 +119,14 @@ public class Merger {
 						if (currentGapY < medianDistanceY) {
 							// Draw over
 							for (int i = 1; i <= currentGapY; i++)
-								resultImage.put(y - i, x, new double[] { 255 });
+								resultImage.put(y - i, x, 255);
 						}
 
 						if (currentGapX < medianDistanceX) {
 							if (currentGapX > 0)
 								// Draw over
 								for (int i = 1; i <= currentGapX; i++)
-									resultImage.put(y, x - i, new double[] { 255 });
+									resultImage.put(y, x - i, 255);
 						}
 
 						currentGapY = 0;
@@ -154,7 +154,7 @@ public class Merger {
 			for (int x = left; x <= right; x++)
 				for (int y = top; y <= bottom; y++)
 					if (resultImage.get(y, x)[0] > 0)
-						workImage.put(y, x, new double[] { 255 });
+						workImage.put(y, x, 255);
 					else
 						workImage.put(y, x, new byte[] { 0 });
 
@@ -206,10 +206,8 @@ public class Merger {
 		// Calculate binary image size via max segments x and y positions
 		final Set<Point> points = segments.stream().flatMap(s -> s.getPoints().toList().stream())
 												.collect(Collectors.toSet());
-		final double maxX = points.stream().map(p -> p.x).sorted((p1,p2) -> p2.compareTo(p1))
-										.findFirst().orElse(0.0);
-		final double maxY = points.stream().map(p -> p.y).sorted((p1,p2) -> p2.compareTo(p1))
-										.findFirst().orElse(0.0);
+		final double maxX = points.stream().map(p -> p.x).max(Comparator.naturalOrder()).orElse(0.0);
+		final double maxY = points.stream().map(p -> p.y).max(Comparator.naturalOrder()).orElse(0.0);
 		
 		
 		// Create combined segments
@@ -261,6 +259,7 @@ public class Merger {
 				}
 			}
 
+			assert assignedCogTemp != null;
 			Imgproc.line(temp, assignedCogTemp, remCogTemp, new Scalar(255), 2);
 			assignedCogs.add(remCogTemp);
 			remainingCogs.remove(remCogTemp);
@@ -269,9 +268,7 @@ public class Merger {
 
 		contours = new ArrayList<>(Contourextractor.fromInverted(temp));
 		MemoryCleaner.clean(temp);
-		
-		RegionSegment newResult = new RegionSegment(biggestRegionType, contours.get(0));
 
-		return newResult;
+		return new RegionSegment(biggestRegionType, contours.get(0));
 	}
 }
