@@ -11,7 +11,7 @@
 				</span>
 			</div>
 			<div id="import-export-settings" class="collapsible-body">
-				<a class="col s6 waves-effect waves-light btn saveSettingsXML">
+				<a class="col s6 waves-effect waves-light btn saveSettingsXML segment-only">
 					Save
 					<div class="progress hide">
 			    		<div class="indeterminate"></div>
@@ -19,7 +19,7 @@
 					<i class="material-icons right">file_download</i>
 				</a>
 
-				<form action="#">
+				<form action="#" class="segment-only">
 					<div class="btn col s6" onclick="$('#upload-input').click()">
 						Load
 						<i class="material-icons right">file_upload</i></div>
@@ -30,8 +30,8 @@
 					<div class="col s12">
 						<span class="settings-header">Advanced Settings</span>
 					</div>
-					<div class="col s12">
-						<span class="settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable"> 
+					<div class="advanced-setting col s12">
+						<span class="segment-only settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable">
 							<label>
 								<input type="checkbox" checked="checked"> 
 									<span class="lever"></span>
@@ -39,15 +39,24 @@
 							</label>
 						</span>	
 					</div>
-					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if available">Load now</a>
-					<div class="col s12">
-						<span class="settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened">
+					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation segment-only tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if available">Load now</a>
+					<div class="advanced-setting col s12">
+						<span class="segment-only settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened">
 							<label>
 								<input type="checkbox" checked="checked"> 
 									<span class="lever"></span>
 								Auto segment page 
 							</label>
 						</span>	
+					</div>
+					<div class="advanced-setting col s12">
+						<span class="switch tooltipped" id="settings-hint-reading-order" data-position="bottom" data-delay="50" data-tooltip="Automatically opens reading oder menu for actions which alter an existing reading order">
+							<label>
+								<input type="checkbox" checked="checked">
+									<span class="lever"></span>
+								Reading Order hints
+							</label>
+						</span>
 					</div>
 				</div>
 			</div>
