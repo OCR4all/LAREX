@@ -127,7 +127,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			default:
 				$('.doSegment').removeClass('hide');
 				$('#collapsible-parameters').removeClass('hide');
-				$('#collapsible-settings *').removeClass('hide');
+				$('#collapsible-settings .segment-only').removeClass('hide');
 				$('.regionlegend').find(".switch").removeClass('hide');
 				$('.regionlegendAll').removeClass('hide');
 				$('.regionSegmentationSettings').removeClass('hide');
