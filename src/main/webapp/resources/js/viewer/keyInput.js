@@ -8,7 +8,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 			let validKey = false;
 			const mode = _controller.getMode();
 
-			if(mode == Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
+			if(mode === Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
 				switch(event.keyCode){
 					case 27: // ESC
 						_controller.escape();

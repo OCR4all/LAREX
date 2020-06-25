@@ -211,7 +211,7 @@ function ActionRemoveRegionArea(regionPolygon, editor, settings, controller) {
 	}
 }
 
-function ActionRemoveRegionType(regionType, controller, editor, settings, controller) {
+function ActionRemoveRegionType(regionType, controller, editor, settings) {
 	let _isExecuted = false;
 	const _region = JSON.parse(JSON.stringify(settings.regions[regionType]));
 
@@ -285,7 +285,7 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 		const ids = Object.keys(_segment.textlines);
 		for(const [index,id] of ids.entries()){
 			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, textViewer, segmentation,
-				page, controller, selector,(index === ids.length-1 || index==0)));
+				page, controller, selector,(index === ids.length-1 || index===0)));
 		}	
 	}
 	const multiRemove = new ActionMultiple(_actionRemoveTextLines);
@@ -307,7 +307,7 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 				_actionRemoveFromReadingOrder.execute();
 
 			const mode = controller.getMode();
-			if(mode == Mode.EDIT || mode == Mode.SEGMENT)
+			if(mode === Mode.EDIT || mode === Mode.SEGMENT)
 				controller.forceUpdateReadingOrder(doForceUpdate);
 			
 
@@ -682,10 +682,10 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller, doForc
 				}
 			}
 
-			if(!(JSON.stringify(_newReadingOrder) == JSON.stringify(_oldReadingOrder))){
+			if(!(JSON.stringify(_newReadingOrder) === JSON.stringify(_oldReadingOrder))){
 				segmentation[page].readingOrder = JSON.parse(JSON.stringify(_newReadingOrder));
 				const mode = controller.getMode();
-				if(doForceUpdate && (mode == Mode.EDIT || mode == Mode.SEGMENT))
+				if(doForceUpdate && (mode === Mode.EDIT || mode === Mode.SEGMENT))
 					controller.forceUpdateReadingOrder(true);
 				console.log('Do - Remove from Reading Order: {id:"' + id + '",[..]}');
 			}
@@ -695,7 +695,7 @@ function ActionRemoveFromReadingOrder(id, page, segmentation, controller, doForc
 		if (_isExecuted) {
 			_isExecuted = false;
 
-			if(!(JSON.stringify(_newReadingOrder) == JSON.stringify(_oldReadingOrder))){
+			if(!(JSON.stringify(_newReadingOrder) === JSON.stringify(_oldReadingOrder))){
 				segmentation[page].readingOrder = JSON.parse(JSON.stringify(_oldReadingOrder));
 				if(doForceUpdate)
 					controller.forceUpdateReadingOrder(true);

@@ -22,8 +22,8 @@ class Selector {
 	select(id, points, elementType=this._controller.getIDType(id)) {
 		const mode = this._controller.getMode();
 
-		if(elementType == ElementType.CONTOUR){			
-			if(!this.selectMultiple || this.selectedType != elementType)
+		if(elementType === ElementType.CONTOUR){
+			if(!this.selectMultiple || this.selectedType !== elementType)
 				this.unSelect()
 			if (!this.isSegmentSelected(id)){ 
 				this._selectedElements.push(id);
@@ -41,12 +41,12 @@ class Selector {
 			// Select logic
 			if(points && isSelected){
 				//// Select point if possible
-				if(elementType != ElementType.SEGMENT && mode !== Mode.EDIT && elementType != ElementType.TEXTLINE)
+				if(elementType !== ElementType.SEGMENT && mode !== Mode.EDIT && elementType !== ElementType.TEXTLINE)
 					throw Error("Tried to select points of a polygon that is not a segment and not a textline. ["+elementType+"]");
 
 				// Unselect previous
-				if((mode !== Mode.SEGMENT && mode !== Mode.EDIT && mode !== Mode.LINES) || this._selectedElements.length != 1
-					|| this._selectedElements[0] != id || !this.selectMultiple)
+				if((mode !== Mode.SEGMENT && mode !== Mode.EDIT && mode !== Mode.LINES) || this._selectedElements.length !== 1
+					|| this._selectedElements[0] !== id || !this.selectMultiple)
 					this.unSelect()
 				
 				if(mode === Mode.SEGMENT || mode === Mode.EDIT){
@@ -119,7 +119,7 @@ class Selector {
 				this.select(order[0]);
 			}
 		} else if (mode === Mode.LINES){
-			if(this.selectedType == ElementType.SEGMENT){
+			if(this.selectedType === ElementType.SEGMENT){
 				const hasTextLines = Object.entries(this._controller.textlineRegister).map(([_,p]) => p);
 				let order = this.getSelectOrder(ElementType.SEGMENT,reverse=reverse).filter(s => hasTextLines.includes(s));
 
@@ -158,7 +158,7 @@ class Selector {
 				}
 			}
 		} else if (mode === Mode.TEXT){
-			if(this.selectedType == ElementType.TEXTLINE){
+			if(this.selectedType === ElementType.TEXTLINE){
 				let order = this.getSelectOrder(ElementType.TEXTLINE,reverse=reverse);
 				if(order.length > 0){
 					if(this._selectedElements.length > 0){
@@ -197,12 +197,12 @@ class Selector {
 					this._selectedElements = Object.values(segmentation.segments).map(s => s.id);
 					this._postSelection();
 				} else if (mode === Mode.LINES){
-					if(this.selectedType == ElementType.TEXTLINE && this._selectedElements.length > 0){
+					if(this.selectedType === ElementType.TEXTLINE && this._selectedElements.length > 0){
 						const parent = segmentation.segments[this._controller.textlineRegister[this._selectedElements[0]]];
 						this.unSelect();
 						this._selectedElements = Object.values(parent.textlines).map(s => s.id);
 						this._postSelection();
-					} else if (this.selectedType == ElementType.SEGMENT && this._selectedElements.length > 0){
+					} else if (this.selectedType === ElementType.SEGMENT && this._selectedElements.length > 0){
 						this.selectedType = ElementType.TEXTLINE;
 						const parents = this._selectedElements.map(id => [id, Object.keys(segmentation.segments[id].textlines)])
 											.filter(p => (p[1] && p[1].length > 0));
@@ -236,7 +236,7 @@ class Selector {
 			const anchorA = anchors[o1.id];
 			const anchorB = anchors[o2.id];
 			const delta = anchorA.y - anchorB.y;
-			if (delta != 0) {
+			if (delta !== 0) {
 				return delta;
 			} else {
 				return anchorA.x - anchorB.x;
@@ -312,7 +312,7 @@ class Selector {
 	 */
 	unSelect() {
 		// Unselecting everything visually
-		if(this.selectedType == ElementType.CONTOUR) {
+		if(this.selectedType === ElementType.CONTOUR) {
 			this._editor.highlightContours(this._selectedElements,false);
 		} else {
 			for(const id of this._selectedElements){
@@ -361,11 +361,7 @@ class Selector {
 	 * @param {string} id 
 	 */
 	isSegmentSelected(id) {
-		if (this._selectedElements && $.inArray(id, this._selectedElements) >= 0) {
-			return true;
-		} else {
-			return false;
-		}
+		return this._selectedElements && $.inArray(id, this._selectedElements) >= 0;
 	}
 
 	/**
@@ -374,7 +370,7 @@ class Selector {
 	 * @param {[number,number]} startPoint GUI point to start the selection on (e.g. mouse event pos)
 	 */
 	boxSelect(startPoint) {
-		if(this._editor.mode == ElementType.CONTOUR && this.selectedType != ElementType.CONTOUR){
+		if(this._editor.mode === ElementType.CONTOUR && this.selectedType !== ElementType.CONTOUR){
 			this.unSelect();
 			this.selectedType = ElementType.CONTOUR;
 		}
@@ -464,7 +460,7 @@ class Selector {
 	_selectAndAddPoints(id, points){
 		this._selectPolygon(id,true,true);
 		for(const point of points) {
-			if(this._selectedPoints.indexOf(point) == -1)
+			if(this._selectedPoints.indexOf(point) === -1)
 				this._selectedPoints.push(point)
 		}
 
@@ -487,7 +483,7 @@ class Selector {
 				this._selectPolygon(id,true,true);	
 				this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
 			} else if(this._controller.getMode() === Mode.LINES){
-				if(this.selectedType == ElementType.TEXTLINE){
+				if(this.selectedType === ElementType.TEXTLINE){
 					this._selectPolygon(id,true,true);	
 					this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
 				}
@@ -510,7 +506,7 @@ class Selector {
 		}
 
 		if(this._controller.getMode() === Mode.TEXT){
-			if(this._selectedElements.length == 0){
+			if(this._selectedElements.length === 0){
 				this._controller.closeEditLine();
 			}
 		}
@@ -541,7 +537,7 @@ class Selector {
 				}
 			}
 			this._editor.selectSegmentPoints(id,this._selectedPoints);
-		} else if (this.selectedType == ElementType.CONTOUR) {
+		} else if (this.selectedType === ElementType.CONTOUR) {
 			const inbetween = this._editor.selectContoursInbetween(pointA, pointB);
 			for(const contour of inbetween) {
 				if(!this._selectedContours.includes(contour))
@@ -578,7 +574,7 @@ class Selector {
 
 					// Filter and display all lines with the dominant parent 
 					for (const id of lines){
-						if(this._controller.textlineRegister[id] == dominant_parent){
+						if(this._controller.textlineRegister[id] === dominant_parent){
 							this._selectedElements.push(id);
 							this._editor.selectSegment(id, true);
 						}

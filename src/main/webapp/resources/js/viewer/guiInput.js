@@ -359,14 +359,14 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	});
 	$(document).on('dragenter','.draggable', function (event) {
 		const $this = $(this);
-		if($this.data("drag-group") == $(event.target).data('drag-group')){
+		if($this.data("drag-group") === $(event.target).data('drag-group')){
 			$this.addClass('draggable-target');
 		}
 	});
 	$(document).on('drop','.draggable', function (event) {
 		const $this = $(this);
 
-		if($drag_target && $this.data("drag-group") == $drag_target.data('drag-group')){
+		if($drag_target && $this.data("drag-group") === $drag_target.data('drag-group')){
 			$drag_target.insertBefore($this);
 		}
 	});
@@ -397,7 +397,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_gui.lockVirtualKeyboard(false);
 	});
 	$(document).on('drop','.vk-delete', function (event) {
-		if($drag_target.data('drag-group') == "keyboard"){
+		if($drag_target.data('drag-group') === "keyboard"){
 			_gui.deleteVirtualKeyboardButton($drag_target);
 		}
 	});
@@ -418,7 +418,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$(document).on('drop','.reading-order-segment', function (event) {
 		const $this = $(this);
 		const $other = $(event.target);
-		if ($this.data("drag-group") == $other.data('drag-group')) {
+		if ($this.data("drag-group") === $other.data('drag-group')) {
 			_gui.setBeforeInReadingOrder($this.data('id'), $other.data('id'));
 			_controller.saveReadingOrder();
 		}
