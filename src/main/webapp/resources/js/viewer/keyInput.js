@@ -20,13 +20,11 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						_selector.selectNext(event.shiftKey);
 						validKey = true;
 						break;
-					case "Shift":
+					case "Alt":
 						if(_gui.isTextLineContentActive){
 							_gui.hideTextline(true);
 							_special_keys[event.key] = true;
 						}
-						break;
-					case "Alt":
 						break;
 					case "Enter":
 						_controller.saveLine();
@@ -283,7 +281,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 
 			if(mode === Mode.TEXT && _gui.isTextLineContentActive()){
 				switch (event.key) {
-					case "Shift": // Shift
+					case "Alt":
 						_gui.hideTextline(false);
 						_special_keys[event.key] = false;
 						break;
