@@ -89,7 +89,16 @@ Go to `localhost:8080/Larex`.
 You can add your own books by copying them to src/webapp/resources/books
 
 (Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.config). See section [*Configuration*](#configuration) for more information).
-.
+
+Book directories must have the following structure:
+```
+bookDir/
+├── <book_name>/ 
+│    ├── <page_name>.png 
+│    └── <page_name>.xml
+└── <book2_name>/
+     └── …
+```
 ### More information
 Detailed information about the usage of LAREX can be found in the OCR4all [getting started](https://github.com/OCR4all/getting_started) guides.
 
@@ -181,6 +190,19 @@ The easiest direct request would be via a html form with the values *bookpath*, 
 	<input type="submit"/>
 </form>
 ```
+
+### OCR4all UI mode ###
+This setting enables or disables OCR4all UI mode.
+
+`<value>=[enable|disable]`
+
+This setting allows displaying and/or hiding certain UI elements when LAREX is used in combination with OCR4all.
+
+`enable`: enable OCR4all UI mode
+
+`disable`: disable OCR4all UI mode [default]
+
+e.g. ocr4all:enable
 
 ## Related Publications:
 Reul, Christian; Springmann, Uwe; Puppe, Frank: LAREX – A semi-automatic open-source Tool for Layout Analysis and Region Extraction on Early Printed Books. In Proceedings of the 2nd International Conference on Digital Access to Textual Cultural Heritage (2017). [ACM](https://dl.acm.org/citation.cfm?id=3078097). Draft available at [arXiv](https://arxiv.org/abs/1701.07396).

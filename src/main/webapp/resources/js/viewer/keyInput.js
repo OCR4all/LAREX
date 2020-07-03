@@ -8,33 +8,30 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 			let validKey = false;
 			const mode = _controller.getMode();
 
-			if(mode == Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
-				switch(event.keyCode){
-					case 27: // ESC
+			if(mode === Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
+				switch(event.key){
+					case "Escape":
 						_controller.escape();
 						_controller.endEditReadingOrder();
 						_selector.unSelect();
 						validKey = true;
 						break;
-					case 9: // TAB
+					case "Tab":
 						_selector.selectNext(event.shiftKey);
 						validKey = true;
 						break;
-					case 16: // SHIFT
+					case "Alt":
 						if(_gui.isTextLineContentActive){
 							_gui.hideTextline(true);
-							_special_keys[event.keyCode] = true;
+							_special_keys[event.key] = true;
 						}
 						break;
-					case 18: // ALT
-						break;
-					case 13: // Enter
+					case "Enter":
 						_controller.saveLine();
 						_selector.selectNext();
 						validKey = true;
 						break;
-					case 187: // +
-					case 171: // +
+					case "+":
 						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
 							if(event.ctrlKey){
 								_textViewer.zoomGlobalText(0.05);
@@ -44,8 +41,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
-					case 189: // -
-					case 173: // -
+					case "-":
 						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
 							if(event.ctrlKey){
 								_textViewer.zoomGlobalText(-0.05);
@@ -55,7 +51,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
-					case 32: // space
+					case " ":
 						if(_textViewer.isOpen() && !_textViewer.isAnyLineFocused()){
 							if(event.ctrlKey){
 								_textViewer.resetGlobalTextZoom();
@@ -65,19 +61,19 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
-					case 83: // S
+					case "s":
 						if (event.ctrlKey) {
 							_controller.exportPageXML();
 							validKey = true;
 						}
 						break;
-					case 89: // Y
+					case "y":
 						if (event.ctrlKey) {
 							_controller.redo();
 							validKey = true;
 						}
 						break;
-					case 90: // Z
+					case "z":
 						if (event.ctrlKey) {
 							if (event.shiftKey) {
 								_controller.redo();
@@ -87,26 +83,32 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
+					case "PageUp": //page up
+						_controller.adjacentPage("prev");
+						break;
+					case "PageDown": //page down
+						_controller.adjacentPage("next");
+						break;
 				}
 			}else{
-				switch (event.keyCode) {
-					case 37: // left
+				switch (event.key) {
+					case "ArrowLeft": // left
 						_navigationController.move(-10, 0);
 						validKey = true;
 						break;
-					case 38: // up
+					case "ArrowUp": // up
 						_navigationController.move(0, -10);
 						validKey = true;
 						break;
-					case 39: // right
+					case "ArrowRight": // right
 						_navigationController.move(10, 0);
 						validKey = true;
 						break;
-					case 40: // left
+					case "ArrowDown": // left
 						_navigationController.move(0, 10);
 						validKey = true;
 						break;
-					case 32: // space
+					case " ": // space
 						if (!event.ctrlKey) {
 							_navigationController.zoomFit();
 							validKey = true;
@@ -117,42 +119,49 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							}
 						}
 						break;
-					case 187: // +
-					case 171: // +
+					case "b":
+						if(event.ctrlKey) {
+							if (mode === Mode.SEGMENT) {
+								_controller.openBatchSegmentModal();
+
+								validKey = true;
+							}
+						}
+						break;
+					case "+":
 						_navigationController.zoomIn(0.1);
 						validKey = true;
 						break;
-					case 189: // -
-					case 173: // +
+					case "-":
 						_navigationController.zoomOut(0.1);
 						validKey = true;
 						break;
-					case 17: // CTRL
+					case "Control":
 						_selector.selectMultiple = true;
 						validKey = true;
 						break;
-					case 16: // Shift
+					case "Shift":
 						_selector.selectBox = true;
-						_special_keys[event.keyCode] = true;
+						_special_keys[event.key] = true;
 						validKey = true;
 						break;
-					case 9: // TAB
+					case "Tab":
 						_selector.selectNext(event.shiftKey);
 						validKey = true;
 						break;
-					case 65: // A
+					case "a":
 						if (event.ctrlKey) {
 							_selector.selectAll();
 							validKey = true;
 						}
 						break;
-					case 89: // Y
+					case "y":
 						if (event.ctrlKey) {
 							_controller.redo();
 							validKey = true;
 						}
 						break;
-					case 90: // Z
+					case "z":
 						if (event.ctrlKey) {
 							if (event.shiftKey) {
 								_controller.redo();
@@ -162,29 +171,29 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
-					case 46: // DELETE
+					case "Delete":
 						_controller.deleteSelected();
 						validKey = true;
 						break;
 
-					case 27: // ESC
+					case "Escape":
 						_controller.escape();
 						_controller.endEditReadingOrder();
 						validKey = true;
 						break;
-					case 49: // 1
+					case "1":
 						if(mode === Mode.SEGMENT){
 							_controller.createRectangle(ElementType.AREA);
 							validKey = true;
 						}
 						break;
-					case 50: // 2
+					case "2":
 						if(mode === Mode.SEGMENT){
 							_controller.createRegionAreaBorder();
 							validKey = true;
 						}
 						break;
-					case 51: // 3
+					case "3":
 						if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 							_controller.createRectangle(ElementType.SEGMENT);
 							validKey = true;
@@ -193,7 +202,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
-					case 52: // 4
+					case "4":
 						if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 							_controller.createSegmentPolygon();
 							validKey = true;
@@ -202,31 +211,31 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
-					case 53: // 5
+					case "5":
 						if(mode === Mode.SEGMENT){
 							_controller.createCut();
 							validKey = true;
 						}
 						break;
-					case 54: // 6
+					case "6":
 						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
 							_controller.displayContours();
 							validKey = true;
 						}
 						break;
-					case 67: // C
+					case "c":
 						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
 							_controller.mergeSelected();
 							validKey = true;
 						}
 						break;
-					case 70: // F
+					case "f":
 						if(mode === Mode.SEGMENT){
 							_controller.fixSelected();
 							validKey = true;
 						}
 						break;
-					case 82: // R
+					case "r":
 						if (!event.ctrlKey && !event.shiftKey) {
 							_controller.addSelectedToReadingOrder();
 							validKey = true;
@@ -235,13 +244,19 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
-					case 83: // S
+					case "s":
 						if (event.ctrlKey) {
 							_controller.exportPageXML();
 							validKey = true;
 						}
 						break;
-					case 18: // ALT
+					case "PageUp":
+						_controller.adjacentPage("prev");
+						break;
+					case "PageDown":
+						_controller.adjacentPage("next");
+						break;
+					case "Alt":
 						//document.body.style.cursor = "move";
 
 						_controller.applyGrid();
@@ -251,7 +266,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 				}
 			}
 
-			if (validKey == true) {
+			if (validKey === true) {
 				event.cancelBubble = true;
 				event.returnValue = false;
 			}
@@ -264,25 +279,25 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 			let validKey = false;
 			const mode = _controller.getMode();
 
-			if(mode == Mode.TEXT && _gui.isTextLineContentActive()){
-				switch (event.keyCode) {
-					case 16: // Shift
+			if(mode === Mode.TEXT && _gui.isTextLineContentActive()){
+				switch (event.key) {
+					case "Alt":
 						_gui.hideTextline(false);
-						_special_keys[event.keyCode] = false;
+						_special_keys[event.key] = false;
 						break;
 				}
 			} else {
-				switch (event.keyCode) {
-					case 16: // Shift
+				switch (event.key) {
+					case "Shift":
 						_selector.selectBox = false;
-						_special_keys[event.keyCode] = false;
+						_special_keys[event.key] = false;
 						validKey = true;
 						break;
-					case 17: // CTRL
+					case "Control":
 						_selector.selectMultiple = false;
 						validKey = true;
 						break;
-					case 18: // ALT
+					case "Alt":
 						document.body.style.cursor = "auto";
 						_controller.removeGrid();
 						validKey = true;
@@ -290,7 +305,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 				}
 			}
 
-			if (validKey == true) {
+			if (validKey === true) {
 				event.cancelBubble = true;
 				event.returnValue = false;
 			}
@@ -321,7 +336,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 			}
 			if(mode === Mode.TEXT && _textViewer.isOpen()){
 				if(event.originalEvent.ctrlKey){
-					const is_target_image = event.target && ($(event.target).parent().data("id") == _textViewer.getFocusedId()) 
+					const is_target_image = event.target && ($(event.target).parent().data("id") === _textViewer.getFocusedId())
 														&& event.target.classList.contains("textline-image");
 					if (scrollDirection < 0) {
 						//Zoom in

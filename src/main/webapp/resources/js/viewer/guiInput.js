@@ -152,13 +152,22 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
-	$('.changePage').click(function (e) {
+	$('.changePage').not('.image_version').click(function (e) {
 		const $page = $(this).data("page");
 		_gui.updateSelectedPage($page);
-		_controller.displayPage($page, $(this).data("imagenr"));
+		_controller.displayPage($page);
 		e.stopPropagation();
 		return true;
 	});
+	$('.image_version').click(function (e) {
+		const $page = $(this).data("page");
+		_gui.updateSelectedPage($page);
+		_controller.displayPage($page, $(this).data("imagenr"));
+		_controller.setImageVersion($(this).data("imagenr"));
+		e.stopPropagation();
+		return true;
+	});
+
 	$('.menuPageSelector').change(function (e) {
 		let $selected = $(".menuPageSelector").find(":selected");
 		_controller.displayPage($selected.data("page"));
@@ -350,14 +359,14 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	});
 	$(document).on('dragenter','.draggable', function (event) {
 		const $this = $(this);
-		if($this.data("drag-group") == $(event.target).data('drag-group')){
+		if($this.data("drag-group") === $(event.target).data('drag-group')){
 			$this.addClass('draggable-target');
 		}
 	});
 	$(document).on('drop','.draggable', function (event) {
 		const $this = $(this);
 
-		if($drag_target && $this.data("drag-group") == $drag_target.data('drag-group')){
+		if($drag_target && $this.data("drag-group") === $drag_target.data('drag-group')){
 			$drag_target.insertBefore($this);
 		}
 	});
@@ -388,7 +397,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_gui.lockVirtualKeyboard(false);
 	});
 	$(document).on('drop','.vk-delete', function (event) {
-		if($drag_target.data('drag-group') == "keyboard"){
+		if($drag_target.data('drag-group') === "keyboard"){
 			_gui.deleteVirtualKeyboardButton($drag_target);
 		}
 	});
@@ -409,7 +418,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$(document).on('drop','.reading-order-segment', function (event) {
 		const $this = $(this);
 		const $other = $(event.target);
-		if ($this.data("drag-group") == $other.data('drag-group')) {
+		if ($this.data("drag-group") === $other.data('drag-group')) {
 			_gui.setBeforeInReadingOrder($this.data('id'), $other.data('id'));
 			_controller.saveReadingOrder();
 		}
@@ -430,6 +439,23 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer.resizeTextline(id);
 		_textViewer.saveTextLine(id,false);
 	}).trigger('input');
+
+	/**
+	 * Batch Segmentation Modal
+	 */
+	$("#selectAllBatch").click(function () {
+		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
+	});
+
+	$(".doBatchSegment").click(function (){
+		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
+			return $(this).data("page");
+		});
+		const save_pages = $("#batchSaveSegmentation").is(":checked");
+
+		_controller.requestBatchSegmentation(false, selected_pages.toArray(),
+			save_pages);
+	});
 
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();

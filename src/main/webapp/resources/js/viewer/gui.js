@@ -110,7 +110,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			case Mode.EDIT:
 				$('.doSegment').addClass('hide');
 				$('#collapsible-parameters').addClass('hide');
-				$('#collapsible-settings').addClass('hide');
+				$('#collapsible-settings *.segment-only').addClass('hide');
 				$('.regionlegend').find(".switch").addClass('hide');
 				$('.regionlegendAll').addClass('hide');
 				$('.regionSegmentationSettings').addClass('hide');
@@ -127,7 +127,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			default:
 				$('.doSegment').removeClass('hide');
 				$('#collapsible-parameters').removeClass('hide');
-				$('#collapsible-settings').removeClass('hide');
+				$('#collapsible-settings .segment-only').removeClass('hide');
 				$('.regionlegend').find(".switch").removeClass('hide');
 				$('.regionlegendAll').removeClass('hide');
 				$('.regionSegmentationSettings').removeClass('hide');
@@ -274,7 +274,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		}
 		// Check for empty rows and delete them
 		$('.vk-row').each((i,r)=> {
-			if($(r).children().length == 0){
+			if($(r).children().length === 0){
 				$(r).remove()
 			}
 		});
@@ -308,7 +308,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		const $textlinecontent = $("#textline-content");
 		$textlinecontent.removeClass("hide");
 		
-		if(!this.tempTextline || this.tempTextline.id != textline.id){
+		if(!this.tempTextline || this.tempTextline.id !== textline.id){
 			this.tempTextline = textline ? textline : this.tempTextline; 
 			this.updateTextLine(textline.id);
 		}
@@ -344,7 +344,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Update the textline with its content
 	 */
 	this.updateTextLine = function(id) {
-		if(this.tempTextline && this.tempTextline.id == id){
+		if(this.tempTextline && this.tempTextline.id === id){
 			const $textlinecontent = $("#textline-content");
 			const hasPredict = 1 in this.tempTextline.text;
 			const hasGT = 0 in this.tempTextline.text;
@@ -508,7 +508,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			const $this = $(this);
 			const legendType = $this.data('type');
 
-			if (legendType == 'ignore' || $.inArray(legendType, presentRegions) > -1) {
+			if (legendType === 'ignore' || $.inArray(legendType, presentRegions) > -1) {
 				$this.addClass('hide');
 			} else {
 				$this.removeClass('hide');
@@ -526,7 +526,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$('.regionColorSettings').removeClass('hide');
 		$('.regionSetting').removeClass('hide');
 		$('#regioneditorSave').removeClass('hide');
-		if (regionType != 'ImageRegion' && regionType != 'paragraph')
+		if (regionType !== 'ImageRegion' && regionType !== 'paragraph')
 			$('.regionDelete').removeClass('hide');
 		else 
 			$('.regionDelete').addClass('hide');
@@ -585,7 +585,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 */
 	this.updateRegionLegendColors = function() {
 		let $color_style = $('#global-css-color');
-		if($color_style.length == 0){
+		if($color_style.length === 0){
 			$color_style = $('<style id="global-css-color"></style>');
 			$('head').append($color_style);
 		}

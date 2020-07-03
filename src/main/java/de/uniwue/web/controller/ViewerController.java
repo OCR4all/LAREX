@@ -59,8 +59,7 @@ public class ViewerController {
 	 * Open the viewer and display the contents of a book
 	 **/
 	@RequestMapping(value = "/viewer", method = RequestMethod.GET)
-	public String viewer(Model model, @RequestParam(value = "book", required = true) Integer bookID)
-			throws IOException {
+	public String viewer(Model model, @RequestParam(value = "book", required = true) Integer bookID) {
 		if (bookID == null) {
 			return "redirect:/404";
 		}

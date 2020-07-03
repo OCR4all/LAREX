@@ -110,6 +110,7 @@ public class FileController {
 				}
 			);
 
+			assert matchingFiles != null;
 			if (matchingFiles.length == 0)
 				throw new IOException("File does not exist");
 
@@ -172,7 +173,6 @@ public class FileController {
 	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") MultipartFile file,
 			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
-		PageAnnotations result = null;
 		if (!file.isEmpty()) {
 			try (ByteArrayInputStream stream = new ByteArrayInputStream(file.getBytes())){
 				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -183,7 +183,7 @@ public class FileController {
 				return null;
 			}
 		}
-		return result;
+		return null;
 	}
 
 	/**
@@ -264,7 +264,7 @@ public class FileController {
 		final MatOfByte imageBuffer = new MatOfByte();
 		
 		Imgcodecs.imencode(".png", imageMat, imageBuffer);
-		final byte imagebytes[] = imageBuffer.toArray();
+		final byte[] imagebytes = imageBuffer.toArray();
 		
 		imageBuffer.release();
 
@@ -279,13 +279,8 @@ public class FileController {
 			Transformer transformer = factory.newTransformer();
 			transformer.transform(new DOMSource(document), new StreamResult(out));
 			documentbytes = out.toByteArray();
-		} catch (TransformerConfigurationException e) {
+		} catch (IOException | TransformerException e) {
 			e.printStackTrace();
-		} catch (TransformerException e) {
-			e.printStackTrace();
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
 		}
 
 		// create ResponseEntry

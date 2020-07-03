@@ -52,13 +52,11 @@ public class LarexConfiguration {
 					if (lineContent.length == 2) {
 						configurations.put(lineContent[0], lineContent[1]);
 					} else {
-						throw new IOException("Could not read configurationfile. Error in line " + lineNumber);
+						throw new IOException("Could not read configuration file. Error in line " + lineNumber);
 					}
 				}
 			}
 			in.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -80,11 +78,7 @@ public class LarexConfiguration {
 			System.err.println("Configuration file has not been read.");
 			return "";
 		}
-		if (configurations.containsKey(setting)) {
-			return configurations.get(setting);
-		} else {
-			return "";
-		}
+		return configurations.getOrDefault(setting, "");
 	}
 
 	/**

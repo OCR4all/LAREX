@@ -113,10 +113,8 @@ public class DataController {
 
 	/**
 	 * Retrieve the default virtual keyboard.
-	 * 
-	 * @param file
-	 * @param bookID
-	 * @return
+	 *
+	 * @return default virtual keyboard
 	 */
 	@RequestMapping(value = "data/virtualkeyboard", method = RequestMethod.POST)
 	public @ResponseBody List<String[]> virtualKeyboard() {
@@ -128,11 +126,9 @@ public class DataController {
 			while ((st = br.readLine()) != null) 
 				if(st.replace("\\s+", "").length() > 0) 
 					keyboard.add(st.split("\\s+"));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
-		} 
+		}
 		return keyboard;
 	}
 
@@ -156,5 +152,15 @@ public class DataController {
 			e.printStackTrace();
 		}
 		return keyboard;
+	}
+
+	/**
+	 * Returns whether LAREX is configured to be used in conjunction with OCR4all or not.
+	 */
+	@RequestMapping(value = "config/ocr4all", method = RequestMethod.POST, headers = "Accept=*/*",
+			produces = "application/json")
+	public @ResponseBody Boolean isOCR4allMode() {
+		String ocr4allMode = config.getSetting("ocr4all");
+		return ocr4allMode.equals("enable");
 	}
 }

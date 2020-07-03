@@ -1,20 +1,13 @@
 package de.uniwue.web.io;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
+import org.apache.commons.io.FilenameUtils;
 import org.opencv.core.Size;
 
-import de.uniwue.web.io.ImageLoader;
 import de.uniwue.web.model.Book;
 import de.uniwue.web.model.Page;
 
@@ -146,8 +139,9 @@ public class FileDatabase {
 		File[] files = databaseFolder.listFiles();
 
 		// sort book files/folders
+		assert files != null;
 		ArrayList<File> sortedFiles = new ArrayList<File>(Arrays.asList(files));
-		sortedFiles.sort((File o1, File o2) -> o1.getName().compareTo(o2.getName()));
+		sortedFiles.sort(Comparator.comparing(File::getName));
 
 		for (File bookFile : sortedFiles) {
 			if (bookFile.isDirectory()) {
@@ -221,27 +215,24 @@ public class FileDatabase {
 
 		if(imageSubFilter.isEmpty()) {
 			// Interpret every image as its own page
-			List<File> imageFiles = Arrays.stream(bookFile.listFiles())
-					.filter(f -> isSupportedImage(f))
-					.collect(Collectors.toList());
-
-			imageFiles.sort((File o1, File o2) -> o1.getName().compareTo(o2.getName()));
+			List<File> imageFiles = Arrays.stream(Objects.requireNonNull(bookFile.listFiles()))
+					.filter(this::isSupportedImage).sorted(Comparator.comparing(File::getName)).collect(Collectors.toList());
 
 			for(File imageFile: imageFiles) {
 				Size imageSize = ImageLoader.readDimensions(imageFile);
 				String name = removeAllExtensions(imageFile.getName());
 				String imageURL = bookName + File.separator + imageFile.getName();
-				pages.add(new Page(pageCounter++, name, Arrays.asList(imageURL), (int) imageSize.width, (int) imageSize.height));
+				pages.add(new Page(pageCounter++, name, Collections.singletonList(imageURL), (int) imageSize.width, (int) imageSize.height));
 			}
 			
 		} else {
 			// Combine images with the same base name and different (sub)extensions
-			Map<String, List<File>> imageFiles = Arrays.stream(bookFile.listFiles())
+			Map<String, List<File>> imageFiles = Arrays.stream(Objects.requireNonNull(bookFile.listFiles()))
 					.filter(f -> isSupportedImage(f) && (imageSubFilter.isEmpty() || passesSubFilter(f.getName())))
 					.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
 			
 			ArrayList<String> sortedPages = new ArrayList<>(imageFiles.keySet());
-			sortedPages.sort((String o1, String o2) -> o1.compareTo(o2));
+			sortedPages.sort(String::compareTo);
 			
 			for (String pageName : sortedPages) {
 				Map<String, List<File>> groupedImages = imageFiles.get(pageName).stream()
@@ -263,12 +254,12 @@ public class FileDatabase {
 					}
 				}
 
+				assert imageSize != null;
 				pages.add(new Page(pageCounter++, pageName, images, (int) imageSize.width, (int) imageSize.height));
 			}
 		}
 
-		Book book = new Book(bookID, bookName, pages);
-		return book;
+		return new Book(bookID, bookName, pages);
 	}
 
 	/**
@@ -279,11 +270,8 @@ public class FileDatabase {
 	 */
 	private Boolean isSupportedImage(File filepath) {
 		if (filepath.isFile()) {
-			String[] extensionArray = filepath.getName().split("\\.");
-			if (extensionArray.length > 0) {
-				String extension = extensionArray[extensionArray.length - 1];
-				return supportedFileExtensions.contains(extension);
-			}
+			String extension = FilenameUtils.getExtension(filepath.toString());
+			return supportedFileExtensions.contains(extension);
 		}
 		return false;
 	}
@@ -325,18 +313,8 @@ public class FileDatabase {
 	 * @return File name without extensions
 	 */
 	private String removeAllExtensions(String filename) {
-		if (passesSubFilter(filename)) {
-			final int extPointPos = filename.lastIndexOf(".");
-			final int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
-			if(subExtPointPos > 0)
-				return filename.substring(0, subExtPointPos);
-			else
-				return filename.substring(0, extPointPos);
-		} else {
-			final int extensionPointer = filename.lastIndexOf(".");
-			if(extensionPointer > 0)
-				return filename.substring(0, extensionPointer);
-			
+		while(filename.contains(".")){
+			filename = FilenameUtils.getBaseName(filename);
 		}
 		return filename;
 	}
