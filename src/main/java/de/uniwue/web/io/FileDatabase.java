@@ -313,8 +313,18 @@ public class FileDatabase {
 	 * @return File name without extensions
 	 */
 	private String removeAllExtensions(String filename) {
-		while(filename.contains(".")){
-			filename = FilenameUtils.getBaseName(filename);
+		if (passesSubFilter(filename)) {
+			final int extPointPos = filename.lastIndexOf(".");
+			final int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
+			if(subExtPointPos > 0)
+				return filename.substring(0, subExtPointPos);
+			else
+				return filename.substring(0, extPointPos);
+		} else {
+			final int extensionPointer = filename.lastIndexOf(".");
+			if(extensionPointer > 0)
+				return filename.substring(0, extensionPointer);
+
 		}
 		return filename;
 	}
