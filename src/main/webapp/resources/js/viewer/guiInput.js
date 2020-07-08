@@ -272,7 +272,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_controller.allowToAutosegment($switchBox.prop('checked'));
 	});
 
-	$('.loadExistingSegmentation').click(() => _controller.requestSegmentation(true));
+	$('.loadExistingSegmentation').click(() => _controller.loadAnnotations());
 
 	$('.addToReadingOrder').click(() => _controller.addSelectedToReadingOrder());
 
