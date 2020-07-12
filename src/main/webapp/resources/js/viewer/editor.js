@@ -619,7 +619,7 @@ endScalePolygon() {
 
 			this._tempPolygon.remove();
 
-			if (this._tempPolygonType !== ElementType.SEGMENT && this._tempPolygonType != ElementType.TEXTLINE) 
+			if (this._tempPolygonType !== ElementType.SEGMENT && this._tempPolygonType !== ElementType.TEXTLINE)
 				this._controller.transformRegionArea(this._tempID, this._convertCanvasPolygonToGlobal(polygon, true));
 
 			this._tempPolygon = null;
@@ -886,9 +886,9 @@ startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, c
 				this._pointSelector.visible = true;
 				const hitResult = polygon.hitTest(event.point, hitOptions);
 				if (hitResult) {
-					if (hitResult.type == 'segment') 
+					if (hitResult.type === 'segment')
 						this._pointSelector.position = new paper.Point(hitResult.segment.point);
-					else if (hitResult.type == 'stroke') 
+					else if (hitResult.type === 'stroke')
 						this._pointSelector.position = new paper.Point(hitResult.location.point);
 
 					update(targetID, this._convertCanvasToGlobal(this._pointSelector.position.x,this._pointSelector.position.y));
@@ -907,9 +907,9 @@ startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, c
 				const hitResult = polygon.hitTest(event.point, hitOptions);
 				if (hitResult) {
 					// Update last time if hit is not on point selector
-					if (hitResult.type == 'segment') 
+					if (hitResult.type === 'segment')
 						this._pointSelector.position = new paper.Point(hitResult.segment.point);
-					else if (hitResult.type == 'stroke') 
+					else if (hitResult.type === 'stroke')
 						this._pointSelector.position = new paper.Point(hitResult.location.point);
 					this.endPointSelect(callback, targetID, this._pointSelector.position);
 					return false; // do not propagate
@@ -947,7 +947,7 @@ addPointsOnLine(elementID,points){
 			const canvasPoint = this._convertGlobalToCanvas(point.x,point.y);
 			const hitResult = polygon.hitTest(canvasPoint, { stroke: true, tolerance: 1 });
 
-			if (hitResult && hitResult.type == 'stroke') {
+			if (hitResult && hitResult.type === 'stroke') {
 				polygon.insert(hitResult.location.index+1,canvasPoint);
 			}
 		});
@@ -978,7 +978,7 @@ getSortedReadingOrder(readingOrder) {
 		const centerA = centers[a];
 		const centerB = centers[b];
 		const delta = centerA.y - centerB.y;
-		if (delta != 0) {
+		if (delta !== 0) {
 			return delta;
 		} else {
 			return centerA.x - centerB.x;
@@ -986,26 +986,6 @@ getSortedReadingOrder(readingOrder) {
 	});
 
 	return readingOrder;
-}
-
-getPointInBounds(point, bounds) {
-	if (!bounds.contains(point)) {
-		const boundPoint = point;
-		if (point.x < bounds.left) {
-			boundPoint.x = bounds.left;
-		} else if (point.x > bounds.right) {
-			boundPoint.x = bounds.right;
-		}
-		if (point.y < bounds.top) {
-			boundPoint.y = bounds.top;
-		} else if (point.y > bounds.bottom) {
-			boundPoint.y = bounds.bottom;
-		}
-
-		return boundPoint;
-	} else {
-		return point;
-	}
 }
 
 _resetOverlay() {

@@ -117,7 +117,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// on resize
 			$(window).resize(() => {
 				_gui.resizeViewerHeight();
-				if(_mode == Mode.TEXT && _gui.isTextLineContentActive()){
+				if(_mode === Mode.TEXT && _gui.isTextLineContentActive()){
 					_gui.placeTextLineContent();
 				}
 			});
@@ -290,7 +290,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.showUsedRegionLegends(_presentRegions);
 	}
 	this.removePresentRegions = function (regionType) {
-		_presentRegions = jQuery.grep(_presentRegions, (value) => value != regionType);
+		_presentRegions = jQuery.grep(_presentRegions, (value) => value !== regionType);
 		_gui.showUsedRegionLegends(_presentRegions);
 	}
 
@@ -417,7 +417,28 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 
 			_gui.highlightSegmentedPages(_segmentedPages);
-	} 
+	}
+
+	this.adjacentPage = function(direction){
+		let _newPage;
+
+		switch (direction) {
+			case "prev":
+				_newPage = _currentPage - 1;
+				if ($(`.changePage[data-page="${_newPage}" ]`).length) {
+					_gui.updateSelectedPage(_newPage);
+					this.displayPage(_newPage)
+				}
+				break;
+			case "next":
+				_newPage = _currentPage + 1;
+				if ($(`.changePage[data-page="${_newPage}" ]`).length) {
+					_gui.updateSelectedPage(_newPage);
+					this.displayPage(_newPage)
+				}
+				break;
+		}
+	}
 
 	this.uploadSegmentation = function (file) {
 		this.showPreloader(true);
@@ -435,7 +456,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_gui.setMode(mode);
 
-		if(_mode != mode) {
+		if(_mode !== mode) {
 			this.endEditing();
 		}
 
@@ -737,15 +758,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				if (selectType === ElementType.AREA) {
 					actions.push(new ActionRemoveRegionArea(this._getRegionByID(selected[i]), _editor, _settings, this));
-				} else if (selectType === ElementType.SEGMENT && (_mode == Mode.SEGMENT || _mode == Mode.EDIT)) {
+				} else if (selectType === ElementType.SEGMENT && (_mode === Mode.SEGMENT || _mode === Mode.EDIT)) {
 					let segment = _segmentation[_currentPage].segments[selected[i]];
-					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
+					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i === selected.length-1 || i === 0)));
 				} else if (selectType === ElementType.CUT) {
 					let cut = _fixedGeometry[_currentPage].cuts[selected[i]];
 					actions.push(new ActionRemoveCut(cut, _editor, _fixedGeometry, _currentPage));
 				} else if (selectType === ElementType.TEXTLINE) {
 					let segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[i]]].textlines[selected[i]];
-					actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i == selected.length-1 || i == 0)));
+					actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector, (i === selected.length-1 || i === 0)));
 				}
 			}
 			let multidelete = new ActionMultiple(actions);
@@ -849,7 +870,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		}
 	}
-	
+
 	this.createRegionAreaBorder = function () {
 		this.endEditing();
 		_editor.startCreateBorder(ElementType.AREA);
@@ -859,6 +880,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.callbackNewArea = function (regionpoints, regiontype) {
 		const newID = "c" + _newPolygonCounter;
 		_newPolygonCounter++;
+		let type;
 		if (!regiontype) {
 			type = _presentRegions[0];
 			if (!type) {
@@ -1023,13 +1045,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const polygonType = this.getIDType(id);
 		if (polygonType === ElementType.AREA) {
 			const regionPolygon = this._getRegionByID(id);
-			if (regionPolygon.type != type) {
+			if (regionPolygon.type !== type) {
 				let actionChangeType = new ActionChangeTypeRegionArea(regionPolygon, type, _editor, _settings, _currentPage, this);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
 			this.hideRegionAreas(type, false);
 		} else if (polygonType === ElementType.SEGMENT) {
-			if (_segmentation[_currentPage].segments[id].type != type) {
+			if (_segmentation[_currentPage].segments[id].type !== type) {
 				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
@@ -1253,9 +1275,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.forceUpdateReadingOrder = function (forceDisplay=false) {
+		let _readingOrderDisplaySetting = $("#settings-hint-reading-order").find('input').prop('checked');
 		_gui.updateRegionLegendColors(_presentRegions);
 		_textViewer.orderTextlines(_selector.getSelectOrder(ElementType.TEXTLINE));
-		if (forceDisplay){
+		if (forceDisplay && _readingOrderDisplaySetting){
 			this.displayReadingOrder(true);
 			_gui.openReadingOrderSettings();
 		}else{
@@ -1313,7 +1336,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 			_textViewer.displayZoom();
 		} else {
-			if(selected && this.getIDType(selected[0]) == ElementType.TEXTLINE){
+			if(selected && this.getIDType(selected[0]) === ElementType.TEXTLINE){
 				const id = selected[0];
 				const parentID = this.textlineRegister[id];
 				_gui.openTextLineContent(_segmentation[_currentPage].segments[parentID].textlines[id]);
@@ -1355,12 +1378,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		} else {
 			let points;
-			if (hitTest && hitTest.type == ElementType.SEGMENT) {
+			if (hitTest && hitTest.type === ElementType.SEGMENT) {
 				const nearestPoint = hitTest.segment.point;
 				points = [_editor._convertCanvasToGlobal(nearestPoint.x, nearestPoint.y)];
 				_selector.select(sectionID, points);
 			} else {
-				if(this.getMode() === Mode.TEXT && _pastId && _pastId != sectionID) {
+				if(this.getMode() === Mode.TEXT && _pastId && _pastId !== sectionID) {
 					this.saveLineById(_pastId);
 				}
 				_pastId = sectionID;
@@ -1375,7 +1398,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (!_editor.isEditing) {
 				if((_mode === Mode.SEGMENT || _mode === Mode.EDIT) || 
 						(_mode === Mode.LINES && 
-							(this.getIDType(sectionID) === ElementType.TEXTLINE || _selector.getSelectedSegments().length == 0))){
+							(this.getIDType(sectionID) === ElementType.TEXTLINE || _selector.getSelectedSegments().length === 0))){
 					_editor.highlightSegment(sectionID, doHighlight);
 					_gui.highlightSegment(sectionID, doHighlight);
 				}
@@ -1442,7 +1465,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 
 		// Display contours
-		if(!display || _editor.mode == ViewerMode.CONTOUR){
+		if(!display || _editor.mode === ViewerMode.CONTOUR){
 			_editor.displayContours(false);
 			_editor.mode = ViewerMode.POLYGON;
 			_gui.selectToolBarButton('segmentContours',false);
@@ -1477,7 +1500,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.editLine = function(id){
 		_gui.resetZoomTextline();
 		_gui.resetTextlineDelta();
-		if(this.getIDType(id) == ElementType.TEXTLINE){
+		if(this.getIDType(id) === ElementType.TEXTLINE){
 			const textline = _segmentation[_currentPage].segments[this.textlineRegister[id]].textlines[id];
 			if(!textline.minArea){
 				_communicator.minAreaRect(textline).done((minArea) => {
@@ -1508,7 +1531,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			id = textlinecontent.id;
 		}
 
-		if(id && this.getIDType(id) == ElementType.TEXTLINE){
+		if(id && this.getIDType(id) === ElementType.TEXTLINE){
 			const content = textlinecontent.text;
 			_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
 		}
@@ -1518,7 +1541,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let textlinecontent;
 		if(_textViewer.isOpen()){
 			textlinecontent = {text:_textViewer.getText(id)};
-			if(id && this.getIDType(id) == ElementType.TEXTLINE){
+			if(id && this.getIDType(id) === ElementType.TEXTLINE){
 				const content = textlinecontent.text;
 				_actionController.addAndExecuteAction(new ActionChangeTextLineText(id, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
 			}
@@ -1553,7 +1576,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.deleteRegionSettings = function (regionType) {
-		if ($.inArray(regionType, _presentRegions) >= 0 && regionType != 'ImageRegion' && regionType != 'paragraph') {
+		if ($.inArray(regionType, _presentRegions) >= 0 && regionType !== 'ImageRegion' && regionType !== 'paragraph') {
 			_actionController.addAndExecuteAction(new ActionRemoveRegionType(regionType, this, _editor, _settings, this), _currentPage);
 		}
 	}

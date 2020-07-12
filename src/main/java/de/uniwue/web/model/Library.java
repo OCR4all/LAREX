@@ -18,12 +18,9 @@ public class Library {
 	public Library(FileDatabase database) {
 		this.books = database.listBooks();
 		sortedBooks = new ArrayList<>();
-		for(Entry<Integer, String> bookEntry: books.entrySet()) {
-			sortedBooks.add(bookEntry);
-		}
+		sortedBooks.addAll(books.entrySet());
 
-		sortedBooks.sort((Entry<Integer,String> o1, Entry<Integer,String> o2) 
-				-> o1.getValue().compareTo(o2.getValue()));
+		sortedBooks.sort(Entry.comparingByValue());
 	}
 	
 	/**

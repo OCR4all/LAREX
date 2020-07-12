@@ -45,8 +45,8 @@ class Colors {
 	}
 
 	getAllColorIDs(){
-		var ids = [];
-    	for (var i = 0; i < this._colors.length; i++) 
+		const ids = [];
+		for (let i = 0; i < this._colors.length; i++)
       		ids.push(i);
    		return ids;
 	}

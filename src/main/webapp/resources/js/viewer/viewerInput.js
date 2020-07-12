@@ -8,7 +8,7 @@ function ViewerInput(controller) {
 	 * e.g. via mouse hover
 	 */
 	this.enterElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
-		if(mode != ViewerMode.CONTOUR)
+		if(mode !== ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, true);
 	}
 
@@ -17,7 +17,7 @@ function ViewerInput(controller) {
 	 * e.g. via mouse hover
 	 */
 	this.leaveElement = function (sectionID, event, mode=ViewerMode.POLYGON) {
-		if(mode != ViewerMode.CONTOUR)
+		if(mode !== ViewerMode.CONTOUR)
 			_controller.highlightSegment(sectionID, false);
 	}
 
@@ -28,12 +28,12 @@ function ViewerInput(controller) {
 		switch (event.event.button) {
 			// leftclick
 			case 0:
-				if(mode == ViewerMode.POLYGON){
+				if(mode === ViewerMode.POLYGON){
 					_controller.selectElement(sectionID, hitTest);
-				} else if(mode == ViewerMode.CONTOUR){
+				} else if(mode === ViewerMode.CONTOUR){
 					_controller.selectElement(sectionID,null,ElementType.CONTOUR);
 				} else {
-					throw new ValueError('Unkown selection mode: '+mode);
+					throw new ValueError(`Unkown selection mode: ${mode}`);
 				}
 				break;
 			// middleclick
@@ -41,17 +41,17 @@ function ViewerInput(controller) {
 				break;
 			// rightclick
 			case 2:
-				if(mode == ViewerMode.POLYGON){
+				if(mode === ViewerMode.POLYGON){
 					if (!this.selector.isSegmentSelected(sectionID)) {
 						this.selector.unSelect();
 						_controller.selectElement(sectionID, hitTest);
 						_controller.openContextMenu(true);
 					}
 					_controller.endEditReadingOrder();
-				} else if(mode == ViewerMode.CONTOUR){
+				} else if(mode === ViewerMode.CONTOUR){
 
 				} else {
-					throw new ValueError('Unkown selection mode: '+mode)
+					throw new ValueError(`Unkown selection mode: ${mode}`)
 				}
 				break;
 		}
@@ -70,7 +70,7 @@ function ViewerInput(controller) {
 					if(this.selector.hasElementPointsSelected())
 						_controller.moveSelectedPoints();
 					else
-						this.navigationController.move(event.delta.x,event.delta.y);
+						this.navigationController.move(event.delta.x, event.delta.y);
 				}
 				break;
 			// middleclick
@@ -93,7 +93,7 @@ function ViewerInput(controller) {
 				if (event.modifiers.shift) { 
 					this.selector.boxSelect(event.point);
 				} else {
-					this.navigationController.move(event.delta.x,event.delta.y);
+					this.navigationController.move(event.delta.x, event.delta.y);
 				}
 				break;
 			// middleclick

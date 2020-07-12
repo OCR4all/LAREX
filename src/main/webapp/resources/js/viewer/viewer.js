@@ -52,21 +52,21 @@ class Viewer {
 				// Click on X only if not previously dragged
 				if(!this._isDragging){
 					let hitResults = false;
-					if(this.mode == ViewerMode.POLYGON){
+					if(this.mode === ViewerMode.POLYGON){
 						// Check areas first
 						hitResults = this._overlays["areas"] && this._overlays["areas"].visible ?
 										this._overlays["areas"].hitTestAll(event.point, this._hitOptions) : null;
 
 						// Check textlines second
-						if(!hitResults || hitResults.length == 0)
+						if(!hitResults || hitResults.length === 0)
 							hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsTextline) : null;
 
 						// Check segments last
-						if(!hitResults || hitResults.length == 0)
+						if(!hitResults || hitResults.length === 0)
 							hitResults = this._overlays["segments"] ? this._overlays["segments"].hitTestAll(event.point, this._hitOptions) : null;
-					} else if(this.mode == ViewerMode.CONTOUR){
+					} else if(this.mode === ViewerMode.CONTOUR){
 						hitResults = this._contourOverlay ? this.contourHitTest(event.point) : null;
-					} else if(this.mode == ViewerMode.TEXTLINE){
+					} else if(this.mode === ViewerMode.TEXTLINE){
 						hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsTextline) : null;
 					} else {
 						throw new ValueError('Unkown selection mode: '+this.mode)
@@ -121,17 +121,17 @@ class Viewer {
 
 			// Do not propagate unless all child listener say otherwise
 			if(propagate){
-				if(this.mode == ViewerMode.POLYGON){
+				if(this.mode === ViewerMode.POLYGON){
 					// Check areas first
 					let hitResults = this._overlays["areas"] && this._overlays["areas"].visible ?
 									this._overlays["areas"].hitTestAll(event.point, this._hitOptions) : null;
 
 					// Check textlines second
-					if(!hitResults || hitResults.length == 0)
+					if(!hitResults || hitResults.length === 0)
 						hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsTextline) : null;
 
 					// Check segments last
-					if(!hitResults || hitResults.length == 0)
+					if(!hitResults || hitResults.length === 0)
 						hitResults = this._overlays["segments"] ? this._overlays["segments"].hitTestAll(event.point, this._hitOptions) : null;
 
 					if(hitResults) {
@@ -155,7 +155,7 @@ class Viewer {
 						this.thisInput.leaveElement(this._highlighted);
 						this._highlighted = null;
 					}
-				} else if(this.mode == ViewerMode.CONTOUR){
+				} else if(this.mode === ViewerMode.CONTOUR){
 
 
 				} else {
@@ -406,13 +406,13 @@ class Viewer {
 
 		const pointsToSelect = points.slice(0);
 		polygon.segments.some(s => {
-			if(pointsToSelect.length == 0)
+			if(pointsToSelect.length === 0)
 				true; // End loop, since no points to select
 			else{
 				const globalPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
 				
 				// Select if in pointsToSelect and remove from pointsToSelect
-				const pointsToSelectIndex = pointsToSelect.findIndex(point => {return (globalPoint.x == point.x && globalPoint.y == point.y);});	
+				const pointsToSelectIndex = pointsToSelect.findIndex(point => {return (globalPoint.x === point.x && globalPoint.y === point.y);});
 				if(pointsToSelectIndex > -1){
 					s.point.selected = true
 					pointsToSelect.splice(pointsToSelect,1);

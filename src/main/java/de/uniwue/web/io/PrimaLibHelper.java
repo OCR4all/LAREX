@@ -31,8 +31,8 @@ public class PrimaLibHelper {
 		 * (which isn't too likely, since it is a core function of the library)
 		 */
 		try {
-			Method getOrientation = region.getClass().getMethod("setOrientation", new Class[] {double.class});
-			getOrientation.invoke(region, new Object[] {orientation});
+			Method getOrientation = region.getClass().getMethod("setOrientation", double.class);
+			getOrientation.invoke(region, orientation);
 		} catch (NoSuchMethodException e) {
 			e.printStackTrace();
 			throw new UnsupportedOperationException(

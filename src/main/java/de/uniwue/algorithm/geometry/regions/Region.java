@@ -46,14 +46,15 @@ public class Region {
 
 	private static PriorityPosition calcPriorityPosition(int maxOccurances, String priorityString) {
 		if (maxOccurances == 1) {
-			if (priorityString.equals("top")) {
-				return PriorityPosition.top;
-			} else if (priorityString.equals("bottom")) {
-				return PriorityPosition.bottom;
-			} else if (priorityString.equals("left")) {
-				return PriorityPosition.left;
-			} else if (priorityString.equals("right")) {
-				return PriorityPosition.right;
+			switch (priorityString) {
+				case "top":
+					return PriorityPosition.top;
+				case "bottom":
+					return PriorityPosition.bottom;
+				case "left":
+					return PriorityPosition.left;
+				case "right":
+					return PriorityPosition.right;
 			}
 		}
 		return null;
