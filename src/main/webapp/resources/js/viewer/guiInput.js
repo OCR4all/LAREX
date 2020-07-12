@@ -169,7 +169,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	});
 
 	$('.menuPageSelector').change(function (e) {
-		let $selected = $(".menuPageSelector").find(":selected");
+		let $selected = $(this).find(":selected");
 		_controller.displayPage($selected.data("page"));
 		e.stopPropagation();
 		return true;
@@ -460,17 +460,5 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();
 	})
-
-	/**
-	 * Page Selection Dropdown
-	 */
-	$("#viewerCanvas").click(function(){
-		const $pageSelect = $(".menuPageSelector")
-
-		$pageSelect.material_select("destroy");
-		$pageSelect.material_select();
-	})
-
-
 
 }
