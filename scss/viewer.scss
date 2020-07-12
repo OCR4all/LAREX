@@ -362,7 +362,7 @@ body{
     }
   }
   .menuIconCategory{
-    height: 38px;
+    height: 40px;
     text-align: center;
     color: $color2 !important;
     background-color: $color3 !important;
@@ -407,30 +407,20 @@ body{
   }
 }
 
-.menuPageSelector{
-  .caret{
-    z-index: 3;
-    color: $color1;
-    pointer-events:none;
-    margin-right: 2px;
-  }
-  input {
-    height: 23px !important;
-    width: 100px !important;
-    background-color: $color4 !important;
-    color: $color1 !important;
-    padding: 0px 0px 0px 0px !important;
-    margin: 0px !important;
-    font-size: 14px !important;
-    text-indent: 34%;
-  }
-  ul {
-    li {
-      span{
-        color: $color1;
-        &:hover{
-          background-color: $color3;
-          color: $color2;
+.select2-container{
+  .selection{
+    .select2-selection{
+      border-radius: 0;
+      border: 0;
+      height: 1.65em;
+      outline: none;
+      .select2-selection__rendered{
+        color: black;
+        font-size: 14px !important;
+      }
+      .select2-selection__arrow{
+        b{
+          border-color: black transparent transparent transparent;
         }
       }
     }

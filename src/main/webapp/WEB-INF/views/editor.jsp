@@ -67,9 +67,9 @@
 		let controller = new Controller(${book.getId()},accessible_modes,'viewerCanvas',specifiedColors,colors,globalSettings);
 		$(document).ready(function() {
 			$(".button-collapse").sideNav();
-		    $('select').material_select();
 			$('.modal').modal();
 		    $('.dropdown-button').dropdown();
+		    $('.menuPageSelector').select2({placeholder: 'Select a page'});
 		});
 		</script>
 

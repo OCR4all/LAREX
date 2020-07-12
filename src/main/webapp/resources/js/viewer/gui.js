@@ -49,9 +49,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 */
 	this.updateSelectedPage = function (page) {
 		const $select = $('.menuPageSelector');
-		$select.find(`[data-page=${page}]`).prop('selected', true);
-		$select.material_select('destroy');
-		$select.material_select();
+		const $pagename = $select.find(`[data-page=${page}]`).val()
+		$select.select2().val($pagename);
 	}
 
 	/**
