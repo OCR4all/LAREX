@@ -168,7 +168,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		return true;
 	});
 
-	$('.menuPageSelector')..on("select2:select select2:unselecting", function () {
+	$('.menuPageSelector').on("select2:select select2:unselecting", function () {
 		let $selected = $(this).find(":selected");
 		_controller.displayPage($selected.data("page"));
 		return true;
