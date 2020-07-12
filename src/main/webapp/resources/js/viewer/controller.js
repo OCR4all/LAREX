@@ -1684,4 +1684,17 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.openBatchSegmentModal = function(){
 		$("#batchSegmentModal").modal("open");
 	}
+
+	this.toggleShortcutModal = function(){
+		const $shortcutModal = $("#kb-shortcut-modal");
+		const $tab = $("#kb-shortcut-modal-tabs")
+
+		if($shortcutModal.hasClass("open")){
+			$shortcutModal.modal("close");
+		}else{
+			$shortcutModal.modal("open");
+			$tab.tabs("select_tab", this.getMode());
+			$tab.tabs();
+		}
+	}
 }

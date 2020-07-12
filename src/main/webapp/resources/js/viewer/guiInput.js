@@ -459,4 +459,6 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();
 	})
+
+	$('.showShortcuts').click(() => _controller.toggleShortcutModal());
 }
