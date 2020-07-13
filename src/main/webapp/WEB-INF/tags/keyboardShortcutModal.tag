@@ -1177,20 +1177,6 @@
                         <table>
                             <tr>
                                 <td class="kbd">
-                                    <span>
-                                        ?
-                                    </span>
-                                </td>
-                                <td class="kbdtext">
-                                    Open/Close keyboard shortcut info
-                                </td>
-                            </tr>
-                        </table>
-                    </li>
-                    <li>
-                        <table>
-                            <tr>
-                                <td class="kbd">
                                     <span>Esc</span>
                                 </td>
                                 <td class="kbdtext">

@@ -11,7 +11,8 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 			/*** Global Shortcuts ***/
 			switch(event.key){
 				case "?":
-					_controller.toggleShortcutModal();
+					if(!(mode === Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())))
+						_controller.toggleShortcutModal();
 					break;
 			}
 
