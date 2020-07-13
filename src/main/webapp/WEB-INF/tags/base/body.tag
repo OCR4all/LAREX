@@ -65,7 +65,7 @@
 		</div>
 		<div class="footer-copyright">
 			<div class="container">
-				© 2019
+				© <%= new java.text.SimpleDateFormat("yyyy").format(new java.util.Date()) %>
 			</div>
 		</div>
 	</footer>
