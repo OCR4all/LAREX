@@ -191,7 +191,7 @@
 					<t:menuIcon jsClass="hideTextView hide" icon="description"
 						tooltip="Switch to Page View">pageView</t:menuIcon>
 				</div>
-				<t:menuIcon jsClass="showShortcuts" icon="keyboard" tooltip="Show a list of available keyboard shortcuts.">Shortcuts</t:menuIcon>
+				<t:menuIcon jsClass="showShortcuts" icon="keyboard" tooltip="Show a list of available keyboard shortcuts">Shortcuts</t:menuIcon>
 				<t:menuIcon url="${pageContext.request.contextPath}/" id="openDir" jsClass="open" icon="folder_open"
 							tooltip="Open a different book">Open</t:menuIcon>
 			</div>
