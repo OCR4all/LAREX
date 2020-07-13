@@ -788,3 +788,57 @@ label{
   margin-top: 5px;
   margin-bottom: 5px;
 }
+
+.keyboard-shortcut-list{
+    columns: 2;
+    -webkit-columns: 2;
+    -moz-columns: 2;
+    column-gap: 40px;
+  li{
+    table{
+      tr{
+        td{
+          padding-bottom: 0;
+        }
+        td.kbd{
+          text-align: left;
+          span{
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0.1em 0.5em;
+            margin: 0 0.2em;
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 0 0 2px #fff inset;
+            background-color: #f7f7f7;
+          }
+        }
+        td.kbdtext{
+          text-align: right;
+        }
+      }
+    }
+  }
+}
+
+#kb-shortcut-modal-tabs{
+  overflow-x: hidden;
+  .indicator{
+    background-color: #0277bd;
+  }
+  .tab {
+    a {
+      color: rgba(0,0,0 , 0.7);
+    }
+    a:hover{
+      color: rgba(0,0,0 , 1);
+    }
+    a.active {
+      color: rgba(0,0,0 , 1);
+    }
+  }
+
+}
+
+.showShortcuts{
+  float: right !important;
+}

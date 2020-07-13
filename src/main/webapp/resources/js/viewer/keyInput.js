@@ -8,6 +8,14 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 			let validKey = false;
 			const mode = _controller.getMode();
 
+			/*** Global Shortcuts ***/
+			switch(event.key){
+				case "?":
+					if(!(mode === Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())))
+						_controller.toggleShortcutModal();
+					break;
+			}
+
 			if(mode === Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
 				switch(event.key){
 					case "Escape":

@@ -70,12 +70,14 @@
 			$('.modal').modal();
 		    $('.dropdown-button').dropdown();
 		    $('.menuPageSelector').select2({placeholder: 'Select a page'});
+		    $(".tabs").tabs();
 		});
 		</script>
 
 		<link rel="stylesheet" href="resources/css/viewer.css">
 		<title>Larex - Editor</title>
 	</b:head>
+	<t:keyboardShortcutModal/>
 	<t:batchSegmentModal/>
 	<body>
 		<t:virtualKeyboardPresetModal/>
@@ -183,7 +185,6 @@
 								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
 						</t:menuIconCategory>
 					</div>
-
 				</div>
 				<div id="text_tab">
 					<b:baseMenu/>
@@ -192,6 +193,7 @@
 					<t:menuIcon jsClass="hideTextView hide" icon="description"
 						tooltip="Switch to Page View">pageView</t:menuIcon>
 				</div>
+				<t:menuIcon jsClass="showShortcuts" icon="keyboard" tooltip="Show a list of available keyboard shortcuts.">Shortcuts</t:menuIcon>
 			</div>
 		</div>
 
