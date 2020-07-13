@@ -7,7 +7,7 @@
         <div class="row">
             <div class="col s12">
                 <ul class="tabs" id="kb-shortcut-modal-tabs">
-                    <li class="tab col s3"><a class="active" href="#edit">Edit</a></li>
+                    <li class="tab col s3"><a href="#edit">Edit</a></li>
                     <li class="tab col s3"><a href="#segment">Segments</a></li>
                     <li class="tab col s3"><a href="#lines">Lines</a></li>
                     <li class="tab col s3"><a href="#text">Text</a></li>
@@ -15,6 +15,20 @@
             </div>
             <div id="edit" class="col s12">
                 <ul class="keyboard-shortcut-list">
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>
+                                        ?
+                                    </span>
+                                </td>
+                                <td class="kbdtext">
+                                    Open/Close keyboard shortcut info
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
                     <li>
                         <table>
                             <tr>
@@ -34,7 +48,7 @@
                             <tr>
                                 <td class="kbd">
                                     <span>
-                                        ←
+                                        →
                                     </span>
                                 </td>
                                 <td class="kbdtext">
@@ -89,9 +103,7 @@
                         <table>
                             <tr>
                                 <td class="kbd">
-                                    <span>
-                                        Ctrl
-                                    </span>
+                                    <span>Ctrl</span>+<span>Space</span>
                                 </td>
                                 <td class="kbdtext">
                                     Request segmentation
@@ -394,6 +406,20 @@
                             <tr>
                                 <td class="kbd">
                                     <span>
+                                        ?
+                                    </span>
+                                </td>
+                                <td class="kbdtext">
+                                    Open/Close keyboard shortcut info
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>
                                         ←
                                     </span>
                                 </td>
@@ -408,7 +434,7 @@
                             <tr>
                                 <td class="kbd">
                                     <span>
-                                        ←
+                                        →
                                     </span>
                                 </td>
                                 <td class="kbdtext">
@@ -463,9 +489,7 @@
                         <table>
                             <tr>
                                 <td class="kbd">
-                                    <span>
-                                        Ctrl
-                                    </span>
+                                    <span>Ctrl</span>+<span>Space</span>
                                 </td>
                                 <td class="kbdtext">
                                     Request segmentation
@@ -768,6 +792,20 @@
                             <tr>
                                 <td class="kbd">
                                     <span>
+                                        ?
+                                    </span>
+                                </td>
+                                <td class="kbdtext">
+                                    Open/Close keyboard shortcut info
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>
                                         ←
                                     </span>
                                 </td>
@@ -782,7 +820,7 @@
                             <tr>
                                 <td class="kbd">
                                     <span>
-                                        ←
+                                        →
                                     </span>
                                 </td>
                                 <td class="kbdtext">
@@ -837,9 +875,7 @@
                         <table>
                             <tr>
                                 <td class="kbd">
-                                    <span>
-                                        Ctrl
-                                    </span>
+                                    <span>Ctrl</span>+<span>Space</span>
                                 </td>
                                 <td class="kbdtext">
                                     Request segmentation
@@ -1141,6 +1177,20 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>
+                                        ?
+                                    </span>
+                                </td>
+                                <td class="kbdtext">
+                                    Open/Close keyboard shortcut info
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>Esc</span>
                                 </td>
                                 <td class="kbdtext">
@@ -1168,7 +1218,7 @@
                                     <span>Alt</span>
                                 </td>
                                 <td class="kbdtext">
-                                    Fade text input
+                                    Fade text input in Page View
                                 </td>
                             </tr>
                         </table>

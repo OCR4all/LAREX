@@ -793,11 +793,14 @@ label{
     columns: 2;
     -webkit-columns: 2;
     -moz-columns: 2;
+    column-gap: 40px;
   li{
     table{
       tr{
+        td{
+          padding-bottom: 0;
+        }
         td.kbd{
-          padding-top: 5px;
           text-align: left;
           span{
             display: inline-block;
@@ -810,7 +813,6 @@ label{
           }
         }
         td.kbdtext{
-          padding-top: 5px;
           text-align: right;
         }
       }
