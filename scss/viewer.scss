@@ -822,6 +822,21 @@ label{
 
 #kb-shortcut-modal-tabs{
   overflow-x: hidden;
+  .indicator{
+    background-color: #0277bd;
+  }
+  .tab {
+    a {
+      color: rgba(0,0,0 , 0.7);
+    }
+    a:hover{
+      color: rgba(0,0,0 , 1);
+    }
+    a.active {
+      color: rgba(0,0,0 , 1);
+    }
+  }
+
 }
 
 .showShortcuts{
