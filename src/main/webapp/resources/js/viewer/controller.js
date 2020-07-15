@@ -1310,7 +1310,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// Check if the update request came for a deleted textline
 			if(textline){
 				const hasGT = 0 in textline.text;
-				console.log(hasGT);
 				if(hasGT){
 					textline.type = "TextLine_gt";
 				} else {
