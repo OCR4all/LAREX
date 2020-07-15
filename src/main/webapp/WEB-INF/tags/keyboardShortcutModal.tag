@@ -1213,6 +1213,18 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>Alt</span>+<span>D</span>
+                                </td>
+                                <td class="kbdtext">
+                                    <span>Discard ground truth for the selected text line</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>Enter</span>
                                 </td>
                                 <td class="kbdtext">

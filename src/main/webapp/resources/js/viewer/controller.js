@@ -1560,6 +1560,21 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
+	this.discardGT = function(){
+		let id;
+		let textlinecontent;
+		if(_textViewer.isOpen()){
+			id = _textViewer.getFocusedId();
+		} else {
+			textlinecontent = _gui.getTextLineContent();
+			id = textlinecontent.id;
+		}
+
+		if(id && this.getIDType(id) === ElementType.TEXTLINE){
+			_actionController.addAndExecuteAction(new ActionDiscardGroundTruth(id, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
+		}
+	}
+
 	this.changeRegionSettings = function (regionType, minSize, maxOccurances) {
 		let region = _settings.regions[regionType];
 		//create Region if not present

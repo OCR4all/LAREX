@@ -389,6 +389,16 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	}
 
 	/**
+	 * Resets the display of a text line
+	 */
+	this.resetTextLine = function(id){
+		this.updateTextLine(id);
+		const $textlinecontent = $("#textline-content");
+		$textlinecontent.removeClass("line-saved");
+		$textlinecontent.removeClass("line-corrected");
+	}
+
+	/**
 	 * Resize the textline content based on its textline size and a user defined zoom
 	 */
 	this.resizeTextLineContent = function(){
