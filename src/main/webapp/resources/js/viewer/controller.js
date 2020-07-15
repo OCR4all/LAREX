@@ -1310,6 +1310,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// Check if the update request came for a deleted textline
 			if(textline){
 				const hasGT = 0 in textline.text;
+				console.log(hasGT);
 				if(hasGT){
 					textline.type = "TextLine_gt";
 				} else {
@@ -1557,6 +1558,21 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_actionController.addAndExecuteAction(new ActionChangeTextLineText(_pastId, content, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
 			}
 			_pastId = null;
+		}
+	}
+
+	this.discardGT = function(){
+		let id;
+		let textlinecontent;
+		if(_textViewer.isOpen()){
+			id = _textViewer.getFocusedId();
+		} else {
+			textlinecontent = _gui.getTextLineContent();
+			id = textlinecontent.id;
+		}
+
+		if(id && this.getIDType(id) === ElementType.TEXTLINE){
+			_actionController.addAndExecuteAction(new ActionDiscardGroundTruth(id, _textViewer, _gui, _segmentation, _currentPage, this), _currentPage);
 		}
 	}
 

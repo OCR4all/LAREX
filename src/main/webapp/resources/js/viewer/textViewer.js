@@ -142,6 +142,17 @@ class TextViewer {
 		}
 	}
 
+	/**
+	 * Resets the display of a textline
+	 * @param id
+	 */
+	resetTextLine(id){
+		const $textlinecontent = $(`.textline-container[data-id='${id}']`);
+		$textlinecontent.removeClass("line-corrected");
+		$textlinecontent.removeClass("line-saved");
+
+	}
+
 	highlightTextline(id, doHighlight = true) {
 		//TODO
 	}

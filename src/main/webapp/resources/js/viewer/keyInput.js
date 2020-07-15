@@ -91,6 +91,12 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
+					case "d":
+						if(event.altKey){
+							_controller.discardGT();
+							event.preventDefault();
+						}
+						break;
 					case "PageUp": //page up
 						_controller.adjacentPage("prev");
 						break;

@@ -563,6 +563,45 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 	}
 }
 
+function ActionDiscardGroundTruth(id, textViewer, gui, segmentation, page, controller) {
+	let _isExecuted = false;
+	const _id = id;
+	const _oldContent = JSON.parse(JSON.stringify(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].text));
+
+	if (!controller.isSegmentFixed(id))
+		_actionSetFixed = new ActionFixSegment(id, controller, true);
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+
+			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[id];
+			delete textline.text[0];
+			controller.updateTextLine(id);
+			textViewer.updateTextline(textline);
+			gui.resetTextLine(id);
+			textViewer.resetTextLine(id);
+			controller.escape();
+
+			console.log('Do - Discard Ground Truth: {id:"' + _id + ' [..]}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			const textline = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
+			textline.text = JSON.parse(JSON.stringify(_oldContent));
+			controller.updateTextLine(id);
+			textViewer.updateTextline(textline);
+			if(textViewer.isOpen()){
+				controller.selectElement(id);
+			}
+			console.log('Undo - Discard Ground Truth: {id:"' + _id + ' [..]}');
+		}
+	}
+
+}
+
 function ActionChangeTextLineText(id, content, textViewer, gui, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _id = id;
