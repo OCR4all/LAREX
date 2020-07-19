@@ -85,6 +85,32 @@ function ActionMultiple(actions) {
 	}
 }
 
+function ActionSegmentPage(_segmentation, _activesettings, _allowLoadLocal, _page, _communicator, _controller){
+	let _isExecuted = false;
+	const _oldSegmentation = _segmentation;
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+
+			_communicator.segmentPage(_activesettings, _page, _allowLoadLocal).done((result) => {
+				_controller._setPage(_page, result);
+				_controller.displayPage(_page);
+			});
+			console.log(`Do - Segment page: {page: ${_page}}`);
+		}
+	}
+
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			_controller._setPage(_page, _oldSegmentation);
+			_controller.displayPage(_page);
+			console.log(`Undo - Segment page: {page: ${_page}}`);
+		}
+	}
+}
+
 function ActionChangeTypeRegionArea(area, newType, viewer, settings, page, controller) {
 	let _isExecuted = false;
 	const _oldType = area.type;
