@@ -295,6 +295,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.loadAnnotations = function () {
+		_actionController.resetActions(_currentPage);
 		//Update setting parameters
 		_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
 			this._setPage(_currentPage, result);
