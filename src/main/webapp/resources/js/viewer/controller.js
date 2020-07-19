@@ -356,11 +356,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (_fixedGeometry[_currentPage].cuts) 
 				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
 		}
-
-		_communicator.segmentPage(activesettings, _currentPage, allowLoadLocal).done((result) => {
-			this._setPage(_currentPage, result);
-			this.displayPage(_currentPage);
-		});
+		const action = new ActionSegmentPage(_segmentation[_currentPage], activesettings, allowLoadLocal, _currentPage, _communicator,
+			this);
+		_actionController.addAndExecuteAction(action, _currentPage);
 	}
 
 	this._requestEmptySegmentation = function () {
@@ -382,7 +380,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			function preparePage(_controller){
 				_segmentation[pageid] = result;
 
-				_actionController.resetActions(pageid);
 				//check if all necessary regions are available
 				Object.keys(result.segments).forEach((id) => {
 					let segment = result.segments[id];
