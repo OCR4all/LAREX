@@ -1,6 +1,6 @@
 var Mode = {SEGMENT:'segment',EDIT:'edit',LINES:'lines',TEXT:'text'}
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
-var ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
+var ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour',SUBTRACT:"subtract"}
 
 function Controller(bookID, accessible_modes, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -624,6 +624,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_editor.startCreatePolygon(ElementType.SEGMENT);
 		_gui.selectToolBarButton('segmentPolygon', true);
 	}
+	this.createSubtractPolygon = function () {
+		this.endEditing();
+		_editor.startCreatePolygon(ElementType.SUBTRACT);
+		_gui.selectToolBarButton('subtractPolygon', true);
+	}
 	this.createTextLinePolygon = function () {
 		const selected = _selector.getSelectedSegments();
 		if(selected.length > 0 && 
@@ -674,7 +679,74 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			case 'roi':
 				_gui.selectToolBarButton('roi', true);
 				break;
+			case 'subtract':
+				_gui.selectToolBarButton('subtractRectangle', true);
 		}
+	}
+
+	this.subtractSegment = function(points) {
+		const subtraction_path = _pointsToPath(points)
+		const actions = [];
+
+		for(let segment_id in _segmentation[_currentPage].segments){
+			let segment = _segmentation[_currentPage].segments[segment_id];
+			let segment_path = _pointsToPath(segment.points)
+
+			if(!subtraction_path.intersects(segment_path))
+				continue;
+
+			let clipped_path = segment_path.subtract(subtraction_path);
+
+			if(clipped_path){
+				if (clipped_path instanceof paper.CompoundPath) {
+					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage,
+						this, _selector, true));
+
+					for (let i = clipped_path.children.length - 1; i >= 0; i--) {
+						let new_region = clipped_path.children[i];
+						let newID = "c" + _newPolygonCounter;
+						_newPolygonCounter++;
+
+						actions.push(new ActionAddSegment(newID, _pathToPoints(new_region), segment.type, _editor,
+							_segmentation, _currentPage, this))
+					}
+
+				}else{
+					let clipped_points = _pathToPoints(clipped_path);
+					actions.push(new ActionTransformSegment(segment.id, clipped_points, _editor, _segmentation, _currentPage, this));
+
+				}
+			}
+		}
+
+		if(actions){
+			let subtractActions = new ActionMultiple(actions);
+			_actionController.addAndExecuteAction(subtractActions, _currentPage);
+		}
+
+		_gui.unselectAllToolBarButtons();
+	}
+
+	function _pointsToPath(points) {
+		let path = new paper.Path()
+		for (let i = 0; i < points.length; i += 1) {
+			let point = new paper.Point(points[i].x, points[i].y);
+			path.add(point);
+		}
+
+		path.closed = true;
+
+		return path
+	}
+
+	function _pathToPoints(path){
+		const points = [];
+		for (let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++) {
+			const point = path.segments[pointItr].point;
+			let coords = {x: point.x, y: point.y}
+			points.push(coords);
+		}
+		return points;
 	}
 
 	this.createCut = function () {

@@ -116,13 +116,21 @@
 								tooltip="Create a fixed region polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
 								tooltip="Create a cut line that forces the segmentation algorithm to split regions. Double click to end (Shortcut: 5)">Line</t:menuIcon>
-						<t:menuIcon jsClass="editContours" icon="font_download"
+							<t:menuIcon jsClass="editContours" icon="font_download"
 							tooltip="Select contours to combine (with 'C') to regions (see function combine) (Shortcut: 6)">Contours</t:menuIcon>
 							<t:menuIcon jsClass="combineSelected" icon="add_circle"
 								tooltip="Combine selected regions or contours (Shortcut: C)">Combine</t:menuIcon>
 							<t:menuIcon jsClass="fixSelected" icon="lock"
 								tooltip="Fix/unfix region, for it to persist a new segmentation (Shortcut: F)">Fix</t:menuIcon>
 						</t:menuIconCategory>
+						<div class="menuIconDivider col"></div>
+						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
+							<t:menuIcon jsClass="createSubtractRectangle" icon="crop_5_4"
+										tooltip="Create a subtraction Rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
+							<t:menuIcon jsClass="createSubtractPolygon" icon="star_border"
+										tooltip="Create a subtraction Polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
+						</t:menuIconCategory>
+						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
 								tooltip="Add a region to the reading order (Shortcut: R)">readingOrder</t:menuIcon>
@@ -144,11 +152,19 @@
 								tooltip="Create a fixed region polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
 							<t:menuIcon jsClass="createCut cutPolygon" icon="content_cut"
 								tooltip="Create a cut line that forces the segmentation algorithm to split regions. Double click to end (Shortcut: 5)">Line</t:menuIcon>
-						<t:menuIcon jsClass="editContours" icon="font_download"
+							<t:menuIcon jsClass="editContours" icon="font_download"
 							tooltip="Select contours to combine (with 'C') to regions (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 							<t:menuIcon jsClass="combineSelected" icon="add_circle"
 								tooltip="Combine selected regions or contours (Shortcut: C)">Combine</t:menuIcon>
 						</t:menuIconCategory>
+						<div class="menuIconDivider col"></div>
+						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
+							<t:menuIcon jsClass="createSubtractRectangle" icon="crop_5_4"
+										tooltip="Create a subtraction Rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
+							<t:menuIcon jsClass="createSubtractPolygon" icon="star_border"
+										tooltip="Create a subtraction Polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
+						</t:menuIconCategory>
+						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
 							<t:menuIcon jsClass="addToReadingOrder" icon="playlist_add"
 								tooltip="Add a regions to the reading order (Shortcut: R)">readingOrder</t:menuIcon>
@@ -172,6 +188,13 @@
 							tooltip="Select contours to combine (with 'C') to textlines (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 						<t:menuIcon jsClass="combineSelected" icon="add_circle"
 							tooltip="Combine selected textlines or contours (Shortcut: C)">Combine</t:menuIcon>
+						</t:menuIconCategory>
+						<div class="menuIconDivider col"></div>
+						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
+							<t:menuIcon jsClass="createSubtractRectangle" icon="crop_5_4"
+										tooltip="Create a subtraction Rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
+							<t:menuIcon jsClass="createSubtractPolygon" icon="star_border"
+										tooltip="Create a subtraction Polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">

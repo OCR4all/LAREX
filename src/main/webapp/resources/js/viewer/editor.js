@@ -119,8 +119,10 @@ class Editor extends Viewer {
 			this.isEditing = false;
 			if (this._tempPolygon != null) {
 				endFunction(rectangle);
-				this._tempPolygon.remove();
-				this._tempPolygon = null;
+				if (this._tempPolygon != null) {
+					this._tempPolygon.remove();
+					this._tempPolygon = null;
+				}
 			}
 			if (this._tempPoint != null) {
 				this._tempPoint.clear();
@@ -135,7 +137,7 @@ class Editor extends Viewer {
 			type:			ElementType of the rectangle
 			startPoint:		Use as start of the rectangle if set, otherwise wait for mouse down.
 	*/
-	createRectangle(type,startPoint) {
+	createRectangle(type, startPoint) {
 		if (this.isEditing === false) {
 			this._startRectangle(
 				()=>{
@@ -159,6 +161,9 @@ class Editor extends Viewer {
 							break;
 						case 'ignore':
 							this._controller.callbackNewArea(this._convertCanvasPolygonToGlobal(rectangle, true), 'ignore');
+							break;
+						case 'subtract':
+							this._controller.subtractSegment(this._convertCanvasPolygonToGlobal(rectangle, false));
 							break;
 						case 'roi':
 						default:
@@ -262,10 +267,15 @@ class Editor extends Viewer {
 					this._controller.callbackNewArea(this._convertCanvasPolygonToGlobal(this._tempPolygon, true));
 				} else if(this._tempPolygonType === ElementType.TEXTLINE) {
 					this._controller.callbackNewTextLine(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+				} else if(this._tempPolygonType === ElementType.SUBTRACT) {
+					this._controller.subtractSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				}
-				this._tempPolygon.remove();
-				this._tempPolygon = null;
-				this._tempEndCircle.remove();
+				if(this._tempPolygon != null){
+					this._tempPolygon.remove();
+					this._tempPolygon = null;
+				}
+				if(this._tempEndCircle != null)
+					this._tempEndCircle.remove();
 			}
 			document.body.style.cursor = "auto";
 		}
