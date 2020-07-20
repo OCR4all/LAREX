@@ -687,7 +687,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.subtractSegment = function(points) {
 		/**
 		 * Subtracts the intersected area of a subtraction rectangle or polygon (represented by an array of two
-		 * dimensional coordiantes) from all other segments
+		 * dimensional coordinates) from all other segments
 		 *
 		 * @param {Array} points
 		 */
@@ -697,31 +697,32 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		for(let segment_id in _segmentation[_currentPage].segments){
 			let segment = _segmentation[_currentPage].segments[segment_id];
 			let segment_path = _pointsToPath(segment.points)
+			if(_pathContains(subtraction_path, segment.points)){
+				actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage,
+					this, _selector, true));
+			}else if(subtraction_path.intersects(segment_path)) {
+				let clipped_path = segment_path.subtract(subtraction_path);
 
-			if(!subtraction_path.intersects(segment_path))
-				continue;
+				if (clipped_path) {
+					/* Check if a subtraction operation splits an existing segment into at least two new paths and creates
+                    * new segments accordingly */
+					if (clipped_path instanceof paper.CompoundPath) {
+						actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage,
+							this, _selector, true));
 
-			let clipped_path = segment_path.subtract(subtraction_path);
+						for (let i = clipped_path.children.length - 1; i >= 0; i--) {
+							let new_region = clipped_path.children[i];
+							let newID = "c" + _newPolygonCounter;
+							_newPolygonCounter++;
 
-			if(clipped_path){
-				/* Check if a subtraction operation splits an existing segment into at least two new paths and creates
-				* new segments accordingly */
-				if (clipped_path instanceof paper.CompoundPath) {
-					actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage,
-						this, _selector, true));
+							actions.push(new ActionAddSegment(newID, _pathToPoints(new_region), segment.type, _editor,
+								_segmentation, _currentPage, this))
+						}
+					} else {
+						let clipped_points = _pathToPoints(clipped_path);
+						actions.push(new ActionTransformSegment(segment.id, clipped_points, _editor, _segmentation, _currentPage, this));
 
-					for (let i = clipped_path.children.length - 1; i >= 0; i--) {
-						let new_region = clipped_path.children[i];
-						let newID = "c" + _newPolygonCounter;
-						_newPolygonCounter++;
-
-						actions.push(new ActionAddSegment(newID, _pathToPoints(new_region), segment.type, _editor,
-							_segmentation, _currentPage, this))
 					}
-				}else{
-					let clipped_points = _pathToPoints(clipped_path);
-					actions.push(new ActionTransformSegment(segment.id, clipped_points, _editor, _segmentation, _currentPage, this));
-
 				}
 			}
 		}
@@ -757,28 +758,30 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						let textline = _textSegment.textlines[key];
 						let textline_path = _pointsToPath(textline.points);
 
-						if(!subtraction_path.intersects(textline_path))
-							continue;
+						if(_pathContains(subtraction_path, textline.points)){
+							actions.push(new ActionRemoveTextLine(textline, _editor, _textViewer, _segmentation, _currentPage,
+								this, _selector, true));
+						}else if(subtraction_path.intersects(textline_path)){
+							let clipped_path = textline_path.subtract(subtraction_path);
 
-						let clipped_path = textline_path.subtract(subtraction_path);
+							if(clipped_path){
+								/* Check if a subtraction operation splits an existing text line into at least two new
+                                * paths and creates new text lines accordingly */
+								if (clipped_path instanceof paper.CompoundPath) {
+									actions.push(new ActionRemoveTextLine(textline, _editor, _textViewer, _segmentation, _currentPage,
+										this, _selector, true));
 
-						if(clipped_path){
-							/* Check if a subtraction operation splits an existing text line into at least two new
-							* paths and creates new text lines accordingly */
-							if (clipped_path instanceof paper.CompoundPath) {
-								actions.push(new ActionRemoveTextLine(textline, _editor, _textViewer, _segmentation, _currentPage,
-									this, _selector, true));
-
-								for (let i = clipped_path.children.length - 1; i >= 0; i--) {
-									let new_region = clipped_path.children[i];
-									let newID = "c" + _newPolygonCounter;
-									_newPolygonCounter++;
-									actions.push(new ActionAddTextLine(newID, _textSegment.id,_pathToPoints(new_region), {}, _editor,
-										_textViewer, _segmentation, _currentPage, this))
+									for (let i = clipped_path.children.length - 1; i >= 0; i--) {
+										let new_region = clipped_path.children[i];
+										let newID = "c" + _newPolygonCounter;
+										_newPolygonCounter++;
+										actions.push(new ActionAddTextLine(newID, _textSegment.id,_pathToPoints(new_region), {}, _editor,
+											_textViewer, _segmentation, _currentPage, this))
+									}
+								}else{
+									let clipped_points = _pathToPoints(clipped_path);
+									actions.push(new ActionTransformTextLine(textline.id, clipped_points, _editor, _textViewer, _segmentation, _currentPage, this));
 								}
-							}else{
-								let clipped_points = _pathToPoints(clipped_path);
-								actions.push(new ActionTransformTextLine(textline.id, clipped_points, _editor, _textViewer, _segmentation, _currentPage, this));
 							}
 						}
 					}
@@ -791,6 +794,24 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}else{
 			_gui.displayWarning('Warning: Can only subtract TextLines if a TextRegion has been selected before hand.');
 		}
+	}
+
+	function _pathContains(path, target_points){
+		/**
+		 * Checks whether the target path is fully contained by a path
+		 *
+		 * @param {paper.Path} path
+		 * @param {Array} target_path
+		 */
+		for (let i = 0; i < target_points.length; i += 1) {
+			let point = new paper.Point(target_points[i].x, target_points[i].y);
+			if(!path.contains(point)){
+				console.log("Doesn't contain point");
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	function _pointsToPath(points) {
