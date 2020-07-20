@@ -95,6 +95,8 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('.createSegmentPolygon').click(() => _controller.createSegmentPolygon(true));
 	$('.createSegmentRectangle').click(() => _controller.createRectangle('segment'));
 	$('.createTextLinePolygon').click(() => _controller.createTextLinePolygon(true));
+	$('.createSubtractRectangle').click(() => _controller.createRectangle('subtract'));
+	$('.createSubtractPolygon').click(() => _controller.createSubtractPolygon());
 	$('.createTextLineRectangle').click(() => _controller.createRectangle('textline'));
 	$('.createCut').click(() => _controller.createCut());
 

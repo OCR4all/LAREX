@@ -384,6 +384,25 @@ class Selector {
 	}
 
 	/**
+	 * Begin a subtract box selection action, starting from a startPoint
+	 *
+	 * @param {[number,number]} startPoint GUI point to start the selection on (e.g. mouse event pos)
+	 */
+	subtractBox(startPoint) {
+		if(this._editor.mode === ElementType.CONTOUR && this.selectedType !== ElementType.CONTOUR){
+			this.unSelect();
+			this.selectedType = ElementType.CONTOUR;
+		}
+		if (!this._editor.isEditing) {
+			if (!this.isSelecting) {
+				this._editor.subtractBox((tl,br) => {this._controller.subtractRectangle(tl,br)},(a,b)=>{},startPoint);
+			}
+
+			this.isSelecting = true;
+		}
+	}
+
+	/**
 	 * Get a copy of all currently selected segments
 	 */
 	getSelectedSegments() {
@@ -513,6 +532,7 @@ class Selector {
 		if(this.selectedType === ElementType.AREA)
 			this._controller.scaleSelectedRegionArea();
 	}
+
 
 	/**
 	 * Helper function to select objects inbetween two points from the canvas

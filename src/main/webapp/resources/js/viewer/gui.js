@@ -754,6 +754,12 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			case 'ignore':
 				$button = $('.createIgnore');
 				break;
+			case 'subtractRectangle':
+				$button = $('.createSubtractRectangle');
+				break;
+			case 'subtractPolygon':
+				$button = $('.createSubtractPolygon');
+				break;
 			default:
 				break;
 		}

@@ -1,6 +1,6 @@
 var Mode = {SEGMENT:'segment',EDIT:'edit',LINES:'lines',TEXT:'text'}
 var PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
-var ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour'}
+var ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour',SUBTRACT:"subtract"}
 
 function Controller(bookID, accessible_modes, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -624,6 +624,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_editor.startCreatePolygon(ElementType.SEGMENT);
 		_gui.selectToolBarButton('segmentPolygon', true);
 	}
+	this.createSubtractPolygon = function () {
+		this.endEditing();
+		_editor.startCreatePolygon(ElementType.SUBTRACT);
+		_gui.selectToolBarButton('subtractPolygon', true);
+	}
 	this.createTextLinePolygon = function () {
 		const selected = _selector.getSelectedSegments();
 		if(selected.length > 0 && 
@@ -674,7 +679,170 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			case 'roi':
 				_gui.selectToolBarButton('roi', true);
 				break;
+			case 'subtract':
+				_gui.selectToolBarButton('subtractRectangle', true);
 		}
+	}
+
+	this.subtractSegment = function(points) {
+		/**
+		 * Subtracts the intersected area of a subtraction rectangle or polygon (represented by an array of two
+		 * dimensional coordinates) from all other segments
+		 *
+		 * @param {Array} points
+		 */
+		const subtraction_path = _pointsToPath(points)
+		const actions = [];
+
+		for(let segment_id in _segmentation[_currentPage].segments){
+			let segment = _segmentation[_currentPage].segments[segment_id];
+			let segment_path = _pointsToPath(segment.points)
+			if(_pathContains(subtraction_path, segment.points)){
+				actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage,
+					this, _selector, true));
+			}else if(subtraction_path.intersects(segment_path)) {
+				let clipped_path = segment_path.subtract(subtraction_path);
+
+				if (clipped_path) {
+					/* Check if a subtraction operation splits an existing segment into at least two new paths and creates
+                    * new segments accordingly */
+					if (clipped_path instanceof paper.CompoundPath) {
+						actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage,
+							this, _selector, true));
+
+						for (let i = clipped_path.children.length - 1; i >= 0; i--) {
+							let new_region = clipped_path.children[i];
+							let newID = "c" + _newPolygonCounter;
+							_newPolygonCounter++;
+
+							actions.push(new ActionAddSegment(newID, _pathToPoints(new_region), segment.type, _editor,
+								_segmentation, _currentPage, this))
+						}
+					} else {
+						let clipped_points = _pathToPoints(clipped_path);
+						actions.push(new ActionTransformSegment(segment.id, clipped_points, _editor, _segmentation, _currentPage, this));
+
+					}
+				}
+			}
+		}
+
+		if(actions){
+			let subtractActions = new ActionMultiple(actions);
+			_actionController.addAndExecuteAction(subtractActions, _currentPage);
+		}
+
+		_gui.unselectAllToolBarButtons();
+	}
+
+	this.subtractTextLines = function(points){
+		/**
+		 * Subtracts the intersected area of a subtraction rectangle or polygon (represented by an array of two
+		 * dimensional coordinates) from all other text lines in the currently selected text region
+		 *
+		 * @param {Array} points
+		 */
+		const subtraction_path = _pointsToPath(points)
+		const actions = [];
+
+		const selected = _selector.getSelectedSegments();
+		if(selected.length > 0 &&
+			(_selector.selectedType === ElementType.SEGMENT && this.isIDTextRegion(selected[0])) ||
+			(_selector.selectedType === ElementType.TEXTLINE && this.isIDTextRegion(this.textlineRegister[selected[0]]))) {
+			this.endEditing();
+			_tempID = _selector.selectedType === ElementType.SEGMENT ? selected[0] : this.textlineRegister[selected[0]];
+			if(this.isIDTextRegion(_tempID)){
+				const _textSegment = _segmentation[_currentPage].segments[_tempID];
+				if(_textSegment.textlines){
+					for(let key of Object.keys(_textSegment.textlines)){
+						let textline = _textSegment.textlines[key];
+						let textline_path = _pointsToPath(textline.points);
+
+						if(_pathContains(subtraction_path, textline.points)){
+							actions.push(new ActionRemoveTextLine(textline, _editor, _textViewer, _segmentation, _currentPage,
+								this, _selector, true));
+						}else if(subtraction_path.intersects(textline_path)){
+							let clipped_path = textline_path.subtract(subtraction_path);
+
+							if(clipped_path){
+								/* Check if a subtraction operation splits an existing text line into at least two new
+                                * paths and creates new text lines accordingly */
+								if (clipped_path instanceof paper.CompoundPath) {
+									actions.push(new ActionRemoveTextLine(textline, _editor, _textViewer, _segmentation, _currentPage,
+										this, _selector, true));
+
+									for (let i = clipped_path.children.length - 1; i >= 0; i--) {
+										let new_region = clipped_path.children[i];
+										let newID = "c" + _newPolygonCounter;
+										_newPolygonCounter++;
+										actions.push(new ActionAddTextLine(newID, _textSegment.id,_pathToPoints(new_region), {}, _editor,
+											_textViewer, _segmentation, _currentPage, this))
+									}
+								}else{
+									let clipped_points = _pathToPoints(clipped_path);
+									actions.push(new ActionTransformTextLine(textline.id, clipped_points, _editor, _textViewer, _segmentation, _currentPage, this));
+								}
+							}
+						}
+					}
+				}
+			}
+			if(actions){
+				let subtractActions = new ActionMultiple(actions);
+				_actionController.addAndExecuteAction(subtractActions, _currentPage);
+			}
+		}else{
+			_gui.displayWarning('Warning: Can only subtract TextLines if a TextRegion has been selected before hand.');
+		}
+	}
+
+	function _pathContains(path, target_points){
+		/**
+		 * Checks whether the target path is fully contained by a path
+		 *
+		 * @param {paper.Path} path
+		 * @param {Array} target_path
+		 */
+		for (let i = 0; i < target_points.length; i += 1) {
+			let point = new paper.Point(target_points[i].x, target_points[i].y);
+			if(!path.contains(point)){
+				console.log("Doesn't contain point");
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	function _pointsToPath(points) {
+		/**
+		 * Converts an array of two dimensional coordinates to a closed paper.Path
+		 *
+		 * @param {Array} points
+		 */
+		let path = new paper.Path()
+		for (let i = 0; i < points.length; i += 1) {
+			let point = new paper.Point(points[i].x, points[i].y);
+			path.add(point);
+		}
+		path.closed = true;
+
+		return path
+	}
+
+	function _pathToPoints(path){
+		/**
+		 * Extracts all points of a closed paper.Path to an Array of two dimensional coordinates
+		 *
+		 * @param {paper.Path} path
+		 */
+		const points = [];
+		for (let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++) {
+			const point = path.segments[pointItr].point;
+			let coords = {x: point.x, y: point.y}
+			points.push(coords);
+		}
+		return points;
 	}
 
 	this.createCut = function () {

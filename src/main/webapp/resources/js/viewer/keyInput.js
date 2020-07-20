@@ -237,6 +237,18 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 							validKey = true;
 						}
 						break;
+					case "7":
+						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES) {
+							_controller.createRectangle(ElementType.SUBTRACT);
+							validKey = true;
+						}
+						break;
+					case "8":
+						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
+							_controller.createSubtractPolygon();
+							validKey = true;
+						}
+						break;
 					case "c":
 						if(mode === Mode.SEGMENT || mode === Mode.EDIT || mode === Mode.LINES){
 							_controller.mergeSelected();
