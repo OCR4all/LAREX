@@ -163,7 +163,11 @@ class Editor extends Viewer {
 							this._controller.callbackNewArea(this._convertCanvasPolygonToGlobal(rectangle, true), 'ignore');
 							break;
 						case 'subtract':
-							this._controller.subtractSegment(this._convertCanvasPolygonToGlobal(rectangle, false));
+							if(this._controller.getMode() === Mode.LINES){
+								this._controller.subtractTextLines(this._convertCanvasPolygonToGlobal(rectangle, false));
+							}else if(this._controller.getMode() === Mode.SEGMENT || this._controller.getMode() === Mode.EDIT){
+								this._controller.subtractSegment(this._convertCanvasPolygonToGlobal(rectangle, false));
+							}
 							break;
 						case 'roi':
 						default:
@@ -268,7 +272,11 @@ class Editor extends Viewer {
 				} else if(this._tempPolygonType === ElementType.TEXTLINE) {
 					this._controller.callbackNewTextLine(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else if(this._tempPolygonType === ElementType.SUBTRACT) {
-					this._controller.subtractSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+					if(this._controller.getMode() === Mode.LINES){
+						this._controller.subtractTextLines(this._convertCanvasPolygonToGlobal(rectangle, false));
+					}else if(this._controller.getMode() === Mode.SEGMENT || this._controller.getMode() === Mode.EDIT){
+						this._controller.subtractSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+					}
 				}
 				if(this._tempPolygon != null){
 					this._tempPolygon.remove();
