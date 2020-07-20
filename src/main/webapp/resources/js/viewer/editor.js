@@ -273,7 +273,7 @@ class Editor extends Viewer {
 					this._controller.callbackNewTextLine(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 				} else if(this._tempPolygonType === ElementType.SUBTRACT) {
 					if(this._controller.getMode() === Mode.LINES){
-						this._controller.subtractTextLines(this._convertCanvasPolygonToGlobal(rectangle, false));
+						this._controller.subtractTextLines(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 					}else if(this._controller.getMode() === Mode.SEGMENT || this._controller.getMode() === Mode.EDIT){
 						this._controller.subtractSegment(this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
 					}
