@@ -103,18 +103,6 @@
                         <table>
                             <tr>
                                 <td class="kbd">
-                                    <span>Ctrl</span>+<span>Space</span>
-                                </td>
-                                <td class="kbdtext">
-                                    Request segmentation
-                                </td>
-                            </tr>
-                        </table>
-                    </li>
-                    <li>
-                        <table>
-                            <tr>
-                                <td class="kbd">
                                     <span>
                                         +
                                     </span>
@@ -237,30 +225,6 @@
                                 </td>
                                 <td class="kbdtext">
                                     Deselect and/or end current editing mode
-                                </td>
-                            </tr>
-                        </table>
-                    </li>
-                    <li>
-                        <table>
-                            <tr>
-                                <td class="kbd">
-                                    <span>1</span>
-                                </td>
-                                <td class="kbdtext">
-                                    Create area rectangle
-                                </td>
-                            </tr>
-                        </table>
-                    </li>
-                    <li>
-                        <table>
-                            <tr>
-                                <td class="kbd">
-                                    <span>2</span>
-                                </td>
-                                <td class="kbdtext">
-                                    Create area border
                                 </td>
                             </tr>
                         </table>
@@ -1057,30 +1021,6 @@
                                 </td>
                                 <td class="kbdtext">
                                     Deselect and/or end current editing mode
-                                </td>
-                            </tr>
-                        </table>
-                    </li>
-                    <li>
-                        <table>
-                            <tr>
-                                <td class="kbd">
-                                    <span>1</span>
-                                </td>
-                                <td class="kbdtext">
-                                    Create area rectangle
-                                </td>
-                            </tr>
-                        </table>
-                    </li>
-                    <li>
-                        <table>
-                            <tr>
-                                <td class="kbd">
-                                    <span>2</span>
-                                </td>
-                                <td class="kbdtext">
-                                    Create area border
                                 </td>
                             </tr>
                         </table>
