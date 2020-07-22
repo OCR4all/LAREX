@@ -126,9 +126,9 @@
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
 							<t:menuIcon jsClass="createSubtractRectangle" icon="crop_5_4"
-										tooltip="Create a subtraction Rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
+										tooltip="Create a subtraction rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSubtractPolygon" icon="star_border"
-										tooltip="Create a subtraction Polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
+										tooltip="Create a subtraction polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
@@ -160,9 +160,9 @@
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
 							<t:menuIcon jsClass="createSubtractRectangle" icon="crop_5_4"
-										tooltip="Create a subtraction Rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
+										tooltip="Create a subtraction rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSubtractPolygon" icon="star_border"
-										tooltip="Create a subtraction Polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
+										tooltip="Create a subtraction polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
@@ -192,9 +192,9 @@
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
 							<t:menuIcon jsClass="createSubtractRectangle" icon="crop_5_4"
-										tooltip="Create a subtraction Rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
+										tooltip="Create a subtraction rectangle (Shortcut: 7)">Subtract Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createSubtractPolygon" icon="star_border"
-										tooltip="Create a subtraction Polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
+										tooltip="Create a subtraction polygon (Shortcut: 8)">Subtract Polygon</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Order" jsClass="readingOrderCategory">
