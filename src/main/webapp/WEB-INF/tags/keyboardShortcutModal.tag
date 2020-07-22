@@ -305,6 +305,30 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>7</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Create a subtraction rectangle
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>8</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Create a subtraction polygon
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>6</span>
                                 </td>
                                 <td class="kbdtext">
@@ -703,6 +727,30 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>7</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Create a subtraction rectangle
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>8</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Create a subtraction polygon
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>c</span>
                                 </td>
                                 <td class="kbdtext">
@@ -1081,6 +1129,30 @@
                                 </td>
                                 <td class="kbdtext">
                                     Display contours
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>7</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Create a subtraction rectangle
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>8</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Create a subtraction polygon
                                 </td>
                             </tr>
                         </table>
