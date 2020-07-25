@@ -45,9 +45,8 @@ public class PAGERegionType {
 					for(RegionSubType subtype: RegionSubType.values()) {
 						regionTypes.add(new PAGERegionType(type,subtype));
 					}
-				} else {
-					regionTypes.add(new PAGERegionType(type,null));
 				}
+				regionTypes.add(new PAGERegionType(type, null));
 			}
 		}
 		return regionTypes;
