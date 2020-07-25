@@ -5,6 +5,7 @@ class Editor extends Viewer {
 	constructor(viewerInput, colors, controller) {
 		super(viewerInput, colors);
 		this.isEditing = false;
+		this.requiresSegmentHighlighting = false;
 		this._controller = controller;
 
 		this._tempPolygonType;
@@ -13,7 +14,7 @@ class Editor extends Viewer {
 		this._tempID;
 		this._tempMouseregion;
 		this._tempEndCircle;
-		
+
 		this._grid = { isActive: false };
 		this._readingOrder;
 		
@@ -202,6 +203,67 @@ class Editor extends Viewer {
 				'dashed',
 				startPoint
 			);
+		}
+	}
+
+	startMove() {
+		if (this.isEditing === false) {
+			this.isEditing = true;
+			this.requiresSegmentHighlighting = true;
+
+			document.body.style.cursor = "grab";
+
+			const listener = {};
+			this.addListener(listener);
+
+			listener.onMouseDown = (event) => {
+				if (this._controller.getHoveredElement()) {
+					document.body.style.cursor = "grabbing";
+					let hovered = this._controller.getHoveredElement();
+					if (hovered) {
+						// Create Copy of movable
+						this._tempPolygonType = hovered.type;
+						this._tempPolygon = new paper.Path(this.getPolygon(hovered.id).segments);
+						this._tempID = hovered.id;
+						this._tempPolygon.fillColor = 'grey';
+						this._tempPolygon.opacity = 0.3;
+						this._tempPolygon.closed = true;
+						this._tempPolygon.strokeColor = 'black';
+						this._tempPolygon.dashArray = [5, 3];
+					}
+				}
+			}
+
+			listener.onMouseDrag = (event) => {
+				if (this.isEditing === true) {
+					if (this._tempPolygon) {
+						this._tempPolygon.position = new paper.Point(this._tempPolygon.position).add(
+							new paper.Point(event.point).subtract(new paper.Point(event.lastPoint)));
+					}
+				} else {
+					this.removeListener(listener);
+				}
+			}
+
+			listener.onMouseUp = (event) => {
+				if (this.isEditing === true) {
+					document.body.style.cursor = "grab";
+
+					if (this._tempPolygon != null) {
+						if(this._isInbounds(this._tempPolygon)) {
+							this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+						}
+						this._tempPolygon.remove();
+						this._tempPolygon = null;
+					}
+				}
+			}
+		}
+	}
+
+	endMove(){
+		if (this.isEditing === true) {
+			this.endEditing();
 		}
 	}
 

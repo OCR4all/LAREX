@@ -104,6 +104,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('.deleteSelected').click(() => _controller.deleteSelected());
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.displayContours());
+	$('.move').click(() => _controller.move());
 
 	$('.displayTextView').click(() => _controller.displayTextViewer(true));
 	$('.hideTextView').click(() => _controller.displayTextViewer(false));

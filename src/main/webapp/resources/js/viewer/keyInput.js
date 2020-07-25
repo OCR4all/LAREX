@@ -137,10 +137,13 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						if(event.ctrlKey) {
 							if (mode === Mode.SEGMENT) {
 								_controller.openBatchSegmentModal();
-
 								validKey = true;
 							}
 						}
+						break;
+					case "m":
+						_controller.move();
+						validKey = true;
 						break;
 					case "+":
 						_navigationController.zoomIn(0.1);
@@ -192,6 +195,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 
 					case "Escape":
 						_controller.escape();
+						_controller.endMove();
 						_controller.endEditReadingOrder();
 						validKey = true;
 						break;
