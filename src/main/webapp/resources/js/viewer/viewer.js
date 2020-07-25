@@ -812,4 +812,14 @@ class Viewer {
 
 		return { "x": canvasX, "y": canvasY };
 	}
+
+	_isInbounds(polygon){
+		for (let pointItr = 0, pointMax = polygon.segments.length; pointItr < pointMax; pointItr++) {
+			const point = polygon.segments[pointItr].point;
+			if(!point.isInside(this.getBoundaries())){
+				return false
+			}
+		}
+		return true;
+	}
 }

@@ -250,7 +250,9 @@ class Editor extends Viewer {
 					document.body.style.cursor = "grab";
 
 					if (this._tempPolygon != null) {
-						this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+						if(this._isInbounds(this._tempPolygon)) {
+							this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+						}
 						this._tempPolygon.remove();
 						this._tempPolygon = null;
 					}
