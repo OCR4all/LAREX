@@ -55,9 +55,8 @@ public class PageXMLWriter {
 	/**
 	 * Get a pageXML document out of a page
 	 * 
-	 * @param page
-	 * @param outputFolder
-	 * @param tempResult
+	 * @param result
+	 * @param pageXMLVersion
 	 * @return pageXML document or null if parse error
 	 * @throws UnsupportedFormatVersionException
 	 * @throws InvalidIdException
@@ -99,7 +98,8 @@ public class PageXMLWriter {
 			assert regionType != null;
 			if (regionType.getName().equals(RegionType.TextRegion.getName())) {
 				final TextRegion textRegion = ((TextRegion) region);
-				textRegion.setTextType(TypeConverter.subTypeToString(type.getSubtype()));
+				if(type.getSubtype() != null)
+					textRegion.setTextType(TypeConverter.subTypeToString(type.getSubtype()));
 
 				// Add TextLines if existing
 				if(regionSegment.getTextlines() != null) {

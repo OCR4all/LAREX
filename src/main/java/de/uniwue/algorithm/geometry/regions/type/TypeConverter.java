@@ -109,9 +109,7 @@ public class TypeConverter {
 	public static RegionSubType stringToSubType(String typeString) {
 		typeString = typeString.replace("-", "_");
 		try {
-			RegionSubType type = RegionSubType.valueOf(typeString);
-
-			return type;
+			return RegionSubType.valueOf(typeString);
 		} catch (IllegalArgumentException e) {
 			return null;
 		}

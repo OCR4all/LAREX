@@ -96,7 +96,11 @@ public class PageXMLReader {
 				
 				if (type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
-					subtype = TypeConverter.stringToSubType((textRegion).getTextType());
+					if(textRegion.getAttributes().get("type").getValue() != null && textRegion.getTextType() != null) {
+						subtype = TypeConverter.stringToSubType(textRegion.getTextType());
+					}else{
+						subtype= null;
+					}
 
 					// Extract Text
 					for (LowLevelTextObject text : textRegion.getTextObjectsSorted()) {
@@ -123,7 +127,7 @@ public class PageXMLReader {
 
 								if(textContent.getText() != null) { 
 									Variable indexVariable = textContent.getAttributes().get(DefaultXmlNames.ATTR_index);
-									if(indexVariable instanceof IntegerVariable) {
+									if(indexVariable instanceof IntegerVariable && indexVariable.getValue() != null) {
 										final int index = ((IntegerValue)(indexVariable).getValue()).val;
 										content.put(index, textContent.getText());
 										highestIndex = Math.max(index, highestIndex);
