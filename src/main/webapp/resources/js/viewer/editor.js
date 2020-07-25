@@ -252,6 +252,8 @@ class Editor extends Viewer {
 					if (this._tempPolygon != null) {
 						if(this._isInbounds(this._tempPolygon)) {
 							this._controller.transformSegment(this._tempID, this._convertCanvasPolygonToGlobal(this._tempPolygon, false));
+						}else{
+							console.log("Moving elements is only allowed inbounds")
 						}
 						this._tempPolygon.remove();
 						this._tempPolygon = null;
