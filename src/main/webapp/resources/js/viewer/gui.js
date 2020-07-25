@@ -760,6 +760,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			case 'subtractPolygon':
 				$button = $('.createSubtractPolygon');
 				break;
+			case 'move':
+				$button = $('.move');
 			default:
 				break;
 		}

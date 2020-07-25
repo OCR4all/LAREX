@@ -269,6 +269,18 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>6</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Display contours
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>7</span>
                                 </td>
                                 <td class="kbdtext">
@@ -293,18 +305,6 @@
                         <table>
                             <tr>
                                 <td class="kbd">
-                                    <span>6</span>
-                                </td>
-                                <td class="kbdtext">
-                                    Display contours
-                                </td>
-                            </tr>
-                        </table>
-                    </li>
-                    <li>
-                        <table>
-                            <tr>
-                                <td class="kbd">
                                     <span>c</span>
                                 </td>
                                 <td class="kbdtext">
@@ -321,6 +321,18 @@
                                 </td>
                                 <td class="kbdtext">
                                     Fixate selected
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>m</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Move regions
                                 </td>
                             </tr>
                         </table>
@@ -739,6 +751,18 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>m</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Move regions
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>r</span>
                                 </td>
                                 <td class="kbdtext">
@@ -1117,6 +1141,18 @@
                                 </td>
                                 <td class="kbdtext">
                                     Fixate selected
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>m</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Move textlines
                                 </td>
                             </tr>
                         </table>

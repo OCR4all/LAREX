@@ -15,6 +15,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _editor;
 	let _textViewer;
 	let _currentPage;
+	let _hoveredElement;
 	let _segmentedPages = [];
 	let _savedPages = [];
 	let _book;
@@ -28,6 +29,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _visibleRegions = {}; // !_visibleRegions.contains(x) and _visibleRegions[x] == false => x is hidden
 	let _fixedGeometry = {};
 	let _editReadingOrder = false;
+	let _move = false;
 
 	let _newPolygonCounter = 0;
 	let _pastId;
@@ -1468,6 +1470,29 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	/**
+	 * Toggles move mode
+	 */
+	this.move = function(){
+		if(!_move){
+			_move = true;
+			_gui.selectToolBarButton("move", _move);
+			_editor.startMove();
+		}else{
+			_move = false;
+			_gui.selectToolBarButton("move", _move);
+			_editor.endMove();
+		}
+	}
+
+	/**
+	 * End mode mode
+	 */
+	this.endMove = function(){
+		_move = false;
+		_gui.selectToolBarButton('move', _move);
+	}
+
+	/**
 	 * Update the textline with its content
 	 */
 	this.updateTextLine = function(id) {
@@ -1561,17 +1586,28 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
-			if (!_editor.isEditing) {
+			if (!_editor.isEditing || _editor.requiresSegmentHighlighting) {
 				if((_mode === Mode.SEGMENT || _mode === Mode.EDIT) || 
 						(_mode === Mode.LINES && 
 							(this.getIDType(sectionID) === ElementType.TEXTLINE || _selector.getSelectedSegments().length === 0))){
 					_editor.highlightSegment(sectionID, doHighlight);
 					_gui.highlightSegment(sectionID, doHighlight);
+					_hoveredElement = sectionID;
 				}
 			}
 		}else{
 			_editor.highlightSegment(sectionID, doHighlight);
 			_gui.highlightSegment(sectionID, doHighlight);
+			_hoveredElement = null;
+		}
+	}
+	this.getHoveredElement = function(){
+		if(_mode === Mode.SEGMENT || _mode === Mode.EDIT){
+			return _segmentation[_currentPage].segments[_hoveredElement];
+		}else if(_mode === Mode.LINES){
+			const parent = this.textlineRegister[_hoveredElement];
+			if(parent)
+				return _segmentation[_currentPage].segments[parent].textlines[_hoveredElement];
 		}
 	}
 	this.hideAllRegionAreas = function (doHide) {

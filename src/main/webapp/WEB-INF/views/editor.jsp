@@ -122,6 +122,7 @@
 								tooltip="Combine selected regions or contours (Shortcut: C)">Combine</t:menuIcon>
 							<t:menuIcon jsClass="fixSelected" icon="lock"
 								tooltip="Fix/unfix region, for it to persist a new segmentation (Shortcut: F)">Fix</t:menuIcon>
+							<t:menuIcon jsClass="move" icon="open_with" tooltip="Move regions (Shortcut: M)">Move</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
@@ -156,6 +157,7 @@
 							tooltip="Select contours to combine (with 'C') to regions (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
 							<t:menuIcon jsClass="combineSelected" icon="add_circle"
 								tooltip="Combine selected regions or contours (Shortcut: C)">Combine</t:menuIcon>
+							<t:menuIcon jsClass="move" icon="open_with" tooltip="Move regions (Shortcut: M)">Move</t:menuIcon>
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
@@ -184,10 +186,12 @@
 								tooltip="Create a fixed textline rectangle (Shortcut: 3)">Rectangle</t:menuIcon>
 							<t:menuIcon jsClass="createTextLinePolygon" icon="star_border"
 								tooltip="Create a fixed textline polygon. Back to start or double click to end (Shortcut: 4)">Polygon</t:menuIcon>
-						<t:menuIcon jsClass="editContours" icon="font_download"
+							<t:menuIcon jsClass="editContours" icon="font_download"
 							tooltip="Select contours to combine (with 'C') to textlines (see function combine). (Shortcut: 6)">Contours</t:menuIcon>
-						<t:menuIcon jsClass="combineSelected" icon="add_circle"
+							<t:menuIcon jsClass="combineSelected" icon="add_circle"
 							tooltip="Combine selected textlines or contours (Shortcut: C)">Combine</t:menuIcon>
+							<t:menuIcon jsClass="move" icon="open_with" tooltip="Move textlines (Shortcut: M)">Move</t:menuIcon>
+
 						</t:menuIconCategory>
 						<div class="menuIconDivider col"></div>
 						<t:menuIconCategory name="Subtract" jsClass="subtractionCategory">
