@@ -472,7 +472,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$imageMode.find('option').removeAttr('selected');
 		$imageMode.find('option[value="' + imageMode + '"]').attr('selected', 'selected');
 		//reinitialize dropdown
-		$imageMode.find('select').material_select();
+		$imageMode.material_select();
 
 		$('.settings-combine-image').find('input').prop('checked', combineMode);
 	}
