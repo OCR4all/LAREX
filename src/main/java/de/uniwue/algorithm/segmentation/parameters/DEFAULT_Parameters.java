@@ -11,6 +11,4 @@ public class DEFAULT_Parameters {
 	// DEFAULT Region Parameters
 	public static final int IMAGE_MIN_SIZE_DEFAULT = 3000;
 	public static final int PARAGRAPH_MIN_SIZE_DEFAULT = 2000;
-	public static final int MARGINALIA_MIN_SIZE_DEFAULT = 2000;
-	public static final int PAGE_NUMBER_MIN_SIZE_DEFAULT = 1500;
 }

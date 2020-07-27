@@ -30,14 +30,6 @@ public class RegionManager {
 		final PAGERegionType paragraph = new PAGERegionType(RegionType.TextRegion, RegionSubType.paragraph);
 		regions.put(paragraph, new Region(paragraph, DEFAULT_Parameters.PARAGRAPH_MIN_SIZE_DEFAULT, -1, null, 
 				new RelativePosition(0, 0, 1, 1)));
-		
-		final PAGERegionType marginalia = new PAGERegionType(RegionType.TextRegion, RegionSubType.marginalia);
-		regions.put(marginalia, new Region(marginalia, DEFAULT_Parameters.MARGINALIA_MIN_SIZE_DEFAULT, -1, null, 
-				new RelativePosition(0, 0, 0.25, 1), new RelativePosition(0.75, 0, 1, 1)));
-		
-		final PAGERegionType pagenumber = new PAGERegionType(RegionType.TextRegion, RegionSubType.page_number);
-		regions.put(pagenumber, new Region(pagenumber, DEFAULT_Parameters.PAGE_NUMBER_MIN_SIZE_DEFAULT, 1, PriorityPosition.top, 
-				new RelativePosition(0, 0, 1, 0.2)));
 
 		final PAGERegionType ignore = new PAGERegionType(RegionType.TextRegion, RegionSubType.ignore);
 		regions.put(ignore, new Region(ignore, 0, -1, null));
