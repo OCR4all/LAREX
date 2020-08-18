@@ -819,6 +819,18 @@
                             </tr>
                         </table>
                     </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>shift</span>+<span>h</span>
+                                </td>
+                                <td class="kbdtext">
+                                    toggle visibility of the previous segmentation
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
                 </ul>
             </div>
             <div id="lines" class="col s12">

@@ -124,6 +124,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				break;
 			case Mode.SEGMENT:
 			default:
+				this.closeTextLineContent();
 				$('.doSegment').removeClass('hide');
 				$('#collapsible-parameters').removeClass('hide');
 				$('#collapsible-settings .segment-only').removeClass('hide');
@@ -938,7 +939,18 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		});
 		
 	}
-	
+
+	this.hideSegments = function (removedChildren) {
+		if (_viewer._overlays['segments'].children[0].visible === true) {
+			_viewer._overlays.segments.children.forEach(function (item) {
+				item.visible = false;
+			})
+		} else {
+			_viewer._overlays.segments.children.forEach(function (item) {
+				item.visible = true;
+			})
+		}
+	}
 	// Init script
 	this.setAccessibleModes(accessible_modes);
 }
