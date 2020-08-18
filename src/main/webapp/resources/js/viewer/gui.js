@@ -124,7 +124,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				break;
 			case Mode.SEGMENT:
 			default:
-				this.closeTextLineContent();
 				$('.doSegment').removeClass('hide');
 				$('#collapsible-parameters').removeClass('hide');
 				$('#collapsible-settings .segment-only').removeClass('hide');
