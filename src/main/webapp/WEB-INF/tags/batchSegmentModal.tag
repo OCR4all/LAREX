@@ -7,15 +7,19 @@
         <h4>Batch Segmentation</h4>
         <p>Run segmentation on multiple pages with the current settings</p>
         <ul class="collapsible" data-collapsible="expandable">
-<%--            <li>--%>
-<%--                <div class="collapsible-header active"><i class="material-icons">settings</i>Options</div>--%>
-<%--                <div class="collapsible-body collapsible-body-batch">--%>
-<%--                    <input type="checkbox" class="" id="batchSaveSegmentation"/>--%>
-<%--                    <label for="batchSaveSegmentation">--%>
-<%--                        Autosave pages--%>
-<%--                    </label>--%>
-<%--                </div>--%>
-<%--            </li>--%>
+            <li>
+                <div class="collapsible-header active"><i class="material-icons">settings</i>Options</div>
+                <div class="collapsible-body collapsible-body-batch">
+                    <input type="checkbox" class="" id="batchSaveSegmentation"/>
+                    <label for="batchSaveSegmentation">
+                        Save pages
+                    </label>
+                    <input type="checkbox" class="" id="batchSegmentation"/>
+                    <label for="batchSegmentation">
+                        Segment pages
+                    </label>
+                </div>
+            </li>
             <li>
                 <div class="collapsible-header active"><i class="material-icons">library_books</i>Pages</div>
                 <div class="collapsible-body collapsible-body-batch">
