@@ -115,6 +115,8 @@ public class SegmentationController {
 		return results;
 	}
 
+	//TODO: add batchSave
+
 	@RequestMapping(value = "segmentation/settings", method = RequestMethod.POST)
 	public @ResponseBody SegmentationSettings getBook(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),

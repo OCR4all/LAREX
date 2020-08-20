@@ -20,6 +20,8 @@ public class BatchSegmentationRequest {
     private SegmentationSettings settings;
     @JsonProperty("pages")
     private List<Integer> pages;
+    @JsonProperty("segment")
+    private boolean segment;
     @JsonProperty("save")
     private boolean save;
     @JsonProperty("bookid")
@@ -30,11 +32,13 @@ public class BatchSegmentationRequest {
     @JsonCreator
     public BatchSegmentationRequest(@JsonProperty("settings") SegmentationSettings settings,
                                     @JsonProperty("pages") List<Integer> pages,
+                                    @JsonProperty("segment") boolean segment,
                                     @JsonProperty("save") boolean save,
                                     @JsonProperty("bookid") Integer bookid,
                                     @JsonProperty("version") String version) {
         this.pages = pages;
         this.settings = settings;
+        this.segment = segment;
         this.save = save;
         this.bookid = bookid;
         this.version = version;
@@ -47,6 +51,8 @@ public class BatchSegmentationRequest {
     public SegmentationSettings getSettings() {
         return settings;
     }
+
+    public boolean getSegment() { return segment; }
 
     public boolean getSave() { return save; }
 

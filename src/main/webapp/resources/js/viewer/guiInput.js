@@ -450,15 +450,26 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#selectAllBatch").click(function () {
 		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
 	});
+	$("#selectOddBatch").click(function () {
+		$('.batchPageCheck:checkbox:odd').not(this).prop('checked', this.checked);
+	});
+	$("#selectInverseBatch").click(function () {
+		//$('.batchPageCheck:checkbox:checked').not(this).prop('checked', !$(this).attr('checked'));
+		$('.batchPageCheck:checkbox').each( function() {
+			let isChecked = !$(this).prop("checked");
+			$(this).prop('checked', isChecked);
+		});
+	});
 
 	$(".doBatchSegment").click(function (){
 		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
 			return $(this).data("page");
 		});
 		const save_pages = $("#batchSaveSegmentation").is(":checked");
+		const segment_pages = $("#batchSegmentation").is(":checked");
 
 		_controller.requestBatchSegmentation(false, selected_pages.toArray(),
-			save_pages);
+			segment_pages, save_pages);
 	});
 
 	$("#displayPrediction").click(function(){

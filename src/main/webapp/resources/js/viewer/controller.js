@@ -305,7 +305,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 
-	this.requestBatchSegmentation = function (allowLoadLocal, pages, save){
+	this.requestBatchSegmentation = function (allowLoadLocal, pages, segment, save) {
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -314,8 +314,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
-		for(let page of pages){
-			activesettings.fixedGeometry = {segments:{},cuts:{}};
+		for (let page of pages) {
+			activesettings.fixedGeometry = {segments: {}, cuts: {}};
 			if (_fixedGeometry[page]) {
 				if (_fixedGeometry[page].segments)
 					_fixedGeometry[page].segments.forEach(
@@ -324,23 +324,22 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
 		}
-
-		_communicator.batchSegmentPage(activesettings, pages, save, _book.id, _gui.getPageXMLVersion()).done((results) => {
-			for(const [index, result] of results.entries()){
-				this.setChanged(pages[index]);
-				this._setPage(pages[index], result);
-				_savedPages.push(pages[index]);
-				_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
-				if(save){
-				  _savedPages.push(pages[index]);
-				  _gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
-				 }
-			}
-			this.displayPage(pages[0])
-			Materialize.toast("Batch segmentation successful.", 1500, "green")
-			_batchSegmentationPreloader.hide();
-			$(".modal").modal("close");
-		});
+		if (segment) {
+			_communicator.batchSegmentPage(activesettings, pages, segment, save, _book.id, _gui.getPageXMLVersion()).done((results) => {
+				for (const [index, result] of results.entries()) {
+					this.setChanged(pages[index]);
+					this._setPage(pages[index], result);
+					if (save) {
+						_savedPages.push(pages[index]);
+						_gui.addPageStatus(pages[index], PageStatus.SESSIONSAVED);
+					}
+				}
+				this.displayPage(pages[0])
+				Materialize.toast("Batch operation successful.", 1500, "green")
+				_batchSegmentationPreloader.hide();
+				$(".modal").modal("close");
+			});
+		}
 	}
 
 	this.requestSegmentation = function (allowLoadLocal) {

@@ -30,6 +30,18 @@
                                 Select all
                             </label>
                         </li>
+                        <li class="select-odd">
+                            <input type="checkbox" class="" id="selectOddBatch"/>
+                            <label for="selectOddBatch">
+                                Select all odd pages
+                            </label>
+                        </li>
+                        <li class="select-inverse">
+                            <input type="checkbox" class="" id="selectInverseBatch"/>
+                            <label for="selectInverseBatch">
+                                Inverse selection
+                            </label>
+                        </li>
                         <c:forEach items="${book.getPages()}" var="bookpage">
                             <li>
                                 <input type="checkbox" id="${bookpage.getName()}" data-page="${bookpage.getId()}"
