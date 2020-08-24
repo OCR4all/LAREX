@@ -1,7 +1,7 @@
 const DataType = {SIMPLE:0,JSON:1,BYTE:2};
 
 class Communicator {
-	request(url,data={},uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON){
+	request(url,data={},uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON, arrayBuffer = false){
 		// Deferred object for function status
 		const status = $.Deferred();
 
@@ -37,6 +37,7 @@ class Communicator {
 		if(downloadDataType === DataType.JSON){
 			request.dataType = "json";
 		}
+		if(arrayBuffer) {request.responseType = "blob";}
 
 		$.ajax(request);
 
@@ -69,9 +70,13 @@ class Communicator {
 		return this.request("segmentation/segment", {settings:settings,page:page}, DataType.JSON);
 	}
 
-	batchSegmentPage(settings, pages, segment, save, bookID, pageXMLVersion){
-		return this.request("segmentation/batchSegment", {settings:settings, pages:pages, segment:segment, save:save,
+	batchSegmentPage(settings, pages, bookID, pageXMLVersion){
+		return this.request("segmentation/batchSegment", {settings:settings, pages:pages,
 			bookid:bookID, version:pageXMLVersion}, DataType.JSON)
+	}
+
+	batchExportPage(bookID, pages, segmentations, pageXMLVersion) {
+		return this.request("file/export/batchExport", {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion}, DataType.JSON, DataType.BYTE,true);
 	}
 
 	emptySegmentation(bookID, pageID) {

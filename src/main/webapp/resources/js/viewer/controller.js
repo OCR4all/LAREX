@@ -305,7 +305,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 
-	this.requestBatchSegmentation = function (allowLoadLocal, pages, segment, save) {
+	this.requestBatchSegmentation = function (allowLoadLocal, pages, save) {
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -324,22 +324,51 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
 		}
-		if (segment) {
-			_communicator.batchSegmentPage(activesettings, pages, segment, save, _book.id, _gui.getPageXMLVersion()).done((results) => {
-				for (const [index, result] of results.entries()) {
-					this.setChanged(pages[index]);
-					this._setPage(pages[index], result);
-					if (save) {
-						_savedPages.push(pages[index]);
-						_gui.addPageStatus(pages[index], PageStatus.SESSIONSAVED);
-					}
-				}
-				this.displayPage(pages[0])
-				Materialize.toast("Batch operation successful.", 1500, "green")
+		_communicator.batchSegmentPage(activesettings, pages, _book.id, _gui.getPageXMLVersion()).done((results) => {
+			for (const [index, result] of results.entries()) {
+				this.setChanged(pages[index]);
+				this._setPage(pages[index], result);
+			}
+			this.displayPage(pages[0])
+			Materialize.toast("Batch segmentation successful.", 1500, "green")
+			if(save) {
+				this.requestBatchExport(pages);
+			} else {
 				_batchSegmentationPreloader.hide();
 				$(".modal").modal("close");
-			});
+			}
+		});
+	}
+
+	this.requestBatchExport = function (pages) {
+		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
+		_batchSegmentationPreloader.show();
+
+		//Update setting parameters
+		_settings.parameters = _gui.getParameters();
+		let segmentations = [];
+		for(let pageI in pages) {
+			segmentations.push(_segmentation[pageI]);
 		}
+		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).done((data) => {
+			for(let pageI in pages) {
+				_savedPages.push(pageI);
+				_gui.addPageStatus(pageI,PageStatus.SERVERSAVED);
+			}
+
+			if(globalSettings.downloadPage) {
+				let a = window.document.createElement('a');
+				a.href = window.URL.createObjectURL(new Blob([str2bytes(data)], {type: "application/zip"}));
+				a.download = _book.name + "_" + "archive" + ".zip";
+
+				// Append anchor to body.
+				document.body.appendChild(a);
+				a.click();
+			}
+		});
+		this.displayPage(pages[0])
+		Materialize.toast("Batch export successful.", 1500, "green")
+		_batchSegmentationPreloader.hide();
 	}
 
 	this.requestSegmentation = function (allowLoadLocal) {
@@ -1916,5 +1945,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			})
 			$shortcutModal.modal("open");
 		}
+	}
+	function str2bytes (str) {
+		let bytes = new Uint8Array(str.length);
+		for (let i=0; i<str.length; i++) {
+			bytes[i] = str.charCodeAt(i);
+		}
+		return bytes;
 	}
 }

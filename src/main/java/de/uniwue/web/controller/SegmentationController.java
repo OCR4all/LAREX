@@ -80,10 +80,9 @@ public class SegmentationController {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"));
 		List<PageAnnotations> results = new ArrayList<>();
-		boolean save = batchSegmentationRequest.getSave();
 		for(int page: batchSegmentationRequest.getPages()){
 			PageAnnotations result = LarexFacade.segmentPage(batchSegmentationRequest.getSettings(), page, fileManager, database);
-			if(save){
+			/*if(save){
 				try {
 					final Document pageXML = PageXMLWriter.getPageXML(result, batchSegmentationRequest.getVersion());
 
@@ -109,7 +108,7 @@ public class SegmentationController {
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
-			};
+			}*/
 			results.add(result);
 		}
 		return results;

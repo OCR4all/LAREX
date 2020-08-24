@@ -67,7 +67,11 @@
 <div id="batchSegmentConfirmationModal" class="modal">
     <div class="modal-content">
         <div class="card-panel center red" id="batchWarning">
-			<span class="white-text">Running the batch segmentation will override the segmentation results for all selected pages.
+			<span class="white-text">Running batch segmentation will override the segmentation results for all selected pages.
+			</span>
+        </div>
+        <div class="card-panel center red" id="exportWarning">
+			<span class="white-text">Running batch export will override the files on server.
 			</span>
         </div>
         <div class="progress" id="batch-segmentation-progress">

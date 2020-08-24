@@ -451,7 +451,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
 	});
 	$("#selectOddBatch").click(function () {
-		$('.batchPageCheck:checkbox:odd').not(this).prop('checked', this.checked);
+		$('.batchPageCheck:checkbox:even').not(this).prop('checked', this.checked);
 	});
 	$("#selectInverseBatch").click(function () {
 		//$('.batchPageCheck:checkbox:checked').not(this).prop('checked', !$(this).attr('checked'));
@@ -460,16 +460,31 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 			$(this).prop('checked', isChecked);
 		});
 	});
+	$("#batchSegmentation").click(function () {
+		if($("#batchSegmentation").is(":checked")) {
+			$("#batchWarning").removeClass("hide");
+		} else {
+			$("#batchWarning").addClass("hide");
+		}
+	});
+	$("#batchSaveSegmentation").click(function () {
+		if($("#batchSaveSegmentation").is(":checked")) {
+			$("#exportWarning").removeClass("hide");
+		} else {
+			$("#exportWarning").addClass("hide");
+		}
+	});
 
 	$(".doBatchSegment").click(function (){
 		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
 			return $(this).data("page");
 		});
-		const save_pages = $("#batchSaveSegmentation").is(":checked");
-		const segment_pages = $("#batchSegmentation").is(":checked");
-
-		_controller.requestBatchSegmentation(false, selected_pages.toArray(),
-			segment_pages, save_pages);
+		if($("#batchSegmentation").is(":checked")) {
+			_controller.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"));
+		}else if($("#batchSaveSegmentation").is(":checked") && !($("#batchSegmentation").is(":checked"))) {
+			_controller.requestBatchExport(selected_pages.toArray());
+		}
+		$(".modal").modal("close");
 	});
 
 	$("#displayPrediction").click(function(){
