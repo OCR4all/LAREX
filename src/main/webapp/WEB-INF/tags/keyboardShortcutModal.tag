@@ -823,7 +823,7 @@
                         <table>
                             <tr>
                                 <td class="kbd">
-                                    <span>shift</span>+<span>h</span>
+                                    <span>Shift</span>+<span>h</span>
                                 </td>
                                 <td class="kbdtext">
                                     toggle visibility of the previous segmentation
