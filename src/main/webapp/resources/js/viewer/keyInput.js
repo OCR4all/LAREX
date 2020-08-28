@@ -293,7 +293,9 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						break;
 					case "h":
 						if (event.shiftKey) {
-							_gui.hideSegments();
+							let state = !$("#toggleSegmentVisibility").prop("checked");
+							$("#toggleSegmentVisibility").prop("checked", state);
+							_gui.hideSegments(state);
 						}
 						break;
 					default: //Debug to get key codes

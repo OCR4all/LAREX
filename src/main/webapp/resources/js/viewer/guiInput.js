@@ -465,5 +465,13 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer._displayPredictedText();
 	})
 
+	$("#toggleSegmentVisibility").change(function () {
+		if(this.checked){
+			_gui.hideSegments(true);
+		} else {
+			_gui.hideSegments(false);
+		}
+	})
+
 	$('.showShortcuts').click(() => _controller.toggleShortcutModal());
 }

@@ -939,17 +939,12 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		
 	}
 
-	this.hideSegments = function (removedChildren) {
-		if (_viewer._overlays['segments'].children[0].visible === true) {
-			_viewer._overlays.segments.children.forEach(function (item) {
-				item.visible = false;
-			})
-		} else {
-			_viewer._overlays.segments.children.forEach(function (item) {
-				item.visible = true;
-			})
-		}
+	this.hideSegments = function (state) {
+		_viewer._overlays.segments.children.forEach(function (item) {
+			item.visible = state;
+		})
 	}
+
 	// Init script
 	this.setAccessibleModes(accessible_modes);
 }
