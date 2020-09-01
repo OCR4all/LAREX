@@ -28,7 +28,7 @@
 							<b>
 								<a class="grey-text text-lighten-3"
 								href="http://www.is.informatik.uni-wuerzburg.de/staff/reul_christian/">
-									Christian Reul, M. Sc. </a>
+									Dr. Christian Reul </a>
 							</b>
 						</li>
 						<li><i>Main Developer</i></li>
