@@ -160,15 +160,20 @@
 				</div>
 			</div>
 		</li>
-		<li id="segmentationToggle">
-			<div class="segmentationToggle row">
-				<span class="col s12 switch">
-					<label>
-						Toggle segment visibility
-						<input id="toggleSegmentVisibility" type="checkbox" checked="checked">
-						<span class="lever"></span>
-					</label>
-				</span>
+		<li id="collapsible-actions">
+			<div class="collapsible-header active">
+				<i class="material-icons">adjust</i>Actions
+			</div>
+			<div class="collapsible-body">
+				<div class="segmentationToggle row">
+					<span class="col s12 switch">
+						<label>
+							<input id="toggleSegmentVisibility" type="checkbox">
+							<span class="lever"></span>
+							Hide existing segments
+						</label>
+					</span>
+				</div>
 			</div>
 		</li>
 	</ul>

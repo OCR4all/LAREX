@@ -467,9 +467,9 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 
 	$("#toggleSegmentVisibility").change(function () {
 		if(this.checked){
-			_gui.hideSegments(true);
+			_controller.hideAllSegments(true);
 		} else {
-			_gui.hideSegments(false);
+			_controller.hideAllSegments(false);
 		}
 	})
 

@@ -263,6 +263,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_gui.showUsedRegionLegends(_presentRegions);
 			this.displayReadingOrder(false);
 			_gui.updateRegionLegendColors(_presentRegions);
+			_gui.resetSidebarActions();
 
 			_gui.selectPage(pageNr, imageNr);
 			this.endEditReadingOrder();
@@ -1610,6 +1611,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				return _segmentation[_currentPage].segments[parent].textlines[_hoveredElement];
 		}
 	}
+	this.hideAllSegments = function (doHide){
+		_editor._overlays.segments.children.forEach(function (item) {
+			item.visible = !doHide;
+		})
+	}
 	this.hideAllRegionAreas = function (doHide) {
 		// Iterate over Regions-"Map" (Object in JS)
 		Object.keys(_settings.regions).forEach((key) => {
@@ -1917,5 +1923,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			})
 			$shortcutModal.modal("open");
 		}
+	}
+
+	this.toggleSegmentVisibility = function(){
+		let state = !$("#toggleSegmentVisibility").prop("checked");
+		$("#toggleSegmentVisibility").prop("checked", state);
+		_gui.openSidebarActions();
+		this.hideAllSegments(state);
 	}
 }

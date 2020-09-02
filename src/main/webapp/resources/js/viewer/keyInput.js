@@ -291,11 +291,11 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 
 						_controller.applyGrid();
 						break;
+					case "H":
 					case "h":
 						if (event.shiftKey) {
-							let state = !$("#toggleSegmentVisibility").prop("checked");
-							$("#toggleSegmentVisibility").prop("checked", state);
-							_gui.hideSegments(state);
+							_controller.toggleSegmentVisibility();
+							validKey = true;
 						}
 						break;
 					default: //Debug to get key codes
