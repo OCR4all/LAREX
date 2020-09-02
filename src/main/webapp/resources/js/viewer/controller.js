@@ -1925,6 +1925,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
+	this.resetSegmentVisibility = function(){
+		$("#toggleSegmentVisibility").prop("checked", false);
+		this.hideAllSegments(false);
+	}
+
 	this.toggleSegmentVisibility = function(){
 		let state = !$("#toggleSegmentVisibility").prop("checked");
 		$("#toggleSegmentVisibility").prop("checked", state);

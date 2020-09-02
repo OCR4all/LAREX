@@ -6,6 +6,7 @@ function ActionController(controller) {
 	let _actionpointers = {};
 
 	this.redo = function (page) {
+		_controller.resetSegmentVisibility();
 		_controller.setChanged(page);
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
@@ -18,6 +19,7 @@ function ActionController(controller) {
 		}
 	}
 	this.undo = function (page) {
+		_controller.resetSegmentVisibility();
 		_controller.setChanged(page);
 		let pageActions = _actions[page];
 		let pageActionpointer = _actionpointers[page];
