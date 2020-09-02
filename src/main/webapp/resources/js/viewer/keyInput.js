@@ -291,6 +291,13 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 
 						_controller.applyGrid();
 						break;
+					case "H":
+					case "h":
+						if (event.shiftKey) {
+							_controller.toggleSegmentVisibility();
+							validKey = true;
+						}
+						break;
 					default: //Debug to get key codes
 					//alert(event.keyCode);
 				}

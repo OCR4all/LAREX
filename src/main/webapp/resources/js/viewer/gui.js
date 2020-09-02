@@ -938,7 +938,20 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		});
 		
 	}
-	
+
+	this.openSidebarActions = function(){
+		// Programmatically opening Collapsible seems to be buggy with Materialize v0.100.2 but this should be replaced
+		// with the native functions when upgrading Materialize
+		let $collapsibleActions = $('#collapsible-actions .collapsible-header');
+		if(!$collapsibleActions.hasClass("active"))
+			$collapsibleActions.click();
+	}
+
+	this.resetSidebarActions = function(){
+		let $hideSegments = $("#toggleSegmentVisibility")
+		$hideSegments.prop("checked", false);
+	}
+
 	// Init script
 	this.setAccessibleModes(accessible_modes);
 }
