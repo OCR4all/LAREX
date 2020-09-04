@@ -350,20 +350,23 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		for(let pageI in pages) {
 			segmentations.push(_segmentation[pageI]);
 		}
-		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).done((data) => {
+		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).then((data) => {
 			for(let pageI in pages) {
 				_savedPages.push(pageI);
 				_gui.addPageStatus(pageI,PageStatus.SERVERSAVED);
 			}
 
 			if(globalSettings.downloadPage) {
-				let a = window.document.createElement('a');
-				a.href = window.URL.createObjectURL(new Blob([str2bytes(data)], {type: "application/zip"}));
-				a.download = _book.name + "_" + "archive" + ".zip";
-
-				// Append anchor to body.
-				document.body.appendChild(a);
-				a.click();
+				try {
+					let a = window.document.createElement('a');
+					a.href = window.URL.createObjectURL(new Blob([data], {type: "application/zip; charset=utf-8"}));
+					a.download = _book.name + "_" + "archive" + ".zip";
+					document.body.appendChild(a);
+					a.click();
+				} catch (err) {
+					console.log(err);
+					console.log(err.stack);
+				}
 			}
 		});
 		this.displayPage(pages[0])
@@ -1945,12 +1948,5 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			})
 			$shortcutModal.modal("open");
 		}
-	}
-	function str2bytes (str) {
-		let bytes = new Uint8Array(str.length);
-		for (let i=0; i<str.length; i++) {
-			bytes[i] = str.charCodeAt(i);
-		}
-		return bytes;
 	}
 }

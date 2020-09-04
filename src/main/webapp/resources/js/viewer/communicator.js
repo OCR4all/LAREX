@@ -1,7 +1,7 @@
 const DataType = {SIMPLE:0,JSON:1,BYTE:2};
 
 class Communicator {
-	request(url,data={},uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON, arrayBuffer = false){
+	request(url,data={},uploadDataType=DataType.SIMPLE,downloadDataType=DataType.JSON){
 		// Deferred object for function status
 		const status = $.Deferred();
 
@@ -37,7 +37,6 @@ class Communicator {
 		if(downloadDataType === DataType.JSON){
 			request.dataType = "json";
 		}
-		if(arrayBuffer) {request.responseType = "blob";}
 
 		$.ajax(request);
 
@@ -76,7 +75,19 @@ class Communicator {
 	}
 
 	batchExportPage(bookID, pages, segmentations, pageXMLVersion) {
-		return this.request("file/export/batchExport", {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion}, DataType.JSON, DataType.BYTE,true);
+		//using fetch instead of JQuery.ajax because of arrayBuffer type
+		let url = 'file/export/batchExport';
+		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion};
+		return fetch(url, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json; charset=utf-8'},
+			body: JSON.stringify(ajaxdata)
+		}).then(function (response) {
+			return response.arrayBuffer();
+		}).catch(function (err) {
+			// There was an error
+			console.warn('Something went wrong.', err);
+		});
 	}
 
 	emptySegmentation(bookID, pageID) {

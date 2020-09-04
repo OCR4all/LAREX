@@ -51,12 +51,4 @@ public class BatchExportRequest {
     public String getVersion() {
         return version;
     }
-
-    private List<PageAnnotations> serializeFromJSON(List<String> segList) {
-        List<PageAnnotations> segments = new ArrayList<>();
-        for(String s : segList) {
-            System.out.println(s);
-        }
-        return segments;
-    }
 }

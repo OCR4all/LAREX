@@ -82,39 +82,10 @@ public class SegmentationController {
 		List<PageAnnotations> results = new ArrayList<>();
 		for(int page: batchSegmentationRequest.getPages()){
 			PageAnnotations result = LarexFacade.segmentPage(batchSegmentationRequest.getSettings(), page, fileManager, database);
-			/*if(save){
-				try {
-					final Document pageXML = PageXMLWriter.getPageXML(result, batchSegmentationRequest.getVersion());
-
-					final String xmlName =  result.getName() + ".xml";
-
-					switch (config.getSetting("localsave")) {
-						case "bookpath":
-							String bookdir = fileManager.getLocalBooksPath() + File.separator
-									+ database.getBookName(batchSegmentationRequest.getBookid());
-							PageXMLWriter.saveDocument(pageXML, xmlName, bookdir);
-							break;
-						case "savedir":
-							String savedir = config.getSetting("savedir");
-							if (savedir != null && !savedir.equals("")) {
-								PageXMLWriter.saveDocument(pageXML, xmlName, savedir);
-							} else {
-								System.err.println("Warning: Save dir is not set. File could not been saved.");
-							}
-							break;
-						case "none":
-						case "default":
-					}
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}*/
 			results.add(result);
 		}
 		return results;
 	}
-
-	//TODO: add batchSave
 
 	@RequestMapping(value = "segmentation/settings", method = RequestMethod.POST)
 	public @ResponseBody SegmentationSettings getBook(@RequestParam("bookid") int bookID) {

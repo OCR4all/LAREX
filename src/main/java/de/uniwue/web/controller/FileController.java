@@ -316,33 +316,24 @@ public class FileController {
 	private byte[] convertDocumentsToArchive(List<Document> documents, List<String> filenames) {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		try {
-			File file = File.createTempFile("temp_archive",".zip");
-			FileOutputStream fos = new FileOutputStream(file);
 			ZipOutputStream zos = new ZipOutputStream(baos);
-			ZipOutputStream zos2 = new ZipOutputStream(fos);
 			for(int i = 0; i < documents.size(); i++) {
 				//byte[] doc = convertDocumentToByte(documents.get(i));
 				ByteArrayInputStream bais = new ByteArrayInputStream(convertDocumentToByte(documents.get(i)));
 				ZipEntry entry = new ZipEntry(filenames.get(i));
 				//entry.setSize(doc.length);
 				zos.putNextEntry(entry);
-				zos2.putNextEntry(entry);
 				byte[] buffer = new byte[1024];
 				int len = 0;
 				while ((len = bais.read(buffer)) > 0) {
-					System.out.println(len);
 					zos.write(buffer, 0,len);
-					zos2.write(buffer, 0,len);
 				}
 				zos.closeEntry();
-				zos2.closeEntry();
 			}
-			//baos.close();
 			zos.close();
-			zos2.close();
 			baos.close();
 
-			return FileUtils.readFileToByteArray(file);
+			return baos.toByteArray();
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
