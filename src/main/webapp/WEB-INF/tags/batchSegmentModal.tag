@@ -10,37 +10,38 @@
             <li>
                 <div class="collapsible-header active"><i class="material-icons">settings</i>Options</div>
                 <div class="collapsible-body collapsible-body-batch">
-                    <input type="checkbox" class="" id="batchSaveSegmentation"/>
-                    <label for="batchSaveSegmentation">
-                        Save pages
-                    </label>
-                    <input type="checkbox" class="" id="batchSegmentation"/>
-                    <label for="batchSegmentation">
-                        Segment pages
-                    </label>
+                    <ul>
+                        <li>
+                            <input type="checkbox" class="" id="batchSaveSegmentation"/>
+                            <label for="batchSaveSegmentation">
+                                Save pages
+                            </label>
+                        </li>
+                        <li>
+                            <input type="checkbox" class="" id="batchSegmentation"/>
+                            <label for="batchSegmentation">
+                                Segment pages
+                            </label>
+                        </li>
+                    </ul>
                 </div>
             </li>
             <li>
                 <div class="collapsible-header active"><i class="material-icons">library_books</i>Pages</div>
                 <div class="collapsible-body collapsible-body-batch">
                     <ul id="batchImageList">
-                        <li class="select-all">
-                            <input type="checkbox" class="" id="selectAllBatch"/>
-                            <label for="selectAllBatch">
-                                Select all
-                            </label>
-                        </li>
-                        <li class="select-odd">
-                            <input type="checkbox" class="" id="selectOddBatch"/>
-                            <label for="selectOddBatch">
-                                Select all odd pages
-                            </label>
-                        </li>
-                        <li class="select-inverse">
-                            <input type="checkbox" class="" id="selectInverseBatch"/>
-                            <label for="selectInverseBatch">
-                                Inverse selection
-                            </label>
+                        <li class="input-field select-all row" style="margin: 0 !important;">
+                                <div class="col s1" style="padding: 0 !important;">
+                                    <input type="checkbox" class="" id="selectFilter"/>
+                                    <label for="selectFilter">Select</label>
+                                </div>
+                                <div class="col s2" id="filter-select-input" style="padding-left: 2%;">
+                                    <select id="select-filter-option">
+                                        <option value="all">all</option>
+                                        <option value="even">even</option>
+                                        <option value="odd">odd</option>
+                                    </select>
+                                </div>
                         </li>
                         <c:forEach items="${book.getPages()}" var="bookpage">
                             <li>

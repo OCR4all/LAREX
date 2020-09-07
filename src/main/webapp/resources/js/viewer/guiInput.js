@@ -447,18 +447,25 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	/**
 	 * Batch Segmentation Modal
 	 */
-	$("#selectAllBatch").click(function () {
-		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
-	});
-	$("#selectOddBatch").click(function () {
-		$('.batchPageCheck:checkbox:even').not(this).prop('checked', this.checked);
-	});
-	$("#selectInverseBatch").click(function () {
-		//$('.batchPageCheck:checkbox:checked').not(this).prop('checked', !$(this).attr('checked'));
-		$('.batchPageCheck:checkbox').each( function() {
-			let isChecked = !$(this).prop("checked");
-			$(this).prop('checked', isChecked);
-		});
+	$('#selectFilter').on('change', function() {
+		let selectMode = $("#select-filter-option").val();
+
+		let checked = false;
+
+		if( $(this).is(':checked') )
+			checked = true;
+
+		switch (selectMode) {
+			case "all":
+				$('#batchImageList input[type="checkbox"]').not("#selectFilter").prop('checked', checked);
+				break;
+			case "even":
+				$('#batchImageList input[type="checkbox"]:even').not("#selectFilter").prop('checked', checked);
+				break;
+			case "odd":
+				$('#batchImageList input[type="checkbox"]:odd').not("#selectFilter").prop('checked', checked);
+				break;
+		}
 	});
 	$("#batchSegmentation").click(function () {
 		if($("#batchSegmentation").is(":checked")) {
