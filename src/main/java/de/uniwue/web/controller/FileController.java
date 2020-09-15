@@ -11,20 +11,18 @@ import java.util.zip.ZipOutputStream;
 
 import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
-import javax.print.Doc;
 import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import de.uniwue.web.model.Page;
-import org.apache.commons.io.FileUtils;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.Size;
@@ -43,7 +41,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
@@ -65,7 +62,7 @@ import de.uniwue.web.model.PageAnnotations;
  * and process save as well as export requests
  */
 @Controller
-@Scope("request")
+@Scope("session")
 public class FileController {
 	@Autowired
 	private ServletContext servletContext;
@@ -73,6 +70,10 @@ public class FileController {
 	private FilePathManager fileManager;
 	@Autowired
 	private LarexConfiguration config;
+	/**
+	 * Progress of the batchExport process
+	 */
+	private int exportProgress = -1;
 
 	/**
 	 * Initialize the controller by loading the fileManager and settings if not
@@ -90,6 +91,7 @@ public class FileController {
 				fileManager.setLocalBooksPath(bookFolder);
 			}
 		}
+		this.exportProgress = 0;
 	}
 	
 	/**
@@ -217,11 +219,9 @@ public class FileController {
 	@RequestMapping(value = "file/export/batchExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/zip", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> BatchExportXML(@RequestBody BatchExportRequest request) {
 		try {
-			List<Integer> pages = request.getPages();
 			List<PageAnnotations> segmentations = request.getSegmentation();
 			List<String> filenames = new ArrayList<String>();
 			List<Document> docs = new ArrayList<>();
-			String version = request.getVersion();
 			for(int i = 0;  i < request.getPages().size(); i++) {
 				Document pageXML = PageXMLWriter.getPageXML(segmentations.get(i), request.getVersion());
 				String xmlName =  segmentations.get(i).getName() + ".xml";
@@ -229,13 +229,17 @@ public class FileController {
 				docs.add(pageXML);
 				saveDocument(pageXML, xmlName, request.getBookid());
 			}
-			byte[] zipBytes = convertDocumentsToArchive(docs,filenames);
-			return convertByteToResponse(zipBytes,"archive.zip","application/zip");
+
+			if(request.getDownload()) {
+				byte[] zipBytes = convertDocumentsToArchive(docs,filenames);
+				return convertByteToResponse(zipBytes,"archive.zip","application/zip");
+			} else {
+				return new ResponseEntity<byte[]>(HttpStatus.OK);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
-
 	}
 
 	/**
@@ -381,4 +385,12 @@ public class FileController {
 			case "default":
 		}
 	}
+	/**
+	 * Response to the request to return the progress status of the adjust files service
+	 *
+	 * @param session Session of the user
+	 * @return Current progress (range: 0 - 100)
+	 */
+	@RequestMapping(value = "file/export/batchExportProgress" , method = RequestMethod.GET)
+	public @ResponseBody int progress(HttpSession session, HttpServletResponse response) { return this.exportProgress; }
 }

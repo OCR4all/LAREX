@@ -25,6 +25,8 @@ public class BatchExportRequest {
     private List<PageAnnotations> segmentations;
     @JsonProperty("version")
     private String version;
+    @JsonProperty("downloadPage")
+    private Boolean downloadPages;
 
     @JsonCreator
     public BatchExportRequest(@JsonProperty("bookid") Integer bookid,
@@ -51,4 +53,6 @@ public class BatchExportRequest {
     public String getVersion() {
         return version;
     }
+
+    public Boolean getDownload() { return downloadPages; }
 }

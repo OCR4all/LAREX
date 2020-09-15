@@ -76,7 +76,7 @@
 			</span>
         </div>
         <div class="progress" id="batch-segmentation-progress">
-            <div class="indeterminate"></div>
+            <div class="determinate"></div>
         </div>
         <div class="center">
             <a class="col s12 waves-effect waves-light btn doBatchSegment tooltipped" data-position="left"

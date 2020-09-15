@@ -77,7 +77,7 @@ class Communicator {
 	batchExportPage(bookID, pages, segmentations, pageXMLVersion) {
 		//using fetch instead of JQuery.ajax because of arrayBuffer type
 		let url = 'file/export/batchExport';
-		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion};
+		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion, downloadPage:globalSettings.downloadPage};
 		return fetch(url, {
 			method: 'POST',
 			headers: {'Content-Type': 'application/json; charset=utf-8'},
@@ -155,5 +155,21 @@ class Communicator {
 
 	getOCR4allMode(){
 		return this.request("config/ocr4all", {}, DataType.JSON);
+	}
+
+	getBatchSegmentationProgress(){
+		return $.ajax({
+			type: "GET",
+			url: "segmentation/batchSegmentProgress",
+			cache: false,
+		});
+	}
+
+	getBatchExportProgress(){
+		return $.ajax({
+			type: "GET",
+			url: "file/export/batchExportProgress",
+			cache: false,
+		});
 	}
 }

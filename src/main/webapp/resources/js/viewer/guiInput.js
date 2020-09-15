@@ -486,12 +486,23 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
 			return $(this).data("page");
 		});
-		if($("#batchSegmentation").is(":checked")) {
-			_controller.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"));
-		}else if($("#batchSaveSegmentation").is(":checked") && !($("#batchSegmentation").is(":checked"))) {
-			_controller.requestBatchExport(selected_pages.toArray());
+		let batchSeg = $("#batchSegmentation").is(":checked");
+		let batchExp = $("#batchSaveSegmentation").is(":checked");
+		let progress = 0;
+		let progressInterval = setInterval(() => {
+			_communicator.getBatchSegmentationProgress().done(function (data) {
+				setTimeout(function () {
+					progress = Math.round((data / selected_pages.toArray().length) * 100);
+					console.log("progress: " + progress);
+					$("#batch-segmentation-progress").css('width', progress + '%');
+				});
+			})
+		},1000)
+		if(batchSeg) {
+			_controller.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),progressInterval);
+		}else if(batchExp && !(batchSeg)) {
+			_controller.requestBatchExport(selected_pages.toArray(),progressInterval);
 		}
-		$(".modal").modal("close");
 	});
 
 	$("#displayPrediction").click(function(){

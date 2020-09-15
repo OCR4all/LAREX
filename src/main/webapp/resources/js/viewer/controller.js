@@ -305,7 +305,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 
-	this.requestBatchSegmentation = function (allowLoadLocal, pages, save) {
+	this.requestBatchSegmentation = function (allowLoadLocal, pages, save, progressInterval) {
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -332,15 +332,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.displayPage(pages[0])
 			Materialize.toast("Batch segmentation successful.", 1500, "green")
 			if(save) {
-				this.requestBatchExport(pages);
+				this.requestBatchExport(pages, progressInterval);
 			} else {
 				_batchSegmentationPreloader.hide();
+				clearInterval(progressInterval);
 				$(".modal").modal("close");
 			}
 		});
 	}
 
-	this.requestBatchExport = function (pages) {
+	this.requestBatchExport = function (pages, progressInterval) {
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -370,8 +371,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		});
 		this.displayPage(pages[0])
+		clearInterval(progressInterval);
+		$(".modal").modal("close");
 		Materialize.toast("Batch export successful.", 1500, "green")
 		_batchSegmentationPreloader.hide();
+		$("#batch-segmentation-progress").css('width', '0%');
 	}
 
 	this.requestSegmentation = function (allowLoadLocal) {
