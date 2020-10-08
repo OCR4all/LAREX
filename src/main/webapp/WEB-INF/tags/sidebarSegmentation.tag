@@ -194,6 +194,7 @@
 	
 	<div href="#!"class='dropdown-button dropDownPageXML' data-activates='dropdownPageXMLVersion0'></div>
 	<ul id='dropdownPageXMLVersion0' class='dropdown-content'>
+		<li><a class="pageXMLVersionSelect" data-version="2019-07-15">2019-07-15</a></li>
 		<li><a class="pageXMLVersionSelect" data-version="2017-07-15">2017-07-15</a></li>
 		<li><a class="pageXMLVersionSelect" data-version="2010-03-19">2010-03-19</a></li>
 	</ul>
