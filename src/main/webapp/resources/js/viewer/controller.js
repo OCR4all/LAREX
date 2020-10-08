@@ -84,7 +84,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_gui.loadVisiblePreviewImages();
 			_gui.highlightSegmentedPages(_segmentedPages);
 
-			_gui.setPageXMLVersion("2017-07-15");
+			_gui.setPageXMLVersion("2019-07-15");
 
 			_gui.createSelectColors();
 			_gui.updateAvailableColors();
