@@ -34,7 +34,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _newPolygonCounter = 0;
 	let _pastId;
 	let _initialTextView = true;
-	let _imageVersion = 0;
+	this._imageVersion = 0;
 
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
@@ -149,7 +149,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	});
 
-	this.displayPage = function (pageNr, imageNr=_imageVersion) {
+	this.displayPage = function (pageNr, imageNr=this._imageVersion, empty=false) {
 		this.escape();
 		_currentPage = pageNr;
 		_gui.updateSelectedPage(_currentPage);
@@ -185,7 +185,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
 			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
-				if(_allowLoadLocal && pages.includes(_currentPage)){
+				if(_allowLoadLocal && pages.includes(_currentPage) && !empty){
 					this.loadAnnotations();
 				} else if(_autoSegment){
 					this.requestSegmentation();
@@ -275,7 +275,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.setImageVersion = function(imageVersion) {
-		_imageVersion = imageVersion;
+		this._imageVersion = imageVersion;
 	}
 
 	this.redo = function () {
@@ -301,8 +301,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_actionController.resetActions(_currentPage);
 		//Update setting parameters
 		_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
-			this._setPage(_currentPage, result);
-			this.displayPage(_currentPage);
+			if(!result){
+				_gui.displayWarning("Couldn't retrieve annotations from file.");
+				this.displayPage(_currentPage, this._imageVersion, true);
+			}else{
+				this._setPage(_currentPage, result);
+				this.displayPage(_currentPage);
+			}
+
 		});
 	}
 
@@ -445,8 +451,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.showPreloader(true);
 
 		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
-			this._setPage(_currentPage,page);
-			this.displayPage(_currentPage);
+			if(!page){
+				_gui.displayWarning("Couldn't retrieve annotations from file.");
+				this.displayPage(_currentPage, this._imageVersion, true);
+			}else{
+				this._setPage(_currentPage,page);
+				this.displayPage(_currentPage);
+			}
 			this.showPreloader(false);
 		});
 	}
