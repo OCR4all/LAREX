@@ -224,8 +224,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			// Iterate over Regions-"Map" (Object in JS)
 			Object.keys(regions).forEach((key) => {
 				const region = regions[key];
-				if(!_colors.hasColor(region.type));
+				if(!_colors.hasColor(region.type)){
 					_colors.assignAvailableColor(region.type);
+				}
 
 				// Iterate over all Areas of a Region
 				Object.keys(region.areas).forEach((areaKey) => {
