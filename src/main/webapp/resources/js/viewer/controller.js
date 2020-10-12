@@ -303,7 +303,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//Update setting parameters
 		_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
 			if(!result){
-				_gui.displayWarning("Couldn't retrieve annotations from file.");
+				_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
 				this.displayPage(_currentPage, this._imageVersion, true);
 			}else{
 				this._setPage(_currentPage, result);
@@ -345,7 +345,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				// }
 			}
 			this.displayPage(pages[0])
-			Materialize.toast("Batch segmentation successful.", 1500, "green")
+			_gui.displayWarning("Batch segmentation successful.", 1500, "green")
 			_batchSegmentationPreloader.hide();
 			$(".modal").modal("close");
 		});
@@ -453,7 +453,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
 			if(!page){
-				_gui.displayWarning("Couldn't retrieve annotations from file.");
+				_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
 				this.displayPage(_currentPage, this._imageVersion, true);
 			}else{
 				this._setPage(_currentPage,page);
