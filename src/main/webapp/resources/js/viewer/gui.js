@@ -901,8 +901,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			$('.saveSettingsXML').find('.progress').addClass('hide');
 		}
 	}
-	this.displayWarning = function (text) {
-		Materialize.toast(text, 4000);
+	this.displayWarning = function (text, time=4000, color="grey darken-4") {
+		Materialize.toast(text, time, color);
 		console.warn(text);
 	}
 
