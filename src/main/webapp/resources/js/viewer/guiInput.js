@@ -466,6 +466,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 				$('#batchImageList input[type="checkbox"]:odd').not("#selectFilter").prop('checked', checked);
 				break;
 		}
+		checkNextBatch();
 	});
 	$("#batchSegmentation").click(function () {
 		if($("#batchSegmentation").is(":checked")) {
@@ -481,7 +482,25 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 			$("#exportWarning").addClass("hide");
 		}
 	});
+	$(".batchPageCheck").click(function (){
+		checkNextBatch();
+	});
+	function checkNextBatch(){
+		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
+			return $(this).data("page");
+		});
+		const selected_modes = $('.modeSelect:checkbox:checked').map(function(){
+			return $(this).data("page");
+		});
+		let pagesSelected = false;
+		if(selected_pages.length) {
+			pagesSelected = true;
+			$("#batchNext").removeClass("disabled");
+		} else{
+			$("#batchNext").addClass("disabled");
+		}
 
+	}
 	$(".doBatchSegment").click(function (){
 		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
 			return $(this).data("page");
@@ -507,6 +526,8 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 			_controller.requestBatchExport(selected_pages.toArray(),progressInterval);
 		}else if(!(batchExp) && !(batchSeg) && doReadingOrder) {
 			_controller.batchGenerateReadingOrder(selected_pages.toArray(),roMode);
+			clearInterval(progressInterval);
+			$(".modal").modal("close");
 		}
 	});
 

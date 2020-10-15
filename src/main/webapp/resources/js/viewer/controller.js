@@ -368,6 +368,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		for (let index in pages) {
 			this.setChanged(pages[index]);
 		}
+		_gui.displayWarning("Batch Reading Order successful.", 1500, "green")
 	}
 	this.batchAutoReadingOrder = function (pages) {
 		for(let page in pages) {

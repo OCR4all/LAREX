@@ -12,19 +12,19 @@
                 <div class="collapsible-body collapsible-body-batch">
                     <ul>
                         <li>
-                            <input type="checkbox" class="" id="batchSegmentation"/>
+                            <input type="checkbox" class="modeSelect" id="batchSegmentation"/>
                             <label for="batchSegmentation">
                                 Segment pages
                             </label>
                         </li>
                         <li>
-                            <input type="checkbox" class="" id="selectReadingOrder"/>
+                            <input type="checkbox" class="modeSelect" id="selectReadingOrder"/>
                             <label for="selectReadingOrder">
                                 Auto generate Reading Order
                             </label>
                         </li>
                         <li>
-                            <input type="checkbox" class="" id="batchSaveSegmentation"/>
+                            <input type="checkbox" class="modeSelect" id="batchSaveSegmentation"/>
                             <label for="batchSaveSegmentation">
                                 Save pages
                             </label>
@@ -38,7 +38,7 @@
                     <ul id="batchImageList">
                         <li class="input-field select-all row" style="margin: 0 !important;">
                                 <div class="col s1" style="padding: 0 !important;">
-                                    <input type="checkbox" class="" id="selectFilter"/>
+                                    <input type="checkbox" class="doValCheck" id="selectFilter"/>
                                     <label for="selectFilter">Select</label>
                                 </div>
                                 <div class="col s2" id="filter-select-input" style="padding-left: 2%;">
@@ -52,7 +52,7 @@
                         <c:forEach items="${book.getPages()}" var="bookpage">
                             <li>
                                 <input type="checkbox" id="${bookpage.getName()}" data-page="${bookpage.getId()}"
-                                       class="batchPageCheck"/>
+                                       class="batchPageCheck doValCheck"/>
                                 <label for="${bookpage.getName()}">
                                         ${bookpage.getName()}
                                 </label>
@@ -66,7 +66,7 @@
     </div>
     <div class="modal-footer">
         <a href="#!" class="modal-close waves-effect waves-green btn-flat">Close</a>
-        <a class="col s12 waves-effect waves-light btn confirmBatchSegment tooltipped"
+        <a id="batchNext" class="disabled col s12 waves-effect waves-light btn confirmBatchSegment tooltipped"
            href="#batchSegmentConfirmationModal" data-position="left" data-delay="50"
            data-tooltip="Run the batch segmentation">Next</a>
     </div>
