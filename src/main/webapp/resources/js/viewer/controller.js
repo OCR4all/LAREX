@@ -338,7 +338,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				this._setPage(pages[index], result);
 			}
 			this.displayPage(pages[0])
-			Materialize.toast("Batch segmentation successful.", 1500, "green")
+			_gui.displayWarning("Batch segmentation successful.", 1500, "green")
 			if(doReadingOrder) {
 				try {
 					this.batchGenerateReadingOrder(pages, roMode);
@@ -406,7 +406,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this.displayPage(pages[0])
 		clearInterval(progressInterval);
 		$(".modal").modal("close");
-		Materialize.toast("Batch export successful.", 1500, "green")
+		_gui.displayWarning("Batch export successful.", 1500, "green")
 		_batchSegmentationPreloader.hide();
 		$("#batch-segmentation-progress").css('width', '0%');
 	}
