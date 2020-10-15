@@ -17,16 +17,11 @@
                                 Segment pages
                             </label>
                         </li>
-                        <li class="input-field select-all row" style="margin: 0 !important;">
-                            <div class="col s2" style="padding: 0 !important;">
-                                <input type="checkbox" class="" id="selectReadingOrder"/>
-                                <label for="selectReadingOrder">Reading Order</label>
-                            </div>
-                            <div class="col s2" id="ro-select-input" style="padding-left: 2%;">
-                                <select id="select-ro-option" style=" margin:0 !important;">
-                                    <option value="automatic">automatic</option>
-                                </select>
-                            </div>
+                        <li>
+                            <input type="checkbox" class="" id="selectReadingOrder"/>
+                            <label for="selectReadingOrder">
+                                Auto generate Reading Order
+                            </label>
                         </li>
                         <li>
                             <input type="checkbox" class="" id="batchSaveSegmentation"/>
