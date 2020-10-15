@@ -4,7 +4,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 	const _special_keys = {};
 
 	document.onkeydown = function (event) {
-		if (_this.isActive && !$('.menuPageSelector').data('select2').isOpen()) {
+		if (_this.isActive && !$('.menuPageSelector').data('select2').isOpen() && !$(".modal").hasClass("open")) {
 			let validKey = false;
 			const mode = _controller.getMode();
 
@@ -312,7 +312,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 	}
 
 	document.onkeyup = function (event) {
-		if (_this.isActive && !$('.menuPageSelector').data('select2').isOpen()) {
+		if (_this.isActive && !$('.menuPageSelector').data('select2').isOpen() && !$(".modal").hasClass("open"))  {
 			let validKey = false;
 			const mode = _controller.getMode();
 
