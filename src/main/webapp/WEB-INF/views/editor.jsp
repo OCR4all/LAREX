@@ -68,6 +68,7 @@
 		$(document).ready(function() {
 			$(".button-collapse").sideNav();
 			$('.modal').modal();
+			$('select').material_select();
 		    $('.dropdown-button').dropdown();
 		    $('.menuPageSelector').select2({placeholder: 'Select a page'});
 		    $(".tabs").tabs();

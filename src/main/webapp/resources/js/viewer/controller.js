@@ -1961,7 +1961,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.openBatchSegmentModal = function(){
-		$('select').material_select();
 		$("#batchSegmentModal").modal("open");
 	}
 
