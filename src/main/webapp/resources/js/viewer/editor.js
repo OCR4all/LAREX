@@ -1049,11 +1049,11 @@ hideReadingOrder() {
 	}
 }
 
-getSortedReadingOrder(readingOrder) {
+getSortedReadingOrder(readingOrder, polygons) {
 	const centers = {};
 	for (let index = 0; index < readingOrder.length; index++) {
 		const id = readingOrder[index];
-		centers[id] = this.getPolygon(id).bounds.center;
+		centers[id] = this._center(polygons[index]);
 	}
 
 	readingOrder.sort(function (a, b) {
@@ -1068,6 +1068,16 @@ getSortedReadingOrder(readingOrder) {
 	});
 
 	return readingOrder;
+}
+_center = function (arr)
+{
+	let x = arr.map (xy => xy.x);
+	let y = arr.map (xy => xy.y);
+	let cx = (Math.min (...x) + Math.max (...x)) / 2;
+	let cy = (Math.min (...y) + Math.max (...y)) / 2;
+
+	let point = {x:cx, y:cy};
+	return point;
 }
 
 _resetOverlay() {

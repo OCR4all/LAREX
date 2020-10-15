@@ -447,18 +447,67 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	/**
 	 * Batch Segmentation Modal
 	 */
-	$("#selectAllBatch").click(function () {
-		$('.batchPageCheck:checkbox').not(this).prop('checked', this.checked);
+	$('#selectFilter').on('change', function() {
+		let selectMode = $("#select-filter-option").val();
+
+		let checked = false;
+
+		if( $(this).is(':checked') )
+			checked = true;
+
+		switch (selectMode) {
+			case "all":
+				$('#batchImageList input[type="checkbox"]').not("#selectFilter").prop('checked', checked);
+				break;
+			case "even":
+				$('#batchImageList input[type="checkbox"]:even').not("#selectFilter").prop('checked', checked);
+				break;
+			case "odd":
+				$('#batchImageList input[type="checkbox"]:odd').not("#selectFilter").prop('checked', checked);
+				break;
+		}
+	});
+	$("#batchSegmentation").click(function () {
+		if($("#batchSegmentation").is(":checked")) {
+			$("#batchWarning").removeClass("hide");
+		} else {
+			$("#batchWarning").addClass("hide");
+		}
+	});
+	$("#batchSaveSegmentation").click(function () {
+		if($("#batchSaveSegmentation").is(":checked")) {
+			$("#exportWarning").removeClass("hide");
+		} else {
+			$("#exportWarning").addClass("hide");
+		}
 	});
 
 	$(".doBatchSegment").click(function (){
 		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
 			return $(this).data("page");
 		});
-		const save_pages = $("#batchSaveSegmentation").is(":checked");
-
-		_controller.requestBatchSegmentation(false, selected_pages.toArray(),
-			save_pages);
+		let doReadingOrder = $("#selectReadingOrder").is(":checked");
+		let roMode = $("#select-ro-option").val();
+		let batchSeg = $("#batchSegmentation").is(":checked");
+		let batchExp = $("#batchSaveSegmentation").is(":checked");
+		let progress = 0;
+		let progressInterval = setInterval(() => {
+			_communicator.getBatchSegmentationProgress().done(function (data) {
+				setTimeout(function () {
+					progress = Math.round((data / selected_pages.toArray().length) * 100);
+					console.log("progress: " + progress);
+					$("#batch-segmentation-progress").css('width', progress + '%');
+				});
+			})
+		},1000)
+		if(batchSeg) {
+			_controller.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),progressInterval,doReadingOrder,roMode);
+		}else if(batchExp && !(batchSeg)) {
+			_controller.batchGenerateReadingOrder(selected_pages.toArray(),roMode);
+			_controller.requestBatchExport(selected_pages.toArray(),progressInterval);
+		}else if(!(batchExp) && !(batchSeg) && doReadingOrder) {
+			_controller.batchGenerateReadingOrder(selected_pages.toArray(),roMode);
+		}
 	});
 
 	$("#displayPrediction").click(function(){

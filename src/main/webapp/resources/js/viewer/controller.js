@@ -313,7 +313,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 
-	this.requestBatchSegmentation = function (allowLoadLocal, pages, save){
+	this.requestBatchSegmentation = function (allowLoadLocal, pages, save, progressInterval, doReadingOrder, roMode) {
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -322,8 +322,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
-		for(let page of pages){
-			activesettings.fixedGeometry = {segments:{},cuts:{}};
+		for (let page of pages) {
+			activesettings.fixedGeometry = {segments: {}, cuts: {}};
 			if (_fixedGeometry[page]) {
 				if (_fixedGeometry[page].segments)
 					_fixedGeometry[page].segments.forEach(
@@ -332,23 +332,83 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
 		}
-
-		_communicator.batchSegmentPage(activesettings, pages, save, _book.id, _gui.getPageXMLVersion()).done((results) => {
-			for(const [index, result] of results.entries()){
+		_communicator.batchSegmentPage(activesettings, pages, _book.id, _gui.getPageXMLVersion()).done((results) => {
+			for (const [index, result] of results.entries()) {
 				this.setChanged(pages[index]);
 				this._setPage(pages[index], result);
-				_savedPages.push(pages[index]);
-				_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
-				// if(save){
-				// 	_savedPages.push(pages[index]);
-				// 	_gui.addPageStatus(pages[index],PageStatus.SESSIONSAVED);
-				// }
 			}
 			this.displayPage(pages[0])
 			_gui.displayWarning("Batch segmentation successful.", 1500, "green")
-			_batchSegmentationPreloader.hide();
-			$(".modal").modal("close");
+			if(doReadingOrder) {
+				try {
+					this.batchGenerateReadingOrder(pages, roMode);
+				} catch (error) {
+					console.log(error);
+				}
+			}
+			if(save) {
+				this.requestBatchExport(pages, progressInterval,doReadingOrder,roMode);
+			} else {
+				_batchSegmentationPreloader.hide();
+				clearInterval(progressInterval);
+				$(".modal").modal("close");
+			}
 		});
+	}
+	this.batchGenerateReadingOrder = function ( pages, roMode) {
+		switch (roMode) {
+			case "automatic":
+				this.batchAutoReadingOrder(pages);
+				break;
+			default:
+				console.log("Reading order '" + roMode +  "'defaults to automatic");
+				this.batchAutoReadingOrder(pages);
+				break;
+		}
+		for (let index in pages) {
+			this.setChanged(pages[index]);
+		}
+	}
+	this.batchAutoReadingOrder = function (pages) {
+		for(let page in pages) {
+			this.autoGenerateReadingOrder(page);
+		}
+	}
+	this.requestBatchExport = function (pages, progressInterval, doReadingOrder, roMode) {
+		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
+		_batchSegmentationPreloader.show();
+
+		//Update setting parameters
+		_settings.parameters = _gui.getParameters();
+		let segmentations = [];
+		for(let pageI in pages) {
+			segmentations.push(_segmentation[pageI]);
+		}
+		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).then((data) => {
+			for(let pageI in pages) {
+				_savedPages.push(pageI);
+				_gui.addPageStatus(pageI,PageStatus.SERVERSAVED);
+			}
+
+			if(globalSettings.downloadPage) {
+				try {
+					let a = window.document.createElement('a');
+					a.href = window.URL.createObjectURL(new Blob([data], {type: "application/zip; charset=utf-8"}));
+					a.download = _book.name + "_" + "archive" + ".zip";
+					document.body.appendChild(a);
+					a.click();
+				} catch (err) {
+					console.log(err);
+					console.log(err.stack);
+				}
+			}
+		});
+		this.displayPage(pages[0])
+		clearInterval(progressInterval);
+		$(".modal").modal("close");
+		_gui.displayWarning("Batch export successful.", 1500, "green")
+		_batchSegmentationPreloader.hide();
+		$("#batch-segmentation-progress").css('width', '0%');
 	}
 
 	this.requestSegmentation = function (allowLoadLocal) {
@@ -1318,6 +1378,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.autoGenerateReadingOrder = function (_page = _currentPage) {
 		this.endEditReadingOrder();
 		let readingOrder = [];
+		let polygons = [];
 		const pageSegments = _segmentation[_page].segments;
 
 		// Iterate over Segment-"Map" (Object in JS)
@@ -1325,9 +1386,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			let segment = pageSegments[key];
 			if (segment.type !== 'ImageRegion') {
 				readingOrder.push(segment.id);
+				polygons.push(segment.points);
 			}
 		});
-		readingOrder = _editor.getSortedReadingOrder(readingOrder);
+		readingOrder = _editor.getSortedReadingOrder(readingOrder, polygons);
 		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_page].readingOrder, readingOrder, this, _segmentation, _page), _page);
 	}
 

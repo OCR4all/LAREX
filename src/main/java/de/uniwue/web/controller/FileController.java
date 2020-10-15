@@ -1,21 +1,23 @@
 package de.uniwue.web.controller;
 
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.annotation.PostConstruct;
 import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
@@ -45,6 +47,7 @@ import org.xml.sax.SAXException;
 
 import de.uniwue.algorithm.data.MemoryCleaner;
 import de.uniwue.web.communication.ExportRequest;
+import de.uniwue.web.communication.BatchExportRequest;
 import de.uniwue.web.config.LarexConfiguration;
 import de.uniwue.web.facade.segmentation.LarexFacade;
 import de.uniwue.web.facade.segmentation.SegmentationSettings;
@@ -59,7 +62,7 @@ import de.uniwue.web.model.PageAnnotations;
  * and process save as well as export requests
  */
 @Controller
-@Scope("request")
+@Scope("session")
 public class FileController {
 	@Autowired
 	private ServletContext servletContext;
@@ -67,6 +70,10 @@ public class FileController {
 	private FilePathManager fileManager;
 	@Autowired
 	private LarexConfiguration config;
+	/**
+	 * Progress of the batchExport process
+	 */
+	private int exportProgress = -1;
 
 	/**
 	 * Initialize the controller by loading the fileManager and settings if not
@@ -84,6 +91,7 @@ public class FileController {
 				fileManager.setLocalBooksPath(bookFolder);
 			}
 		}
+		this.exportProgress = 0;
 	}
 	
 	/**
@@ -196,27 +204,38 @@ public class FileController {
 
 			final String xmlName =  request.getSegmentation().getName() + ".xml";
 
-			switch (config.getSetting("localsave")) {
-			case "bookpath":
-				FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-					config.getListSetting("imagefilter"));
+			saveDocument(pageXML, xmlName, request.getBookid());
+			byte[] docBytes = convertDocumentToByte(pageXML);
+			return convertByteToResponse(docBytes, request.getSegmentation().getName() + ".xml", "application/xml");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
 
-				String bookdir = fileManager.getLocalBooksPath() + File.separator
-									+ database.getBookName(request.getBookid());
-				PageXMLWriter.saveDocument(pageXML, xmlName, bookdir);
-				break;
-			case "savedir":
-				String savedir = config.getSetting("savedir");
-				if (savedir != null && !savedir.equals("")) {
-					PageXMLWriter.saveDocument(pageXML, xmlName, savedir);
-				} else {
-					System.err.println("Warning: Save dir is not set. File could not been saved.");
-				}
-				break;
-			case "none":
-			case "default":
+	/**
+	 * Export multiple segmentation per PAGE xml to download and or adding it to the database.
+	 */
+	@RequestMapping(value = "file/export/batchExport", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/zip", consumes = "application/json")
+	public @ResponseBody ResponseEntity<byte[]> BatchExportXML(@RequestBody BatchExportRequest request) {
+		try {
+			List<PageAnnotations> segmentations = request.getSegmentation();
+			List<String> filenames = new ArrayList<String>();
+			List<Document> docs = new ArrayList<>();
+			for(int i = 0;  i < request.getPages().size(); i++) {
+				Document pageXML = PageXMLWriter.getPageXML(segmentations.get(i), request.getVersion());
+				String xmlName =  segmentations.get(i).getName() + ".xml";
+				filenames.add(xmlName);
+				docs.add(pageXML);
+				saveDocument(pageXML, xmlName, request.getBookid());
 			}
-			return convertDocumentToByte(pageXML, request.getSegmentation().getName());
+
+			if(request.getDownload()) {
+				byte[] zipBytes = convertDocumentsToArchive(docs,filenames);
+				return convertByteToResponse(zipBytes,"archive.zip","application/zip");
+			} else {
+				return new ResponseEntity<byte[]>(HttpStatus.OK);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -229,7 +248,8 @@ public class FileController {
 	@RequestMapping(value = "file/download/segmentsettings", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> downloadSettings(@RequestBody SegmentationSettings settings) {
 		try {
-			return convertDocumentToByte(LarexFacade.getSettingsXML(settings), "settings.xml");
+			byte[] xmlBytes = convertDocumentToByte(LarexFacade.getSettingsXML(settings));
+			return convertByteToResponse(xmlBytes,"settings.xml", "application/xml");
 		} catch (Exception e) {
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
@@ -271,7 +291,12 @@ public class FileController {
 		return ImageIO.read(new ByteArrayInputStream(imagebytes));
 	}
 
-	private ResponseEntity<byte[]> convertDocumentToByte(Document document, String filename) {
+	/**
+	 * Converts Document to byteArray
+	 * @param document org.w3c.dom.Document
+	 * @return byteArray
+	 */
+	private byte[] convertDocumentToByte(Document document) {
 		// convert document to bytes
 		byte[] documentbytes = null;
 		try (ByteArrayOutputStream out = new ByteArrayOutputStream();) {
@@ -283,12 +308,89 @@ public class FileController {
 			e.printStackTrace();
 		}
 
+		return documentbytes;
+	}
+
+	/**
+	 * Archives list of Documents to zip and the converts archive to byteArray
+	 * @param documents List of org.w3c.dom.Document
+	 * @param filenames List of IDs corresponding to each document
+	 * @return
+	 */
+	private byte[] convertDocumentsToArchive(List<Document> documents, List<String> filenames) {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		try {
+			ZipOutputStream zos = new ZipOutputStream(baos);
+			for(int i = 0; i < documents.size(); i++) {
+				//byte[] doc = convertDocumentToByte(documents.get(i));
+				ByteArrayInputStream bais = new ByteArrayInputStream(convertDocumentToByte(documents.get(i)));
+				ZipEntry entry = new ZipEntry(filenames.get(i));
+				//entry.setSize(doc.length);
+				zos.putNextEntry(entry);
+				byte[] buffer = new byte[1024];
+				int len = 0;
+				while ((len = bais.read(buffer)) > 0) {
+					zos.write(buffer, 0,len);
+				}
+				zos.closeEntry();
+			}
+			zos.close();
+			baos.close();
+
+			return baos.toByteArray();
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		} finally {
+		}
+		//return baos.toByteArray();
+	}
+
+	/**
+	 * Creates a ResponseEntity from Bytes
+	 * @param bytes byteArray
+	 * @param filename	name of file in byteArray
+	 * @param mediaType mediaType of Response
+	 * @return new HTTP ResponseEntity
+	 */
+	private ResponseEntity<byte[]> convertByteToResponse(byte[] bytes, String filename, String mediaType) {
 		// create ResponseEntry
 		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(MediaType.parseMediaType("application/xml"));
-		headers.setContentDispositionFormData(filename, filename + ".xml");
-		headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+		headers.setContentType(MediaType.parseMediaType(mediaType));
 
-		return new ResponseEntity<byte[]>(documentbytes, headers, HttpStatus.OK);
+		headers.setContentDispositionFormData(filename, filename);
+		headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+		return new ResponseEntity<byte[]>(bytes, headers, HttpStatus.OK);
 	}
+
+	private void saveDocument(Document pageXML, String xmlName, Integer bookid) {
+		switch (config.getSetting("localsave")) {
+			case "bookpath":
+				FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+						config.getListSetting("imagefilter"));
+
+				String bookdir = fileManager.getLocalBooksPath() + File.separator
+						+ database.getBookName(bookid);
+				PageXMLWriter.saveDocument(pageXML, xmlName, bookdir);
+				break;
+			case "savedir":
+				String savedir = config.getSetting("savedir");
+				if (savedir != null && !savedir.equals("")) {
+					PageXMLWriter.saveDocument(pageXML, xmlName, savedir);
+				} else {
+					System.err.println("Warning: Save dir is not set. File could not been saved.");
+				}
+				break;
+			case "none":
+			case "default":
+		}
+	}
+	/**
+	 * Response to the request to return the progress status of the adjust files service
+	 *
+	 * @param session Session of the user
+	 * @return Current progress (range: 0 - 100)
+	 */
+	@RequestMapping(value = "file/export/batchExportProgress" , method = RequestMethod.GET)
+	public @ResponseBody int progress(HttpSession session, HttpServletResponse response) { return this.exportProgress; }
 }

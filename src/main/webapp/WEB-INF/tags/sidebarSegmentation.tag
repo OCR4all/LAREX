@@ -178,9 +178,9 @@
 		</li>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment tooltipped" data-position="left" data-delay="50" data-tooltip="Segment the current page automatically (Shortcut: CTRL+Space)">Segment</a>
-	<!-- <a class="col s12 waves-effect waves-light btn doBatch tooltipped" href="#batchSegmentModal" data-position="left" data-delay="50" data-tooltip="Batch segment multiple pages automatically (Shortcut: CTRL+B)">
+	<a class="col s12 waves-effect waves-light btn doBatch tooltipped" href="#batchSegmentModal" data-position="left" data-delay="50" data-tooltip="Batch segment multiple pages automatically (Shortcut: CTRL+B)">
 		Batch Segment
-	</a> -->
+	</a>
 
 	<a class="col s12 waves-effect waves-light btn exportPageXML tooltipped" data-position="left" data-delay="50" data-tooltip="Save the current segmentation as PageXML (Shortcut: CTRL+S)">
 		Save Result

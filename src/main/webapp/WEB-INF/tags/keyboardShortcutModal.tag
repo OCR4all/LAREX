@@ -799,6 +799,18 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>Ctrl</span>+<span>b</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Batch save/segment multiple pages
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>Page Up</span>
                                 </td>
                                 <td class="kbdtext">

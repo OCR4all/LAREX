@@ -69,9 +69,25 @@ class Communicator {
 		return this.request("segmentation/segment", {settings:settings,page:page}, DataType.JSON);
 	}
 
-	batchSegmentPage(settings, pages, save, bookID, pageXMLVersion){
-		return this.request("segmentation/batchSegment", {settings:settings, pages:pages, save:save,
+	batchSegmentPage(settings, pages, bookID, pageXMLVersion){
+		return this.request("segmentation/batchSegment", {settings:settings, pages:pages,
 			bookid:bookID, version:pageXMLVersion}, DataType.JSON)
+	}
+
+	batchExportPage(bookID, pages, segmentations, pageXMLVersion) {
+		//using fetch instead of JQuery.ajax because of arrayBuffer type
+		let url = 'file/export/batchExport';
+		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion, downloadPage:globalSettings.downloadPage};
+		return fetch(url, {
+			method: 'POST',
+			headers: {'Content-Type': 'application/json; charset=utf-8'},
+			body: JSON.stringify(ajaxdata)
+		}).then(function (response) {
+			return response.arrayBuffer();
+		}).catch(function (err) {
+			// There was an error
+			console.warn('Something went wrong.', err);
+		});
 	}
 
 	emptySegmentation(bookID, pageID) {
@@ -139,5 +155,21 @@ class Communicator {
 
 	getOCR4allMode(){
 		return this.request("config/ocr4all", {}, DataType.JSON);
+	}
+
+	getBatchSegmentationProgress(){
+		return $.ajax({
+			type: "GET",
+			url: "segmentation/batchSegmentProgress",
+			cache: false,
+		});
+	}
+
+	getBatchExportProgress(){
+		return $.ajax({
+			type: "GET",
+			url: "file/export/batchExportProgress",
+			cache: false,
+		});
 	}
 }

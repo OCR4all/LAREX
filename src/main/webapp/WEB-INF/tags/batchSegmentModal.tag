@@ -7,24 +7,47 @@
         <h4>Batch Segmentation</h4>
         <p>Run segmentation on multiple pages with the current settings</p>
         <ul class="collapsible" data-collapsible="expandable">
-<%--            <li>--%>
-<%--                <div class="collapsible-header active"><i class="material-icons">settings</i>Options</div>--%>
-<%--                <div class="collapsible-body collapsible-body-batch">--%>
-<%--                    <input type="checkbox" class="" id="batchSaveSegmentation"/>--%>
-<%--                    <label for="batchSaveSegmentation">--%>
-<%--                        Autosave pages--%>
-<%--                    </label>--%>
-<%--                </div>--%>
-<%--            </li>--%>
+            <li>
+                <div class="collapsible-header active"><i class="material-icons">settings</i>Options</div>
+                <div class="collapsible-body collapsible-body-batch">
+                    <ul>
+                        <li>
+                            <input type="checkbox" class="" id="batchSegmentation"/>
+                            <label for="batchSegmentation">
+                                Segment pages
+                            </label>
+                        </li>
+                        <li>
+                            <input type="checkbox" class="" id="selectReadingOrder"/>
+                            <label for="selectReadingOrder">
+                                Auto generate Reading Order
+                            </label>
+                        </li>
+                        <li>
+                            <input type="checkbox" class="" id="batchSaveSegmentation"/>
+                            <label for="batchSaveSegmentation">
+                                Save pages
+                            </label>
+                        </li>
+                    </ul>
+                </div>
+            </li>
             <li>
                 <div class="collapsible-header active"><i class="material-icons">library_books</i>Pages</div>
                 <div class="collapsible-body collapsible-body-batch">
                     <ul id="batchImageList">
-                        <li class="select-all">
-                            <input type="checkbox" class="" id="selectAllBatch"/>
-                            <label for="selectAllBatch">
-                                Select all
-                            </label>
+                        <li class="input-field select-all row" style="margin: 0 !important;">
+                                <div class="col s1" style="padding: 0 !important;">
+                                    <input type="checkbox" class="" id="selectFilter"/>
+                                    <label for="selectFilter">Select</label>
+                                </div>
+                                <div class="col s2" id="filter-select-input" style="padding-left: 2%;">
+                                    <select id="select-filter-option">
+                                        <option value="all">all</option>
+                                        <option value="even">even</option>
+                                        <option value="odd">odd</option>
+                                    </select>
+                                </div>
                         </li>
                         <c:forEach items="${book.getPages()}" var="bookpage">
                             <li>
@@ -51,11 +74,15 @@
 <div id="batchSegmentConfirmationModal" class="modal">
     <div class="modal-content">
         <div class="card-panel center red" id="batchWarning">
-			<span class="white-text">Running the batch segmentation will override the segmentation results for all selected pages.
+			<span class="white-text">Running batch segmentation will override the segmentation results for all selected pages.
+			</span>
+        </div>
+        <div class="card-panel center red" id="exportWarning">
+			<span class="white-text">Running batch export will override the files on server.
 			</span>
         </div>
         <div class="progress" id="batch-segmentation-progress">
-            <div class="indeterminate"></div>
+            <div class="determinate"></div>
         </div>
         <div class="center">
             <a class="col s12 waves-effect waves-light btn doBatchSegment tooltipped" data-position="left"
