@@ -305,7 +305,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 
-	this.requestBatchSegmentation = function (allowLoadLocal, pages, save, progressInterval) {
+	this.requestBatchSegmentation = function (allowLoadLocal, pages, save, progressInterval, doReadingOrder, roMode) {
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -331,8 +331,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 			this.displayPage(pages[0])
 			Materialize.toast("Batch segmentation successful.", 1500, "green")
+			if(doReadingOrder) {
+				try {
+					this.batchGenerateReadingOrder(pages, roMode);
+				} catch (error) {
+					console.log(error);
+				}
+			}
 			if(save) {
-				this.requestBatchExport(pages, progressInterval);
+				this.requestBatchExport(pages, progressInterval,doReadingOrder,roMode);
 			} else {
 				_batchSegmentationPreloader.hide();
 				clearInterval(progressInterval);
@@ -340,8 +347,26 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		});
 	}
-
-	this.requestBatchExport = function (pages, progressInterval) {
+	this.batchGenerateReadingOrder = function ( pages, roMode) {
+		switch (roMode) {
+			case "automatic":
+				this.batchAutoReadingOrder(pages);
+				break;
+			default:
+				console.log("Reading order '" + roMode +  "'defaults to automatic");
+				this.batchAutoReadingOrder(pages);
+				break;
+		}
+		for (let index in pages) {
+			this.setChanged(pages[index]);
+		}
+	}
+	this.batchAutoReadingOrder = function (pages) {
+		for(let page in pages) {
+			this.autoGenerateReadingOrder(page);
+		}
+	}
+	this.requestBatchExport = function (pages, progressInterval, doReadingOrder, roMode) {
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -1340,6 +1365,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.autoGenerateReadingOrder = function (_page = _currentPage) {
 		this.endEditReadingOrder();
 		let readingOrder = [];
+		let polygons = [];
 		const pageSegments = _segmentation[_page].segments;
 
 		// Iterate over Segment-"Map" (Object in JS)
@@ -1347,9 +1373,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			let segment = pageSegments[key];
 			if (segment.type !== 'ImageRegion') {
 				readingOrder.push(segment.id);
+				polygons.push(segment.points);
 			}
 		});
-		readingOrder = _editor.getSortedReadingOrder(readingOrder);
+		readingOrder = _editor.getSortedReadingOrder(readingOrder, polygons);
 		_actionController.addAndExecuteAction(new ActionChangeReadingOrder(_segmentation[_page].readingOrder, readingOrder, this, _segmentation, _page), _page);
 	}
 

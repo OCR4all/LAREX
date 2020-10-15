@@ -486,6 +486,8 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
 			return $(this).data("page");
 		});
+		let doReadingOrder = $("#selectReadingOrder").is(":checked");
+		let roMode = $("#select-ro-option").val();
 		let batchSeg = $("#batchSegmentation").is(":checked");
 		let batchExp = $("#batchSaveSegmentation").is(":checked");
 		let progress = 0;
@@ -499,9 +501,12 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 			})
 		},1000)
 		if(batchSeg) {
-			_controller.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),progressInterval);
+			_controller.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),progressInterval,doReadingOrder,roMode);
 		}else if(batchExp && !(batchSeg)) {
+			_controller.batchGenerateReadingOrder(selected_pages.toArray(),roMode);
 			_controller.requestBatchExport(selected_pages.toArray(),progressInterval);
+		}else if(!(batchExp) && !(batchSeg) && doReadingOrder) {
+			_controller.batchGenerateReadingOrder(selected_pages.toArray(),roMode);
 		}
 	});
 
