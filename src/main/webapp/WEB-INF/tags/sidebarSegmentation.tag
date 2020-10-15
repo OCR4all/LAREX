@@ -160,6 +160,22 @@
 				</div>
 			</div>
 		</li>
+		<li id="collapsible-actions">
+			<div class="collapsible-header active">
+				<i class="material-icons">adjust</i>Actions
+			</div>
+			<div class="collapsible-body">
+				<div class="segmentationToggle row">
+					<span class="col s12 switch">
+						<label>
+							<input id="toggleSegmentVisibility" type="checkbox">
+							<span class="lever"></span>
+							Hide existing segments
+						</label>
+					</span>
+				</div>
+			</div>
+		</li>
 	</ul>
 	<a class="col s12 waves-effect waves-light btn doSegment tooltipped" data-position="left" data-delay="50" data-tooltip="Segment the current page automatically (Shortcut: CTRL+Space)">Segment</a>
 	<a class="col s12 waves-effect waves-light btn doBatch tooltipped" href="#batchSegmentModal" data-position="left" data-delay="50" data-tooltip="Batch segment multiple pages automatically (Shortcut: CTRL+B)">
@@ -178,6 +194,7 @@
 	
 	<div href="#!"class='dropdown-button dropDownPageXML' data-activates='dropdownPageXMLVersion0'></div>
 	<ul id='dropdownPageXMLVersion0' class='dropdown-content'>
+		<li><a class="pageXMLVersionSelect" data-version="2019-07-15">2019-07-15</a></li>
 		<li><a class="pageXMLVersionSelect" data-version="2017-07-15">2017-07-15</a></li>
 		<li><a class="pageXMLVersionSelect" data-version="2010-03-19">2010-03-19</a></li>
 	</ul>
