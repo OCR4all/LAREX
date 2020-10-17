@@ -356,26 +356,50 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 	this.batchGenerateReadingOrder = function ( pages, roMode) {
-		switch (roMode) {
-			case "automatic":
-				this.batchAutoReadingOrder(pages);
-				break;
-			default:
-				console.log("Reading order '" + roMode +  "'defaults to automatic");
-				this.batchAutoReadingOrder(pages);
-				break;
+		if(this.checkPagesForSegmentation(pages)) {
+			switch (roMode) {
+				case "automatic":
+					this.batchAutoReadingOrder(pages);
+					break;
+				default:
+					console.log("Reading order '" + roMode +  "'defaults to automatic");
+					this.batchAutoReadingOrder(pages);
+					break;
+			}
+			for (let index in pages) {
+				this.setChanged(pages[index]);
+			}
+			_gui.displayWarning("Batch Reading Order successful.", 1500, "green")
+		} else {
+			_gui.displayWarning("Failed! No Segmentation for selected pages ", 1500, "red");
 		}
-		for (let index in pages) {
-			this.setChanged(pages[index]);
-		}
-		_gui.displayWarning("Batch Reading Order successful.", 1500, "green")
 	}
 	this.batchAutoReadingOrder = function (pages) {
 		for(let page in pages) {
 			this.autoGenerateReadingOrder(page);
 		}
 	}
+	//returns false if any page has no segmentation available
+	this.checkPagesForSegmentation = function (pages) {
+		for(let pageI in pages) {
+			if( typeof _segmentation[pageI] == 'undefined') {
+				return false;
+			}
+		}
+		return true;
+	}
 	this.requestBatchExport = function (pages, progressInterval, doReadingOrder, roMode) {
+
+		if(!(this.checkPagesForSegmentation(pages))) {
+			clearInterval(progressInterval);
+			$("#batch-segmentation-progress").css('width', '0%');
+			$(".modal").modal("close");
+			_gui.displayWarning("Failed! No Segmentation for selected pages ", 1500, "red");
+			return;
+		}
+		if(doReadingOrder) {
+			this.batchGenerateReadingOrder(pages,roMode);
+		}
 		const _batchSegmentationPreloader = $("#batch-segmentation-progress")
 		_batchSegmentationPreloader.show();
 
@@ -406,10 +430,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 		this.displayPage(pages[0])
 		clearInterval(progressInterval);
-		$(".modal").modal("close");
-		_gui.displayWarning("Batch export successful.", 1500, "green")
 		_batchSegmentationPreloader.hide();
 		$("#batch-segmentation-progress").css('width', '0%');
+		$(".modal").modal("close");
+		_gui.displayWarning("Batch export successful.", 1500, "green")
 	}
 
 	this.requestSegmentation = function (allowLoadLocal) {
@@ -1980,9 +2004,25 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.openBatchSegmentModal = function(){
+		this.checkNextBatch();
 		$("#batchSegmentModal").modal("open");
 	}
 
+	this.checkNextBatch = function(){
+		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
+			return $(this).data("page");
+		});
+		const selected_modes = $('.modeSelect:checkbox:checked').toArray();
+		let pagesSelected = false;
+		let modesSelected = false;
+		if(selected_pages.length) { pagesSelected = true; }
+		if(selected_modes.length) { modesSelected = true; }
+		if(pagesSelected && modesSelected) {
+			$("#batchNext").removeClass("disabled");
+		} else{
+			$("#batchNext").addClass("disabled");
+		}
+	}
 	this.toggleShortcutModal = function(){
 		const $shortcutModal = $("#kb-shortcut-modal");
 		const $tab = $("#kb-shortcut-modal-tabs")
