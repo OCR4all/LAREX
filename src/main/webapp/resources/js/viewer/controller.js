@@ -353,10 +353,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				clearInterval(progressInterval);
 				$(".modal").modal("close");
 				if(this.getLoadLocalSetting()) {
-					$("#allowLoadXml").prop("checked", false);
-					$('.settings-load-existing-xml').find('input').prop('checked', false);
-					this.allowToLoadExistingSegmentation(false);
-					_gui.displayWarning("'Load existing segmentations' has been disabled", 3500, "blue");
+					this.toggleLoadExistingSegmentation(false, true);
 				}
 			}
 		});
@@ -2009,6 +2006,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 	this.getCurrentSettings = function(){
 		return _settings[_currentPage];
+	}
+
+	this.toggleLoadExistingSegmentation = function(show=false, toast=true){
+		$("#allowLoadXml").prop("checked", show);
+		$('.settings-load-existing-xml').find('input').prop('checked', show);
+		this.allowToLoadExistingSegmentation(show);
+		if(toast){
+			_gui.displayWarning("'Load existing segmentations' has been disabled", 3500, "blue");
+		}
 	}
 
 	this.openBatchSegmentModal = function(){
