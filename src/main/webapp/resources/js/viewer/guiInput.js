@@ -514,6 +514,12 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 			_controller.batchGenerateReadingOrder(selected_pages.toArray(),roMode);
 			clearInterval(progressInterval);
 			$(".modal").modal("close");
+			if(_controller.getLoadLocalSetting()) {
+				$("#allowLoadXml").prop("checked", false);
+				$('.settings-load-existing-xml').find('input').prop('checked', false);
+				_controller.allowToLoadExistingSegmentation(false);
+				_gui.displayWarning("'Load existing segmentations' has been disabled", 3500, "blue");
+			}
 		}
 	});
 

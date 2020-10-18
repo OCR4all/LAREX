@@ -347,11 +347,17 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			}
 			if(save) {
-				this.requestBatchExport(pages, progressInterval,doReadingOrder,roMode);
+				this.requestBatchExport(pages, progressInterval,false,roMode);
 			} else {
 				_batchSegmentationPreloader.hide();
 				clearInterval(progressInterval);
 				$(".modal").modal("close");
+				if(this.getLoadLocalSetting()) {
+					$("#allowLoadXml").prop("checked", false);
+					$('.settings-load-existing-xml').find('input').prop('checked', false);
+					this.allowToLoadExistingSegmentation(false);
+					_gui.displayWarning("'Load existing segmentations' has been disabled", 3500, "blue");
+				}
 			}
 		});
 	}
@@ -435,7 +441,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		$(".modal").modal("close");
 		_gui.displayWarning("Batch export successful.", 1500, "green")
 	}
-
+	this.getLoadLocalSetting = function () {
+		return _allowLoadLocal;
+	}
 	this.requestSegmentation = function (allowLoadLocal) {
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
