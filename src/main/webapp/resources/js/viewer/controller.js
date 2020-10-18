@@ -2012,6 +2012,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		$("#allowLoadXml").prop("checked", show);
 		$('.settings-load-existing-xml').find('input').prop('checked', show);
 		this.allowToLoadExistingSegmentation(show);
+		_gui.openSidebarCollapsible("settings");
 		if(toast){
 			_gui.displayWarning("'Load existing segmentations' has been disabled", 3500, "blue");
 		}
@@ -2062,7 +2063,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.toggleSegmentVisibility = function(){
 		let state = !$("#toggleSegmentVisibility").prop("checked");
 		$("#toggleSegmentVisibility").prop("checked", state);
-		_gui.openSidebarActions();
+		_gui.openSidebarCollapsible("actions");
 		this.hideAllSegments(state);
 	}
 }
