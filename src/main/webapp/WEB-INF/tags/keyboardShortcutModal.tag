@@ -397,6 +397,18 @@
                             </tr>
                         </table>
                     </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>Shift</span>+<span>h</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Toggle visibility of the previous segmentation
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
                 </ul>
             </div>
             <div id="segment" class="col s12">
@@ -838,7 +850,7 @@
                                     <span>Shift</span>+<span>h</span>
                                 </td>
                                 <td class="kbdtext">
-                                    toggle visibility of the previous segmentation
+                                    Toggle visibility of the previous segmentation
                                 </td>
                             </tr>
                         </table>

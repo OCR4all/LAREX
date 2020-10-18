@@ -108,6 +108,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				break;
 			case Mode.EDIT:
 				$('.doSegment').addClass('hide');
+				$('.doBatch').addClass('hide');
 				$('#collapsible-parameters').addClass('hide');
 				$('#collapsible-settings *.segment-only').addClass('hide');
 				$('.regionlegend').find(".switch").addClass('hide');
@@ -125,6 +126,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 			case Mode.SEGMENT:
 			default:
 				$('.doSegment').removeClass('hide');
+				$('.doBatch').removeClass('hide');
 				$('#collapsible-parameters').removeClass('hide');
 				$('#collapsible-settings .segment-only').removeClass('hide');
 				$('.regionlegend').find(".switch").removeClass('hide');
