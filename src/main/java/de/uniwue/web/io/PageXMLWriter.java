@@ -105,14 +105,16 @@ public class PageXMLWriter {
 				if(regionSegment.getTextlines() != null) {
 					final List<de.uniwue.web.model.TextLine> textlines = new ArrayList<>(regionSegment.getTextlines().values());
 					
-					// Sort textlines via reading order
-					List<String> readingOrder = new ArrayList<>(regionSegment.getReadingOrder());
-					Collections.reverse(readingOrder);
-					readingOrder.forEach(id -> {
-						de.uniwue.web.model.TextLine textline = regionSegment.getTextlines().get(id);
-						textlines.remove(textline);
-						textlines.add(0, textline);
-					});
+					// Sort textlines via reading order if a reading order exists
+					if(regionSegment.getReadingOrder() != null) {
+						List<String> readingOrder = new ArrayList<>(regionSegment.getReadingOrder());
+						Collections.reverse(readingOrder);
+						readingOrder.forEach(id -> {
+							de.uniwue.web.model.TextLine textline = regionSegment.getTextlines().get(id);
+							textlines.remove(textline);
+							textlines.add(0, textline);
+						});
+					}
 					
 					// Iterate over sorted text lines and to PAGE xml
 					for (de.uniwue.web.model.TextLine textline : textlines) {
