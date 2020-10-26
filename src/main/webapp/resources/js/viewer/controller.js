@@ -504,6 +504,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					preparePage(this);
 					break;
 				case 'SUCCESS':
+				case 'EMPTY':
 					preparePage(this);
 					break;
 				default:
