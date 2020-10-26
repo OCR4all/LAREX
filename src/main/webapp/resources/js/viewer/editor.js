@@ -1053,7 +1053,11 @@ getSortedReadingOrder(readingOrder, polygons) {
 	const centers = {};
 	for (let index = 0; index < readingOrder.length; index++) {
 		const id = readingOrder[index];
-		centers[id] = this._center(polygons[index]);
+		if(polygons){
+			centers[id] = this._center(polygons[index]);
+		}else{
+			centers[id] = this.getPolygon(id).bounds.center;
+		}
 	}
 
 	readingOrder.sort(function (a, b) {

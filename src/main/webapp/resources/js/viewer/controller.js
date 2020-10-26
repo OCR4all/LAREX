@@ -1973,6 +1973,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.isIDTextRegion = function(id){
+		//TODO: Refactor when support for custom text region classes is added (see https://github.com/OCR4all/LAREX/issues/176)
 		const elementType = this.getIDType(id);
 		let type = "Region";
 		if(elementType === ElementType.SEGMENT){
@@ -1980,7 +1981,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}else if(elementType === ElementType.AREA){
 			type = this._getRegionByID(id).type;
 		}
-		return (type !== "ignore" && !type.includes("Region"));
+		return (type === "TextRegion") ? true : (type !== "ignore" && !type.includes("Region"));
 	}
 
 	this.getIDType = function (id) {

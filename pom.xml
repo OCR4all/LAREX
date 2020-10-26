@@ -6,7 +6,7 @@
 
     <groupId>de.uniwue</groupId>
     <artifactId>Larex</artifactId>
-    <version>0.5-SNAPSHOT</version>
+    <version>0.5-RC3</version>
     <packaging>war</packaging>
 
     <name>Larex</name>
@@ -129,22 +129,22 @@
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>basic</artifactId>
-            <version>1.4.02</version>
+            <version>1.5a</version>
         </dependency>
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>Dla</artifactId>
-            <version>1.4.02</version>
+            <version>1.5a</version>
         </dependency>
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>Io</artifactId>
-            <version>1.4.02</version>
+            <version>1.5a</version>
         </dependency>
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>Maths</artifactId>
-            <version>1.4.02</version>
+            <version>1.5a</version>
         </dependency>
         <dependency>
             <groupId>javax.annotation</groupId>
