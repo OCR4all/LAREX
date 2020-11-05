@@ -407,7 +407,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				i++;
 			}
 		}
-		if( pages.length > segPages.length) {
+		if(pages.length > segPages.length) {
 			_gui.displayWarning("Reading Order and Export could not be executed for pages without segmentation.", 1500, "orange");
 		}
 
