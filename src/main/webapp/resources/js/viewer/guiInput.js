@@ -492,34 +492,15 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
 			return $(this).data("page");
 		});
+
+		let sel_pages = _controller.checkPagesForSegmentation(selected_pages.toArray());
 		let doReadingOrder = $("#selectReadingOrder").is(":checked");
 		let roMode = $("#select-ro-option").val();
 		let batchSeg = $("#batchSegmentation").is(":checked");
 		let batchExp = $("#batchSaveSegmentation").is(":checked");
-		let progress = 0;
-		let progressInterval = setInterval(() => {
-			_communicator.getBatchSegmentationProgress().done(function (data) {
-				setTimeout(function () {
-					progress = Math.round((data / selected_pages.toArray().length) * 100);
-					console.log("progress: " + progress);
-					$("#batch-segmentation-progress").css('width', progress + '%');
-				});
-			})
-		},1000)
-		if(batchSeg) {
-			_controller.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),progressInterval,doReadingOrder,roMode);
-		}else if(batchExp && !(batchSeg)) {
-			_controller.requestBatchExport(selected_pages.toArray(),progressInterval, doReadingOrder, roMode);
-		}else if(!(batchExp) && !(batchSeg) && doReadingOrder) {
-			_controller.batchGenerateReadingOrder(selected_pages.toArray(),roMode);
-			clearInterval(progressInterval);
-			$(".modal").modal("close");
-			if(_controller.getLoadLocalSetting()) {
-				_controller.toggleLoadExistingSegmentation(false, true)
-			}
-		}
-	});
 
+		_controller.handleBatch(selected_pages, doReadingOrder, roMode, batchSeg, batchExp);
+	});
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();
 	})

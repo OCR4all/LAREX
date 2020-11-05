@@ -60,6 +60,10 @@ class Communicator {
 		return this.request("data/page/annotations", {bookid:bookid, pageid:pageid});
 	}
 
+	getPageAnnotationsBatch(bookid, pages) {
+		return this.request("data/page/batchAnnotations", {bookid:bookid, pages:pages}, DataType.JSON);
+	}
+
 	getHaveAnnotations(bookID) { 
 		return this.request("data/status/all/annotations", {bookid:bookID});
 	}

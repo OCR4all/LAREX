@@ -66,7 +66,7 @@
     </div>
     <div class="modal-footer">
         <a href="#!" class="modal-close waves-effect waves-green btn-flat">Close</a>
-        <a id="batchNext" class="disabled col s12 waves-effect waves-light btn confirmBatchSegment tooltipped"
+        <a id="batchNext" class="disabled col s12 waves-effect waves-light btn confirmBatchSegment tooltipped autoLoadPagesBatch"
            href="#batchSegmentConfirmationModal" data-position="left" data-delay="50"
            data-tooltip="Run the batch segmentation">Next</a>
     </div>
@@ -85,7 +85,7 @@
             <div class="determinate"></div>
         </div>
         <div class="center">
-            <a class="col s12 waves-effect waves-light btn doBatchSegment tooltipped" data-position="left"
+            <a id="runBatch" class="col s12 waves-effect waves-light btn doBatchSegment tooltipped" data-position="left"
                data-delay="50" data-tooltip="Run the batch segmentation">Run<i class="material-icons right">send</i></a>
             <a href="#!" class="modal-close btn waves-effect waves-light red">Abort</a>
         </div>
