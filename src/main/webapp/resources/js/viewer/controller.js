@@ -36,6 +36,18 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _initialTextView = true;
 	this._imageVersion = 0;
 
+	this.get_segmentation = function(){
+		return _segmentation
+	}
+
+	this.get_saved_pages = function(){
+		return _savedPages;
+	}
+
+	this.get_segmented_pages = function(){
+		return _segmentedPages;
+	}
+
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
 		if(!this.isCurrentPageSaved() && _actionController.hasActions(_currentPage)){
@@ -563,7 +575,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				default:
 			}
 
-			_segmentedPages.push(_currentPage);
+			_segmentedPages.push(pageid);
 			if (missingRegions.length > 0) {
 				_gui.displayWarning('Warning: Some regions were missing and have been added.');
 			}
