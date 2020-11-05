@@ -471,11 +471,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
 		let segmentations = [];
-		for(let pageI in pages) {
+		for(let pageI of pages) {
 			segmentations.push(_segmentation[pages[pageI]]);
 		}
 		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).then((data) => {
-			for(let pageI in pages) {
+			for(let pageI of pages) {
 				_savedPages.push(pages[pageI]);
 				_gui.addPageStatus(pages[pageI],PageStatus.SERVERSAVED);
 			}
