@@ -501,15 +501,6 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 
 		_controller.handleBatch(selected_pages, doReadingOrder, roMode, batchSeg, batchExp);
 	});
-	$(".autoLoadPagesBatch").click(function (){
-		if($("#batchLoad").is(":checked")) {
-			$("#runBatch").addClass("disabled");
-			const selected_pages = $('.batchPageCheck:checkbox:checked').map(function(){
-				return $(this).data("page");
-			});
-			_controller.loadMultiplePagesIntoSession(selected_pages.toArray());
-		}
-	});
 	$("#displayPrediction").click(function(){
 		_textViewer._displayPredictedText();
 	})

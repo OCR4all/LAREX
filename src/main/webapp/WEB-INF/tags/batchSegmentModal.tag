@@ -12,12 +12,6 @@
                 <div class="collapsible-body collapsible-body-batch">
                     <ul>
                         <li>
-                            <input type="checkbox" class="modeSelect" id="batchLoad"/>
-                            <label for="batchLoad">
-                                Auto Load
-                            </label>
-                        </li>
-                        <li>
                             <input type="checkbox" class="modeSelect" id="batchSegmentation"/>
                             <label for="batchSegmentation">
                                 Segment pages

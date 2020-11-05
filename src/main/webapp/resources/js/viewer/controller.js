@@ -432,6 +432,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 	this.handleBatch = function (selected_pages, doReadingOrder, roMode, batchSeg, batchExp) {
+		this.loadMultiplePagesIntoSession(selected_pages.toArray());
+
 		let progress = 0;
 		let progressInterval = setInterval(() => {
 			_communicator.getBatchSegmentationProgress().done(function (data) {
