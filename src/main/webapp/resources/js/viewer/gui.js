@@ -51,8 +51,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		const $select = $('.menuPageSelector');
 		const $pagename = $select.find(`[data-page=${page}]`).val()
 		$select.select2().val($pagename);
+		$select.trigger('change');
 	}
-
 	/**
 	 * Reset custom user horizontal delta for the textline
 	 */
