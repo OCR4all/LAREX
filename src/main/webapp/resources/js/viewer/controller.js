@@ -334,7 +334,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
-		for (let page of pages) {
+		for(let page = 0; page < pages.length; page++) {
 			activesettings.fixedGeometry = {segments: {}, cuts: {}};
 			if (_fixedGeometry[page]) {
 				if (_fixedGeometry[page].segments)
@@ -398,7 +398,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 	this.checkPagesForSegmentation = function (pages) {
-		let segPages = pages.slice();
+		let segPages = Array.from(pages);
 		let i=0;
 		while(i < segPages.length) {
 			if (typeof _segmentation[segPages[i]] == 'undefined') {
@@ -471,11 +471,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
 		let segmentations = [];
-		for(let pageI in pages) {
+		for(let pageI = 0; pageI < pages.length; pageI++) {
 			segmentations.push(_segmentation[pages[pageI]]);
 		}
 		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).then((data) => {
-			for(let pageI in pages) {
+			for(let pageI = 0; pageI < pages.length; pageI++) {
 				_savedPages.push(pages[pageI]);
 				_gui.addPageStatus(pages[pageI],PageStatus.SERVERSAVED);
 			}
