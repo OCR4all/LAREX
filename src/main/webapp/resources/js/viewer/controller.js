@@ -364,9 +364,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_batchSegmentationPreloader.hide();
 				clearInterval(progressInterval);
 				$(".modal").modal("close");
-				if(this.getLoadLocalSetting()) {
-					this.toggleLoadExistingSegmentation(false, true);
-				}
 			}
 		});
 	}
@@ -454,9 +451,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			selected_pages = this.checkPagesForSegmentation(selected_pages);
 			clearInterval(progressInterval);
 			$(".modal").modal("close");
-			if(this.getLoadLocalSetting()) {
-				this.toggleLoadExistingSegmentation(false, true)
-			}
 			this.batchGenerateReadingOrder(selected_pages,roMode);
 		}
 	}
@@ -2076,16 +2070,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 	this.getCurrentSettings = function(){
 		return _settings[_currentPage];
-	}
-
-	this.toggleLoadExistingSegmentation = function(show=false, toast=true){
-		$("#allowLoadXml").prop("checked", show);
-		$('.settings-load-existing-xml').find('input').prop('checked', show);
-		this.allowToLoadExistingSegmentation(show);
-		_gui.openSidebarCollapsible("settings");
-		if(toast){
-			_gui.displayWarning("'Load existing segmentations' has been disabled", 3500, "blue");
-		}
 	}
 
 	this.openBatchSegmentModal = function(){
