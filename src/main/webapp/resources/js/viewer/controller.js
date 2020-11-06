@@ -414,45 +414,46 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		return segPages;
 	}
 
-	this.loadMultiplePagesIntoSession = function (pages) {
-		_communicator.getPageAnnotationsBatch(_book.id, pages).done((result) => {
-			if(!result){
+	this.handleBatch = function (selected_pages, doReadingOrder, roMode, batchSeg, batchExp) {
+		/* Collect local page annotations into segmentation map before running batch */
+		_communicator.getPageAnnotationsBatch(_book.id, selected_pages.toArray()).done((result) => {
+			if (!result) {
 				console.log("Server error while loading pages");
-			}else{
-				for(let i = 0; i < pages.length; i++) {
-					_actionController.resetActions(pages[i]);
-					this._setPage(pages[i], result[i]);
+			} else {
+				for (let i = 0; i < selected_pages.toArray().length; i++) {
+					if(result[i].status !== "EMPTY"){
+						_actionController.resetActions(selected_pages.toArray()[i]);
+						this._setPage(selected_pages.toArray()[i], result[i]);
+					}
 				}
 			}
 			_gui.updateSelectedPage(_currentPage);
 			$("#runBatch").removeClass("disabled");
+
+			let progress = 0;
+			let progressInterval = setInterval(() => {
+				_communicator.getBatchSegmentationProgress().done(function (data) {
+					setTimeout(function () {
+						progress = Math.round((data / selected_pages.toArray().length) * 100);
+						console.log("progress: " + progress);
+						$("#batch-segmentation-progress").css('width', progress + '%');
+					});
+				})
+			},1000)
+
+			if(batchSeg) {
+				this.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),
+					progressInterval, doReadingOrder, roMode);
+			}else if(batchExp && !(batchSeg)) {
+				selected_pages = this.checkPagesForSegmentation(selected_pages);
+				this.requestBatchExport(selected_pages,progressInterval, doReadingOrder, roMode);
+			}else if(!(batchExp) && !(batchSeg) && doReadingOrder) {
+				selected_pages = this.checkPagesForSegmentation(selected_pages);
+				clearInterval(progressInterval);
+				$(".modal").modal("close");
+				this.batchGenerateReadingOrder(selected_pages, roMode);
+			}
 		});
-	}
-	this.handleBatch = function (selected_pages, doReadingOrder, roMode, batchSeg, batchExp) {
-		this.loadMultiplePagesIntoSession(selected_pages.toArray());
-
-		let progress = 0;
-		let progressInterval = setInterval(() => {
-			_communicator.getBatchSegmentationProgress().done(function (data) {
-				setTimeout(function () {
-					progress = Math.round((data / selected_pages.toArray().length) * 100);
-					console.log("progress: " + progress);
-					$("#batch-segmentation-progress").css('width', progress + '%');
-				});
-			})
-		},1000)
-
-		if(batchSeg) {
-			this.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),progressInterval,doReadingOrder,roMode);
-		}else if(batchExp && !(batchSeg)) {
-			selected_pages = this.checkPagesForSegmentation(selected_pages);
-			this.requestBatchExport(selected_pages,progressInterval, doReadingOrder, roMode);
-		}else if(!(batchExp) && !(batchSeg) && doReadingOrder) {
-			selected_pages = this.checkPagesForSegmentation(selected_pages);
-			clearInterval(progressInterval);
-			$(".modal").modal("close");
-			this.batchGenerateReadingOrder(selected_pages,roMode);
-		}
 	}
 	this.requestBatchExport = function (pages, progressInterval, doReadingOrder, roMode) {
 		if(pages.length == 0) {
