@@ -374,7 +374,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					this.batchAutoReadingOrder(pages);
 					break;
 				default:
-					console.log("Reading order '" + roMode +  "'defaults to automatic");
+					console.log("Reading order '" + roMode + "' defaults to automatic");
 					this.batchAutoReadingOrder(pages);
 					break;
 			}
