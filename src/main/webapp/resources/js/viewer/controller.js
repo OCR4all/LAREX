@@ -36,6 +36,18 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _initialTextView = true;
 	this._imageVersion = 0;
 
+	this.get_segmentation = function(){
+		return _segmentation
+	}
+
+	this.get_saved_pages = function(){
+		return _savedPages;
+	}
+
+	this.get_segmented_pages = function(){
+		return _segmentedPages;
+	}
+
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
 		if(!this.isCurrentPageSaved() && _actionController.hasActions(_currentPage)){
@@ -322,7 +334,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
-		for (let page of pages) {
+		for(let page = 0; page < pages.length; page++) {
 			activesettings.fixedGeometry = {segments: {}, cuts: {}};
 			if (_fixedGeometry[page]) {
 				if (_fixedGeometry[page].segments)
@@ -352,25 +364,22 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_batchSegmentationPreloader.hide();
 				clearInterval(progressInterval);
 				$(".modal").modal("close");
-				if(this.getLoadLocalSetting()) {
-					this.toggleLoadExistingSegmentation(false, true);
-				}
 			}
 		});
 	}
 	this.batchGenerateReadingOrder = function ( pages, roMode) {
-		if(this.checkPagesForSegmentation(pages)) {
+		if(pages.length != 0) {
 			switch (roMode) {
 				case "automatic":
 					this.batchAutoReadingOrder(pages);
 					break;
 				default:
-					console.log("Reading order '" + roMode +  "'defaults to automatic");
+					console.log("Reading order '" + roMode + "' defaults to automatic");
 					this.batchAutoReadingOrder(pages);
 					break;
 			}
-			for (let index in pages) {
-				this.setChanged(pages[index]);
+			for (let i = 0; i < pages.length; i++) {
+				this.setChanged(pages[i]);
 			}
 			_gui.displayWarning("Batch Reading Order successful.", 1500, "green")
 		} else {
@@ -378,22 +387,76 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 	this.batchAutoReadingOrder = function (pages) {
-		for(let page in pages) {
-			this.autoGenerateReadingOrder(page);
+		for(let i = 0; i<pages.length; i++) {
+			try {
+				this.autoGenerateReadingOrder(pages[i]);
+			} catch (e) {
+				console.log("page " + i + " could not be loaded!")
+				console.log(e);
+			}
+
 		}
 	}
-	//returns false if any page has no segmentation available
 	this.checkPagesForSegmentation = function (pages) {
-		for(let pageI in pages) {
-			if( typeof _segmentation[pageI] == 'undefined') {
-				return false;
+		let segPages = Array.from(pages);
+		let i=0;
+		while(i < segPages.length) {
+			if (typeof _segmentation[segPages[i]] == 'undefined') {
+				segPages.splice(i, 1);
+			} else {
+				i++;
 			}
 		}
-		return true;
+		if(pages.length > segPages.length) {
+			_gui.displayWarning("Reading Order and Export could not be executed for pages without segmentation.", 1500, "orange");
+		}
+
+		return segPages;
+	}
+
+	this.handleBatch = function (selected_pages, doReadingOrder, roMode, batchSeg, batchExp) {
+		/* Collect local page annotations into segmentation map before running batch */
+		_communicator.getPageAnnotationsBatch(_book.id, selected_pages.toArray()).done((result) => {
+			if (!result) {
+				console.log("Server error while loading pages");
+			} else {
+				for (let i = 0; i < selected_pages.toArray().length; i++) {
+					if(result[i].status !== "EMPTY"){
+						_actionController.resetActions(selected_pages.toArray()[i]);
+						this._setPage(selected_pages.toArray()[i], result[i]);
+					}
+				}
+			}
+			_gui.updateSelectedPage(_currentPage);
+			$("#runBatch").removeClass("disabled");
+
+			let progress = 0;
+			let progressInterval = setInterval(() => {
+				_communicator.getBatchSegmentationProgress().done(function (data) {
+					setTimeout(function () {
+						progress = Math.round((data / selected_pages.toArray().length) * 100);
+						console.log("progress: " + progress);
+						$("#batch-segmentation-progress").css('width', progress + '%');
+					});
+				})
+			},1000)
+
+			if(batchSeg) {
+				this.requestBatchSegmentation(false, selected_pages.toArray(), $("#batchSaveSegmentation").is(":checked"),
+					progressInterval, doReadingOrder, roMode);
+			}else if(batchExp && !(batchSeg)) {
+				selected_pages = this.checkPagesForSegmentation(selected_pages);
+				this.requestBatchExport(selected_pages,progressInterval, doReadingOrder, roMode);
+			}else if(!(batchExp) && !(batchSeg) && doReadingOrder) {
+				selected_pages = this.checkPagesForSegmentation(selected_pages);
+				clearInterval(progressInterval);
+				$(".modal").modal("close");
+				this.batchGenerateReadingOrder(selected_pages, roMode);
+			}
+		});
 	}
 	this.requestBatchExport = function (pages, progressInterval, doReadingOrder, roMode) {
-
-		if(!(this.checkPagesForSegmentation(pages))) {
+		if(pages.length == 0) {
 			clearInterval(progressInterval);
 			$("#batch-segmentation-progress").css('width', '0%');
 			$(".modal").modal("close");
@@ -409,13 +472,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//Update setting parameters
 		_settings.parameters = _gui.getParameters();
 		let segmentations = [];
-		for(let pageI in pages) {
-			segmentations.push(_segmentation[pageI]);
+		for(let pageI = 0; pageI < pages.length; pageI++) {
+			segmentations.push(_segmentation[pages[pageI]]);
 		}
 		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).then((data) => {
-			for(let pageI in pages) {
-				_savedPages.push(pageI);
-				_gui.addPageStatus(pageI,PageStatus.SERVERSAVED);
+			for(let pageI = 0; pageI < pages.length; pageI++) {
+				_savedPages.push(pages[pageI]);
+				_gui.addPageStatus(pages[pageI],PageStatus.SERVERSAVED);
 			}
 
 			if(globalSettings.downloadPage) {
@@ -504,12 +567,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					preparePage(this);
 					break;
 				case 'SUCCESS':
+				case 'EMPTY':
 					preparePage(this);
 					break;
 				default:
 			}
 
-			_segmentedPages.push(_currentPage);
+			_segmentedPages.push(pageid);
 			if (missingRegions.length > 0) {
 				_gui.displayWarning('Warning: Some regions were missing and have been added.');
 			}
@@ -2007,16 +2071,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 	this.getCurrentSettings = function(){
 		return _settings[_currentPage];
-	}
-
-	this.toggleLoadExistingSegmentation = function(show=false, toast=true){
-		$("#allowLoadXml").prop("checked", show);
-		$('.settings-load-existing-xml').find('input').prop('checked', show);
-		this.allowToLoadExistingSegmentation(show);
-		_gui.openSidebarCollapsible("settings");
-		if(toast){
-			_gui.displayWarning("'Load existing segmentations' has been disabled", 3500, "blue");
-		}
 	}
 
 	this.openBatchSegmentModal = function(){

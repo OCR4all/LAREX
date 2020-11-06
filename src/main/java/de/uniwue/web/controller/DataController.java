@@ -12,13 +12,11 @@ import java.util.List;
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
+import de.uniwue.web.communication.BatchLoadRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
 import de.uniwue.web.config.LarexConfiguration;
 import de.uniwue.web.io.FileDatabase;
@@ -96,6 +94,34 @@ public class DataController {
 			return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
 					page.getId());
 		}
+	}
+
+	/**
+	 * Return the annotations of one or multiple pages if exists or empty annotations
+	 *x
+	 * @param batchLoadRequest
+	 * @return
+	 */
+	@RequestMapping(value = "data/page/batchAnnotations", method = RequestMethod.POST, headers = "Accept=*/*",
+			produces = "application/json", consumes = "application/json")
+	public @ResponseBody List<PageAnnotations> getBatchAnnotations(@RequestBody BatchLoadRequest batchLoadRequest) {
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"));
+
+		final Book book = database.getBook(batchLoadRequest.getBookid());
+		List<PageAnnotations> pageAnnotations = new ArrayList<>();
+		for( int pageID : batchLoadRequest.getPages()) {
+			Page page = book.getPage(pageID);
+			File annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+			if (annotationsPath.exists()) {
+				pageAnnotations.add(PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath));
+			} else {
+				pageAnnotations.add( new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
+						page.getId()));
+			}
+		}
+
+		return pageAnnotations;
 	}
 
 	/**
