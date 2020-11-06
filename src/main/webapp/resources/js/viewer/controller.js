@@ -427,7 +427,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					}
 				}
 			}
-			_gui.updateSelectedPage(_currentPage);
+
 			$("#runBatch").removeClass("disabled");
 
 			let progress = 0;
