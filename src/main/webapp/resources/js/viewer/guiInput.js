@@ -493,7 +493,6 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 			return $(this).data("page");
 		});
 
-		let sel_pages = _controller.checkPagesForSegmentation(selected_pages.toArray());
 		let doReadingOrder = $("#selectReadingOrder").is(":checked");
 		let roMode = $("#select-ro-option").val();
 		let batchSeg = $("#batchSegmentation").is(":checked");
