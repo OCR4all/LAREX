@@ -18,7 +18,7 @@ Important notes for development from source
 -------------------------------------------
 ### SASS
 LAREX can be developed by changing the sources and updating the installation as it is described in [_Installation_ in the README](../README.md#installation).
-Only one difference should be noted. In order to edit the style of the application SASS is needed to create css files.
+Only one difference should be noted. In order to edit the style of the application SASS is required to create css files.
 The base compiled versions of the current [scss files](https://github.com/OCR4all/Larex/blob/master/scss/) can be found in the [css directory](https://github.com/OCR4all/Larex/blob/master/src/main/webapp/resources/css/).
 In order to edit the css one must make the changes in the scss files and compile them into the css folder as described in the official [SASS guide](https://sass-lang.com/guide)
 
@@ -27,18 +27,18 @@ e.g. (inside the LAREX folder)
 sass --watch scss:src/main/webapp/resources/css --style compressed
 ```
 
-### PRImA PAGE xml
+### PRImA PAGE XML
 The base format of LAREX is the PAGE xml from PRImA.
-While LAREX uses maven as building and dependency providing tool, PRImA does not provide the official base library for page xml as a maven module.
+While LAREX uses maven as building and dependency providing tool, PRImA does not provide the official base library for PAGE XML as a maven module.
 LAREX has therefore added the compiled PRImA jars into a local maven repository ([src/lib](https://github.com/OCR4all/LAREX/blob/master/src/lib)).
-Updating the PRImA libraries therefore requires more changes than other maven dependencies in this projekt. One must update more than its version in the [pom.xml](https://github.com/OCR4all/LAREX/blob/master/pom.xml#L120).
-Adding new versions to the local repository can be done with a [predefined skript](https://github.com/OCR4all/LAREX/blob/master/src/lib/add.sh) (`sh add.sh`).
-The script guides the developer through the installation in the local repository, by asking for the file, prefered maven group id, artifact id and version.
-Informations should mirror the module information in [pom.xml](https://github.com/OCR4all/LAREX/blob/master/pom.xml#L116) with a new version number.
+Updating the PRImA libraries therefore requires more changes than other maven dependencies in this project. One must update more than its version in the [pom.xml](https://github.com/OCR4all/LAREX/blob/master/pom.xml#L120).
+Adding new versions to the local repository can be done with a [predefined script](https://github.com/OCR4all/LAREX/blob/master/src/lib/add.sh) (`sh add.sh`).
+The script guides the developer through the installation in the local repository, by asking for the file, preferred maven group id, artifact id and version.
+Information should mirror the module information in [pom.xml](https://github.com/OCR4all/LAREX/blob/master/pom.xml#L116) with a new version number.
 
 
 Spring
 ------
-Spring Framework is a application framwork and hereby used to create a web application for a Tomcat Server.
+Spring Framework is an application framework and hereby used to create a web application for a Tomcat Server.
 
 
