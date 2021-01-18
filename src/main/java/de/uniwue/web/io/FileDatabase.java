@@ -41,6 +41,7 @@ public class FileDatabase {
 	private File databaseFolder;
 	private List<String> supportedFileExtensions;
 	private List<String> imageSubFilter;
+	private Boolean isFlat;
 
 	/**
 	 * Initialize a FileDatabase with its root databaseFolder, all supported image
@@ -66,11 +67,12 @@ public class FileDatabase {
 	 * @param supportedFileExtensions supported image types to load
 	 * @param imageSubFilter     file extensions that are to be filtered
 	 */
-	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions, List<String> imageSubFilter) {
+	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions, List<String> imageSubFilter, Boolean isFlat) {
 		this.databaseFolder = databaseFolder;
 		this.books = new HashMap<Integer, File>();
 		this.supportedFileExtensions = new ArrayList<String>(supportedFileExtensions);
 		this.imageSubFilter = new ArrayList<String>(imageSubFilter);
+		this.isFlat = isFlat;
 	}
 
 	/**
@@ -95,8 +97,8 @@ public class FileDatabase {
 	 * @param databaseFolder          Root database folder containing all books
 	 * @param imageSubFilter     file extensions that are to be filtered
 	 */
-	public FileDatabase(File databaseFolder, List<String> imageSubFilter) {
-		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"), imageSubFilter);
+	public FileDatabase(File databaseFolder, List<String> imageSubFilter, Boolean isFlat) {
+		this(databaseFolder, Arrays.asList("png", "jpg", "jpeg", "tif", "tiff"), imageSubFilter, isFlat);
 	}
 
 	/**
@@ -111,8 +113,8 @@ public class FileDatabase {
 	 * 
 	 * @param databaseFolder          Root database folder containing all books
 	 */
-	public FileDatabase(File databaseFolder) {
-		this(databaseFolder, new ArrayList<>());
+	public FileDatabase(File databaseFolder, Boolean isFlat) {
+		this(databaseFolder, new ArrayList<>(), isFlat);
 	}
 
 	/**
@@ -166,6 +168,18 @@ public class FileDatabase {
 
 		return readBook(bookFile, id);
 	}
+
+	/**
+	 * Load a book object via Map.
+	 *
+	 * @param bookName name of book
+	 * @param bookID Identifier of the book to load
+	 * @param imageMap map of images from book
+	 * @return Loaded book
+	 */
+	public Book getBook(String bookName, Integer bookID, Map<String, String> imageMap) {
+		return readBook(bookName,imageMap, bookID);
+	}
 	
 	/**
 	 * Retrieve name of a book without loading it into ram
@@ -197,6 +211,30 @@ public class FileDatabase {
 			if (new File(xmlPath).exists())
 				segmentedIds.add(page.getId());
 		}
+		return segmentedIds;
+	}
+
+	/**
+	 * Get the IDs of all book pages, for which a segmentation file exists.
+	 *
+	 * @param bookID Identifier for the book of which pages are to be checked
+	 * @return Collection of all book pages in the selected book with a segmentation
+	 *         file
+	 */
+	public Collection<Integer> getPagesWithAnnotations(String bookName, Integer bookID, Map<String, String> imageMap, Map<String, String> xmlMap) {
+		Collection<Integer> segmentedIds = new HashSet<>();
+		try {
+			Book book = getBook(bookName,bookID,imageMap);
+			for (Page page : book.getPages()) {
+				String key = page.getName() + ".xml";
+
+				if (xmlMap.get(key) != null && new File(xmlMap.get(key)).exists())
+					segmentedIds.add(page.getId());
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
 		return segmentedIds;
 	}
 
@@ -260,6 +298,73 @@ public class FileDatabase {
 		}
 
 		return new Book(bookID, bookName, pages);
+	}
+
+	/**
+	 * Read contents of a book from the folder structure.
+	 *
+	 * @param bookName name of book
+	 * @param imagemap map of all book images
+	 * @param bookID   Identifier that is to be used for the loaded book
+	 * @return
+	 */
+	private Book readBook(String bookName, Map<String, String> imagemap, int bookID) {
+		try{
+			LinkedList<Page> pages = new LinkedList<Page>();
+			int pageCounter = 0;
+
+			if(imageSubFilter.isEmpty()) {
+				// Interpret every image as its own page
+				for(String imgPath: imagemap.values()) {
+					File imageFile = new File(imgPath);
+					Size imageSize = ImageLoader.readDimensions(imageFile);
+					String name = removeAllExtensions(imageFile.getName());
+					if(isSupportedImage(imageFile)) {
+						pages.add(new Page(pageCounter++, name, Collections.singletonList(imgPath), (int) imageSize.width, (int) imageSize.height));
+					}
+				}
+			} else {
+				// Combine images with the same base name and different (sub)extensions
+				List<File> imageFileList = new ArrayList<File>();
+				for( String imgPath : imagemap.values()) { imageFileList.add(new File(imgPath)); }
+				File[] fileArray = imageFileList.toArray(new File[imageFileList.size()]);
+				Map<String, List<File>> imageFiles = Arrays.stream(Objects.requireNonNull(fileArray))
+						.filter(f -> isSupportedImage(f) && (imageSubFilter.isEmpty() || passesSubFilter(f.getName())))
+						.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
+
+				ArrayList<String> sortedPages = new ArrayList<>(imageFiles.keySet());
+				sortedPages.sort(String::compareTo);
+
+				for (String pageName : sortedPages) {
+					Map<String, List<File>> groupedImages = imageFiles.get(pageName).stream()
+							.collect(Collectors.groupingBy(f -> extractSubExtension(f.getName())));
+					List<String> images = new ArrayList<>();
+
+					Size imageSize = null;
+					for(String subExtension: imageSubFilter) {
+						List<File> subImages = !subExtension.equals(".") ? groupedImages.get(subExtension)
+								: groupedImages.get("");
+
+						if(subImages != null) {
+							for(File subImage: subImages) {
+								if(imageSize == null) {
+									imageSize = ImageLoader.readDimensions(subImage);
+								}
+								images.add(subImage.getParentFile().getName() + File.separator + subImage.getName());
+							}
+						}
+					}
+
+					assert imageSize != null;
+					pages.add(new Page(pageCounter++, pageName, images, (int) imageSize.width, (int) imageSize.height));
+				}
+			}
+
+			return new Book(bookID, bookName, pages);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return null;
+		}
 	}
 
 	/**

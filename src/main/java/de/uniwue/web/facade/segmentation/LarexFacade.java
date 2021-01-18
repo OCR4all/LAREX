@@ -3,9 +3,7 @@ package de.uniwue.web.facade.segmentation;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.*;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -43,12 +41,32 @@ public class LarexFacade {
 	 * @return
 	 */
 	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr,
-											  FilePathManager fileManager, FileDatabase database) {
-		final Page page = database.getBook(settings.getBookID()).getPage(pageNr);
-
+			FilePathManager fileManager, FileDatabase database) {
+		Page page;
+		if(fileManager.checkFlat()) {
+			page = database.getBook(settings.getBookID()).getPage(pageNr);
+		} else {
+			page = database.getBook(fileManager.getNonFlatBookName(), fileManager.getNonFlatBookId(), fileManager.getLocalImageMap()).getPage(pageNr);
+		}
 		PageAnnotations segmentation = null;
 		Collection<RegionSegment> segmentationResult = null;
 		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
+		if(fileManager.checkFlat()) {
+			imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
+		} else {
+			try{
+				List<String> imagesWithExt = new LinkedList<>();
+				for(Map.Entry<String ,String> entry : fileManager.getLocalImageMap().entrySet()) {
+					if(entry.getKey().matches("^" + page.getName() + "\\..*")) {
+						imagesWithExt.add(entry.getValue());
+					}
+				}
+				imagePath = imagesWithExt.get(0);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
 
 		File imageFile = new File(imagePath);
 		if (imageFile.exists()) {

@@ -2,12 +2,13 @@ package de.uniwue.web.controller;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.nio.file.Files;
+import java.util.*;
 
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -69,7 +70,7 @@ public class ViewerController {
 		}
 
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), true);
 		Book book = database.getBook(bookID);
 
 		if (book == null) {
@@ -84,9 +85,35 @@ public class ViewerController {
 
 		return "editor";
 	}
+
+	/**
+	 * Open the viewer in direct nonflat mode and display the contents of its "book"
+	 **/
+	@RequestMapping(value = "/directviewer", method = RequestMethod.GET)
+	public String directViewer(Model model, @RequestParam(value = "book", required = true) Integer bookID
+								, @RequestParam(value = "bookname", required = false) String bookName
+							    , @RequestParam(value = "imagemap", required = true) Map<String, String> imageMap) {
+		if (bookID == null || imageMap.isEmpty()) {
+			return "redirect:/404";
+		}
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"), false);
+		Book book = database.getBook(bookName, bookID, imageMap);
+		if (book == null) {
+			return "redirect:/404";
+		}
+
+		model.addAttribute("book", book);
+		model.addAttribute("regionTypes", getRegionTypes());
+		model.addAttribute("bookPath", "images/books/");
+		model.addAttribute("globalSettings", config);
+
+
+		return "editor";
+	}
 	
 	/**
-	 * Open the viewer with a direct request if direct request is enabled
+	 * Open the viewer with a direct request if direct request is enabled using hierarchical directory structures
 	 * and display the contents of a selected book.
 	 */
 	@RequestMapping(value = "/direct", method = RequestMethod.POST)
@@ -122,6 +149,59 @@ public class ViewerController {
 			config.setSetting("modes", modes);
 		}
 		return viewer(model, bookID);
+	}
+
+	/**
+	 * Open the viewer with a direct request if direct request is enabled using non-flat directory structures
+	 * and display the contents of a selected book.
+	 */
+	@RequestMapping(value = "/direct2", method = RequestMethod.POST)
+	public String direct(Model model,
+						  @RequestParam(value = "imageMap", required = true) String imagemapString,
+						  @RequestParam(value = "xmlMap", required = true) String xmlmapString,
+						  @RequestParam(value = "bookname", required = true) String bookname,
+						  @RequestParam(value = "localsave", required = false) String localsave,
+						  @RequestParam(value = "savedir", required = false) String savedir,
+						  @RequestParam(value = "websave", required = false) String websave,
+						  @RequestParam(value = "imagefilter", required = false) String imagefilter,
+						  @RequestParam(value = "modes", required = false) String modes) throws IOException {
+		if (!config.getSetting("directrequest").equals("enable")) {
+			return "redirect:/error/403";
+		}
+		ObjectMapper mapper = new ObjectMapper();
+		Map<String, String> imagemap;
+		Map<String, String> xmlmap;
+
+		try {
+			imagemap = mapper.readValue(imagemapString, Hashtable.class);
+			xmlmap = mapper.readValue(xmlmapString, Hashtable.class);
+		} catch (IOException e) {
+			e.printStackTrace();
+			return "redirect:/error/500";
+		}
+		File tmpBookpath = Files.createTempDirectory("tempdir").toFile();
+		fileManager.setIsFlat(false);
+		fileManager.setLocalBooksPath(tmpBookpath.getPath());
+		fileManager.setLocalBookMap(xmlmap, imagemap);
+		fileManager.setNonFlatBookName(bookname);
+		int bookID = tmpBookpath.getName().hashCode();
+
+		if (localsave != null) {
+			config.setSetting("localsave", localsave);
+		}
+		if (savedir != null) {
+			config.setSetting("savedir", savedir);
+		}
+		if (websave != null) {
+			config.setSetting("websave", websave);
+		}
+		if (imagefilter != null) {
+			config.setSetting("imagefilter", imagefilter);
+		}
+		if (modes != null){
+			config.setSetting("modes", modes);
+		}
+		return directViewer(model,bookID,bookname,imagemap);
 	}
 
 

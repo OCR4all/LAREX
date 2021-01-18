@@ -51,7 +51,7 @@ public class ImageProcessingController {
 	public @ResponseBody Region combinecontours(@RequestBody ContourCombineRequest combineRequest) {
 		if (combineRequest.getContours().size() > 0) {
 			FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-					config.getListSetting("imagefilter"));
+					config.getListSetting("imagefilter"), fileManager.checkFlat());
 			return ImageProcessingFacade.combineContours(combineRequest.getContours(), combineRequest.getPageWidth(), 
 					combineRequest.getPageHeight(), combineRequest.getAccuracy(), fileManager, database);
 		} else
@@ -70,7 +70,7 @@ public class ImageProcessingController {
 			@RequestParam("pageid") int pageID) {
 
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 		return ImageProcessingFacade.extractContours(pageID, bookID, fileManager, database);
 	}
 	

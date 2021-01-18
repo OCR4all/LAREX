@@ -12,6 +12,7 @@ import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
 import de.uniwue.web.communication.BatchLoadRequest;
+import de.uniwue.web.communication.BatchSegmentationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -70,9 +71,13 @@ public class DataController {
 	@RequestMapping(value = "data/book", method = RequestMethod.POST)
 	public @ResponseBody Book getBook(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		if(fileManager.checkFlat()) {
+			return database.getBook(bookID);
+		} else {
+			return database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap());
+		}
 
-		return database.getBook(bookID);
 	}
 
 	/**
@@ -85,11 +90,21 @@ public class DataController {
 	@RequestMapping(value = "data/page/annotations", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations getAnnotations(@RequestParam("bookid") int bookID, @RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 
-		final Book book = database.getBook(bookID);
-		final Page page = book.getPage(pageID);
-		final File annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+		Book book;
+		Page page;
+		File annotationsPath;
+
+		if(fileManager.checkFlat()) {
+			book = database.getBook(bookID);
+			page = book.getPage(pageID);
+			annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+		} else {
+			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap());
+			page = book.getPage(pageID);
+			annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getName() + ".xml"));
+		}
 
 		if (annotationsPath.exists()) {
 			return PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath);
@@ -109,13 +124,23 @@ public class DataController {
 			produces = "application/json", consumes = "application/json")
 	public @ResponseBody List<PageAnnotations> getBatchAnnotations(@RequestBody BatchLoadRequest batchLoadRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 
-		final Book book = database.getBook(batchLoadRequest.getBookid());
+		Book book;
+		if(fileManager.checkFlat()) {
+			book = database.getBook(batchLoadRequest.getBookid());
+		} else {
+			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap());
+		}
 		List<PageAnnotations> pageAnnotations = new ArrayList<>();
 		for( int pageID : batchLoadRequest.getPages()) {
 			Page page = book.getPage(pageID);
-			File annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+			File annotationsPath;
+			if(fileManager.checkFlat()) {
+				annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+			} else {
+				annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getName() + ".xml"));
+			}
 			if (annotationsPath.exists()) {
 				pageAnnotations.add(PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath));
 			} else {
@@ -136,8 +161,12 @@ public class DataController {
 	@RequestMapping(value = "data/status/all/annotations", method = RequestMethod.POST)
 	public @ResponseBody Collection<Integer> getAnnotationAllStatus(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-		return database.getPagesWithAnnotations(bookID);
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		if(fileManager.checkFlat()) {
+			return database.getPagesWithAnnotations(bookID);
+		} else {
+			return database.getPagesWithAnnotations(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(), fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
+		}
 	}
 
 	/**
