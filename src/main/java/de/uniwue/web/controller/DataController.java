@@ -221,4 +221,14 @@ public class DataController {
 		String ocr4allMode = config.getSetting("ocr4all");
 		return ocr4allMode.equals("enable");
 	}
+
+	/**
+	 * Returns whether LAREX is configured to be used direct request mode or not.
+	 */
+	@RequestMapping(value = "config/directrequest", method = RequestMethod.POST, headers = "Accept=*/*",
+			produces = "application/json")
+	public @ResponseBody Boolean isDirectRequest() {
+		String directrequestMode = config.getSetting("directrequest");
+		return directrequestMode.equals("enable");
+	}
 }

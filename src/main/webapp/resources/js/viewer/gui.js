@@ -924,8 +924,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				const imageSrc = $p.data("image");
 				const imageId = $p.data("page");
 				const title = $p.data("title");
-
-				const $image = $('<img class="pageImage" alt="'+title+'" title="'+title+'" src="images/books/'+imageSrc+'?resize=true" id="'+imageId+'previewImage" />');
+				let imageSource = encodeURIComponent(JSON.stringify(imageSrc.replace(/\//g, "‡")));
+				const $image = $('<img class="pageImage" alt="'+title+'" title="'+title+'" src="loadImage/'+imageSource+'?resize=true" id="'+imageId+'previewImage" />');
 				const $status = $('<div class="pagestatus">'+
 									'<i class="material-icons pagestatusIcon pageIconTodo circle">assignment_late</i>'+
 									'<i class="material-icons pagestatusIcon pageIconSession circle  hide">save</i>'+

@@ -2,6 +2,7 @@ package de.uniwue.web.controller;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 
@@ -79,7 +80,7 @@ public class ViewerController {
 
 		model.addAttribute("book", book);
 		model.addAttribute("regionTypes", getRegionTypes());
-		model.addAttribute("bookPath", "images/books/");
+		model.addAttribute("bookPath", "loadImage/");
 		model.addAttribute("globalSettings", config);
 
 
@@ -89,7 +90,7 @@ public class ViewerController {
 	/**
 	 * Open the viewer in direct nonflat mode and display the contents of its "book"
 	 **/
-	@RequestMapping(value = "/directviewer", method = RequestMethod.GET)
+	@RequestMapping(value = "/directviewer", method = RequestMethod.POST)
 	public String directViewer(Model model, @RequestParam(value = "book", required = true) Integer bookID
 								, @RequestParam(value = "bookname", required = false) String bookName
 							    , @RequestParam(value = "imagemap", required = true) Map<String, String> imageMap) {
@@ -105,7 +106,7 @@ public class ViewerController {
 
 		model.addAttribute("book", book);
 		model.addAttribute("regionTypes", getRegionTypes());
-		model.addAttribute("bookPath", "images/books/");
+		model.addAttribute("bookPath", "loadImage/");
 		model.addAttribute("globalSettings", config);
 
 
@@ -204,6 +205,70 @@ public class ViewerController {
 		return directViewer(model,bookID,bookname,imagemap);
 	}
 
+	/**
+	 * Open the viewer from library navigation.
+	 */
+	@RequestMapping(value = "/directLibrary", method = RequestMethod.GET)
+	public String direct(Model model,
+						 @RequestParam(value = "imageMap", required = true) String imagemapString,
+						 @RequestParam(value = "customFlag", required = true) String customFlag,
+						 @RequestParam(value = "customFolder", required = false) String customFolder) throws IOException {
+		System.out.println("In directLibrary");
+		ObjectMapper mapper = new ObjectMapper();
+		Map<String, String> imagemap;
+		Map<String, String> xmlmap = new LinkedHashMap<>();
+
+		try {
+			System.out.println("tried mapper");
+			imagemap = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()).replaceAll("‡","\"").replaceAll("…",":"), HashMap.class);
+			System.out.println("finished mapper");
+		} catch (IOException e) {
+			System.out.println(e.getMessage());
+			e.printStackTrace();
+			return "redirect:/error/500";
+		}
+		for(Map.Entry<String, String> entry : imagemap.entrySet()) {
+			//Map.Entry<String, String> xmlEntry = new Map.Entry<String, String>();
+			String imageName = entry.getKey();
+			String imagePath = entry.getValue();
+			if(imagePath.startsWith("/")) {
+				imagePath = entry.getValue().substring(1);
+				entry.setValue(imagePath);
+			}
+			System.out.println(imageName + ":" + imagePath);
+			String xmlName = imageName.split("\\.")[0] + ".xml";
+			System.out.println("xmlName is: " + xmlName);
+			if(customFlag.equals("true")) {
+				if(!customFolder.endsWith(File.separator)) { customFolder += File.separator; }
+				xmlmap.put(xmlName,customFolder + xmlName);
+			} else {
+				String parentFolder = new File(imagePath).getParentFile().getAbsolutePath();
+				if(!parentFolder.endsWith(File.separator)) { parentFolder += File.separator; }
+				xmlmap.put(xmlName,parentFolder + xmlName);
+			}
+
+			System.out.println(xmlName + ":" + xmlmap.get(xmlName));
+		}
+
+		File tmpBookpath = Files.createTempDirectory("tempdir").toFile();
+		fileManager.setIsFlat(false);
+		fileManager.setLocalBooksPath(tmpBookpath.getPath());
+		fileManager.setLocalBookMap(xmlmap, imagemap);
+		fileManager.setNonFlatBookName("bookname");
+		int bookID = tmpBookpath.getName().hashCode();
+		System.out.println("finished other stuff");
+
+		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				config.getListSetting("imagefilter"), false);
+		Book book = database.getBook("libraryBook", bookID, imagemap);
+
+		model.addAttribute("book", book);
+		model.addAttribute("regionTypes", getRegionTypes());
+		model.addAttribute("bookPath", "loadImage/");
+		model.addAttribute("globalSettings", config);
+
+		return "editor";
+	}
 
 	private static SortedMap<String, Integer> getRegionTypes() {
 		SortedMap<String, Integer> regionTypes = new TreeMap<String, Integer>((c1, c2) -> {

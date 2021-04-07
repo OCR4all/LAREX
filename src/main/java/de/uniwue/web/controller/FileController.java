@@ -2,10 +2,9 @@ package de.uniwue.web.controller;
 
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -98,17 +97,18 @@ public class FileController {
 	 * Request an image of a book, by book name and image name.
 	 * Use resize to get a downscaled preview image, with a width of 300px.
 	 */
-	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
-	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
-			@PathVariable("image") final String image,
+	@RequestMapping(value = "loadImage/{imageEnc}", method = RequestMethod.GET)
+	public ResponseEntity<byte[]> getImage(@PathVariable("imageEnc") final String imageEnc,
 			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
 		try {
 
 			File imageFile;
 			byte[] imageBytes = null;
+			String image = java.net.URLDecoder.decode(imageEnc, StandardCharsets.UTF_8.name()).replaceAll("‡","/");
+			if(image.startsWith("\"")) {	image = image.substring(1); }
 			if(fileManager.checkFlat()) {
 				// Find file with image name
-				final File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
+				final File directory = new File(fileManager.getLocalBooksPath() + File.separator);
 				final String imageName = image.replace(".png", "");
 
 				final File[] matchingFiles = directory.listFiles((File dir, String name) -> {
@@ -126,8 +126,19 @@ public class FileController {
 					throw new IOException("File does not exist");
 				imageFile = matchingFiles[0];
 			} else {
-				String imagePath = fileManager.getLocalImageMap().get(new File(image).getName() + ".png");
-				imageFile = new File(imagePath);
+				List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
+				List<String> foundImages = new LinkedList<>();
+				Map<String, String> localImageMap = fileManager.getLocalImageMap();
+				int extStart = image.lastIndexOf(".");
+				for ( String ext: supportedImageExt) {
+					String imgWithExt = new File(image).getName() + ext;
+					String imgWithExt2 = image + ext;
+					if(localImageMap.containsKey(imgWithExt)) {
+						foundImages.add(localImageMap.get(imgWithExt));
+					}
+				}
+				//String imagePath = fileManager.getLocalImageMap().get(new File(image).getName() + ".png");
+				imageFile = new File(foundImages.get(0));
 			}
 
 			if (doResize) {
@@ -209,8 +220,8 @@ public class FileController {
 			if(fileManager.checkFlat()) {
 				saveDocument(pageXML, xmlName, request.getBookid());
 			} else {
-				File tmpXml = File.createTempFile(xmlName,".xml");
-				saveDocument(pageXML, tmpXml.getAbsolutePath(), request.getBookid());
+				String xmlPath = fileManager.getLocalXmlMap().get(request.getSegmentation().getName() + ".xml");
+				saveDocument(pageXML, xmlPath, request.getBookid());
 			}
 			byte[] docBytes = convertDocumentToByte(pageXML);
 			return convertByteToResponse(docBytes, request.getSegmentation().getName() + ".xml", "application/xml");
@@ -240,8 +251,8 @@ public class FileController {
 				if(fileManager.checkFlat()) {
 					saveDocument(pageXML, xmlName, request.getBookid());
 				} else {
-					File tmpXml = File.createTempFile(xmlName,".xml");
-					saveDocument(pageXML, tmpXml.getAbsolutePath(), request.getBookid());
+					String xmlPath = fileManager.getLocalXmlMap().get(segmentations.get(i).getName() + ".xml");
+					saveDocument(pageXML, xmlPath, request.getBookid());
 				}
 			}
 
@@ -394,7 +405,6 @@ public class FileController {
 
 				String savedir = fileManager.getSaveDir();
 				if (savedir != null && !savedir.equals("")) {
-					savedir = savedir + File.separator + database.getBookName(bookid);
 					return new File(savedir + File.separator + xmlName);
 				} else {
 					System.err.println("Warning: Save dir is not set. File could not been saved.");

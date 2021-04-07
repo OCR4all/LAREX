@@ -118,18 +118,38 @@ public class FileDatabase {
 	}
 
 	/**
-	 * List all books by their id and name.
+	 * List all books by their id, name and type.
 	 * 
 	 * @return Map of <id> -> <book_name>
 	 */
-	public Map<Integer, String> listBooks() {
-		Map<Integer, String> booknames = new HashMap<>();
-
+	public Map<Integer, List<String>> listBooks() {
+		Map<Integer, List<String>> booknames = new LinkedHashMap<>();
 		// Extract book names from book files
 		for (Entry<Integer, File> bookEntry : listBookFiles().entrySet()) {
-			booknames.put(bookEntry.getKey(), bookEntry.getValue().getName());
+			ArrayList<String> list = new ArrayList<String>();
+			list.add(bookEntry.getValue().getName());
+			list.add(checkType(bookEntry.getValue()));
+			list.add(bookEntry.getValue().getAbsolutePath());
+			booknames.put(bookEntry.getKey(), list);
 		}
 		return booknames;
+	}
+
+	/**
+	 * Checks type of book Folder
+	 *
+	 * @return String type
+	 */
+	public String checkType(File bookfolder) {
+		File[] metsFiles = bookfolder.listFiles((d, name) -> name.endsWith("mets.xml"));
+		File[] imgFiles = bookfolder.listFiles((d, name) -> name.endsWith(".png"));
+		if( metsFiles.length != 0) {
+			return "mets";
+		} else if(imgFiles.length != 0) {
+			return "legacy";
+		} else {
+			return "empty";
+		}
 	}
 
 	/**
