@@ -12,7 +12,6 @@ import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
 import de.uniwue.web.communication.BatchLoadRequest;
-import de.uniwue.web.communication.BatchSegmentationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;

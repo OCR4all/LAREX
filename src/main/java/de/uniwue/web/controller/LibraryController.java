@@ -8,16 +8,13 @@ import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
-import com.fasterxml.jackson.databind.ser.std.CollectionSerializer;
 import de.uniwue.web.io.MetsReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.json.JSONObject;
 
-import de.uniwue.web.io.MetsReader;
 import de.uniwue.web.config.LarexConfiguration;
 import de.uniwue.web.io.FileDatabase;
 import de.uniwue.web.io.FilePathManager;
@@ -28,7 +25,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * Communication Controller to handle simple requests about the book library.
- * 
+ *
  */
 @Controller
 @Scope("request")
@@ -61,7 +58,7 @@ public class LibraryController {
 	/**
 	 * Display a list of all books present in the book path. Clicking on a book will
 	 * open it in the larex view.
-	 * 
+	 *
 	 * @param model
 	 * @return
 	 * @throws IOException
