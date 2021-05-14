@@ -30,15 +30,18 @@ public class Page {
 	private int width;
 	@JsonProperty("height")
 	private int height;
+	@JsonProperty("orientation")
+	private double orientation;
 
 	@JsonCreator
 	public Page(@JsonProperty("id") int id, @JsonProperty("name") String name, @JsonProperty("images") List<String> images,
-			@JsonProperty("width") int width, @JsonProperty("height") int height) {
+			@JsonProperty("width") int width, @JsonProperty("height") int height, @JsonProperty("orientation") double orientation) {
 		this.id = id;
 		this.name = name;
 		this.images = images;
 		this.height = height;
 		this.width = width;
+		this.orientation = orientation;
 	}
 
 	public int getId() {
@@ -60,4 +63,6 @@ public class Page {
 	public String getName() {
 		return name;
 	}
+
+	public double getOrientation() { return orientation;}
 }

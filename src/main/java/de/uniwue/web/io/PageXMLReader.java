@@ -35,6 +35,7 @@ import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.web.communication.SegmentationStatus;
 import de.uniwue.web.model.PageAnnotations;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
@@ -89,6 +90,9 @@ public class PageXMLReader {
 			// Read Metadata
 			de.uniwue.web.model.MetaData metaData = new de.uniwue.web.model.MetaData(page.getMetaData());
 
+			// Read Page Orientation
+			double pageOrientation = getOrientation(page);
+			System.out.println("pageOrientation: " + pageOrientation);
 			Map<String, de.uniwue.web.model.Region> resRegions = new HashMap<>();
 			// Read regions
 			for (Region region : page.getLayout().getRegionsSorted()) {
@@ -188,7 +192,7 @@ public class PageXMLReader {
 			final String pageName = imageName.lastIndexOf(".") > 0 ?
 					imageName.substring(0, imageName.lastIndexOf(".")) : imageName;
 			return new PageAnnotations(pageName, width, height, metaData, resRegions,
-					SegmentationStatus.LOADED, newReadingOrder, false);
+					SegmentationStatus.LOADED, newReadingOrder, pageOrientation , false);
 		}
 
 		return null;
@@ -280,5 +284,18 @@ public class PageXMLReader {
 		}
 
 		return segResult;
+	}
+
+	/**
+	 * Read the Orientation of a PageXML Document
+	 *
+	 * @param page	PageXML
+	 * @return orientation skew angle of page element
+	 */
+	public static double getOrientation(Page page){
+		if(page.getAttributes().get("orientation") != null && page.getAttributes().get("orientation").getValue() != null){
+			return Double.parseDouble(page.getAttributes().get("orientation").getValue().toString());
+		}
+		return 0.0;
 	}
 }

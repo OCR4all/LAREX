@@ -66,10 +66,10 @@ public class LarexFacade {
 		// TODO fix metadata insertion here instead of frontend (?)
 		if (segmentationResult != null) {
 			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-					page.getId(), new MetaData(), segmentationResult, SegmentationStatus.SUCCESS, true);
+					page.getId(), new MetaData(), segmentationResult, SegmentationStatus.SUCCESS, page.getOrientation(), true);
 		} else {
 			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), new MetaData(),
-					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>(), true);
+					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>(), page.getOrientation(), true);
 		}
 		return segmentation;
 	}

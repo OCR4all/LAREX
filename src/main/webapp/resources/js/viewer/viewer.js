@@ -479,6 +479,19 @@ class Viewer {
 		this._currentZoom = zoomfactor;
 	}
 
+	rotateImage(orientation, point) {
+		if (point == null) {
+			point = this._image.position;
+		}
+		this._imageCanvas.rotate(orientation, point);
+		return this._image.position;
+	}
+
+	rotatePoint(point,angle,center) {
+		let rPoint = new paper.Point(point.x,point.y);
+		return rPoint.rotate(angle,center);
+	}
+
 	zoomIn(zoomfactor, point) {
 		const zoom = 1 + zoomfactor;
 		if (point != null) {

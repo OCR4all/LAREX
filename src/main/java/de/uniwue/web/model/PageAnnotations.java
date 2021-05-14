@@ -36,6 +36,8 @@ public class PageAnnotations {
 	private final List<String> readingOrder;
 	@JsonProperty("status")
 	private final SegmentationStatus status;
+	@JsonProperty("orientation")
+	private final double orientation;
 	@JsonProperty("isSegmented")
 	private final boolean isSegmented;
 	@JsonProperty("garbage")
@@ -49,6 +51,7 @@ public class PageAnnotations {
 						   @JsonProperty("segments") Map<String, Region> segments,
 						   @JsonProperty("status") SegmentationStatus status,
 						   @JsonProperty("readingOrder") List<String> readingOrder,
+						   @JsonProperty("orientation") double orientation,
 						   @JsonProperty("isSegmented") boolean isSegmented,
 						   @JsonProperty("garbage") Map<String, Region> garbage) {
 		this.name = name;
@@ -58,6 +61,7 @@ public class PageAnnotations {
 		this.segments = segments;
 		this.status = status;
 		this.readingOrder = readingOrder;
+		this.orientation = orientation;
 		this.isSegmented = isSegmented;
 		this.garbage = garbage;
 		checkNameValidity(name);
@@ -70,6 +74,7 @@ public class PageAnnotations {
 						   Map<String, Region> segments,
 						   SegmentationStatus status,
 						   List<String> readingOrder,
+						   double orientation,
 						   boolean isSegmented)
 	{
 		this.name = name;
@@ -78,6 +83,7 @@ public class PageAnnotations {
 		this.metadata = metadata;
 		this.segments = segments;
 		this.status = status;
+		this.orientation = orientation;
 		this.readingOrder = readingOrder;
 		this.isSegmented = isSegmented;
 		this.garbage = new HashMap<String, Region>();
@@ -90,6 +96,7 @@ public class PageAnnotations {
 						   MetaData metadata,
 						   Collection<RegionSegment> regions,
 						   SegmentationStatus status,
+						   double orientation,
 						   boolean isSegmented) {
 		Map<String, Region> segments = new HashMap<String, Region>();
 
@@ -105,6 +112,7 @@ public class PageAnnotations {
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		this.orientation = orientation;
 		this.metadata = metadata;
 		this.segments = segments;
 		this.status = status;
@@ -114,8 +122,8 @@ public class PageAnnotations {
 		checkNameValidity(name);
 	}
 
-	public PageAnnotations(String name, int width, int height, int pageNr, boolean isSegmented) {
-		this(name, width, height, pageNr, new MetaData(), new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY, isSegmented);
+	public PageAnnotations(String name, int width, int height, int pageNr, double orientation, boolean isSegmented) {
+		this(name, width, height, pageNr, new MetaData(), new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY, orientation, isSegmented);
 	}
 
 	public Map<String, Region> getSegments() {

@@ -1109,6 +1109,15 @@ setImage(id) {
 	this._imageCanvas.addChild(this._guiOverlay);
 		this._resetOverlay();
 	}
+	rotateImage(orientation, point) {
+		let center = super.rotateImage(orientation, point);
+		this._resetOverlay();
+		return center;
+	}
+	rotatePoint(point, angle, center) {
+		return super.rotatePoint(point, angle, center);
+	}
+
 	setZoom(zoomfactor, point) {
 		super.setZoom(zoomfactor, point);
 		this._resetOverlay();

@@ -47,6 +47,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _fixedGeometry = {};
 	let _editReadingOrder = false;
 	let _move = false;
+	let _orientation = 0.0;
 
 	let _newPolygonCounter = 0;
 	let _pastId;
@@ -223,15 +224,18 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				} else {
 					this._requestEmptySegmentation();
 				}
-				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
+
 			})
 		} else {
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
 
 			this.textlineRegister = {};
 			if (pageSegments) {
+				let center = _editor.rotateImage(0.0);
+				_editor.rotateImage(_segmentation[_currentPage].orientation, center);
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach((key) => {
+					//const pageSegment = this.rotatePolygon(orientation,pageSegments[key],_segmentation[_currentPage].center);
 					const pageSegment = pageSegments[key];
 					_editor.addSegment(pageSegment, this.isSegmentFixed(key));
 					if(pageSegment.textlines){
@@ -265,6 +269,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				// Iterate over all Areas of a Region
 				Object.keys(region.areas).forEach((areaKey) => {
 					let polygon = region.areas[areaKey];
+
+/*
+					//rotate segment around page center
+					polygon.rotate(orientation,_segmentation[_currentPage].center);
+					//rotate segment around itself
+					polygon.rotate(_segmentation[_currentPage].orientation);
+*/
 					_editor.addArea(polygon);
 
 					if (!_visibleRegions[region.type] && region.type !== 'ignore') {
@@ -341,6 +352,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
 				this.displayPage(_currentPage, this._imageVersion, true);
 			}else{
+				//rotate whole page
+				this._orientation = result.orientation;
+				console.log("read orientation:" + this._orientation);
+				result.center = _editor.rotateImage(0.0);
+				result.center = _editor.rotateImage(this._orientation, result.center);
+				console.log("result.center: " + result.center);
+				Object.keys(result.segments).forEach((key) => {
+					result.segments[key] = this.rotatePolygon(this._orientation,result.segments[key],result.center);
+				});
 				this._setPage(_currentPage, result);
 				this.displayPage(_currentPage);
 			}
@@ -366,6 +386,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if (_fixedGeometry[page].cuts)
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
+			_segmentation[page].forEach(
+				s => _segmentation[page].segments[s].points = this.rotatePolygon(_segmentation[page].this._orientation * -1.0, _segmentation[page].segments[s].points, _segmentation[_currentPage].center)
+			)
 		}
 		_communicator.batchSegmentPage(activesettings, pages, _book.id, _gui.getPageXMLVersion()).done((results) => {
 			for (const [index, result] of results.entries()) {
@@ -543,6 +566,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (_fixedGeometry[_currentPage].cuts)
 				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
 		}
+		if(_segmentation[_currentPage] != null) {
+			for(let i = 0; i<_segmentation[_currentPage].segments.length; i++){
+				_segmentation[_currentPage].segments[i].points = this.rotatePolygon(_segmentation[_currentPage].this._orientation * -1.0, _segmentation[_currentPage].segments[i].points, _segmentation[_currentPage].center);
+			}
+		}
 		const action = new ActionSegmentPage(_segmentation[_currentPage], activesettings, allowLoadLocal, _currentPage, _communicator,
 			this);
 		_actionController.addAndExecuteAction(action, _currentPage);
@@ -711,6 +739,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.exportPageXML = function (_page = _currentPage) {
+		if(_segmentation[_currentPage] != null) {
+			for(let i = 0; i<_segmentation[_currentPage].segments.length; i++){
+				_segmentation[_currentPage].segments[i].points = this.rotatePolygon(_segmentation[_currentPage].this._orientation * -1.0, _segmentation[_currentPage].segments[i].points, _segmentation[_currentPage].center);
+			}
+		}
 		_gui.setExportingInProgress(true);
 
 		_communicator.exportSegmentation(_segmentation[_page], _book.id, _gui.getPageXMLVersion()).done((data) => {
@@ -2220,5 +2253,44 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		$("#toggleSegmentVisibility").prop("checked", state);
 		_gui.openSidebarCollapsible("actions");
 		this.hideAllSegments(state);
+	}
+
+	this.rotatePolygon = function (angle, polygon, centroid){
+		/*let x_offset = 0;
+		//convert deg to rad
+		angle = angle * Math.PI/180;
+		console.log(centroid);
+		console.log("angle in rad " + angle);
+		//substract centroid from polygon
+		for (const key in polygon.points) {
+			//polygon.points[key].x = polygon.points[key].x - centroid.x;
+			//polygon.points[key].y = polygon.points[key].y - centroid.y;
+		}
+		//define "matrix" of angle
+		let xr1 = Math.cos(angle);
+		let xr2 = -Math.sin(angle);
+		let yr1 = Math.sin(angle);
+		let yr2 = Math.cos(angle);
+		
+
+		let newPolygon = {};
+		//matrix multiplication with rotation matrix
+		for (const key in polygon.points) {
+			let x = xr1 * polygon.points[key].x + xr2 * polygon.points[key].y;
+			let y = yr1 * polygon.points[key].x + yr2 * polygon.points[key].y
+			polygon.points[key].x = x;
+			polygon.points[key].y = y;
+		}
+		//add centroid to polygon again
+		for (const key in newPolygon.points) {
+			polygon.points[key].x = points[key].x + centroid.x + x_offset;
+			polygon.points[key].y = points[key].y + centroid.y;
+		}
+*/
+		for (const key in polygon.points) {
+
+			polygon.points[key] = _editor.rotatePoint(polygon.points[key], angle, centroid);
+		}
+		return polygon;
 	}
 }
