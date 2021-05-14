@@ -134,19 +134,22 @@ public class LibraryController {
 		if (!fileManager.isInit()) {
 			fileManager.init(servletContext);
 		}
-		String mets = "";
+		String path = "";
 		try {
-			mets = java.net.URLDecoder.decode(metsPath, StandardCharsets.UTF_8.name()) + File.separator + "mets.xml";
+			path = java.net.URLDecoder.decode(metsPath, StandardCharsets.UTF_8.name());
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
 		}
-		File metsFile = new File(mets);
-		if(!metsFile.exists()) { throw new IOException("Mets file doesn't exist anymore"); }
-		return MetsReader.getFileGroups(mets, false);
+		File metsFile = new File(path + File.separator + "mets.xml");
+		if(!metsFile.exists()) {
+			metsFile = new File(path + File.separator + "data" + File.separator + "mets.xml");
+			if (!metsFile.exists()) { throw new IOException("Mets file doesn't exist anymore"); }
+		}
+		return MetsReader.getFileGroups(metsFile.getAbsolutePath(), false);
 	}
 
 	/**
-	 * Opens Mets file and returns all known filegroups and each imageLocation
+	 * returns each imagePath in given directory
 	 *
 	 * @param baseFolder path to legacy baseFolder
 	 * @param ext file extension to map

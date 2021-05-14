@@ -219,9 +219,7 @@ public class ViewerController {
 		Map<String, String> xmlmap = new LinkedHashMap<>();
 
 		try {
-			System.out.println("tried mapper");
 			imagemap = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()).replaceAll("‡","\"").replaceAll("…",":"), HashMap.class);
-			System.out.println("finished mapper");
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();
@@ -256,7 +254,6 @@ public class ViewerController {
 		fileManager.setLocalBookMap(xmlmap, imagemap);
 		fileManager.setNonFlatBookName("bookname");
 		int bookID = tmpBookpath.getName().hashCode();
-		System.out.println("finished other stuff");
 
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"), false);

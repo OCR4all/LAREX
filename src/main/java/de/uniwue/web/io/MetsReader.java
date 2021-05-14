@@ -12,6 +12,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.SAXParseException;
 
 /**
  * MetsReader reads mets filegroup data and file locations from a mets.xml
@@ -34,6 +35,7 @@ public class MetsReader {
             }
             if(fileSector == null) { throw new NoSuchElementException("No file sector found."); }
             for(int i = 0; i < fileSector.getLength(); i++) {
+                Boolean isImgGrp = false;
                 if(fileSector.item(i).getNodeType() == Node.ELEMENT_NODE){
                     fileList = new ArrayList<>();
                     Element fileGrp = (Element) fileSector.item(i);
@@ -44,6 +46,7 @@ public class MetsReader {
                         if(fileNode.getNodeType() == Node.ELEMENT_NODE){
                             Element fileElement = (Element) fileNode;
                             if(fileElement.getAttribute("MIMETYPE").equals("image/png")) {
+                                isImgGrp = true;
                                 for(int h = 0; h < fileElement.getChildNodes().getLength(); h++) {
                                     if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
                                         Element fileLoc = (Element) fileElement.getChildNodes().item(h);
@@ -52,6 +55,20 @@ public class MetsReader {
                                             filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
                                         }
                                         fileList.add(filePath);
+                                    }
+                                }
+                            } else if(!isImgGrp && fileElement.getAttribute("MIMETYPE").equals("application/vnd.prima.page+xml")) {
+                                for(int h = 0; h < fileElement.getChildNodes().getLength(); h++) {
+                                    if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
+                                        Element fileLoc = (Element) fileElement.getChildNodes().item(h);
+                                        String filePath = fileLoc.getAttribute("xlink:href");
+                                        if(!useRelativePath) {
+                                            filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
+                                            fileList.add(metsFile.getParentFile().getAbsolutePath() + File.separator + getImagePathFromPage(filePath));
+                                        } else {
+                                            fileList.add(getImagePathFromPage(filePath));
+                                        }
+
                                     }
                                 }
                             }
@@ -77,5 +94,31 @@ public class MetsReader {
         Document doc = db.parse(filePath);
         doc.getDocumentElement().normalize();
         return doc;
+    }
+
+    private static String getImagePathFromPage(String pageXmlPath) {
+        try {
+            Document pageXml = parseXML(pageXmlPath);
+            Element rootElement = pageXml.getDocumentElement();
+            NodeList nodeList = rootElement.getChildNodes();
+            NodeList pageNode = null;
+            for(int i = 0; i < nodeList.getLength() ;i++) {
+                if (nodeList.item(i).getNodeName().contains("Page") || nodeList.item(i).getNodeName().equals("Page")) {
+                    pageNode = nodeList.item(i).getChildNodes();
+                }
+            }
+            if(pageNode == null) { throw new NoSuchElementException("No page element found."); }
+            String imagePath = null;
+            for(int i = 0; i < pageNode.getLength() ;i++) {
+                if (pageNode.item(i).getNodeName().contains("AlternativeImage") && pageNode.item(i).getNodeType() == Node.ELEMENT_NODE) {
+                    Element elem = (Element) pageNode.item(i);
+                    imagePath = elem.getAttribute("filename");
+                }
+            }
+            return imagePath;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

@@ -148,6 +148,18 @@ public class FileDatabase {
 		} else if(imgFiles.length != 0) {
 			return "legacy";
 		} else {
+			//try ./data/mets.xml
+			File dataFolder = new File(bookfolder.getAbsolutePath() + File.separator + "data");
+			if(dataFolder.exists() && dataFolder.isDirectory()) {
+				metsFiles = dataFolder.listFiles((d, name) -> name.endsWith("mets.xml"));
+				if( metsFiles.length != 0) {
+					return "mets-data";
+				} else {
+					System.out.println("data folder exists but contains no mets");
+				}
+			} else {
+				System.out.println("data folder does not exist");
+			}
 			return "empty";
 		}
 	}

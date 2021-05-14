@@ -17,7 +17,7 @@ $(document).ready(function () {
 		let path =  String($(this).attr('data-path'));
 		let type = String($(this).attr('data-type'));
 		$('#pageSection').hide();
-		if(type === "mets") {
+		if(type === "mets" || type === "mets-data") {
 			$('#fileGrp-div').show();
 			_communicator.getMetsData(path).done((data) => {
 				$('#openBookModal').modal('open');
