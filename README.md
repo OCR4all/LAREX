@@ -204,7 +204,18 @@ This setting allows displaying and/or hiding certain UI elements when LAREX is u
 
 e.g. `ocr4all:enable`
 
-## Related Publications:
-Reul, Christian; Springmann, Uwe; Puppe, Frank: LAREX – A semi-automatic open-source Tool for Layout Analysis and Region Extraction on Early Printed Books. In Proceedings of the 2nd International Conference on Digital Access to Textual Cultural Heritage (2017). [ACM](https://dl.acm.org/citation.cfm?id=3078097). Draft available at [arXiv](https://arxiv.org/abs/1701.07396).
 
-Reul, Christian; Dittrich, Marco; Gruner, Martin: Case Study of a highly automated Layout Analysis and OCR of an incunabulum: ‘Der Heiligen Leben’ (1488). In Proceedings of the 2nd International Conference on Digital Access to Textual Cultural Heritage (2017). [ACM](https://dl.acm.org/citation.cfm?id=3078098). Draft available at [arXiv](https://arxiv.org/abs/1701.07395).
+## Citing LAREX
+
+If you are using LAREX please cite:
+
+> Reul, C., Springmann, U., Puppe, F.: *Larex: A semi-automatic open-source tool for layout analysis and region extraction on early printed books* Proceedings of the 2nd International Conference on Digital Access to Textual Cultural Heritage (2017)
+```
+@inproceedings{reul2017larex,
+  title={Larex: A semi-automatic open-source tool for layout analysis and region extraction on early printed books},
+  author={Reul, Christian and Springmann, Uwe and Puppe, Frank},
+  booktitle={Proceedings of the 2nd International Conference on Digital Access to Textual Cultural Heritage},
+  pages={137--142},
+  year={2017}
+}
+```
