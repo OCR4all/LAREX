@@ -1,5 +1,5 @@
 ## Larex ##
-#books 
+#books
 src/main/webapp/resources/books/
 
 #user settings
@@ -23,6 +23,12 @@ target/
 src/main/webapp/resources/.sass-cache/
 .sass-cache/
 *.css.map
+
+#development
+development/*
+!development/build.sh
+!development/dev.config
+!development/Dockerfile
 
 ## Editors ##
 #eclipse
