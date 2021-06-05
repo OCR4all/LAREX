@@ -13,9 +13,10 @@ Please feel free to visit the [tool homepage](https://go.uniwue.de/larex) and th
 
 ## Table of Contents
 - [Installation](#installation)
+  * [Docker](#docker)
   * [Linux](#linux)
   * [Windows](#windows)
-  * [Mac OS X](#mac-os-x)
+  * [Mac OS X](#macos)
 - [Usage](#usage)
 - [Configuration](#configuration)
 - [Related Publications](#related-publications)
@@ -23,6 +24,14 @@ Please feel free to visit the [tool homepage](https://go.uniwue.de/larex) and th
 _Additional information about developing for LAREX [see here](documentation/development.md)_
 
 ## Installation
+
+### Docker
+This guide uses [Docker](https://www.docker.com/) and allows a platform agnostic installation of LAREX
+#### Production
+* See: [LAREX Docker](https://github.com/maxnth/LAREX_Docker)
+
+#### Development
+* Configure `development/build.sh`, run `cd development` and `sh build.sh`
 
 ### Linux
 This guide uses Tomcat 8, **Java 8** and Ubuntu (please adjust accordingly for your setup)
@@ -60,11 +69,12 @@ This guide uses [Eclipse](https://www.eclipse.org/) to simplify the setup on Win
 * Start Larex
 	* Right click on `Larex` -> `Run As` -> `Run on Server`.
 
-### Mac OS X
-This guid uses homebrew (please adjust accordingly for your setup)
-* Install Homebrew (see https://brew.sh/).
+### macOS
+**Note: LAREX is mainly developed on Linux so the macOS build introductions may be outdated from time to time. If this is the case, feel free to contact us**
+This guide uses homebrew (please adjust accordingly for your setup).
+* Install Homebrew (see https://brew.sh/) and run `brew update`.
 * Install required packages:
-	* `brew cask install java`
+	* `brew cask install adoptopenjdk8`
 	* `brew install tomcat git maven`
 * (Verify Tomcat installation):
 	* `brew services list` tomcat should be listed in the output of this command
