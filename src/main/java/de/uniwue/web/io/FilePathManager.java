@@ -20,6 +20,7 @@ public class FilePathManager {
 	private boolean isInit = false;
 	private ServletContext servletContext;
 	private String booksPath;
+	private String saveDir;
 
 	/**
 	 * Init FileManager with servletContext in order to provide f
@@ -40,6 +41,15 @@ public class FilePathManager {
 	 */
 	public String getLocalBooksPath() {
 		return booksPath;
+	}
+
+	/**
+	 * Get the local disc path to the savedir
+	 *
+	 * @return disc path to the savedir
+	 */
+	public String getSaveDir() {
+		return saveDir;
 	}
 
 	/**
@@ -79,6 +89,15 @@ public class FilePathManager {
 	}
 
 	/**
+	 * Change the local disc savedir
+	 *
+	 * @param saveDir path the savedir is about to point to
+	 */
+	public void setSaveDir(String saveDir) {
+		this.saveDir = new File(saveDir).getAbsolutePath();
+	}
+
+	/**
 	 * Find the local disc path to a page image
 	 * 
 	 * @param page
@@ -96,7 +115,17 @@ public class FilePathManager {
 	 * @return
 	 */
 	public File getAnnotationPath(String bookname, String pagename) {
-		return new File(this.getLocalBooksPath() + File.separator + bookname + File.separator + pagename + ".xml");
+		File annotationPathBookPath = new File(this.getLocalBooksPath() + File.separator + bookname + File.separator + pagename + ".xml");
+		if (this.getSaveDir() != null) {
+			File annotationPathSaveDir = new File(this.getSaveDir() + File.separator + bookname + File.separator + pagename + ".xml");
+			if (annotationPathSaveDir.exists()) {
+				return annotationPathSaveDir;
+			} else {
+				return annotationPathBookPath;
+			}
+		} else {
+			return annotationPathBookPath;
+		}
 	}
 
 	/**

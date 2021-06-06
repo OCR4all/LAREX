@@ -187,14 +187,20 @@ public class PageXMLWriter {
 			if (!outputFolder.endsWith(File.separator)) 
 				outputFolder += File.separator;
 
+			File createdOutputFolder = new File(outputFolder);
+			if (createdOutputFolder.mkdir()) {
+				createdOutputFolder.setReadable(true, false);
+			}
+
 			final String outputPath = outputFolder + fileName;
 			
-
-			FileOutputStream output = new FileOutputStream(new File(outputPath));
+			File createdOutputPath = new File(outputPath);
+			FileOutputStream output = new FileOutputStream(createdOutputPath);
 			StreamResult result = new StreamResult(output);
 			transformer.transform(source, result);
 
 			output.close();
+			createdOutputPath.setReadable(true, false);
 
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -87,8 +87,12 @@ public class FileController {
 		if (!config.isInitiated()) {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
+			String saveDir = config.getSetting("savedir");
 			if (!bookFolder.equals("")) {
 				fileManager.setLocalBooksPath(bookFolder);
+			}
+			if (saveDir != null && !saveDir.equals("")) {
+				fileManager.setSaveDir(saveDir);
 			}
 		}
 		this.exportProgress = 0;
@@ -364,9 +368,10 @@ public class FileController {
 	}
 
 	private void saveDocument(Document pageXML, String xmlName, Integer bookid) {
+		FileDatabase database;
 		switch (config.getSetting("localsave")) {
 			case "bookpath":
-				FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+				database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 						config.getListSetting("imagefilter"));
 
 				String bookdir = fileManager.getLocalBooksPath() + File.separator
@@ -374,8 +379,12 @@ public class FileController {
 				PageXMLWriter.saveDocument(pageXML, xmlName, bookdir);
 				break;
 			case "savedir":
-				String savedir = config.getSetting("savedir");
+				database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
+						config.getListSetting("imagefilter"));
+
+				String savedir = fileManager.getSaveDir();
 				if (savedir != null && !savedir.equals("")) {
+					savedir = savedir + File.separator + database.getBookName(bookid);
 					PageXMLWriter.saveDocument(pageXML, xmlName, savedir);
 				} else {
 					System.err.println("Warning: Save dir is not set. File could not been saved.");

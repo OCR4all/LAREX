@@ -49,8 +49,12 @@ public class ViewerController {
 		if (!config.isInitiated()) {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
+			String saveDir = config.getSetting("savedir");
 			if (!bookFolder.equals("")) {
 				fileManager.setLocalBooksPath(bookFolder);
+			}
+			if (saveDir != null && !saveDir.equals("")) {
+				fileManager.setSaveDir(saveDir);
 			}
 		}
 	}
