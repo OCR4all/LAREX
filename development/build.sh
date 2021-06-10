@@ -17,7 +17,7 @@ BOOK_DIR="/Path/to/books"
 SAVE_DIR=""
 
 ## Local path to the custom configuration file
-CONFIG_FILE="${PWD}/dev.config"
+CONFIG_FILE="${PWD}/dev.properties"
 
 ## Port
 PORT=5555
@@ -39,7 +39,7 @@ then
       docker run \
         -p ${PORT}:8080 \
         --name ${DOCKER_NAME} \
-        -v ${CONFIG_FILE}:/larex.config \
+        -v ${CONFIG_FILE}:/larex.properties \
         -v ${BOOK_DIR}:/home/books/ \
         -it ${IMAGE_NAME}
 
@@ -47,7 +47,7 @@ else
       docker run \
         -p ${PORT}:8080 \
         --name ${DOCKER_NAME} \
-        -v ${CONFIG_FILE}:/larex.config \
+        -v ${CONFIG_FILE}:/larex.properties \
         -v ${BOOK_DIR}:/home/books/ \
         -v ${SAVE_DIR}:/home/savedir \
         -it ${IMAGE_NAME}
