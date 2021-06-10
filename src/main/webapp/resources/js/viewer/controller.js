@@ -245,7 +245,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					let polygon = region.areas[areaKey];
 					_editor.addArea(polygon);
 
-					if (!_visibleRegions[region.type] & region.type !== 'ignore') {
+					if (!_visibleRegions[region.type] && region.type !== 'ignore') {
 						_editor.hideSegment(polygon.id, true);
 					}
 				});
