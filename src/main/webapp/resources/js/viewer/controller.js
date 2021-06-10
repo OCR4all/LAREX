@@ -37,7 +37,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this._imageVersion = 0;
 
 	this.get_segmentation = function(current_page){
-		return current_page ? _segmentation[current_page] : _segmentation
+		return current_page ? _segmentation[_currentPage] : _segmentation
 	}
 
 	this.get_saved_pages = function(){
