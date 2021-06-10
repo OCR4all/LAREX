@@ -98,7 +98,7 @@ Go to `localhost:8080/Larex`.
 ### Using your own images and books
 You can add your own books by copying them to `src/webapp/resources/books`
 
-(Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.config). See section [*Configuration*](#configuration) for more information).
+(Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.properties). See section [*Configuration*](#configuration) for more information).
 
 Book directories must have the following structure:
 ```
@@ -115,14 +115,14 @@ Detailed information about the usage of LAREX can be found in the OCR4all [getti
 See sections and chapters about _Segmentation_, _Ground Truth Correction_ and _Post Correction_.
 
 ## Configuration ##
-LAREX contains a configuration file ([`src/webapp/WEB-INF/larex.config`](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.config)) with a few settings that can be set before running the application.
+LAREX contains a configuration file ([`src/webapp/WEB-INF/larex.properties`](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.properties)) with a few settings that can be set before running the application.
 
 ### bookpath ###
 The setting *bookpath* sets the file path of the books folder.
 
-e.g. `bookpath:/home/user/books` (Linux)
+e.g. `bookpath=/home/user/books` (Linux)
 
-e.g. `bookpath:C:\Users\user\Documents\books` (Windows)
+e.g. `bookpath=C:\Users\user\Documents\books` (Windows)
 
 LAREX will load the books from this folder.
 
@@ -144,9 +144,9 @@ e.g. `localsave:bookpath`
 ### savedir ###
 The setting *savedir* is needed if localsave mode is set to "savedir".
 
-e.g. `savedir:/home/user/save` (Linux)
+e.g. `savedir=/home/user/save` (Linux)
 
-e.g. `savedir:C:\Users\user\Documents\save` (Windows)
+e.g. `savedir=C:\Users\user\Documents\save` (Windows)
 
 ### websave ###
 The setting *websave* tells the application how to handle results on the browser side when saved.
@@ -157,20 +157,20 @@ The setting *websave* tells the application how to handle results on the browser
 
 `false`: no action after saving
 
-e.g. `websave:true`
+e.g. `websave=true`
 
 ### modes ###
 Set the accessible modes in the LAREX GUI `<value>=[[segment][edit][lines][text]]`
 A combination of the modes "segment", "edit", "lines" and "text" can be set as 
 a space separated string. 
-e.g. `modes:segment lines`
+e.g. `modes=segment lines`
 
 The order of those modes in the string also determines which mode is opened
 on startup, with the first in the list being opened as main mode.
 The mode "segment" can be replaced with "edit" in order to hide all auto 
 segmentation features. ("edit" will be ignored if both are present)
 
-[Default] `modes:segment lines text`
+[Default] `modes=segment lines text`
 
 
 ### directrequest ###
@@ -184,7 +184,7 @@ This feature allows users to load a book from everywhere on the servers drive as
 
 `disable`: disable direct request [default]
 
-e.g. `directrequest:enable`
+e.g. `directrequest=enable`
 
 This feature should be used with caution but is very useful when using LAREX in a workflow with other web applications. (e.g. in Docker)
 
@@ -212,7 +212,7 @@ This setting allows displaying and/or hiding certain UI elements when LAREX is u
 
 `disable`: disable OCR4all UI mode [default]
 
-e.g. `ocr4all:enable`
+e.g. `ocr4all=enable`
 
 
 ## Citing LAREX

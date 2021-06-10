@@ -16,6 +16,6 @@ COPY Larex.war /usr/local/tomcat/webapps/Larex.war
 # Create books and savedir path
 RUN mkdir /home/books /home/savedir
 
-# Copy larex.config
-COPY dev.config /larex.config
-ENV LAREX_CONFIG=/larex.config
+# Copy larex.properties
+COPY dev.properties /larex.properties
+ENV LAREX_CONFIG=/larex.properties

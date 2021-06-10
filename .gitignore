@@ -3,7 +3,7 @@
 src/main/webapp/resources/books/
 
 #user settings
-src/main/webapp/WEB-INF/larex.config
+src/main/webapp/WEB-INF/larex.properties
 
 .idea/
 target/
@@ -27,7 +27,7 @@ src/main/webapp/resources/.sass-cache/
 #development
 development/*
 !development/build.sh
-!development/dev.config
+!development/dev.properties
 !development/Dockerfile
 
 ## Editors ##
