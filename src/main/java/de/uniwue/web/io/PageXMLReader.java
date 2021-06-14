@@ -87,12 +87,16 @@ public class PageXMLReader {
 
 		// Read PAGE xml into Segmentation Result
 		if (page != null) {
+<<<<<<< HEAD
 			// Read Metadata
 			de.uniwue.web.model.MetaData metaData = new de.uniwue.web.model.MetaData(page.getMetaData());
 
 			// Read Page Orientation
 			double pageOrientation = getOrientation(page);
 			System.out.println("pageOrientation: " + pageOrientation);
+=======
+			double pageOrientation = getOrientation(page);
+>>>>>>> 7245063 (use prima-core-libs for reading/writing of orientation)
 			Map<String, de.uniwue.web.model.Region> resRegions = new HashMap<>();
 			// Read regions
 			for (Region region : page.getLayout().getRegionsSorted()) {

@@ -90,6 +90,13 @@ public class PageXMLWriter {
 		// Start PAGE xml
 		Page page = new Page(PageXmlInputOutput.getSchemaModel(version));
 		page.setImageFilename(String.format("%s.png", result.getName()));
+		page.setImageFilename(result.getName()+".png");
+
+		try {
+			page.getAttributes().get("orientation").setValue(new DoubleValue(result.getOrientation()));
+		} catch (Variable.WrongVariableTypeException e) {
+			e.printStackTrace();
+		}
 
 		fillMetadata(result.getMetadata(), page, true);
 		buildPageLayoutFromScratch(result, page);
