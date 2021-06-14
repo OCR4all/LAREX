@@ -1114,8 +1114,11 @@ setImage(id) {
 		this._resetOverlay();
 		return center;
 	}
-	rotatePoint(point, angle, center) {
-		return super.rotatePoint(point, angle, center);
+	calculateRotOffset(angle, dimensions) {
+		return super.calculateRotOffset(angle, dimensions);
+	}
+	rotatePoint(point, angle, offset, center) {
+		return super.rotatePoint(point, angle, offset, center);
 	}
 
 	setZoom(zoomfactor, point) {

@@ -161,7 +161,9 @@ public class PageAnnotations {
 	public int getWidth() {
 		return width;
 	}
-
+	public double getOrientation() {
+		return orientation;
+	}
 	private static void checkNameValidity(String name) {
 		final List<String> imageExtensions = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
 		for (String ext : imageExtensions) {
