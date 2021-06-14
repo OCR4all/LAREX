@@ -514,13 +514,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let segmentations = [];
 		for(let pageI = 0; pageI < pages.length; pageI++) {
 			if(_segmentation[pages[pageI]] != null) {
-				let negativeOffset = -_segmentation[pages[pageI]].offset;
-				let negativeCenter = new Object();
-				negativeCenter.x = -_segmentation[pages[pageI]].center.x;
-				negativeCenter.y = -_segmentation[pages[pageI]].center.y;
-				Object.keys(_segmentation[pages[pageI]].segments).forEach((key) => {
-					_segmentation[pages[pageI]].segments[key].points = this.rotatePolygon(-_segmentation[pages[pageI]]._orientation, _segmentation[pages[pageI]].segments[i].points, negativeOffset, negativeCenter);
-				});
+				_segmentation[pages[pageI]] = this.unrotateSegments(_segmentation[pages[pageI]]);
 				segmentations.push(_segmentation[pages[pageI]]);
 			}
 		}
@@ -743,13 +737,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	this.exportPageXML = function (_page = _currentPage) {
 		if(_segmentation[_currentPage] != null) {
-			let negativeOffset = -_segmentation[_currentPage].offset;
-			let negativeCenter = new Object();
-			negativeCenter.x = -_segmentation[_currentPage].center.x;
-			negativeCenter.y = -_segmentation[_currentPage].center.y;
-			Object.keys(_segmentation[_currentPage].segments).forEach((key) => {
-				_segmentation[_currentPage].segments[key].points = this.rotatePolygon(-_segmentation[_currentPage]._orientation, _segmentation[_currentPage].segments[i].points, negativeOffset, negativeCenter);
-			});
+			_segmentation[_currentPage] = this.unrotateSegments(_segmentation[_currentPage]);
 		}
 		_gui.setExportingInProgress(true);
 
@@ -2267,5 +2255,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			polygon.points[key] = _editor.rotatePoint(polygon.points[key], angle, offset, centroid);
 		}
 		return polygon;
+	}
+
+	this.unrotateSegments = function (segmentation){
+		let negativeOffset = -segmentation.offset;
+		let negativeCenter = new Object();
+		negativeCenter.x = -segmentation.center.x;
+		negativeCenter.y = -segmentation.center.y;
+		Object.keys(segmentation.segments).forEach((key) => {
+			segmentation.segments[key].points = this.rotatePolygon(-segmentation._orientation, segmentation.segments[i].points, negativeOffset, negativeCenter);
+		});
+		return segmentation;
 	}
 }
