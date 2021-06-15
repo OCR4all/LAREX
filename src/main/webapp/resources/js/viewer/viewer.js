@@ -484,11 +484,8 @@ class Viewer {
 			point = this._image.bounds.center;
 		}
 		this._image.rotate(orientation, point);
-		/*		let newBounds = this._image.bounds.clone();
-
-                let trueCenter = new paper.Point(newBounds.topLeft.x + (newBounds.topRight.x - newBounds.topLeft.x)/2, newBounds.topLeft.y + (newBounds.bottomLeft.y - newBounds.topLeft.y)/2);
-                return trueCenter;*/
 	}
+
 	calculateRotOffset(angle, dimensions) {
 		let rectangle =  new paper.Path.Rectangle(0, 0, dimensions.x, dimensions.y);
 		let oldBounds = rectangle.bounds.clone();
@@ -502,7 +499,6 @@ class Viewer {
 		offsetCenter.trueCenter = trueCenter;
 		return offsetCenter;
 	}
-
 
 	rotatePoint(point, angle, offset, center) {
 		let offsetCenter = new paper.Point(center.x + offset.x, center.y + offset.y);
