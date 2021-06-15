@@ -223,7 +223,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				} else {
 					this._requestEmptySegmentation();
 				}
-
+				pages.forEach(page => { _gui.addPageStatus(page, PageStatus.SERVERSAVED)});
 			})
 		} else {
 			const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
