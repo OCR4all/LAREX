@@ -7,6 +7,9 @@
 		<!-- Load the Paper.js library -->
 		<script type="text/javascript" src="resources/js/paper.js"></script>
 
+		<!-- Load the diff_match_patch.js library -->
+		<script type="text/javascript" src="resources/js/diff_match_patch.js"></script>
+
 		<!-- Viewer scripts -->
 		<script type="text/javascript" src="resources/js/viewer/actions.js"></script>
 		<script type="text/javascript"

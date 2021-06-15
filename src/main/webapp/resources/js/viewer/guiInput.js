@@ -504,6 +504,14 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer._displayPredictedText();
 	})
 
+	$("#displayDiff").click(function(){
+		_textViewer._displayDiff();
+	})
+
+	$("#displayMismatch").click(function(){
+		_textViewer._displayOnlyMismatch();
+	})
+
 	$("#toggleSegmentVisibility").change(function () {
 		if(this.checked){
 			_controller.hideAllSegments(true);
