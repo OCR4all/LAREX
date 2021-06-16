@@ -12,6 +12,7 @@ class TextViewer {
 		this._zoomText = 1;
 		this._baseImageSize = 35;
 		this._baseFontSize = 20;
+		this._dmp = new diff_match_patch();
 	}
 
 	/**
@@ -68,7 +69,7 @@ class TextViewer {
 	 * Add a textline to the textView with a textline-image and textline-text element
 	 */
 	addTextline(textline) {
-		const $textlineContainer = $(`<div class='textline-container' data-id='${textline.id}'></div>`);
+		const $textlineContainer = $(`<div class='textline-container' data-id='${textline.id}' data-difflen='0'></div>`);
 		if(textline.type == "TextLine_gt"){
 			$textlineContainer.addClass("line-corrected")
 			$textlineContainer.addClass("line-saved");
@@ -78,12 +79,19 @@ class TextViewer {
 		}
 		$textlineContainer.append(this._createImageObject(textline));
 		$textlineContainer.append($("<br>"));
-		$textlineContainer.append(this._createTextObject(textline)[0]);
-		$textlineContainer.append(this._createTextObject(textline)[1]);
+
+		const textObject = this._createTextObject(textline);
+		$textlineContainer.append(textObject[0]);
+		$textlineContainer.append(textObject[1]);
+		$textlineContainer.append(textObject[2]);
+		$textlineContainer.attr("data-difflen", textObject[3])
 		this.container.append($textlineContainer);
 
 		this.zoomBase(textline.id);
 		this.resizeTextline(textline.id);
+		this._displayPredictedText();
+		this._displayDiff();
+		this._displayOnlyMismatch();
 	}
 
 	/**
@@ -111,9 +119,12 @@ class TextViewer {
 	 * @param {*} textline 
 	 */
 	updateTextline(textline) {
+		const textObject = this._createTextObject(textline);
 		$(`.textline-container[data-id='${textline.id}'] > .textline-image`).replaceWith(this._createImageObject(textline));
-		$(`.textline-container[data-id='${textline.id}'] > .pred-text`).replaceWith(this._createTextObject(textline)[0]);
-		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(this._createTextObject(textline)[1]);
+		$(`.textline-container[data-id='${textline.id}'] > .pred-text`).replaceWith(textObject[0]);
+		$(`.textline-container[data-id='${textline.id}'] > .diff-text`).replaceWith(textObject[1]);
+		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(textObject[2]);
+		$(`.textline-container[data-id='${textline.id}']`).attr("data-difflen", textObject[3]);
 		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`);
 		if(textline.type == "TextLine_gt"){
 			$textlinecontent.addClass("line-corrected")
@@ -125,6 +136,8 @@ class TextViewer {
 		this.zoomBase(textline.id);
 		this.resizeTextline(textline.id);
 		this._displayPredictedText();
+		this._displayDiff();
+		this._displayOnlyMismatch();
 	}
 
 	/**
@@ -290,7 +303,12 @@ class TextViewer {
 			const new_size = this._baseFontSize*this._zoomText;
 			$textline_prediction.css('fontSize',`${new_size}px`);
 		}
-
+		const $textline_diff = $(`.textline-container[data-id='${id}'] > .diff-text`);
+		if($textline_diff && $textline_diff.length > 0){
+			const new_size = this._baseFontSize*this._zoomText;
+			$textline_diff.css('fontSize',`${new_size}px`);
+			$textline_diff.data('raw-size',new_size);
+		}
 		const $textline_text = $(`.textline-container[data-id='${id}'] > .textline-text`);
 		if($textline_text && $textline_text.length > 0){
 			const new_size = this._baseFontSize*this._zoomText;
@@ -389,9 +407,14 @@ class TextViewer {
 		const hasPredict = 1 in textline.text;
 		const hasGT = 0 in textline.text;
 
+		let diff = "";
+
 		if(hasGT){
 			$textlineText.addClass("line-corrected");
 			$textlineText.val(textline.text[0]);
+			if(hasPredict) {
+				diff = this._createDiffObject(textline.text);
+			}
 		} else {
 			$textlineText.removeClass("line-corrected");
 			$textlineText.removeClass("line-saved");
@@ -401,11 +424,12 @@ class TextViewer {
 				$textlineText.val("");
 			}
 		}
+		const $diffText = $(`<p class="diff-text">${this._prettifyDiff(diff)}</p>`);
+		if(diff == "") {$diffText.hide();} else {$diffText.show();}
 
 		const pred_text = hasPredict ? textline.text[1] : "";
 		const $predText = $(`<p class="pred-text">${pred_text}</p>`);
-
-		return [$predText, ($textlineText)];
+		return [$predText, ($diffText), ($textlineText), (diff.length)];
 	}
 
 	/**
@@ -442,9 +466,67 @@ class TextViewer {
 	 */
 	_displayPredictedText(){
 		if($("#displayPrediction").is(":checked")){
-			$(".line-corrected").prev(".pred-text").show();
+			$(".line-corrected").prev(".diff-text").hide();
+			$(".line-corrected").prev().prev(".pred-text").show();
 		}else{
+			$(".line-corrected").prev(".diff-text").show();
 			$(".pred-text").hide();
+		}
+	}
+	/**
+	 * Create a diff object for a given textline
+	 *
+	 * @param {*} textline
+	 */
+	_createDiffObject(textline){
+		let gtText = textline[0];
+		let predText = textline[1];
+
+		let diff = this._dmp.diff_main(predText, gtText);
+		return diff;
+	}
+	/**
+	 * prettify a diff object for display
+	 * NOTE: Currently uses standard dmp prettifier
+	 *
+	 * @param {*} textline
+	 */
+	_prettifyDiff(diff){
+		return this._dmp.diff_prettyHtml(diff);
+	}
+	/**
+	 * Checks whether differences between gt and pred should get displayed
+	 *
+	 */
+	_displayDiff(){
+		if($("#displayDiff").is(":checked")){
+			$('label[for=displayPrediction], input#displayPrediction').show();
+			$('label[for=displayMismatch], input#displayMismatch').show();
+			$("#displayMismatch").show();
+			$(".line-corrected").prev(".diff-text").show();
+		}else{
+			$('label[for=displayPrediction], input#displayPrediction').hide();
+			$('label[for=displayMismatch], input#displayMismatch').hide();
+			$(".diff-text").hide();
+		}
+	}
+	/**
+	 * Hides textlines with no differences
+	 *
+	 */
+	_displayOnlyMismatch(){
+		if($("#displayMismatch").is(":checked")){
+			$(".textline-container").each(function () {
+				if(parseInt($(this).attr("data-difflen")) > 1 ) {
+					$(this).show();
+				} else {
+					$(this).hide();
+				}
+			});
+		}else{
+			$(".textline-container").each(function () {
+				$(this).show();
+			});
 		}
 	}
 }
