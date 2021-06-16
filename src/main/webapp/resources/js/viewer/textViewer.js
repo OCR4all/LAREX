@@ -466,8 +466,10 @@ class TextViewer {
 	 */
 	_displayPredictedText(){
 		if($("#displayPrediction").is(":checked")){
+			$(".line-corrected").prev(".diff-text").hide();
 			$(".line-corrected").prev().prev(".pred-text").show();
 		}else{
+			$(".line-corrected").prev(".diff-text").show();
 			$(".pred-text").hide();
 		}
 	}
@@ -498,8 +500,13 @@ class TextViewer {
 	 */
 	_displayDiff(){
 		if($("#displayDiff").is(":checked")){
+			$('label[for=displayPrediction], input#displayPrediction').show();
+			$('label[for=displayMismatch], input#displayMismatch').show();
+			$("#displayMismatch").show();
 			$(".line-corrected").prev(".diff-text").show();
 		}else{
+			$('label[for=displayPrediction], input#displayPrediction').hide();
+			$('label[for=displayMismatch], input#displayMismatch').hide();
 			$(".diff-text").hide();
 		}
 	}

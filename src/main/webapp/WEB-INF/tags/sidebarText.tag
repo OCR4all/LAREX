@@ -45,10 +45,10 @@
 			<div class="collapsible-header"><i class="material-icons">settings</i>Settings</div>
 			<div class="collapsible-body">
 				<div id="textMode-options">
-					<input type="checkbox" id="displayPrediction"/>
-					<label for="displayPrediction">Display Prediction</label>
 					<input type="checkbox" id="displayDiff"/>
-					<label for="displayDiff">Display Difference</label>
+					<label for="displayDiff">Show Prediction</label>
+					<input type="checkbox" id="displayPrediction"/>
+					<label for="displayPrediction">Show Raw Prediction</label>
 					<input type="checkbox" id="displayMismatch"/>
 					<label for="displayMismatch">Only show mismatching lines</label>
 				</div>
