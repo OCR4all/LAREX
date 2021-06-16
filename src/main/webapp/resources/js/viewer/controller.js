@@ -2250,7 +2250,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let negativeCenter;
 		let negativeOrientation;
 
-		if(segmentationSettings !== null) {
+		if(segmentationSettings != null) {
 			negativeOrientation = -segmentationSettings._orientation;
 			negativeOffset = -segmentationSettings.offset;
 			negativeCenter = new Object();
