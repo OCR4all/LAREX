@@ -64,6 +64,8 @@ public class LarexFacade {
 					"Warning: Image file could not be found. Segmentation result will be empty. File: " + imagePath);
 		}
 		// TODO fix metadata insertion here instead of frontend (?)
+
+		page.setOrientation(settings.getParameters().get("imageOrientation").doubleValue());
 		if (segmentationResult != null) {
 			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
 					page.getId(), new MetaData(), segmentationResult, SegmentationStatus.SUCCESS, page.getOrientation(), true);

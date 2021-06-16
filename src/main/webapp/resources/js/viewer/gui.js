@@ -486,6 +486,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		parameters['textdilationY'] = $("#textdilationY").val();
 		parameters['imagedilationX'] = $("#imagedilationX").val();
 		parameters['imagedilationY'] = $("#imagedilationY").val();
+		parameters['imageOrientation'] = $("#imageOrientation").val();
 		return parameters;
 	}
 
@@ -952,6 +953,10 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$("#toggleSegmentVisibility").prop("checked", false);
 		$("#toggleLineVisibility").prop("checked", false);
 		$("#toggleBaselineVisibility").prop("checked", false);
+	}
+
+	this.updateOrientation = function(orientation){
+		$("#imageOrientation").val(orientation);
 	}
 
 	// Init script

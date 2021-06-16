@@ -41,7 +41,7 @@ public class SegmentationSettings {
 	@JsonProperty("fixedGeometry")
 	private FixedGeometry fixedGeometry;
 	@JsonProperty("parameters")
-	private Map<String, Integer> parameters;
+	private Map<String, Number> parameters;
 	@JsonProperty("regions")
 	protected Map<String, RegionSettings> regions;
 	@JsonProperty("regionTypes")
@@ -53,7 +53,7 @@ public class SegmentationSettings {
 
 	@JsonCreator
 	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
-								@JsonProperty("parameters") Map<String, Integer> parameters,
+								@JsonProperty("parameters") Map<String, Number> parameters,
 								@JsonProperty("regions") Map<String, RegionSettings> regions,
 								@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
 								@JsonProperty("combine") boolean combine,
@@ -80,7 +80,7 @@ public class SegmentationSettings {
 		this.bookID = book.getId();
 		this.regions = new HashMap<String, RegionSettings>();
 		fixedGeometry = new FixedGeometry();
-		this.parameters = new HashMap<String, Integer>();
+		this.parameters = new HashMap<String, Number>();
 
 		this.parameters.put("textdilationX", parameters.getTextDilationX());
 		this.parameters.put("textdilationY", parameters.getTextDilationY());
@@ -135,10 +135,10 @@ public class SegmentationSettings {
 		RegionManager regionmanager = new RegionManager(new HashSet<>());
 		Parameters parameters = new Parameters(regionmanager, (int) pagesize.height);
 
-		parameters.setTextDilationX(this.parameters.get("textdilationX"));
-		parameters.setTextDilationY(this.parameters.get("textdilationY"));
-		parameters.setImageRemovalDilationX(this.parameters.get("imagedilationX"));
-		parameters.setImageRemovalDilationY(this.parameters.get("imagedilationY"));
+		parameters.setTextDilationX((int) this.parameters.get("textdilationX"));
+		parameters.setTextDilationY((int) this.parameters.get("textdilationY"));
+		parameters.setImageRemovalDilationX((int) this.parameters.get("imagedilationX"));
+		parameters.setImageRemovalDilationY((int) this.parameters.get("imagedilationY"));
 		parameters.setImageSegType(this.getImageSegType());
 		parameters.setCombineImages(this.isCombine());
 
@@ -193,7 +193,7 @@ public class SegmentationSettings {
 		return new HashMap<String, RegionSettings>(regions);
 	}
 
-	public Map<String, Integer> getParameters() {
+	public Map<String, Number> getParameters() {
 		return parameters;
 	}
 

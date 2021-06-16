@@ -343,18 +343,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
 				this.displayPage(_currentPage, this._imageVersion, true);
 			}else{
-				//rotate whole page
-				this._orientation = result.orientation;
-				console.log("read orientation:" + this._orientation);
-				let dimensions = new Object();
-				dimensions.x = result.width;
-				dimensions.y = result.height;
-				let offsetCenter = _editor.calculateRotOffset(this._orientation, dimensions);
-				result.OffsetVector = offsetCenter.offsetVector;
-				result.center = offsetCenter.trueCenter;
-				Object.keys(result.segments).forEach((key) => {
-					result.segments[key] = this.rotatePolygon(result.orientation,result.segments[key],result.OffsetVector,result.center);
-				});
+				this.rotateAnnotations(result);
 				this._setPage(_currentPage, result);
 				this.displayPage(_currentPage);
 			}
@@ -557,16 +546,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const activesettings = JSON.parse(JSON.stringify(_settings));
 		activesettings.fixedGeometry = {segments:{},cuts:{}};
 		if (_fixedGeometry[_currentPage]) {
-			if (_fixedGeometry[_currentPage].segments)
+			if (_fixedGeometry[_currentPage].segments) {
 				_fixedGeometry[_currentPage].segments.forEach(
 					s => activesettings.fixedGeometry.segments[s] = _segmentation[_currentPage].segments[s]);
+				if(_segmentation[_currentPage] != null && _segmentation[_currentPage]._orientation != 0) {
+					activesettings.fixedGeometry = this.unrotateSegments(activesettings.fixedGeometry, _segmentation[_currentPage]);
+				}
+			}
 			if (_fixedGeometry[_currentPage].cuts)
 				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
-		}
-		if(_segmentation[_currentPage] != null) {
-			for(let i = 0; i<_segmentation[_currentPage].segments.length; i++){
-				_segmentation[_currentPage].segments[i].points = this.rotatePolygon(_segmentation[_currentPage].this._orientation * -1.0, _segmentation[_currentPage].segments[i].points, _segmentation[_currentPage].center);
-			}
 		}
 		const action = new ActionSegmentPage(_segmentation[_currentPage], activesettings, allowLoadLocal, _currentPage, _communicator,
 			this);
@@ -2257,14 +2245,46 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		return polygon;
 	}
 
-	this.unrotateSegments = function (segmentation){
-		let negativeOffset = -segmentation.offset;
-		let negativeCenter = new Object();
-		negativeCenter.x = -segmentation.center.x;
-		negativeCenter.y = -segmentation.center.y;
+	this.unrotateSegments = function (segmentation, segmentationSettings){
+		let negativeOffset;
+		let negativeCenter;
+		let negativeOrientation;
+
+		if( segmentationSettings != null) {
+			negativeOrientation = -segmentationSettings._orientation;
+			negativeOffset = -segmentationSettings.offset;
+			negativeCenter = new Object();
+			negativeCenter.x = -segmentationSettings.center.x;
+			negativeCenter.y = -segmentationSettings.center.y;
+		} else {
+			negativeOrientation = -segmentation._orientation;
+			negativeOffset = -segmentation.offset;
+			negativeCenter = new Object();
+			negativeCenter.x = -segmentation.center.x;
+			negativeCenter.y = -segmentation.center.y;
+		}
+
 		Object.keys(segmentation.segments).forEach((key) => {
-			segmentation.segments[key].points = this.rotatePolygon(-segmentation._orientation, segmentation.segments[i].points, negativeOffset, negativeCenter);
+			segmentation.segments[key].points = this.rotatePolygon(negativeOrientation, segmentation.segments[i].points, negativeOffset, negativeCenter);
 		});
 		return segmentation;
 	}
+
+	this.rotateAnnotations = function (result) {
+		//rotate whole page
+		this._orientation = result.orientation;
+		_gui.updateOrientation(result.orientation);
+		console.log("read orientation:" + this._orientation);
+		let dimensions = new Object();
+		dimensions.x = result.width;
+		dimensions.y = result.height;
+		let offsetCenter = _editor.calculateRotOffset(this._orientation, dimensions);
+		result.OffsetVector = offsetCenter.offsetVector;
+		result.center = offsetCenter.trueCenter;
+		Object.keys(result.segments).forEach((key) => {
+			result.segments[key] = this.rotatePolygon(result.orientation,result.segments[key],result.OffsetVector,result.center);
+		});
+		return result;
+	}
 }
+

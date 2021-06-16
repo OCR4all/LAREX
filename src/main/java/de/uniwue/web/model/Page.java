@@ -65,4 +65,6 @@ public class Page {
 	}
 
 	public double getOrientation() { return orientation;}
+
+	public void setOrientation(double orientation) { this.orientation = orientation;}
 }
