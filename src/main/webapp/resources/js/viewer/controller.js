@@ -2250,7 +2250,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let negativeCenter;
 		let negativeOrientation;
 
-		if( segmentationSettings != null) {
+		if(segmentationSettings !== null) {
 			negativeOrientation = -segmentationSettings._orientation;
 			negativeOffset = -segmentationSettings.offset;
 			negativeCenter = new Object();
@@ -2265,7 +2265,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 
 		Object.keys(segmentation.segments).forEach((key) => {
-			segmentation.segments[key].points = this.rotatePolygon(negativeOrientation, segmentation.segments[i].points, negativeOffset, negativeCenter);
+			segmentation.segments[key].points = this.rotatePolygon(negativeOrientation, segmentation.segments[key].points, negativeOffset, negativeCenter);
 		});
 		return segmentation;
 	}
@@ -2287,4 +2287,3 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		return result;
 	}
 }
-
