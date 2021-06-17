@@ -121,6 +121,9 @@ Larex will load the books from this folder.
 ### localsave ###
 The setting *localsave* tells the application how to handle results locally when saved.
 
+_Please note_:  
+To work properly in local mode it's required that the `Page@imageFilename`-attribute matches the actual filename (apart from the extension). This label will be used for local storage.
+
 `<mode>=[bookpath|savedir|none]`
 
 `bookpath`: save the result in the bookpath
