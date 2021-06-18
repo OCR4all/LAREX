@@ -17,12 +17,12 @@ class Editor extends Viewer {
 
 		this._grid = { isActive: false };
 		this._readingOrder;
-		
+
 		this._guiOverlay;
-		
+
 		this.mouseregions = { TOP: 0, BOTTOM: 1, LEFT: 2, RIGHT: 3, MIDDLE: 4, OUTSIDE: 5 };
 		this.DoubleClickListener = new DoubleClickListener();
-		
+
 		this._pointSelector;
 		this._pointSelectorListener;
 		this._centers = {};
@@ -57,8 +57,8 @@ class Editor extends Viewer {
 			this.addListener(listener);
 
 			const start_rectangle = (event) => {
-				if (this.isEditing === true) { 
-					const startPoint = event.point; 
+				if (this.isEditing === true) {
+					const startPoint = event.point;
 
 					const imageCanvas = this.getImageCanvas();
 
@@ -90,7 +90,7 @@ class Editor extends Viewer {
 								let rectangle = new paper.Path.Rectangle(this._tempPoint.firstSegment.point, point);
 
 								this._tempPolygon.segments = rectangle.segments;
-								
+
 								updateFunction(rectangle);
 							}
 						} else {
@@ -540,7 +540,7 @@ startMovePolygonPoints(elementID, type, points) {
 					oldMouse = event.point;
 				}
 				this._tempPoint = oldPosition.add(event.point.subtract(oldMouse));
-				if (this._grid.isActive) 
+				if (this._grid.isActive)
 					this._tempPoint = this.getPointFixedToGrid(this._tempPoint);
 
 					const delta = oldPosition.subtract(this._tempPoint);
@@ -719,7 +719,7 @@ getMouseRegion(bounds, mousepos, percentarea, minarea) {
 	if (percentarea == null) {
 		percentarea = 0.4;
 	}
-	//Calculate the height and width delta from the borders inwards to the center with minarea and percentarea 
+	//Calculate the height and width delta from the borders inwards to the center with minarea and percentarea
 	let widthDelta = width * percentarea;
 	if (widthDelta < minarea) {
 		if (minarea < width * 0.5) {
@@ -900,8 +900,11 @@ clear(){
 
 /**
  * Find a visual center of a polygon, inside the polygon
- * 
- * @param {*} polygon 
+ *
+ * @param id
+ * @param {*} polygon
+ * @param maxIterations
+ * @param simplify
  */
 calculateVisualPolygonCenter(id, polygon, maxIterations=10, simplify=false){
 	if(this._centers[id]) {
@@ -939,7 +942,7 @@ calculateVisualPolygonCenter(id, polygon, maxIterations=10, simplify=false){
 			}
 		}
 		this._centers[id] = this._convertCanvasToGlobal(workRect.center.x,workRect.center.y);
-		return workRect.center; 
+		return workRect.center;
 	}
 }
 
@@ -948,7 +951,7 @@ startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, c
 		// Terminate potential running point select
 		this.endPointSelect();
 
-		// Run 
+		// Run
 		init();
 
 		const polygon = this._polygons[targetID];
@@ -974,7 +977,7 @@ startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, c
 						this._pointSelector.position = new paper.Point(hitResult.location.point);
 
 					update(targetID, this._convertCanvasToGlobal(this._pointSelector.position.x,this._pointSelector.position.y));
-				} else { 
+				} else {
 					// Mouse is not near the polygon
 					this._pointSelector.visible = false;
 				}
@@ -983,7 +986,7 @@ startPointSelect(targetID, callback = (targetID,point) => {}, init = () => {}, c
 				cleanup();
 				this.removeListener(this._pointSelectorListener);
 			}
-		} 
+		}
 		this._pointSelectorListener.onMouseDown = (event) => {
 			if(!this.isEditing && this._pointSelector){
 				const hitResult = polygon.hitTest(event.point, hitOptions);
@@ -1080,8 +1083,7 @@ _center = function (arr)
 	let cx = (Math.min (...x) + Math.max (...x)) / 2;
 	let cy = (Math.min (...y) + Math.max (...y)) / 2;
 
-	let point = {x:cx, y:cy};
-	return point;
+	return {x: cx, y: cy};
 }
 
 _resetOverlay() {
@@ -1147,7 +1149,7 @@ class DoubleClickListener{
 
 		this._lastClickedPosition = curMousePos;
 		this._lastClickedTime = curTime;
-		
+
 	}
 
 	setActive(isActive = true){

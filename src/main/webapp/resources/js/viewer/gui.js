@@ -265,7 +265,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Return the length of buttons in a given row inside the virtual keyboard
 	 */
 	this.capKeyboardRowLength = function ($row){
-		$children = $row.children();
+		let $children = $row.children();
 		if($children.length > 12){
 			const $newRow = $('<div class="vk-row row"></div>');
 			$newRow.insertAfter($row);
@@ -285,9 +285,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 */
 	this.openAddVirtualKeyboardButton = function () {
 		$('#vk-btn-value').val('');
-		$vk_add = $('#virtual-keyboard-add');
+		let $vk_add = $('#virtual-keyboard-add');
 		$vk_add.removeClass('hide');
-		$sidebarOffset = $('.virtual-keyboard-tools').first().offset();
+		let $sidebarOffset = $('.virtual-keyboard-tools').first().offset();
 		$vk_add.css({ top: $sidebarOffset.top, left: $sidebarOffset.left - $vk_add.width() });
 	}
 	/**
@@ -324,18 +324,19 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		let anchorX = Infinity;
 		let anchorY = 0;
 
-		if(textline){
+		let $viewerCanvas;
+		if (textline) {
 			textline.points.forEach((point) => {
-				anchorX = anchorX < point.x ? anchorX: point.x;
-				anchorY = anchorY > point.y ? anchorY: point.y;
+				anchorX = anchorX < point.x ? anchorX : point.x;
+				anchorY = anchorY > point.y ? anchorY : point.y;
 			});
 
-			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX+_textlineDelta,anchorY);
+			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX + _textlineDelta, anchorY);
 			$viewerCanvas = $("#viewer")[0];
 			const left = $viewerCanvas.offsetLeft
 			const top = $viewerCanvas.offsetTop
 
-			$textlinecontent.css({ top:(viewerPoint.y + top), left: (viewerPoint.x + left) });
+			$textlinecontent.css({top: (viewerPoint.y + top), left: (viewerPoint.x + left)});
 			$textlinecontent.data('textline', textline);
 
 		}
@@ -404,7 +405,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Resize the textline content based on its textline size and a user defined zoom
 	 */
 	this.resizeTextLineContent = function(){
-		$buffer = $("#textline-buffer")[0];
+		let $buffer = $("#textline-buffer")[0];
 		$buffer.textContent = $("#textline-text")[0].value.replace(/ /g, "\xa0");
 
 		if(this.tempTextline && this.tempTextline.minArea){
@@ -560,8 +561,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$('.regionSetting').addClass('hide');
 		$('#regioneditorSave').addClass('hide');
 		$('.regionDelete').addClass('hide');
-		$settingsOffset = $('#sidebarRegions').offset();
-		$regioneditor = $('#regioneditor');
+		let $settingsOffset = $('#sidebarRegions').offset();
+		let $regioneditor = $('#regioneditor');
 		$regioneditor.removeClass('hide');
 		$regioneditor.css({ top: $settingsOffset.top, left: $settingsOffset.left - $regioneditor.width() });
 	}
@@ -632,17 +633,18 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Check if the current reading order is active in the gui
 	 */
 	this.isReadingOrderActive = function () {
-		if(_mode === Mode.SEGMENT || _mode === Mode.EDIT || _mode === Mode.LINES) {
+		let $readingOrder;
+		if (_mode === Mode.SEGMENT || _mode === Mode.EDIT || _mode === Mode.LINES) {
 			$readingOrder = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-header') : $('#reading-order-header-lines');
 			return $readingOrder.hasClass("active");
-		}else{
+		} else {
 			return false;
 		}
 	}
 
 	/** Set the in the gui visible reading order */
 	this.setReadingOrder = function (readingOrder, segments, warning="Reading order is empty") {
-		$readingOrderList = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-list') : $('#reading-order-list-lines');
+		let $readingOrderList = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-list') : $('#reading-order-list-lines');
 		$readingOrderList.empty();
 		if(readingOrder && readingOrder.length > 0){
 			for (let index = 0; index < readingOrder.length; index++) {
@@ -700,6 +702,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 
 	this.forceUpdateReadingOrder = function (readingOrder, forceHard, segments) {
+		let $readingOrderListItems;
 		if (forceHard) {
 			this.setReadingOrder(readingOrder, segments);
 		} else {
@@ -808,7 +811,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		const $page = $('.pageImageContainer[data-page~="' + page + '"]');
 
 		if(pagestatus === PageStatus.TODO){
-			for(status in PageStatus){
+			for(let status in PageStatus){
 				$page.removeClass(status);
 			}
 			$page.find(".pagestatusIcon").addClass('hide');
@@ -914,7 +917,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	}
 
 	this.loadVisiblePreviewImages = function(){
-		$previewImages = $('.emptyPreview');
+		let $previewImages = $('.emptyPreview');
 		const pixelBuffer = 500;
 
 		$previewImages.each(function(){
