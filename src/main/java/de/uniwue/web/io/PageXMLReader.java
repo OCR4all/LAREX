@@ -82,8 +82,13 @@ public class PageXMLReader {
 			}
 		}
 
+
+
 		// Read PAGE xml into Segmentation Result
 		if (page != null) {
+			// Read Metadata
+			de.uniwue.web.model.MetaData metaData = new de.uniwue.web.model.MetaData(page.getMetaData());
+
 			Map<String, de.uniwue.web.model.Region> resRegions = new HashMap<>();
 			// Read regions
 			for (Region region : page.getLayout().getRegionsSorted()) {
@@ -179,7 +184,7 @@ public class PageXMLReader {
 			final String imageName = page.getImageFilename();
 			final String pageName = imageName.lastIndexOf(".") > 0 ?
 					imageName.substring(0, imageName.lastIndexOf(".")) : imageName;
-			return new PageAnnotations(pageName, width, height, resRegions,
+			return new PageAnnotations(pageName, width, height, metaData, resRegions,
 					SegmentationStatus.LOADED, newReadingOrder, true);
 		}
 

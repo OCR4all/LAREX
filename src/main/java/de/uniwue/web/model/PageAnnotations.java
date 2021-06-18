@@ -28,6 +28,8 @@ public class PageAnnotations {
 	private final int width;
 	@JsonProperty("height")
 	private final int height;
+	@JsonProperty("metadata")
+	private final MetaData metadata;
 	@JsonProperty("segments")
 	private final Map<String, Region> segments;
 	@JsonProperty("readingOrder")
@@ -43,6 +45,7 @@ public class PageAnnotations {
 	public PageAnnotations(@JsonProperty("name") String name,
 						   @JsonProperty("width") int width,
 						   @JsonProperty("height") int height,
+						   @JsonProperty("metadata") MetaData metadata,
 						   @JsonProperty("segments") Map<String, Region> segments,
 						   @JsonProperty("status") SegmentationStatus status,
 						   @JsonProperty("readingOrder") List<String> readingOrder,
@@ -51,6 +54,7 @@ public class PageAnnotations {
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		this.metadata = metadata;
 		this.segments = segments;
 		this.status = status;
 		this.readingOrder = readingOrder;
@@ -62,6 +66,7 @@ public class PageAnnotations {
 	public PageAnnotations(String name,
 						   int width,
 						   int height,
+						   MetaData metadata,
 						   Map<String, Region> segments,
 						   SegmentationStatus status,
 						   List<String> readingOrder,
@@ -70,6 +75,7 @@ public class PageAnnotations {
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		this.metadata = metadata;
 		this.segments = segments;
 		this.status = status;
 		this.readingOrder = readingOrder;
@@ -81,6 +87,7 @@ public class PageAnnotations {
 						   int width,
 						   int height,
 						   int pageNr,
+						   MetaData metadata,
 						   Collection<RegionSegment> regions,
 						   SegmentationStatus status,
 						   boolean isSegmented) {
@@ -98,6 +105,7 @@ public class PageAnnotations {
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		this.metadata = metadata;
 		this.segments = segments;
 		this.status = status;
 		this.readingOrder = new ArrayList<String>();
@@ -107,11 +115,15 @@ public class PageAnnotations {
 	}
 
 	public PageAnnotations(String name, int width, int height, int pageNr, boolean isSegmented) {
-		this(name, width, height, pageNr, new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY, isSegmented);
+		this(name, width, height, pageNr, new MetaData(), new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY, isSegmented);
 	}
 
 	public Map<String, Region> getSegments() {
 		return new HashMap<String, Region>(segments);
+	}
+
+	public MetaData getMetadata() {
+		return metadata;
 	}
 
 	public SegmentationStatus getStatus() {
@@ -124,6 +136,10 @@ public class PageAnnotations {
 
 	public Map<String, Region> getGarbage() {
 		return garbage;
+	}
+
+	public boolean isSegmented() {
+		return isSegmented;
 	}
 
 	public String getName() {
