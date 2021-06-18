@@ -1,6 +1,9 @@
 package de.uniwue.web.io;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,7 +24,6 @@ import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
 import org.primaresearch.dla.page.metadata.MetaData;
-import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.shared.variable.IntegerValue;
 import org.primaresearch.shared.variable.IntegerVariable;
 import org.primaresearch.shared.variable.Variable;
@@ -32,6 +34,24 @@ import de.uniwue.algorithm.geometry.regions.type.RegionType;
 import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.web.communication.SegmentationStatus;
 import de.uniwue.web.model.PageAnnotations;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 /**
  * PageXMLReader is a converter for PageXML files into the PageAnnotations
@@ -47,13 +67,19 @@ public class PageXMLReader {
 	 */
 	public static PageAnnotations getPageAnnotations(File sourceFilename){
 		// Convert document to PAGE xml Page
-		Page page = null;
+		Page page = readPAGE(sourceFilename);
 
-		try{
-			page = PageXmlInputOutput.readPage(String.valueOf(sourceFilename));
-		}catch (UnsupportedFormatVersionException e){
-			System.err.println("Could not load source PAGE XML file: "+sourceFilename);
-			e.printStackTrace();
+		// Accounts for an edge case in previous LAREX versions which would lead to non-valid PAGE XML by inserting an empty
+		// TextEquiv-element before TextLines in a TextRegion. The related bug was fixed.
+		// TODO: Remove in future versions as LAREX doesn't produce invalid PAGE XML anymore
+		if(page == null){
+			try {
+				fixFaultyPAGE(sourceFilename);
+				page = readPAGE(sourceFilename);
+			}catch (ParserConfigurationException | IOException | SAXException | XPathExpressionException e) {
+				e.printStackTrace();
+				System.err.println("Could not load source PAGE XML file: " + sourceFilename);
+			}
 		}
 
 		// Read PAGE xml into Segmentation Result
@@ -158,6 +184,63 @@ public class PageXMLReader {
 		}
 
 		return null;
+	}
+
+	private static Page readPAGE(File sourceFilename){
+		Page page = null;
+		try{
+			page = PageXmlInputOutput.readPage(String.valueOf(sourceFilename));
+		}catch(Exception e){
+			e.printStackTrace();
+			System.err.println("Could not load source PAGE XML file: " + sourceFilename);
+		}
+
+		return page;
+	}
+
+	private static void fixFaultyPAGE(File sourceFilename) throws ParserConfigurationException, IOException, SAXException, XPathExpressionException {
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+
+		dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+		DocumentBuilder db = dbf.newDocumentBuilder();
+
+		Document doc = db.parse(sourceFilename);
+
+		XPath xPath = XPathFactory.newInstance().newXPath();
+
+		NodeList textregions = doc.getElementsByTagName("TextRegion");
+
+		for (int temp = 0; temp < textregions.getLength(); temp++) {
+			NodeList nodeList = (NodeList) xPath.compile("./TextEquiv").evaluate(textregions.item(temp), XPathConstants.NODESET);
+			if (nodeList.getLength() == 1) {
+				Node possiblyFaultyNode = nodeList.item(0);
+
+				NodeList TextLineList = (NodeList) xPath.compile("./following-sibling::TextLine[1]").evaluate(possiblyFaultyNode, XPathConstants.NODESET);
+				if (TextLineList.getLength() > 0) {
+					possiblyFaultyNode.getParentNode().removeChild(possiblyFaultyNode);
+				}
+			}
+		}
+
+		doc.normalize();
+
+		try (FileOutputStream output = new FileOutputStream(sourceFilename)) {
+			writeXml(doc, output);
+		} catch (IOException | TransformerException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void writeXml(Document doc,
+								 OutputStream output)
+			throws TransformerException {
+
+		TransformerFactory transformerFactory = TransformerFactory.newInstance();
+		Transformer transformer = transformerFactory.newTransformer();
+		DOMSource source = new DOMSource(doc);
+		StreamResult result = new StreamResult(output);
+
+		transformer.transform(source, result);
 	}
 
 	private static HashMap<String, String> buildMetadataHashmap(MetaData metaData){
