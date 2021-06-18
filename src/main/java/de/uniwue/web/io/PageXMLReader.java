@@ -21,6 +21,7 @@ import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.TextContentVariant;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
+import org.primaresearch.dla.page.metadata.MetaData;
 import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.maths.geometry.Polygon;
 import org.primaresearch.shared.variable.IntegerValue;
@@ -57,7 +58,7 @@ public class PageXMLReader {
 			System.err.println("Could not load source PAGE XML file: "+sourceFilename);
 			e.printStackTrace();
 		}
-		System.out.println(page);
+
 		// Read PAGE xml into Segmentation Result
 		if (page != null) {
 			Map<String, de.uniwue.web.model.Region> resRegions = new HashMap<>();
@@ -73,7 +74,7 @@ public class PageXMLReader {
 				final Map<String,de.uniwue.web.model.TextLine> textLines = new HashMap<>();
 				final List<String> readingOrder = new ArrayList<>();
 
-				if (type.equals(RegionType.TextRegion)) {
+				if (type != null && type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
 					if(textRegion.getAttributes().get("type").getValue() != null && textRegion.getTextType() != null) {
 						subtype = TypeConverter.stringToSubType(textRegion.getTextType());
@@ -88,12 +89,11 @@ public class PageXMLReader {
 							final String id = text.getId().toString();
 
 							// Get Coords of TextLine
-							LinkedList<Point> pointList = new LinkedList<>();
+							de.uniwue.web.model.Polygon textlineCoords = new de.uniwue.web.model.Polygon();
 							Polygon coords = textLine.getCoords();
 							for (int i = 0; i < coords.getSize(); i++) {
 								org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
-								Point newPoint = new Point(point.x, point.y);
-								pointList.add(newPoint);
+								textlineCoords.addPoint(new Point(point.x, point.y));
 							}
 
 							//// TextLine text content
@@ -125,7 +125,7 @@ public class PageXMLReader {
 								}
 							}
 
-							textLines.put(id, new de.uniwue.web.model.TextLine(id,pointList,content));
+							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content));
 							readingOrder.add(id);
 						}
 
@@ -133,19 +133,18 @@ public class PageXMLReader {
 				}
 
 				// Get Coords
-				LinkedList<Point> pointList = new LinkedList<>();
+				de.uniwue.web.model.Polygon regionCoords = new de.uniwue.web.model.Polygon();
 				Polygon coords = region.getCoords();
 				for (int i = 0; i < coords.getSize(); i++) {
 					org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
-					Point newPoint = new Point(point.x, point.y);
-					pointList.add(newPoint);
+					regionCoords.addPoint(new Point(point.x, point.y));
 				}
 
 				// Id
 				String id = region.getId().toString();
-				if (!pointList.isEmpty()) {
+				if (!regionCoords.getPoints().isEmpty()) {
 					resRegions.put(id, new de.uniwue.web.model.Region(id, new PAGERegionType(type, subtype).toString(),
-							pointList, orientation, false, textLines, readingOrder));
+							orientation, regionCoords, textLines, readingOrder));
 				}
 			}
 			final int height = page.getLayout().getHeight();
@@ -172,6 +171,18 @@ public class PageXMLReader {
 		}
 
 		return null;
+	}
+
+	private static HashMap<String, String> buildMetadataHashmap(MetaData metaData){
+		HashMap<String, String> metaDataMap = new HashMap<>();
+
+		metaDataMap.put("Creator", metaData.getCreator());
+		metaDataMap.put("Comments", metaData.getComments());
+		metaDataMap.put("ExternalRef", metaData.getExternalRef());
+		metaDataMap.put("FormattedCreationTime", metaData.getFormattedCreationTime());
+		metaDataMap.put("FormattedLastModificationTime", metaData.getFormattedLastModificationTime());
+
+		return metaDataMap;
 	}
 
 	/**

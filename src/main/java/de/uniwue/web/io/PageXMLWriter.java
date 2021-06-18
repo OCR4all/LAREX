@@ -47,14 +47,14 @@ import de.uniwue.web.model.PageAnnotations;
 import de.uniwue.web.model.Point;
 
 /**
- * PageXMLWriter is a converter for the PageAnnotations used in this tool 
+ * PageXMLWriter is a converter for the PageAnnotations used in this tool
  * to PageXML annotations.
  */
 public class PageXMLWriter {
 
 	/**
 	 * Get a pageXML document out of a page
-	 * 
+	 *
 	 * @param result
 	 * @param pageXMLVersion
 	 * @return pageXML document or null if parse error
@@ -73,7 +73,7 @@ public class PageXMLWriter {
 		// Create page and meta data
 		MetaData metadata = page.getMetaData();
 		metadata.setCreationTime(new Date());
-		// metadata ChangedTime
+		metadata.setLastModifiedTime(new Date());
 
 		// Create page layout
 		PageLayout layout = page.getLayout();
@@ -90,7 +90,7 @@ public class PageXMLWriter {
 			Region region = layout.createRegion(regionType);
 			Polygon poly = new Polygon();
 
-			for (Point point : regionSegment.getPoints()) {
+			for (Point point : regionSegment.getCoords().getPoints()) {
 				poly.addPoint((int) point.getX(), (int) point.getY());
 			}
 
@@ -104,7 +104,7 @@ public class PageXMLWriter {
 				// Add TextLines if existing
 				if(regionSegment.getTextlines() != null) {
 					final List<de.uniwue.web.model.TextLine> textlines = new ArrayList<>(regionSegment.getTextlines().values());
-					
+
 					// Sort textlines via reading order if a reading order exists
 					if(regionSegment.getReadingOrder() != null) {
 						List<String> readingOrder = new ArrayList<>(regionSegment.getReadingOrder());
@@ -115,22 +115,22 @@ public class PageXMLWriter {
 							textlines.add(0, textline);
 						});
 					}
-					
+
 					// Iterate over sorted text lines and to PAGE xml
 					for (de.uniwue.web.model.TextLine textline : textlines) {
 						final TextLine pageTextLine = textRegion.createTextLine();
-						
+
 						final Polygon coords = new Polygon();
-						for (Point point : textline.getPoints()) {
+						for (Point point : textline.getCoords().getPoints()) {
 							coords.addPoint((int) point.getX(), (int) point.getY());
 						}
 						pageTextLine.setCoords(coords);
-						
+
 						// Add Text
 						for(Entry<Integer,String> content : textline.getText().entrySet()) {
 							final int id = content.getKey();
 							final TextContent textContent = (id >= pageTextLine.getTextContentVariantCount()) ?
-									 pageTextLine.addTextContentVariant():  pageTextLine.getTextContentVariant(id);
+									pageTextLine.addTextContentVariant():  pageTextLine.getTextContentVariant(id);
 							textContent.setText(content.getValue());
 							textContent.getAttributes().add(new IntegerVariable("index",new IntegerValue(id)));
 						}
@@ -172,7 +172,7 @@ public class PageXMLWriter {
 
 	/**
 	 * Save a document in a outputFolder
-	 * 
+	 *
 	 * @param document
 	 * @param fileName
 	 * @param outputFolder
@@ -184,23 +184,17 @@ public class PageXMLWriter {
 			Transformer transformer = transformerFactory.newTransformer();
 			DOMSource source = new DOMSource(document);
 
-			if (!outputFolder.endsWith(File.separator)) 
+			if (!outputFolder.endsWith(File.separator))
 				outputFolder += File.separator;
 
-			File createdOutputFolder = new File(outputFolder);
-			if (createdOutputFolder.mkdir()) {
-				createdOutputFolder.setReadable(true, false);
-			}
-
 			final String outputPath = outputFolder + fileName;
-			
-			File createdOutputPath = new File(outputPath);
-			FileOutputStream output = new FileOutputStream(createdOutputPath);
+
+
+			FileOutputStream output = new FileOutputStream(new File(outputPath));
 			StreamResult result = new StreamResult(output);
 			transformer.transform(source, result);
 
 			output.close();
-			createdOutputPath.setReadable(true, false);
 
 		} catch (Exception e) {
 			e.printStackTrace();

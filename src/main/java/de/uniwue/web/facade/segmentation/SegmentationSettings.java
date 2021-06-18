@@ -1,4 +1,3 @@
-
 package de.uniwue.web.facade.segmentation;
 
 import java.util.ArrayList;
@@ -33,7 +32,7 @@ import de.uniwue.web.model.Region;
 /**
  * Handles all parameters and settings passing through the gui to the
  * segmentation algorithm
- * 
+ *
  */
 public class SegmentationSettings {
 
@@ -54,11 +53,11 @@ public class SegmentationSettings {
 
 	@JsonCreator
 	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
-			@JsonProperty("parameters") Map<String, Integer> parameters,
-			@JsonProperty("regions") Map<String, RegionSettings> regions,
-			@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
-			@JsonProperty("combine") boolean combine,
-			@JsonProperty("imageSegType") ImageSegType imageSegType) {
+								@JsonProperty("parameters") Map<String, Integer> parameters,
+								@JsonProperty("regions") Map<String, RegionSettings> regions,
+								@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
+								@JsonProperty("combine") boolean combine,
+								@JsonProperty("imageSegType") ImageSegType imageSegType) {
 		this.bookID = bookID;
 		this.regions = regions;
 		this.fixedGeometry = fixedGeometry;
@@ -76,7 +75,7 @@ public class SegmentationSettings {
 	public SegmentationSettings(Book book) {
 		this(new Parameters(), book);
 	}
-	
+
 	public SegmentationSettings(Parameters parameters, Book book) {
 		this.bookID = book.getId();
 		this.regions = new HashMap<String, RegionSettings>();
@@ -103,14 +102,14 @@ public class SegmentationSettings {
 
 			int regionCount = 0;
 			for (RelativePosition position : region.getPositions()) {
-				LinkedList<Point> points = new LinkedList<Point>();
-				points.add(new Point(position.left(), position.top()));
-				points.add(new Point(position.right(), position.top()));
-				points.add(new Point(position.right(), position.bottom()));
-				points.add(new Point(position.left(), position.bottom()));
+				Polygon coords = new Polygon(true);
+				coords.addPoint(new Point(position.left(), position.top()));
+				coords.addPoint(new Point(position.right(), position.top()));
+				coords.addPoint(new Point(position.right(), position.bottom()));
+				coords.addPoint(new Point(position.left(), position.bottom()));
 
 				String id = regionType.toString() + regionCount;
-				guiRegion.addArea(new Region(id, regionType, points, null, true, new HashMap<>(), new ArrayList<>()));
+				guiRegion.addArea(new Region(id, regionType, null, coords, new HashMap<>(), new ArrayList<>()));
 				regionCount++;
 			}
 
@@ -127,7 +126,7 @@ public class SegmentationSettings {
 	/**
 	 * Get specific page parameters from these book settings, with Existing Geometry
 	 * of the page
-	 * 
+	 *
 	 * @param pagesize
 	 * @return
 	 */
@@ -152,7 +151,7 @@ public class SegmentationSettings {
 
 			Collection<RelativePosition> positions = new ArrayList<>();
 			for (Region polygon : guiRegion.getAreas().values()) {
-				List<Point> points = polygon.getPoints();
+				List<Point> points = polygon.getCoords().getPoints();
 				if (points.size() == 4) {
 					Point topLeft = points.get(0);
 					Point bottomRight = points.get(2);
@@ -167,8 +166,8 @@ public class SegmentationSettings {
 				}
 			}
 			de.uniwue.algorithm.geometry.regions.Region region = new de.uniwue.algorithm.geometry.regions.Region(
-											regionType, minSize, maxOccurances, priorityPosition,
-											positions);
+					regionType, minSize, maxOccurances, priorityPosition,
+					positions);
 			regionmanager.addArea(region);
 		}
 
@@ -176,7 +175,7 @@ public class SegmentationSettings {
 		ArrayList<RegionSegment> fixedPointLists = new ArrayList<>();
 		for (Region fixedSegment : this.fixedGeometry.getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
-			for (Point point : fixedSegment.getPoints()) {
+			for (Point point : fixedSegment.getCoords().getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
 			RegionSegment fixedPointList = new RegionSegment(points, fixedSegment.getId());
@@ -191,7 +190,7 @@ public class SegmentationSettings {
 			for (Point point : cut.getPoints()) {
 				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
 			}
-			cuts.add(new PointList(points, cut.getId()));
+			cuts.add(new PointList(points));
 		}
 
 		parameters.setExistingGeometry(new ExistingGeometry(fixedPointLists, cuts));
@@ -218,7 +217,7 @@ public class SegmentationSettings {
 	public boolean isCombine() {
 		return combine;
 	}
-	
+
 	public Map<String, Integer> getRegionTypes() {
 		return regionTypes;
 	}
