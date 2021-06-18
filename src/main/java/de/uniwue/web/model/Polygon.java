@@ -63,4 +63,15 @@ public class Polygon {
 	public boolean isRelative() {
 		return isRelative;
 	}
+
+	public org.primaresearch.maths.geometry.Polygon toPrimaPolygon(){
+		org.primaresearch.maths.geometry.Polygon polygon = new org.primaresearch.maths.geometry.Polygon();
+
+		for(Point point : points){
+			polygon.addPoint((int) point.getX(), (int) point.getY());
+		}
+
+		return polygon;
+
+	}
 }
