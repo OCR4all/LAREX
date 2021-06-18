@@ -328,6 +328,16 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 
 			multiRemove.execute();
 
+			//TODO: This can probably be implemented more elegantly using map/filter/reduce
+			let garbage = {};
+			for(const [key, value] of Object.entries(segmentation[page]["garbage"])){
+				if(value["parent"] !== segment.id){
+					garbage[key] = value;
+				}
+			}
+			segmentation[page]["garbage"] = garbage;
+			segmentation[page]["garbage"][_segment.id] = segmentation[page].segments[_segment.id];
+
 			delete segmentation[page].segments[_segment.id];
 
 			if(_actionRemoveFromReadingOrder)
@@ -347,6 +357,7 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
+			delete segmentation[page]["garbage"][_segment.id]
 			segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			editor.addSegment(_segment);
 
@@ -408,6 +419,10 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
+
+			segmentation[page]["garbage"][textline.id] = segmentation[page].segments[_segmentID].textlines[textline.id];
+			segmentation[page]["garbage"][textline.id]["parent"] = _segmentID;
+
 			delete segmentation[page].segments[_segmentID].textlines[textline.id];
 			editor.removeSegment(textline.id);
 			textViewer.removeTextline(textline.id);
@@ -421,6 +436,9 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
+
+			delete segmentation[page]["garbage"][textline.id];
+
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
 			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)));
