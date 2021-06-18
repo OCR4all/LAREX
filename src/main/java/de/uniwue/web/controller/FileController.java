@@ -58,7 +58,7 @@ import de.uniwue.web.io.PageXMLWriter;
 import de.uniwue.web.model.PageAnnotations;
 
 /**
- * Communication Controller to provide file contents 
+ * Communication Controller to provide file contents
  * and process save as well as export requests
  */
 @Controller
@@ -97,7 +97,7 @@ public class FileController {
 		}
 		this.exportProgress = 0;
 	}
-	
+
 	/**
 	 * Request an image of a book, by book name and image name.
 	 * Use resize to get a downscaled preview image, with a width of 300px.
@@ -110,7 +110,7 @@ public class FileController {
 			// Find file with image name
 			final File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
 			final String imageName = image.replace(".png", "");
-			
+
 			final File[] matchingFiles = directory.listFiles((File dir, String name) -> {
 					final int extStart = name.lastIndexOf(".");
 					if (extStart > 0 && name.substring(0, extStart).equals(imageName)) {
@@ -180,20 +180,12 @@ public class FileController {
 
 	/**
 	 * Upload a segmentation to load back into the gui.
-	 * 
+	 *
 	 */
 	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST)
-	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") MultipartFile file,
-			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
-		if (!file.isEmpty()) {
-			try (ByteArrayInputStream stream = new ByteArrayInputStream(file.getBytes())){
-				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-				DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-
-				return PageXMLReader.getPageAnnotations(dBuilder.parse(stream));
-			} catch (SAXException | IOException | ParserConfigurationException e) {
-				return null;
-			}
+	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") File file) {
+		if (!file.isFile()) {
+			return PageXMLReader.getPageAnnotations(file);
 		}
 		return null;
 	}
@@ -261,7 +253,7 @@ public class FileController {
 
 	/**
 	 * Upload a segmentation settings file and return a BookSettings json as result.
-	 * 
+	 *
 	 * @param file
 	 * @param bookID
 	 * @return
@@ -286,10 +278,10 @@ public class FileController {
 
 	private BufferedImage convertMatToBufferedImage(final Mat imageMat) throws IOException {
 		final MatOfByte imageBuffer = new MatOfByte();
-		
+
 		Imgcodecs.imencode(".png", imageMat, imageBuffer);
 		final byte[] imagebytes = imageBuffer.toArray();
-		
+
 		imageBuffer.release();
 
 		return ImageIO.read(new ByteArrayInputStream(imagebytes));

@@ -20,7 +20,7 @@ class Communicator {
 		}
 		switch(uploadDataType){
 			case DataType.SIMPLE:
-				request.data = data;	
+				request.data = data;
 				break;
 			case DataType.JSON:
 				request.contentType = "application/json";
@@ -42,13 +42,13 @@ class Communicator {
 
 		return status;
 	}
-			
+
 	// Data
-	loadBook(bookID) { 
+	loadBook(bookID) {
 		return this.request("data/book", {bookid:bookID});
 	}
 
-	getVirtualKeyboard() { 
+	getVirtualKeyboard() {
 		return this.request("data/virtualkeyboard");
 	}
 
@@ -64,7 +64,7 @@ class Communicator {
 		return this.request("data/page/batchAnnotations", {bookid:bookid, pages:pages}, DataType.JSON);
 	}
 
-	getHaveAnnotations(bookID) { 
+	getHaveAnnotations(bookID) {
 		return this.request("data/status/all/annotations", {bookid:bookID});
 	}
 
@@ -98,10 +98,10 @@ class Communicator {
 		return this.request("segmentation/empty",  {pageid:pageID,bookid:bookID});
 	}
 
-	getSettings(bookID) { 
+	getSettings(bookID) {
 		return this.request("segmentation/settings", {bookid:bookID});
 	}
-	
+
 	// Processing
 	mergeSegments(segments) {
 		return this.request("process/regions/merge", segments, DataType.JSON);
@@ -110,7 +110,7 @@ class Communicator {
 	extractContours(pageid, bookid) {
 		return this.request("process/contours/extract", {pageid:pageid,bookid:bookid});
 	}
-	
+
 	combineContours(contours, page_width, page_height, accuracy) {
 		return this.request("process/contours/combine", {contours:contours,page_width:page_width,page_height:page_height,accuracy:accuracy}, DataType.JSON);
 	}
@@ -127,7 +127,7 @@ class Communicator {
 	exportSettings(settings) {
 		return this.request("file/download/segmentsettings", settings, DataType.JSON, DataType.BYTE);
 	}
-	
+
 	uploadSettings(file, bookID) {
 		const formData = new FormData();
 		formData.append("file", file);
@@ -142,7 +142,7 @@ class Communicator {
 		formData.append("pageNr", pageNr);
 		formData.append("bookID", bookID);
 
-		return this.request("file/upload/annotations", formData, DataType.BYTE);
+		return this.request("file/upload/annotations", formData, DataType.SIMPLE);
 	}
 
 	loadImage(image_path, id) {

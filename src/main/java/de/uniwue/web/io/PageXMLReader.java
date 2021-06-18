@@ -1,25 +1,16 @@
 package de.uniwue.web.io;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 
 import org.primaresearch.dla.page.Page;
-import org.primaresearch.dla.page.io.FileInput;
 import org.primaresearch.dla.page.io.xml.DefaultXmlNames;
-import org.primaresearch.dla.page.io.xml.XmlPageReader;
+import org.primaresearch.dla.page.io.xml.PageXmlInputOutput;
 import org.primaresearch.dla.page.layout.logical.Group;
 import org.primaresearch.dla.page.layout.logical.GroupMember;
 import org.primaresearch.dla.page.layout.logical.RegionRef;
@@ -35,7 +26,6 @@ import org.primaresearch.maths.geometry.Polygon;
 import org.primaresearch.shared.variable.IntegerValue;
 import org.primaresearch.shared.variable.IntegerVariable;
 import org.primaresearch.shared.variable.Variable;
-import org.w3c.dom.Document;
 
 import de.uniwue.algorithm.geometry.regions.type.PAGERegionType;
 import de.uniwue.algorithm.geometry.regions.type.RegionSubType;
@@ -53,32 +43,21 @@ public class PageXMLReader {
 
 	/**
 	 * Read a document to extract the PageAnnotations
-	 * 
-	 * @param document PageXML document
+	 *
+	 * @param sourceFilename PageXML document
 	 * @return PageAnnotations inside the document
 	 */
-	public static PageAnnotations getPageAnnotations(Document document) {
+	public static PageAnnotations getPageAnnotations(File sourceFilename){
 		// Convert document to PAGE xml Page
-		XmlPageReader reader = new XmlPageReader(null); // null ^= without validation
 		Page page = null;
-		try {
-			File tempPAGExml = File.createTempFile("larex_pagexml-", ".xml");
-			tempPAGExml.deleteOnExit();
 
-			// Save page xml in temp file
-			FileOutputStream output = new FileOutputStream(new File(tempPAGExml.getAbsolutePath()));
-			StreamResult result = new StreamResult(output);
-			// Write document on disk
-			TransformerFactory.newInstance().newTransformer().transform(new DOMSource(document), result);
-			output.close();
-
-			// Read into PAGE xml
-			page = reader.read(new FileInput(tempPAGExml));
-			tempPAGExml.delete();
-		} catch (IOException | UnsupportedFormatVersionException | TransformerException e) {
+		try{
+			page = PageXmlInputOutput.readPage(String.valueOf(sourceFilename));
+		}catch (UnsupportedFormatVersionException e){
+			System.err.println("Could not load source PAGE XML file: "+sourceFilename);
 			e.printStackTrace();
 		}
-
+		System.out.println(page);
 		// Read PAGE xml into Segmentation Result
 		if (page != null) {
 			Map<String, de.uniwue.web.model.Region> resRegions = new HashMap<>();
@@ -87,13 +66,13 @@ public class PageXMLReader {
 				// Get Type
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
-				
+
 				Double orientation = !(region instanceof CustomRegion || region instanceof NoiseRegion || type == RegionType.UnknownRegion) ?
 						PrimaLibHelper.getOrientation(region) : null;
-				
+
 				final Map<String,de.uniwue.web.model.TextLine> textLines = new HashMap<>();
 				final List<String> readingOrder = new ArrayList<>();
-				
+
 				if (type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
 					if(textRegion.getAttributes().get("type").getValue() != null && textRegion.getTextType() != null) {
@@ -125,7 +104,7 @@ public class PageXMLReader {
 							for(int i = 0; i < textLine.getTextContentVariantCount(); i++) {
 								TextContentVariant textContent = (TextContentVariant) textLine.getTextContentVariant(i);
 
-								if(textContent.getText() != null) { 
+								if(textContent.getText() != null) {
 									Variable indexVariable = textContent.getAttributes().get(DefaultXmlNames.ATTR_index);
 									if(indexVariable instanceof IntegerVariable && indexVariable.getValue() != null) {
 										final int index = ((IntegerValue)(indexVariable).getValue()).val;
@@ -145,7 +124,7 @@ public class PageXMLReader {
 									content.put(++highestIndex, contentString);
 								}
 							}
-							
+
 							textLines.put(id, new de.uniwue.web.model.TextLine(id,pointList,content));
 							readingOrder.add(id);
 						}
@@ -183,12 +162,11 @@ public class PageXMLReader {
 					}
 				}
 			}
-			
+
 			// Pagename
 			final String imageName = page.getImageFilename();
-			final String pageName = imageName.lastIndexOf(".") > 0 ? 
+			final String pageName = imageName.lastIndexOf(".") > 0 ?
 					imageName.substring(0, imageName.lastIndexOf(".")) : imageName;
-			
 			return new PageAnnotations(pageName, width, height, resRegions,
 					SegmentationStatus.LOADED, newReadingOrder);
 		}
@@ -198,7 +176,7 @@ public class PageXMLReader {
 
 	/**
 	 * Read the PageAnnotations of a PageXML file from the disc drive
-	 * 
+	 *
 	 * @param pageXMLInputPath Path to the PageXML file
 	 * @return PageAnnotations inside the document
 	 */
@@ -206,10 +184,7 @@ public class PageXMLReader {
 		PageAnnotations segResult = null;
 
 		try {
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			Document document = dBuilder.parse(pageXMLInputPath);
-			segResult = getPageAnnotations(document);
+			segResult = getPageAnnotations(pageXMLInputPath);
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.out.println("Reading XML file failed!");
