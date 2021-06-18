@@ -33,6 +33,15 @@ public class Polygon {
 		this.isRelative = false;
 	}
 
+	public Polygon(org.primaresearch.maths.geometry.Polygon points){
+		this.points = new ArrayList<>();
+		for (int i = 0; i < points.getSize(); i++) {
+			org.primaresearch.maths.geometry.Point point = points.getPoint(i);
+			this.addPoint(new Point(point.x, point.y));
+		}
+		this.isRelative = false;
+	}
+
 	public Polygon(boolean isRelative){
 		this.points = new ArrayList<>();
 		this.isRelative = isRelative;

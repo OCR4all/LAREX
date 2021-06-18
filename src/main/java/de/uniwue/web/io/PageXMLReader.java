@@ -3,7 +3,6 @@ package de.uniwue.web.io;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -23,7 +22,6 @@ import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
 import org.primaresearch.dla.page.metadata.MetaData;
 import org.primaresearch.io.UnsupportedFormatVersionException;
-import org.primaresearch.maths.geometry.Polygon;
 import org.primaresearch.shared.variable.IntegerValue;
 import org.primaresearch.shared.variable.IntegerVariable;
 import org.primaresearch.shared.variable.Variable;
@@ -34,7 +32,6 @@ import de.uniwue.algorithm.geometry.regions.type.RegionType;
 import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.web.communication.SegmentationStatus;
 import de.uniwue.web.model.PageAnnotations;
-import de.uniwue.web.model.Point;
 
 /**
  * PageXMLReader is a converter for PageXML files into the PageAnnotations
@@ -89,12 +86,7 @@ public class PageXMLReader {
 							final String id = text.getId().toString();
 
 							// Get Coords of TextLine
-							de.uniwue.web.model.Polygon textlineCoords = new de.uniwue.web.model.Polygon();
-							Polygon coords = textLine.getCoords();
-							for (int i = 0; i < coords.getSize(); i++) {
-								org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
-								textlineCoords.addPoint(new Point(point.x, point.y));
-							}
+							de.uniwue.web.model.Polygon textlineCoords = new de.uniwue.web.model.Polygon(textLine.getCoords());
 
 							//// TextLine text content
 							final Map<Integer,String> content = new HashMap<>();
@@ -133,12 +125,7 @@ public class PageXMLReader {
 				}
 
 				// Get Coords
-				de.uniwue.web.model.Polygon regionCoords = new de.uniwue.web.model.Polygon();
-				Polygon coords = region.getCoords();
-				for (int i = 0; i < coords.getSize(); i++) {
-					org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
-					regionCoords.addPoint(new Point(point.x, point.y));
-				}
+				de.uniwue.web.model.Polygon regionCoords = new de.uniwue.web.model.Polygon(region.getCoords());
 
 				// Id
 				String id = region.getId().toString();
