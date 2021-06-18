@@ -186,7 +186,7 @@ public class PageXMLReader {
 		return null;
 	}
 
-	private static Page readPAGE(File sourceFilename){
+	public static Page readPAGE(File sourceFilename){
 		Page page = null;
 		try{
 			page = PageXmlInputOutput.readPage(String.valueOf(sourceFilename));
