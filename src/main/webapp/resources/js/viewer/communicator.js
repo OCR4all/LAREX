@@ -81,7 +81,8 @@ class Communicator {
 	batchExportPage(bookID, pages, segmentations, pageXMLVersion) {
 		//using fetch instead of JQuery.ajax because of arrayBuffer type
 		let url = 'file/export/batchExport';
-		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion, downloadPage:globalSettings.downloadPage};
+		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion,
+			downloadPage:globalSettings.downloadPage};
 		return fetch(url, {
 			method: 'POST',
 			headers: {'Content-Type': 'application/json; charset=utf-8'},
@@ -112,16 +113,19 @@ class Communicator {
 	}
 
 	combineContours(contours, page_width, page_height, accuracy) {
-		return this.request("process/contours/combine", {contours:contours,page_width:page_width,page_height:page_height,accuracy:accuracy}, DataType.JSON);
+		return this.request("process/contours/combine", {contours:contours,page_width:page_width,
+			page_height:page_height, accuracy:accuracy}, DataType.JSON);
 	}
 
 	minAreaRect(segment) {
-		return this.request("process/polygons/minarearect", {id:segment.id,points:segment.points,isRelative:segment.isRelative}, DataType.JSON);
+		return this.request("process/polygons/minarearect", {id:segment.id,points:segment.coords.points,
+			isRelative:segment.coords.isRelative}, DataType.JSON);
 	}
 
 	// Files
 	exportSegmentation(segmentation, bookID, pageXMLVersion) {
-		return this.request("file/export/annotations", {bookid:bookID,segmentation:segmentation,version:pageXMLVersion}, DataType.JSON, DataType.BYTE);
+		return this.request("file/export/annotations", {bookid:bookID,segmentation:segmentation,
+			version:pageXMLVersion}, DataType.JSON, DataType.BYTE);
 	}
 
 	exportSettings(settings) {

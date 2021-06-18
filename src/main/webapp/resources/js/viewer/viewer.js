@@ -2,7 +2,7 @@
  * It can handle inputs by forwarding it to a input manager (ViewerInput)
  * All functionality about viewing elements in the viewer is handled here.
  * It does not handle editing these elements. */
-var ViewerMode = {POLYGON:'polygon',CONTOUR:'contour',TEXTLINE:'textline'}
+const ViewerMode = {POLYGON:'polygon',CONTOUR:'contour',TEXTLINE:'textline'}
 class Viewer {
 	constructor(viewerInput, colors) {
 		this.thisInput = viewerInput;
@@ -294,10 +294,9 @@ class Viewer {
 			polygon.defaultStrokeColor = new paper.Color(polygon.strokeColor);
 			polygon.dashArray = dashArray;
 
-			for (const key in segment.points) {
-				const sPoint = segment.points[key];
-				const point = segment.isRelative ? this._convertPercentToCanvas(sPoint.x, sPoint.y)
-												: this._convertGlobalToCanvas(sPoint.x, sPoint.y);
+			for (const key in segment.coords.points) {
+				const sPoint = segment.coords.points[key];
+				const point = segment.coords.isRelative ? this._convertPercentToCanvas(sPoint.x, sPoint.y) : this._convertGlobalToCanvas(sPoint.x, sPoint.y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
@@ -546,14 +545,14 @@ class Viewer {
 		polygon.fillColor.mainAlpha = polygon.fillColor.alpha;
 
 		//Convert segment points to current canvas coordinates
-		if (!segment.isRelative) {
-			for (const key in segment.points) {
-				const point = this._convertGlobalToCanvas(segment.points[key].x, segment.points[key].y);
+		if (!segment.coords.isRelative) {
+			for (const key in segment.coords.points) {
+				const point = this._convertGlobalToCanvas(segment.coords.points[key].x, segment.coords.points[key].y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		} else {
-			for (const key in segment.points) {
-				const point = this._convertPercentToCanvas(segment.points[key].x, segment.points[key].y);
+			for (const key in segment.coords.points) {
+				const point = this._convertPercentToCanvas(segment.coords.points[key].x, segment.coords.points[key].y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
@@ -581,8 +580,8 @@ class Viewer {
 		polygon.elementID = line.id;
 
 		//Convert segment points to current canvas coordinates
-		for (const key in line.points) {
-			const point = this._convertGlobalToCanvas(line.points[key].x, line.points[key].y);
+		for (const key in line.coords.points) {
+			const point = this._convertGlobalToCanvas(line.coords.points[key].x, line.coords.points[key].y);
 			polygon.add(new paper.Point(point.x, point.y));
 		}
 

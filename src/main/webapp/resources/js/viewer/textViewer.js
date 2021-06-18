@@ -442,7 +442,7 @@ class TextViewer {
 		let minY = this.image[0].naturalHeight;
 		let maxX = 0;
 		let maxY = 0;
-		for(const point of textline.points){
+		for(const point of textline.coords.points){
 			minX = Math.min(point.x,minX);
 			minY = Math.min(point.y,minY);
 			maxX = Math.max(point.x,maxX);

@@ -324,15 +324,14 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		let anchorX = Infinity;
 		let anchorY = 0;
 
-		let $viewerCanvas;
-		if (textline) {
-			textline.points.forEach((point) => {
-				anchorX = anchorX < point.x ? anchorX : point.x;
-				anchorY = anchorY > point.y ? anchorY : point.y;
+		if(textline){
+			textline.coords.points.forEach((point) => {
+				anchorX = anchorX < point.x ? anchorX: point.x;
+				anchorY = anchorY > point.y ? anchorY: point.y;
 			});
 
-			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX + _textlineDelta, anchorY);
-			$viewerCanvas = $("#viewer")[0];
+			const viewerPoint = _viewer._convertGlobalToCanvas(anchorX+_textlineDelta,anchorY);
+			let $viewerCanvas = $("#viewer")[0];
 			const left = $viewerCanvas.offsetLeft
 			const top = $viewerCanvas.offsetTop
 
@@ -547,8 +546,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		if (regionColorID)
 			this.setEditRegionColor(regionColorID);
 
-		$settingsOffset = $('#sidebarRegions').offset();
-		$regioneditor = $('#regioneditor');
+		let $settingsOffset = $('#sidebarRegions').offset();
+		let $regioneditor = $('#regioneditor');
 		$regioneditor.removeClass('hide');
 		$regioneditor.css({ top: $settingsOffset.top, left: $settingsOffset.left - $regioneditor.width() });
 	}
@@ -619,7 +618,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Display the reading Order in the gui
 	 */
 	this.displayReadingOrder = function (doDisplay) {
-		$readingOrderList = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-list') : $('#reading-order-list-lines');
+		let $readingOrderList = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-list') : $('#reading-order-list-lines');
 		if (doDisplay) {
 			$readingOrderList.removeClass("hide");
 			_viewer.displayReadingOrder(this.getReadingOrder());
@@ -633,11 +632,10 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	 * Check if the current reading order is active in the gui
 	 */
 	this.isReadingOrderActive = function () {
-		let $readingOrder;
-		if (_mode === Mode.SEGMENT || _mode === Mode.EDIT || _mode === Mode.LINES) {
-			$readingOrder = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-header') : $('#reading-order-header-lines');
+		if(_mode === Mode.SEGMENT || _mode === Mode.EDIT || _mode === Mode.LINES) {
+			let $readingOrder = (_mode === Mode.SEGMENT || _mode === Mode.EDIT) ? $('#reading-order-header') : $('#reading-order-header-lines');
 			return $readingOrder.hasClass("active");
-		} else {
+		}else{
 			return false;
 		}
 	}
@@ -702,7 +700,6 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 
 
 	this.forceUpdateReadingOrder = function (readingOrder, forceHard, segments) {
-		let $readingOrderListItems;
 		if (forceHard) {
 			this.setReadingOrder(readingOrder, segments);
 		} else {
@@ -829,12 +826,12 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 					$page.find(".pageIconSession").removeClass('hide');
 					$page.removeClass(PageStatus.UNSAVED);
 					$page.find(".pageIconUnsaved").addClass('hide');
-				break;
+					break;
 				case PageStatus.SERVERSAVED:
 					$page.find(".pageIconServer").removeClass('hide');
 					$page.removeClass(PageStatus.UNSAVED);
 					$page.find(".pageIconUnsaved").addClass('hide');
-				break;
+					break;
 				case PageStatus.UNSAVED:
 					$page.find(".pageIconUnsaved").removeClass('hide');
 					break;

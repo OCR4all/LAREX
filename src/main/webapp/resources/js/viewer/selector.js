@@ -14,10 +14,10 @@ class Selector {
 	/**
 	 * Select an object via their identifier and points inside the object.
 	 * Guess element type via id or if provided take the provided type.
-	 * 
-	 * @param {string} id 
-	 * @param {[[number,number]]} points 
-	 * @param {string} elementType 
+	 *
+	 * @param {string} id
+	 * @param {[[number,number]]} points
+	 * @param {string} elementType
 	 */
 	select(id, points, elementType=this._controller.getIDType(id)) {
 		const mode = this._controller.getMode();
@@ -25,7 +25,7 @@ class Selector {
 		if(elementType === ElementType.CONTOUR){
 			if(!this.selectMultiple || this.selectedType !== elementType)
 				this.unSelect()
-			if (!this.isSegmentSelected(id)){ 
+			if (!this.isSegmentSelected(id)){
 				this._selectedElements.push(id);
 				this._editor.highlightContours([id], true);
 			} else {
@@ -48,7 +48,7 @@ class Selector {
 				if((mode !== Mode.SEGMENT && mode !== Mode.EDIT && mode !== Mode.LINES) || this._selectedElements.length !== 1
 					|| this._selectedElements[0] !== id || !this.selectMultiple)
 					this.unSelect()
-				
+
 				if(mode === Mode.SEGMENT || mode === Mode.EDIT){
 					this._selectPolygon(id, true, true);
 					this._selectAndAddPoints(id, points);
@@ -64,9 +64,9 @@ class Selector {
 				// Unselect others if this is not of type segment or if not select multiple
 				const currentParent = this._selectedElements.length > 0 ? this._controller.textlineRegister[this._selectedElements[0]] : undefined;
 				const selectParent =  this._selectedElements.length > 0 ? this._controller.textlineRegister[id] : undefined;
-				if( !this._textviewer.isOpen() && 
+				if( !this._textviewer.isOpen() &&
 					(!this.selectMultiple || !(
-						((mode === Mode.SEGMENT || mode === Mode.EDIT) && elementType === ElementType.SEGMENT) || 
+						((mode === Mode.SEGMENT || mode === Mode.EDIT) && elementType === ElementType.SEGMENT) ||
 						(mode === Mode.LINES && elementType === ElementType.TEXTLINE && currentParent === selectParent)))
 						){
 					this.unSelect();
@@ -96,7 +96,7 @@ class Selector {
 
 	/**
 	 * Select the next element in the selection order
-	 * 
+	 *
 	 * @param {*} reverse Invert the selection order and thereby select the previous in the selection oder
 	 */
 	selectNext(reverse=false){
@@ -182,7 +182,7 @@ class Selector {
 
 	/**
 	 * Select all objects in SEGMENT, EDIT or LINES mode.
-	 * 
+	 *
 	 * SEGMENT|EDIT: Select all Regions
 	 * LINES: Select all textlines inside a currently selected Region
 	 */
@@ -219,16 +219,16 @@ class Selector {
 
 	/**
 	 * Retrieve the current order of selection for all objects of a given type
-	 * 
-	 * @param {*} type 
-	 * @param {*} parentID 
+	 *
+	 * @param {*} type
+	 * @param {*} parentID
 	 */
 	getSelectOrder(type=ElementType.SEGMENT,reverse=false,parentID=null){
 		const anchors = {}; // Centers of all objects to compare
 		const addCompare = (o) => {
-			if(o.points && o.points.length > 0){
-				let top = o.points.map((point) => point.y).sort()[0];
-				let left = o.points.map((point) => point.x).sort()[0];
+			if(o.coords.points && o.coords.points.length > 0){
+				let top = o.coords.points.map((point) => point.y).sort()[0];
+				let left = o.coords.points.map((point) => point.x).sort()[0];
 				anchors[o.id] = {x:left,y:top};
 			}
 		};
@@ -255,7 +255,7 @@ class Selector {
 				for(const segment of segments){
 					addCompare(segment);
 				}
-				// Add sorted segments that are not in readingOrder 
+				// Add sorted segments that are not in readingOrder
 				for(const id of segments.sort(tlbr).map(s => s.id)){
 					if(!order.includes(id)){
 						order.push(id);
@@ -341,8 +341,8 @@ class Selector {
 
 	/**
 	 * Unselect a segment by its id
-	 * 
-	 * @param {string} segmentID 
+	 *
+	 * @param {string} segmentID
 	 */
 	unSelectSegment(segmentID) {
 		this._selectPolygon(segmentID, false, false);
@@ -357,16 +357,16 @@ class Selector {
 
 	/**
 	 * Check if a given segment is selected by its id
-	 * 
-	 * @param {string} id 
+	 *
+	 * @param {string} id
 	 */
 	isSegmentSelected(id) {
 		return this._selectedElements && $.inArray(id, this._selectedElements) >= 0;
 	}
 
 	/**
-	 * Begin a box selection action, starting from a startPoint 
-	 * 
+	 * Begin a box selection action, starting from a startPoint
+	 *
 	 * @param {[number,number]} startPoint GUI point to start the selection on (e.g. mouse event pos)
 	 */
 	boxSelect(startPoint) {
@@ -435,13 +435,13 @@ class Selector {
 	 */
 	hasElementPointsSelected() {
 		return (this.getSelectedPolygonType() === ElementType.SEGMENT || this.getSelectedPolygonType() === ElementType.TEXTLINE)
-				&& this.getSelectedSegments().length === 1 
+				&& this.getSelectedSegments().length === 1
 				&& this.getSelectedPoints().length > 0;
 	}
 
 	/**
 	 * Helper function for the selection/deselection of a polygon by its id.
-	 * 
+	 *
 	 * @param {string} id 	Id of the poilygon that is to be selected
 	 * @param {Boolean} doSelect 	True=Select polygon, False=Unselect polygon
 	 * @param {Boolean} displayPoints 	True:Display the points of the polygon, False: Do not display the points of the polygon
@@ -449,7 +449,7 @@ class Selector {
 	_selectPolygon(id, doSelect = true, displayPoints = false) {
 		const selectIndex = this._selectedElements.indexOf(id);
 		const isInList = selectIndex >= 0;
-		if (doSelect){ 
+		if (doSelect){
 			if(!isInList)
 				this._selectedElements.push(id);
 			this._editor.selectSegment(id, true, displayPoints);
@@ -471,8 +471,8 @@ class Selector {
 
 	/**
 	 * Helper function for the selection of points inside a polygon.
-	 * Will add new points if points do not already exist in polygon. 
-	 * 
+	 * Will add new points if points do not already exist in polygon.
+	 *
 	 * @param {string} id 	Id of the polygon that is to be selected
 	 * @param {[[number,number]]} points  	Image point coordinates to select/add
 	 */
@@ -485,7 +485,7 @@ class Selector {
 
 		const notExistFallback = (i,p) => {
 				this._controller.transformSegment(i,this._editor.addPointsOnLine(i,p));
-				this._selectAndAddPoints(i, p);	
+				this._selectAndAddPoints(i, p);
 			};
 		this._editor.selectSegmentPoints(id, this._selectedPoints, notExistFallback);
 	}
@@ -497,17 +497,17 @@ class Selector {
 		// Additional after select behaviour
 		if((this.selectedType === ElementType.SEGMENT || this.selectedType === ElementType.TEXTLINE) && this._selectedElements.length === 1){
 			const id = this._selectedElements[0];
-			
+
 			if(this._controller.getMode() === Mode.SEGMENT || this._controller.getMode() === Mode.EDIT){
-				this._selectPolygon(id,true,true);	
+				this._selectPolygon(id,true,true);
 				this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
 			} else if(this._controller.getMode() === Mode.LINES){
 				if(this.selectedType === ElementType.TEXTLINE){
-					this._selectPolygon(id,true,true);	
+					this._selectPolygon(id,true,true);
 					this._editor.startPointSelect(id, (id,point) => this.select(id,[point]));
 				}
 			} else {
-				this._selectPolygon(id,true,false);	
+				this._selectPolygon(id,true,false);
 			}
 		} else {
 			this._editor.endPointSelect();
@@ -536,15 +536,15 @@ class Selector {
 
 	/**
 	 * Helper function to select objects inbetween two points from the canvas
-	 * 
+	 *
 	 * @param {[number,number]} pointA
-	 * @param {[number,number]} pointB 
+	 * @param {[number,number]} pointB
 	 */
 	_selectInBox(pointA, pointB) {
 		const mode = this._controller.getMode();
 
-		if(this._selectedElements.length === 1 && 
-			((this.selectedType === ElementType.SEGMENT && (mode === Mode.SEGMENT || mode === Mode.EDIT)) 
+		if(this._selectedElements.length === 1 &&
+			((this.selectedType === ElementType.SEGMENT && (mode === Mode.SEGMENT || mode === Mode.EDIT))
 			|| (this.selectedType === ElementType.TEXTLINE && mode === Mode.LINES))){
 			// Select points
 			const id = this._selectedElements[0];
@@ -563,7 +563,7 @@ class Selector {
 				if(!this._selectedContours.includes(contour))
 					this._selectedElements.push(contour);
 			}
-			
+
 			this._editor.highlightContours(inbetween);
 		} else {
 			this.unSelect();
@@ -584,15 +584,15 @@ class Selector {
 				if(lines.length > 0){
 					const parents = lines.map((id) => this._controller.textlineRegister[id]).sort();
 					// Create counter object for parents accurences
-					const parents_counter = {}; 
-					parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1}); 
+					const parents_counter = {};
+					parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1});
 					// Sort and retrieve most represented/dominant parent
 					const [dominant_parent,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
 
 					// Focus dominant parent
 					this._editor.focusSegment(dominant_parent,true);
 
-					// Filter and display all lines with the dominant parent 
+					// Filter and display all lines with the dominant parent
 					for (const id of lines){
 						if(this._controller.textlineRegister[id] === dominant_parent){
 							this._selectedElements.push(id);
