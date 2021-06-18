@@ -34,6 +34,10 @@ public class PageAnnotations {
 	private final List<String> readingOrder;
 	@JsonProperty("status")
 	private final SegmentationStatus status;
+	@JsonProperty("isSegmented")
+	private final boolean isSegmented;
+	@JsonProperty("garbage")
+	private final Map<String, Region> garbage;
 
 	@JsonCreator
 	public PageAnnotations(@JsonProperty("name") String name,
@@ -41,14 +45,36 @@ public class PageAnnotations {
 						   @JsonProperty("height") int height,
 						   @JsonProperty("segments") Map<String, Region> segments,
 						   @JsonProperty("status") SegmentationStatus status,
-						   @JsonProperty("readingOrder") List<String> readingOrder) {
-		this.segments = segments;
-		this.status = status;
-		this.readingOrder = readingOrder;
+						   @JsonProperty("readingOrder") List<String> readingOrder,
+						   @JsonProperty("isSegmented") boolean isSegmented,
+						   @JsonProperty("garbage") Map<String, Region> garbage) {
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		this.segments = segments;
+		this.status = status;
+		this.readingOrder = readingOrder;
+		this.isSegmented = isSegmented;
+		this.garbage = garbage;
 		checkNameValidity(name);
+	}
+
+	public PageAnnotations(String name,
+						   int width,
+						   int height,
+						   Map<String, Region> segments,
+						   SegmentationStatus status,
+						   List<String> readingOrder,
+						   boolean isSegmented)
+	{
+		this.name = name;
+		this.width = width;
+		this.height = height;
+		this.segments = segments;
+		this.status = status;
+		this.readingOrder = readingOrder;
+		this.isSegmented = isSegmented;
+		this.garbage = new HashMap<String, Region>();
 	}
 
 	public PageAnnotations(String name,
@@ -56,7 +82,8 @@ public class PageAnnotations {
 						   int height,
 						   int pageNr,
 						   Collection<RegionSegment> regions,
-						   SegmentationStatus status) {
+						   SegmentationStatus status,
+						   boolean isSegmented) {
 		Map<String, Region> segments = new HashMap<String, Region>();
 
 		for (RegionSegment region : regions) {
@@ -68,18 +95,19 @@ public class PageAnnotations {
 			Region segment = new Region(region.getId(), regionCoords, region.getType().toString());
 			segments.put(segment.getId(), segment);
 		}
-
-		this.segments = segments;
-		this.status = status;
-		this.readingOrder = new ArrayList<String>();
 		this.name = name;
 		this.width = width;
 		this.height = height;
+		this.segments = segments;
+		this.status = status;
+		this.readingOrder = new ArrayList<String>();
+		this.isSegmented = isSegmented;
+		this.garbage = new HashMap<String, Region>();
 		checkNameValidity(name);
 	}
 
-	public PageAnnotations(String name, int width, int height, int pageNr) {
-		this(name, width, height, pageNr, new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY);
+	public PageAnnotations(String name, int width, int height, int pageNr, boolean isSegmented) {
+		this(name, width, height, pageNr, new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY, isSegmented);
 	}
 
 	public Map<String, Region> getSegments() {
@@ -92,6 +120,10 @@ public class PageAnnotations {
 
 	public List<String> getReadingOrder() {
 		return new ArrayList<String>(readingOrder);
+	}
+
+	public Map<String, Region> getGarbage() {
+		return garbage;
 	}
 
 	public String getName() {

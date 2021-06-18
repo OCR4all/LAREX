@@ -8,13 +8,26 @@ public class Element {
     protected String id;
     @JsonProperty("coords")
     protected Polygon coords;
+    @JsonProperty("parent")
+    protected String parent;
 
     @JsonCreator
     public Element(
             @JsonProperty("id") String id,
-            @JsonProperty("coords") Polygon coords) {
+            @JsonProperty("coords") Polygon coords,
+            @JsonProperty("parent") String parent) {
         this.id = id;
         this.coords = coords;
+        this.parent = parent;
+    }
+
+    public Element(
+            String id,
+            Polygon coords
+    ) {
+        this.id = id;
+        this.coords = coords;
+        this.parent = null;
     }
 
     public String getId(){

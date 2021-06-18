@@ -38,7 +38,7 @@ public class LarexFacade {
 
 	/**
 	 * Segment a page with the LAREX segmentation algorithm
-	 * 
+	 *
 	 * @param settings Segmentation settings from the web gui
 	 * @param pageNr Page to segment
 	 * @param fileManager filePathManager to find a corresponding image path ĺocally
@@ -48,7 +48,7 @@ public class LarexFacade {
 	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr,
 			FilePathManager fileManager, FileDatabase database) {
 		final Page page = database.getBook(settings.getBookID()).getPage(pageNr);
-		
+
 		PageAnnotations segmentation = null;
 		Collection<RegionSegment> segmentationResult = null;
 		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
@@ -69,17 +69,17 @@ public class LarexFacade {
 
 		if (segmentationResult != null) {
 			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-					page.getId(), segmentationResult, SegmentationStatus.SUCCESS);
+					page.getId(), segmentationResult, SegmentationStatus.SUCCESS, true);
 		} else {
 			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>());
+					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>(), true);
 		}
 		return segmentation;
 	}
 
 	/**
 	 * Retrieve the settings document of the segmentation setting
-	 * 
+	 *
 	 * @param settings Segmentation settings from the web gui
 	 * @return
 	 */
@@ -89,7 +89,7 @@ public class LarexFacade {
 
 	/**
 	 * Read the segmentation settings from byte format into Web Segmentation Settings
-	 * 
+	 *
 	 * @param settingsFile bytes of a segmentation settings file
 	 * @param bookID book from with to take an example page (page size)
 	 * @param fileManager filePathManager to find a corresponding image path ĺocally

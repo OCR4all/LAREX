@@ -180,7 +180,7 @@ public class PageXMLReader {
 			final String pageName = imageName.lastIndexOf(".") > 0 ?
 					imageName.substring(0, imageName.lastIndexOf(".")) : imageName;
 			return new PageAnnotations(pageName, width, height, resRegions,
-					SegmentationStatus.LOADED, newReadingOrder);
+					SegmentationStatus.LOADED, newReadingOrder, true);
 		}
 
 		return null;

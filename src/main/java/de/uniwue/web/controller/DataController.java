@@ -61,10 +61,10 @@ public class DataController {
 			}
 		}
 	}
-	
+
 	/**
 	 * Return informations about a book
-	 * 
+	 *
 	 * @param bookID
 	 * @return
 	 */
@@ -77,8 +77,8 @@ public class DataController {
 	}
 
 	/**
-	 * Return the annotations of a page if exists or empty annotations 
-	 *  
+	 * Return the annotations of a page if exists or empty annotations
+	 *
 	 * @param bookID
 	 * @param pageID
 	 * @return
@@ -96,7 +96,7 @@ public class DataController {
 			return PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath);
 		} else {
 			return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-					page.getId());
+					page.getId(), false);
 		}
 	}
 
@@ -121,7 +121,7 @@ public class DataController {
 				pageAnnotations.add(PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath));
 			} else {
 				pageAnnotations.add( new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-						page.getId()));
+						page.getId(), false));
 			}
 		}
 
@@ -130,7 +130,7 @@ public class DataController {
 
 	/**
 	 * Return if page annotations for the pages of a book exist
-	 * 
+	 *
 	 * @param bookID
 	 * @return Map of PageNr -> Boolean : True if annotations file exist on the server
 	 */
@@ -152,9 +152,9 @@ public class DataController {
 
 		List<String[]> keyboard = new ArrayList<>();
 		try(BufferedReader br = new BufferedReader(new FileReader(virtualKeyboard))) {
-			String st; 
-			while ((st = br.readLine()) != null) 
-				if(st.replace("\\s+", "").length() > 0) 
+			String st;
+			while ((st = br.readLine()) != null)
+				if(st.replace("\\s+", "").length() > 0)
 					keyboard.add(st.split("\\s+"));
 		} catch (IOException e) {
 			e.printStackTrace();
