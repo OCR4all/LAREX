@@ -146,7 +146,7 @@ function ActionChangeTypeRegionArea(area, newType, viewer, settings, page, contr
 	}
 }
 
-function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, page) {
+function ActionChangeTypeSegment(id, newType, viewer, textViewer, controller, selector, segmentation, page) {
 	let _isExecuted = false;
 	let _segment = segmentation[page].segments[id];
 	const _oldType = _segment.type;
@@ -155,6 +155,16 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(id, page, segmentation, controller);
 		controller.forceUpdateReadingOrder(true);
 	}
+
+	let actions = []
+	if(controller.isTextRegion(_oldType) && !controller.isTextRegion(newType)){
+		let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
+		for(let textline of textlines){
+			actions.push(new ActionRemoveTextLine(textline, viewer, textViewer, segmentation, page, controller, selector, true))
+		}
+	}
+	let _actionTextLineRemoval = new ActionMultiple(actions);
+
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
 		_actionSetFixed = new ActionFixSegment(id, controller, true);
@@ -165,6 +175,8 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 			_segment.type = newType;
 			viewer.updateSegment(_segment);
+			if (_actionTextLineRemoval)
+				_actionTextLineRemoval.execute();
 			if (_actionReadingOrder)
 				_actionReadingOrder.execute();
 			if (_actionSetFixed)
@@ -180,6 +192,8 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 			viewer.updateSegment(_segment);
 			if(segmentation[page].readingOrder.includes(id) && newType === "ImageRegion")
 				controller.forceUpdateReadingOrder(true);
+			if (_actionTextLineRemoval)
+				_actionTextLineRemoval.undo();
 			if (_actionReadingOrder)
 				_actionReadingOrder.undo();
 			if (_actionSetFixed)

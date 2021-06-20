@@ -1,6 +1,23 @@
 const Mode = {SEGMENT:'segment',EDIT:'edit',LINES:'lines',TEXT:'text'}
 const PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
 const ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour',SUBTRACT:"subtract"}
+const SegmentTypes = [
+	"TextRegion",
+	"ImageRegion",
+	"LineDrawingRegion",
+	"GraphicRegion",
+	"TableRegion",
+	"ChartRegion",
+	"MapRegion",
+	"SeparatorRegion",
+	"MathsRegion",
+	"ChemRegion",
+	"MusicRegion",
+	"AdvertRegion",
+	"NoiseRegion",
+	"UnknownRegion",
+	"CustomRegion"
+]
 
 function Controller(bookID, accessible_modes, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -1199,7 +1216,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 						this.hideRegionAreas(newType, false);
 					} else if (selectType === ElementType.SEGMENT) {
-						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
+						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, _textViewer, this, _selector, _segmentation, _currentPage, false));
 					}
 				}
 				const multiChange = new ActionMultiple(actions);
@@ -1389,7 +1406,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.hideRegionAreas(type, false);
 		} else if (polygonType === ElementType.SEGMENT) {
 			if (_segmentation[_currentPage].segments[id].type !== type) {
-				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
+				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _textViewer, this, _selector, _segmentation, _currentPage, false);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
 		}
@@ -2065,6 +2082,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
 			}
+		return false;
+	}
+
+	this.isTextRegion = function(type){
+		//TODO: Refactor and use type / subtype just like in backend
+		if(type === "TextRegion"){
+			return true;
+		}else if(!SegmentTypes.includes(type)){
+			return true;
+		}
 		return false;
 	}
 
