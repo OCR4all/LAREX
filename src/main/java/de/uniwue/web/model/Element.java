@@ -37,4 +37,8 @@ public class Element {
     public Polygon getCoords(){
         return coords;
     }
+
+    public String getParent(){
+        return parent;
+    }
 }

@@ -96,6 +96,9 @@ function ActionSegmentPage(_segmentation, _activesettings, _allowLoadLocal, _pag
 			_isExecuted = true;
 
 			_communicator.segmentPage(_activesettings, _page, _allowLoadLocal).done((result) => {
+				if(_oldSegmentation != null) {
+					result["metadata"] = _oldSegmentation["metadata"];
+				}
 				_controller._setPage(_page, result);
 				_controller.displayPage(_page);
 			});

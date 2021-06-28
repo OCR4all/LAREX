@@ -5,10 +5,10 @@ public class TypeConverter {
 	/**
 	 * Convert a string representation of a main type (e.g. TextRegion) and a sub
 	 * type (e.g. paragraph) into a PAGERegionType.
-	 * 
+	 *
 	 * Will raise an IllegalArgumentException if the types are unknown or if an
 	 * incompatible sub type is given for the main type.
-	 * 
+	 *
 	 * @param typeString    Main type as String. e.g. "TextRegion"
 	 * @param subtypeString Sub type as String. e.g. "paragraph"
 	 * @return PAGERegionType with both main and sub type incorporated
@@ -21,9 +21,9 @@ public class TypeConverter {
 	 * Convert a string representation of a combined type into a PAGERegionType. A
 	 * combined type is either a Region (e.g. "GraphicRegion") or the sub type of a
 	 * TextRegion (e.g. "paragraph") since only TextRegions have sub types.
-	 * 
+	 *
 	 * Will raise an IllegalArgumentException if the types are unknown
-	 * 
+	 *
 	 * @param typeString Combined types as String. e.g. "paragraph" or
 	 *                   "GraphicRegion"
 	 * @return PAGERegionType with both main and sub type incorporated
@@ -40,7 +40,7 @@ public class TypeConverter {
 	/**
 	 * Convert a string representation of a main type (e.g. "TextRegion",
 	 * "GraphicRegion") into a RegionType
-	 * 
+	 *
 	 * @param typeString String representation of a main type / RegionType. e.g.
 	 *                   "TextRegion", "GraphicRegion"
 	 * @return RegionType representing the type string
@@ -56,7 +56,7 @@ public class TypeConverter {
 	/**
 	 * Convert the internal RegionType enum into the RegionType the PRimA format
 	 * uses.
-	 * 
+	 *
 	 * @param regionType RegionType to convert
 	 * @return PRimA format RegionType classes
 	 */
@@ -101,7 +101,7 @@ public class TypeConverter {
 	/**
 	 * Convert a string representation of a sub type (e.g. "paragraph",
 	 * "marginalia") into a RegionSubType
-	 * 
+	 *
 	 * @param typeString String representation of a sub type / RegionSubType. e.g.
 	 *                   "paragraph", "marginalia"
 	 * @return RegionSubType representing the type string
@@ -116,9 +116,16 @@ public class TypeConverter {
 	}
 
 	/**
+	 *
+	 */
+	public static String stringToStringSubType(String typeString){
+		return typeString.replace("_", "-");
+	}
+
+	/**
 	 * Convert a sub type into a string representation (e.g. "paragraph",
-	 * "marginalia") 
-	 * 
+	 * "marginalia")
+	 *
 	 * @param subType RegionSubType
 	 * @return String representing the subtype
 	 */
