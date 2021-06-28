@@ -244,6 +244,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 							}
 							_editor.addTextLine(textLine);
 							_textViewer.addTextline(textLine);
+							if(textLine["baseline"]){
+								_editor.addBaseline(textLine, textLine["baseline"]);
+							}
 							this.textlineRegister[textLine.id] = pageSegment.id;
 						});
 					}
