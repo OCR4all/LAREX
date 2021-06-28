@@ -396,7 +396,7 @@ public class PageXMLWriter {
 	private static void fillMetadata(MetaData resultMetadata, Page page, boolean isNew){
 		org.primaresearch.dla.page.metadata.MetaData metadata = page.getMetaData();
 
-		if (isNew) {
+		if (isNew || resultMetadata.getCreationTime() == null) {
 			metadata.setCreationTime(new Date());
 		} else {
 			metadata.setCreationTime(resultMetadata.getCreationTime());
