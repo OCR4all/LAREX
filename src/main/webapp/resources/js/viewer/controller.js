@@ -1,6 +1,23 @@
 const Mode = {SEGMENT:'segment',EDIT:'edit',LINES:'lines',TEXT:'text'}
 const PageStatus = {TODO:'statusTodo',SESSIONSAVED:'statusSession',SERVERSAVED:'statusServer',UNSAVED:'statusUnsaved'}
 const ElementType = {SEGMENT:'segment',AREA:'area',TEXTLINE:'textline',CUT:'cut',CONTOUR:'contour',SUBTRACT:"subtract"}
+const SegmentTypes = [
+	"TextRegion",
+	"ImageRegion",
+	"LineDrawingRegion",
+	"GraphicRegion",
+	"TableRegion",
+	"ChartRegion",
+	"MapRegion",
+	"SeparatorRegion",
+	"MathsRegion",
+	"ChemRegion",
+	"MusicRegion",
+	"AdvertRegion",
+	"NoiseRegion",
+	"UnknownRegion",
+	"CustomRegion"
+]
 
 function Controller(bookID, accessible_modes, canvasID, regionColors, colors, globalSettings) {
 	const _actionController = new ActionController(this);
@@ -37,7 +54,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this._imageVersion = 0;
 
 	this.get_segmentation = function(current_page){
-		return current_page ? _segmentation[_currentPage] : _segmentation
+		if(current_page)
+			return _segmentation[_currentPage]
+		return _segmentation
 	}
 
 	this.get_saved_pages = function(){
@@ -63,8 +82,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		paper.setup(document.getElementById(canvasID));
 
 		//set height before data is loaded //TODO rework
-		$canvas = $("canvas");
-		$sidebars = $('.sidebar');
+		let $canvas = $("canvas");
+		let $sidebars = $('.sidebar');
 		const height = $(window).height() - $canvas.offset().top;
 		$canvas.height(height);
 		$sidebars.height(height);
@@ -117,7 +136,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			$("#"+canvasID).mouseover(() => keyInput.isActive = true);
 			$("#"+canvasID).find("input").focusin(() => keyInput.isActive = false);
 			$("#"+canvasID).find("input").focusout(() => keyInput.isActive = true);
-			
+
 			$(".sidebar").find("input").focusin(() => keyInput.isActive = false);
 			$(".sidebar").find("input").focusout(() => keyInput.isActive = true);
 			$("#regioneditor").find("input").focusin(() => keyInput.isActive = false);
@@ -368,7 +387,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 	this.batchGenerateReadingOrder = function ( pages, roMode) {
-		if(pages.length != 0) {
+		if(pages.length !== 0) {
 			switch (roMode) {
 				case "automatic":
 					this.batchAutoReadingOrder(pages);
@@ -456,7 +475,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	}
 	this.requestBatchExport = function (pages, progressInterval, doReadingOrder, roMode) {
-		if(pages.length == 0) {
+		if(pages.length === 0) {
 			clearInterval(progressInterval);
 			$("#batch-segmentation-progress").css('width', '0%');
 			$(".modal").modal("close");
@@ -514,10 +533,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const activesettings = JSON.parse(JSON.stringify(_settings));
 		activesettings.fixedGeometry = {segments:{},cuts:{}};
 		if (_fixedGeometry[_currentPage]) {
-			if (_fixedGeometry[_currentPage].segments) 
+			if (_fixedGeometry[_currentPage].segments)
 				_fixedGeometry[_currentPage].segments.forEach(
 					s => activesettings.fixedGeometry.segments[s] = _segmentation[_currentPage].segments[s]);
-			if (_fixedGeometry[_currentPage].cuts) 
+			if (_fixedGeometry[_currentPage].cuts)
 				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
 		}
 		const action = new ActionSegmentPage(_segmentation[_currentPage], activesettings, allowLoadLocal, _currentPage, _communicator,
@@ -535,50 +554,50 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this._setPage = function(pageid, result){
-			_pastId = null;
+		_pastId = null;
 
-			const missingRegions = [];
+		const missingRegions = [];
 
-			_gui.highlightLoadedPage(pageid, false);
+		_gui.highlightLoadedPage(pageid, false);
 
-			function preparePage(_controller){
-				_segmentation[pageid] = result;
+		function preparePage(_controller){
+			_segmentation[pageid] = result;
 
-				//check if all necessary regions are available
-				Object.keys(result.segments).forEach((id) => {
-					let segment = result.segments[id];
-					if ($.inArray(segment.type, _presentRegions) === -1) {
-						//Add missing region
-						_controller.changeRegionSettings(segment.type, 0, -1);
-						if(!_colors.hasColor(segment.type)){
-							_colors.assignAvailableColor(segment.type)
-							const colorID = _colors.getColorID(segment.type);
-							_controller.setRegionColor(segment.type,colorID);
-						}
-						missingRegions.push(segment.type);
+			//check if all necessary regions are available
+			Object.keys(result.segments).forEach((id) => {
+				let segment = result.segments[id];
+				if ($.inArray(segment.type, _presentRegions) === -1) {
+					//Add missing region
+					_controller.changeRegionSettings(segment.type, 0, -1);
+					if(!_colors.hasColor(segment.type)){
+						_colors.assignAvailableColor(segment.type)
+						const colorID = _colors.getColorID(segment.type);
+						_controller.setRegionColor(segment.type,colorID);
 					}
-				});
-				_controller.forceUpdateReadingOrder();
-			}
+					missingRegions.push(segment.type);
+				}
+			});
+			_controller.forceUpdateReadingOrder();
+		}
 
-			switch (result.status) {
-				case 'LOADED':
-					_gui.highlightLoadedPage(pageid, true);
-					preparePage(this);
-					break;
-				case 'SUCCESS':
-				case 'EMPTY':
-					preparePage(this);
-					break;
-				default:
-			}
+		switch (result.status) {
+			case 'LOADED':
+				_gui.highlightLoadedPage(pageid, true);
+				preparePage(this);
+				break;
+			case 'SUCCESS':
+			case 'EMPTY':
+				preparePage(this);
+				break;
+			default:
+		}
 
-			_segmentedPages.push(pageid);
-			if (missingRegions.length > 0) {
-				_gui.displayWarning('Warning: Some regions were missing and have been added.');
-			}
+		_segmentedPages.push(pageid);
+		if (missingRegions.length > 0) {
+			_gui.displayWarning('Warning: Some regions were missing and have been added.');
+		}
 
-			_gui.highlightSegmentedPages(_segmentedPages);
+		_gui.highlightSegmentedPages(_segmentedPages);
 	}
 
 	this.adjacentPage = function(direction){
@@ -663,7 +682,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					}
 				} else if(type === ElementType.TEXTLINE){
 					postSelect.push(id);
-				} 
+				}
 			}
 			selected = postSelect;
 			// Set visibilities
@@ -673,7 +692,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.displayReadingOrder(false);
 			_initialTextView ? (this.displayTextViewer(true), _initialTextView = false) : this.displayTextViewer(_textViewer.isOpen());
 		}
-		
+
 		// Post Selection
 		const wasMultiple = _selector.selectMultiple;
 		_selector.selectMultiple = true;
@@ -698,7 +717,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			// Download
 			if (globalSettings.downloadPage) {
-				var a = window.document.createElement('a');
+				let a = window.document.createElement('a');
 				a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
 				const fileName = _book.pages[_page].name;
 				a.download = _book.name + "_" + fileName + ".xml";
@@ -707,6 +726,19 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				document.body.appendChild(a);
 				a.click();
 			}
+
+			//Update setting parameters
+			_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
+				if(!result){
+					_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
+					this.displayPage(_currentPage, this._imageVersion, true);
+				}else{
+					// TODO: The display shouldn't be completely reset on saving. The background image and the current panning zoom should be kept.
+					this.displayPage(_currentPage, this._imageVersion, false);
+				}
+
+			});
+
 		});
 	}
 
@@ -716,7 +748,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	this.setChanged = function(pageID){
 		_savedPages = _savedPages.filter(id => id !== pageID);
-		
+
 		_gui.addPageStatus(pageID,PageStatus.UNSAVED);
 	}
 
@@ -724,7 +756,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.setSaveSettingsInProgress(true);
 		_settings.parameters = _gui.getParameters();
 		_communicator.exportSettings(_settings).done((data) => {
-			var a = window.document.createElement('a');
+			let a = window.document.createElement('a');
 			a.href = window.URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(data)], { type: "text/xml;charset=utf-8" }));
 			a.download = "settings_" + _book.name + ".xml";
 
@@ -800,7 +832,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 	this.createTextLinePolygon = function () {
 		const selected = _selector.getSelectedSegments();
-		if(selected.length > 0 && 
+		if(selected.length > 0 &&
 			(_selector.selectedType === ElementType.SEGMENT && this.isIDTextRegion(selected[0])) ||
 			(_selector.selectedType === ElementType.TEXTLINE && this.isIDTextRegion(this.textlineRegister[selected[0]]))) {
 			this.endEditing();
@@ -821,7 +853,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if(type === ElementType.TEXTLINE ){
 			const selected = _selector.getSelectedSegments();
 
-			if(selected.length > 0 && 
+			if(selected.length > 0 &&
 				(_selector.selectedType === ElementType.SEGMENT && this.isIDTextRegion(selected[0])) ||
 				(_selector.selectedType === ElementType.TEXTLINE && this.isIDTextRegion(this.textlineRegister[selected[0]]))) {
 
@@ -865,8 +897,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		for(let segment_id in _segmentation[_currentPage].segments){
 			let segment = _segmentation[_currentPage].segments[segment_id];
-			let segment_path = _pointsToPath(segment.points)
-			if(_pathContains(subtraction_path, segment.points)){
+			let segment_path = _pointsToPath(segment.coords.points)
+			if(_pathContains(subtraction_path, segment.coords.points)){
 				actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage,
 					this, _selector, true));
 			}else if(subtraction_path.intersects(segment_path)) {
@@ -925,9 +957,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if(_textSegment.textlines){
 					for(let key of Object.keys(_textSegment.textlines)){
 						let textline = _textSegment.textlines[key];
-						let textline_path = _pointsToPath(textline.points);
+						let textline_path = _pointsToPath(textline.coords.points);
 
-						if(_pathContains(subtraction_path, textline.points)){
+						if(_pathContains(subtraction_path, textline.coords.points)){
 							actions.push(new ActionRemoveTextLine(textline, _editor, _textViewer, _segmentation, _currentPage,
 								this, _selector, true));
 						}else if(subtraction_path.intersects(textline_path)){
@@ -1044,7 +1076,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const selectType = _selector.getSelectedPolygonType();
 		let points = _selector.getSelectedPoints();
 
-		if (points && points.length > 0 && selected.length === 1 
+		if (points && points.length > 0 && selected.length === 1
 			&& (selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE)) {
 			_editor.startMovePolygonPoints(selected[0], selectType, points);
 		}
@@ -1065,9 +1097,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if (selected.length === 1 && points.length > 0) {
 			// Points inside of a polygon is selected => Delete points
 			if(selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE){
-				const segments = (selectType === ElementType.SEGMENT) ? 
-							_segmentation[_currentPage].segments[selected[0]].points:
-							_segmentation[_currentPage].segments[this.textlineRegister[selected[0]]].textlines[selected[0]].points;
+				const segments = (selectType === ElementType.SEGMENT) ?
+					_segmentation[_currentPage].segments[selected[0]].coords.points:
+					_segmentation[_currentPage].segments[this.textlineRegister[selected[0]]].textlines[selected[0]].coords.points;
 				let filteredSegments = segments;
 
 				points.forEach(p => { filteredSegments = filteredSegments.filter(s => !(s.x === p.x && s.y === p.y))});
@@ -1106,7 +1138,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 			let multidelete = new ActionMultiple(actions);
 			_actionController.addAndExecuteAction(multidelete, _currentPage);
-		} 
+		}
 	}
 
 	this.mergeSelected = function () {
@@ -1138,13 +1170,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (segments.length > 1) {
 				_communicator.mergeSegments(segments).done((data) => {
 					const mergedSegment = data;
-					if(mergedSegment.points.length > 1){
+					if(mergedSegment.coords.points.length > 1){
 						if(_mode === Mode.SEGMENT || _mode === Mode.EDIT){
-						actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.points, mergedSegment.type,
-							_editor, _segmentation, _currentPage, this));
+							actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.coords.points, mergedSegment.type,
+								_editor, _segmentation, _currentPage, this));
 						}else if(_mode === Mode.LINES){
-						actions.push(new ActionAddTextLine(mergedSegment.id, parent, mergedSegment.points,
-							{}, _editor, _textViewer, _segmentation, _currentPage, this));
+							actions.push(new ActionAddTextLine(mergedSegment.id, parent, mergedSegment.coords.points,
+								{}, _editor, _textViewer, _segmentation, _currentPage, this));
 						}
 
 						let mergeAction = new ActionMultiple(actions);
@@ -1162,15 +1194,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			const width = _book.pages[_currentPage].width;
 			const height = _book.pages[_currentPage].height;
 			_communicator.combineContours(contours,width,height,contourAccuracy).done((segment) => {
-				if(segment.points.length > 0){
+				if(segment.coords.points.length > 0){
 					// Check if in Mode Lines (create TextLine or Region)
 					if(_mode === Mode.LINES && _tempID) {
 						_actionController.addAndExecuteAction(
-							new ActionAddTextLine(segment.id, _tempID, segment.points, {}, _editor, _textViewer, _segmentation, _currentPage, this),
+							new ActionAddTextLine(segment.id, _tempID, segment.coords.points, {}, _editor, _textViewer, _segmentation, _currentPage, this),
 							_currentPage);
 					}else{
 						_actionController.addAndExecuteAction(
-							new ActionAddSegment(segment.id, segment.points, segment.type, _editor, _segmentation, _currentPage, this),
+							new ActionAddSegment(segment.id, segment.coords.points, segment.type, _editor, _segmentation, _currentPage, this),
 							_currentPage);
 					}
 
@@ -1197,7 +1229,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 						this.hideRegionAreas(newType, false);
 					} else if (selectType === ElementType.SEGMENT) {
-						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, this, _segmentation, _currentPage, false));
+						actions.push(new ActionChangeTypeSegment(selected[i], newType, _editor, _textViewer, this, _selector, _segmentation, _currentPage, false));
 					}
 				}
 				const multiChange = new ActionMultiple(actions);
@@ -1343,7 +1375,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.transformSegment = function (id, segmentPoints, type=this.getIDType(id)) {
 		let action;
 		switch(type){
-			case ElementType.SEGMENT: 
+			case ElementType.SEGMENT:
 				action = new ActionTransformSegment(id, segmentPoints, _editor, _segmentation, _currentPage, this);
 				break;
 			case ElementType.TEXTLINE:
@@ -1361,7 +1393,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const selectType = _selector.getSelectedPolygonType();
 		const selected = _selector.getSelectedSegments();
 
-		if (selectType === ElementType.AREA && selected.length === 1) 
+		if (selectType === ElementType.AREA && selected.length === 1)
 			_editor.startScalePolygon(selected[0], ElementType.AREA);
 	}
 
@@ -1387,7 +1419,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.hideRegionAreas(type, false);
 		} else if (polygonType === ElementType.SEGMENT) {
 			if (_segmentation[_currentPage].segments[id].type !== type) {
-				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, this, _segmentation, _currentPage, false);
+				const actionChangeType = new ActionChangeTypeSegment(id, type, _editor, _textViewer, this, _selector, _segmentation, _currentPage, false);
 				_actionController.addAndExecuteAction(actionChangeType, _currentPage);
 			}
 		}
@@ -1396,7 +1428,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.openRegionSettings = function (regionType) {
 		if(regionType){
 			let region = _settings.regions[regionType];
-			if (!region) 
+			if (!region)
 				region = _settings.regions['paragraph']; // If no settings exist, take the ones of paragraph
 			if (!_colors.hasColor(regionType))
 				_colors.assignAvailableColor(regionType);
@@ -1419,7 +1451,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					_editor.updateSegment(segment);
 				}
 		});
-		
+
 		const region = _settings.regions[regionType];
 		// Iterate over all Polygons in Region
 		Object.keys(region.areas).forEach((polygonKey) => {
@@ -1432,7 +1464,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	/**
-	 * Add all currently selected segments that can be added to the reading order (global or local) 
+	 * Add all currently selected segments that can be added to the reading order (global or local)
 	 * to the reading order.
 	 */
 	this.addSelectedToReadingOrder = function(){
@@ -1480,7 +1512,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			let segment = pageSegments[key];
 			if (segment.type !== 'ImageRegion') {
 				readingOrder.push(segment.id);
-				polygons.push(segment.points);
+				polygons.push(segment.coords.points);
 			}
 		});
 		readingOrder = _editor.getSortedReadingOrder(readingOrder, polygons);
@@ -1496,8 +1528,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_gui.selectToolBarButton('editReadingOrder', _editReadingOrder);
 	}
 
-	/** 
-	 * End edit reading order 
+	/**
+	 * End edit reading order
 	 */
 	this.endEditReadingOrder = function(){
 		_editReadingOrder = false;
@@ -1576,16 +1608,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					if(selected.length > 0){
 						const selectedType = _selector.getSelectedPolygonType();
 						// Retrieve TextRegion ID
-						let segmentID; 
+						let segmentID;
 						if(selectedType === ElementType.SEGMENT){
 							// Get segmentID of a selected TextRegion (paragraph etc.)
 							segmentID = selected.filter(id => !_segmentation[_currentPage].segments[id].type.includes("Region"))[0];
 
-						} else if(selectedType === ElementType.TEXTLINE){ 
+						} else if(selectedType === ElementType.TEXTLINE){
 							const parents = selected.map((id) => this.textlineRegister[id]).sort();
 							// Create counter object for parents accurences
-							const parents_counter = {}; 
-							parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1}); 
+							const parents_counter = {};
+							parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1});
 							// Sort and retrieve most represented/dominant parent
 							[segmentID,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
 						}
@@ -1684,7 +1716,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 	/**
-	 * Display the  text viewer 
+	 * Display the  text viewer
 	 */
 	this.displayTextViewer = function(doDisplay=true){
 		_textViewer.display(doDisplay);
@@ -1756,8 +1788,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing || _editor.requiresSegmentHighlighting) {
-				if((_mode === Mode.SEGMENT || _mode === Mode.EDIT) || 
-						(_mode === Mode.LINES && 
+				if((_mode === Mode.SEGMENT || _mode === Mode.EDIT) ||
+						(_mode === Mode.LINES &&
 							(this.getIDType(sectionID) === ElementType.TEXTLINE || _selector.getSelectedSegments().length === 0))){
 					_editor.highlightSegment(sectionID, doHighlight);
 					_gui.highlightSegment(sectionID, doHighlight);
@@ -1813,12 +1845,12 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	this.displayContours = function(display=true) {
 		// Special case display contours in LINES mode
-		// Save parent id to which the new contour/texline is to be added
+		// Save parent id to which the new contour/textline is to be added
 		if(_mode === Mode.LINES && display){
 			const selected = _selector.getSelectedSegments();
 			const type = _selector.getSelectedPolygonType();
 
-			if(selected.length > 0 && 
+			if(selected.length > 0 &&
 				(_selector.selectedType === ElementType.SEGMENT && this.isIDTextRegion(selected[0])) ||
 				(_selector.selectedType === ElementType.TEXTLINE && this.isIDTextRegion(this.textlineRegister[selected[0]]))) {
 				if(type === ElementType.SEGMENT){
@@ -1826,8 +1858,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				} else if (type === ElementType.TEXTLINE){
 					const parents = selected.map((id) => this.textlineRegister[id]).sort();
 					// Create counter object for parents accurences
-					const parents_counter = {}; 
-					parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1}); 
+					const parents_counter = {};
+					parents.forEach(p => {parents_counter[p] = (parents_counter[p] || 0) + 1});
 					// Sort and retrieve most represented/dominant parent
 					const [dominant_parent,_] = [...Object.entries(parents_counter)].sort((a, b) => b[1] - a[1])[0];
 					_tempID = dominant_parent;
@@ -1851,7 +1883,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(!_contours[_currentPage]){
 				this.showPreloader(true);
 				_communicator.extractContours(_currentPage,_book.id).done((result) => {
-					_contours[_currentPage] = result; 
+					_contours[_currentPage] = result;
 					this.showPreloader(false);
 					_editor.setContours(_contours[_currentPage]);
 					_editor.displayContours();
@@ -1992,11 +2024,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		}
 	}
-	
+
 	this.closeContextMenu = function () {
 		_gui.closeContextMenu();
 	}
-	
+
 	this.escape = function () {
 		_selector.unSelect();
 		this.closeContextMenu();
@@ -2063,6 +2095,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			if (this.textlineRegister.hasOwnProperty(id)) return ElementType.TEXTLINE;
 			}
+		return false;
+	}
+
+	this.isTextRegion = function(type){
+		//TODO: Refactor and use type / subtype just like in backend
+		if(type === "TextRegion"){
+			return true;
+		}else if(!SegmentTypes.includes(type)){
+			return true;
+		}
 		return false;
 	}
 

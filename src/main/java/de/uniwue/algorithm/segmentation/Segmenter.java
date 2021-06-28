@@ -29,7 +29,7 @@ public class Segmenter {
 
 	/**
 	 * Segment an image based on presented parameters
-	 * 
+	 *
 	 * @param original Image to segment
 	 * @param parameters Parameters to use for the segmentation
 	 * @return Segmentation of the document image
@@ -46,11 +46,11 @@ public class Segmenter {
 		MemoryCleaner.clean(resized);
 		final Mat binary = ImageProcessor.calcInvertedBinary(gray);
 		MemoryCleaner.clean(gray);
-		
+
 		//// Preprocess
 		// fill fixed segments in the image
 		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor, original.size()))
-											.collect(Collectors.toList());
+				.collect(Collectors.toList());
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
 		MemoryCleaner.clean(contours);
 
@@ -67,10 +67,10 @@ public class Segmenter {
 			ignoreRegion.getPositions().stream().map(p -> p.getRect(binary.size()))
 					.forEach(r -> Imgproc.rectangle(binary, r.tl(), r.br(), new Scalar(0), -1));
 		}
-		
+
 		//// Detection
 		Collection<RegionSegment> results = new ArrayList<RegionSegment>();
-		// detect images 
+		// detect images
 		Region imageRegion = regions.stream().filter((r) -> r.getType().getType().equals(RegionType.ImageRegion)).findFirst().get();
 		Collection<MatOfPoint> images = detectImages(binary, imageRegion, ignoreRegion, parameters.getImageSegType(), existingGeometry,
 				parameters.getImageRemovalDilationX(), parameters.getImageRemovalDilationY(), scaleFactor, parameters.isCombineImages());
@@ -88,7 +88,7 @@ public class Segmenter {
 		// classify
 		results.addAll(RegionClassifier.classifyRegions(regions, texts, binary.size()));
 		MemoryCleaner.clean(binary);
-		
+
 
 		//// Create final result
 		// Apply scale correction
@@ -101,7 +101,7 @@ public class Segmenter {
 
 		// Add fixed segments
 		for (RegionSegment segment : fixedSegments) {
-			results.add(new RegionSegment(segment.getType(), segment.getPoints(), segment.getId()));
+			results.add(new RegionSegment(segment.getType(), segment.getPoints()));
 		}
 
 		// Filter images that are inside text
@@ -127,7 +127,7 @@ public class Segmenter {
 
 	/**
 	 * Detect text regions in the image binary
-	 * 
+	 *
 	 * @param binary
 	 * @param regions
 	 * @param existingGeometry
@@ -137,7 +137,7 @@ public class Segmenter {
 	 * @return
 	 */
 	private static Collection<MatOfPoint> detectText(final Mat binary, Collection<Region> regions, ExistingGeometry existingGeometry,
-													int textdilationX, int textdilationY, double scaleFactor, Collection<MatOfPoint> images) {
+													 int textdilationX, int textdilationY, double scaleFactor, Collection<MatOfPoint> images) {
 		Mat dilate = new Mat();
 
 		if (textdilationX == 0 || textdilationY == 0) {
@@ -179,7 +179,7 @@ public class Segmenter {
 
 	/**
 	 * Detect image regions in the image binary
-	 * 
+	 *
 	 * @param binary
 	 * @param imageRegion
 	 * @param type
@@ -191,7 +191,7 @@ public class Segmenter {
 	 * @return
 	 */
 	private static Collection<MatOfPoint> detectImages(Mat binary, Region imageRegion, Region ignoreRegion,ImageSegType type, ExistingGeometry existingGeometry,
-													int imageRemovalDilationX, int imageRemovalDilationY, double scaleFactor, boolean combineImages) {
+													   int imageRemovalDilationX, int imageRemovalDilationY, double scaleFactor, boolean combineImages) {
 		if (type.equals(ImageSegType.NONE)) {
 			return new ArrayList<MatOfPoint>();
 		}

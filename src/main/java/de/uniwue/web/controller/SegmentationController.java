@@ -31,7 +31,7 @@ import de.uniwue.web.model.PageAnnotations;
 /**
  * Communication Controller to handle requests for the main viewer/editor.
  * Handles requests about displaying book scans and segmentations.
- * 
+ *
  */
 @Controller
 @Scope("session")
@@ -107,7 +107,7 @@ public class SegmentationController {
 				config.getListSetting("imagefilter"));
 
 		Page page = database.getBook(bookID).getPage(pageID);
-		return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId());
+		return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId(), false);
 	}
 
 	/**

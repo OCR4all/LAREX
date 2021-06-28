@@ -96,6 +96,9 @@ function ActionSegmentPage(_segmentation, _activesettings, _allowLoadLocal, _pag
 			_isExecuted = true;
 
 			_communicator.segmentPage(_activesettings, _page, _allowLoadLocal).done((result) => {
+				if(_oldSegmentation != null) {
+					result["metadata"] = _oldSegmentation["metadata"];
+				}
 				_controller._setPage(_page, result);
 				_controller.displayPage(_page);
 			});
@@ -146,7 +149,7 @@ function ActionChangeTypeRegionArea(area, newType, viewer, settings, page, contr
 	}
 }
 
-function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, page) {
+function ActionChangeTypeSegment(id, newType, viewer, textViewer, controller, selector, segmentation, page) {
 	let _isExecuted = false;
 	let _segment = segmentation[page].segments[id];
 	const _oldType = _segment.type;
@@ -155,6 +158,16 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 		_actionReadingOrder = new ActionRemoveFromReadingOrder(id, page, segmentation, controller);
 		controller.forceUpdateReadingOrder(true);
 	}
+
+	let actions = []
+	if(controller.isTextRegion(_oldType) && !controller.isTextRegion(newType)){
+		let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
+		for(let textline of textlines){
+			actions.push(new ActionRemoveTextLine(textline, viewer, textViewer, segmentation, page, controller, selector, true))
+		}
+	}
+	let _actionTextLineRemoval = new ActionMultiple(actions);
+
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
 		_actionSetFixed = new ActionFixSegment(id, controller, true);
@@ -165,6 +178,8 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 			_segment.type = newType;
 			viewer.updateSegment(_segment);
+			if (_actionTextLineRemoval)
+				_actionTextLineRemoval.execute();
 			if (_actionReadingOrder)
 				_actionReadingOrder.execute();
 			if (_actionSetFixed)
@@ -180,6 +195,8 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 			viewer.updateSegment(_segment);
 			if(segmentation[page].readingOrder.includes(id) && newType === "ImageRegion")
 				controller.forceUpdateReadingOrder(true);
+			if (_actionTextLineRemoval)
+				_actionTextLineRemoval.undo();
 			if (_actionReadingOrder)
 				_actionReadingOrder.undo();
 			if (_actionSetFixed)
@@ -191,7 +208,7 @@ function ActionChangeTypeSegment(id, newType, viewer, controller, segmentation, 
 
 function ActionAddRegionArea(id, points, type, editor, settings) {
 	let _isExecuted = false;
-	const _area = { id: id, points: points, type: type, isRelative: true };
+	const _area = { id: id, coords: {points: points, isRelative: true}, type: type };
 
 	this.execute = function () {
 		if (!_isExecuted) {
@@ -277,7 +294,7 @@ function ActionRemoveRegionType(regionType, controller, editor, settings) {
 
 function ActionAddSegment(id, points, type, editor, segmentation, page, controller) {
 	let _isExecuted = false;
-	const _segment = { id: id, points: points, type: type, isRelative: false };
+	const _segment = { id: id, coords: {points: points, isRelative: false}, type: type };
 	const _actionSetFixed = new ActionFixSegment(id, controller, true);
 
 	this.execute = function () {
@@ -313,7 +330,7 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 		for(const [index,id] of ids.entries()){
 			_actionRemoveTextLines.push(new ActionRemoveTextLine(_segment.textlines[id], editor, textViewer, segmentation,
 				page, controller, selector,(index === ids.length-1 || index===0)));
-		}	
+		}
 	}
 	const multiRemove = new ActionMultiple(_actionRemoveTextLines);
 	let _actionSetFixed = null;
@@ -328,6 +345,16 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 
 			multiRemove.execute();
 
+			//TODO: This can probably be implemented more elegantly using map/filter/reduce
+			let garbage = {};
+			for(const [key, value] of Object.entries(segmentation[page]["garbage"])){
+				if(value["parent"] !== segment.id){
+					garbage[key] = value;
+				}
+			}
+			segmentation[page]["garbage"] = garbage;
+			segmentation[page]["garbage"][_segment.id] = segmentation[page].segments[_segment.id];
+
 			delete segmentation[page].segments[_segment.id];
 
 			if(_actionRemoveFromReadingOrder)
@@ -336,7 +363,7 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 			const mode = controller.getMode();
 			if(mode === Mode.EDIT || mode === Mode.SEGMENT)
 				controller.forceUpdateReadingOrder(doForceUpdate);
-			
+
 
 			editor.removeSegment(_segment.id);
 			selector.unSelectSegment(_segment.id);
@@ -347,6 +374,7 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
+			delete segmentation[page]["garbage"][_segment.id]
 			segmentation[page].segments[_segment.id] = JSON.parse(JSON.stringify(_segment));
 			editor.addSegment(_segment);
 
@@ -364,9 +392,9 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 
 function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segmentation, page, controller) {
 	let _isExecuted = false;
-	const _textLine = { id: id, points: points,type:"TextLine", text: text, isRelative: false };
-	let _oldTextLines = (segmentation[page].segments[segmentID].textlines) ? 
-			JSON.parse(JSON.stringify(segmentation[page].segments[segmentID].textlines)) : {}
+	const _textLine = { id: id, coords: {points: points, isRelative: false}, type:"TextLine", text: text };
+	let _oldTextLines = (segmentation[page].segments[segmentID].textlines) ?
+		JSON.parse(JSON.stringify(segmentation[page].segments[segmentID].textlines)) : {}
 
 	this.execute = function () {
 		if (!_isExecuted) {
@@ -408,6 +436,10 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
+
+			segmentation[page]["garbage"][textline.id] = segmentation[page].segments[_segmentID].textlines[textline.id];
+			segmentation[page]["garbage"][textline.id]["parent"] = _segmentID;
+
 			delete segmentation[page].segments[_segmentID].textlines[textline.id];
 			editor.removeSegment(textline.id);
 			textViewer.removeTextline(textline.id);
@@ -421,6 +453,9 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 	this.undo = function () {
 		if (_isExecuted) {
 			_isExecuted = false;
+
+			delete segmentation[page]["garbage"][textline.id];
+
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
 			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)));
@@ -434,7 +469,7 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 
 function ActionAddCut(id, points, editor, fixedGeometry, page) {
 	let _isExecuted = false;
-	const _cut = { id: id, points: points, type: 'other', isRelative: false };
+	const _cut = { id: id, coords: {points: points, isRelative: false}, type: 'other' };
 	if(!fixedGeometry[page]){
 		fixedGeometry[page] = {};
 	}
@@ -489,13 +524,13 @@ function ActionTransformRegionArea(id, areaPoints, regionType, viewer, settings,
 	const _id = id;
 	const _regionType = regionType;
 	const _newAreaPoints = JSON.parse(JSON.stringify(areaPoints));
-	const _oldAreaPoints = JSON.parse(JSON.stringify(settings.regions[_regionType].areas[_id].points));
+	const _oldAreaPoints = JSON.parse(JSON.stringify(settings.regions[_regionType].areas[_id].coords.points));
 
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
 			let area = settings.regions[_regionType].areas[_id];
-			area.points = _newAreaPoints;
+			area.coords.points = _newAreaPoints;
 			viewer.updateSegment(area);
 			if (controller != null) {
 				controller.hideRegionAreas(_regionType, false);
@@ -507,7 +542,7 @@ function ActionTransformRegionArea(id, areaPoints, regionType, viewer, settings,
 		if (_isExecuted) {
 			_isExecuted = false;
 			let area = settings.regions[_regionType].areas[_id];
-			area.points = _oldAreaPoints;
+			area.coords.points = _oldAreaPoints;
 			viewer.updateSegment(area);
 			if (controller != null) {
 				controller.hideRegionAreas(_regionType, false);
@@ -521,7 +556,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 	let _isExecuted = false;
 	const _id = id;
 	const _newRegionPoints = JSON.parse(JSON.stringify(segmentPoints));
-	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[_id].points));
+	const _oldRegionPoints = JSON.parse(JSON.stringify(segmentation[page].segments[_id].coords.points));
 	const _orientation = segmentation[page].segments[_id].orientation;
 	let _actionSetFixed = null;
 	if (!controller.isSegmentFixed(id))
@@ -531,7 +566,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 		if (!_isExecuted) {
 			_isExecuted = true;
 			let segment = segmentation[page].segments[_id];
-			segment.points = _newRegionPoints;
+			segment.coords.points = _newRegionPoints;
 			segment.orientation = null;
 			viewer.updateSegment(segment);
 			if (_actionSetFixed)
@@ -544,7 +579,7 @@ function ActionTransformSegment(id, segmentPoints, viewer, segmentation, page, c
 		if (_isExecuted) {
 			_isExecuted = false;
 			let segment = segmentation[page].segments[_id];
-			segment.points = _oldRegionPoints;
+			segment.coords.points = _oldRegionPoints;
 			segment.orientation = _orientation;
 			if (_actionSetFixed)
 				_actionSetFixed.undo();
@@ -559,7 +594,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 	let _isExecuted = false;
 	const _id = id;
 	const _newRegionPoints = clone(segmentPoints);
-	const _oldRegionPoints = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].points);
+	const _oldRegionPoints = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].coords.points);
 	const _oldMinArea = clone(segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].minArea);
 	const _orientation = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id].orientation;
 
@@ -567,7 +602,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 		if (!_isExecuted) {
 			_isExecuted = true;
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
-			segment.points = _newRegionPoints;
+			segment.coords.points = _newRegionPoints;
 			segment.orientation = null;
 			delete segment.minArea;
 			viewer.updateSegment(segment);
@@ -580,7 +615,7 @@ function ActionTransformTextLine(id, segmentPoints, viewer, textViewer, segmenta
 		if (_isExecuted) {
 			_isExecuted = false;
 			let segment = segmentation[page].segments[controller.textlineRegister[id]].textlines[_id];
-			segment.points = _oldRegionPoints;
+			segment.coords.points = _oldRegionPoints;
 			segment.minArea = clone(_oldMinArea);
 			segment.orientation = _orientation;
 			viewer.updateSegment(segment);

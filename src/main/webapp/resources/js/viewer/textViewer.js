@@ -1,6 +1,6 @@
-/* The viewer is a display for result segments, region segments and contours of any kind. 
- * It can handle inputs by forwarding it to a input manager (ViewerInput) 
- * All functionality about viewing elements in the viewer is handled here. 
+/* The viewer is a display for result segments, region segments and contours of any kind.
+ * It can handle inputs by forwarding it to a input manager (ViewerInput)
+ * All functionality about viewing elements in the viewer is handled here.
  * It does not handle editing these elements. */
 class TextViewer {
 	constructor(viewerInput) {
@@ -17,8 +17,8 @@ class TextViewer {
 
 	/**
 	 * Set the page image used for every textline
-	 * 
-	 * @param {string} id 
+	 *
+	 * @param {string} id
 	 */
 	setImage(id) {
 		this.image = $(`#${id}`);
@@ -26,17 +26,17 @@ class TextViewer {
 
 	/**
 	 * Display this viewer in the gui interface
-	 * 
-	 * @param {boolean} doDisplay 
+	 *
+	 * @param {boolean} doDisplay
 	 */
 	display(doDisplay){
 		if(doDisplay){
-			this.root.removeClass("hide");		
+			this.root.removeClass("hide");
 			$(".zoom_second").removeClass("hide");
 			$('.hideTextView').removeClass('hide');
 			$('.displayTextView').addClass('hide');
 		} else {
-			this.root.addClass("hide");		
+			this.root.addClass("hide");
 			$(".zoom_second").addClass("hide");
 			$('.hideTextView').addClass('hide');
 			$('.displayTextView').removeClass('hide');
@@ -57,7 +57,7 @@ class TextViewer {
 		this.image = null;
 		this.container.empty();
 	}
-	
+
 	setLoading(doLoad){
 		if(doLoad){
 			$('#viewerTextContainer').addClass("is-loading");
@@ -70,7 +70,7 @@ class TextViewer {
 	 */
 	addTextline(textline) {
 		const $textlineContainer = $(`<div class='textline-container' data-id='${textline.id}' data-difflen='0'></div>`);
-		if(textline.type == "TextLine_gt"){
+		if(textline.type === "TextLine_gt"){
 			$textlineContainer.addClass("line-corrected")
 			$textlineContainer.addClass("line-saved");
 		} else {
@@ -96,7 +96,7 @@ class TextViewer {
 
 	/**
 	 * Delete a textline from the TextViewer
-	 * @param {*} id 
+	 * @param {*} id
 	 */
 	removeTextline(id) {
 		$(`.textline-container[data-id='${id}']`).remove();
@@ -104,7 +104,7 @@ class TextViewer {
 
 	/**
 	 * Order the textlines by moving them to the end of the container in order.
-	 * 
+	 *
 	 * @param {*} readingOrder List of all textline ids in order
 	 */
 	orderTextlines(readingOrder){
@@ -115,8 +115,8 @@ class TextViewer {
 
 	/**
 	 * Update the content, image and status of a textline
-	 * 
-	 * @param {*} textline 
+	 *
+	 * @param {*} textline
 	 */
 	updateTextline(textline) {
 		const textObject = this._createTextObject(textline);
@@ -126,7 +126,7 @@ class TextViewer {
 		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(textObject[2]);
 		$(`.textline-container[data-id='${textline.id}']`).attr("data-difflen", textObject[3]);
 		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`);
-		if(textline.type == "TextLine_gt"){
+		if(textline.type === "TextLine_gt"){
 			$textlinecontent.addClass("line-corrected")
 			$textlinecontent.addClass("line-saved");
 		} else {
@@ -142,9 +142,9 @@ class TextViewer {
 
 	/**
 	 * Display a save of the contents of a textline
-	 * 
-	 * @param {string} id 
-	 * @param {boolean} doSave 
+	 *
+	 * @param {string} id
+	 * @param {boolean} doSave
 	 */
 	saveTextLine(id,doSave=true){
 		const $textlinecontent = $(`.textline-container[data-id='${id}']`);
@@ -171,9 +171,9 @@ class TextViewer {
 	}
 
 	/**
-	 * Resize the text input of a textline depending on its content 
-	 * 
-	 * @param {string} id 
+	 * Resize the text input of a textline depending on its content
+	 *
+	 * @param {string} id
 	 */
 	resizeTextline(id){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
@@ -188,8 +188,8 @@ class TextViewer {
 
 	/**
 	 * Set the pointer focus to a specified textline
-	 * 
-	 * @param {string} id 
+	 *
+	 * @param {string} id
 	 */
 	setFocus(id){
 		const $textline = $(`.textline-container[data-id=${id}]`);
@@ -223,8 +223,8 @@ class TextViewer {
 
 	/**
 	 * Retrieve the text content of a specified textline, written in the textviewer
-	 * 
-	 * @param {string} id 
+	 *
+	 * @param {string} id
 	 */
 	getText(id){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
@@ -243,9 +243,9 @@ class TextViewer {
 	}
 
 	/**
-	 * Zoom all textline images 
-	 * 
-	 * @param {*} zoom_factor 
+	 * Zoom all textline images
+	 *
+	 * @param {*} zoom_factor
 	 */
 	zoomGlobalImage(zoom_factor){
 		this._zoomImage += zoom_factor;
@@ -257,9 +257,9 @@ class TextViewer {
 	}
 
 	/**
-	 * Zoom all textline inputs 
-	 * 
-	 * @param {*} zoom_factor 
+	 * Zoom all textline inputs
+	 *
+	 * @param {*} zoom_factor
 	 */
 	zoomGlobalText(zoom_factor){
 		this._zoomText += zoom_factor;
@@ -271,7 +271,7 @@ class TextViewer {
 	}
 
 	/**
-	 * Reset the global image zoom to 100% 
+	 * Reset the global image zoom to 100%
 	 */
 	resetGlobalImageZoom(){
 		this._zoomImage = 1;
@@ -282,7 +282,7 @@ class TextViewer {
 	}
 
 	/**
-	 * Reset the global text zoom to 100% 
+	 * Reset the global text zoom to 100%
 	 */
 	resetGlobalTextZoom(){
 		this._zoomText = 1;
@@ -294,8 +294,8 @@ class TextViewer {
 
 	/**
 	 * Reset current zoom and set to global base zoom
-	 * 
-	 * @param {*} id 
+	 *
+	 * @param {*} id
 	 */
 	zoomBase(id){
 		const $textline_prediction = $(`.textline-container[data-id='${id}'] > .pred-text`);
@@ -328,9 +328,9 @@ class TextViewer {
 
 	/**
 	 * Move the currently focused text line input by a delta value
-	 * 
-	 * @param {number} delta 
-	 * @param {string} id (will use currently focused if none defined) 
+	 *
+	 * @param {number} delta
+	 * @param {string} id (will use currently focused if none defined)
 	 */
 	moveTextInput(delta,id=this.getFocusedId()){
 		if(id){
@@ -341,15 +341,15 @@ class TextViewer {
 	}
 
 	/**
-	 * Zoom text line input 
-	 * 
-	 * @param {float} zoom_factor 
-	 * @param {string} id (will use currently focused if none defined) 
+	 * Zoom text line input
+	 *
+	 * @param {float} zoom_factor
+	 * @param {string} id (will use currently focused if none defined)
 	 */
 	zoomTextInput(zoom_factor,id=this.getFocusedId()){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
 		if($textline && $textline.length > 0){
-			const prev_size = $textline.data("raw-size") ? $textline.data("raw-size") 
+			const prev_size = $textline.data("raw-size") ? $textline.data("raw-size")
 								: parseInt($textline.css('fontSize').replace('px',''));
 			const new_size = prev_size*zoom_factor > 0 ? prev_size*zoom_factor : 1;
 			$textline.css('fontSize',`${new_size}px`);
@@ -358,15 +358,15 @@ class TextViewer {
 	}
 
 	/**
-	 * Zoom text line image 
-	 * 
-	 * @param {float} zoom_factor 
-	 * @param {string} id (will use currently focused if none defined) 
+	 * Zoom text line image
+	 *
+	 * @param {float} zoom_factor
+	 * @param {string} id (will use currently focused if none defined)
 	 */
 	zoomImage(zoom_factor,id=this.getFocusedId()){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-image`);
 		if($textline && $textline.length > 0){
-			const prev_size = $textline.data("raw-size") ? $textline.data("raw-size") 
+			const prev_size = $textline.data("raw-size") ? $textline.data("raw-size")
 								: parseInt($textline.css('height').replace('px',''));
 			const new_size = prev_size*zoom_factor > 0 ? prev_size*zoom_factor : 1;
 			$textline.css('height',`${new_size}px`);
@@ -376,8 +376,8 @@ class TextViewer {
 
 	/**
 	 * Insert a character into the current position on the textline
-	 * 
-	 * @param {string} character 
+	 *
+	 * @param {string} character
 	 */
 	insertCharacterTextLine(character){
 		if(this.isOpen()){
@@ -397,8 +397,8 @@ class TextViewer {
 	}
 	/**
 	 * Create a textline text object for a given textline.
-	 * 
-	 * @param {*} textline 
+	 *
+	 * @param {*} textline
 	 */
 	_createTextObject(textline) {
 		const $textlineText =  $(`<input class='textline-text'></input>`);
@@ -425,7 +425,7 @@ class TextViewer {
 			}
 		}
 		const $diffText = $(`<p class="diff-text">${this._prettifyDiff(diff)}</p>`);
-		if(diff == "") {$diffText.hide();} else {$diffText.show();}
+		if(diff === "") {$diffText.hide();} else {$diffText.show();}
 
 		const pred_text = hasPredict ? textline.text[1] : "";
 		const $predText = $(`<p class="pred-text">${pred_text}</p>`);
@@ -434,15 +434,15 @@ class TextViewer {
 
 	/**
 	 * Create a textline image object for a given textline
-	 * 
-	 * @param {*} textline 
+	 *
+	 * @param {*} textline
 	 */
 	_createImageObject(textline) {
 		let minX = this.image[0].naturalWidth;
 		let minY = this.image[0].naturalHeight;
 		let maxX = 0;
 		let maxY = 0;
-		for(const point of textline.points){
+		for(const point of textline.coords.points){
 			minX = Math.min(point.x,minX);
 			minY = Math.min(point.y,minY);
 			maxX = Math.max(point.x,maxX);
@@ -482,14 +482,13 @@ class TextViewer {
 		let gtText = textline[0];
 		let predText = textline[1];
 
-		let diff = this._dmp.diff_main(predText, gtText);
-		return diff;
+		return this._dmp.diff_main(predText, gtText);
 	}
 	/**
 	 * prettify a diff object for display
 	 * NOTE: Currently uses standard dmp prettifier
 	 *
-	 * @param {*} textline
+	 * @param {*} diff
 	 */
 	_prettifyDiff(diff){
 		return this._dmp.diff_prettyHtml(diff);

@@ -15,7 +15,7 @@
 					Save
 					<div class="progress hide">
 			    		<div class="indeterminate"></div>
-					</div>       
+					</div>
 					<i class="material-icons right">file_download</i>
 				</a>
 
@@ -33,21 +33,21 @@
 					<div class="advanced-setting col s12">
 						<span class="segment-only settings-load-existing-xml switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically load existing segmentations on start if avaiable">
 							<label>
-								<input type="checkbox" checked="checked"> 
+								<input type="checkbox" checked="checked">
 									<span class="lever"></span>
 								Load existing segmentations
 							</label>
-						</span>	
+						</span>
 					</div>
 					<a class="col s10 offset-s1 waves-effect waves-light btn loadExistingSegmentation segment-only tooltipped" data-position="bottom" data-delay="50" data-tooltip="Load existing segmentations if available">Load now</a>
 					<div class="advanced-setting col s12">
 						<span class="segment-only settings-autosegment switch tooltipped" data-position="bottom" data-delay="50" data-tooltip="Automatically segment unsegmented pages when opened">
 							<label>
-								<input type="checkbox" checked="checked"> 
+								<input type="checkbox" checked="checked">
 									<span class="lever"></span>
-								Auto segment page 
+								Auto segment page
 							</label>
-						</span>	
+						</span>
 					</div>
 					<div class="advanced-setting col s12">
 						<span class="switch tooltipped" id="settings-hint-reading-order" data-position="bottom" data-delay="50" data-tooltip="Automatically opens reading oder menu for actions which alter an existing reading order">
@@ -73,21 +73,21 @@
 					<ul class="collection">
 						<li class="regionlegendAll collection-item">
 							--Show all--
-							<span class="secondary-content switch"> 
-								<label><input type="checkbox"> 
+							<span class="secondary-content switch">
+								<label><input type="checkbox">
 									<span class="lever"></span>
 								</label>
-							</span>	
+							</span>
 						</li>
 						<c:forEach var="type" items="${regionTypes}">
 							<li class="regionlegend collection-item" data-type="${type.key}">
 								<span class="regionSettings infocus" data-type="${type.key}">
 									<div class="legendicon ${type.key}"></div>${type.key}
 								</span>
-								
+
 								<span class="secondary-content ">
 									<span class="switch">
-										<label><input type="checkbox"> 
+										<label><input type="checkbox">
 											<span class="lever"></span>
 										</label>
 									</span>
@@ -148,13 +148,13 @@
 							</select>
 						</div>
 						<div class="">
-							<span class="settings-combine-image switch"> 
+							<span class="settings-combine-image switch">
 								<label>
 									combine
-									<input type="checkbox"> 
+									<input type="checkbox">
 									<span class="lever"></span>
 								</label>
-							</span>	
+							</span>
 						</div>
 					</div>
 				</div>
@@ -177,7 +177,7 @@
 			</div>
 		</li>
 	</ul>
-	<a class="col s12 waves-effect waves-light btn doSegment tooltipped" data-position="left" data-delay="50" data-tooltip="Segment the current page automatically (Shortcut: CTRL+Space)">Segment</a>
+	<a class="col s12 waves-effect waves-light btn doSegment tooltipped" data-position="left" data-delay="50" data-tooltip="Segment the current page automatically. This will overwrite all existing elements. (Shortcut: CTRL+Space)">Segment</a>
 	<a class="col s12 waves-effect waves-light btn doBatch tooltipped" href="#batchSegmentModal" data-position="left" data-delay="50" data-tooltip="Batch segment multiple pages automatically (Shortcut: CTRL+B)">
 		Batch Segment
 	</a>
@@ -186,12 +186,12 @@
 		Save Result
 		<div class="progress hide">
     		<div class="indeterminate"></div>
-		</div>       
+		</div>
 		<span class="pageXMLVersion">version</span>
 		<i class="material-icons right">file_download</i>
 		<div class="dropDownPageXMLCorner"></div>
 	</a>
-	
+
 	<div href="#!"class='dropdown-button dropDownPageXML' data-activates='dropdownPageXMLVersion0'></div>
 	<ul id='dropdownPageXMLVersion0' class='dropdown-content'>
 		<li><a class="pageXMLVersionSelect" data-version="2019-07-15">2019-07-15</a></li>

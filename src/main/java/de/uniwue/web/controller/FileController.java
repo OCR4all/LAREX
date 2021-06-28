@@ -14,9 +14,6 @@ import javax.imageio.ImageIO;
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
@@ -43,7 +40,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
 
 import de.uniwue.algorithm.data.MemoryCleaner;
 import de.uniwue.web.communication.ExportRequest;
@@ -58,7 +54,7 @@ import de.uniwue.web.io.PageXMLWriter;
 import de.uniwue.web.model.PageAnnotations;
 
 /**
- * Communication Controller to provide file contents 
+ * Communication Controller to provide file contents
  * and process save as well as export requests
  */
 @Controller
@@ -97,7 +93,7 @@ public class FileController {
 		}
 		this.exportProgress = 0;
 	}
-	
+
 	/**
 	 * Request an image of a book, by book name and image name.
 	 * Use resize to get a downscaled preview image, with a width of 300px.
@@ -110,7 +106,7 @@ public class FileController {
 			// Find file with image name
 			final File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
 			final String imageName = image.replace(".png", "");
-			
+
 			final File[] matchingFiles = directory.listFiles((File dir, String name) -> {
 					final int extStart = name.lastIndexOf(".");
 					if (extStart > 0 && name.substring(0, extStart).equals(imageName)) {
@@ -180,20 +176,12 @@ public class FileController {
 
 	/**
 	 * Upload a segmentation to load back into the gui.
-	 * 
+	 *
 	 */
 	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST)
-	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") MultipartFile file,
-			@RequestParam("pageNr") int pageNr, @RequestParam("bookID") int bookID) {
-		if (!file.isEmpty()) {
-			try (ByteArrayInputStream stream = new ByteArrayInputStream(file.getBytes())){
-				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-				DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-
-				return PageXMLReader.getPageAnnotations(dBuilder.parse(stream));
-			} catch (SAXException | IOException | ParserConfigurationException e) {
-				return null;
-			}
+	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") File file) {
+		if (!file.isFile()) {
+			return PageXMLReader.getPageAnnotations(file);
 		}
 		return null;
 	}
@@ -204,11 +192,14 @@ public class FileController {
 	@RequestMapping(value = "file/export/annotations", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
-			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion());
-
 			final String xmlName =  request.getSegmentation().getName() + ".xml";
+			Integer bookId = request.getBookid();
 
-			saveDocument(pageXML, xmlName, request.getBookid());
+			File xmlFile = getXMLFilePath(xmlName, bookId);
+
+			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion(), xmlFile);
+
+			saveDocument(pageXML, xmlName, bookId);
 			byte[] docBytes = convertDocumentToByte(pageXML);
 			return convertByteToResponse(docBytes, request.getSegmentation().getName() + ".xml", "application/xml");
 		} catch (Exception e) {
@@ -226,9 +217,12 @@ public class FileController {
 			List<PageAnnotations> segmentations = request.getSegmentation();
 			List<String> filenames = new ArrayList<String>();
 			List<Document> docs = new ArrayList<>();
+			Integer bookId = request.getBookid();
 			for(int i = 0;  i < request.getPages().size(); i++) {
-				Document pageXML = PageXMLWriter.getPageXML(segmentations.get(i), request.getVersion());
 				String xmlName =  segmentations.get(i).getName() + ".xml";
+				File xmlFile = getXMLFilePath(xmlName, bookId);
+
+				Document pageXML = PageXMLWriter.getPageXML(segmentations.get(i), request.getVersion(), xmlFile);
 				filenames.add(xmlName);
 				docs.add(pageXML);
 				saveDocument(pageXML, xmlName, request.getBookid());
@@ -261,7 +255,7 @@ public class FileController {
 
 	/**
 	 * Upload a segmentation settings file and return a BookSettings json as result.
-	 * 
+	 *
 	 * @param file
 	 * @param bookID
 	 * @return
@@ -286,10 +280,10 @@ public class FileController {
 
 	private BufferedImage convertMatToBufferedImage(final Mat imageMat) throws IOException {
 		final MatOfByte imageBuffer = new MatOfByte();
-		
+
 		Imgcodecs.imencode(".png", imageMat, imageBuffer);
 		final byte[] imagebytes = imageBuffer.toArray();
-		
+
 		imageBuffer.release();
 
 		return ImageIO.read(new ByteArrayInputStream(imagebytes));
@@ -367,7 +361,7 @@ public class FileController {
 		return new ResponseEntity<byte[]>(bytes, headers, HttpStatus.OK);
 	}
 
-	private void saveDocument(Document pageXML, String xmlName, Integer bookid) {
+	private File getXMLFilePath(String xmlName, Integer bookid){
 		FileDatabase database;
 		switch (config.getSetting("localsave")) {
 			case "bookpath":
@@ -376,8 +370,7 @@ public class FileController {
 
 				String bookdir = fileManager.getLocalBooksPath() + File.separator
 						+ database.getBookName(bookid);
-				PageXMLWriter.saveDocument(pageXML, xmlName, bookdir);
-				break;
+				return new File(bookdir + File.separator + xmlName);
 			case "savedir":
 				database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 						config.getListSetting("imagefilter"));
@@ -385,15 +378,26 @@ public class FileController {
 				String savedir = fileManager.getSaveDir();
 				if (savedir != null && !savedir.equals("")) {
 					savedir = savedir + File.separator + database.getBookName(bookid);
-					PageXMLWriter.saveDocument(pageXML, xmlName, savedir);
+					return new File(savedir + File.separator + xmlName);
 				} else {
 					System.err.println("Warning: Save dir is not set. File could not been saved.");
+					return null;
 				}
-				break;
 			case "none":
 			case "default":
+				return null;
+		}
+		return null;
+	}
+
+	private void saveDocument(Document pageXML, String xmlName, Integer bookid) {
+		File xmlFile = getXMLFilePath(xmlName, bookid);
+
+		if(xmlFile != null){
+			PageXMLWriter.saveDocument(pageXML, xmlFile, true);
 		}
 	}
+
 	/**
 	 * Response to the request to return the progress status of the adjust files service
 	 *

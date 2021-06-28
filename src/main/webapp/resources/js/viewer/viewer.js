@@ -1,8 +1,8 @@
-/* The viewer is a display for result segments, region segments and contours of any kind. 
- * It can handle inputs by forwarding it to a input manager (ViewerInput) 
- * All functionality about viewing elements in the viewer is handled here. 
+/* The viewer is a display for result segments, region segments and contours of any kind.
+ * It can handle inputs by forwarding it to a input manager (ViewerInput)
+ * All functionality about viewing elements in the viewer is handled here.
  * It does not handle editing these elements. */
-var ViewerMode = {POLYGON:'polygon',CONTOUR:'contour',TEXTLINE:'textline'}
+const ViewerMode = {POLYGON:'polygon',CONTOUR:'contour',TEXTLINE:'textline'}
 class Viewer {
 	constructor(viewerInput, colors) {
 		this.thisInput = viewerInput;
@@ -77,7 +77,7 @@ class Viewer {
 					if(hitResults && hitResults.length > 0){
 						hitResults = hitResults.filter(hr => hr.item && hr.item.elementID);
 						const hitResult = hitResults[0];
-						if (hitResult) 
+						if (hitResult)
 							this.thisInput.clickElement(hitResult.item.elementID, event, hitResult, this.mode);
 						else
 							this.thisInput.clickImage(event);
@@ -104,7 +104,7 @@ class Viewer {
 				const hitResult = this._imageCanvas ? this._imageCanvas.hitTest(event.point, this._hitOptions) : null;
 				if(hitResult)
 					this.thisInput.dragImage(event);
-				else 
+				else
 					this.thisInput.dragBackground(event);
 			}
 		}
@@ -145,7 +145,7 @@ class Viewer {
 
 						if(this._highlighted && new_highlight !== this._highlighted)
 							this.thisInput.leaveElement(this._highlighted);
-						
+
 						if(new_highlight)
 							this.thisInput.enterElement(new_highlight);
 
@@ -174,7 +174,7 @@ class Viewer {
 	}
 
 	removeListener(tool){
-		var index = this._listener.indexOf(tool);
+		let index = this._listener.indexOf(tool);
 		if (index > -1) this._listener.splice(index, 1);
 	}
 
@@ -238,7 +238,7 @@ class Viewer {
 			this._imageCanvas.addChild(this._contourOverlay);
 		}
 	}
-	
+
 
 	clear() {
 		paper.project.activeLayer.removeChildren();
@@ -294,10 +294,9 @@ class Viewer {
 			polygon.defaultStrokeColor = new paper.Color(polygon.strokeColor);
 			polygon.dashArray = dashArray;
 
-			for (const key in segment.points) {
-				const sPoint = segment.points[key];
-				const point = segment.isRelative ? this._convertPercentToCanvas(sPoint.x, sPoint.y)
-												: this._convertGlobalToCanvas(sPoint.x, sPoint.y);
+			for (const key in segment.coords.points) {
+				const sPoint = segment.coords.points[key];
+				const point = segment.coords.isRelative ? this._convertPercentToCanvas(sPoint.x, sPoint.y) : this._convertGlobalToCanvas(sPoint.x, sPoint.y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
@@ -318,9 +317,9 @@ class Viewer {
 
 	/**
 	 * Focus a segment by graying out everything surounding it
-	 * 
-	 * @param {*} id 
-	 * @param {*} doFocus 
+	 *
+	 * @param {*} id
+	 * @param {*} doFocus
 	 */
 	focusSegment(id, doFocus = true) {
 		if(this._focused){
@@ -349,7 +348,7 @@ class Viewer {
 		if(this._focused){
 			const focused = this._focused;
 			// Set to null before calling focusSegment, to not risk a infinite recursive loop
-			this._focused = null; 
+			this._focused = null;
 			this.focusSegment(focused,false);
 		}
 	}
@@ -410,7 +409,7 @@ class Viewer {
 				true; // End loop, since no points to select
 			else{
 				const globalPoint = this._convertCanvasToGlobal(s.point.x, s.point.y);
-				
+
 				// Select if in pointsToSelect and remove from pointsToSelect
 				const pointsToSelectIndex = pointsToSelect.findIndex(point => {return (globalPoint.x === point.x && globalPoint.y === point.y);});
 				if(pointsToSelectIndex > -1){
@@ -419,7 +418,7 @@ class Viewer {
 				}
 			}
 		});
-	
+
 		if(pointsToSelect.length > 0)
 			fallback(id,pointsToSelect);
 	}
@@ -429,7 +428,7 @@ class Viewer {
 		const rectangleAB = new paper.Rectangle(pointA, pointB);
 
 		this._polygons[elementID].selected = true;
-		
+
 		this._polygons[elementID].segments.forEach(point => {
 			if (rectangleAB.contains(point.point)) {
 				point.point.selected = true;
@@ -546,14 +545,14 @@ class Viewer {
 		polygon.fillColor.mainAlpha = polygon.fillColor.alpha;
 
 		//Convert segment points to current canvas coordinates
-		if (!segment.isRelative) {
-			for (const key in segment.points) {
-				const point = this._convertGlobalToCanvas(segment.points[key].x, segment.points[key].y);
+		if (!segment.coords.isRelative) {
+			for (const key in segment.coords.points) {
+				const point = this._convertGlobalToCanvas(segment.coords.points[key].x, segment.coords.points[key].y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		} else {
-			for (const key in segment.points) {
-				const point = this._convertPercentToCanvas(segment.points[key].x, segment.points[key].y);
+			for (const key in segment.coords.points) {
+				const point = this._convertPercentToCanvas(segment.coords.points[key].x, segment.coords.points[key].y);
 				polygon.add(new paper.Point(point.x, point.y));
 			}
 		}
@@ -581,8 +580,8 @@ class Viewer {
 		polygon.elementID = line.id;
 
 		//Convert segment points to current canvas coordinates
-		for (const key in line.points) {
-			const point = this._convertGlobalToCanvas(line.points[key].x, line.points[key].y);
+		for (const key in line.coords.points) {
+			const point = this._convertGlobalToCanvas(line.coords.points[key].x, line.coords.points[key].y);
 			polygon.add(new paper.Point(point.x, point.y));
 		}
 
@@ -651,15 +650,15 @@ class Viewer {
 		// Sort by top -> bottom -> left -> right
 		this._contourBounds.sort((a,b) => {
 			const boundA = a.bounds;
-			const boundB = b.bounds;	
+			const boundB = b.bounds;
 			let compare = boundA.top - boundB.top;
-			if(compare != 0) return compare;
+			if(compare !== 0) return compare;
 			compare = boundA.bottom - boundB.bottom;
-			if(compare != 0) return compare;
+			if(compare !== 0) return compare;
 			compare = boundA.left - boundB.left;
-			if(compare != 0) return compare;
+			if(compare !== 0) return compare;
 			compare = boundA.right - boundB.right;
-			if(compare != 0) return compare;
+			if(compare !== 0) return compare;
 		});
 		this.displayContours(display);
 	}
@@ -681,7 +680,7 @@ class Viewer {
 		else
 			this._colorizeContours(contours); // Call colorize with default color
 	}
-	
+
 	contourHitTest(point){
 		//TODO replace with more performant
 		const global_point = this._convertCanvasToGlobal(point);
@@ -693,7 +692,7 @@ class Viewer {
 		});
 		if(hit_contours.length > 0){
 			hit_contours.sort((a,b) => {return a.bounds.area-b.bounds.area});
-			const id = hit_contours[0].id;	
+			const id = hit_contours[0].id;
 			return [{type:'contour',item:{elementID:id,points:this._contours[id]}}];
 		} else{
 			const image_bounds = this.getBoundaries();
