@@ -394,7 +394,7 @@ public class FileController {
 		File xmlFile = getXMLFilePath(xmlName, bookid);
 
 		if(xmlFile != null){
-			PageXMLWriter.saveDocument(pageXML, xmlFile);
+			PageXMLWriter.saveDocument(pageXML, xmlFile, true);
 		}
 	}
 

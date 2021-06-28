@@ -10,6 +10,7 @@ import java.util.Map.Entry;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
@@ -22,7 +23,6 @@ import org.primaresearch.dla.page.io.xml.StreamTarget;
 import org.primaresearch.dla.page.layout.PageLayout;
 import org.primaresearch.dla.page.layout.logical.ReadingOrder;
 import org.primaresearch.dla.page.layout.physical.Region;
-import org.primaresearch.dla.page.layout.physical.shared.ContentType;
 import org.primaresearch.dla.page.layout.physical.shared.RegionType;
 import org.primaresearch.dla.page.layout.physical.text.TextContent;
 import org.primaresearch.dla.page.layout.physical.text.TextObject;
@@ -35,7 +35,6 @@ import org.primaresearch.io.xml.XmlFormatVersion;
 import org.primaresearch.maths.geometry.Polygon;
 import org.primaresearch.shared.variable.IntegerValue;
 import org.primaresearch.shared.variable.IntegerVariable;
-import org.primaresearch.shared.variable.VariableMap;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -93,7 +92,6 @@ public class PageXMLWriter {
 		page.setImageFilename(String.format("%s.png", result.getName()));
 
 		fillMetadata(result.getMetadata(), page, true);
-
 		buildPageLayoutFromScratch(result, page);
 
 		return page;
@@ -204,7 +202,7 @@ public class PageXMLWriter {
 		}
 	}
 
-	private static void mergeElementChangesIntoLayout(PageAnnotations result, PageLayout layout, Map<String, Id> idMap) throws InvalidIdException {
+	private static void mergeElementChangesIntoLayout(PageAnnotations result, PageLayout layout, Map<String, Id> idMap) {
 		for(Map.Entry<String, de.uniwue.web.model.Region> entry : result.getSegments().entrySet()){
 			de.uniwue.web.model.Region element = entry.getValue();
 
@@ -247,7 +245,6 @@ public class PageXMLWriter {
 							final int index = content.getKey();
 							System.out.println(index);
 							if(index == 0 || index == 1){
-								System.out.println(index);
 								physicalTextLine.getTextContentVariant(index).setText(textLine.getText().get(index));
 							}
 						}
@@ -458,11 +455,15 @@ public class PageXMLWriter {
 	 * @param document
 	 * @param filePath
 	 */
-	public static void saveDocument(Document document, File filePath) {
+	public static void saveDocument(Document document, File filePath, boolean prettyPrint) {
 		try {
 			// write content into xml file
 			TransformerFactory transformerFactory = TransformerFactory.newInstance();
 			Transformer transformer = transformerFactory.newTransformer();
+			if(prettyPrint){
+				transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+				transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+			}
 			DOMSource source = new DOMSource(document);
 
 			FileOutputStream output = new FileOutputStream(filePath);
