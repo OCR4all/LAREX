@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import de.uniwue.web.facade.segmentation.SegmentationSettings;
-import de.uniwue.web.model.PageAnnotations;
 
 import java.util.List;
 

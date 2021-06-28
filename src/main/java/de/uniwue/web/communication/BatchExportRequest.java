@@ -3,10 +3,8 @@ package de.uniwue.web.communication;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import de.uniwue.web.facade.segmentation.SegmentationSettings;
 import de.uniwue.web.model.PageAnnotations;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
