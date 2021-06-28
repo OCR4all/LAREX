@@ -21,7 +21,7 @@
 		<script type="text/javascript" src="resources/js/viewer/communicator.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/gui.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/colors.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/viewer.js" 
+		<script type="text/javascript" src="resources/js/viewer/viewer.js"
 			canvas="viewerCanvas"></script>
 		<script type="text/javascript" src="resources/js/viewer/editor.js"
 			canvas="viewerCanvas"></script>
@@ -31,7 +31,7 @@
 
 		<!-- Main Method -->
 		<script>
-		const colors = [	
+		const colors = [
 						new paper.Color(0,1,0),
 						new paper.Color(1,0,0),
 						new paper.Color(1,1,0),
@@ -51,11 +51,11 @@
 						new paper.Color(0.8,0.6,0),
 						new paper.Color(0.7,0.45,0.2),
 						new paper.Color(0.4,0,0.55)];
-			
+
 		let globalSettings ={
 			downloadPage:${globalSettings.getSetting("websave").equals("") ? true : globalSettings.getSetting("websave")}
 		}
-		
+
 		//specify specific colors
 		let specifiedColors = {
 				ImageRegion: 0,
@@ -83,6 +83,7 @@
 	</b:head>
 	<t:keyboardShortcutModal/>
 	<t:batchSegmentModal/>
+	<t:metadataModal/>
 	<body>
 		<t:virtualKeyboardPresetModal/>
 		<div id="menu" class="grey lighten-4">
@@ -104,7 +105,7 @@
 							<t:menuIcon jsClass="setRegionOfInterest" icon="video_label"
 								tooltip="Set the Region of Interest (RoI)">RoI</t:menuIcon>
 							<t:menuIcon jsClass="createIgnore" icon="layers_clear"
-								tooltip="Create a ignore rectangle">Ignore</t:menuIcon> 
+								tooltip="Create a ignore rectangle">Ignore</t:menuIcon>
 						</t:menuIconCategory>
 						<t:menuIconCategory name="Area" jsClass="menu-region">
 							<t:menuIcon jsClass="createRegionAreaRectangle" icon="crop_5_4"
@@ -142,7 +143,7 @@
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
 								tooltip="Add multiple regions to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
-								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
+								tooltip="Auto generate a reading order">readingOrder</t:menuIcon>
 						</t:menuIconCategory>
 					</div>
 
@@ -177,7 +178,7 @@
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
 								tooltip="Add multiple regions to the reading order. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder" icon="subject"
-								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
+								tooltip="Auto generate a reading order">readingOrder</t:menuIcon>
 						</t:menuIconCategory>
 					</div>
 
@@ -211,7 +212,7 @@
 							<t:menuIcon jsClass="editReadingOrder" icon="timeline"
 								tooltip="Add multiple textlines to the reading order inside a region. Add with leftclick and end with rightclick, clicking the button again or ESC. (Shortcut: CTRL+R)">readingOrder</t:menuIcon>
 							<t:menuIcon jsClass="autoGenerateReadingOrder hide" icon="subject"
-								tooltip="Auto generate a reading order">readingOrder</t:menuIcon> 
+								tooltip="Auto generate a reading order">readingOrder</t:menuIcon>
 						</t:menuIconCategory>
 					</div>
 				</div>
@@ -252,7 +253,7 @@
 		<t:contextmenu/>
 		<t:virtualKeyboardAdd/>
 		<div id="textline-content" class="hide infocus">
-			<input id="textline-text" type="text">			
+			<input id="textline-text" type="text">
 			<span id="textline-buffer" class=""></span>
 		</div>
 	</body>

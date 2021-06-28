@@ -301,6 +301,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_gui.resetSidebarActions();
 
 			_gui.selectPage(pageNr, imageNr);
+			this.fillMetadataModal();
 			this.endEditReadingOrder();
 			this.showPreloader(false);
 
@@ -2133,6 +2134,46 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.openBatchSegmentModal = function(){
 		this.checkNextBatch();
 		$("#batchSegmentModal").modal("open");
+	}
+
+	this.fillMetadataModal = function(){
+		let metadata = _segmentation[_currentPage]["metadata"];
+
+		const metadataCreator = $("#metadataCreator");
+		const metadataComments = $("#metadataComments");
+		const metadataExternalRef = $("#metadataExternalRef");
+		const metadataCreated = $("#metadataCreated");
+		const metadataLastModified = $("#metadataLastModified");
+
+		(metadata["creator"] !== null) ? metadataCreator.val(metadata["creator"]) : metadataCreator.val("");
+		(metadata["comments"] !== null) ? metadataComments.val(metadata["comments"]) : metadataComments.val("");
+		(metadata["externalRef"] !== null) ? metadataExternalRef.val(metadata["externalRef"]) : metadataExternalRef.val("");
+		(metadata["creationTime"] !== null) ?metadataCreated.val(new Date(metadata["creationTime"]).toLocaleString()) : metadataCreated.val("");
+		(metadata["lastModificationTime"] !== null) ? metadataLastModified.val(new Date(metadata["lastModificationTime"]).toLocaleString()) : metadataLastModified.val("");
+
+		metadataCreator.trigger('autoresize');
+		metadataComments.trigger('autoresize');
+		metadataExternalRef.trigger('autoresize');
+		metadataCreated.trigger('autoresize');
+		metadataLastModified.trigger('autoresize');
+	}
+
+	this.saveMetadata = function(){
+		let metadata = _segmentation[_currentPage]["metadata"];
+
+		if($("#metadataCreator").val() !== null){
+			metadata["creator"] = $("#metadataCreator").val();
+		}
+		if($("#metadataComments").val() !== null){
+			metadata["comments"] = $("#metadataComments").val();
+		}
+		if($("#metadataExternalRef").val() !== null){
+			metadata["externalRef"] = $("#metadataExternalRef").val();
+		}
+	}
+
+	this.openMetadataModal = function(){
+		$("#metadataModal").modal("open");
 	}
 
 	this.checkNextBatch = function(){
