@@ -18,19 +18,31 @@ public class TextLine extends Element {
 	 */
 	@JsonProperty("text")
 	protected Map<Integer, String> text;
+	@JsonProperty("baseline")
+	protected Polygon baseline;
 
 	/**
 	 * Base constructor for the parsing from a JSON object, with all included data.
 	 *
 	 * @param id         Unique identifier of the text line
 	 * @param text       Text content inside the text line
-	 * @param coords
+	 * @param coords Polygon which represents the coordinates in which the textline is enclosed
+	 * @param baseline Polygon which represents the coordinates of the textlines baseline
 	 */
 	@JsonCreator
-	public TextLine(@JsonProperty("id") String id, @JsonProperty("coords") Polygon coords,
-					@JsonProperty("text") Map<Integer, String> text) {
+	public TextLine(@JsonProperty("id") String id,
+					@JsonProperty("coords") Polygon coords,
+					@JsonProperty("text") Map<Integer, String> text,
+					@JsonProperty("baseline") Polygon baseline) {
 		super(id, coords);
 		this.text = text;
+		this.baseline = baseline;
+	}
+
+	public TextLine(String id, Polygon coords, Map<Integer, String> text) {
+		super(id, coords);
+		this.text = text;
+		this.baseline = null;
 	}
 
 	/**
