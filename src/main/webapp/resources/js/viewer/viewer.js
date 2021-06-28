@@ -21,6 +21,7 @@ class Viewer {
 		this._colors = colors;
 		this._hitOptions = { segments: true, stroke: true, fill: true, tolerance: 10 };
 		this._hitOptionsTextline = { segments: true, stroke: true, fill: true, tolerance: 5 };
+		this._hitOptionsBaseline = { segments: true, stroke: false, fill: false, tolerance : 5}
 		this._highlighted = null;
 		this._listener = [];
 		this._contours = [];
@@ -60,7 +61,8 @@ class Viewer {
 						// Check textlines second
 						if(!hitResults || hitResults.length === 0)
 							hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsTextline) : null;
-
+						if(!hitResults || hitResults.length === 0)
+							hitResults = (this._overlays["lines"] && this._overlays["lines"].visible) ? this._overlays["lines"].hitTestAll(event.point,this._hitOptionsBaseline) : null;
 						// Check segments last
 						if(!hitResults || hitResults.length === 0)
 							hitResults = this._overlays["segments"] ? this._overlays["segments"].hitTestAll(event.point, this._hitOptions) : null;
@@ -369,6 +371,10 @@ class Viewer {
 		this.removeSegment(lineID);
 	}
 
+	addBaseline(line, baseline) {
+		this.drawBaseLine(line, baseline);
+	}
+
 	removeArea(regionID) {
 		this.endEditing();
 		this.removeSegment(regionID);
@@ -588,6 +594,30 @@ class Viewer {
 		//Add to canvas
 		this._overlays["segments"].addChild(polygon);
 		this._polygons[line.id] = polygon;
+
+		return polygon;
+	}
+
+	drawBaseLine(line, baseline){
+		//Construct polygon from segment
+		const polygon = new paper.Path();
+		const color = new paper.Color(1, 0, 0.5);
+
+		polygon.doFill = false;
+		polygon.closed = false;
+		polygon.strokeColor = color;
+		polygon.strokeWidth = 4;
+		polygon.elementID = `${line.id}_baseline`;
+
+		//Convert segment points to current canvas coordinates
+		for (const key in baseline.points) {
+			const point = this._convertGlobalToCanvas(baseline.points[key].x, baseline.points[key].y);
+			polygon.add(new paper.Point(point.x, point.y));
+		}
+
+		//Add to canvas
+		this._overlays["lines"].addChild(polygon);
+		this._polygons[`${line.id}_baseline`] = polygon;
 
 		return polygon;
 	}

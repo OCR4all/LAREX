@@ -119,6 +119,9 @@ public class PageXMLReader {
 							// Get Coords of TextLine
 							de.uniwue.web.model.Polygon textlineCoords = new de.uniwue.web.model.Polygon(textLine.getCoords());
 
+							// Get Baseline of TextLine if it exists
+							de.uniwue.web.model.Polygon textlineBaseline = (textLine.getBaseline() != null) ? new de.uniwue.web.model.Polygon(textLine.getBaseline()) : null;
+
 							//// TextLine text content
 							final Map<Integer,String> content = new HashMap<>();
 							// List of all unindexed text contents
@@ -148,7 +151,7 @@ public class PageXMLReader {
 								}
 							}
 
-							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content));
+							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content, textlineBaseline));
 							readingOrder.add(id);
 						}
 
