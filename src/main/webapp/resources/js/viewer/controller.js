@@ -1819,6 +1819,18 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			item.visible = !doHide;
 		})
 	}
+	this.hideAllLines = function (doHide){
+		_editor._overlays.lines.children.forEach(function (item) {
+			if(item.elementID != null && !item.elementID.endsWith("_baseline"))
+				item.visible = !doHide;
+		})
+	}
+	this.hideAllBaselines = function (doHide){
+		_editor._overlays.lines.children.forEach(function (item) {
+			if(item.elementID != null && item.elementID.endsWith("_baseline"))
+				item.visible = !doHide;
+		})
+	}
 	this.hideAllRegionAreas = function (doHide) {
 		// Iterate over Regions-"Map" (Object in JS)
 		Object.keys(_settings.regions).forEach((key) => {
@@ -2156,8 +2168,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.resetSegmentVisibility = function(){
-		$("#toggleSegmentVisibility").prop("checked", false);
+		_gui.resetSidebarActions();
 		this.hideAllSegments(false);
+		this.hideAllLines(false);
+		this.hideAllBaselines(false);
 	}
 
 	this.toggleSegmentVisibility = function(){

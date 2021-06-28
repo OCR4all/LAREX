@@ -949,8 +949,9 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	}
 
 	this.resetSidebarActions = function(){
-		let $hideSegments = $("#toggleSegmentVisibility")
-		$hideSegments.prop("checked", false);
+		$("#toggleSegmentVisibility").prop("checked", false);
+		$("#toggleLineVisibility").prop("checked", false);
+		$("#toggleBaselineVisibility").prop("checked", false);
 	}
 
 	// Init script
