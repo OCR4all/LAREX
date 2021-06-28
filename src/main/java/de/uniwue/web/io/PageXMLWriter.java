@@ -66,7 +66,6 @@ public class PageXMLWriter {
 		boolean xmlExists = xmlFile.exists() && !xmlFile.isDirectory();
 		Page page = xmlExists ? editExistingPageXML(result, version, xmlFile) : createNewPageXML(result, version);
 		// Write as Document
-		// TODO: Add file locks (see: #251)
 		ByteArrayOutputStream os = new ByteArrayOutputStream();
 		PageXmlInputOutput.getWriter(version).write(page, new StreamTarget(os));
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -163,7 +162,7 @@ public class PageXMLWriter {
 	}
 
 	/**
-	 *
+	 * Removes elements which were deleted in the frontend from the PAGE XML, in case they still exist there
 	 * @param result
 	 * @param layout
 	 */
@@ -202,6 +201,12 @@ public class PageXMLWriter {
 		}
 	}
 
+	/**
+	 * Merges changes of elements which already existed while reading the PAGE XML into the PAGE XML
+	 * @param result
+	 * @param layout
+	 * @param idMap
+	 */
 	private static void mergeElementChangesIntoLayout(PageAnnotations result, PageLayout layout, Map<String, Id> idMap) {
 		for(Map.Entry<String, de.uniwue.web.model.Region> entry : result.getSegments().entrySet()){
 			de.uniwue.web.model.Region element = entry.getValue();
@@ -243,7 +248,6 @@ public class PageXMLWriter {
 						physicalTextLine.setCoords(textLineCoords);
 						for(Entry<Integer,String> content : textLine.getText().entrySet()) {
 							final int index = content.getKey();
-							System.out.println(index);
 							if(index == 0 || index == 1){
 								physicalTextLine.getTextContentVariant(index).setText(textLine.getText().get(index));
 							}
@@ -254,7 +258,8 @@ public class PageXMLWriter {
 				}
 			}else if(!physicalRegion.getType().toString().equals(elementType)){
 				// Deletes region as it well created with the new type in the following step
-				// Todo: Change when nested region editing gets implemented
+				// Todo: This should be changed to e.g. allow passing existing attributes (in case they're still allowed
+				//  in the new RegionType) and to keep child elements when nested regions get implemented in LAREX
 				Id _oldId = physicalRegion.getId();
 				layout.removeRegion(_oldId);
 			}else {
@@ -263,6 +268,11 @@ public class PageXMLWriter {
 		}
 	}
 
+	/**
+	 * Creates a new TextLine in a TextRegion
+	 * @param textline
+	 * @param textRegion
+	 */
 	private static void createTextLine(de.uniwue.web.model.TextLine textline, TextRegion textRegion){
 		final TextLine pageTextLine = textRegion.createTextLine();
 
@@ -282,6 +292,11 @@ public class PageXMLWriter {
 		}
 	}
 
+	/**
+	 * Retrieves all textlines of a given TextRegion
+	 * @param textRegion
+	 * @return
+	 */
 	private static Map<String, TextLine> getTextLines(TextRegion textRegion){
 		Map<String, TextLine> physicalTextLines = new HashMap<>();
 		for(int i = 0; i < textRegion.getTextObjectCount(); i++){
@@ -296,6 +311,14 @@ public class PageXMLWriter {
 		return physicalTextLines;
 	}
 
+	/**
+	 * Adds a single element to the PAGE layout
+	 * @param regionSegment
+	 * @param layout
+	 * @param id
+	 * @param idMap
+	 * @throws InvalidIdException
+	 */
 	private static void addNewElementToLayout(de.uniwue.web.model.Region regionSegment,
 											  PageLayout layout,
 											  Id id,
@@ -349,6 +372,13 @@ public class PageXMLWriter {
 		idMap.put(regionSegment.getId(), region.getId());
 	}
 
+	/**
+	 * Adds all elements from the result – which aren't already present – to the layout
+	 * @param result
+	 * @param layout
+	 * @param idMap
+	 * @throws InvalidIdException
+	 */
 	private static void addNewElementsToLayout(PageAnnotations result, PageLayout layout, Map<String, Id> idMap) throws InvalidIdException {
 		for (Entry<String, de.uniwue.web.model.Region> regionEntry : result.getSegments().entrySet()) {
 			if(layout.getRegion(regionEntry.getValue().getId()) == null){
@@ -389,7 +419,7 @@ public class PageXMLWriter {
 	}
 
 	/**
-	 *
+	 * Creates the physical reading order from the result
 	 * @param layout
 	 * @param result
 	 * @param idMap
@@ -412,7 +442,7 @@ public class PageXMLWriter {
 	 * @return
 	 */
 	private static boolean isRegion(String type, boolean includeSubtypes) {
-		// TODO: Refactor
+		// TODO: All type determining functions should be refactored in a way that all this can be directly determined from our class
 		for (de.uniwue.algorithm.geometry.regions.type.RegionType c : de.uniwue.algorithm.geometry.regions.type.RegionType.values()) {
 			if (c.name().equals(type)) {
 				return true;
@@ -428,8 +458,12 @@ public class PageXMLWriter {
 		return false;
 	}
 
+	/**
+	 * Returns whether a type is a TextRegion (including subtypes)
+	 * @param type
+	 * @return
+	 */
 	private static boolean isTextRegion(String type) {
-		// TODO: Refactor
 		if(type.equals(RegionType.TextRegion.getName()))
 			return true;
 		for (de.uniwue.algorithm.geometry.regions.type.RegionSubType c : de.uniwue.algorithm.geometry.regions.type.RegionSubType.values()) {
@@ -440,6 +474,11 @@ public class PageXMLWriter {
 		return false;
 	}
 
+	/**
+	 * Returns whether a type is a subtype of a TextRegion
+	 * @param type String representation of type
+	 * @return boolean
+	 */
 	private static boolean isTextRegionSubtype(String type){
 		for (de.uniwue.algorithm.geometry.regions.type.RegionSubType c : de.uniwue.algorithm.geometry.regions.type.RegionSubType.values()) {
 			if (c.name().equals(type)) {
@@ -456,6 +495,7 @@ public class PageXMLWriter {
 	 * @param filePath
 	 */
 	public static void saveDocument(Document document, File filePath, boolean prettyPrint) {
+		// TODO: Add file locks (see: #251)
 		try {
 			// write content into xml file
 			TransformerFactory transformerFactory = TransformerFactory.newInstance();

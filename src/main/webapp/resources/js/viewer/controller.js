@@ -180,85 +180,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		});
 	});
 
-	this.reloadAnnotation = function(annotation){
-		// TODO: Refactor
-		// TODO: How to clear polygons?
-		_segmentation[_currentPage] = annotation;
-
-		_editor.clear();
-		_textViewer.clear();
-
-		const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
-
-		this.textlineRegister = {};
-		if (pageSegments) {
-			// Iterate over Segment-"Map" (Object in JS)
-			Object.keys(pageSegments).forEach((key) => {
-				const pageSegment = pageSegments[key];
-				_editor.addSegment(pageSegment, this.isSegmentFixed(key));
-				if(pageSegment.textlines){
-					Object.keys(pageSegment.textlines).forEach((linekey) => {
-						const textLine = pageSegment.textlines[linekey];
-						if(textLine.text && 0 in textLine.text){
-							textLine.type = "TextLine_gt";
-						} else {
-							textLine.type = "TextLine";
-						}
-						_editor.addTextLine(textLine);
-						_textViewer.addTextline(textLine);
-						this.textlineRegister[textLine.id] = pageSegment.id;
-					});
-				}
-			});
-			_textViewer.orderTextlines(_selector.getSelectOrder(ElementType.TEXTLINE));
-		}
-
-		const regions = _settings.regions;
-		// Iterate over Regions-"Map" (Object in JS)
-		Object.keys(regions).forEach((key) => {
-			const region = regions[key];
-			if(!_colors.hasColor(region.type)){
-				_colors.assignAvailableColor(region.type);
-			}
-
-			// Iterate over all Areas of a Region
-			Object.keys(region.areas).forEach((areaKey) => {
-				let polygon = region.areas[areaKey];
-				_editor.addArea(polygon);
-
-				if (!_visibleRegions[region.type] && region.type !== 'ignore') {
-					_editor.hideSegment(polygon.id, true);
-				}
-			});
-
-			if (region.type !== 'ignore' && $.inArray(region.type, _presentRegions) < 0) {
-				//_presentRegions does not contains region.type
-				_presentRegions.push(region.type);
-			}
-		});
-
-		if(!_fixedGeometry[_currentPage])
-			_fixedGeometry[_currentPage] = {segments:[],cuts:{}};
-
-		const pageCuts = _fixedGeometry[_currentPage].cuts;
-		// Iterate over FixedSegment-"Map" (Object in JS)
-		Object.keys(pageCuts).forEach((key) => _editor.addLine(pageCuts[key]));
-
-		if(_textViewer.isOpen()){
-			_textViewer._displayPredictedText();
-		}
-		_textViewer.setLoading(false);
-
-		//// Set GUI
-		_gui.showUsedRegionLegends(_presentRegions);
-		this.displayReadingOrder(false);
-		_gui.updateRegionLegendColors(_presentRegions);
-		_gui.resetSidebarActions();
-
-		this.endEditReadingOrder();
-		this.showPreloader(false);
-	}
-
 	this.displayPage = function (pageNr, imageNr=this._imageVersion, empty=false) {
 		this.escape();
 		_currentPage = pageNr;
@@ -807,14 +728,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 
 			//Update setting parameters
-			// TODO REFACTOR
 			_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
 				if(!result){
-					// TODO Catch this
 					_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
 					this.displayPage(_currentPage, this._imageVersion, true);
 				}else{
-					this.reloadAnnotation(result);
+					// TODO: The display shouldn't be completely reset on saving. The background image and the current panning zoom should be kept.
+					this.displayPage(_currentPage, this._imageVersion, false);
 				}
 
 			});
