@@ -68,11 +68,6 @@
 						</span>
 						</div>
 						<br>
-			<%--		<div id="xml_folder_input" class="input-field col s6">
-                                <input placeholder="/var/ocr4all/library" id="xml_folder" type="text" class="validate">
-                                <label for="first_name">Page XML Custom Directory</label>
-                            </div>
-                        </div>--%>
                     </div>
                 </div>
             </div>

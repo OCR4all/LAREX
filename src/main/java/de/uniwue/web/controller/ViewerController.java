@@ -213,7 +213,6 @@ public class ViewerController {
 						 @RequestParam(value = "imageMap", required = true) String imagemapString,
 						 @RequestParam(value = "customFlag", required = true) String customFlag,
 						 @RequestParam(value = "customFolder", required = false) String customFolder) throws IOException {
-		System.out.println("In directLibrary");
 		ObjectMapper mapper = new ObjectMapper();
 		Map<String, String> imagemap;
 		Map<String, String> xmlmap = new LinkedHashMap<>();
@@ -233,9 +232,7 @@ public class ViewerController {
 				imagePath = entry.getValue().substring(1);
 				entry.setValue(imagePath);
 			}
-			System.out.println(imageName + ":" + imagePath);
 			String xmlName = imageName.split("\\.")[0] + ".xml";
-			System.out.println("xmlName is: " + xmlName);
 			if(customFlag.equals("true")) {
 				if(!customFolder.endsWith(File.separator)) { customFolder += File.separator; }
 				xmlmap.put(xmlName,customFolder + xmlName);

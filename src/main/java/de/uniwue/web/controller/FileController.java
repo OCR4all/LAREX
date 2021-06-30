@@ -137,7 +137,7 @@ public class FileController {
 						foundImages.add(localImageMap.get(imgWithExt));
 					}
 				}
-				//String imagePath = fileManager.getLocalImageMap().get(new File(image).getName() + ".png");
+
 				imageFile = new File(foundImages.get(0));
 			}
 
@@ -395,20 +395,25 @@ public class FileController {
 			case "bookpath":
 				database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 						config.getListSetting("imagefilter"), fileManager.checkFlat());
-
-				String bookdir = fileManager.getLocalBooksPath() + File.separator
-						+ database.getBookName(bookid);
-				return new File(bookdir + File.separator + xmlName);
-			case "savedir":
-				database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-						config.getListSetting("imagefilter"), fileManager.checkFlat());
-
-				String savedir = fileManager.getSaveDir();
-				if (savedir != null && !savedir.equals("")) {
-					return new File(savedir + File.separator + xmlName);
+				if( fileManager.checkFlat()) {
+					String bookdir = fileManager.getLocalBooksPath() + File.separator
+							+ database.getBookName(bookid);
+					if(!bookdir.endsWith(File.separator)) { bookdir += File.separator; }
+					return new File(bookdir + xmlName);
 				} else {
-					System.err.println("Warning: Save dir is not set. File could not been saved.");
-					return null;
+					return new File(xmlName);
+				}
+			case "savedir":
+				if( fileManager.checkFlat()) {
+					String savedir = config.getSetting("savedir");
+					if (savedir != null && !savedir.equals("")) {
+						if(!savedir.endsWith(File.separator)) { savedir += File.separator; }
+						return new File(savedir + xmlName);
+					} else {
+						System.err.println("Warning: Save dir is not set. File could not been saved.");
+					}
+				} else {
+					return new File(fileManager.getLocalXmlMap().get(xmlName));
 				}
 			case "none":
 			case "default":

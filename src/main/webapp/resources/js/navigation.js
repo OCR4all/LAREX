@@ -7,9 +7,6 @@ $(document).ready(function () {
 	$('.modal').modal();
 	_communicator.getDirectRequestMode().done((data) => {
 		console.log("directrequest" + data);
-		/*if(data == true) {
-			$('#mets_tab').removeClass('hide');
-		}*/
 	});
 	$('.bookopen').click(function () {
 		$('#viewerNext').addClass('disabled');
@@ -53,11 +50,6 @@ $(document).ready(function () {
 		} else {
 			console.log("No viable files found in directory");
 		}
-		/*var form = $('<form action="viewer" method="get">' +
-			'<input type="hidden" name="book" value="' + $(this).attr('id') + '" />' +
-			'</form>');
-		$('body').append(form);
-		$(form).submit();*/
 	});
 
 	$("#fileGrp-div").on('click', 'li.selectFileGrp',function () {
