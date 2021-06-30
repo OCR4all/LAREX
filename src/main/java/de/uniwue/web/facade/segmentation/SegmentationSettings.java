@@ -176,7 +176,7 @@ public class SegmentationSettings {
 		for (Region fixedSegment : this.fixedGeometry.getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : fixedSegment.getCoords().getPoints()) {
-				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
+				points.add(point.toAwtPoint());
 			}
 			RegionSegment fixedPointList = new RegionSegment(points, fixedSegment.getId());
 			fixedPointList.setType(TypeConverter.stringToPAGEType(fixedSegment.getType()));

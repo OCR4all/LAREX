@@ -66,9 +66,9 @@ public class Polygon {
 	}
 
 	public PointList toPointList(){
-		ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
+		ArrayList<java.awt.Point> points = new ArrayList<>();
 		for (Point point : this.getPoints()) {
-			points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
+			points.add(point.toAwtPoint());
 		}
 		return new PointList(points);
 	}
@@ -81,6 +81,5 @@ public class Polygon {
 		}
 
 		return polygon;
-
 	}
 }
