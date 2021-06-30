@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.opencv.core.Size;
 
@@ -184,17 +184,8 @@ public class SegmentationSettings {
 		}
 
 		// Set existing cuts
-		ArrayList<PointList> cuts = new ArrayList<>();
-		for (Polygon cut : this.fixedGeometry.getCuts().values()) {
-			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
-			for (Point point : cut.getPoints()) {
-				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
-			}
-			cuts.add(new PointList(points));
-		}
-
+		List<PointList> cuts = this.fixedGeometry.getCuts().values().stream().map(Polygon::toPointList).collect(Collectors.toList());
 		parameters.setExistingGeometry(new ExistingGeometry(fixedPointLists, cuts));
-
 		return parameters;
 	}
 
