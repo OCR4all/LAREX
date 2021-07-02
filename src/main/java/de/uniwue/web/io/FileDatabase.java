@@ -157,8 +157,6 @@ public class FileDatabase {
 				} else {
 					System.out.println("data folder exists but contains no mets");
 				}
-			} else {
-				System.out.println("data folder does not exist");
 			}
 			return "empty";
 		}

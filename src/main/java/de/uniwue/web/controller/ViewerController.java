@@ -225,13 +225,8 @@ public class ViewerController {
 			return "redirect:/error/500";
 		}
 		for(Map.Entry<String, String> entry : imagemap.entrySet()) {
-			//Map.Entry<String, String> xmlEntry = new Map.Entry<String, String>();
 			String imageName = entry.getKey();
 			String imagePath = entry.getValue();
-			if(imagePath.startsWith("/")) {
-				imagePath = entry.getValue().substring(1);
-				entry.setValue(imagePath);
-			}
 			String xmlName = imageName.split("\\.")[0] + ".xml";
 			if(customFlag.equals("true")) {
 				if(!customFolder.endsWith(File.separator)) { customFolder += File.separator; }
@@ -241,8 +236,6 @@ public class ViewerController {
 				if(!parentFolder.endsWith(File.separator)) { parentFolder += File.separator; }
 				xmlmap.put(xmlName,parentFolder + xmlName);
 			}
-
-			System.out.println(xmlName + ":" + xmlmap.get(xmlName));
 		}
 
 		File tmpBookpath = Files.createTempDirectory("tempdir").toFile();
