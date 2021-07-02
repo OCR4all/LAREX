@@ -35,7 +35,6 @@ import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.web.communication.SegmentationStatus;
 import de.uniwue.web.model.PageAnnotations;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
