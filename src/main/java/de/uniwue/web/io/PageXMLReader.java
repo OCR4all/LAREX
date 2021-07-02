@@ -92,7 +92,6 @@ public class PageXMLReader {
 
 			// Read Page Orientation
 			double pageOrientation = getOrientation(page);
-			System.out.println("pageOrientation: " + pageOrientation);
 			Map<String, de.uniwue.web.model.Region> resRegions = new HashMap<>();
 			// Read regions
 			for (Region region : page.getLayout().getRegionsSorted()) {
