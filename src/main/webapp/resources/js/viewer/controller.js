@@ -526,6 +526,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			}
 		});
+		for(let pageI = 0; pageI < pages.length; pageI++) {
+			if(_segmentation[pages[pageI]] != null) {
+				_segmentation[pages[pageI]] = this.rotateAnnotations(_segmentation[pages[pageI]]);
+			}
+		}
 		this.displayPage(pages[0])
 		clearInterval(progressInterval);
 		_batchSegmentationPreloader.hide();
@@ -754,6 +759,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					this.displayPage(_currentPage, this._imageVersion, true);
 				}else{
 					// TODO: The display shouldn't be completely reset on saving. The background image and the current panning zoom should be kept.
+					_segmentation[_currentPage] = this.rotateAnnotations(_segmentation[_currentPage]);
 					this.displayPage(_currentPage, this._imageVersion, false);
 				}
 
@@ -2251,21 +2257,23 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		let negativeOrientation;
 
 		if(segmentationSettings != null) {
-			negativeOrientation = -segmentationSettings._orientation;
-			negativeOffset = -segmentationSettings.offset;
+			negativeOrientation = -segmentationSettings.orientation;
+			negativeOffset = -segmentationSettings.OffsetVector;
 			negativeCenter = new Object();
 			negativeCenter.x = -segmentationSettings.center.x;
 			negativeCenter.y = -segmentationSettings.center.y;
 		} else {
-			negativeOrientation = -segmentation._orientation;
-			negativeOffset = -segmentation.offset;
+			negativeOrientation = -segmentation.orientation;
+			negativeOffset = new Object();
+			negativeOffset.x = -segmentation.OffsetVector.x;
+			negativeOffset.y = -segmentation.OffsetVector.y;
 			negativeCenter = new Object();
-			negativeCenter.x = -segmentation.center.x;
-			negativeCenter.y = -segmentation.center.y;
+			negativeCenter.x = segmentation.center.x + segmentation.OffsetVector.x;
+			negativeCenter.y = segmentation.center.y + segmentation.OffsetVector.y;
 		}
 
 		Object.keys(segmentation.segments).forEach((key) => {
-			segmentation.segments[key].points = this.rotatePolygon(negativeOrientation, segmentation.segments[key].points, negativeOffset, negativeCenter);
+			segmentation.segments[key].coords = this.rotatePolygon(negativeOrientation, segmentation.segments[key].coords, negativeOffset, negativeCenter);
 		});
 		return segmentation;
 	}
@@ -2282,7 +2290,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		result.OffsetVector = offsetCenter.offsetVector;
 		result.center = offsetCenter.trueCenter;
 		Object.keys(result.segments).forEach((key) => {
-			result.segments[key] = this.rotatePolygon(result.orientation,result.segments[key],result.OffsetVector,result.center);
+			result.segments[key].coords = this.rotatePolygon(result.orientation,result.segments[key].coords,result.OffsetVector,result.center);
 		});
 		return result;
 	}
