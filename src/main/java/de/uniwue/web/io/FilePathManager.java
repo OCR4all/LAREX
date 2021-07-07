@@ -1,11 +1,11 @@
 package de.uniwue.web.io;
 
 import java.io.File;
-import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
 
+import de.uniwue.web.communication.DirectRequest;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
@@ -28,6 +28,9 @@ public class FilePathManager {
 	private Boolean isFlat;
 	private String nonFlatBookName;
 	private int nonFlatBookId;
+	private Boolean customFlag;
+	private String customFolder;
+	private DirectRequest directRequest = null;
 
 	/**
 	 * Init FileManager with servletContext in order to provide f
@@ -240,4 +243,21 @@ public class FilePathManager {
 	public Boolean checkFlat() {
 		return this.isFlat;
 	}
+
+	/**
+	 * Get customFolder
+	 * @return customFolder
+	 */
+	public String getCustomFolder() {
+		return customFolder;
+	}
+
+	public DirectRequest getDirectRequest() {
+		return directRequest;
+	}
+
+	public void setDirectRequest(DirectRequest directRequest) {
+		this.directRequest = directRequest;
+	}
+
 }

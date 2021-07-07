@@ -8,6 +8,16 @@ $(document).ready(function () {
 	_communicator.getDirectRequestMode().done((data) => {
 		console.log("directrequest" + data);
 	});
+	let checkForOldProject = function () {
+		_communicator.getOldRequestData().done((data) => {
+			if(data) {
+				$('#reloadLastProject').show();
+			} else {
+				$('#reloadLastProject').hide();
+			}
+		});
+	}
+	checkForOldProject();
 	$('.bookopen').click(function () {
 		$('#viewerNext').addClass('disabled');
 		let book_id = $(this).attr('id');
@@ -95,6 +105,7 @@ $(document).ready(function () {
 				win.document.close();
 			},
 		});
+		checkForOldProject();
 	});
 
 	function showPages(pageList) {
@@ -127,4 +138,26 @@ $(document).ready(function () {
 	let splitName = function (str) {
 		return str.split('\\').pop().split('/').pop();
 	}
+	$('#reloadLastProject').click(function () {
+		_communicator.getOldRequestData().done((oldRequest) => {
+			if(oldRequest){
+
+				$.ajax({
+					url : "/Larex/directLibrary",
+					type: "GET",
+					data: { "imageMap" : oldRequest.imagemapString, "customFlag" : oldRequest.customFlag, "customFolder" : oldRequest.customFolder},
+					async : false,
+					target : '_self',
+					success : function(data) {
+						console.log("Direct request successful!")
+						let win = window.open("", "_self");
+						win.document.write(data);
+						win.document.close();
+					},
+				});
+			} else {
+				console.log("no last project found");
+			}
+		});
+	});
 });

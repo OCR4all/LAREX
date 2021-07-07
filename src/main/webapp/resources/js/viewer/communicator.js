@@ -184,6 +184,9 @@ class Communicator {
 	getMetsData(mets_path) {
 		return this.request("library/getMetsData", {metspath : mets_path}, DataType.SIMPLE)
 	}
+	getOldRequestData() {
+		return this.request("library/getOldRequest")
+	}
 	getBatchExportProgress(){
 		return $.ajax({
 			type: "GET",

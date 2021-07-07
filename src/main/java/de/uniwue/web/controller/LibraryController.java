@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
+import de.uniwue.web.communication.DirectRequest;
 import de.uniwue.web.io.MetsReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -147,7 +148,16 @@ public class LibraryController {
 		}
 		return MetsReader.getFileGroups(metsFile.getAbsolutePath(), false);
 	}
-
+	/**
+	 * Returns old Request to resend directrequest
+	 *
+	 * @return
+	 * @throws IOException
+	 */
+	@RequestMapping(value = "library/getOldRequest", method = RequestMethod.POST, headers = "Accept=*/*")
+	public @ResponseBody DirectRequest getOldRequest() {
+		return fileManager.getDirectRequest();
+	}
 	/**
 	 * returns each imagePath in given directory
 	 *

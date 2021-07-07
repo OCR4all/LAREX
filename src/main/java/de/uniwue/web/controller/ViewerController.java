@@ -10,10 +10,12 @@ import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.web.communication.DirectRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -216,6 +218,9 @@ public class ViewerController {
 		ObjectMapper mapper = new ObjectMapper();
 		Map<String, String> imagemap;
 		Map<String, String> xmlmap = new LinkedHashMap<>();
+		DirectRequest directRequest = new DirectRequest(imagemapString, customFlag, customFolder);
+
+		fileManager.setDirectRequest(directRequest);
 
 		try {
 			imagemap = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()).replaceAll("‡","\"").replaceAll("…",":"), HashMap.class);
