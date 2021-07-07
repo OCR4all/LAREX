@@ -61,12 +61,7 @@ public class FilePathManager {
 	 * @return disc path to the books folder
 	 */
 	public String getLocalBooksPath() {
-		if(isFlat) {
-			return booksPath;
-		} else {
-			return "";
-		}
-
+		return booksPath;
 	}
 
 	/**

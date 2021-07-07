@@ -87,10 +87,10 @@ $(document).ready(function () {
 			type: "GET",
 			data: { "imageMap" : JSON.stringify(imageMap), "customFlag" : _customXmlFolder, "customFolder" : JSON.stringify(customFolder)},
 			async : false,
-			target : '_blank',
+			target : '_self',
 			success : function(data) {
 				console.log("Direct request successful!")
-				let win = window.open("text/html", "_blank");
+				let win = window.open("text/html", "_self");
 				win.document.write(data);
 				win.document.close();
 			},
