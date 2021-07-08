@@ -314,6 +314,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		this._imageVersion = imageVersion;
 	}
 
+	this.loadLibrary = function () {
+		sessionStorage.setItem("reloading", "false")
+		document.location.reload();
+	}
+
+	this.reloadProject = function () {
+		sessionStorage.setItem("reloading", "true")
+		document.location.reload();
+	}
+
 	this.redo = function () {
 		_actionController.redo(_currentPage);
 	}

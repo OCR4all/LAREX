@@ -12,6 +12,11 @@ $(document).ready(function () {
 		_communicator.getOldRequestData().done((data) => {
 			if(data) {
 				$('#reloadLastProject').show();
+				let reloading = sessionStorage.getItem("reloading");
+				if (reloading && reloading == "true") {
+					sessionStorage.removeItem("reloading");
+					$('#reloadLastProject').trigger('click');
+				}
 			} else {
 				$('#reloadLastProject').hide();
 			}
