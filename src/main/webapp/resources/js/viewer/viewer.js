@@ -484,6 +484,7 @@ class Viewer {
 			point = this._image.bounds.center;
 		}
 		this._image.rotate(orientation, point);
+		this._image.visible = true;
 	}
 
 	calculateRotOffset(angle, dimensions) {
@@ -669,6 +670,7 @@ class Viewer {
 	_drawImage() {
 		const image = new paper.Raster(this._imageID);
 		this._image = image;
+		this._image.visible = false;
 		this._imageWidth = image.width;
 		this._imageHeight = image.height;
 		image.style = {
