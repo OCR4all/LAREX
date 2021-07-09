@@ -215,6 +215,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
+			_gui.updateOrientation(0);
 			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
 				if(_allowLoadLocal && pages.includes(_currentPage) && !empty){
 					this.loadAnnotations();
@@ -231,6 +232,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.textlineRegister = {};
 			if (pageSegments) {
 				//Rotate Image according to /PcGts/Page/@orientation
+				_gui.updateOrientation(_segmentation[_currentPage].orientation);
 				_editor.rotateImage(_segmentation[_currentPage].orientation, _segmentation.center);
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach((key) => {
