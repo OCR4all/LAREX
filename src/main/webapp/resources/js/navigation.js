@@ -14,7 +14,7 @@ $(document).ready(function () {
 				$('#reloadLastProject').show();
 				let reloading = sessionStorage.getItem("reloading");
 				if (reloading && reloading == "true") {
-					sessionStorage.removeItem("reloading");
+					//sessionStorage.removeItem("reloading");
 					$('#reloadLastProject').trigger('click');
 				}
 			} else {
