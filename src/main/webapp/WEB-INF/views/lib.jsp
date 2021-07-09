@@ -23,8 +23,8 @@
 			</div>
 			<div class="container">
 				<div id="lib" class="">
-					<div id="reloadLastProject" style="margin-top: 15px" class="col s12 waves-effect waves-light btn tooltipped" onclick="$('.reloadLastProject').click()" data-position="left" data-delay="50">
-						Load last project
+					<div id="reloadLastProject" style="margin-top: 15px" class="col s12 waves-effect waves-light btn tooltipped" data-tooltip="Load last loaded project" onclick="$('.reloadLastProject').click()" data-position="left" data-delay="50">
+						Load last loaded project
 						<i class="material-icons right">cached</i></div>
 					<!-- Using inline js to hide before pageload -->
 					<script type="text/javascript">
