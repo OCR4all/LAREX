@@ -111,7 +111,8 @@ public class LibraryController {
 			switch (booktype) {
 
 				case "legacy":
-					Map<String, String> map = getFileMap(baseFolder.getAbsolutePath(), ".png");
+					List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
+					Map<String, String> map = getFileMap(baseFolder.getAbsolutePath(), supportedImageExt);
 					return map;
 				default:
 					System.out.println("Attempting to open empty directory");
@@ -162,17 +163,19 @@ public class LibraryController {
 	 * returns each imagePath in given directory
 	 *
 	 * @param baseFolder path to legacy baseFolder
-	 * @param ext file extension to map
+	 * @param extList file extension to map
 	 * @return map containing imageName and path
 	 */
-	public Map<String, String> getFileMap(String baseFolder, String ext) {
+	public Map<String, String> getFileMap(String baseFolder, List<String> extList) {
 		Map<String, String> fileMap = new LinkedHashMap<String, String>();
 		File directFolder = new File(baseFolder);
 		List<File> files = Arrays.stream(directFolder.listFiles()).sorted(Comparator.naturalOrder()).collect(Collectors.toList());
 		for (File file : files) {
-			if(file.getName().endsWith(ext)) {
-				String path = file.getAbsolutePath();
-				fileMap.put(file.getName(), path);
+			for (String ext : extList) {
+				if(file.getName().endsWith(ext)) {
+					String path = file.getAbsolutePath();
+					fileMap.put(file.getName(), path);
+				}
 			}
 		}
 		return fileMap;

@@ -1,6 +1,7 @@
 package de.uniwue.web.io;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -142,7 +143,11 @@ public class FileDatabase {
 	 */
 	public String checkType(File bookfolder) {
 		File[] metsFiles = bookfolder.listFiles((d, name) -> name.endsWith("mets.xml"));
-		File[] imgFiles = bookfolder.listFiles((d, name) -> name.endsWith(".png"));
+		List<File> imgFileList = new ArrayList<>();
+		for(String ext : supportedFileExtensions) {
+			imgFileList.addAll(Arrays.asList(bookfolder.listFiles((d, name) -> name.endsWith(ext))));
+		}
+		File[] imgFiles = imgFileList.toArray(new File[0]);
 		if( metsFiles.length != 0) {
 			return "mets";
 		} else if(imgFiles.length != 0) {

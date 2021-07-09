@@ -46,15 +46,21 @@ public class MetsReader {
                         if(fileNode.getNodeType() == Node.ELEMENT_NODE){
                             Element fileElement = (Element) fileNode;
                             if(fileElement.getAttribute("MIMETYPE").equals("image/png")) {
-                                isImgGrp = true;
-                                for(int h = 0; h < fileElement.getChildNodes().getLength(); h++) {
-                                    if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
-                                        Element fileLoc = (Element) fileElement.getChildNodes().item(h);
-                                        String filePath = fileLoc.getAttribute("xlink:href");
-                                        if(!useRelativePath) {
-                                            filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
+                                List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
+                                for(String fileExt : supportedImageExt) {
+                                    String ext = fileExt.replace(".","image/");
+                                    if(fileElement.getAttribute("MIMETYPE").equals(ext)) {
+                                        isImgGrp = true;
+                                        for(int h = 0; h < fileElement.getChildNodes().getLength(); h++) {
+                                            if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
+                                                Element fileLoc = (Element) fileElement.getChildNodes().item(h);
+                                                String filePath = fileLoc.getAttribute("xlink:href");
+                                                if(!useRelativePath) {
+                                                    filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
+                                                }
+                                                fileList.add(filePath);
+                                            }
                                         }
-                                        fileList.add(filePath);
                                     }
                                 }
                             } else if(!isImgGrp && fileElement.getAttribute("MIMETYPE").equals("application/vnd.prima.page+xml")) {
