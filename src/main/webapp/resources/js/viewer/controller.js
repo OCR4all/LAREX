@@ -69,6 +69,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
+		let reloading = sessionStorage.getItem("reloading");
+		if(!reloading || reloading != "false") {
+			sessionStorage.setItem("reloading", "true");
+		}
 		if(!this.isCurrentPageSaved() && _actionController.hasActions(_currentPage)){
 			// Warning message if browser supports it
 			return 'You have unsaved progress. Leaving the page will discard every change.\n'
