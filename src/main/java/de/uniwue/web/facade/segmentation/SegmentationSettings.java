@@ -6,8 +6,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
+import de.uniwue.web.model.*;
 import org.opencv.core.Size;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -24,10 +24,6 @@ import de.uniwue.algorithm.geometry.regions.type.RegionSubType;
 import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.algorithm.segmentation.parameters.ImageSegType;
 import de.uniwue.algorithm.segmentation.parameters.Parameters;
-import de.uniwue.web.model.Book;
-import de.uniwue.web.model.Point;
-import de.uniwue.web.model.Polygon;
-import de.uniwue.web.model.Region;
 
 /**
  * Handles all parameters and settings passing through the gui to the
@@ -52,7 +48,8 @@ public class SegmentationSettings {
 	private ImageSegType imageSegType;
 
 	@JsonCreator
-	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
+	public SegmentationSettings(@JsonProperty("book") int bookID,
+								@JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
 								@JsonProperty("parameters") Map<String, Integer> parameters,
 								@JsonProperty("regions") Map<String, RegionSettings> regions,
 								@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
@@ -112,7 +109,6 @@ public class SegmentationSettings {
 				guiRegion.addArea(new Region(id, regionType, null, coords, new HashMap<>(), new ArrayList<>()));
 				regionCount++;
 			}
-
 			this.regions.put(regionType, guiRegion);
 		}
 		this.regionTypes = new HashMap<>();
@@ -184,7 +180,10 @@ public class SegmentationSettings {
 		}
 
 		// Set existing cuts
-		List<PointList> cuts = this.fixedGeometry.getCuts().values().stream().map(Polygon::toPointList).collect(Collectors.toList());
+		ArrayList<PointList> cuts = new ArrayList<>();
+		for (Element cut : this.fixedGeometry.getCuts().values()){
+			cuts.add(cut.getCoords().toPointList());
+		}
 		parameters.setExistingGeometry(new ExistingGeometry(fixedPointLists, cuts));
 		return parameters;
 	}
