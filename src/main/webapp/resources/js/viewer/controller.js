@@ -2284,7 +2284,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//rotate whole page
 		this._orientation = result.orientation;
 		_gui.updateOrientation(result.orientation);
-		console.log("read orientation:" + this._orientation);
 		let dimensions = new Object();
 		dimensions.x = result.width;
 		dimensions.y = result.height;
