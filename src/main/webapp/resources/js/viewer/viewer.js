@@ -479,6 +479,38 @@ class Viewer {
 		this._currentZoom = zoomfactor;
 	}
 
+	rotateImage(orientation, point) {
+		if (point == null) {
+			point = this._image.bounds.center;
+		}
+		this._image.rotate(orientation, point);
+		this._image.visible = true;
+	}
+
+	calculateRotOffset(angle, dimensions) {
+		let rectangle =  new paper.Path.Rectangle(0, 0, dimensions.x, dimensions.y);
+		let oldBounds = rectangle.bounds.clone();
+		rectangle = rectangle.rotate(angle);
+		let newBounds = rectangle.bounds;
+		let falseCenter = new paper.Point(newBounds.topLeft.x + (oldBounds.topRight.x - oldBounds.topLeft.x)/2, newBounds.topLeft.y + (oldBounds.bottomLeft.y - oldBounds.topLeft.y)/2);
+		let trueCenter = new paper.Point(newBounds.topLeft.x + (newBounds.topRight.x - newBounds.topLeft.x)/2, newBounds.topLeft.y + (newBounds.bottomLeft.y - newBounds.topLeft.y)/2);
+		let offsetVector = new paper.Point(trueCenter.x - falseCenter.x, trueCenter.y - falseCenter.y);
+		let offsetCenter = {};
+		offsetCenter.offsetVector = offsetVector;
+		offsetCenter.trueCenter = trueCenter;
+		return offsetCenter;
+	}
+
+	rotatePoint(point, angle, offset, center) {
+		let offsetCenter = new paper.Point(center.x + offset.x, center.y + offset.y);
+		let rotationPoint = new paper.Point(point.x + offset.x,point.y + offset.y);
+		//using Object instead of paper.Point
+		rotationPoint = rotationPoint.rotate(angle,offsetCenter);
+		point.x = rotationPoint.x;
+		point.y = rotationPoint.y;
+		return point;
+	}
+
 	zoomIn(zoomfactor, point) {
 		const zoom = 1 + zoomfactor;
 		if (point != null) {
@@ -638,6 +670,7 @@ class Viewer {
 	_drawImage() {
 		const image = new paper.Raster(this._imageID);
 		this._image = image;
+		this._image.visible = false;
 		this._imageWidth = image.width;
 		this._imageHeight = image.height;
 		image.style = {

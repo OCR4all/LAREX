@@ -222,7 +222,7 @@ public class FileDatabase {
 				Size imageSize = ImageLoader.readDimensions(imageFile);
 				String name = removeAllExtensions(imageFile.getName());
 				String imageURL = bookName + File.separator + imageFile.getName();
-				pages.add(new Page(pageCounter++, name, Collections.singletonList(imageURL), (int) imageSize.width, (int) imageSize.height));
+				pages.add(new Page(pageCounter++, name, Collections.singletonList(imageURL), (int) imageSize.width, (int) imageSize.height, 0.0));
 			}
 			
 		} else {
@@ -255,7 +255,7 @@ public class FileDatabase {
 				}
 
 				assert imageSize != null;
-				pages.add(new Page(pageCounter++, pageName, images, (int) imageSize.width, (int) imageSize.height));
+				pages.add(new Page(pageCounter++, pageName, images, (int) imageSize.width, (int) imageSize.height, 0.0));
 			}
 		}
 

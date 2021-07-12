@@ -95,7 +95,7 @@ public class DataController {
 			return PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath);
 		} else {
 			return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-					page.getId(), false);
+					page.getId(), page.getOrientation(), false);
 		}
 	}
 
@@ -120,7 +120,7 @@ public class DataController {
 				pageAnnotations.add(PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath));
 			} else {
 				pageAnnotations.add( new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-						page.getId(), false));
+						page.getId(), page.getOrientation(), false));
 			}
 		}
 

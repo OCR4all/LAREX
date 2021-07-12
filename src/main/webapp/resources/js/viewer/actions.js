@@ -99,6 +99,7 @@ function ActionSegmentPage(_segmentation, _activesettings, _allowLoadLocal, _pag
 				if(_oldSegmentation != null) {
 					result["metadata"] = _oldSegmentation["metadata"];
 				}
+				result = _controller.rotateAnnotations(result);
 				_controller._setPage(_page, result);
 				_controller.displayPage(_page);
 			});

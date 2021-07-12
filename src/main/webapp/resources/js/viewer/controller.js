@@ -215,6 +215,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		// Check if page is to be segmented or if segmentation can be loaded
 		if (_segmentedPages.indexOf(_currentPage) < 0 && _savedPages.indexOf(_currentPage) < 0) {
+			_gui.updateOrientation(0);
 			_communicator.getHaveAnnotations(_book.id).done((pages) =>{
 				if(_allowLoadLocal && pages.includes(_currentPage) && !empty){
 					this.loadAnnotations();
@@ -230,6 +231,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 			this.textlineRegister = {};
 			if (pageSegments) {
+				//Rotate Image according to /PcGts/Page/@orientation
+				_gui.updateOrientation(_segmentation[_currentPage].orientation);
+				_editor.rotateImage(_segmentation[_currentPage].orientation, _segmentation.center);
 				// Iterate over Segment-"Map" (Object in JS)
 				Object.keys(pageSegments).forEach((key) => {
 					const pageSegment = pageSegments[key];
@@ -341,6 +345,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
 				this.displayPage(_currentPage, this._imageVersion, true);
 			}else{
+				this.rotateAnnotations(result);
 				this._setPage(_currentPage, result);
 				this.displayPage(_currentPage);
 			}
@@ -366,6 +371,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if (_fixedGeometry[page].cuts)
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
+			_segmentation[page].forEach(
+				s => _segmentation[page].segments[s].points = this.rotatePolygon(_segmentation[page].this._orientation * -1.0, _segmentation[page].segments[s].points, _segmentation[_currentPage].center)
+			)
 		}
 		_communicator.batchSegmentPage(activesettings, pages, _book.id, _gui.getPageXMLVersion()).done((results) => {
 			for (const [index, result] of results.entries()) {
@@ -496,7 +504,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_settings.parameters = _gui.getParameters();
 		let segmentations = [];
 		for(let pageI = 0; pageI < pages.length; pageI++) {
-			segmentations.push(_segmentation[pages[pageI]]);
+			if(_segmentation[pages[pageI]] != null) {
+				_segmentation[pages[pageI]] = this.unrotateSegments(_segmentation[pages[pageI]]);
+				segmentations.push(_segmentation[pages[pageI]]);
+			}
 		}
 		_communicator.batchExportPage(_book.id, pages,segmentations,_gui.getPageXMLVersion()).then((data) => {
 			for(let pageI = 0; pageI < pages.length; pageI++) {
@@ -517,6 +528,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			}
 		});
+		for(let pageI = 0; pageI < pages.length; pageI++) {
+			if(_segmentation[pages[pageI]] != null) {
+				_segmentation[pages[pageI]] = this.rotateAnnotations(_segmentation[pages[pageI]]);
+			}
+		}
 		this.displayPage(pages[0])
 		clearInterval(progressInterval);
 		_batchSegmentationPreloader.hide();
@@ -537,9 +553,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const activesettings = JSON.parse(JSON.stringify(_settings));
 		activesettings.fixedGeometry = {segments:{},cuts:{}};
 		if (_fixedGeometry[_currentPage]) {
-			if (_fixedGeometry[_currentPage].segments)
+			if (_fixedGeometry[_currentPage].segments) {
 				_fixedGeometry[_currentPage].segments.forEach(
 					s => activesettings.fixedGeometry.segments[s] = _segmentation[_currentPage].segments[s]);
+				if(_segmentation[_currentPage] != null && _segmentation[_currentPage]._orientation != 0) {
+					activesettings.fixedGeometry = this.unrotateSegments(activesettings.fixedGeometry, _segmentation[_currentPage]);
+				}
+			}
 			if (_fixedGeometry[_currentPage].cuts)
 				activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[_currentPage].cuts));
 		}
@@ -711,6 +731,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.exportPageXML = function (_page = _currentPage) {
+		if(_segmentation[_currentPage] != null) {
+			_segmentation[_currentPage] = this.unrotateSegments(_segmentation[_currentPage]);
+		}
 		_gui.setExportingInProgress(true);
 
 		_communicator.exportSegmentation(_segmentation[_page], _book.id, _gui.getPageXMLVersion()).done((data) => {
@@ -738,6 +761,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					this.displayPage(_currentPage, this._imageVersion, true);
 				}else{
 					// TODO: The display shouldn't be completely reset on saving. The background image and the current panning zoom should be kept.
+					_segmentation[_currentPage] = this.rotateAnnotations(_segmentation[_currentPage]);
 					this.displayPage(_currentPage, this._imageVersion, false);
 				}
 
@@ -2220,5 +2244,55 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		$("#toggleSegmentVisibility").prop("checked", state);
 		_gui.openSidebarCollapsible("actions");
 		this.hideAllSegments(state);
+	}
+
+	this.rotatePolygon = function (angle, polygon, offset, centroid){
+		for (const key in polygon.points) {
+			polygon.points[key] = _editor.rotatePoint(polygon.points[key], angle, offset, centroid);
+		}
+		return polygon;
+	}
+
+	this.unrotateSegments = function (segmentation, segmentationSettings){
+		let negativeOffset;
+		let negativeCenter;
+		let negativeOrientation;
+
+		if(segmentationSettings != null) {
+			negativeOrientation = -segmentationSettings.orientation;
+			negativeOffset = -segmentationSettings.OffsetVector;
+			negativeCenter = {};
+			negativeCenter.x = -segmentationSettings.center.x;
+			negativeCenter.y = -segmentationSettings.center.y;
+		} else {
+			negativeOrientation = -segmentation.orientation;
+			negativeOffset = {};
+			negativeOffset.x = -segmentation.OffsetVector.x;
+			negativeOffset.y = -segmentation.OffsetVector.y;
+			negativeCenter = {};
+			negativeCenter.x = segmentation.center.x + segmentation.OffsetVector.x;
+			negativeCenter.y = segmentation.center.y + segmentation.OffsetVector.y;
+		}
+
+		Object.keys(segmentation.segments).forEach((key) => {
+			segmentation.segments[key].coords = this.rotatePolygon(negativeOrientation, segmentation.segments[key].coords, negativeOffset, negativeCenter);
+		});
+		return segmentation;
+	}
+
+	this.rotateAnnotations = function (result) {
+		//rotate whole page
+		this._orientation = result.orientation;
+		_gui.updateOrientation(result.orientation);
+		let dimensions = {};
+		dimensions.x = result.width;
+		dimensions.y = result.height;
+		let offsetCenter = _editor.calculateRotOffset(this._orientation, dimensions);
+		result.OffsetVector = offsetCenter.offsetVector;
+		result.center = offsetCenter.trueCenter;
+		Object.keys(result.segments).forEach((key) => {
+			result.segments[key].coords = this.rotatePolygon(result.orientation,result.segments[key].coords,result.OffsetVector,result.center);
+		});
+		return result;
 	}
 }
