@@ -469,7 +469,7 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 
 function ActionAddCut(id, points, editor, fixedGeometry, page) {
 	let _isExecuted = false;
-	const _cut = { id: id, coords: {points: points, isRelative: false}, type: 'other' };
+	const _cut = { id: id, coords: {points: points, isRelative: false} };
 	if(!fixedGeometry[page]){
 		fixedGeometry[page] = {};
 	}
