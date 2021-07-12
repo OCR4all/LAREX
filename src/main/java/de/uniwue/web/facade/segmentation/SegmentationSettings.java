@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.opencv.core.Size;
 
@@ -24,10 +23,7 @@ import de.uniwue.algorithm.geometry.regions.type.RegionSubType;
 import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.algorithm.segmentation.parameters.ImageSegType;
 import de.uniwue.algorithm.segmentation.parameters.Parameters;
-import de.uniwue.web.model.Book;
-import de.uniwue.web.model.Point;
-import de.uniwue.web.model.Polygon;
-import de.uniwue.web.model.Region;
+import de.uniwue.web.model.*;
 
 /**
  * Handles all parameters and settings passing through the gui to the
@@ -184,7 +180,10 @@ public class SegmentationSettings {
 		}
 
 		// Set existing cuts
-		List<PointList> cuts = this.fixedGeometry.getCuts().values().stream().map(Polygon::toPointList).collect(Collectors.toList());
+		ArrayList<PointList> cuts = new ArrayList<>();
+		for (Element cut : this.fixedGeometry.getCuts().values()){
+			cuts.add(cut.getCoords().toPointList());
+		}
 		parameters.setExistingGeometry(new ExistingGeometry(fixedPointLists, cuts));
 		return parameters;
 	}
