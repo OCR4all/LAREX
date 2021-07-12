@@ -495,7 +495,7 @@ class Viewer {
 		let falseCenter = new paper.Point(newBounds.topLeft.x + (oldBounds.topRight.x - oldBounds.topLeft.x)/2, newBounds.topLeft.y + (oldBounds.bottomLeft.y - oldBounds.topLeft.y)/2);
 		let trueCenter = new paper.Point(newBounds.topLeft.x + (newBounds.topRight.x - newBounds.topLeft.x)/2, newBounds.topLeft.y + (newBounds.bottomLeft.y - newBounds.topLeft.y)/2);
 		let offsetVector = new paper.Point(trueCenter.x - falseCenter.x, trueCenter.y - falseCenter.y);
-		let offsetCenter = new Object();
+		let offsetCenter = {};
 		offsetCenter.offsetVector = offsetVector;
 		offsetCenter.trueCenter = trueCenter;
 		return offsetCenter;

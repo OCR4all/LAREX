@@ -2261,15 +2261,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if(segmentationSettings != null) {
 			negativeOrientation = -segmentationSettings.orientation;
 			negativeOffset = -segmentationSettings.OffsetVector;
-			negativeCenter = new Object();
+			negativeCenter = {};
 			negativeCenter.x = -segmentationSettings.center.x;
 			negativeCenter.y = -segmentationSettings.center.y;
 		} else {
 			negativeOrientation = -segmentation.orientation;
-			negativeOffset = new Object();
+			negativeOffset = {};
 			negativeOffset.x = -segmentation.OffsetVector.x;
 			negativeOffset.y = -segmentation.OffsetVector.y;
-			negativeCenter = new Object();
+			negativeCenter = {};
 			negativeCenter.x = segmentation.center.x + segmentation.OffsetVector.x;
 			negativeCenter.y = segmentation.center.y + segmentation.OffsetVector.y;
 		}
@@ -2284,7 +2284,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//rotate whole page
 		this._orientation = result.orientation;
 		_gui.updateOrientation(result.orientation);
-		let dimensions = new Object();
+		let dimensions = {};
 		dimensions.x = result.width;
 		dimensions.y = result.height;
 		let offsetCenter = _editor.calculateRotOffset(this._orientation, dimensions);
