@@ -499,13 +499,12 @@ class TextViewer {
 	 */
 	_displayDiff(){
 		if($("#displayDiff").is(":checked")){
-			$('label[for=displayPrediction], input#displayPrediction').show();
-			$('label[for=displayMismatch], input#displayMismatch').show();
-			$("#displayMismatch").show();
+			document.getElementById("displayPredictionContainer").style.display = "block";
+			document.getElementById("displayMismatchContainer").style.display = "block";
 			$(".line-corrected").prev(".diff-text").show();
 		}else{
-			$('label[for=displayPrediction], input#displayPrediction').hide();
-			$('label[for=displayMismatch], input#displayMismatch').hide();
+			document.getElementById("displayPredictionContainer").style.display = "none";
+			document.getElementById("displayMismatchContainer").style.display = "none";
 			$(".diff-text").hide();
 		}
 	}

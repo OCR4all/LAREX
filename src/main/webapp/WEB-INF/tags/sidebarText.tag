@@ -29,28 +29,34 @@
 	<div class="virtual-keyboard-tools row infocus">
 		<a class="btn col s4 waves-effect waves-light tooltipped vk-add" data-position="left" data-delay="50" data-tooltip="Add new buttons to the virtual keyboard">
 			<i class="material-icons"> add </i>
-		</a>	
+		</a>
 		<a class="btn col s4 tooltipped vk-delete draggable" data-position="left" data-delay="50" data-tooltip="Drop virtual keyboard buttons here to delete them (Only possible if virtual keyboard is unlocked)">
 			<i class="material-icons"> delete </i>
-		</a>	
+		</a>
 		<a class="btn col s4 waves-effect waves-light tooltipped hide vk-lock" data-position="left" data-delay="50" data-tooltip="Lock buttons of the virtual keyboard in place">
 			<i class="material-icons"> lock_open </i>
-		</a>	
+		</a>
 		<a class="btn col s4 waves-effect waves-light tooltipped vk-unlock" data-position="left" data-delay="50" data-tooltip="Unlock buttons of the virtual keyboard in order to move them">
 			<i class="material-icons"> lock </i>
-		</a>	
+		</a>
 	</div>
 	<ul class="collapsible">
 		<li>
 			<div class="collapsible-header"><i class="material-icons">settings</i>Settings</div>
 			<div class="collapsible-body">
 				<div id="textMode-options">
-					<input type="checkbox" id="displayDiff"/>
-					<label for="displayDiff">Show Prediction</label>
-					<input type="checkbox" id="displayPrediction"/>
-					<label for="displayPrediction">Show Raw Prediction</label>
-					<input type="checkbox" id="displayMismatch"/>
-					<label for="displayMismatch">Only show mismatching lines</label>
+					<div class="row textModeCheckboxRow">
+						<input type="checkbox" id="displayDiff"/>
+						<label for="displayDiff">Show Prediction</label>
+					</div>
+					<div id="displayPredictionContainer" class="row textModeCheckboxRow" style="display: none">
+						<input type="checkbox" id="displayPrediction"/>
+						<label for="displayPrediction">Show Raw Prediction</label>
+					</div>
+					<div id="displayMismatchContainer" class="row textModeCheckboxRow" style="display: none">
+						<input type="checkbox" id="displayMismatch"/>
+						<label for="displayMismatch">Only show mismatching lines</label>
+					</div>
 				</div>
 			</div>
 		</li>
@@ -59,7 +65,7 @@
 		Save Result
 		<div class="progress hide">
     		<div class="indeterminate"></div>
-		</div>       
+		</div>
 		<span class="pageXMLVersion">version</span>
 		<i class="material-icons right">file_download</i>
 		<div class="dropDownPageXMLCorner"></div>
