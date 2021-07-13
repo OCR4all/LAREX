@@ -49,11 +49,11 @@
 						<input type="checkbox" id="displayDiff"/>
 						<label for="displayDiff">Show Prediction</label>
 					</div>
-					<div class="row textModeCheckboxRow">
+					<div id="displayPredictionContainer" class="row textModeCheckboxRow" style="display: none">
 						<input type="checkbox" id="displayPrediction"/>
 						<label for="displayPrediction">Show Raw Prediction</label>
 					</div>
-					<div class="row textModeCheckboxRow">
+					<div id="displayMismatchContainer" class="row textModeCheckboxRow" style="display: none">
 						<input type="checkbox" id="displayMismatch"/>
 						<label for="displayMismatch">Only show mismatching lines</label>
 					</div>
