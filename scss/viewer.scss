@@ -250,6 +250,19 @@ body{
     }
 }
 
+#sidebar-segment {
+  margin-top: 15px;
+}
+
+#sidebar-lines{
+  margin-top: 15px;
+}
+
+#sidebar-text{
+  margin-top: 15px;
+}
+
+
 .reading-order{
   height:350px !important;
 }
@@ -275,7 +288,7 @@ body{
   }
   .draggable-target {
     padding-left:5px;
-    * { 
+    * {
       pointer-events: none;
     }
   }
@@ -286,7 +299,7 @@ body{
   .btn{
     background-color: #0277bd;
   }
-} 
+}
 .virtual-keyboard-tools{
   margin-bottom: 20px;
 }
@@ -489,7 +502,7 @@ body{
   margin: 0px !important;
   right: 2px;
   bottom: 2px;
-} 
+}
 
 #pageLegend{
   position:absolute;
@@ -722,7 +735,7 @@ body{
 }
 
 #textline-content{
-  z-index: 1; 
+  z-index: 1;
   position: absolute;
   border: 1px solid black;
   background-color: white;
@@ -845,13 +858,13 @@ label{
 
 }
 
-.showShortcuts{
+.rightsideMenuIcon{
   float: right !important;
 }
 
-#openDir{
-  float: right !important;
- }
+.textModeCheckboxRow{
+  margin-bottom: 0 !important;
+}
 
 .segmentationToggle{
   padding: 4%;

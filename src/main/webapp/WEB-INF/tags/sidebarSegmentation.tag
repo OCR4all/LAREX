@@ -157,6 +157,13 @@
 							</span>
 						</div>
 					</div>
+					<div>
+						<p class="settings-header settings-input">Image Orientation</p>
+						<p class="settings-input">
+							<input value="0" id="imageOrientation"
+								   class="input-number imageOrientation" disabled="disabled" type="double" min="-180" max="180" class="validate" />
+						</p>
+					</div>
 				</div>
 			</div>
 		</li>

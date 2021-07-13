@@ -486,6 +486,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		parameters['textdilationY'] = $("#textdilationY").val();
 		parameters['imagedilationX'] = $("#imagedilationX").val();
 		parameters['imagedilationY'] = $("#imagedilationY").val();
+		parameters['imageOrientation'] = $("#imageOrientation").val();
 		return parameters;
 	}
 
@@ -952,6 +953,27 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$("#toggleSegmentVisibility").prop("checked", false);
 		$("#toggleLineVisibility").prop("checked", false);
 		$("#toggleBaselineVisibility").prop("checked", false);
+	}
+
+	this.updateOrientation = function(orientation){
+		$("#imageOrientation").val(orientation);
+	}
+
+	this.toggleFullscreen = function(){
+		const icon = $("#openFullscreen .menuIconMain .material-icons")
+		const element = document.documentElement;
+		const isFullscreen = document.webkitIsFullScreen || document.mozFullScreen || false;
+
+		element.requestFullScreen = element.requestFullScreen || element.webkitRequestFullScreen || element.mozRequestFullScreen || function () { return false; };
+		document.cancelFullScreen = document.cancelFullScreen || document.webkitCancelFullScreen || document.mozCancelFullScreen || function () { return false; };
+
+		if(isFullscreen){
+			icon.text("fullscreen");
+			document.cancelFullScreen();
+		}else{
+			icon.text("fullscreen_exit");
+			element.requestFullScreen();
+		}
 	}
 
 	// Init script

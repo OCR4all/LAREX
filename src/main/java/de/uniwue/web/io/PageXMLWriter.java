@@ -33,9 +33,10 @@ import org.primaresearch.ident.IdRegister.InvalidIdException;
 import org.primaresearch.io.UnsupportedFormatVersionException;
 import org.primaresearch.io.xml.XmlFormatVersion;
 import org.primaresearch.maths.geometry.Polygon;
-import org.primaresearch.shared.variable.IntegerValue;
-import org.primaresearch.shared.variable.IntegerVariable;
+import org.primaresearch.shared.variable.*;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import de.uniwue.algorithm.geometry.regions.type.PAGERegionType;
@@ -89,6 +90,13 @@ public class PageXMLWriter {
 		// Start PAGE xml
 		Page page = new Page(PageXmlInputOutput.getSchemaModel(version));
 		page.setImageFilename(String.format("%s.png", result.getName()));
+		page.setImageFilename(result.getName()+".png");
+
+		try {
+			page.getAttributes().get("orientation").setValue(new DoubleValue(result.getOrientation()));
+		} catch (Variable.WrongVariableTypeException e) {
+			e.printStackTrace();
+		}
 
 		fillMetadata(result.getMetadata(), page, true);
 		buildPageLayoutFromScratch(result, page);
@@ -486,6 +494,23 @@ public class PageXMLWriter {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Writes the Orientation to a PageXML Document
+	 *
+	 * @param doc PageXML Document
+	 * @param orientation orientation angle in degree
+	 * @return modified Document
+	 */
+	private static Document setPageOrientation(Document doc, double orientation) {
+		Element rootElement = doc.getDocumentElement();
+		NodeList pageElements = rootElement.getElementsByTagName("Page");
+		for(int i = 0; i < pageElements.getLength(); i++) {
+			Element pageElement = (Element) pageElements.item(i);
+			pageElement.setAttribute("orientation", Double.toString(orientation));
+		}
+		return doc;
 	}
 
 	/**

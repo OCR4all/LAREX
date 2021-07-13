@@ -5,6 +5,7 @@ import java.util.LinkedList;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.uniwue.algorithm.geometry.PointList;
 
 /**
  * A representation of a Polygon that is parsed to the gui. Contains positional
@@ -64,6 +65,14 @@ public class Polygon {
 		return isRelative;
 	}
 
+	public PointList toPointList(){
+		ArrayList<java.awt.Point> points = new ArrayList<>();
+		for (Point point : this.getPoints()) {
+			points.add(point.toAwtPoint());
+		}
+		return new PointList(points);
+	}
+
 	public org.primaresearch.maths.geometry.Polygon toPrimaPolygon(){
 		org.primaresearch.maths.geometry.Polygon polygon = new org.primaresearch.maths.geometry.Polygon();
 
@@ -72,6 +81,5 @@ public class Polygon {
 		}
 
 		return polygon;
-
 	}
 }

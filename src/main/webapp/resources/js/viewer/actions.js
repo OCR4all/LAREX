@@ -99,6 +99,7 @@ function ActionSegmentPage(_segmentation, _activesettings, _allowLoadLocal, _pag
 				if(_oldSegmentation != null) {
 					result["metadata"] = _oldSegmentation["metadata"];
 				}
+				result = _controller.rotateAnnotations(result);
 				_controller._setPage(_page, result);
 				_controller.displayPage(_page);
 			});
@@ -469,7 +470,7 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 
 function ActionAddCut(id, points, editor, fixedGeometry, page) {
 	let _isExecuted = false;
-	const _cut = { id: id, coords: {points: points, isRelative: false}, type: 'other' };
+	const _cut = { id: id, coords: {points: points, isRelative: false} };
 	if(!fixedGeometry[page]){
 		fixedGeometry[page] = {};
 	}

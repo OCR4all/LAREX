@@ -116,7 +116,8 @@ public class SegmentationController {
 			page = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap()).getPage(pageID);
 		}
 
-		return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId(), false);
+		return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId(), page.getOrientation(), false);
+
 	}
 
 	/**

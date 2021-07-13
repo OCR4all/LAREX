@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -24,10 +23,7 @@ import de.uniwue.algorithm.geometry.regions.type.RegionSubType;
 import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.algorithm.segmentation.parameters.ImageSegType;
 import de.uniwue.algorithm.segmentation.parameters.Parameters;
-import de.uniwue.web.model.Book;
-import de.uniwue.web.model.Point;
-import de.uniwue.web.model.Polygon;
-import de.uniwue.web.model.Region;
+import de.uniwue.web.model.*;
 
 /**
  * Handles all parameters and settings passing through the gui to the
@@ -41,7 +37,7 @@ public class SegmentationSettings {
 	@JsonProperty("fixedGeometry")
 	private FixedGeometry fixedGeometry;
 	@JsonProperty("parameters")
-	private Map<String, Integer> parameters;
+	private Map<String, Number> parameters;
 	@JsonProperty("regions")
 	protected Map<String, RegionSettings> regions;
 	@JsonProperty("regionTypes")
@@ -53,7 +49,7 @@ public class SegmentationSettings {
 
 	@JsonCreator
 	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
-								@JsonProperty("parameters") Map<String, Integer> parameters,
+								@JsonProperty("parameters") Map<String, Number> parameters,
 								@JsonProperty("regions") Map<String, RegionSettings> regions,
 								@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
 								@JsonProperty("combine") boolean combine,
@@ -80,7 +76,7 @@ public class SegmentationSettings {
 		this.bookID = book.getId();
 		this.regions = new HashMap<String, RegionSettings>();
 		fixedGeometry = new FixedGeometry();
-		this.parameters = new HashMap<String, Integer>();
+		this.parameters = new HashMap<String, Number>();
 
 		this.parameters.put("textdilationX", parameters.getTextDilationX());
 		this.parameters.put("textdilationY", parameters.getTextDilationY());
@@ -135,10 +131,10 @@ public class SegmentationSettings {
 		RegionManager regionmanager = new RegionManager(new HashSet<>());
 		Parameters parameters = new Parameters(regionmanager, (int) pagesize.height);
 
-		parameters.setTextDilationX(this.parameters.get("textdilationX"));
-		parameters.setTextDilationY(this.parameters.get("textdilationY"));
-		parameters.setImageRemovalDilationX(this.parameters.get("imagedilationX"));
-		parameters.setImageRemovalDilationY(this.parameters.get("imagedilationY"));
+		parameters.setTextDilationX((int) this.parameters.get("textdilationX"));
+		parameters.setTextDilationY((int) this.parameters.get("textdilationY"));
+		parameters.setImageRemovalDilationX((int) this.parameters.get("imagedilationX"));
+		parameters.setImageRemovalDilationY((int) this.parameters.get("imagedilationY"));
 		parameters.setImageSegType(this.getImageSegType());
 		parameters.setCombineImages(this.isCombine());
 
@@ -176,7 +172,7 @@ public class SegmentationSettings {
 		for (Region fixedSegment : this.fixedGeometry.getFixedSegments().values()) {
 			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
 			for (Point point : fixedSegment.getCoords().getPoints()) {
-				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
+				points.add(point.toAwtPoint());
 			}
 			RegionSegment fixedPointList = new RegionSegment(points, fixedSegment.getId());
 			fixedPointList.setType(TypeConverter.stringToPAGEType(fixedSegment.getType()));
@@ -185,16 +181,10 @@ public class SegmentationSettings {
 
 		// Set existing cuts
 		ArrayList<PointList> cuts = new ArrayList<>();
-		for (Polygon cut : this.fixedGeometry.getCuts().values()) {
-			ArrayList<java.awt.Point> points = new ArrayList<java.awt.Point>();
-			for (Point point : cut.getPoints()) {
-				points.add(new java.awt.Point((int) point.getX(), (int) point.getY()));
-			}
-			cuts.add(new PointList(points));
+		for (Element cut : this.fixedGeometry.getCuts().values()){
+			cuts.add(cut.getCoords().toPointList());
 		}
-
 		parameters.setExistingGeometry(new ExistingGeometry(fixedPointLists, cuts));
-
 		return parameters;
 	}
 
@@ -202,7 +192,7 @@ public class SegmentationSettings {
 		return new HashMap<String, RegionSettings>(regions);
 	}
 
-	public Map<String, Integer> getParameters() {
+	public Map<String, Number> getParameters() {
 		return parameters;
 	}
 
