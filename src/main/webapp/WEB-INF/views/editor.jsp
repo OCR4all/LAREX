@@ -223,8 +223,9 @@
 					<t:menuIcon jsClass="hideTextView hide" icon="description"
 						tooltip="Switch to Page View">pageView</t:menuIcon>
 				</div>
-				<t:menuIcon jsClass="showShortcuts" icon="keyboard" tooltip="Show a list of available keyboard shortcuts">Shortcuts</t:menuIcon>
-				<t:menuIcon url="${pageContext.request.contextPath}/" id="openDir" jsClass="open" icon="folder_open"
+				<t:menuIcon jsClass="rightsideMenuIcon" id="openFullscreen" icon="fullscreen" tooltip="Open LAREX in fullscreen">Fullscreen</t:menuIcon>
+				<t:menuIcon jsClass="rightsideMenuIcon" id="showShortcuts" icon="keyboard" tooltip="Show a list of available keyboard shortcuts">Shortcuts</t:menuIcon>
+				<t:menuIcon url="${pageContext.request.contextPath}/" id="openDir" jsClass="rightsideMenuIcon" icon="folder_open"
 							tooltip="Open a different book">Open</t:menuIcon>
 			</div>
 		</div>
