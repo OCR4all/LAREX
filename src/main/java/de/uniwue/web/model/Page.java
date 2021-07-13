@@ -9,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * Representation of a Page with an id and an image. (Page specific Settings and
  * Segmentation are handled in Settings and BookSegmentation respectively)
- * 
+ *
  */
 public class Page {
 
@@ -44,6 +44,15 @@ public class Page {
 		this.orientation = orientation;
 	}
 
+	public Page(int id, String name, List<String> images, int width, int height){
+		this.id = id;
+		this.name = name;
+		this.images = images;
+		this.width = width;
+		this.height = height;
+		this.orientation = 0.0;
+	}
+
 	public int getId() {
 		return id;
 	}
@@ -59,7 +68,7 @@ public class Page {
 	public int getWidth() {
 		return width;
 	}
-	
+
 	public String getName() {
 		return name;
 	}
