@@ -226,6 +226,8 @@
 				</div>
 				<t:menuIcon jsClass="rightsideMenuIcon" id="openFullscreen" icon="fullscreen" tooltip="Open LAREX in fullscreen">Fullscreen</t:menuIcon>
 				<t:menuIcon jsClass="rightsideMenuIcon" id="showShortcuts" icon="keyboard" tooltip="Show a list of available keyboard shortcuts">Shortcuts</t:menuIcon>
+				<t:menuIcon id="reloadProject" jsClass="rightsideMenuIcon" icon="refresh"
+							tooltip="Reload current project">Reload</t:menuIcon>
 				<t:menuIcon id="openDir" jsClass="rightsideMenuIcon" icon="folder_open"
 							tooltip="Open a different book">Open</t:menuIcon>
 			</div>

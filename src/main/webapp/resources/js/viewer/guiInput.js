@@ -153,7 +153,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('.movecenter').click(() => _navigationController.center());
 
 	$('#openDir').click(() => _controller.loadLibrary());
-	$('.reloadProject').click(() => _controller.reloadProject());
+	$('#reloadProject').click(() => _controller.reloadProject());
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
