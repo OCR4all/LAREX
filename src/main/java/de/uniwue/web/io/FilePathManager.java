@@ -1,9 +1,11 @@
 package de.uniwue.web.io;
 
 import java.io.File;
+import java.util.Map;
 
 import javax.servlet.ServletContext;
 
+import de.uniwue.web.communication.DirectRequest;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +23,14 @@ public class FilePathManager {
 	private ServletContext servletContext;
 	private String booksPath;
 	private String saveDir;
+	private Map<String, String> xmlMap;
+	private Map<String, String> imageMap;
+	private Boolean isFlat;
+	private String nonFlatBookName;
+	private int nonFlatBookId;
+	private Boolean customFlag;
+	private String customFolder;
+	private DirectRequest directRequest = null;
 
 	/**
 	 * Init FileManager with servletContext in order to provide f
@@ -31,7 +41,21 @@ public class FilePathManager {
 	public void init(ServletContext servletContext) {
 		this.isInit = true;
 		this.servletContext = servletContext;
-		booksPath = servletContext.getRealPath("resources" + File.separator + "books");
+		this.booksPath = servletContext.getRealPath("resources" + File.separator + "books");
+		this.isFlat = true;
+	}
+
+	/**
+	 * Init FileManager with servletContext in order to provide f
+	 *
+	 * @param servletContext ServletContext of the current web application, in order
+	 *                       to get abs disc paths
+	 */
+	public void init(ServletContext servletContext, Boolean isFlat) {
+		this.isInit = true;
+		this.servletContext = servletContext;
+		this.booksPath = servletContext.getRealPath("resources" + File.separator + "books");
+		this.isFlat = false;
 	}
 
 	/**
@@ -41,6 +65,24 @@ public class FilePathManager {
 	 */
 	public String getLocalBooksPath() {
 		return booksPath;
+	}
+
+	/**
+	 * Get the local map to all pagexml paths
+	 *
+	 * @return map to all local xml paths
+	 */
+	public Map<String, String> getLocalXmlMap() {
+		return xmlMap;
+	}
+
+	/**
+	 * Get the local disc path to the books folder
+	 *
+	 * @return disc path to the books folder
+	 */
+	public Map<String, String> getLocalImageMap() {
+		return imageMap;
 	}
 
 	/**
@@ -98,6 +140,17 @@ public class FilePathManager {
 	}
 
 	/**
+	 * Change the local disc book map structure
+	 *
+	 * @param xmlmap Map linking every pageID to a path for its pagexml
+	 * @param imagemap Map linking every pageID to a path for its image
+	 */
+	public void setLocalBookMap( Map<String, String> xmlmap, Map<String, String> imagemap) {
+		this.xmlMap = xmlmap;
+		this.imageMap = imagemap;
+	}
+
+	/**
 	 * Find the local disc path to a page image
 	 *
 	 * @param page
@@ -136,4 +189,75 @@ public class FilePathManager {
 	public boolean isInit() {
 		return isInit;
 	}
+
+	/**
+	 * Set file managar structure flag
+	 *
+	 * @return true if has been initialized, else false
+	 */
+	public void setIsFlat(Boolean isFlat) {
+		this.isFlat = isFlat;
+	}
+
+	/**
+	 * Set bookname for nonflat
+	 *
+	 * @return true if has been initialized, else false
+	 */
+	public void setNonFlatBookName(String bookName) {
+		this.nonFlatBookName = bookName;
+	}
+
+	/**
+	 * Get bookname for nonflat
+	 *
+	 * @return true if has been initialized, else false
+	 */
+	public String getNonFlatBookName() {
+		return this.nonFlatBookName;
+	}
+
+	/**
+	 * Set bookname for nonflat
+	 *
+	 * @return true if has been initialized, else false
+	 */
+	public void setNonFlatBookId(int bookId) {
+		this.nonFlatBookId = bookId;
+	}
+
+	/**
+	 * Get bookname for nonflat
+	 *
+	 * @return true if has been initialized, else false
+	 */
+	public int getNonFlatBookId() {
+		return this.nonFlatBookId;
+	}
+
+	/**
+	 * Check if the FileManager is flat
+	 *
+	 * @return true if has been initialized, else false
+	 */
+	public Boolean checkFlat() {
+		return this.isFlat;
+	}
+
+	/**
+	 * Get customFolder
+	 * @return customFolder
+	 */
+	public String getCustomFolder() {
+		return customFolder;
+	}
+
+	public DirectRequest getDirectRequest() {
+		return directRequest;
+	}
+
+	public void setDirectRequest(DirectRequest directRequest) {
+		this.directRequest = directRequest;
+	}
+
 }

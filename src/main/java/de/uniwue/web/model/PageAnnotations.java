@@ -24,6 +24,8 @@ public class PageAnnotations {
 	 */
 	@JsonProperty("name")
 	private final String name;
+	@JsonProperty("xmlName")
+	private final String xmlName;
 	@JsonProperty("width")
 	private final int width;
 	@JsonProperty("height")
@@ -45,6 +47,7 @@ public class PageAnnotations {
 
 	@JsonCreator
 	public PageAnnotations(@JsonProperty("name") String name,
+						   @JsonProperty("xmlName") String xmlName,
 						   @JsonProperty("width") int width,
 						   @JsonProperty("height") int height,
 						   @JsonProperty("metadata") MetaData metadata,
@@ -55,6 +58,7 @@ public class PageAnnotations {
 						   @JsonProperty("isSegmented") boolean isSegmented,
 						   @JsonProperty("garbage") Map<String, Region> garbage) {
 		this.name = name;
+		this.xmlName = xmlName;
 		this.width = width;
 		this.height = height;
 		this.metadata = metadata;
@@ -68,6 +72,7 @@ public class PageAnnotations {
 	}
 
 	public PageAnnotations(String name,
+						   String xmlName,
 						   int width,
 						   int height,
 						   MetaData metadata,
@@ -78,6 +83,7 @@ public class PageAnnotations {
 						   boolean isSegmented)
 	{
 		this.name = name;
+		this.xmlName = xmlName;
 		this.width = width;
 		this.height = height;
 		this.metadata = metadata;
@@ -90,6 +96,7 @@ public class PageAnnotations {
 	}
 
 	public PageAnnotations(String name,
+						   String xmlName,
 						   int width,
 						   int height,
 						   int pageNr,
@@ -110,6 +117,7 @@ public class PageAnnotations {
 			segments.put(segment.getId(), segment);
 		}
 		this.name = name;
+		this.xmlName = xmlName;
 		this.width = width;
 		this.height = height;
 		this.orientation = orientation;
@@ -122,8 +130,8 @@ public class PageAnnotations {
 		checkNameValidity(name);
 	}
 
-	public PageAnnotations(String name, int width, int height, int pageNr, double orientation, boolean isSegmented) {
-		this(name, width, height, pageNr, new MetaData(), new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY, orientation, isSegmented);
+	public PageAnnotations(String name, String xmlName, int width, int height, int pageNr, double orientation, boolean isSegmented) {
+		this(name, xmlName, width, height, pageNr, new MetaData(), new ArrayList<RegionSegment>(), SegmentationStatus.EMPTY, orientation, isSegmented);
 	}
 
 	public Map<String, Region> getSegments() {
@@ -152,6 +160,10 @@ public class PageAnnotations {
 
 	public String getName() {
 		return name;
+	}
+
+	public String getXmlName() {
+		return xmlName;
 	}
 
 	public int getHeight() {

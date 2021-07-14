@@ -118,6 +118,13 @@
             <version>4.3.0-2</version>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/org.json/json -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20210307</version>
+        </dependency>
+
         <!-- Apache Commons FileUpload -->
         <dependency>
             <groupId>commons-fileupload</groupId>

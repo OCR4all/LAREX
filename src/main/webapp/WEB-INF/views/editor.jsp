@@ -19,6 +19,7 @@
 			src="resources/js/viewer/viewerInput.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/keyInput.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/communicator.js"></script>
+		<script type="text/javascript" src="resources/js/navigation.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/gui.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/colors.js"></script>
 		<script type="text/javascript" src="resources/js/viewer/viewer.js"

@@ -74,7 +74,7 @@ public class SegmentationController {
 									produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageAnnotations segment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPage(), fileManager, database);
 	}
 
@@ -82,7 +82,7 @@ public class SegmentationController {
 			produces = "application/json", consumes = "application/json")
 	public @ResponseBody List<PageAnnotations> batchSegment(@RequestBody BatchSegmentationRequest batchSegmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 		List<PageAnnotations> results = new ArrayList<>();
 		this.segProgress = 0;
 		for(int page: batchSegmentationRequest.getPages()){
@@ -96,18 +96,28 @@ public class SegmentationController {
 	@RequestMapping(value = "segmentation/settings", method = RequestMethod.POST)
 	public @ResponseBody SegmentationSettings getBook(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		if(fileManager.checkFlat()) {
+			return new SegmentationSettings(database.getBook(bookID));
+		} else {
+			return new SegmentationSettings(database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()));
+		}
 
-		return new SegmentationSettings(database.getBook(bookID));
 	}
 	@RequestMapping(value = "segmentation/empty", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations emptysegment(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		Page page;
+		if(fileManager.checkFlat()) {
+			page = database.getBook(bookID).getPage(pageID);
+		} else {
+			page = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()).getPage(pageID);
+		}
 
-		Page page = database.getBook(bookID).getPage(pageID);
-		return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId(), page.getOrientation(), false);
+		return new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(), page.getId(), page.getOrientation(), false);
+
 	}
 
 	/**

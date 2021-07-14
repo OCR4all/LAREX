@@ -3,9 +3,7 @@ package de.uniwue.web.facade.segmentation;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.*;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -43,12 +41,36 @@ public class LarexFacade {
 	 * @return
 	 */
 	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr,
-											  FilePathManager fileManager, FileDatabase database) {
-		final Page page = database.getBook(settings.getBookID()).getPage(pageNr);
-
+			FilePathManager fileManager, FileDatabase database) {
+		Page page;
+		if(fileManager.checkFlat()) {
+			page = database.getBook(settings.getBookID()).getPage(pageNr);
+		} else {
+			page = database.getBook(fileManager.getNonFlatBookName(), fileManager.getNonFlatBookId(), fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()).getPage(pageNr);
+		}
 		PageAnnotations segmentation = null;
 		Collection<RegionSegment> segmentationResult = null;
 		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
+		if(fileManager.checkFlat()) {
+			imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
+		} else {
+			try{
+				List<String> imagesWithExt = new LinkedList<>();
+				//TODO: remove hardcoding for extension matching everytime its used
+				String extensionMatchString = "(png|jpg|jpeg|tif|tiff)";
+				for(Map.Entry<String ,String> entry : fileManager.getLocalImageMap().entrySet()) {
+					if(entry.getKey().matches("^" + page.getName() + "\\..*")) {
+						imagesWithExt.add(entry.getValue());
+					} else if(entry.getValue().matches(".*" + page.getName() + "\\." + extensionMatchString)){
+						imagesWithExt.add(entry.getValue());
+					}
+				}
+				imagePath = imagesWithExt.get(0);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
 
 		File imageFile = new File(imagePath);
 		if (imageFile.exists()) {
@@ -67,10 +89,10 @@ public class LarexFacade {
 
 		page.setOrientation(settings.getParameters().get("imageOrientation").doubleValue());
 		if (segmentationResult != null) {
-			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
+			segmentation = new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
 					page.getId(), new MetaData(), segmentationResult, SegmentationStatus.SUCCESS, page.getOrientation(), true);
 		} else {
-			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), new MetaData(),
+			segmentation = new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(), new MetaData(),
 					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>(), page.getOrientation(), true);
 		}
 		return segmentation;

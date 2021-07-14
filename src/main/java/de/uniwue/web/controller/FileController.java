@@ -2,10 +2,9 @@ package de.uniwue.web.controller;
 
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -98,33 +97,55 @@ public class FileController {
 	 * Request an image of a book, by book name and image name.
 	 * Use resize to get a downscaled preview image, with a width of 300px.
 	 */
-	@RequestMapping(value = "/images/books/{book}/{image}", method = RequestMethod.GET)
-	public ResponseEntity<byte[]> getImage(@PathVariable("book") final String book,
-			@PathVariable("image") final String image,
+	@RequestMapping(value = "loadImage/{imageEnc}", method = RequestMethod.GET)
+	public ResponseEntity<byte[]> getImage(@PathVariable("imageEnc") final String imageEnc,
 			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
 		try {
-			// Find file with image name
-			final File directory = new File(fileManager.getLocalBooksPath() + File.separator + book);
-			final String imageName = image.replace(".png", "");
 
-			final File[] matchingFiles = directory.listFiles((File dir, String name) -> {
-					final int extStart = name.lastIndexOf(".");
-					if (extStart > 0 && name.substring(0, extStart).equals(imageName)) {
-						final String extension = name.substring(extStart + 1);
-						return Arrays.asList("png", "jpg", "jpeg", "tif", "tiff").contains(extension);
-					} else {
-						return false;
+			File imageFile;
+			byte[] imageBytes = null;
+			String image = java.net.URLDecoder.decode(imageEnc, StandardCharsets.UTF_8.name()).replaceAll("‡","/");
+			if(image.startsWith("\"")) {	image = image.substring(1); }
+			if(fileManager.checkFlat()) {
+				// Find file with image name
+				final File directory = new File(fileManager.getLocalBooksPath() + File.separator);
+				final String imageName = image.replace(".png", "");
+
+				final File[] matchingFiles = directory.listFiles((File dir, String name) -> {
+							final int extStart = name.lastIndexOf(".");
+							if (extStart > 0 && name.substring(0, extStart).equals(imageName)) {
+								final String extension = name.substring(extStart + 1);
+								return Arrays.asList("png", "jpg", "jpeg", "tif", "tiff").contains(extension);
+							} else {
+								return false;
+							}
+						}
+				);
+				assert matchingFiles != null;
+				if (matchingFiles.length == 0)
+					throw new IOException("File does not exist");
+				imageFile = matchingFiles[0];
+			} else {
+				List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
+				List<String> foundImages = new LinkedList<>();
+				Map<String, String> localImageMap = fileManager.getLocalImageMap();
+				for ( String ext: supportedImageExt) {
+					String imgWithExt = new File(image).getName() + ext;
+					if(localImageMap.containsKey(imgWithExt)) {
+						foundImages.add(localImageMap.get(imgWithExt));
 					}
 				}
-			);
+				if(foundImages.size() == 0) {
+					for(String imgPath : localImageMap.values()) {
+						File imgFile = new File(imgPath);
+						if(imgFile.getAbsolutePath().contains(image)) {
+							foundImages.add(imgPath);
+						}
+					}
+				}
 
-			assert matchingFiles != null;
-			if (matchingFiles.length == 0)
-				throw new IOException("File does not exist");
-
-			byte[] imageBytes = null;
-
-			File imageFile = matchingFiles[0];
+				imageFile = new File(foundImages.get(0));
+			}
 
 			if (doResize) {
 				// load Mat
@@ -170,6 +191,7 @@ public class FileController {
 
 			return new ResponseEntity<byte[]>(imageBytes, headers, HttpStatus.OK);
 		} catch (Exception e) {
+			e.printStackTrace();
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
@@ -192,14 +214,13 @@ public class FileController {
 	@RequestMapping(value = "file/export/annotations", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
-			final String xmlName =  request.getSegmentation().getName() + ".xml";
+			String xmlPath =  fileManager.getLocalXmlMap().get(request.getSegmentation().getXmlName().split("\\.")[0]);
 			Integer bookId = request.getBookid();
 
-			File xmlFile = getXMLFilePath(xmlName, bookId);
+			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion(), new File(xmlPath));
 
-			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion(), xmlFile);
+			saveDocument(pageXML, xmlPath, bookId);
 
-			saveDocument(pageXML, xmlName, bookId);
 			byte[] docBytes = convertDocumentToByte(pageXML);
 			return convertByteToResponse(docBytes, request.getSegmentation().getName() + ".xml", "application/xml");
 		} catch (Exception e) {
@@ -225,7 +246,12 @@ public class FileController {
 				Document pageXML = PageXMLWriter.getPageXML(segmentations.get(i), request.getVersion(), xmlFile);
 				filenames.add(xmlName);
 				docs.add(pageXML);
-				saveDocument(pageXML, xmlName, request.getBookid());
+				if(fileManager.checkFlat()) {
+					saveDocument(pageXML, xmlName, request.getBookid());
+				} else {
+					String xmlPath = fileManager.getLocalXmlMap().get(segmentations.get(i).getName() + ".xml");
+					saveDocument(pageXML, xmlPath, request.getBookid());
+				}
 			}
 
 			if(request.getDownload()) {
@@ -265,7 +291,7 @@ public class FileController {
 			@RequestParam("bookID") int bookID) {
 		SegmentationSettings settings = null;
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"),fileManager.checkFlat());
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
@@ -366,22 +392,26 @@ public class FileController {
 		switch (config.getSetting("localsave")) {
 			case "bookpath":
 				database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-						config.getListSetting("imagefilter"));
-
-				String bookdir = fileManager.getLocalBooksPath() + File.separator
-						+ database.getBookName(bookid);
-				return new File(bookdir + File.separator + xmlName);
-			case "savedir":
-				database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-						config.getListSetting("imagefilter"));
-
-				String savedir = fileManager.getSaveDir();
-				if (savedir != null && !savedir.equals("")) {
-					savedir = savedir + File.separator + database.getBookName(bookid);
-					return new File(savedir + File.separator + xmlName);
+						config.getListSetting("imagefilter"), fileManager.checkFlat());
+				if( fileManager.checkFlat()) {
+					String bookdir = fileManager.getLocalBooksPath() + File.separator
+							+ database.getBookName(bookid);
+					if(!bookdir.endsWith(File.separator)) { bookdir += File.separator; }
+					return new File(bookdir + xmlName);
 				} else {
-					System.err.println("Warning: Save dir is not set. File could not been saved.");
-					return null;
+					return new File(xmlName);
+				}
+			case "savedir":
+				if( fileManager.checkFlat()) {
+					String savedir = config.getSetting("savedir");
+					if (savedir != null && !savedir.equals("")) {
+						if(!savedir.endsWith(File.separator)) { savedir += File.separator; }
+						return new File(savedir + xmlName);
+					} else {
+						System.err.println("Warning: Save dir is not set. File could not been saved.");
+					}
+				} else {
+					return new File(fileManager.getLocalXmlMap().get(xmlName.split("\\.")[0]));
 				}
 			case "none":
 			case "default":

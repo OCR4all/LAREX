@@ -152,8 +152,8 @@ class Communicator {
 	loadImage(image_path, id) {
 		// Deferred object for function status
 		const status = $.Deferred();
-
-		const img = $("<img />").attr('src', "images/books/" + image_path).on('load', () => {
+		let pathEnc = encodeURIComponent(JSON.stringify(image_path.replace(/\//g, "‡")));
+		const img = $("<img />").attr('src', "loadImage/" + pathEnc).on('load', () => {
 			img.attr('id', id);
 			$('body').append(img);
 			status.resolve();
@@ -165,6 +165,10 @@ class Communicator {
 		return this.request("config/ocr4all", {}, DataType.JSON);
 	}
 
+	getDirectRequestMode(){
+		return this.request("config/directrequest", {}, DataType.JSON);
+	}
+
 	getBatchSegmentationProgress(){
 		return $.ajax({
 			type: "GET",
@@ -173,6 +177,16 @@ class Communicator {
 		});
 	}
 
+	getLibraryBookPages(book_id, bookpath, booktype) {
+		return this.request("library/getPageLocations", {bookid:book_id,bookpath:bookpath,booktype:booktype}, DataType.SIMPLE)
+	}
+
+	getMetsData(mets_path) {
+		return this.request("library/getMetsData", {metspath : mets_path}, DataType.SIMPLE)
+	}
+	getOldRequestData() {
+		return this.request("library/getOldRequest")
+	}
 	getBatchExportProgress(){
 		return $.ajax({
 			type: "GET",
