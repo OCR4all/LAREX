@@ -25,8 +25,6 @@
 		<t:menuIcon jsClass="zoomfit_second" icon="zoom_out_map"
 			tooltip="Zooms text to fit the screen (Shortcut: CTRL+SPACE)">Zoom fit</t:menuIcon>
 	</t:menuIconCategory>
-	<t:menuIcon jsClass="loadLibrary" icon="library_books"
-				tooltip="Library: Reload to library">Library</t:menuIcon>
 	<t:menuIcon jsClass="reloadProject" icon="refresh"
 				tooltip="Reload: Reloads current project">Reload</t:menuIcon>
 	<div class="menuIconDivider col"></div>
