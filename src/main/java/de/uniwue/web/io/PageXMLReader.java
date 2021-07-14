@@ -189,7 +189,7 @@ public class PageXMLReader {
 			final String imageName = page.getImageFilename();
 			final String pageName = imageName.lastIndexOf(".") > 0 ?
 					imageName.substring(0, imageName.lastIndexOf(".")) : imageName;
-			return new PageAnnotations(pageName, width, height, metaData, resRegions,
+			return new PageAnnotations(pageName, sourceFilename.getName(), width, height, metaData, resRegions,
 					SegmentationStatus.LOADED, newReadingOrder, pageOrientation , false);
 		}
 
@@ -278,7 +278,7 @@ public class PageXMLReader {
 			segResult = getPageAnnotations(pageXMLInputPath);
 		} catch (Exception e) {
 			e.printStackTrace();
-			System.out.println("Reading XML file failed!");
+			System.err.println("Reading XML file failed!");
 		}
 
 		return segResult;

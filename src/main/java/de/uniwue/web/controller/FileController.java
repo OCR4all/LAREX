@@ -129,12 +129,18 @@ public class FileController {
 				List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
 				List<String> foundImages = new LinkedList<>();
 				Map<String, String> localImageMap = fileManager.getLocalImageMap();
-				int extStart = image.lastIndexOf(".");
 				for ( String ext: supportedImageExt) {
 					String imgWithExt = new File(image).getName() + ext;
-					String imgWithExt2 = image + ext;
 					if(localImageMap.containsKey(imgWithExt)) {
 						foundImages.add(localImageMap.get(imgWithExt));
+					}
+				}
+				if(foundImages.size() == 0) {
+					for(String imgPath : localImageMap.values()) {
+						File imgFile = new File(imgPath);
+						if(imgFile.getAbsolutePath().contains(image)) {
+							foundImages.add(imgPath);
+						}
 					}
 				}
 
@@ -208,21 +214,13 @@ public class FileController {
 	@RequestMapping(value = "file/export/annotations", method = RequestMethod.POST, headers = "Accept=*/*", produces = "application/json", consumes = "application/json")
 	public @ResponseBody ResponseEntity<byte[]> exportXML(@RequestBody ExportRequest request) {
 		try {
-			final String xmlName =  request.getSegmentation().getName() + ".xml";
+			String xmlPath =  fileManager.getLocalXmlMap().get(request.getSegmentation().getXmlName().split("\\.")[0]);
 			Integer bookId = request.getBookid();
 
-			File xmlFile = getXMLFilePath(xmlName, bookId);
+			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion(), new File(xmlPath));
 
-			final Document pageXML = PageXMLWriter.getPageXML(request.getSegmentation(), request.getVersion(), xmlFile);
+			saveDocument(pageXML, xmlPath, bookId);
 
-			saveDocument(pageXML, xmlName, bookId);
-
-			if(fileManager.checkFlat()) {
-				saveDocument(pageXML, xmlName, request.getBookid());
-			} else {
-				String xmlPath = fileManager.getLocalXmlMap().get(request.getSegmentation().getName() + ".xml");
-				saveDocument(pageXML, xmlPath, request.getBookid());
-			}
 			byte[] docBytes = convertDocumentToByte(pageXML);
 			return convertByteToResponse(docBytes, request.getSegmentation().getName() + ".xml", "application/xml");
 		} catch (Exception e) {
@@ -413,7 +411,7 @@ public class FileController {
 						System.err.println("Warning: Save dir is not set. File could not been saved.");
 					}
 				} else {
-					return new File(fileManager.getLocalXmlMap().get(xmlName));
+					return new File(fileManager.getLocalXmlMap().get(xmlName.split("\\.")[0]));
 				}
 			case "none":
 			case "default":

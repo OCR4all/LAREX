@@ -69,10 +69,9 @@ public class MetsReader {
                                         Element fileLoc = (Element) fileElement.getChildNodes().item(h);
                                         String filePath = fileLoc.getAttribute("xlink:href");
                                         if(!useRelativePath) {
-                                            filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
-                                            fileList.add(metsFile.getParentFile().getAbsolutePath() + File.separator + getImagePathFromPage(filePath));
+                                            fileList.add(metsFile.getParentFile().getAbsolutePath() + File.separator + filePath);
                                         } else {
-                                            fileList.add(getImagePathFromPage(filePath));
+                                            fileList.add(filePath);
                                         }
 
                                     }
@@ -102,7 +101,7 @@ public class MetsReader {
         return doc;
     }
 
-    private static String getImagePathFromPage(String pageXmlPath) {
+    public static String getImagePathFromPage(String pageXmlPath) {
         try {
             Document pageXml = parseXML(pageXmlPath);
             Element rootElement = pageXml.getDocumentElement();
@@ -115,6 +114,7 @@ public class MetsReader {
             }
             if(pageNode == null) { throw new NoSuchElementException("No page element found."); }
             String imagePath = null;
+            //TODO: enable using original and all alternative images
             for(int i = 0; i < pageNode.getLength() ;i++) {
                 if (pageNode.item(i).getNodeName().contains("AlternativeImage") && pageNode.item(i).getNodeType() == Node.ELEMENT_NODE) {
                     Element elem = (Element) pageNode.item(i);

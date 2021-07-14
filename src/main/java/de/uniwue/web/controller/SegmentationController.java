@@ -100,7 +100,7 @@ public class SegmentationController {
 		if(fileManager.checkFlat()) {
 			return new SegmentationSettings(database.getBook(bookID));
 		} else {
-			return new SegmentationSettings(database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap()));
+			return new SegmentationSettings(database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()));
 		}
 
 	}
@@ -113,10 +113,10 @@ public class SegmentationController {
 		if(fileManager.checkFlat()) {
 			page = database.getBook(bookID).getPage(pageID);
 		} else {
-			page = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap()).getPage(pageID);
+			page = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()).getPage(pageID);
 		}
 
-		return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId(), page.getOrientation(), false);
+		return new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(), page.getId(), page.getOrientation(), false);
 
 	}
 

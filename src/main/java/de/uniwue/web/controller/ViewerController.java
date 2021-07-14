@@ -11,6 +11,7 @@ import javax.servlet.ServletContext;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.web.communication.DirectRequest;
+import de.uniwue.web.io.MetsReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -95,13 +96,14 @@ public class ViewerController {
 	@RequestMapping(value = "/directviewer", method = RequestMethod.POST)
 	public String directViewer(Model model, @RequestParam(value = "book", required = true) Integer bookID
 								, @RequestParam(value = "bookname", required = false) String bookName
-							    , @RequestParam(value = "imagemap", required = true) Map<String, String> imageMap) {
+							    , @RequestParam(value = "imagemap", required = true) Map<String, String> imageMap
+								, @RequestParam(value = "imagemap", required = true) Map<String, String> xmlMap) {
 		if (bookID == null || imageMap.isEmpty()) {
 			return "redirect:/404";
 		}
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"), false);
-		Book book = database.getBook(bookName, bookID, imageMap);
+		Book book = database.getBook(bookName, bookID, imageMap, xmlMap);
 		if (book == null) {
 			return "redirect:/404";
 		}
@@ -204,7 +206,7 @@ public class ViewerController {
 		if (modes != null){
 			config.setSetting("modes", modes);
 		}
-		return directViewer(model,bookID,bookname,imagemap);
+		return directViewer(model,bookID,bookname,imagemap,xmlmap);
 	}
 
 	/**
@@ -232,14 +234,28 @@ public class ViewerController {
 		for(Map.Entry<String, String> entry : imagemap.entrySet()) {
 			String imageName = entry.getKey();
 			String imagePath = entry.getValue();
-			String xmlName = imageName.split("\\.")[0] + ".xml";
-			if(customFlag.equals("true")) {
-				if(!customFolder.endsWith(File.separator)) { customFolder += File.separator; }
-				xmlmap.put(xmlName,customFolder + xmlName);
+			String xmlPath;
+			/*
+				When images are loaded from each pagexml, instead of directly from mets( or legacy),
+				the value of each imageMap.entry is a xmlPath instead of an imagePath. This value has to be changed to
+				the imagePath read from the given xmlPath.
+			 */
+			if(determineType(imagePath)) {
+				xmlPath = imagePath;
+				String parentFolder = new File(xmlPath).getParentFile().getParentFile().getAbsolutePath();
+				imagePath = parentFolder + File.separator + MetsReader.getImagePathFromPage(xmlPath);
+				entry.setValue(imagePath);
+				xmlmap.put(imageName.split("\\.")[0], xmlPath);
 			} else {
-				String parentFolder = new File(imagePath).getParentFile().getAbsolutePath();
-				if(!parentFolder.endsWith(File.separator)) { parentFolder += File.separator; }
-				xmlmap.put(xmlName,parentFolder + xmlName);
+				xmlPath = imageName.split("\\.")[0] + ".xml";
+				if(customFlag.equals("true")) {
+					if(!customFolder.endsWith(File.separator)) { customFolder += File.separator; }
+					xmlmap.put(imageName.split("\\.")[0],customFolder + xmlPath);
+				} else {
+					String parentFolder = new File(imagePath).getParentFile().getAbsolutePath();
+					if(!parentFolder.endsWith(File.separator)) { parentFolder += File.separator; }
+					xmlmap.put(imageName.split("\\.")[0],parentFolder + xmlPath);
+				}
 			}
 		}
 
@@ -252,7 +268,7 @@ public class ViewerController {
 
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"), false);
-		Book book = database.getBook("libraryBook", bookID, imagemap);
+		Book book = database.getBook("libraryBook", bookID, imagemap, xmlmap);
 
 		model.addAttribute("book", book);
 		model.addAttribute("regionTypes", getRegionTypes());
@@ -276,5 +292,15 @@ public class ViewerController {
 			i++;
 		}
 		return regionTypes;
+	}
+
+	/**
+	 * Determine if project was loaded from images or pagexml
+	 * @param key
+	 * @param value
+	 * @return true if pagexml type
+	 */
+	private static Boolean determineType(String value) {
+		return value.endsWith(".xml");
 	}
 }

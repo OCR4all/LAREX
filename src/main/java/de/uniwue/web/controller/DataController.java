@@ -74,7 +74,7 @@ public class DataController {
 		if(fileManager.checkFlat()) {
 			return database.getBook(bookID);
 		} else {
-			return database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap());
+			return database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
 		}
 
 	}
@@ -100,15 +100,15 @@ public class DataController {
 			page = book.getPage(pageID);
 			annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
 		} else {
-			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap());
+			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
 			page = book.getPage(pageID);
-			annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getName() + ".xml"));
+			annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getXmlName().split("\\.")[0]));
 		}
 
 		if (annotationsPath.exists()) {
 			return PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath);
 		} else {
-			return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
+			return new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
 					page.getId(), page.getOrientation(), false);
 		}
 	}
@@ -129,7 +129,7 @@ public class DataController {
 		if(fileManager.checkFlat()) {
 			book = database.getBook(batchLoadRequest.getBookid());
 		} else {
-			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap());
+			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
 		}
 		List<PageAnnotations> pageAnnotations = new ArrayList<>();
 		for( int pageID : batchLoadRequest.getPages()) {
@@ -138,12 +138,12 @@ public class DataController {
 			if(fileManager.checkFlat()) {
 				annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
 			} else {
-				annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getName() + ".xml"));
+				annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getXmlName().split("\\.")[0]));
 			}
 			if (annotationsPath.exists()) {
 				pageAnnotations.add(PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath));
 			} else {
-				pageAnnotations.add( new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
+				pageAnnotations.add( new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
 						page.getId(), page.getOrientation(), false));
 			}
 		}

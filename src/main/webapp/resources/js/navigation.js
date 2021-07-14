@@ -141,7 +141,7 @@ $(document).ready(function () {
 		$('#pageSection').show();
 	}
 	let splitName = function (str) {
-		return str.split('\\').pop().split('/').pop();
+		return str.split('\\').pop().split('/').pop().split('.')[0];
 	}
 	$('#reloadLastProject').click(function () {
 		_communicator.getOldRequestData().done((oldRequest) => {

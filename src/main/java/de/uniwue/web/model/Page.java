@@ -21,6 +21,8 @@ public class Page {
 	 */
 	@JsonProperty("name")
 	private String name;
+	@JsonProperty("xmlName")
+	private String xmlName;
 	/**
 	 * (Multiple) image(s) representing this page
 	 */
@@ -34,19 +36,26 @@ public class Page {
 	private double orientation;
 
 	@JsonCreator
-	public Page(@JsonProperty("id") int id, @JsonProperty("name") String name, @JsonProperty("images") List<String> images,
-			@JsonProperty("width") int width, @JsonProperty("height") int height, @JsonProperty("orientation") double orientation) {
+	public Page(@JsonProperty("id") int id,
+				@JsonProperty("name") String name,
+				@JsonProperty("xmlName") String xmlName,
+				@JsonProperty("images") List<String> images,
+				@JsonProperty("width") int width,
+				@JsonProperty("height") int height,
+				@JsonProperty("orientation") double orientation) {
 		this.id = id;
 		this.name = name;
+		this.xmlName = xmlName;
 		this.images = images;
 		this.height = height;
 		this.width = width;
 		this.orientation = orientation;
 	}
 
-	public Page(int id, String name, List<String> images, int width, int height){
+	public Page(int id, String name, String xmlName, List<String> images, int width, int height){
 		this.id = id;
 		this.name = name;
+		this.xmlName = xmlName;
 		this.images = images;
 		this.width = width;
 		this.height = height;
@@ -71,6 +80,10 @@ public class Page {
 
 	public String getName() {
 		return name;
+	}
+
+	public String getXmlName() {
+		return xmlName;
 	}
 
 	public double getOrientation() { return orientation;}

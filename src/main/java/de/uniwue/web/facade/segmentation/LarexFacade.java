@@ -46,7 +46,7 @@ public class LarexFacade {
 		if(fileManager.checkFlat()) {
 			page = database.getBook(settings.getBookID()).getPage(pageNr);
 		} else {
-			page = database.getBook(fileManager.getNonFlatBookName(), fileManager.getNonFlatBookId(), fileManager.getLocalImageMap()).getPage(pageNr);
+			page = database.getBook(fileManager.getNonFlatBookName(), fileManager.getNonFlatBookId(), fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()).getPage(pageNr);
 		}
 		PageAnnotations segmentation = null;
 		Collection<RegionSegment> segmentationResult = null;
@@ -56,8 +56,12 @@ public class LarexFacade {
 		} else {
 			try{
 				List<String> imagesWithExt = new LinkedList<>();
+				//TODO: remove hardcoding for extension matching everytime its used
+				String extensionMatchString = "(png|jpg|jpeg|tif|tiff)";
 				for(Map.Entry<String ,String> entry : fileManager.getLocalImageMap().entrySet()) {
 					if(entry.getKey().matches("^" + page.getName() + "\\..*")) {
+						imagesWithExt.add(entry.getValue());
+					} else if(entry.getValue().matches(".*" + page.getName() + "\\." + extensionMatchString)){
 						imagesWithExt.add(entry.getValue());
 					}
 				}
@@ -85,10 +89,10 @@ public class LarexFacade {
 
 		page.setOrientation(settings.getParameters().get("imageOrientation").doubleValue());
 		if (segmentationResult != null) {
-			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
+			segmentation = new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
 					page.getId(), new MetaData(), segmentationResult, SegmentationStatus.SUCCESS, page.getOrientation(), true);
 		} else {
-			segmentation = new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), new MetaData(),
+			segmentation = new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(), new MetaData(),
 					new HashMap<String, Region>(), SegmentationStatus.MISSINGFILE, new ArrayList<String>(), page.getOrientation(), true);
 		}
 		return segmentation;
