@@ -181,6 +181,7 @@ public class LibraryController {
 		Map<String, List<String>> fileMap = new TreeMap<>();
 		File directFolder = new File(baseFolder);
 		File[] files = directFolder.listFiles();
+		Arrays.sort(files);
 
 		for (File file : files) {
 			List<String> images = new ArrayList<>();
@@ -194,9 +195,6 @@ public class LibraryController {
 			if(!images.isEmpty()) {
 				if(fileMap.containsKey(currentFileName)) {
 					images.addAll(fileMap.get(currentFileName));
-					fileMap.put(currentFileName,images);
-				} else {
-					fileMap.put(currentFileName,images);
 				}
 				images.sort(Comparator.naturalOrder());
 				fileMap.put(currentFileName,images);
