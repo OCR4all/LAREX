@@ -110,7 +110,7 @@ public class LibraryController {
 		}
 		try {
 			switch (booktype) {
-				case "legacy":
+				case "flat":
 					return getFileMap(baseFolder.getAbsolutePath(), Constants.IMG_EXTENSIONS);
 				default:
 					System.out.println("Attempting to open empty directory");

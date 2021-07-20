@@ -152,7 +152,7 @@ public class FileDatabase {
 		if( metsFiles.length != 0) {
 			return "mets";
 		} else if(imgFiles.length != 0) {
-			return "legacy";
+			return "flat";
 		} else {
 			//try ./data/mets.xml
 			File dataFolder = new File(bookfolder.getAbsolutePath() + File.separator + "data");

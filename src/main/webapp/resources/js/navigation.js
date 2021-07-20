@@ -51,7 +51,7 @@ $(document).ready(function () {
 					}
 				}
 			});
-		} else if(type === "legacy") {
+		} else if(type === "flat") {
 			$('#fileGrp-div').hide();
 			_communicator.getLibraryBookPages(book_id,path,type).done((data) => {
 				let pageList = new Array();
