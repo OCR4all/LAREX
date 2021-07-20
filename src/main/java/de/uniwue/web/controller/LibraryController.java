@@ -76,6 +76,7 @@ public class LibraryController {
 			fileManager.setSaveDir(saveDir);
 		}
 		File bookPath = new File(fileManager.getLocalBooksPath());
+		// TODO: Either delete or create if clause
 		bookPath.isDirectory();
 		FileDatabase database = new FileDatabase(bookPath, config.getListSetting("imagefilter"), false);
 		Library lib = new Library(database);
