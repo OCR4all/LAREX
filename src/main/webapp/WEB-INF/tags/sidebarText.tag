@@ -42,7 +42,7 @@
 	</div>
 	<ul class="collapsible">
 		<li>
-			<div class="collapsible-header"><i class="material-icons">settings</i>Settings</div>
+			<div class="collapsible-header active"><i class="material-icons">settings</i>Settings</div>
 			<div class="collapsible-body">
 				<div id="textMode-options">
 					<div class="row textModeCheckboxRow">
