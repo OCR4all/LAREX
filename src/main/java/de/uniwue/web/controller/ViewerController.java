@@ -31,7 +31,7 @@ import de.uniwue.web.model.Book;
 /**
  * Communication Controller to handle requests for the main viewer/editor.
  * Handles requests about displaying book scans and segmentations.
- * 
+ *
  */
 @Controller
 @Scope("request")
@@ -117,7 +117,7 @@ public class ViewerController {
 
 		return "editor";
 	}
-	
+
 	/**
 	 * Open the viewer with a direct request if direct request is enabled using hierarchical directory structures
 	 * and display the contents of a selected book.
@@ -214,7 +214,7 @@ public class ViewerController {
 	 * Open the viewer from library navigation.
 	 */
 	@SuppressWarnings("unchecked")
-	@RequestMapping(value = "/directLibrary", method = RequestMethod.GET)
+	@RequestMapping(value = "/directLibrary", method = RequestMethod.POST)
 	public String direct(Model model,
 						 @RequestParam(value = "imageMap", required = true) String imagemapString,
 						 @RequestParam(value = "customFlag", required = true) String customFlag,
