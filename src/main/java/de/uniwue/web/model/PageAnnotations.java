@@ -178,7 +178,7 @@ public class PageAnnotations {
 		return orientation;
 	}
 	private static void checkNameValidity(String name) {
-		final List<String> imageExtensions = Constants.IMG_EXTENSIONS;
+		final List<String> imageExtensions = Constants.IMG_EXTENSIONS_DOTTED;
 		for (String ext : imageExtensions) {
 			if(name.toLowerCase().endsWith(ext))
 				System.err.println("[Warning] Page name '"+name+"' ends with an image extension ('"+ext+"').\n"+

@@ -47,7 +47,7 @@ public class MetsReader {
                         if(fileNode.getNodeType() == Node.ELEMENT_NODE){
                             Element fileElement = (Element) fileNode;
                             if(fileElement.getAttribute("MIMETYPE").startsWith("image")) {
-                                for(String fileExt : Constants.IMG_EXTENSIONS) {
+                                for(String fileExt : Constants.IMG_EXTENSIONS_DOTTED) {
                                     String ext = fileExt.replace(".","image/");
                                     if(fileElement.getAttribute("MIMETYPE").equals(ext)) {
                                         isImgGrp = true;
