@@ -128,13 +128,11 @@ public class FileController {
 			} else {
 				List<String> foundImages = new LinkedList<>();
 				Map<String, List<String>> localImageMap = fileManager.getLocalImageMap();
-				if(foundImages.size() == 0) {
-					for(List<String> imgPathList : localImageMap.values()) {
-						for(String imgPath : imgPathList) {
-							File imgFile = new File(imgPath);
-							if(imgFile.getAbsolutePath().contains(image)) {
-								foundImages.add(imgPath);
-							}
+				for(List<String> imgPathList : localImageMap.values()) {
+					for(String imgPath : imgPathList) {
+						File imgFile = new File(imgPath);
+						if(imgFile.getAbsolutePath().contains(image)) {
+							foundImages.add(imgPath);
 						}
 					}
 				}
