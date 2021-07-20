@@ -68,7 +68,7 @@ public class LibraryController {
 	public String home(Model model) throws IOException {
 		// Reset config
 		String bookFolder = config.getSetting("bookpath");
-    String saveDir = config.getSetting("savedir");
+    	String saveDir = config.getSetting("savedir");
 		if (!bookFolder.equals("")) {
 			fileManager.setLocalBooksPath(bookFolder);
 		}
