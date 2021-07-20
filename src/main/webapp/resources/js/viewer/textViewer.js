@@ -486,12 +486,34 @@ class TextViewer {
 	}
 	/**
 	 * prettify a diff object for display
-	 * NOTE: Currently uses standard dmp prettifier
+	 * NOTE: Currently uses modified standard dmp prettifier
 	 *
 	 * @param {*} diff
 	 */
 	_prettifyDiff(diff){
-		return this._dmp.diff_prettyHtml(diff);
+		let html = [];
+		let pattern_amp = /&/g;
+		let pattern_lt = /</g;
+		let pattern_gt = />/g;
+		let pattern_para = /\n/g;
+		for (let x = 0; x < diff.length; x++) {
+			let op = diff[x][0];    // Operation (insert, delete, equal)
+			let data = diff[x][1];  // Text of change.
+			let text = data.replace(pattern_amp, '&amp;').replace(pattern_lt, '&lt;')
+				.replace(pattern_gt, '&gt;').replace(pattern_para, '&para;<br>');
+			switch (op) {
+				case DIFF_INSERT:
+					html[x] = '<span style="background:#58e562;">' + text + '</span>';
+					break;
+				case DIFF_DELETE:
+					html[x] = '<span style="background:#e56258;">' + text + '</span>';
+					break;
+				case DIFF_EQUAL:
+					html[x] = '<span>' + text + '</span>';
+					break;
+			}
+		}
+		return html.join('');
 	}
 	/**
 	 * Checks whether differences between gt and pred should get displayed
