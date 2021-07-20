@@ -1,7 +1,6 @@
 package de.uniwue.web.io;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
