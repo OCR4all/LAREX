@@ -9,6 +9,7 @@ import java.util.*;
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.web.communication.DirectRequest;
 import de.uniwue.web.io.MetsReader;
@@ -96,7 +97,7 @@ public class ViewerController {
 	@RequestMapping(value = "/directviewer", method = RequestMethod.POST)
 	public String directViewer(Model model, @RequestParam(value = "book", required = true) Integer bookID
 								, @RequestParam(value = "bookname", required = false) String bookName
-							    , @RequestParam(value = "imagemap", required = true) Map<String, String> imageMap
+							    , @RequestParam(value = "imagemap", required = true)  Map<String, List<String>>  imageMap
 								, @RequestParam(value = "imagemap", required = true) Map<String, String> xmlMap) {
 		if (bookID == null || imageMap.isEmpty()) {
 			return "redirect:/404";
@@ -174,7 +175,7 @@ public class ViewerController {
 			return "redirect:/error/403";
 		}
 		ObjectMapper mapper = new ObjectMapper();
-		Map<String, String> imagemap;
+		Map<String, List<String>>  imagemap;
 		Map<String, String> xmlmap;
 
 		try {
@@ -212,39 +213,58 @@ public class ViewerController {
 	/**
 	 * Open the viewer from library navigation.
 	 */
+	@SuppressWarnings("unchecked")
 	@RequestMapping(value = "/directLibrary", method = RequestMethod.GET)
 	public String direct(Model model,
 						 @RequestParam(value = "imageMap", required = true) String imagemapString,
 						 @RequestParam(value = "customFlag", required = true) String customFlag,
 						 @RequestParam(value = "customFolder", required = false) String customFolder) throws IOException {
 		ObjectMapper mapper = new ObjectMapper();
-		Map<String, String> imagemap;
+		mapper.configure( JsonParser.Feature.ALLOW_COMMENTS, true );
+		Map<String, List<String>> imagemap = new HashMap<>();
 		Map<String, String> xmlmap = new LinkedHashMap<>();
 		DirectRequest directRequest = new DirectRequest(imagemapString, customFlag, customFolder);
 
 		fileManager.setDirectRequest(directRequest);
 
 		try {
-			imagemap = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()).replaceAll("‡","\"").replaceAll("…",":"), HashMap.class);
+			/*
+				List of paths is mapped as an object, then cast to String and
+				finally split with path separators to create desired List
+			 */
+			Map<String, Object> map = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()), HashMap.class);
+			for(Map.Entry<String, Object> entry : map.entrySet()) {
+				String listString = (String) entry.getValue();
+				List<String> pathList = Arrays.asList(listString.split(","));
+				imagemap.put(entry.getKey(), pathList);
+			}
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();
 			return "redirect:/error/500";
 		}
-		for(Map.Entry<String, String> entry : imagemap.entrySet()) {
+		for(Map.Entry<String, List<String>> entry : imagemap.entrySet()) {
 			String imageName = entry.getKey();
-			String imagePath = entry.getValue();
+			List<String> imagePathList = entry.getValue();
 			String xmlPath;
 			/*
 				When images are loaded from each pagexml, instead of directly from mets( or legacy),
 				the value of each imageMap.entry is a xmlPath instead of an imagePath. This value has to be changed to
 				the imagePath read from the given xmlPath.
 			 */
-			if(determineType(imagePath)) {
-				xmlPath = imagePath;
+			if(determineType(imagePathList.get(0))) {
+				xmlPath = imagePathList.get(0);
 				String parentFolder = new File(xmlPath).getParentFile().getParentFile().getAbsolutePath();
-				imagePath = parentFolder + File.separator + MetsReader.getImagePathFromPage(xmlPath);
-				entry.setValue(imagePath);
+				imagePathList = MetsReader.getImagePathFromPage(xmlPath);
+				/*
+					Correct absolute paths for images as they are not constrained to pageXML.parent
+					and described as relative to metsXml.root
+				 */
+				List<String> correctedPathList = new ArrayList<>();
+				for(String imagePath : imagePathList) {
+					correctedPathList.add(parentFolder + File.separator + imagePath);
+				}
+				entry.setValue(correctedPathList);
 				xmlmap.put(imageName.split("\\.")[0], xmlPath);
 			} else {
 				xmlPath = imageName.split("\\.")[0] + ".xml";
@@ -252,7 +272,7 @@ public class ViewerController {
 					if(!customFolder.endsWith(File.separator)) { customFolder += File.separator; }
 					xmlmap.put(imageName.split("\\.")[0],customFolder + xmlPath);
 				} else {
-					String parentFolder = new File(imagePath).getParentFile().getAbsolutePath();
+					String parentFolder = new File(imagePathList.get(0)).getParentFile().getAbsolutePath();
 					if(!parentFolder.endsWith(File.separator)) { parentFolder += File.separator; }
 					xmlmap.put(imageName.split("\\.")[0],parentFolder + xmlPath);
 				}
@@ -296,7 +316,6 @@ public class ViewerController {
 
 	/**
 	 * Determine if project was loaded from images or pagexml
-	 * @param key
 	 * @param value
 	 * @return true if pagexml type
 	 */

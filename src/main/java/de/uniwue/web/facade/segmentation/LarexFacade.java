@@ -58,11 +58,11 @@ public class LarexFacade {
 				List<String> imagesWithExt = new LinkedList<>();
 				//TODO: remove hardcoding for extension matching everytime its used
 				String extensionMatchString = "(png|jpg|jpeg|tif|tiff)";
-				for(Map.Entry<String ,String> entry : fileManager.getLocalImageMap().entrySet()) {
+				for(Map.Entry<String ,List<String>> entry : fileManager.getLocalImageMap().entrySet()) {
 					if(entry.getKey().matches("^" + page.getName() + "\\..*")) {
-						imagesWithExt.add(entry.getValue());
-					} else if(entry.getValue().matches(".*" + page.getName() + "\\." + extensionMatchString)){
-						imagesWithExt.add(entry.getValue());
+						imagesWithExt.addAll(entry.getValue());
+					} else if(entry.getValue().get(0).matches(".*" + page.getName() + "\\." + extensionMatchString)){
+						imagesWithExt.addAll(entry.getValue());
 					}
 				}
 				imagePath = imagesWithExt.get(0);

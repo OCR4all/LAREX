@@ -212,7 +212,7 @@ public class FileDatabase {
 	 * @param imageMap map of images from book
 	 * @return Loaded book
 	 */
-	public Book getBook(String bookName, Integer bookID, Map<String, String> imageMap, Map<String, String> xmlMap) {
+	public Book getBook(String bookName, Integer bookID,  Map<String, List<String>>  imageMap, Map<String, String> xmlMap) {
 		return readBook(bookName,imageMap, xmlMap, bookID);
 	}
 	
@@ -256,7 +256,7 @@ public class FileDatabase {
 	 * @return Collection of all book pages in the selected book with a segmentation
 	 *         file
 	 */
-	public Collection<Integer> getPagesWithAnnotations(String bookName, Integer bookID, Map<String, String> imageMap, Map<String, String> xmlMap) {
+	public Collection<Integer> getPagesWithAnnotations(String bookName, Integer bookID,  Map<String, List<String>>  imageMap, Map<String, String> xmlMap) {
 		Collection<Integer> segmentedIds = new HashSet<>();
 		try {
 			Book book = getBook(bookName,bookID,imageMap, xmlMap);
@@ -345,68 +345,19 @@ public class FileDatabase {
 	 * @param bookID   Identifier that is to be used for the loaded book
 	 * @return
 	 */
-	private Book readBook(String bookName, Map<String, String> imagemap, Map<String, String> xmlMap, int bookID) {
+	private Book readBook(String bookName,  Map<String, List<String>>  imagemap, Map<String, String> xmlMap, int bookID) {
 		try{
 			LinkedList<Page> pages = new LinkedList<Page>();
 			int pageCounter = 0;
-
-			if(imageSubFilter.isEmpty()) {
-				// Interpret every image as its own page
-				for(Entry<String, String> imgEntry: imagemap.entrySet()) {
-					File imageFile = new File(imgEntry.getValue());
-					Size imageSize = ImageLoader.readDimensions(imageFile);
-					String name = removeAllExtensions(imageFile.getName());
-					String xmlName = (new File(xmlMap.get(imgEntry.getKey()))).getName();
-					if(isSupportedImage(imageFile)) {
-						pages.add(new Page(pageCounter++, name, xmlName, Collections.singletonList(imgEntry.getValue()), (int) imageSize.width, (int) imageSize.height));
-					}
-				}
-			} else {
-				// Combine images with the same base name and different (sub)extensions
-				List<File> imageFileList = new ArrayList<File>();
-				for( Entry<String, String> imgEntry : imagemap.entrySet()) {
-					imageFileList.add(new File(imgEntry.getValue()));
-				}
-				File[] fileArray = imageFileList.toArray(new File[imageFileList.size()]);
-				Map<String, List<File>> imageFiles = Arrays.stream(Objects.requireNonNull(fileArray))
-						.filter(f -> isSupportedImage(f) && (imageSubFilter.isEmpty() || passesSubFilter(f.getName())))
-						.collect(Collectors.groupingBy(f -> removeAllExtensions(f.getName())));
-
-				ArrayList<String> sortedPages = new ArrayList<>(imageFiles.keySet());
-				sortedPages.sort(String::compareTo);
-				//sort imagemap by value
-				Map<String, String> sortedMap = imagemap.entrySet().stream()
-						.sorted(Map.Entry.comparingByValue(String::compareTo))
-						.filter(f -> isSupportedImage(new File(f.getValue())) && (imageSubFilter.isEmpty() || passesSubFilter(new File(f.getValue()).getName())))
-						.collect(Collectors.toMap(
-								Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new
-						));
-				for (Entry<String, String> imageEntry : sortedMap.entrySet()) {
-					String pageName = removeAllExtensions(imageEntry.getValue());
-					Map<String, List<File>> groupedImages = imageFiles.get(pageName).stream()
-							.collect(Collectors.groupingBy(f -> extractSubExtension(f.getName())));
-					List<String> images = new ArrayList<>();
-
-					Size imageSize = null;
-					for(String subExtension: imageSubFilter) {
-						List<File> subImages = !subExtension.equals(".") ? groupedImages.get(subExtension)
-								: groupedImages.get("");
-
-						if(subImages != null) {
-							for(File subImage: subImages) {
-								if(imageSize == null) {
-									imageSize = ImageLoader.readDimensions(subImage);
-								}
-								images.add(subImage.getParentFile().getName() + File.separator + subImage.getName());
-							}
-						}
-					}
-					String xmlName = new File(xmlMap.get(imageEntry.getKey())).getName();
-					assert imageSize != null;
-					pages.add(new Page(pageCounter++, pageName, xmlName, images, (int) imageSize.width, (int) imageSize.height));
+			for(Entry<String, List<String>> imgEntry: imagemap.entrySet()) {
+				File imageFile = new File(imgEntry.getValue().get(0));
+				Size imageSize = ImageLoader.readDimensions(imageFile);
+				String name = removeAllExtensions(imageFile.getName());
+				String xmlName = (new File(xmlMap.get(imgEntry.getKey()))).getName();
+				if(isSupportedImage(imageFile)) {
+					pages.add(new Page(pageCounter++, name, xmlName, imgEntry.getValue(), (int) imageSize.width, (int) imageSize.height));
 				}
 			}
-
 			return new Book(bookID, bookName, pages);
 		} catch (Exception e) {
 			e.printStackTrace();

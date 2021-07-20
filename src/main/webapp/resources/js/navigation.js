@@ -56,11 +56,15 @@ $(document).ready(function () {
 			_communicator.getLibraryBookPages(book_id,path,type).done((data) => {
 				let pageList = new Array();
 				for( let key of Object.keys(data)) {
-					let path = data[key];
-					pageList.push(path);
+					let pathList = data[key];
+					pageList.push(pathList);
 				}
-				showPages(pageList);
-				$('#openBookModal').modal('open');
+				if(pageList.length > 0) {
+					showPages(pageList);
+					$('#openBookModal').modal('open');
+				} else {
+					$('#modal_emptyProject').modal('open');
+				}
 			});
 		} else {
 			console.log("No viable files found in directory");
@@ -119,19 +123,27 @@ $(document).ready(function () {
 		while(node.firstChild) {
 			node.removeChild(node.lastChild);
 		}
+		for(let pathList of pageList) {
+			let pageName = splitName(pathList[0]);
 
-		for(let page of pageList) {
-			let pageName = splitName(page);
+			// build label string from various pageSubExtensions
+			let pageLabel = splitNameWithExt(pathList[0]);
+			if(pathList.length > 1) {
+				for(let i = 1; i < pathList.length; i++) {
+					pageLabel += " | ";
+					pageLabel += splitNameWithExt(pathList[i]);
+				}
+			}
 			let pageItem = document.createElement('li');
 			let pageCheckbox = document.createElement('input');
 			pageCheckbox.setAttribute('type',"checkbox");
 			pageCheckbox.setAttribute('checked',"checked");
 			pageCheckbox.setAttribute('id',pageName);
-			pageCheckbox.setAttribute('data-page',page);
+			pageCheckbox.setAttribute('data-page',pathList);
 			pageCheckbox.setAttribute('class',"libraryPage");
 			let pageCheckboxLabel = document.createElement('label');
 			pageCheckboxLabel.setAttribute('for',pageName);
-			pageCheckboxLabel.appendChild(document.createTextNode(pageName));
+			pageCheckboxLabel.appendChild(document.createTextNode(pageLabel));
 
 			pageItem.appendChild(pageCheckbox);
 			pageItem.appendChild(pageCheckboxLabel);
@@ -141,7 +153,10 @@ $(document).ready(function () {
 		$('#pageSection').show();
 	}
 	let splitName = function (str) {
-		return str.split('\\').pop().split('/').pop().split('.')[0];
+		return splitNameWithExt(str).split('.')[0];
+	}
+	let splitNameWithExt = function (str) {
+		return str.split('\\').pop().split('/').pop();
 	}
 	$('#reloadLastProject').click(function () {
 		_communicator.getOldRequestData().done((oldRequest) => {

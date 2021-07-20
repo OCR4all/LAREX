@@ -1,6 +1,7 @@
 package de.uniwue.web.io;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletContext;
@@ -24,7 +25,7 @@ public class FilePathManager {
 	private String booksPath;
 	private String saveDir;
 	private Map<String, String> xmlMap;
-	private Map<String, String> imageMap;
+	private Map<String, List<String>> imageMap;
 	private Boolean isFlat;
 	private String nonFlatBookName;
 	private int nonFlatBookId;
@@ -81,7 +82,7 @@ public class FilePathManager {
 	 *
 	 * @return disc path to the books folder
 	 */
-	public Map<String, String> getLocalImageMap() {
+	public Map<String, List<String>> getLocalImageMap() {
 		return imageMap;
 	}
 
@@ -145,7 +146,7 @@ public class FilePathManager {
 	 * @param xmlmap Map linking every pageID to a path for its pagexml
 	 * @param imagemap Map linking every pageID to a path for its image
 	 */
-	public void setLocalBookMap( Map<String, String> xmlmap, Map<String, String> imagemap) {
+	public void setLocalBookMap(Map<String, String> xmlmap,Map<String, List<String>> imagemap) {
 		this.xmlMap = xmlmap;
 		this.imageMap = imagemap;
 	}

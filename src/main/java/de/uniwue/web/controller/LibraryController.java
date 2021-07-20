@@ -95,7 +95,7 @@ public class LibraryController {
 	 * @throws IOException
 	 */
 	@RequestMapping(value = "library/getPageLocations", method = RequestMethod.POST, headers = "Accept=*/*")
-	public @ResponseBody Map<String, String> getPageLocations(@RequestParam(value = "bookid") int bookid, @RequestParam(value = "bookpath") String bookpath, @RequestParam(value = "booktype") String type) throws IOException {
+	public @ResponseBody Map<String, List<String>> getPageLocations(@RequestParam(value = "bookid") int bookid, @RequestParam(value = "bookpath") String bookpath, @RequestParam(value = "booktype") String type) throws IOException {
 		fileManager.init(servletContext);
 		String booktype = "";
 		try {
@@ -112,7 +112,7 @@ public class LibraryController {
 
 				case "legacy":
 					List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
-					Map<String, String> map = getFileMap(baseFolder.getAbsolutePath(), supportedImageExt);
+					Map<String, List<String>> map = getFileMap(baseFolder.getAbsolutePath(), supportedImageExt);
 					return map;
 				default:
 					System.out.println("Attempting to open empty directory");
@@ -132,7 +132,7 @@ public class LibraryController {
 	 * @throws IOException
 	 */
 	@RequestMapping(value = "library/getMetsData", method = RequestMethod.POST, headers = "Accept=*/*")
-	public @ResponseBody Map<String, List<String>> getMetsData(@RequestParam("metspath") String metsPath) throws IOException {
+	public @ResponseBody Map<String, List<List<String>>> getMetsData(@RequestParam("metspath") String metsPath) throws IOException {
 		if (!fileManager.isInit()) {
 			fileManager.init(servletContext);
 		}
@@ -161,21 +161,45 @@ public class LibraryController {
 	}
 	/**
 	 * returns each imagePath in given directory
+	 * respecting the SubExtensionFilter set in properties
 	 *
 	 * @param baseFolder path to legacy baseFolder
 	 * @param extList file extension to map
 	 * @return map containing imageName and path
 	 */
-	public Map<String, String> getFileMap(String baseFolder, List<String> extList) {
-		Map<String, String> fileMap = new LinkedHashMap<String, String>();
+	public Map<String, List<String>> getFileMap(String baseFolder, List<String> extList) {
+		//Moved imageSubFilter processing here
+		List<String> imageSubFilter = config.getListSetting("imagefilter");
+		if(!imageSubFilter.isEmpty()) {
+			List<String> extListWithSub = new ArrayList<>();
+			for(String ext : extList) {
+				for(String subExt : imageSubFilter)
+				extListWithSub.add("." + subExt + ext);
+			}
+			extList = extListWithSub;
+		}
+		Map<String, List<String>> fileMap = new TreeMap<>();
 		File directFolder = new File(baseFolder);
-		List<File> files = Arrays.stream(directFolder.listFiles()).sorted(Comparator.naturalOrder()).collect(Collectors.toList());
+		File[] files = directFolder.listFiles();
+
 		for (File file : files) {
+			List<String> images = new ArrayList<>();
+			String currentFileName = file.getName().split("\\.")[0];
 			for (String ext : extList) {
 				if(file.getName().endsWith(ext)) {
 					String path = file.getAbsolutePath();
-					fileMap.put(file.getName(), path);
+					images.add(path);
 				}
+			}
+			if(!images.isEmpty()) {
+				if(fileMap.containsKey(currentFileName)) {
+					images.addAll(fileMap.get(currentFileName));
+					fileMap.put(currentFileName,images);
+				} else {
+					fileMap.put(currentFileName,images);
+				}
+				images.sort(Comparator.naturalOrder());
+				fileMap.put(currentFileName,images);
 			}
 		}
 		return fileMap;

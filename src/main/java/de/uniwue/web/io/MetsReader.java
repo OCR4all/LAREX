@@ -19,9 +19,9 @@ import org.xml.sax.SAXParseException;
  */
 public class MetsReader {
 
-    public static Map<String, List<String>> getFileGroups(String metsPath, boolean useRelativePath){
-        List<String> fileList;
-        Map<String, List<String>> fileGroupMap = new LinkedHashMap<>();
+    public static Map<String, List<List<String>>> getFileGroups(String metsPath, boolean useRelativePath){
+        List<List<String>> pageList;
+        Map<String, List<List<String>>> fileGroupMap = new LinkedHashMap<>();
         File metsFile = new File(metsPath);
         try {
             Document mets = parseXML(metsPath);
@@ -37,12 +37,13 @@ public class MetsReader {
             for(int i = 0; i < fileSector.getLength(); i++) {
                 Boolean isImgGrp = false;
                 if(fileSector.item(i).getNodeType() == Node.ELEMENT_NODE){
-                    fileList = new ArrayList<>();
+                    pageList = new ArrayList<>();
                     Element fileGrp = (Element) fileSector.item(i);
                     String fileGrpName = fileGrp.getAttribute("USE");
                     NodeList fileGrpChilds = fileGrp.getChildNodes();
                     for(int j = 0; j < fileGrpChilds.getLength(); j++) {
                         Node fileNode = fileGrpChilds.item(j);
+                        List<String> fileList = new ArrayList<>();
                         if(fileNode.getNodeType() == Node.ELEMENT_NODE){
                             Element fileElement = (Element) fileNode;
                             if(fileElement.getAttribute("MIMETYPE").startsWith("image")) {
@@ -77,10 +78,10 @@ public class MetsReader {
                                     }
                                 }
                             }
+                            pageList.add(fileList);
                         }
                     }
-                    fileList.sort(Comparator.naturalOrder());
-                    fileGroupMap.put(fileGrpName,fileList);
+                    fileGroupMap.put(fileGrpName,pageList);
                 }
             }
         } catch (Exception e) {
@@ -101,27 +102,29 @@ public class MetsReader {
         return doc;
     }
 
-    public static String getImagePathFromPage(String pageXmlPath) {
+    public static List<String> getImagePathFromPage(String pageXmlPath) {
         try {
             Document pageXml = parseXML(pageXmlPath);
             Element rootElement = pageXml.getDocumentElement();
             NodeList nodeList = rootElement.getChildNodes();
             NodeList pageNode = null;
+            Element pageElement = null;
             for(int i = 0; i < nodeList.getLength() ;i++) {
                 if (nodeList.item(i).getNodeName().contains("Page") || nodeList.item(i).getNodeName().equals("Page")) {
                     pageNode = nodeList.item(i).getChildNodes();
+                    pageElement = (Element) nodeList.item(i);
                 }
             }
             if(pageNode == null) { throw new NoSuchElementException("No page element found."); }
-            String imagePath = null;
-            //TODO: enable using original and all alternative images
+            List<String> imagePathList = new ArrayList<>();
+            imagePathList.add(pageElement.getAttribute("imageFilename"));
             for(int i = 0; i < pageNode.getLength() ;i++) {
                 if (pageNode.item(i).getNodeName().contains("AlternativeImage") && pageNode.item(i).getNodeType() == Node.ELEMENT_NODE) {
                     Element elem = (Element) pageNode.item(i);
-                    imagePath = elem.getAttribute("filename");
+                    imagePathList.add(elem.getAttribute("filename"));
                 }
             }
-            return imagePath;
+            return imagePathList;
         } catch (Exception e) {
             e.printStackTrace();
             return null;

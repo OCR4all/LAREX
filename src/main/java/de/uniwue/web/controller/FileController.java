@@ -126,20 +126,15 @@ public class FileController {
 					throw new IOException("File does not exist");
 				imageFile = matchingFiles[0];
 			} else {
-				List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
 				List<String> foundImages = new LinkedList<>();
-				Map<String, String> localImageMap = fileManager.getLocalImageMap();
-				for ( String ext: supportedImageExt) {
-					String imgWithExt = new File(image).getName() + ext;
-					if(localImageMap.containsKey(imgWithExt)) {
-						foundImages.add(localImageMap.get(imgWithExt));
-					}
-				}
+				Map<String, List<String>> localImageMap = fileManager.getLocalImageMap();
 				if(foundImages.size() == 0) {
-					for(String imgPath : localImageMap.values()) {
-						File imgFile = new File(imgPath);
-						if(imgFile.getAbsolutePath().contains(image)) {
-							foundImages.add(imgPath);
+					for(List<String> imgPathList : localImageMap.values()) {
+						for(String imgPath : imgPathList) {
+							File imgFile = new File(imgPath);
+							if(imgFile.getAbsolutePath().contains(image)) {
+								foundImages.add(imgPath);
+							}
 						}
 					}
 				}
