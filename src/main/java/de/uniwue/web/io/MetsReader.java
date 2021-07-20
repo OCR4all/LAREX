@@ -8,6 +8,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import de.uniwue.web.config.Constants;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -47,8 +48,7 @@ public class MetsReader {
                         if(fileNode.getNodeType() == Node.ELEMENT_NODE){
                             Element fileElement = (Element) fileNode;
                             if(fileElement.getAttribute("MIMETYPE").startsWith("image")) {
-                                List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
-                                for(String fileExt : supportedImageExt) {
+                                for(String fileExt : Constants.IMG_EXTENSIONS) {
                                     String ext = fileExt.replace(".","image/");
                                     if(fileElement.getAttribute("MIMETYPE").equals(ext)) {
                                         isImgGrp = true;

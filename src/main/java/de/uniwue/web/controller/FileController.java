@@ -19,6 +19,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import de.uniwue.web.config.Constants;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.Size;
@@ -115,7 +116,7 @@ public class FileController {
 							final int extStart = name.lastIndexOf(".");
 							if (extStart > 0 && name.substring(0, extStart).equals(imageName)) {
 								final String extension = name.substring(extStart + 1);
-								return Arrays.asList("png", "jpg", "jpeg", "tif", "tiff").contains(extension);
+								return Constants.IMG_EXTENSIONS.contains(extension);
 							} else {
 								return false;
 							}

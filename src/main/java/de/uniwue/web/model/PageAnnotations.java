@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import de.uniwue.algorithm.geometry.regions.RegionSegment;
 import de.uniwue.web.communication.SegmentationStatus;
+import de.uniwue.web.config.Constants;
 
 /**
  * Segmentation result of a specific page. Contains a pageNr and the resulting
@@ -177,7 +178,7 @@ public class PageAnnotations {
 		return orientation;
 	}
 	private static void checkNameValidity(String name) {
-		final List<String> imageExtensions = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
+		final List<String> imageExtensions = Constants.IMG_EXTENSIONS;
 		for (String ext : imageExtensions) {
 			if(name.toLowerCase().endsWith(ext))
 				System.err.println("[Warning] Page name '"+name+"' ends with an image extension ('"+ext+"').\n"+

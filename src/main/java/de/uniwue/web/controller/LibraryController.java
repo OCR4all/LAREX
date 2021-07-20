@@ -9,6 +9,7 @@ import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
 
 import de.uniwue.web.communication.DirectRequest;
+import de.uniwue.web.config.Constants;
 import de.uniwue.web.io.MetsReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -109,11 +110,8 @@ public class LibraryController {
 		}
 		try {
 			switch (booktype) {
-
 				case "legacy":
-					List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
-					Map<String, List<String>> map = getFileMap(baseFolder.getAbsolutePath(), supportedImageExt);
-					return map;
+					return getFileMap(baseFolder.getAbsolutePath(), Constants.IMG_EXTENSIONS);
 				default:
 					System.out.println("Attempting to open empty directory");
 					break;
