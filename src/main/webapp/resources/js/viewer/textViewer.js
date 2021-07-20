@@ -13,6 +13,7 @@ class TextViewer {
 		this._baseImageSize = 35;
 		this._baseFontSize = 20;
 		this._dmp = new diff_match_patch();
+		$("#displayDiff").prop('checked', true);
 	}
 
 	/**
