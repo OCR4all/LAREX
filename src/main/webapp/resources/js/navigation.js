@@ -107,7 +107,6 @@ $(document).ready(function () {
 			data: { "imageMap" : JSON.stringify(imageMap), "customFlag" : _customXmlFolder, "customFolder" : JSON.stringify(customFolder)},
 			async : false,
 			target : '_self',
-			processData: false,
 			success : function(data) {
 				console.log("Direct request successful!")
 				let win = window.open("text/html", "_self");
@@ -169,7 +168,6 @@ $(document).ready(function () {
 					data: { "imageMap" : oldRequest.imagemapString, "customFlag" : oldRequest.customFlag, "customFolder" : oldRequest.customFolder},
 					async : false,
 					target : '_self',
-					processData: false,
 					success : function(data) {
 						console.log("Direct request successful!")
 						let win = window.open("", "_self");
