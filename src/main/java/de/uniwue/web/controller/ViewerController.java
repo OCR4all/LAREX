@@ -221,7 +221,7 @@ public class ViewerController {
 						 @RequestParam(value = "customFolder", required = false) String customFolder) throws IOException {
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.configure( JsonParser.Feature.ALLOW_COMMENTS, true );
-		Map<String, List<String>> imagemap = new HashMap<>();
+		Map<String, List<String>> imagemap = new TreeMap<>();
 		Map<String, String> xmlmap = new LinkedHashMap<>();
 		DirectRequest directRequest = new DirectRequest(imagemapString, customFlag, customFolder);
 
@@ -232,7 +232,7 @@ public class ViewerController {
 				List of paths is mapped as an object, then cast to String and
 				finally split with path separators to create desired List
 			 */
-			Map<String, Object> map = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()), HashMap.class);
+			Map<String, Object> map = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()), TreeMap.class);
 			for(Map.Entry<String, Object> entry : map.entrySet()) {
 				String listString = (String) entry.getValue();
 				List<String> pathList = Arrays.asList(listString.split(","));
