@@ -749,7 +749,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			_segmentation[_currentPage] = this.unrotateSegments(_segmentation[_currentPage]);
 		}
 		_gui.setExportingInProgress(true);
-
 		_communicator.exportSegmentation(_segmentation[_page], _book.id, _gui.getPageXMLVersion()).done((data) => {
 			// Set export finished
 			_savedPages.push(_page);
@@ -767,7 +766,6 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				document.body.appendChild(a);
 				a.click();
 			}
-
 			//Update setting parameters
 			_communicator.getPageAnnotations(_book.id, _currentPage).done((result) => {
 				if(!result){
@@ -775,7 +773,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					this.displayPage(_currentPage, this._imageVersion, true);
 				}else{
 					// TODO: The display shouldn't be completely reset on saving. The background image and the current panning zoom should be kept.
-					_segmentation[_currentPage] = this.rotateAnnotations(_segmentation[_currentPage]);
+					_segmentation[_currentPage] = this.rotateAnnotations(result);
 					this.displayPage(_currentPage, this._imageVersion, false);
 				}
 
