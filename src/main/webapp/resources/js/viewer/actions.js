@@ -162,9 +162,11 @@ function ActionChangeTypeSegment(id, newType, viewer, textViewer, controller, se
 
 	let actions = []
 	if(controller.isTextRegion(_oldType) && !controller.isTextRegion(newType)){
-		let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
-		for(let textline of textlines){
-			actions.push(new ActionRemoveTextLine(textline, viewer, textViewer, segmentation, page, controller, selector, true))
+		if(_segment.textlines){
+			let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
+			for(let textline of textlines){
+				actions.push(new ActionRemoveTextLine(textline, viewer, textViewer, segmentation, page, controller, selector, true))
+			}
 		}
 	}
 	let _actionTextLineRemoval = new ActionMultiple(actions);
