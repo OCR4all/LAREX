@@ -76,8 +76,11 @@ public class LibraryController {
 			fileManager.setSaveDir(saveDir);
 		}
 		File bookPath = new File(fileManager.getLocalBooksPath());
-		// TODO: Either delete or create if clause
-		bookPath.isDirectory();
+		if (!bookPath.isDirectory()) {
+			System.err.println("ERROR:\tSpecified bookpath is not a directory");
+			System.err.println("\tPlease set a valid bookpath in larex.properties");
+			return "redirect:/500";
+		}
 		FileDatabase database = new FileDatabase(bookPath, config.getListSetting("imagefilter"), false);
 		Library lib = new Library(database);
 
