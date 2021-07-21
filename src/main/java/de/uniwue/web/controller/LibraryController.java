@@ -174,8 +174,13 @@ public class LibraryController {
 		if(!imageSubFilter.isEmpty()) {
 			List<String> extListWithSub = new ArrayList<>();
 			for(String ext : extList) {
-				for(String subExt : imageSubFilter)
-				extListWithSub.add("." + subExt + ext);
+				for(String subExt : imageSubFilter) {
+					if(subExt.equals(".")) {
+						extListWithSub.add(ext);
+					} else {
+						extListWithSub.add("." + subExt + ext);
+					}
+				}
 			}
 			extList = extListWithSub;
 		}
@@ -188,7 +193,9 @@ public class LibraryController {
 			List<String> images = new ArrayList<>();
 			String currentFileName = file.getName().split("\\.")[0];
 			for (String ext : extList) {
-				if(file.getName().endsWith(ext)) {
+				if(((file.getName().split("\\.").length == 3 && ext.split("\\.").length == 3) ||
+						(file.getName().split("\\.").length == 2 && ext.split("\\.").length == 2)) &&
+						file.getName().endsWith(ext)) {
 					String path = file.getAbsolutePath();
 					images.add(path);
 				}
