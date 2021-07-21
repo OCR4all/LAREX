@@ -54,7 +54,9 @@
 						new paper.Color(0.4,0,0.55)];
 
 		let globalSettings ={
-			downloadPage:${globalSettings.getSetting("websave").equals("") ? true : globalSettings.getSetting("websave")}
+			downloadPage:${globalSettings.getSetting("websave").equals("") ? true : globalSettings.getSetting("websave")},
+			diff_insert_color:"${globalSettings.getSetting("diff_insert_color")}",
+			diff_delete_color:"${globalSettings.getSetting("diff_delete_color")}"
 		}
 
 		//specify specific colors

@@ -137,4 +137,15 @@
                    data-tooltip="Open Selected pages in Larex">Next</a>
             </div>
         </div>
+	<div id="modal_emptyProject" class="modal">
+		<div class="modal-content">
+			<h4 class="red-text">Empty Project</h4>
+			<br>
+			<p>This may be caused by too restrictive SubExtensionFilter defined in larex.properties.</p>
+			<br>
+		</div>
+		<div class="modal-footer">
+			<a href="#!" id="close" class="waves-effect waves-green btn modal-close">Close</a>
+		</div>
+	</div>
     </b:webpage>

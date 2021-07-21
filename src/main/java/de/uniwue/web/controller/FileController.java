@@ -19,6 +19,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import de.uniwue.web.config.Constants;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.Size;
@@ -115,7 +116,7 @@ public class FileController {
 							final int extStart = name.lastIndexOf(".");
 							if (extStart > 0 && name.substring(0, extStart).equals(imageName)) {
 								final String extension = name.substring(extStart + 1);
-								return Arrays.asList("png", "jpg", "jpeg", "tif", "tiff").contains(extension);
+								return Constants.IMG_EXTENSIONS.contains(extension);
 							} else {
 								return false;
 							}
@@ -126,17 +127,10 @@ public class FileController {
 					throw new IOException("File does not exist");
 				imageFile = matchingFiles[0];
 			} else {
-				List<String> supportedImageExt = Arrays.asList(".png", ".jpg", ".jpeg", ".tif", ".tiff");
 				List<String> foundImages = new LinkedList<>();
-				Map<String, String> localImageMap = fileManager.getLocalImageMap();
-				for ( String ext: supportedImageExt) {
-					String imgWithExt = new File(image).getName() + ext;
-					if(localImageMap.containsKey(imgWithExt)) {
-						foundImages.add(localImageMap.get(imgWithExt));
-					}
-				}
-				if(foundImages.size() == 0) {
-					for(String imgPath : localImageMap.values()) {
+				Map<String, List<String>> localImageMap = fileManager.getLocalImageMap();
+				for(List<String> imgPathList : localImageMap.values()) {
+					for(String imgPath : imgPathList) {
 						File imgFile = new File(imgPath);
 						if(imgFile.getAbsolutePath().contains(image)) {
 							foundImages.add(imgPath);

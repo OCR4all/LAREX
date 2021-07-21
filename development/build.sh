@@ -28,7 +28,7 @@ cp ../target/Larex.war .
 
 ## Stop and delete old container (if exists)
 OLD="$(docker ps --all --quiet --filter=name="$DOCKER_NAME")"
-if [[ -n "$OLD" ]]; then
+if [ -n "$OLD" ]; then
   docker stop ${OLD} && docker rm ${OLD}
 fi
 

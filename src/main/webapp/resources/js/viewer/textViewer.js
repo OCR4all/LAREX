@@ -13,6 +13,7 @@ class TextViewer {
 		this._baseImageSize = 35;
 		this._baseFontSize = 20;
 		this._dmp = new diff_match_patch();
+		$("#displayDiff").prop('checked', true);
 	}
 
 	/**
@@ -486,12 +487,48 @@ class TextViewer {
 	}
 	/**
 	 * prettify a diff object for display
-	 * NOTE: Currently uses standard dmp prettifier
+	 * NOTE: Currently uses modified standard dmp prettifier
 	 *
 	 * @param {*} diff
 	 */
 	_prettifyDiff(diff){
-		return this._dmp.diff_prettyHtml(diff);
+		let html = [];
+		let insertColor = globalSettings.diff_insert_color;
+		let deleteColor = globalSettings.diff_delete_color;
+		if(insertColor == "" || !this._validColor(insertColor)) {insertColor = "#58e123";}
+		if(deleteColor == "" || !this._validColor(deleteColor)) {deleteColor = "#e56123";}
+		let pattern_amp = /&/g;
+		let pattern_lt = /</g;
+		let pattern_gt = />/g;
+		let pattern_para = /\n/g;
+		for (let x = 0; x < diff.length; x++) {
+			let op = diff[x][0];    // Operation (insert, delete, equal)
+			let data = diff[x][1];  // Text of change.
+			let text = data.replace(pattern_amp, '&amp;').replace(pattern_lt, '&lt;')
+				.replace(pattern_gt, '&gt;').replace(pattern_para, '&para;<br>');
+			switch (op) {
+				case DIFF_INSERT:
+					html[x] = '<span style="background:' + insertColor + ';">' + text + '</span>';
+					break;
+				case DIFF_DELETE:
+					html[x] = '<span style="background:' + deleteColor + ';">' + text + '</span>';
+					break;
+				case DIFF_EQUAL:
+					html[x] = '<span>' + text + '</span>';
+					break;
+			}
+		}
+		return html.join('');
+	}
+	/**
+	 * Checks if color is valid css color representation.
+	 * This works for ALL color types not just hex values. It also does not append unnecessary elements to the DOM tree.
+	 */
+	_validColor(color){
+		if(color=="")return false;
+		let $div = $("<div>");
+		$div.css("border", "1px solid "+color);
+		return ($div.css("border-color")!="")
 	}
 	/**
 	 * Checks whether differences between gt and pred should get displayed
