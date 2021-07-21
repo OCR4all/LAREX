@@ -193,8 +193,9 @@ public class LibraryController {
 			List<String> images = new ArrayList<>();
 			String currentFileName = file.getName().split("\\.")[0];
 			for (String ext : extList) {
-				if(((file.getName().split("\\.").length == 3 && ext.split("\\.").length == 3) ||
-						(file.getName().split("\\.").length == 2 && ext.split("\\.").length == 2)) &&
+				if(	(imageSubFilter.isEmpty() ||
+						((file.getName().split("\\.").length == 3 && ext.split("\\.").length == 3) ||
+						(file.getName().split("\\.").length == 2 && ext.split("\\.").length == 2))) &&
 						file.getName().endsWith(ext)) {
 					String path = file.getAbsolutePath();
 					images.add(path);
