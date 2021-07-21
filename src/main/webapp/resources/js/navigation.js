@@ -1,8 +1,6 @@
-let _customXmlFolder = false;
-let _communicator;
-//const _communicator = new Communicator();
 $(document).ready(function () {
-	_communicator = new Communicator();
+	let _customXmlFolder = false;
+	let _communicator = new Communicator();
 	let metsMap = new Map;
 	$('.modal').modal();
 	_communicator.getDirectRequestMode().done((data) => {
