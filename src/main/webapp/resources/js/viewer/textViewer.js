@@ -493,6 +493,10 @@ class TextViewer {
 	 */
 	_prettifyDiff(diff){
 		let html = [];
+		let insertColor = globalSettings.diff_insert_color;
+		let deleteColor = globalSettings.diff_delete_color;
+		if(insertColor == "" || !this._validColor(insertColor)) {insertColor = "#58e123";}
+		if(deleteColor == "" || !this._validColor(deleteColor)) {deleteColor = "#e56123";}
 		let pattern_amp = /&/g;
 		let pattern_lt = /</g;
 		let pattern_gt = />/g;
@@ -504,10 +508,10 @@ class TextViewer {
 				.replace(pattern_gt, '&gt;').replace(pattern_para, '&para;<br>');
 			switch (op) {
 				case DIFF_INSERT:
-					html[x] = '<span style="background:#58e562;">' + text + '</span>';
+					html[x] = '<span style="background:' + insertColor + ';">' + text + '</span>';
 					break;
 				case DIFF_DELETE:
-					html[x] = '<span style="background:#e56258;">' + text + '</span>';
+					html[x] = '<span style="background:' + deleteColor + ';">' + text + '</span>';
 					break;
 				case DIFF_EQUAL:
 					html[x] = '<span>' + text + '</span>';
@@ -515,6 +519,16 @@ class TextViewer {
 			}
 		}
 		return html.join('');
+	}
+	/**
+	 * Checks if color is valid css color representation.
+	 * This works for ALL color types not just hex values. It also does not append unnecessary elements to the DOM tree.
+	 */
+	_validColor(color){
+		if(color=="")return false;
+		let $div = $("<div>");
+		$div.css("border", "1px solid "+color);
+		return ($div.css("border-color")!="")
 	}
 	/**
 	 * Checks whether differences between gt and pred should get displayed
