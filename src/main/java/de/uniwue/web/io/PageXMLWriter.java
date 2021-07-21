@@ -24,8 +24,10 @@ import org.primaresearch.dla.page.layout.PageLayout;
 import org.primaresearch.dla.page.layout.logical.ReadingOrder;
 import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.shared.RegionType;
+import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
 import org.primaresearch.dla.page.layout.physical.text.TextContent;
 import org.primaresearch.dla.page.layout.physical.text.TextObject;
+import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
 import org.primaresearch.ident.Id;
@@ -249,15 +251,27 @@ public class PageXMLWriter {
 
 				for(Map.Entry<String, de.uniwue.web.model.TextLine> _textLine : element.getTextlines().entrySet()){
 					de.uniwue.web.model.TextLine textLine = _textLine.getValue();
-					Polygon textLineCoords = textLine.getCoords().toPrimaPolygon();
-
-					if(physicalTextLines.containsKey(textLine.getId())){
+					Polygon textLineCoords = textLine.getCoords().toPrimaPolygon();if(physicalTextLines.containsKey(textLine.getId())){
 						TextLine physicalTextLine = physicalTextLines.get(textLine.getId());
 						physicalTextLine.setCoords(textLineCoords);
 						for(Entry<Integer,String> content : textLine.getText().entrySet()) {
+							boolean indexExists = false;
 							final int index = content.getKey();
 							if(index == 0 || index == 1){
-								physicalTextLine.getTextContentVariant(index).setText(textLine.getText().get(index));
+								for(int i = 0; i < physicalTextLine.getTextContentVariantCount(); i++){
+									TextContent textContent = physicalTextLine.getTextContentVariant(i);
+									int textContentIndex = Integer.parseInt(textContent.getAttributes().get("index").getValue().toString());
+
+									if(textContentIndex == index){
+										textContent.setText(textLine.getText().get(index));
+										indexExists = true;
+									}
+								}
+								if(!indexExists){
+									TextContent textContent = physicalTextLine.addTextContentVariant();
+									textContent.setText(textLine.getText().get(index));
+									textContent.getAttributes().add(new IntegerVariable("index", new IntegerValue(index)));
+								}
 							}
 						}
 					}else{
