@@ -38,7 +38,7 @@ public class Segmenter {
 	 */
 	public static Collection<RegionSegment> segment(final Mat original, Parameters parameters, double orientation) {
 		Mat rotatedMat = rotateMat(original, orientation * -1.0);
-		Imgcodecs.imwrite("/home/books/image.png", rotatedMat);
+		
 		final double scaleFactor = parameters.getScaleFactor(rotatedMat.height());
 		final Collection<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 		final ExistingGeometry existingGeometry = parameters.getExistingGeometry();
