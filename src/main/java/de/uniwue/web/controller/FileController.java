@@ -216,7 +216,7 @@ public class FileController {
 			saveDocument(pageXML, xmlPath, bookId);
 
 			byte[] docBytes = convertDocumentToByte(pageXML);
-			return convertByteToResponse(docBytes, request.getSegmentation().getName() + ".xml", "application/xml");
+			return convertByteToResponse(docBytes, request.getSegmentation().getXmlName(), "application/xml");
 		} catch (Exception e) {
 			e.printStackTrace();
 			return new ResponseEntity<byte[]>(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -243,7 +243,7 @@ public class FileController {
 				if(fileManager.checkFlat()) {
 					saveDocument(pageXML, xmlName, request.getBookid());
 				} else {
-					String xmlPath = fileManager.getLocalXmlMap().get(segmentations.get(i).getName() + ".xml");
+					String xmlPath = fileManager.getLocalXmlMap().get(segmentations.get(i).getXmlName().split("\\.")[0]);
 					saveDocument(pageXML, xmlPath, request.getBookid());
 				}
 			}
