@@ -3,9 +3,6 @@ $(document).ready(function () {
 	let _communicator = new Communicator();
 	let metsMap = new Map;
 	$('.modal').modal();
-	_communicator.getDirectRequestMode().done((data) => {
-		console.log("directrequest" + data);
-	});
 	let checkForOldProject = function () {
 		_communicator.getOldRequestData().done((data) => {
 			if(data) {
