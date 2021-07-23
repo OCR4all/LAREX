@@ -9,6 +9,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import de.uniwue.web.config.Constants;
 import de.uniwue.web.model.*;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
@@ -56,8 +57,7 @@ public class LarexFacade {
 		} else {
 			try{
 				List<String> imagesWithExt = new LinkedList<>();
-				//TODO: remove hardcoding for extension matching everytime its used
-				String extensionMatchString = "(png|jpg|jpeg|tif|tiff)";
+				String extensionMatchString = "(" + String.join("|", Constants.IMG_EXTENSIONS) + ")";
 				for(Map.Entry<String ,List<String>> entry : fileManager.getLocalImageMap().entrySet()) {
 					if(entry.getKey().matches("^" + page.getName() + "\\..*")) {
 						imagesWithExt.addAll(entry.getValue());
