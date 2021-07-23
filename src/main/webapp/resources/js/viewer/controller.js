@@ -376,6 +376,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
+		let pagesWithOrientation = new Map();
 		for(let page = 0; page < pages.length; page++) {
 			activesettings.fixedGeometry = {segments: {}, cuts: {}};
 			if (_fixedGeometry[page]) {
@@ -385,12 +386,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if (_fixedGeometry[page].cuts)
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
-			_segmentation[page].forEach(
-				s => _segmentation[page].segments[s].points = this.rotatePolygon(_segmentation[page].this._orientation * -1.0, _segmentation[page].segments[s].points, _segmentation[_currentPage].center)
-			)
+			for(let segment = 0; segment < _segmentation[page].segments.length; segment++) {
+				_segmentation[page].segments[segment].points = this.rotatePolygon(_segmentation[page].orientation * -1.0, _segmentation[page].segments[segment].points, _segmentation[_currentPage].center);
+			}
+			pagesWithOrientation[page] = _segmentation[page].orientation;
 		}
-		_communicator.batchSegmentPage(activesettings, pages, _book.id, _gui.getPageXMLVersion()).done((results) => {
+		_communicator.batchSegmentPage(activesettings, pagesWithOrientation, _book.id, _gui.getPageXMLVersion()).done((results) => {
 			for (const [index, result] of results.entries()) {
+				this.rotateAnnotations(result);
 				this.setChanged(pages[index]);
 				this._setPage(pages[index], result);
 			}
@@ -468,6 +471,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				for (let i = 0; i < selected_pages.toArray().length; i++) {
 					if(result[i].status !== "EMPTY"){
 						_actionController.resetActions(selected_pages.toArray()[i]);
+						result[i] = this.rotateAnnotations(result[i]);
 						this._setPage(selected_pages.toArray()[i], result[i]);
 					}
 				}

@@ -87,7 +87,7 @@ public class LarexFacade {
 		}
 		// TODO fix metadata insertion here instead of frontend (?)
 
-		page.setOrientation(settings.getParameters().get("imageOrientation").doubleValue());
+		page.setOrientation(orientation);
 		if (segmentationResult != null) {
 			segmentation = new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
 					page.getId(), new MetaData(), segmentationResult, SegmentationStatus.SUCCESS, page.getOrientation(), true);
