@@ -37,8 +37,10 @@ public class Segmenter {
 	 * @return Segmentation of the document image
 	 */
 	public static Collection<RegionSegment> segment(final Mat original, Parameters parameters, double orientation) {
-		Mat rotatedMat = rotateMat(original, orientation * -1.0);
-		
+		Mat rotatedMat = original.clone();
+		if(orientation != 0.0) {
+			rotatedMat = rotateMat(original, orientation * -1.0);
+		}
 		final double scaleFactor = parameters.getScaleFactor(rotatedMat.height());
 		final Collection<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
 		final ExistingGeometry existingGeometry = parameters.getExistingGeometry();
@@ -52,7 +54,8 @@ public class Segmenter {
 
 		//// Preprocess
 		// fill fixed segments in the image
-		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor, rotatedMat.size()))
+		Size matSize = rotatedMat.size();
+		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor, matSize))
 				.collect(Collectors.toList());
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
 		MemoryCleaner.clean(contours);
@@ -124,7 +127,8 @@ public class Segmenter {
 				}
 			}
 		}
-		results = rotateRegions(original.size(), rotatedMat.size(), results, orientation * -1.0);
+		if(orientation != 0.0) { results = rotateRegions(original.size(), rotatedMat.size(), results, orientation * -1.0); }
+
 		return results;
 	}
 
