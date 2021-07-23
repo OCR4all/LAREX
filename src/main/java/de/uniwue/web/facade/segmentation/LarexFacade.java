@@ -40,7 +40,7 @@ public class LarexFacade {
 	 * @param database database with all books and pages
 	 * @return
 	 */
-	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr,
+	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr, double orientation,
 			FilePathManager fileManager, FileDatabase database) {
 		Page page;
 		if(fileManager.checkFlat()) {
@@ -78,7 +78,7 @@ public class LarexFacade {
 
 			Parameters parameters = settings.toParameters(original.size());
 
-			Collection<RegionSegment> result = Segmenter.segment(original,parameters);
+			Collection<RegionSegment> result = Segmenter.segment(original,parameters,orientation);
 			MemoryCleaner.clean(original);
 			segmentationResult = result;
 		} else {
