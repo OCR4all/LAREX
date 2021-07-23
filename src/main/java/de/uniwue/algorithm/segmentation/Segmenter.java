@@ -240,8 +240,8 @@ public class Segmenter {
 		Mat rotationMat = Imgproc.getRotationMatrix2D(mat_center, angle, 1.0);
 
 		// sin and cos are part of the rotationMatrix
-		double sin = rotationMat.get(0,0)[0];
-		double cos = rotationMat.get(0,1)[0];
+		double sin = rotationMat.get(0,1)[0];
+		double cos = rotationMat.get(0,0)[0];
 
 		// calculate bounds of rotated mat
 		double bound_w = (height * Math.abs(sin) + width * Math.abs(cos));
