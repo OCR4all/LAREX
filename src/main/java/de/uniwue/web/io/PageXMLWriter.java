@@ -186,7 +186,7 @@ public class PageXMLWriter {
 				if(id == null)
 					continue;
 				layout.removeRegion(id);
-			}else if(type.equals("TextLine")){
+			}else if(type.equals("TextLine") || type.equals("TextLine_gt")){ // TODO: Types should be handled differently in the Frontend
 				String parentId = garbageItem.getParent();
 				Region parentRegion = (layout.getRegion(parentId) != null) ? layout.getRegion(parentId) : null;
 
@@ -258,11 +258,15 @@ public class PageXMLWriter {
 							if(index == 0 || index == 1){
 								for(int i = 0; i < physicalTextLine.getTextContentVariantCount(); i++){
 									TextContent textContent = physicalTextLine.getTextContentVariant(i);
-									int textContentIndex = Integer.parseInt(textContent.getAttributes().get("index").getValue().toString());
 
-									if(textContentIndex == index){
-										textContent.setText(textLine.getText().get(index));
-										indexExists = true;
+									VariableMap textContentAttributes = textContent.getAttributes();
+									if(textContentAttributes.get("index") != null && textContentAttributes.get("index").getValue() != null){
+										int textContentIndex = Integer.parseInt(textContentAttributes.get("index").getValue().toString());
+
+										if(textContentIndex == index){
+											textContent.setText(textLine.getText().get(index));
+											indexExists = true;
+										}
 									}
 								}
 								if(!indexExists){
