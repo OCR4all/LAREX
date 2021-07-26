@@ -13,7 +13,6 @@ import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 import de.uniwue.algorithm.data.MemoryCleaner;
@@ -38,12 +37,13 @@ public class Segmenter {
 	 */
 	public static Collection<RegionSegment> segment(final Mat original, Parameters parameters, double orientation) {
 		Mat rotatedMat = original.clone();
+		ExistingGeometry rotatedGeometry = parameters.getExistingGeometry();
 		if(orientation != 0.0) {
 			rotatedMat = rotateMat(original, orientation * -1.0);
+			rotateExistingGeometry(rotatedGeometry, original.size(), rotatedMat.size(), orientation * 1.0);
 		}
 		final double scaleFactor = parameters.getScaleFactor(rotatedMat.height());
-		final Collection<RegionSegment> fixedSegments = parameters.getExistingGeometry().getFixedRegionSegments();
-		final ExistingGeometry existingGeometry = parameters.getExistingGeometry();
+
 		//// Downscale for faster calculation
 		// Calculate downscaled binary
 		final Mat resized = ImageProcessor.resize(rotatedMat, parameters.getDesiredImageHeight());
@@ -55,7 +55,7 @@ public class Segmenter {
 		//// Preprocess
 		// fill fixed segments in the image
 		Size matSize = rotatedMat.size();
-		final List<MatOfPoint> contours = fixedSegments.stream().map(s -> s.getResizedPoints(scaleFactor, matSize))
+		final List<MatOfPoint> contours = rotatedGeometry.getFixedRegionSegments().stream().map(s -> s.getResizedPoints(scaleFactor, matSize))
 				.collect(Collectors.toList());
 		Imgproc.drawContours(binary, contours, -1, new Scalar(0), -1);
 		MemoryCleaner.clean(contours);
@@ -78,7 +78,7 @@ public class Segmenter {
 		Collection<RegionSegment> results = new ArrayList<RegionSegment>();
 		// detect images
 		Region imageRegion = regions.stream().filter((r) -> r.getType().getType().equals(RegionType.ImageRegion)).findFirst().get();
-		Collection<MatOfPoint> images = detectImages(binary, imageRegion, ignoreRegion, parameters.getImageSegType(), existingGeometry,
+		Collection<MatOfPoint> images = detectImages(binary, imageRegion, ignoreRegion, parameters.getImageSegType(), rotatedGeometry,
 				parameters.getImageRemovalDilationX(), parameters.getImageRemovalDilationY(), scaleFactor, parameters.isCombineImages());
 		for (final MatOfPoint image : images) {
 			RegionSegment result = new RegionSegment(new PAGERegionType(RegionType.ImageRegion), image);
@@ -88,7 +88,7 @@ public class Segmenter {
 		}
 
 		// detect and classify text regions
-		Collection<MatOfPoint> texts = detectText(binary, regions, existingGeometry, parameters.getTextDilationX(),
+		Collection<MatOfPoint> texts = detectText(binary, regions, rotatedGeometry, parameters.getTextDilationX(),
 				parameters.getTextDilationY(), scaleFactor, images);
 
 		// classify
@@ -106,7 +106,7 @@ public class Segmenter {
 		results = scaled;
 
 		// Add fixed segments
-		for (RegionSegment segment : fixedSegments) {
+		for (RegionSegment segment : rotatedGeometry.getFixedRegionSegments()) {
 			results.add(new RegionSegment(segment.getType(), segment.getPoints()));
 		}
 
@@ -127,7 +127,7 @@ public class Segmenter {
 				}
 			}
 		}
-		if(orientation != 0.0) { results = rotateRegions(original.size(), rotatedMat.size(), results, orientation * -1.0); }
+		if(orientation != 0.0) { results = rotateRegions(original.size(), rotatedMat.size(), results, orientation * -1.0, false); }
 
 		return results;
 	}
@@ -274,9 +274,10 @@ public class Segmenter {
 	 * @param rotatedSize	size of rotated Mat
 	 * @param regions 		RegionSegments
 	 * @param angle 		negative orientation
+	 * @param addOffset true: add offset if true, substract if false
 	 * @return
 	 */
-	private static Collection<RegionSegment> rotateRegions (Size originalSize, Size rotatedSize, Collection<RegionSegment> regions, double angle) {
+	private static Collection<RegionSegment> rotateRegions (Size originalSize, Size rotatedSize, Collection<RegionSegment> regions, double angle, boolean addOffset) {
 		double width = rotatedSize.width;
 		double height = rotatedSize.height;
 
@@ -290,6 +291,13 @@ public class Segmenter {
 		double offset_x = ((width - originalSize.width) / 2.0);
 		double offset_y = ((height - originalSize.height) / 2.0);
 
+		if(addOffset) {
+			mat_center.x = originalSize.width / 2.0;
+			mat_center.y = originalSize.height / 2.0;
+			offset_x = rotatedSize.width / 2.0 - mat_center.x;
+			offset_y = rotatedSize.height / 2.0 - mat_center.y;
+		}
+
 		Collection<RegionSegment> rotatedSegments = new ArrayList<RegionSegment>();
 		for(RegionSegment regionSegment : regions) {
 			RegionSegment segment = regionSegment;
@@ -301,12 +309,20 @@ public class Segmenter {
 			for(Point point : points.toList()) {
 				double rotatedPoint_x = ((point.x - mat_center.x) * cos) - ((point.y - mat_center.y) * sin) + mat_center.x;
 				double rotatePoint_y = ((point.x - mat_center.x) * sin) + ((point.y - mat_center.y) * cos) + mat_center.y;
-				rotatedPointsList.add(new Point(rotatedPoint_x - offset_x, rotatePoint_y - offset_y));
+				if(addOffset) {
+					rotatedPointsList.add(new Point(rotatedPoint_x + offset_x, rotatePoint_y + offset_y));
+				} else {
+					rotatedPointsList.add(new Point(rotatedPoint_x - offset_x, rotatePoint_y - offset_y));
+				}
 			}
 			rotatedPoints.fromList(rotatedPointsList);
 			regionSegment.setPoints(rotatedPoints);
 			rotatedSegments.add(regionSegment);
 		}
 		return rotatedSegments;
+	}
+
+	public static void rotateExistingGeometry(ExistingGeometry existingGeometry, Size originalSize, Size targetSize, double orientation) {
+		rotateRegions(originalSize, targetSize, existingGeometry.getFixedRegionSegments(), orientation * 1.0, true);
 	}
 }
