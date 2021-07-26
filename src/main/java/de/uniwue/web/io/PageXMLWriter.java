@@ -186,7 +186,7 @@ public class PageXMLWriter {
 				if(id == null)
 					continue;
 				layout.removeRegion(id);
-			}else if(type.equals("TextLine")){
+			}else if(type.equals("TextLine") || type.equals("TextLine_gt")){ // TODO: Types should be handled differently in the Frontend
 				String parentId = garbageItem.getParent();
 				Region parentRegion = (layout.getRegion(parentId) != null) ? layout.getRegion(parentId) : null;
 
