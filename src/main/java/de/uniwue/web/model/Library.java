@@ -1,9 +1,8 @@
 package de.uniwue.web.model;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import de.uniwue.web.io.FileDatabase;
 
@@ -19,8 +18,7 @@ public class Library {
 		this.books = database.listBooks();
 		sortedBooks = new ArrayList<>();
 		sortedBooks.addAll(books.entrySet());
-
-		sortedBooks.sort(Entry.comparingByKey());
+		sortedBooks.sort(Comparator.comparing((Entry<Integer, List<String>> e) -> e.getValue().get(0).toLowerCase(Locale.ROOT)));
 	}
 
 	/**
