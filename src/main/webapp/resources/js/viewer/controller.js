@@ -386,10 +386,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if (_fixedGeometry[page].cuts)
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
-			for(let segment = 0; segment < _segmentation[page].segments.length; segment++) {
-				_segmentation[page].segments[segment].points = this.rotatePolygon(_segmentation[page].orientation * -1.0, _segmentation[page].segments[segment].points, _segmentation[_currentPage].center);
+			if(_segmentation[page] != null) {
+				pagesWithOrientation[page] = _segmentation[page].orientation;
+			} else {
+				pagesWithOrientation[page] = 0;
 			}
-			pagesWithOrientation[page] = _segmentation[page].orientation;
 		}
 		_communicator.batchSegmentPage(activesettings, pagesWithOrientation, _book.id, _gui.getPageXMLVersion()).done((results) => {
 			for (const [index, result] of results.entries()) {
