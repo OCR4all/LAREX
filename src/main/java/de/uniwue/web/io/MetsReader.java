@@ -58,10 +58,10 @@ public class MetsReader {
                                     }
                                 }
                             }
-                            pageList.add(fileList);
+                            if(fileList.size() > 0 ) { pageList.add(fileList); }
                         }
                     }
-                    fileGroupMap.put(fileGrpName,pageList);
+                    if(pageList.size() > 0 ) { fileGroupMap.put(fileGrpName,pageList); }
                 }
             }
         } catch (Exception e) {
@@ -76,10 +76,12 @@ public class MetsReader {
             if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
                 Element fileLoc = (Element) fileElement.getChildNodes().item(h);
                 String filePath = fileLoc.getAttribute("xlink:href");
-                if(!useRelativePath) {
-                    filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
+                if(!(filePath.startsWith("http://") || filePath.startsWith("https://"))) {
+                    if(!useRelativePath) {
+                        filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
+                    }
+                    fileList.add(Arrays.asList(filePath, fileElement.getAttribute("MIMETYPE")));
                 }
-                fileList.add(Arrays.asList(filePath, fileElement.getAttribute("MIMETYPE")));
             }
         }
     }
