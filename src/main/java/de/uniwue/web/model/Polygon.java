@@ -73,7 +73,7 @@ public class Polygon {
 		return new PointList(points);
 	}
 
-	public ArrayList<java.awt.Point> toAwtPointList(){
+	public ArrayList<java.awt.Point> toAwtArrayList(){
 		ArrayList<java.awt.Point> points = new ArrayList<>();
 		for (Point point : this.getPoints()) {
 			points.add(point.toAwtPoint());
