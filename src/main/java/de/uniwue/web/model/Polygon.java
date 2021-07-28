@@ -73,6 +73,14 @@ public class Polygon {
 		return new PointList(points);
 	}
 
+	public ArrayList<java.awt.Point> toAwtPointList(){
+		ArrayList<java.awt.Point> points = new ArrayList<>();
+		for (Point point : this.getPoints()) {
+			points.add(point.toAwtPoint());
+		}
+		return points;
+	}
+
 	public org.primaresearch.maths.geometry.Polygon toPrimaPolygon(){
 		org.primaresearch.maths.geometry.Polygon polygon = new org.primaresearch.maths.geometry.Polygon();
 
