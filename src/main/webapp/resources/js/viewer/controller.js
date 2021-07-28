@@ -522,7 +522,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_settings.parameters = _gui.getParameters();
 		let segmentations = [];
 		for(let pageI = 0; pageI < pages.length; pageI++) {
-			if(_segmentation[pages[pageI]] != null) {
+			if(_segmentation[pages[pageI]] != null && !isEmpty(_segmentation[pages[pageI]].segments)) {
 				_segmentation[pages[pageI]] = this.unrotateSegments(_segmentation[pages[pageI]]);
 				segmentations.push(_segmentation[pages[pageI]]);
 			}
@@ -749,7 +749,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.exportPageXML = function (_page = _currentPage) {
-		if(_segmentation[_currentPage] != null) {
+		if(_segmentation[_currentPage] != null && !isEmpty(_segmentation[_currentPage].segments)) {
 			_segmentation[_currentPage] = this.unrotateSegments(_segmentation[_currentPage]);
 		}
 		_gui.setExportingInProgress(true);
@@ -2337,5 +2337,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			result.segments[key].coords = this.rotatePolygon(result.orientation,result.segments[key].coords,result.OffsetVector,result.center);
 		});
 		return result;
+	}
+
+	function isEmpty(obj) {
+		for(let prop in obj) {
+			if(obj.hasOwnProperty(prop)) {
+				return false;
+			}
+		}
+		return JSON.stringify(obj) === JSON.stringify({});
 	}
 }
