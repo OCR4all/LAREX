@@ -376,6 +376,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		//Add fixed Segments to settings
 		const activesettings = JSON.parse(JSON.stringify(_settings));
+		let pagesWithOrientation = new Map();
 		for(let page = 0; page < pages.length; page++) {
 			activesettings.fixedGeometry = {segments: {}, cuts: {}};
 			if (_fixedGeometry[page]) {
@@ -385,12 +386,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if (_fixedGeometry[page].cuts)
 					activesettings.fixedGeometry.cuts = JSON.parse(JSON.stringify(_fixedGeometry[page].cuts));
 			}
-			_segmentation[page].forEach(
-				s => _segmentation[page].segments[s].points = this.rotatePolygon(_segmentation[page].this._orientation * -1.0, _segmentation[page].segments[s].points, _segmentation[_currentPage].center)
-			)
+			if(_segmentation[page] != null) {
+				pagesWithOrientation[page] = _segmentation[page].orientation;
+			} else {
+				pagesWithOrientation[page] = 0;
+			}
 		}
-		_communicator.batchSegmentPage(activesettings, pages, _book.id, _gui.getPageXMLVersion()).done((results) => {
+		_communicator.batchSegmentPage(activesettings, pagesWithOrientation, _book.id, _gui.getPageXMLVersion()).done((results) => {
 			for (const [index, result] of results.entries()) {
+				this.rotateAnnotations(result);
 				this.setChanged(pages[index]);
 				this._setPage(pages[index], result);
 			}
@@ -468,6 +472,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				for (let i = 0; i < selected_pages.toArray().length; i++) {
 					if(result[i].status !== "EMPTY"){
 						_actionController.resetActions(selected_pages.toArray()[i]);
+						result[i] = this.rotateAnnotations(result[i]);
 						this._setPage(selected_pages.toArray()[i], result[i]);
 					}
 				}
@@ -518,7 +523,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		_settings.parameters = _gui.getParameters();
 		let segmentations = [];
 		for(let pageI = 0; pageI < pages.length; pageI++) {
-			if(_segmentation[pages[pageI]] != null) {
+			if(_segmentation[pages[pageI]] != null && !isEmpty(_segmentation[pages[pageI]].segments)) {
 				_segmentation[pages[pageI]] = this.unrotateSegments(_segmentation[pages[pageI]]);
 				segmentations.push(_segmentation[pages[pageI]]);
 			}
@@ -570,8 +575,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if (_fixedGeometry[_currentPage].segments) {
 				_fixedGeometry[_currentPage].segments.forEach(
 					s => activesettings.fixedGeometry.segments[s] = _segmentation[_currentPage].segments[s]);
-				if(_segmentation[_currentPage] != null && _segmentation[_currentPage]._orientation != 0) {
-					activesettings.fixedGeometry = this.unrotateSegments(activesettings.fixedGeometry, _segmentation[_currentPage]);
+				if(activesettings.fixedGeometry != null && _segmentation[_currentPage].orientation != 0) {
+					activesettings.fixedGeometry = this.unrotateFixedGeometry(activesettings.fixedGeometry, _segmentation[_currentPage]);
 				}
 			}
 			if (_fixedGeometry[_currentPage].cuts)
@@ -745,7 +750,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.exportPageXML = function (_page = _currentPage) {
-		if(_segmentation[_currentPage] != null) {
+		if(_segmentation[_currentPage] != null && !isEmpty(_segmentation[_currentPage].segments)) {
 			_segmentation[_currentPage] = this.unrotateSegments(_segmentation[_currentPage]);
 		}
 		_gui.setExportingInProgress(true);
@@ -2274,8 +2279,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			negativeOrientation = -segmentationSettings.orientation;
 			negativeOffset = -segmentationSettings.OffsetVector;
 			negativeCenter = {};
-			negativeCenter.x = -segmentationSettings.center.x;
-			negativeCenter.y = -segmentationSettings.center.y;
+			negativeCenter.x = segmentationSettings.center.x + segmentationSettings.OffsetVector.x;
+			negativeCenter.y = segmentationSettings.center.y + segmentationSettings.OffsetVector.y;
 		} else {
 			negativeOrientation = -segmentation.orientation;
 			negativeOffset = {};
@@ -2292,6 +2297,33 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		return segmentation;
 	}
 
+	this.unrotateFixedGeometry = function (fixedGeometry, segmentationSettings){
+		let negativeOffset;
+		let negativeCenter;
+		let negativeOrientation;
+
+		if(segmentationSettings != null) {
+			negativeOrientation = -segmentationSettings.orientation;
+			negativeOffset = {};
+			negativeOffset.x = -segmentationSettings.OffsetVector.x;
+			negativeOffset.y = -segmentationSettings.OffsetVector.y;
+			negativeCenter = {};
+			negativeCenter.x = segmentationSettings.center.x + segmentationSettings.OffsetVector.x;
+			negativeCenter.y = segmentationSettings.center.y + segmentationSettings.OffsetVector.y;
+		}
+		Object.keys(fixedGeometry.cuts).forEach((key) => {
+			if(typeof(fixedGeometry.cuts[key]) !== undefined) {
+				fixedGeometry.cuts[key].coords = this.rotatePolygon(negativeOrientation, fixedGeometry.cuts[key].coords, negativeOffset, negativeCenter);
+			}
+		});
+		Object.keys(fixedGeometry.segments).forEach((key) => {
+			if(!(typeof(fixedGeometry.segments[key]) === undefined || fixedGeometry.segments[key] == null)) {
+				fixedGeometry.segments[key].coords = this.rotatePolygon(negativeOrientation, fixedGeometry.segments[key].coords, negativeOffset, negativeCenter);
+			}
+		});
+		return fixedGeometry;
+	}
+
 	this.rotateAnnotations = function (result) {
 		//rotate whole page
 		this._orientation = result.orientation;
@@ -2306,5 +2338,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			result.segments[key].coords = this.rotatePolygon(result.orientation,result.segments[key].coords,result.OffsetVector,result.center);
 		});
 		return result;
+	}
+
+	function isEmpty(obj) {
+		for(let prop in obj) {
+			if(obj.hasOwnProperty(prop)) {
+				return false;
+			}
+		}
+		return JSON.stringify(obj) === JSON.stringify({});
 	}
 }

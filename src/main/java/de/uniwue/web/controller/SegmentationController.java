@@ -75,7 +75,9 @@ public class SegmentationController {
 	public @ResponseBody PageAnnotations segment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"), fileManager.checkFlat());
-		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPage(), fileManager, database);
+		SegmentationSettings settings = segmentationRequest.getSettings();
+		return LarexFacade.segmentPage(settings, segmentationRequest.getPage(),
+				settings.getParameters().get("imageOrientation").doubleValue(), fileManager, database);
 	}
 
 	@RequestMapping(value = "segmentation/batchSegment", method = RequestMethod.POST, headers = "Accept=*/*",
@@ -85,8 +87,9 @@ public class SegmentationController {
 				config.getListSetting("imagefilter"), fileManager.checkFlat());
 		List<PageAnnotations> results = new ArrayList<>();
 		this.segProgress = 0;
-		for(int page: batchSegmentationRequest.getPages()){
-			PageAnnotations result = LarexFacade.segmentPage(batchSegmentationRequest.getSettings(), page, fileManager, database);
+		for(int page: batchSegmentationRequest.getPages().keySet()){
+			PageAnnotations result = LarexFacade.segmentPage(batchSegmentationRequest.getSettings(), page,
+					batchSegmentationRequest.getPages().get(page), fileManager, database);
 			results.add(result);
 			this.segProgress++;
 		}

@@ -3,9 +3,6 @@ $(document).ready(function () {
 	let _communicator = new Communicator();
 	let metsMap = new Map;
 	$('.modal').modal();
-	_communicator.getDirectRequestMode().done((data) => {
-		console.log("directrequest" + data);
-	});
 	let checkForOldProject = function () {
 		_communicator.getOldRequestData().done((data) => {
 			if(data) {
@@ -31,7 +28,9 @@ $(document).ready(function () {
 			$('#fileGrp-div').show();
 			_communicator.getMetsData(path).done((data) => {
 				$('#openBookModal').modal('open');
-
+				if(type === "mets-data") {
+					path += "/data";
+				}
 				//remove old filegrps
 				let node = document.getElementById('file-grp')
 				while(node.firstChild) {
@@ -43,6 +42,7 @@ $(document).ready(function () {
 					if(pathList.length > 0) {
 						let fileGrpItem = document.createElement('li');
 						fileGrpItem.setAttribute('data',fileGrp);
+						fileGrpItem.setAttribute('data-mets', path);
 						fileGrpItem.setAttribute('class', "selectFileGrp")
 						fileGrpItem.appendChild(document.createTextNode(fileGrp));
 						document.getElementById('file-grp').appendChild(fileGrpItem);
@@ -52,13 +52,21 @@ $(document).ready(function () {
 		} else if(type === "flat") {
 			$('#fileGrp-div').hide();
 			_communicator.getLibraryBookPages(book_id,path,type).done((data) => {
-				let pageList = new Array();
+				let pageList = [];
 				for( let key of Object.keys(data)) {
 					let pathList = data[key];
-					pageList.push(pathList);
+					let pathListWithMime = [];
+					for(let pathL of pathList) {
+						let mime = "image/" + splitExt(pathL);
+						let pathWithMime = [];
+						pathWithMime.push(pathL);
+						pathWithMime.push(mime);
+						pathListWithMime.push(pathWithMime);
+					}
+					pageList.push(pathListWithMime);
 				}
 				if(pageList.length > 0) {
-					showPages(pageList);
+					showPages(pageList, path);
 					$('#openBookModal').modal('open');
 				} else {
 					$('#modal_emptyProject').modal('open');
@@ -71,9 +79,10 @@ $(document).ready(function () {
 
 	$("#fileGrp-div").on('click', 'li.selectFileGrp',function () {
 		let fileGrp = String($(this).attr('data'));
+		let path = String($(this).attr('data-mets'));
 		document.getElementById("FileGrpBtn").innerHTML = fileGrp;
 		let pageList = metsMap[fileGrp];
-		showPages(pageList);
+		showPages(pageList, path);
 	});
 
 	$('.library-xml-setting').click(function () {
@@ -93,16 +102,35 @@ $(document).ready(function () {
 			customFolder = document.getElementById("xml_folder").value;
 		}
 		let pageElemList = document.getElementsByClassName('libraryPage');
-		let imageMap = JSON.parse('{}');
+		let fileMap = JSON.parse('{}');
+		let mimeTypMap = JSON.parse('{}');
+		let metsFilePath = pageElemList[0].getAttribute('data-mets-path');
 		for(let i = 0; i<pageElemList.length;i++) {
 			if(pageElemList[i].checked) {
-				imageMap[encodeURIComponent(pageElemList[i].getAttribute('id'))] = encodeURIComponent(pageElemList[i].getAttribute('data-page'));
+				let fileKey = encodeURIComponent(pageElemList[i].getAttribute('id'));
+				let pathList = pageElemList[i].getAttribute('data-page').split(',');
+				let filePathList = [];
+				let filePath = pathList[0];
+				for(let j = 0; j<pathList.length; j++) {
+					if(j % 2 == 0) {
+						filePath = pathList[j];
+						filePathList.push(filePath);
+					} else {
+						mimeTypMap[encodeURIComponent(filePath)] = encodeURIComponent(pathList[j]);
+					}
+				}
+
+				fileMap[encodeURIComponent(fileKey)] = encodeURIComponent(filePathList.join(","));
 			}
 		}
 		$.ajax({
 			url : "/Larex/directLibrary",
 			type: "POST",
-			data: { "imageMap" : JSON.stringify(imageMap), "customFlag" : _customXmlFolder, "customFolder" : JSON.stringify(customFolder)},
+			data: { "fileMap" : JSON.stringify(fileMap),
+					"mimeMap" : JSON.stringify(mimeTypMap),
+					"metsFilePath" : JSON.stringify(metsFilePath),
+					"customFlag" : _customXmlFolder,
+					"customFolder" : JSON.stringify(customFolder)},
 			async : false,
 			target : '_self',
 			success : function(data) {
@@ -115,21 +143,21 @@ $(document).ready(function () {
 		checkForOldProject();
 	});
 
-	function showPages(pageList) {
+	function showPages(pageList, path) {
 		//clear previous pageList
 		let node = document.getElementById('bookImageList')
 		while(node.firstChild) {
 			node.removeChild(node.lastChild);
 		}
 		for(let pathList of pageList) {
-			let pageName = splitName(pathList[0]);
+			let pageName = splitName(getPath(pathList[0]));
 
 			// build label string from various pageSubExtensions
-			let pageLabel = splitNameWithExt(pathList[0]);
+			let pageLabel = splitNameWithExt(getPath(pathList[0]));
 			if(pathList.length > 1) {
 				for(let i = 1; i < pathList.length; i++) {
 					pageLabel += " | ";
-					pageLabel += splitNameWithExt(pathList[i]);
+					pageLabel += splitNameWithExt(getPath(pathList[i]));
 				}
 			}
 			let pageItem = document.createElement('li');
@@ -138,6 +166,8 @@ $(document).ready(function () {
 			pageCheckbox.setAttribute('checked',"checked");
 			pageCheckbox.setAttribute('id',pageName);
 			pageCheckbox.setAttribute('data-page',pathList);
+			pageCheckbox.setAttribute('data-mets-path',path);
+			pageCheckbox.setAttribute('data-mime', getMime(pathList[0]))
 			pageCheckbox.setAttribute('class',"libraryPage");
 			let pageCheckboxLabel = document.createElement('label');
 			pageCheckboxLabel.setAttribute('for',pageName);
@@ -156,6 +186,19 @@ $(document).ready(function () {
 	let splitNameWithExt = function (str) {
 		return str.split('\\').pop().split('/').pop();
 	}
+	let splitExt = function (str) {
+		return str.split('.').pop();
+	}
+	let getPath = function (pathWithMime) {
+		if(pathWithMime.type !== "undefined") {
+			return pathWithMime[0];
+		}
+	}
+	let getMime = function (pathWithMime) {
+		if(pathWithMime.type !== "undefined") {
+			return pathWithMime[1];
+		}
+	}
 	$('#reloadLastProject').click(function () {
 		_communicator.getOldRequestData().done((oldRequest) => {
 			if(oldRequest){
@@ -163,7 +206,11 @@ $(document).ready(function () {
 				$.ajax({
 					url : "/Larex/directLibrary",
 					type: "POST",
-					data: { "imageMap" : oldRequest.imagemapString, "customFlag" : oldRequest.customFlag, "customFolder" : oldRequest.customFolder},
+					data: { "fileMap" : oldRequest.fileMapString,
+							"mimeMap" : oldRequest.mimeMapString,
+							"metsFilePath" : oldRequest.metsPath,
+							"customFlag" : oldRequest.customFlag,
+							"customFolder" : oldRequest.customFolder},
 					async : false,
 					target : '_self',
 					success : function(data) {

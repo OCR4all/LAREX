@@ -19,9 +19,9 @@ import org.w3c.dom.NodeList;
  */
 public class MetsReader {
 
-    public static Map<String, List<List<String>>> getFileGroups(String metsPath, boolean useRelativePath){
-        List<List<String>> pageList;
-        Map<String, List<List<String>>> fileGroupMap = new LinkedHashMap<>();
+    public static Map<String, List<List<List<String>>>> getFileGroups(String metsPath, boolean useRelativePath){
+        List<List<List<String>>> pageList;
+        Map<String, List<List<List<String>>>> fileGroupMap = new LinkedHashMap<>();
         File metsFile = new File(metsPath);
         try {
             Document mets = parseXML(metsPath);
@@ -35,7 +35,6 @@ public class MetsReader {
             }
             if(fileSector == null) { throw new NoSuchElementException("No file sector found."); }
             for(int i = 0; i < fileSector.getLength(); i++) {
-                Boolean isImgGrp = false;
                 if(fileSector.item(i).getNodeType() == Node.ELEMENT_NODE){
                     pageList = new ArrayList<>();
                     Element fileGrp = (Element) fileSector.item(i);
@@ -43,44 +42,26 @@ public class MetsReader {
                     NodeList fileGrpChilds = fileGrp.getChildNodes();
                     for(int j = 0; j < fileGrpChilds.getLength(); j++) {
                         Node fileNode = fileGrpChilds.item(j);
-                        List<String> fileList = new ArrayList<>();
+                        List<List<String>> fileList = new ArrayList<>();
                         if(fileNode.getNodeType() == Node.ELEMENT_NODE){
                             Element fileElement = (Element) fileNode;
-                            if(fileElement.getAttribute("MIMETYPE").startsWith("image")) {
+                            /*
+                                if no PAGE is available, get images
+                             */
+                            if(fileElement.getAttribute("MIMETYPE").equals("application/vnd.prima.page+xml")) {
+                                addToFileList(useRelativePath, metsFile, fileList, fileElement);
+                            } else if(fileElement.getAttribute("MIMETYPE").startsWith("image")) {
                                 for(String fileExt : Constants.IMG_EXTENSIONS_DOTTED) {
                                     String ext = fileExt.replace(".","image/");
                                     if(fileElement.getAttribute("MIMETYPE").equals(ext)) {
-                                        isImgGrp = true;
-                                        for(int h = 0; h < fileElement.getChildNodes().getLength(); h++) {
-                                            if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
-                                                Element fileLoc = (Element) fileElement.getChildNodes().item(h);
-                                                String filePath = fileLoc.getAttribute("xlink:href");
-                                                if(!useRelativePath) {
-                                                    filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
-                                                }
-                                                fileList.add(filePath);
-                                            }
-                                        }
-                                    }
-                                }
-                            } else if(!isImgGrp && fileElement.getAttribute("MIMETYPE").equals("application/vnd.prima.page+xml")) {
-                                for(int h = 0; h < fileElement.getChildNodes().getLength(); h++) {
-                                    if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
-                                        Element fileLoc = (Element) fileElement.getChildNodes().item(h);
-                                        String filePath = fileLoc.getAttribute("xlink:href");
-                                        if(!useRelativePath) {
-                                            fileList.add(metsFile.getParentFile().getAbsolutePath() + File.separator + filePath);
-                                        } else {
-                                            fileList.add(filePath);
-                                        }
-
+                                        addToFileList(useRelativePath, metsFile, fileList, fileElement);
                                     }
                                 }
                             }
-                            pageList.add(fileList);
+                            if(fileList.size() > 0 ) { pageList.add(fileList); }
                         }
                     }
-                    fileGroupMap.put(fileGrpName,pageList);
+                    if(pageList.size() > 0 ) { fileGroupMap.put(fileGrpName,pageList); }
                 }
             }
         } catch (Exception e) {
@@ -88,6 +69,21 @@ public class MetsReader {
             return null;
         }
         return fileGroupMap;
+    }
+
+    private static void addToFileList(boolean useRelativePath, File metsFile, List<List<String>> fileList, Element fileElement) {
+        for(int h = 0; h < fileElement.getChildNodes().getLength(); h++) {
+            if(fileElement.getChildNodes().item(h).getNodeType() == Node.ELEMENT_NODE) {
+                Element fileLoc = (Element) fileElement.getChildNodes().item(h);
+                String filePath = fileLoc.getAttribute("xlink:href");
+                if(!(filePath.startsWith("http://") || filePath.startsWith("https://"))) {
+                    if(!useRelativePath) {
+                        filePath = metsFile.getParentFile().getAbsolutePath() + File.separator + filePath;
+                    }
+                    fileList.add(Arrays.asList(filePath, fileElement.getAttribute("MIMETYPE")));
+                }
+            }
+        }
     }
 
     private static Document parseXML(String filePath) throws ParserConfigurationException,

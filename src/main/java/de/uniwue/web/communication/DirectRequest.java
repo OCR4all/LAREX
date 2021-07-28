@@ -11,15 +11,21 @@ import org.springframework.web.bind.annotation.RequestParam;
  *
  */
 public class DirectRequest {
-    private String imagemapString;
+    private String fileMapString;
+    private String mimeMapString;
+    private String metsPath;
     private String customFlag;
     private String customFolder;
 
     @JsonCreator
-    public DirectRequest(String imagemapString,
+    public DirectRequest(String fileMapString,
+                         String mimeMapString,
+                         String metsPath,
                          String customFlag,
                          String customFolder) {
-        this.imagemapString = imagemapString;
+        this.fileMapString = fileMapString;
+        this.mimeMapString = mimeMapString;
+        this.metsPath = metsPath;
         this.customFlag = customFlag;
         if(customFolder != null) {
             this.customFolder = customFolder;
@@ -28,8 +34,8 @@ public class DirectRequest {
         }
     }
 
-    public String getImagemapString() {
-        return imagemapString;
+    public String getFileMapString() {
+        return fileMapString;
     }
 
     public String getCustomFlag() {
@@ -40,8 +46,8 @@ public class DirectRequest {
         return customFolder;
     }
 
-    public void setImagemapString(String imagemapString) {
-        this.imagemapString = imagemapString;
+    public void setFileMapString(String fileMapString) {
+        this.fileMapString = fileMapString;
     }
 
     public void setCustomFlag(String customFlag) {
@@ -50,5 +56,13 @@ public class DirectRequest {
 
     public void setCustomFolder(String customFolder) {
         this.customFolder = customFolder;
+    }
+
+    public String getMimeMapString() {
+        return mimeMapString;
+    }
+
+    public String getMetsPath() {
+        return metsPath;
     }
 }

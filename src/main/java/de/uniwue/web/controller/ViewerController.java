@@ -65,165 +65,24 @@ public class ViewerController {
 	}
 
 	/**
-	 * Open the viewer and display the contents of a book
-	 **/
-	@RequestMapping(value = "/viewer", method = RequestMethod.GET)
-	public String viewer(Model model, @RequestParam(value = "book", required = true) Integer bookID) {
-		if (bookID == null) {
-			return "redirect:/404";
-		}
-
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"), true);
-		Book book = database.getBook(bookID);
-
-		if (book == null) {
-			return "redirect:/404";
-		}
-
-		model.addAttribute("book", book);
-		model.addAttribute("regionTypes", getRegionTypes());
-		model.addAttribute("bookPath", "loadImage/");
-		model.addAttribute("globalSettings", config);
-
-
-		return "editor";
-	}
-
-	/**
-	 * Open the viewer in direct nonflat mode and display the contents of its "book"
-	 **/
-	@RequestMapping(value = "/directviewer", method = RequestMethod.POST)
-	public String directViewer(Model model, @RequestParam(value = "book", required = true) Integer bookID
-								, @RequestParam(value = "bookname", required = false) String bookName
-							    , @RequestParam(value = "imagemap", required = true)  Map<String, List<String>>  imageMap
-								, @RequestParam(value = "imagemap", required = true) Map<String, String> xmlMap) {
-		if (bookID == null || imageMap.isEmpty()) {
-			return "redirect:/404";
-		}
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"), false);
-		Book book = database.getBook(bookName, bookID, imageMap, xmlMap);
-		if (book == null) {
-			return "redirect:/404";
-		}
-
-		model.addAttribute("book", book);
-		model.addAttribute("regionTypes", getRegionTypes());
-		model.addAttribute("bookPath", "loadImage/");
-		model.addAttribute("globalSettings", config);
-
-
-		return "editor";
-	}
-
-	/**
-	 * Open the viewer with a direct request if direct request is enabled using hierarchical directory structures
-	 * and display the contents of a selected book.
-	 */
-	@RequestMapping(value = "/direct", method = RequestMethod.POST)
-	public String direct(Model model, @RequestParam(value = "bookpath", required = true) String bookpath,
-			@RequestParam(value = "bookname", required = true) String bookname,
-			@RequestParam(value = "localsave", required = false) String localsave,
-			@RequestParam(value = "savedir", required = false) String savedir,
-			@RequestParam(value = "websave", required = false) String websave,
-			@RequestParam(value = "imagefilter", required = false) String imagefilter,
-			@RequestParam(value = "modes", required = false) String modes) throws IOException {
-		if (!config.getSetting("directrequest").equals("enable")) {
-			return "redirect:/error/403";
-		}
-		if (!new File(bookpath + File.separator + bookname).exists()) {
-			return "redirect:/error/400";
-		}
-		fileManager.setLocalBooksPath(bookpath);
-		int bookID = bookname.hashCode();
-
-		if (localsave != null) {
-			config.setSetting("localsave", localsave);
-		}
-		if (savedir != null) {
-			config.setSetting("savedir", savedir);
-		}
-		if (websave != null) {
-			config.setSetting("websave", websave);
-		}
-		if (imagefilter != null) {
-			config.setSetting("imagefilter", imagefilter);
-		}
-		if (modes != null){
-			config.setSetting("modes", modes);
-		}
-		return viewer(model, bookID);
-	}
-
-	/**
-	 * Open the viewer with a direct request if direct request is enabled using non-flat directory structures
-	 * and display the contents of a selected book.
-	 */
-	@RequestMapping(value = "/direct2", method = RequestMethod.POST)
-	public String direct(Model model,
-						  @RequestParam(value = "imageMap", required = true) String imagemapString,
-						  @RequestParam(value = "xmlMap", required = true) String xmlmapString,
-						  @RequestParam(value = "bookname", required = true) String bookname,
-						  @RequestParam(value = "localsave", required = false) String localsave,
-						  @RequestParam(value = "savedir", required = false) String savedir,
-						  @RequestParam(value = "websave", required = false) String websave,
-						  @RequestParam(value = "imagefilter", required = false) String imagefilter,
-						  @RequestParam(value = "modes", required = false) String modes) throws IOException {
-		if (!config.getSetting("directrequest").equals("enable")) {
-			return "redirect:/error/403";
-		}
-		ObjectMapper mapper = new ObjectMapper();
-		Map<String, List<String>>  imagemap;
-		Map<String, String> xmlmap;
-
-		try {
-			imagemap = mapper.readValue(imagemapString, Hashtable.class);
-			xmlmap = mapper.readValue(xmlmapString, Hashtable.class);
-		} catch (IOException e) {
-			e.printStackTrace();
-			return "redirect:/error/500";
-		}
-		File tmpBookpath = Files.createTempDirectory("tempdir").toFile();
-		fileManager.setIsFlat(false);
-		fileManager.setLocalBooksPath(tmpBookpath.getPath());
-		fileManager.setLocalBookMap(xmlmap, imagemap);
-		fileManager.setNonFlatBookName(bookname);
-		int bookID = tmpBookpath.getName().hashCode();
-
-		if (localsave != null) {
-			config.setSetting("localsave", localsave);
-		}
-		if (savedir != null) {
-			config.setSetting("savedir", savedir);
-		}
-		if (websave != null) {
-			config.setSetting("websave", websave);
-		}
-		if (imagefilter != null) {
-			config.setSetting("imagefilter", imagefilter);
-		}
-		if (modes != null){
-			config.setSetting("modes", modes);
-		}
-		return directViewer(model,bookID,bookname,imagemap,xmlmap);
-	}
-
-	/**
 	 * Open the viewer from library navigation.
 	 */
 	@SuppressWarnings("unchecked")
 	@RequestMapping(value = "/directLibrary", method = RequestMethod.POST)
 	public String direct(Model model,
-						 @RequestParam(value = "imageMap", required = true) String imagemapString,
+						 @RequestParam(value = "fileMap", required = true) String fileMapString,
+						 @RequestParam(value = "mimeMap", required = true) String mimeMapString,
+						 @RequestParam(value = "metsFilePath", required = true) String metsFilePath,
 						 @RequestParam(value = "customFlag", required = true) String customFlag,
 						 @RequestParam(value = "customFolder", required = false) String customFolder) throws IOException {
 		ObjectMapper mapper = new ObjectMapper();
 		mapper.configure( JsonParser.Feature.ALLOW_COMMENTS, true );
-		Map<String, List<String>> imagemap = new TreeMap<>();
-		Map<String, String> xmlmap = new LinkedHashMap<>();
-		DirectRequest directRequest = new DirectRequest(imagemapString, customFlag, customFolder);
-
+		String metsRoot = new File(metsFilePath.replaceAll("\"" , "")).getAbsolutePath();
+		Map<String, List<String>> fileMap = new TreeMap<>();
+		Map<String, String> mimeMap = new TreeMap<>();
+		Map<String, List<String>> imageMap = new LinkedHashMap<>();
+		Map<String, String> xmlMap = new LinkedHashMap<>();
+		DirectRequest directRequest = new DirectRequest(fileMapString, mimeMapString, metsFilePath, customFlag, customFolder);
 		fileManager.setDirectRequest(directRequest);
 
 		try {
@@ -231,49 +90,67 @@ public class ViewerController {
 				List of paths is mapped as an object, then cast to String and
 				finally split with path separators to create desired List
 			 */
-			Map<String, Object> map = mapper.readValue(java.net.URLDecoder.decode(imagemapString, StandardCharsets.UTF_8.name()), TreeMap.class);
+			Map<String, Object> map = mapper.readValue(java.net.URLDecoder.decode(fileMapString, StandardCharsets.UTF_8.name()), TreeMap.class);
 			for(Map.Entry<String, Object> entry : map.entrySet()) {
 				String listString = (String) entry.getValue();
 				List<String> pathList = Arrays.asList(listString.split(","));
-				imagemap.put(entry.getKey(), pathList);
+				fileMap.put(entry.getKey(), pathList);
 			}
+			mimeMap = mapper.readValue(java.net.URLDecoder.decode(mimeMapString, StandardCharsets.UTF_8.name()), TreeMap.class);
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
 			e.printStackTrace();
 			return "redirect:/error/500";
 		}
-		for(Map.Entry<String, List<String>> entry : imagemap.entrySet()) {
-			String imageName = entry.getKey();
-			List<String> imagePathList = entry.getValue();
+		if(customFlag.equals("true") && !customFolder.endsWith(File.separator)) { customFolder += File.separator; }
+		for(Map.Entry<String, List<String>> entry : fileMap.entrySet()) {
+			String fileName = entry.getKey().replaceAll("\"" , "");
+			String fileKey = fileName.split("\\.")[0];
+			List<String> filePathList = entry.getValue();
 			String xmlPath;
 			/*
 				When images are loaded from each pagexml, instead of directly from mets( or legacy),
 				the value of each imageMap.entry is a xmlPath instead of an imagePath. This value has to be changed to
 				the imagePath read from the given xmlPath.
 			 */
-			if(determineType(imagePathList.get(0))) {
-				xmlPath = imagePathList.get(0);
-				String parentFolder = new File(xmlPath).getParentFile().getParentFile().getAbsolutePath();
-				imagePathList = MetsReader.getImagePathFromPage(xmlPath);
+			for(String filePath : filePathList) {
+				if(mimeMap.get(filePath).equals("application/vnd.prima.page+xml")) {
+					xmlPath = filePath;
+					List<String> pageImagePathList = MetsReader.getImagePathFromPage(xmlPath);
 				/*
 					Correct absolute paths for images as they are not constrained to pageXML.parent
 					and described as relative to metsXml.root
 				 */
-				List<String> correctedPathList = new ArrayList<>();
-				for(String imagePath : imagePathList) {
-					correctedPathList.add(parentFolder + File.separator + imagePath);
-				}
-				entry.setValue(correctedPathList);
-				xmlmap.put(imageName.split("\\.")[0], xmlPath);
-			} else {
-				xmlPath = imageName.split("\\.")[0] + ".xml";
-				if(customFlag.equals("true")) {
-					if(!customFolder.endsWith(File.separator)) { customFolder += File.separator; }
-					xmlmap.put(imageName.split("\\.")[0],customFolder + xmlPath);
-				} else {
-					String parentFolder = new File(imagePathList.get(0)).getParentFile().getAbsolutePath();
-					if(!parentFolder.endsWith(File.separator)) { parentFolder += File.separator; }
-					xmlmap.put(imageName.split("\\.")[0],parentFolder + xmlPath);
+					List<String> absolutePathList = new ArrayList<>();
+					assert pageImagePathList != null;
+					for(String imagePath : pageImagePathList) {
+						if(!metsRoot.endsWith(File.separator)) { metsRoot += File.separator; }
+						absolutePathList.add(metsRoot + imagePath.replaceAll("\"" , ""));
+					}
+					imageMap.put(fileKey,absolutePathList);
+					xmlMap.put(fileKey, xmlPath);
+				} else if(mimeMap.get(filePath).startsWith("image")) {
+					/*
+					 * PAGEs for images without PAGE in its fileGrp will be stored
+					 * in same directory as the corresponding image.
+					 */
+					xmlPath = fileKey + ".xml";
+					List<String> imgList;
+					if(imageMap.containsKey(fileKey)) {
+						imgList = imageMap.get(fileKey);
+					} else {
+						imgList = new ArrayList<>();
+					}
+					imgList.add(filePath);
+					imageMap.put(fileKey, imgList);
+					if(customFlag.equals("true")) {
+						xmlMap.put(fileKey,customFolder + xmlPath);
+					} else {
+						String parentFolder = new File(filePathList.get(0)).getParent();
+						if(!parentFolder.endsWith(File.separator)) { parentFolder += File.separator; }
+						xmlMap.put(fileKey,parentFolder + xmlPath);
+					}
+
 				}
 			}
 		}
@@ -281,13 +158,13 @@ public class ViewerController {
 		File tmpBookpath = Files.createTempDirectory("tempdir").toFile();
 		fileManager.setIsFlat(false);
 		fileManager.setLocalBooksPath(tmpBookpath.getPath());
-		fileManager.setLocalBookMap(xmlmap, imagemap);
+		fileManager.setLocalBookMap(xmlMap, imageMap);
 		fileManager.setNonFlatBookName("bookname");
 		int bookID = tmpBookpath.getName().hashCode();
 
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
 				config.getListSetting("imagefilter"), false);
-		Book book = database.getBook("libraryBook", bookID, imagemap, xmlmap);
+		Book book = database.getBook("libraryBook", bookID, imageMap, xmlMap);
 
 		model.addAttribute("book", book);
 		model.addAttribute("regionTypes", getRegionTypes());

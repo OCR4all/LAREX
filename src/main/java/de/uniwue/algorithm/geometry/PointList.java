@@ -23,6 +23,8 @@ public class PointList {
 		return points;
 	}
 
+	public void setPoints(MatOfPoint points) { this.points = points; }
+
 	/**
 	 * Returns the given points with a scale correction.
 	 *

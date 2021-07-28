@@ -133,7 +133,7 @@ public class LibraryController {
 	 * @throws IOException
 	 */
 	@RequestMapping(value = "library/getMetsData", method = RequestMethod.POST, headers = "Accept=*/*")
-	public @ResponseBody Map<String, List<List<String>>> getMetsData(@RequestParam("metspath") String metsPath) throws IOException {
+	public @ResponseBody Map<String, List<List<List<String>>>> getMetsData(@RequestParam("metspath") String metsPath) throws IOException {
 		if (!fileManager.isInit()) {
 			fileManager.init(servletContext);
 		}

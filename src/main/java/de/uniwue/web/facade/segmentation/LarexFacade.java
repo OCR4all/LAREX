@@ -9,6 +9,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import de.uniwue.web.config.Constants;
 import de.uniwue.web.model.*;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
@@ -40,7 +41,7 @@ public class LarexFacade {
 	 * @param database database with all books and pages
 	 * @return
 	 */
-	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr,
+	public static PageAnnotations segmentPage(SegmentationSettings settings, int pageNr, double orientation,
 			FilePathManager fileManager, FileDatabase database) {
 		Page page;
 		if(fileManager.checkFlat()) {
@@ -56,8 +57,7 @@ public class LarexFacade {
 		} else {
 			try{
 				List<String> imagesWithExt = new LinkedList<>();
-				//TODO: remove hardcoding for extension matching everytime its used
-				String extensionMatchString = "(png|jpg|jpeg|tif|tiff)";
+				String extensionMatchString = "(" + String.join("|", Constants.IMG_EXTENSIONS) + ")";
 				for(Map.Entry<String ,List<String>> entry : fileManager.getLocalImageMap().entrySet()) {
 					if(entry.getKey().matches("^" + page.getName() + "\\..*")) {
 						imagesWithExt.addAll(entry.getValue());
@@ -78,7 +78,7 @@ public class LarexFacade {
 
 			Parameters parameters = settings.toParameters(original.size());
 
-			Collection<RegionSegment> result = Segmenter.segment(original,parameters);
+			Collection<RegionSegment> result = Segmenter.segment(original,parameters,orientation);
 			MemoryCleaner.clean(original);
 			segmentationResult = result;
 		} else {
@@ -87,7 +87,7 @@ public class LarexFacade {
 		}
 		// TODO fix metadata insertion here instead of frontend (?)
 
-		page.setOrientation(settings.getParameters().get("imageOrientation").doubleValue());
+		page.setOrientation(orientation);
 		if (segmentationResult != null) {
 			segmentation = new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
 					page.getId(), new MetaData(), segmentationResult, SegmentationStatus.SUCCESS, page.getOrientation(), true);
