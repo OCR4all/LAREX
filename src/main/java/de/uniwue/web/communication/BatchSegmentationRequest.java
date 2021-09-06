@@ -4,9 +4,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import de.uniwue.web.facade.segmentation.SegmentationSettings;
-import de.uniwue.web.model.PageAnnotations;
 
-import java.util.List;
+import java.util.Map;
 
 /**
  * Communication object for the gui to request the segmentation of different
@@ -19,7 +18,7 @@ public class BatchSegmentationRequest {
     @JsonProperty("settings")
     private SegmentationSettings settings;
     @JsonProperty("pages")
-    private List<Integer> pages;
+    private Map<Integer, Double> pages;
     @JsonProperty("bookid")
     private Integer bookid;
     @JsonProperty("version")
@@ -27,7 +26,7 @@ public class BatchSegmentationRequest {
 
     @JsonCreator
     public BatchSegmentationRequest(@JsonProperty("settings") SegmentationSettings settings,
-                                    @JsonProperty("pages") List<Integer> pages,
+                                    @JsonProperty("pages") Map<Integer, Double> pages,
                                     @JsonProperty("bookid") Integer bookid,
                                     @JsonProperty("version") String version) {
         this.pages = pages;
@@ -36,7 +35,7 @@ public class BatchSegmentationRequest {
         this.version = version;
     }
 
-    public List<Integer> getPages() {
+    public Map<Integer, Double> getPages() {
         return pages;
     }
 

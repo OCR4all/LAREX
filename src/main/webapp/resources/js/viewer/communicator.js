@@ -20,7 +20,7 @@ class Communicator {
 		}
 		switch(uploadDataType){
 			case DataType.SIMPLE:
-				request.data = data;	
+				request.data = data;
 				break;
 			case DataType.JSON:
 				request.contentType = "application/json";
@@ -42,13 +42,13 @@ class Communicator {
 
 		return status;
 	}
-			
+
 	// Data
-	loadBook(bookID) { 
+	loadBook(bookID) {
 		return this.request("data/book", {bookid:bookID});
 	}
 
-	getVirtualKeyboard() { 
+	getVirtualKeyboard() {
 		return this.request("data/virtualkeyboard");
 	}
 
@@ -64,7 +64,7 @@ class Communicator {
 		return this.request("data/page/batchAnnotations", {bookid:bookid, pages:pages}, DataType.JSON);
 	}
 
-	getHaveAnnotations(bookID) { 
+	getHaveAnnotations(bookID) {
 		return this.request("data/status/all/annotations", {bookid:bookID});
 	}
 
@@ -81,7 +81,8 @@ class Communicator {
 	batchExportPage(bookID, pages, segmentations, pageXMLVersion) {
 		//using fetch instead of JQuery.ajax because of arrayBuffer type
 		let url = 'file/export/batchExport';
-		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion, downloadPage:globalSettings.downloadPage};
+		let ajaxdata = {bookid:bookID,pages:pages,segmentations:segmentations,version:pageXMLVersion,
+			downloadPage:globalSettings.downloadPage};
 		return fetch(url, {
 			method: 'POST',
 			headers: {'Content-Type': 'application/json; charset=utf-8'},
@@ -98,10 +99,10 @@ class Communicator {
 		return this.request("segmentation/empty",  {pageid:pageID,bookid:bookID});
 	}
 
-	getSettings(bookID) { 
+	getSettings(bookID) {
 		return this.request("segmentation/settings", {bookid:bookID});
 	}
-	
+
 	// Processing
 	mergeSegments(segments) {
 		return this.request("process/regions/merge", segments, DataType.JSON);
@@ -110,24 +111,27 @@ class Communicator {
 	extractContours(pageid, bookid) {
 		return this.request("process/contours/extract", {pageid:pageid,bookid:bookid});
 	}
-	
+
 	combineContours(contours, page_width, page_height, accuracy) {
-		return this.request("process/contours/combine", {contours:contours,page_width:page_width,page_height:page_height,accuracy:accuracy}, DataType.JSON);
+		return this.request("process/contours/combine", {contours:contours,page_width:page_width,
+			page_height:page_height, accuracy:accuracy}, DataType.JSON);
 	}
 
 	minAreaRect(segment) {
-		return this.request("process/polygons/minarearect", {id:segment.id,points:segment.points,isRelative:segment.isRelative}, DataType.JSON);
+		return this.request("process/polygons/minarearect", {id:segment.id,points:segment.coords.points,
+			isRelative:segment.coords.isRelative}, DataType.JSON);
 	}
 
 	// Files
 	exportSegmentation(segmentation, bookID, pageXMLVersion) {
-		return this.request("file/export/annotations", {bookid:bookID,segmentation:segmentation,version:pageXMLVersion}, DataType.JSON, DataType.BYTE);
+		return this.request("file/export/annotations", {bookid:bookID,segmentation:segmentation,
+			version:pageXMLVersion}, DataType.JSON, DataType.BYTE);
 	}
 
 	exportSettings(settings) {
 		return this.request("file/download/segmentsettings", settings, DataType.JSON, DataType.BYTE);
 	}
-	
+
 	uploadSettings(file, bookID) {
 		const formData = new FormData();
 		formData.append("file", file);
@@ -142,14 +146,14 @@ class Communicator {
 		formData.append("pageNr", pageNr);
 		formData.append("bookID", bookID);
 
-		return this.request("file/upload/annotations", formData, DataType.BYTE);
+		return this.request("file/upload/annotations", formData, DataType.SIMPLE);
 	}
 
 	loadImage(image_path, id) {
 		// Deferred object for function status
 		const status = $.Deferred();
-
-		const img = $("<img />").attr('src', "images/books/" + image_path).on('load', () => {
+		let pathEnc = encodeURIComponent(JSON.stringify(image_path.replace(/\//g, "‡")));
+		const img = $("<img />").attr('src', "loadImage/" + pathEnc).on('load', () => {
 			img.attr('id', id);
 			$('body').append(img);
 			status.resolve();
@@ -161,6 +165,10 @@ class Communicator {
 		return this.request("config/ocr4all", {}, DataType.JSON);
 	}
 
+	getDirectRequestMode(){
+		return this.request("config/directrequest", {}, DataType.JSON);
+	}
+
 	getBatchSegmentationProgress(){
 		return $.ajax({
 			type: "GET",
@@ -169,6 +177,16 @@ class Communicator {
 		});
 	}
 
+	getLibraryBookPages(book_id, bookpath, booktype) {
+		return this.request("library/getPageLocations", {bookid:book_id,bookpath:bookpath,booktype:booktype}, DataType.SIMPLE)
+	}
+
+	getMetsData(mets_path) {
+		return this.request("library/getMetsData", {metspath : mets_path}, DataType.SIMPLE)
+	}
+	getOldRequestData() {
+		return this.request("library/getOldRequest")
+	}
 	getBatchExportProgress(){
 		return $.ajax({
 			type: "GET",

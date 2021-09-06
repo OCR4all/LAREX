@@ -42,7 +42,7 @@ public class ImageLoader {
 	public static Mat readGray(File filepath) {
 		Mat grayscale = null;
 		if(filepath.isFile()) {
-			grayscale = Imgcodecs.imread(filepath.getAbsolutePath(),Imgcodecs.CV_LOAD_IMAGE_GRAYSCALE);
+			grayscale = Imgcodecs.imread(filepath.getAbsolutePath(), Imgcodecs.IMREAD_GRAYSCALE);
 		}
 		if(grayscale == null) {
 			throw new IllegalArgumentException("No image exists at "+filepath.getAbsolutePath());

@@ -29,4 +29,8 @@ public class Point {
 	public double getY() {
 		return y;
 	}
+
+	public java.awt.Point toAwtPoint(){
+		return new java.awt.Point((int) this.getX(), (int) this.getY());
+	}
 }

@@ -20,9 +20,9 @@ import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
  * absolute. - A absolut Polygon is positioned via pixel (e.g. 10:10 ->
  * 10px:10px) - A relative Polygon is positioned via percentage (e.g. 0.1:0.1 ->
  * 10%:10%)
- * 
+ *
  */
-public class Region extends Polygon{
+public class Region extends Element{
 
 	@JsonProperty("type")
 	protected final String type;
@@ -35,17 +35,17 @@ public class Region extends Polygon{
 
 	@JsonCreator
 	public Region(@JsonProperty("id") String id, @JsonProperty("type") String type,
-			@JsonProperty("points") LinkedList<Point> points, @JsonProperty("orientation") Double orientation, @JsonProperty("isRelative") boolean isRelative,
-			@JsonProperty("textlines") Map<String,TextLine> textlines, @JsonProperty("readingOrder") List<String> readingOrder) {
-		super(id,points,isRelative);
+				  @JsonProperty("orientation") Double orientation, @JsonProperty("coords") Polygon coords,
+				  @JsonProperty("textlines") Map<String,TextLine> textlines, @JsonProperty("readingOrder") List<String> readingOrder) {
+		super(id, coords);
 		this.type = type;
 		this.orientation = orientation;
 		this.textlines = textlines;
 		this.readingOrder = readingOrder;
 	}
 
-	public Region(LinkedList<Point> points, String id, String type) {
-		super(points,id);
+	public Region(String id, Polygon coords, String type) {
+		super(id, coords);
 		this.type = type;
 		this.orientation = null;
 		this.textlines = new HashMap<>();
@@ -54,13 +54,13 @@ public class Region extends Polygon{
 
 	/**
 	 * Create a Larex RegionSegment from this polygon
-	 * 
+	 *
 	 * @return
 	 */
 	public RegionSegment toRegionSegment() {
 		LinkedList<org.opencv.core.Point> points = new LinkedList<org.opencv.core.Point>();
 
-		for (Point segmentPoint : this.getPoints()) {
+		for (Point segmentPoint : this.coords.getPoints()) {
 			points.add(new org.opencv.core.Point(segmentPoint.getX(), segmentPoint.getY()));
 		}
 
@@ -73,15 +73,15 @@ public class Region extends Polygon{
 	public String getType() {
 		return type;
 	}
-	
+
 	public Map<String,TextLine> getTextlines() {
 		return textlines;
 	}
-	
+
 	public Double getOrientation() {
 		return orientation;
 	}
-	
+
 	/**
 	 * Get the reading order of the contained textlines
 	 * @return

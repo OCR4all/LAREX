@@ -1,7 +1,6 @@
 package de.uniwue.algorithm.geometry;
 
 import java.util.ArrayList;
-import java.util.UUID;
 
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
@@ -10,29 +9,25 @@ import org.opencv.core.Size;
 import de.uniwue.algorithm.data.MemoryCleaner;
 
 public class PointList {
-	private final String id;
 	private MatOfPoint points;
 
 	public PointList(final MatOfPoint points) {
-		this(points, UUID.randomUUID().toString());
-	}
-
-	public PointList(final MatOfPoint points, String id) {
 		this.points = points;
-		this.id = id;
 	}
 
-	public PointList(ArrayList<java.awt.Point> points, String id) {
-		this(convertPoints(points), id);
+	public PointList(ArrayList<java.awt.Point> points) {
+		this(convertPoints(points));
 	}
 
 	public MatOfPoint getPoints() {
 		return points;
 	}
 
+	public void setPoints(MatOfPoint points) { this.points = points; }
+
 	/**
 	 * Returns the given points with a scale correction.
-	 * 
+	 *
 	 * @param scaleFactor Prefered_Image_Height/Original_Image_Height
 	 * @param origDimensions Original dimension of the image. Used to prevent overflow
 	 * @return The converted and scaled points.
@@ -44,7 +39,7 @@ public class PointList {
 		for (int i = 0; i < originalPoints.length; i++) {
 			final double x = Math.min(originalPoints[i].x * scaleFactor, origDimensions.width-1);
 			final double y = Math.min(originalPoints[i].y * scaleFactor, origDimensions.height-1);
-			
+
 			Point point = new Point(x, y);
 			scaledPointsTemp[i] = point;
 		}
@@ -63,10 +58,6 @@ public class PointList {
 		return new MatOfPoint(ocvPoints);
 	}
 
-	public String getId() {
-		return id;
-	}
-	
 	public void clean() {
 		MemoryCleaner.clean(points);
 	}

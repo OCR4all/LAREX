@@ -3,23 +3,16 @@ package de.uniwue.web.io;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
 
 import org.primaresearch.dla.page.Page;
-import org.primaresearch.dla.page.io.FileInput;
 import org.primaresearch.dla.page.io.xml.DefaultXmlNames;
-import org.primaresearch.dla.page.io.xml.XmlPageReader;
+import org.primaresearch.dla.page.io.xml.PageXmlInputOutput;
 import org.primaresearch.dla.page.layout.logical.Group;
 import org.primaresearch.dla.page.layout.logical.GroupMember;
 import org.primaresearch.dla.page.layout.logical.RegionRef;
@@ -30,12 +23,10 @@ import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.TextContentVariant;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
-import org.primaresearch.io.UnsupportedFormatVersionException;
-import org.primaresearch.maths.geometry.Polygon;
+import org.primaresearch.dla.page.metadata.MetaData;
 import org.primaresearch.shared.variable.IntegerValue;
 import org.primaresearch.shared.variable.IntegerVariable;
 import org.primaresearch.shared.variable.Variable;
-import org.w3c.dom.Document;
 
 import de.uniwue.algorithm.geometry.regions.type.PAGERegionType;
 import de.uniwue.algorithm.geometry.regions.type.RegionSubType;
@@ -43,7 +34,24 @@ import de.uniwue.algorithm.geometry.regions.type.RegionType;
 import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.web.communication.SegmentationStatus;
 import de.uniwue.web.model.PageAnnotations;
-import de.uniwue.web.model.Point;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 /**
  * PageXMLReader is a converter for PageXML files into the PageAnnotations
@@ -53,48 +61,50 @@ public class PageXMLReader {
 
 	/**
 	 * Read a document to extract the PageAnnotations
-	 * 
-	 * @param document PageXML document
+	 *
+	 * @param sourceFilename PageXML document
 	 * @return PageAnnotations inside the document
 	 */
-	public static PageAnnotations getPageAnnotations(Document document) {
+	public static PageAnnotations getPageAnnotations(File sourceFilename){
 		// Convert document to PAGE xml Page
-		XmlPageReader reader = new XmlPageReader(null); // null ^= without validation
-		Page page = null;
-		try {
-			File tempPAGExml = File.createTempFile("larex_pagexml-", ".xml");
-			tempPAGExml.deleteOnExit();
+		Page page = readPAGE(sourceFilename);
 
-			// Save page xml in temp file
-			FileOutputStream output = new FileOutputStream(new File(tempPAGExml.getAbsolutePath()));
-			StreamResult result = new StreamResult(output);
-			// Write document on disk
-			TransformerFactory.newInstance().newTransformer().transform(new DOMSource(document), result);
-			output.close();
-
-			// Read into PAGE xml
-			page = reader.read(new FileInput(tempPAGExml));
-			tempPAGExml.delete();
-		} catch (IOException | UnsupportedFormatVersionException | TransformerException e) {
-			e.printStackTrace();
+		// Accounts for an edge case in previous LAREX versions which would lead to non-valid PAGE XML by inserting an empty
+		// TextEquiv-element before TextLines in a TextRegion. The related bug was fixed.
+		// TODO: Remove in future versions as LAREX doesn't produce invalid PAGE XML anymore
+		if(page == null){
+			try {
+				fixFaultyPAGE(sourceFilename);
+				page = readPAGE(sourceFilename);
+			}catch (ParserConfigurationException | IOException | SAXException | XPathExpressionException e) {
+				e.printStackTrace();
+				System.err.println("Could not load source PAGE XML file: " + sourceFilename);
+			}
 		}
+
+
 
 		// Read PAGE xml into Segmentation Result
 		if (page != null) {
+			// Read Metadata
+			de.uniwue.web.model.MetaData metaData = new de.uniwue.web.model.MetaData(page.getMetaData());
+
+			// Read Page Orientation
+			double pageOrientation = getOrientation(page);
 			Map<String, de.uniwue.web.model.Region> resRegions = new HashMap<>();
 			// Read regions
 			for (Region region : page.getLayout().getRegionsSorted()) {
 				// Get Type
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
-				
+
 				Double orientation = !(region instanceof CustomRegion || region instanceof NoiseRegion || type == RegionType.UnknownRegion) ?
 						PrimaLibHelper.getOrientation(region) : null;
-				
+
 				final Map<String,de.uniwue.web.model.TextLine> textLines = new HashMap<>();
 				final List<String> readingOrder = new ArrayList<>();
-				
-				if (type.equals(RegionType.TextRegion)) {
+
+				if (type != null && type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
 					if(textRegion.getAttributes().get("type").getValue() != null && textRegion.getTextType() != null) {
 						subtype = TypeConverter.stringToSubType(textRegion.getTextType());
@@ -109,13 +119,10 @@ public class PageXMLReader {
 							final String id = text.getId().toString();
 
 							// Get Coords of TextLine
-							LinkedList<Point> pointList = new LinkedList<>();
-							Polygon coords = textLine.getCoords();
-							for (int i = 0; i < coords.getSize(); i++) {
-								org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
-								Point newPoint = new Point(point.x, point.y);
-								pointList.add(newPoint);
-							}
+							de.uniwue.web.model.Polygon textlineCoords = new de.uniwue.web.model.Polygon(textLine.getCoords());
+
+							// Get Baseline of TextLine if it exists
+							de.uniwue.web.model.Polygon textlineBaseline = (textLine.getBaseline() != null) ? new de.uniwue.web.model.Polygon(textLine.getBaseline()) : null;
 
 							//// TextLine text content
 							final Map<Integer,String> content = new HashMap<>();
@@ -125,7 +132,7 @@ public class PageXMLReader {
 							for(int i = 0; i < textLine.getTextContentVariantCount(); i++) {
 								TextContentVariant textContent = (TextContentVariant) textLine.getTextContentVariant(i);
 
-								if(textContent.getText() != null) { 
+								if(textContent.getText() != null) {
 									Variable indexVariable = textContent.getAttributes().get(DefaultXmlNames.ATTR_index);
 									if(indexVariable instanceof IntegerVariable && indexVariable.getValue() != null) {
 										final int index = ((IntegerValue)(indexVariable).getValue()).val;
@@ -145,8 +152,8 @@ public class PageXMLReader {
 									content.put(++highestIndex, contentString);
 								}
 							}
-							
-							textLines.put(id, new de.uniwue.web.model.TextLine(id,pointList,content));
+
+							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content, textlineBaseline));
 							readingOrder.add(id);
 						}
 
@@ -154,19 +161,13 @@ public class PageXMLReader {
 				}
 
 				// Get Coords
-				LinkedList<Point> pointList = new LinkedList<>();
-				Polygon coords = region.getCoords();
-				for (int i = 0; i < coords.getSize(); i++) {
-					org.primaresearch.maths.geometry.Point point = coords.getPoint(i);
-					Point newPoint = new Point(point.x, point.y);
-					pointList.add(newPoint);
-				}
+				de.uniwue.web.model.Polygon regionCoords = new de.uniwue.web.model.Polygon(region.getCoords());
 
 				// Id
 				String id = region.getId().toString();
-				if (!pointList.isEmpty()) {
+				if (!regionCoords.getPoints().isEmpty()) {
 					resRegions.put(id, new de.uniwue.web.model.Region(id, new PAGERegionType(type, subtype).toString(),
-							pointList, orientation, false, textLines, readingOrder));
+							orientation, regionCoords, textLines, readingOrder));
 				}
 			}
 			final int height = page.getLayout().getHeight();
@@ -183,22 +184,90 @@ public class PageXMLReader {
 					}
 				}
 			}
-			
+
 			// Pagename
 			final String imageName = page.getImageFilename();
-			final String pageName = imageName.lastIndexOf(".") > 0 ? 
+			final String pageName = imageName.lastIndexOf(".") > 0 ?
 					imageName.substring(0, imageName.lastIndexOf(".")) : imageName;
-			
-			return new PageAnnotations(pageName, width, height, resRegions,
-					SegmentationStatus.LOADED, newReadingOrder);
+			return new PageAnnotations(pageName, sourceFilename.getName(), width, height, metaData, resRegions,
+					SegmentationStatus.LOADED, newReadingOrder, pageOrientation , false);
 		}
 
 		return null;
 	}
 
+	public static Page readPAGE(File sourceFilename){
+		Page page = null;
+		try{
+			page = PageXmlInputOutput.readPage(String.valueOf(sourceFilename));
+		}catch(Exception e){
+			e.printStackTrace();
+			System.err.println("Could not load source PAGE XML file: " + sourceFilename);
+		}
+
+		return page;
+	}
+
+	private static void fixFaultyPAGE(File sourceFilename) throws ParserConfigurationException, IOException, SAXException, XPathExpressionException {
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+
+		dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+		DocumentBuilder db = dbf.newDocumentBuilder();
+
+		Document doc = db.parse(sourceFilename);
+
+		XPath xPath = XPathFactory.newInstance().newXPath();
+
+		NodeList textregions = doc.getElementsByTagName("TextRegion");
+
+		for (int temp = 0; temp < textregions.getLength(); temp++) {
+			NodeList nodeList = (NodeList) xPath.compile("./TextEquiv").evaluate(textregions.item(temp), XPathConstants.NODESET);
+			if (nodeList.getLength() == 1) {
+				Node possiblyFaultyNode = nodeList.item(0);
+
+				NodeList TextLineList = (NodeList) xPath.compile("./following-sibling::TextLine[1]").evaluate(possiblyFaultyNode, XPathConstants.NODESET);
+				if (TextLineList.getLength() > 0) {
+					possiblyFaultyNode.getParentNode().removeChild(possiblyFaultyNode);
+				}
+			}
+		}
+
+		doc.normalize();
+
+		try (FileOutputStream output = new FileOutputStream(sourceFilename)) {
+			writeXml(doc, output);
+		} catch (IOException | TransformerException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void writeXml(Document doc,
+								 OutputStream output)
+			throws TransformerException {
+
+		TransformerFactory transformerFactory = TransformerFactory.newInstance();
+		Transformer transformer = transformerFactory.newTransformer();
+		DOMSource source = new DOMSource(doc);
+		StreamResult result = new StreamResult(output);
+
+		transformer.transform(source, result);
+	}
+
+	private static HashMap<String, String> buildMetadataHashmap(MetaData metaData){
+		HashMap<String, String> metaDataMap = new HashMap<>();
+
+		metaDataMap.put("Creator", metaData.getCreator());
+		metaDataMap.put("Comments", metaData.getComments());
+		metaDataMap.put("ExternalRef", metaData.getExternalRef());
+		metaDataMap.put("FormattedCreationTime", metaData.getFormattedCreationTime());
+		metaDataMap.put("FormattedLastModificationTime", metaData.getFormattedLastModificationTime());
+
+		return metaDataMap;
+	}
+
 	/**
 	 * Read the PageAnnotations of a PageXML file from the disc drive
-	 * 
+	 *
 	 * @param pageXMLInputPath Path to the PageXML file
 	 * @return PageAnnotations inside the document
 	 */
@@ -206,15 +275,25 @@ public class PageXMLReader {
 		PageAnnotations segResult = null;
 
 		try {
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			Document document = dBuilder.parse(pageXMLInputPath);
-			segResult = getPageAnnotations(document);
+			segResult = getPageAnnotations(pageXMLInputPath);
 		} catch (Exception e) {
 			e.printStackTrace();
-			System.out.println("Reading XML file failed!");
+			System.err.println("Reading XML file failed!");
 		}
 
 		return segResult;
+	}
+
+	/**
+	 * Read the Orientation of a PageXML Document
+	 *
+	 * @param page	PageXML
+	 * @return orientation skew angle of page element
+	 */
+	public static double getOrientation(Page page){
+		if(page.getAttributes().get("orientation") != null && page.getAttributes().get("orientation").getValue() != null){
+			return Double.parseDouble(page.getAttributes().get("orientation").getValue().toString());
+		}
+		return 0.0;
 	}
 }

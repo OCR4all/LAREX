@@ -14,6 +14,8 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 					if(!(mode === Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())))
 						_controller.toggleShortcutModal();
 					break;
+				case "#":
+					console.log(_controller.get_segmentation(true));
 			}
 
 			if(mode === Mode.TEXT && (_gui.isTextLineContentActive() || _textViewer.isOpen())){
@@ -144,6 +146,13 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 					case "m":
 						_controller.move();
 						validKey = true;
+						if(event.ctrlKey){
+							_controller.openMetadataModal();
+							validKey = true;
+						}else{
+							_controller.move();
+							validKey = true;
+						}
 						break;
 					case "+":
 						_navigationController.zoomIn(0.1);
@@ -433,7 +442,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						_navigationController.zoomOut(0.1, mousepoint);
 					}
 				}
-			} 
+			}
 			isZooming = false;
 			event.preventDefault();
 		}

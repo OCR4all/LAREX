@@ -30,13 +30,38 @@
 			  	</div>
 			</div>
 		</li>
+		<li id="collapsible-actions">
+			<div class="collapsible-header active">
+				<i class="material-icons">adjust</i>Actions
+			</div>
+			<div class="collapsible-body">
+				<div class="segmentationToggle row">
+					<span class="col s12 switch">
+						<label>
+							<input id="toggleLineVisibility" type="checkbox">
+							<span class="lever"></span>
+							Hide existing line polygons
+						</label>
+					</span>
+				</div>
+				<div class="segmentationToggle row">
+					<span class="col s12 switch">
+						<label>
+							<input id="toggleBaselineVisibility" type="checkbox">
+							<span class="lever"></span>
+							Hide existing baselines
+						</label>
+					</span>
+				</div>
+			</div>
+		</li>
 	</ul>
-	
+
 	<a class="col s12 waves-effect waves-light btn exportPageXML tooltipped" data-position="left" data-delay="50" data-tooltip="Save the current segmentation as PageXML (Shortcut: CTRL+S)">
 		Save Result
 		<div class="progress hide">
     		<div class="indeterminate"></div>
-		</div>       
+		</div>
 		<span class="pageXMLVersion">version</span>
 		<i class="material-icons right">file_download</i>
 		<div class="dropDownPageXMLCorner"></div>
@@ -54,6 +79,6 @@
 		<i class="material-icons right">file_upload</i></div>
 		<input id="upload-segmentation-input" class="uploadSegmentation hide" type="file">
 	</form>
-	
-	
+
+
 </div>

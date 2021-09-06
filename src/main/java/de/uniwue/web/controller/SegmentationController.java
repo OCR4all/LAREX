@@ -31,7 +31,7 @@ import de.uniwue.web.model.PageAnnotations;
 /**
  * Communication Controller to handle requests for the main viewer/editor.
  * Handles requests about displaying book scans and segmentations.
- * 
+ *
  */
 @Controller
 @Scope("session")
@@ -59,8 +59,12 @@ public class SegmentationController {
 		if (!config.isInitiated()) {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
+			String saveDir = config.getSetting("savedir");
 			if (!bookFolder.equals("")) {
 				fileManager.setLocalBooksPath(bookFolder);
+			}
+			if (saveDir != null && !saveDir.equals("")) {
+				fileManager.setSaveDir(saveDir);
 			}
 		}
 		this.segProgress = 0;
@@ -70,19 +74,22 @@ public class SegmentationController {
 									produces = "application/json", consumes = "application/json")
 	public @ResponseBody PageAnnotations segment(@RequestBody SegmentationRequest segmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-		return LarexFacade.segmentPage(segmentationRequest.getSettings(), segmentationRequest.getPage(), fileManager, database);
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		SegmentationSettings settings = segmentationRequest.getSettings();
+		return LarexFacade.segmentPage(settings, segmentationRequest.getPage(),
+				settings.getParameters().get("imageOrientation").doubleValue(), fileManager, database);
 	}
 
 	@RequestMapping(value = "segmentation/batchSegment", method = RequestMethod.POST, headers = "Accept=*/*",
 			produces = "application/json", consumes = "application/json")
 	public @ResponseBody List<PageAnnotations> batchSegment(@RequestBody BatchSegmentationRequest batchSegmentationRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 		List<PageAnnotations> results = new ArrayList<>();
 		this.segProgress = 0;
-		for(int page: batchSegmentationRequest.getPages()){
-			PageAnnotations result = LarexFacade.segmentPage(batchSegmentationRequest.getSettings(), page, fileManager, database);
+		for(int page: batchSegmentationRequest.getPages().keySet()){
+			PageAnnotations result = LarexFacade.segmentPage(batchSegmentationRequest.getSettings(), page,
+					batchSegmentationRequest.getPages().get(page), fileManager, database);
 			results.add(result);
 			this.segProgress++;
 		}
@@ -92,18 +99,28 @@ public class SegmentationController {
 	@RequestMapping(value = "segmentation/settings", method = RequestMethod.POST)
 	public @ResponseBody SegmentationSettings getBook(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		if(fileManager.checkFlat()) {
+			return new SegmentationSettings(database.getBook(bookID));
+		} else {
+			return new SegmentationSettings(database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()));
+		}
 
-		return new SegmentationSettings(database.getBook(bookID));
 	}
 	@RequestMapping(value = "segmentation/empty", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations emptysegment(@RequestParam("bookid") int bookID,
 			@RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		Page page;
+		if(fileManager.checkFlat()) {
+			page = database.getBook(bookID).getPage(pageID);
+		} else {
+			page = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap()).getPage(pageID);
+		}
 
-		Page page = database.getBook(bookID).getPage(pageID);
-		return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(), page.getId());
+		return new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(), page.getId(), page.getOrientation(), false);
+
 	}
 
 	/**

@@ -152,6 +152,8 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('.moveup').click(() => _navigationController.move(0, -10));
 	$('.movecenter').click(() => _navigationController.center());
 
+	$('#openDir').click(() => _controller.loadLibrary());
+	$('#reloadProject').click(() => _controller.reloadProject());
 	$('.undo').click(() => _controller.undo());
 	$('.redo').click(() => _controller.redo());
 
@@ -291,32 +293,32 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		e.stopPropagation();
 	});
 
-	$('#pageLegend > .pageIconTodo').click(function(event) { 
+	$('#pageLegend > .pageIconTodo').click(function(event) {
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_gui.hideTodoPages(!isChecked); 
+		_gui.hideTodoPages(!isChecked);
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
 	$('#pageLegend > .pageIconSession').click(function(event) {
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_gui.hideSessionPages(!isChecked); 
+		_gui.hideSessionPages(!isChecked);
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
 	$('#pageLegend > .pageIconServer').click(function(event) {
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_gui.hideServerPages(!isChecked); 
+		_gui.hideServerPages(!isChecked);
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
 	$('#pageLegend > .pageIconUnsaved').click(function(event) {
 		$this = $(this);
 		const isChecked = !$this.hasClass('checked');
-		_gui.hideUnsavedPages(!isChecked); 
+		_gui.hideUnsavedPages(!isChecked);
 		if(isChecked) $this.addClass('checked'); else $this.removeClass('checked');
 	});
 
-	/*** Dynamically added listeners 
+	/*** Dynamically added listeners
 	 * (Add Listeners to document and use selector in on function)
 	 ***/
 	let _hasBeenDropped = false;
@@ -504,6 +506,14 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer._displayPredictedText();
 	})
 
+	$("#displayDiff").click(function(){
+		_textViewer._displayDiff();
+	})
+
+	$("#displayMismatch").click(function(){
+		_textViewer._displayOnlyMismatch();
+	})
+
 	$("#toggleSegmentVisibility").change(function () {
 		if(this.checked){
 			_controller.hideAllSegments(true);
@@ -512,5 +522,23 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		}
 	})
 
-	$('.showShortcuts').click(() => _controller.toggleShortcutModal());
+	$("#toggleLineVisibility").change(function () {
+		if(this.checked){
+			_controller.hideAllLines(true);
+		} else {
+			_controller.hideAllLines(false);
+		}
+	})
+
+	$("#toggleBaselineVisibility").change(function () {
+		if(this.checked){
+			_controller.hideAllBaselines(true);
+		} else {
+			_controller.hideAllBaselines(false);
+		}
+	})
+
+	$('#showShortcuts').click(() => _controller.toggleShortcutModal());
+	$("#metadata-save").click(() => _controller.saveMetadata());
+	$("#openFullscreen").click(() => _gui.toggleFullscreen());
 }

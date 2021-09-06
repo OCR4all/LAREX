@@ -6,7 +6,7 @@
 
     <groupId>de.uniwue</groupId>
     <artifactId>Larex</artifactId>
-    <version>0.5.0</version>
+    <version>0.6-RC1</version>
     <packaging>war</packaging>
 
     <name>Larex</name>
@@ -115,7 +115,14 @@
         <dependency>
             <groupId>org.openpnp</groupId>
             <artifactId>opencv</artifactId>
-            <version>3.4.2-1</version>
+            <version>4.3.0-2</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.json/json -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20210307</version>
         </dependency>
 
         <!-- Apache Commons FileUpload -->
@@ -129,22 +136,22 @@
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>basic</artifactId>
-            <version>1.5a</version>
+            <version>1.5b</version>
         </dependency>
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>Dla</artifactId>
-            <version>1.5a</version>
+            <version>1.5b</version>
         </dependency>
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>Io</artifactId>
-            <version>1.5a</version>
+            <version>1.5b</version>
         </dependency>
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>Maths</artifactId>
-            <version>1.5a</version>
+            <version>1.5b</version>
         </dependency>
         <dependency>
             <groupId>javax.annotation</groupId>

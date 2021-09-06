@@ -25,6 +25,7 @@
 		<t:menuIcon jsClass="zoomfit_second" icon="zoom_out_map"
 			tooltip="Zooms text to fit the screen (Shortcut: CTRL+SPACE)">Zoom fit</t:menuIcon>
 	</t:menuIconCategory>
+	<div class="menuIconDivider col"></div>
 	<t:menuIcon jsClass="undo" icon="undo"
 		tooltip="Undo: Revokes the last action (Shortcut: CTRL+Z)">Undo</t:menuIcon>
 	<t:menuIcon jsClass="redo" icon="redo"

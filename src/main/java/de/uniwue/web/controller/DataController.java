@@ -2,7 +2,6 @@ package de.uniwue.web.controller;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,29 +51,37 @@ public class DataController {
 		if (!config.isInitiated()) {
 			config.read(new File(fileManager.getConfigurationFile()));
 			String bookFolder = config.getSetting("bookpath");
+			String saveDir = config.getSetting("savedir");
 			if (!bookFolder.equals("")) {
 				fileManager.setLocalBooksPath(bookFolder);
 			}
+			if (saveDir != null && !saveDir.equals("")) {
+				fileManager.setSaveDir(saveDir);
+			}
 		}
 	}
-	
+
 	/**
 	 * Return informations about a book
-	 * 
+	 *
 	 * @param bookID
 	 * @return
 	 */
 	@RequestMapping(value = "data/book", method = RequestMethod.POST)
 	public @ResponseBody Book getBook(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		if(fileManager.checkFlat()) {
+			return database.getBook(bookID);
+		} else {
+			return database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
+		}
 
-		return database.getBook(bookID);
 	}
 
 	/**
-	 * Return the annotations of a page if exists or empty annotations 
-	 *  
+	 * Return the annotations of a page if exists or empty annotations
+	 *
 	 * @param bookID
 	 * @param pageID
 	 * @return
@@ -82,17 +89,27 @@ public class DataController {
 	@RequestMapping(value = "data/page/annotations", method = RequestMethod.POST)
 	public @ResponseBody PageAnnotations getAnnotations(@RequestParam("bookid") int bookID, @RequestParam("pageid") int pageID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 
-		final Book book = database.getBook(bookID);
-		final Page page = book.getPage(pageID);
-		final File annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+		Book book;
+		Page page;
+		File annotationsPath;
+
+		if(fileManager.checkFlat()) {
+			book = database.getBook(bookID);
+			page = book.getPage(pageID);
+			annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+		} else {
+			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
+			page = book.getPage(pageID);
+			annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getXmlName().split("\\.")[0]));
+		}
 
 		if (annotationsPath.exists()) {
 			return PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath);
 		} else {
-			return new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-					page.getId());
+			return new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
+					page.getId(), page.getOrientation(), false);
 		}
 	}
 
@@ -106,18 +123,28 @@ public class DataController {
 			produces = "application/json", consumes = "application/json")
 	public @ResponseBody List<PageAnnotations> getBatchAnnotations(@RequestBody BatchLoadRequest batchLoadRequest) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
 
-		final Book book = database.getBook(batchLoadRequest.getBookid());
+		Book book;
+		if(fileManager.checkFlat()) {
+			book = database.getBook(batchLoadRequest.getBookid());
+		} else {
+			book = database.getBook(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(),fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
+		}
 		List<PageAnnotations> pageAnnotations = new ArrayList<>();
 		for( int pageID : batchLoadRequest.getPages()) {
 			Page page = book.getPage(pageID);
-			File annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+			File annotationsPath;
+			if(fileManager.checkFlat()) {
+				annotationsPath = fileManager.getAnnotationPath(book.getName(), page.getName());
+			} else {
+				annotationsPath = new File(fileManager.getLocalXmlMap().get(page.getXmlName().split("\\.")[0]));
+			}
 			if (annotationsPath.exists()) {
 				pageAnnotations.add(PageXMLReader.loadPageAnnotationsFromDisc(annotationsPath));
 			} else {
-				pageAnnotations.add( new PageAnnotations(page.getName(), page.getWidth(), page.getHeight(),
-						page.getId()));
+				pageAnnotations.add( new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
+						page.getId(), page.getOrientation(), false));
 			}
 		}
 
@@ -126,15 +153,19 @@ public class DataController {
 
 	/**
 	 * Return if page annotations for the pages of a book exist
-	 * 
+	 *
 	 * @param bookID
 	 * @return Map of PageNr -> Boolean : True if annotations file exist on the server
 	 */
 	@RequestMapping(value = "data/status/all/annotations", method = RequestMethod.POST)
 	public @ResponseBody Collection<Integer> getAnnotationAllStatus(@RequestParam("bookid") int bookID) {
 		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"));
-		return database.getPagesWithAnnotations(bookID);
+				config.getListSetting("imagefilter"), fileManager.checkFlat());
+		if(fileManager.checkFlat()) {
+			return database.getPagesWithAnnotations(bookID);
+		} else {
+			return database.getPagesWithAnnotations(fileManager.getNonFlatBookName(),fileManager.getNonFlatBookId(), fileManager.getLocalImageMap(), fileManager.getLocalXmlMap());
+		}
 	}
 
 	/**
@@ -148,9 +179,9 @@ public class DataController {
 
 		List<String[]> keyboard = new ArrayList<>();
 		try(BufferedReader br = new BufferedReader(new FileReader(virtualKeyboard))) {
-			String st; 
-			while ((st = br.readLine()) != null) 
-				if(st.replace("\\s+", "").length() > 0) 
+			String st;
+			while ((st = br.readLine()) != null)
+				if(st.replace("\\s+", "").length() > 0)
 					keyboard.add(st.split("\\s+"));
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -188,5 +219,15 @@ public class DataController {
 	public @ResponseBody Boolean isOCR4allMode() {
 		String ocr4allMode = config.getSetting("ocr4all");
 		return ocr4allMode.equals("enable");
+	}
+
+	/**
+	 * Returns whether LAREX is configured to be used direct request mode or not.
+	 */
+	@RequestMapping(value = "config/directrequest", method = RequestMethod.POST, headers = "Accept=*/*",
+			produces = "application/json")
+	public @ResponseBody Boolean isDirectRequest() {
+		String directrequestMode = config.getSetting("directrequest");
+		return directrequestMode.equals("enable");
 	}
 }
