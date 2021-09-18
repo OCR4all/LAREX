@@ -108,19 +108,18 @@ $(document).ready(function () {
 		for(let i = 0; i<pageElemList.length;i++) {
 			if(pageElemList[i].checked) {
 				let fileKey = encodeURIComponent(pageElemList[i].getAttribute('id'));
-				let pathList = pageElemList[i].getAttribute('data-page').split(',');
+				let pathList = pageElemList[i].getAttribute('data-page').split(':');
 				let filePathList = [];
 				let filePath = pathList[0];
 				for(let j = 0; j<pathList.length; j++) {
 					if(j % 2 == 0) {
 						filePath = pathList[j];
-						filePathList.push(filePath);
+						filePathList.push(encodeURIComponent(filePath));
 					} else {
 						mimeTypMap[encodeURIComponent(filePath)] = encodeURIComponent(pathList[j]);
 					}
 				}
-
-				fileMap[encodeURIComponent(fileKey)] = encodeURIComponent(filePathList.join(","));
+				fileMap[encodeURIComponent(fileKey)] = filePathList;
 			}
 		}
 		$.ajax({
@@ -143,7 +142,7 @@ $(document).ready(function () {
 		checkForOldProject();
 	});
 
-	function showPages(pageList, path) {
+	function showPages(pageList, metsPath) {
 		//clear previous pageList
 		let node = document.getElementById('bookImageList')
 		while(node.firstChild) {
@@ -165,8 +164,12 @@ $(document).ready(function () {
 			pageCheckbox.setAttribute('type',"checkbox");
 			pageCheckbox.setAttribute('checked',"checked");
 			pageCheckbox.setAttribute('id',pageName);
-			pageCheckbox.setAttribute('data-page',pathList);
-			pageCheckbox.setAttribute('data-mets-path',path);
+			let pathWithMime = [];
+			for(let path of pathList) {
+				pathWithMime.push(path.join(':'))
+			}
+			pageCheckbox.setAttribute('data-page',pathWithMime.join(':'));
+			pageCheckbox.setAttribute('data-mets-path',metsPath);
 			pageCheckbox.setAttribute('data-mime', getMime(pathList[0]))
 			pageCheckbox.setAttribute('class',"libraryPage");
 			let pageCheckboxLabel = document.createElement('label');
