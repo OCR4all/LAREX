@@ -92,8 +92,7 @@ public class ViewerController {
 			 */
 			Map<String, Object> map = mapper.readValue(java.net.URLDecoder.decode(fileMapString, StandardCharsets.UTF_8.name()), TreeMap.class);
 			for(Map.Entry<String, Object> entry : map.entrySet()) {
-				String listString = (String) entry.getValue();
-				List<String> pathList = Arrays.asList(listString.split(","));
+				List<String> pathList = (List<String>) entry.getValue();
 				fileMap.put(entry.getKey(), pathList);
 			}
 			mimeMap = mapper.readValue(java.net.URLDecoder.decode(mimeMapString, StandardCharsets.UTF_8.name()), TreeMap.class);
