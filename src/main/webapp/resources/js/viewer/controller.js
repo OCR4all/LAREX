@@ -2293,6 +2293,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		Object.keys(segmentation.segments).forEach((key) => {
 			segmentation.segments[key].coords = this.rotatePolygon(negativeOrientation, segmentation.segments[key].coords, negativeOffset, negativeCenter);
+			if(!(typeof(segmentation.segments[key].textlines) === undefined || segmentation.segments[key].textlines == null)) {
+				Object.keys(segmentation.segments[key].textlines).forEach((keyLine) => {
+					segmentation.segments[key].textlines[keyLine].coords = this.rotatePolygon(negativeOrientation,segmentation.segments[key].textlines[keyLine].coords,negativeOffset,negativeCenter);
+				});
+			}
 		});
 		return segmentation;
 	}
@@ -2336,6 +2341,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		result.center = offsetCenter.trueCenter;
 		Object.keys(result.segments).forEach((key) => {
 			result.segments[key].coords = this.rotatePolygon(result.orientation,result.segments[key].coords,result.OffsetVector,result.center);
+			if(!(typeof(result.segments[key].textlines) === undefined || result.segments[key].textlines == null)) {
+				Object.keys(result.segments[key].textlines).forEach((keyLine) => {
+					result.segments[key].textlines[keyLine].coords = this.rotatePolygon(result.orientation,result.segments[key].textlines[keyLine].coords,result.OffsetVector,result.center);
+				});
+			}
 		});
 		return result;
 	}
