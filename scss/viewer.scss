@@ -728,10 +728,14 @@ body{
   margin-bottom: 0;
 }
 .diff-text{
+  font-family: 'Andron';
   display: none;
   font-size: 20px;
   margin-top: 0;
   margin-bottom: 0;
+  *{
+    font-family: 'Andron';
+  }
 }
 
 #textline-content{
