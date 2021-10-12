@@ -13,22 +13,22 @@
 		<!-- Viewer scripts -->
 		<script type="text/javascript" src="resources/js/viewer/actions.js"></script>
 		<script type="text/javascript"
-			src="resources/js/viewer/navigationcontroller.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/guiInput.js"></script>
+			src="resources/js/viewer/navigationcontroller.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/guiInput.js?version=${timeStamp}"></script>
 		<script type="text/javascript"
-			src="resources/js/viewer/viewerInput.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/keyInput.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/communicator.js"></script>
-		<script type="text/javascript" src="resources/js/navigation.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/gui.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/colors.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/viewer.js"
+			src="resources/js/viewer/viewerInput.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/keyInput.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/communicator.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/navigation.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/gui.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/colors.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/viewer.js?version=${timeStamp}"
 			canvas="viewerCanvas"></script>
-		<script type="text/javascript" src="resources/js/viewer/editor.js"
+		<script type="text/javascript" src="resources/js/viewer/editor.js?version=${timeStamp}"
 			canvas="viewerCanvas"></script>
-		<script type="text/javascript" src="resources/js/viewer/textViewer.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/selector.js"></script>
-		<script type="text/javascript" src="resources/js/viewer/controller.js"></script>
+		<script type="text/javascript" src="resources/js/viewer/textViewer.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/selector.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/viewer/controller.js?version=${timeStamp}"></script>
 
 		<!-- Main Method -->
 		<script>
@@ -81,7 +81,7 @@
 		});
 		</script>
 
-		<link rel="stylesheet" href="resources/css/viewer.css">
+		<link rel="stylesheet" href="resources/css/viewer.css?version=${timeStamp}">
 		<title>Larex - Editor</title>
 	</b:head>
 	<t:keyboardShortcutModal/>

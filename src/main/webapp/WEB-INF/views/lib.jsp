@@ -6,9 +6,9 @@
 
 <b:webpage>
 	<b:head>
-		<script type="text/javascript" src="resources/js/viewer/communicator.js"></script>
-		<script type="text/javascript" src="resources/js/navigation.js"></script>
-		<link rel="stylesheet" href="resources/css/lib.css">
+		<script type="text/javascript" src="resources/js/viewer/communicator.js?version=${timeStamp}"></script>
+		<script type="text/javascript" src="resources/js/navigation.js?version=${timeStamp}"></script>
+		<link rel="stylesheet" href="resources/css/lib.css?version=${timeStamp}">
 		<title>Larex - Library</title>
 	</b:head>
 

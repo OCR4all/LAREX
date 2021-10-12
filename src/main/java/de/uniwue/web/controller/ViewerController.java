@@ -85,6 +85,8 @@ public class ViewerController {
 		DirectRequest directRequest = new DirectRequest(fileMapString, mimeMapString, metsFilePath, customFlag, customFolder);
 		fileManager.setDirectRequest(directRequest);
 
+		String timeStamp = String.valueOf(System.currentTimeMillis() / 1000L);
+
 		try {
 			/*
 				List of paths is mapped as an object, then cast to String and
@@ -169,6 +171,7 @@ public class ViewerController {
 		model.addAttribute("regionTypes", getRegionTypes());
 		model.addAttribute("bookPath", "loadImage/");
 		model.addAttribute("globalSettings", config);
+		model.addAttribute("timeStamp", timeStamp);
 
 		return "editor";
 	}

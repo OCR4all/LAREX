@@ -69,6 +69,9 @@ public class LibraryController {
 		// Reset config
 		String bookFolder = config.getSetting("bookpath");
     	String saveDir = config.getSetting("savedir");
+
+		String timeStamp = String.valueOf(System.currentTimeMillis() / 1000L);
+
 		if (!bookFolder.equals("")) {
 			fileManager.setLocalBooksPath(bookFolder);
 		}
@@ -85,6 +88,7 @@ public class LibraryController {
 		Library lib = new Library(database);
 
 		model.addAttribute("library", lib);
+		model.addAttribute("timeStamp", timeStamp);
 		return "lib";
 	}
 
