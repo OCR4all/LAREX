@@ -74,6 +74,10 @@
 						<input name="confidenceGroup" type="radio" id="displayGlyphConf"/>
 						<label for="displayGlyphConf">Glyph Confidence</label>
 					</div>
+					<div id="displayConfBelowContainer" class="row textModeCheckboxRow" style="display: none">
+						<input type="checkbox" id="displayConfBelow"/>
+						<label for="displayConfBelow">Only show below threshold</label>
+					</div>
 				</div>
 			</div>
 		</li>

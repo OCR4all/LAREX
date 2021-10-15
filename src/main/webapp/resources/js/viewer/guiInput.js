@@ -522,6 +522,9 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#confThreshold").change(function(){
 		_controller.confViewChange();
 	})
+	$("#displayConfBelow").click(function(){
+		_textViewer._displayOnlyBelowThreshold();
+	})
 
 	$("#toggleSegmentVisibility").change(function () {
 		if(this.checked){
