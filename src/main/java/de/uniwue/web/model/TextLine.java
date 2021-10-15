@@ -1,6 +1,7 @@
 package de.uniwue.web.model;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -20,6 +21,8 @@ public class TextLine extends Element {
 	protected Map<Integer, String> text;
 	@JsonProperty("baseline")
 	protected Polygon baseline;
+	@JsonProperty("words")
+	protected List<Word> words;
 
 	/**
 	 * Base constructor for the parsing from a JSON object, with all included data.
@@ -33,10 +36,12 @@ public class TextLine extends Element {
 	public TextLine(@JsonProperty("id") String id,
 					@JsonProperty("coords") Polygon coords,
 					@JsonProperty("text") Map<Integer, String> text,
-					@JsonProperty("baseline") Polygon baseline) {
+					@JsonProperty("baseline") Polygon baseline,
+					@JsonProperty("words") List<Word> words) {
 		super(id, coords);
 		this.text = text;
 		this.baseline = baseline;
+		this.words = words;
 	}
 
 	public TextLine(String id, Polygon coords, Map<Integer, String> text) {

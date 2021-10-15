@@ -2358,4 +2358,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 		return JSON.stringify(obj) === JSON.stringify({});
 	}
+
+	/** TextViewer
+	 * Updates prediction according to confidence settings
+	 *
+	 */
+	this.confViewChange = function(){
+		$(".textline-container").each(function () {
+			let id = $(this).attr('data-id');
+			controller.updateTextLine(id);
+		});
+	}
 }
