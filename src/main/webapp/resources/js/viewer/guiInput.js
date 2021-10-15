@@ -513,6 +513,18 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#displayMismatch").click(function(){
 		_textViewer._displayOnlyMismatch();
 	})
+	$(".confViewChange").click(function(){
+		_controller.confViewChange();
+	})
+	$("#displayConfidence").change(function(){
+		_textViewer._toggleConfSettings();
+	})
+	$("#confThreshold").change(function(){
+		_controller.confViewChange();
+	})
+	$("#displayConfBelow").click(function(){
+		_textViewer._displayOnlyBelowThreshold();
+	})
 
 	$("#toggleSegmentVisibility").change(function () {
 		if(this.checked){

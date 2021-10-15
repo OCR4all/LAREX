@@ -14,6 +14,9 @@ class TextViewer {
 		this._baseFontSize = 20;
 		this._dmp = new diff_match_patch();
 		$("#displayDiff").prop('checked', true);
+		//$("#displayPrediction").prop('checked', true);
+		$("#displayWordConf").prop('checked', true);
+		this._toggleConfSettings();
 	}
 
 	/**
@@ -86,6 +89,7 @@ class TextViewer {
 		$textlineContainer.append(textObject[1]);
 		$textlineContainer.append(textObject[2]);
 		$textlineContainer.attr("data-difflen", textObject[3])
+		$textlineContainer.attr("data-minconf", textObject[4]);
 		this.container.append($textlineContainer);
 
 		this.zoomBase(textline.id);
@@ -93,6 +97,7 @@ class TextViewer {
 		this._displayPredictedText();
 		this._displayDiff();
 		this._displayOnlyMismatch();
+		this._displayOnlyBelowThreshold();
 	}
 
 	/**
@@ -126,6 +131,7 @@ class TextViewer {
 		$(`.textline-container[data-id='${textline.id}'] > .diff-text`).replaceWith(textObject[1]);
 		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(textObject[2]);
 		$(`.textline-container[data-id='${textline.id}']`).attr("data-difflen", textObject[3]);
+		$(`.textline-container[data-id='${textline.id}']`).attr("data-minconf", textObject[4]);
 		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`);
 		if(textline.type === "TextLine_gt"){
 			$textlinecontent.addClass("line-corrected")
@@ -139,6 +145,7 @@ class TextViewer {
 		this._displayPredictedText();
 		this._displayDiff();
 		this._displayOnlyMismatch();
+		this._displayOnlyBelowThreshold();
 	}
 
 	/**
@@ -427,12 +434,125 @@ class TextViewer {
 		}
 		const $diffText = $(`<p class="diff-text">${this._prettifyDiff(diff)}</p>`);
 		if(diff === "") {$diffText.hide();} else {$diffText.show();}
-
-		const pred_text = hasPredict ? textline.text[1] : "";
+		let pred_text_container = this._checkConfidence(textline, hasPredict);
+		let pred_text = pred_text_container[0];
+		let minConf = pred_text_container[1];
 		const $predText = $(`<p class="pred-text">${pred_text}</p>`);
-		return [$predText, ($diffText), ($textlineText), (diff.length)];
+		return [$predText, ($diffText), ($textlineText), (diff.length), (minConf)];
 	}
 
+	_checkConfidence(textline, hasPredict) {
+		let pred_text = hasPredict ? textline.text[1] : "";
+		let displayConf = $("#displayConfidence").is(":checked");
+		let displayWordConf = $("#displayWordConf").is(":checked");
+		let displayGlyphConf = $("#displayGlyphConf").is(":checked");
+		let threshold = parseFloat($("#confThreshold").val());
+		let useGradient = false;
+		let minConf = 1.0;
+		if(hasPredict && displayConf && (displayWordConf || displayGlyphConf) && 'words' in textline && textline.words.length > 0 ) {
+			//ensure words are sorted by id
+			let collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+			let sortedWords = textline.words.sort((a, b) => collator.compare(a.id, b.id));
+			let wordList = [];
+			//check if line length matches word length
+			if(textline.words.length !== pred_text.split(' ').length) {
+				console.log("WARNING: Textline length differs from word count:");
+				console.log('textline length    : ' + pred_text.split(' ').length.toString());
+				console.log('textline word count: ' + textline.words.length.toString());
+			}
+			for(let word of sortedWords) {
+				let word_text = word.text;
+				if(displayGlyphConf && 'glyphs' in word && word.glyphs.length > 0) {
+					//ensure glyphs are sorted by id
+					let sortedGlyphs = word.glyphs.sort((a, b) => collator.compare(a.id, b.id));
+					let glyphList = [];
+					for(let glyph of sortedGlyphs) {
+						let glyph_text = glyph.text;
+						if('conf' in glyph) {
+							minConf = glyph.conf < minConf ? glyph.conf : minConf;
+							glyph_text = this._markUpConfidence(glyph_text, glyph.conf, threshold, false);
+						}
+						glyphList.push(glyph_text);
+					}
+					word_text = glyphList.join('');
+				}else {
+					if('conf' in word) {
+						minConf = word.conf < minConf ? word.conf : minConf;
+						word_text = this._markUpConfidence(word_text, word.conf, threshold, false);
+					}
+				}
+				wordList.push(word_text);
+			}
+			pred_text = wordList.join(' ');
+		}
+
+		return [pred_text,minConf];
+	}
+	/**
+	 * Checks if text is above certain threshold and colors its background using css
+	 * @param text
+	 * @param confidence
+	 * @param threshold
+	 * @param useGradient
+	 * @returns {string} html/css containing text with background
+	 * @private
+	 */
+	_markUpConfidence(text,confidence, threshold, useGradient){
+		//temporarily use insert/delete colors
+		let aboveColor = globalSettings.conf_above_color;
+		let belowColor = globalSettings.conf_below_color;
+		if(aboveColor == "" || !this._validColor(aboveColor)) {aboveColor = "#FFFFFF";}
+		if(belowColor == "" || !this._validColor(belowColor)) {belowColor = "#e56123";}
+		let html;
+		if(confidence > threshold) {
+			if(aboveColor == "#FFFFFF") { return text;}
+			return '<span style="background:' + aboveColor + ';">' + text + '</span>';
+		} else {
+			return '<span style="background:' + belowColor + ';">' + text + '</span>';
+		}
+	}
+
+	/**
+	 *  *** Not yet implemented ***
+	 *  calculate color gradient with confidence and three colors
+	 *  https://stackoverflow.com/a/61396704
+	 * @param confidence
+	 * @param rgbColor1
+	 * @param rgbColor2
+	 * @param rgbColor3
+	 * @returns {string} rgbColor
+	 */
+	colorGradient(confidence, rgbColor1, rgbColor2, rgbColor3) {
+		if( confidence < 0) {
+			return 'rgb(255,255,255)';
+		}
+		let color1 = rgbColor1;
+		let color2 = rgbColor2;
+		let fade = confidence;
+
+		// Do we have 3 colors for the gradient? Need to adjust the params.
+		if(rgbColor3) {
+			fade = fade * 2;
+
+			// Find which interval to use and adjust the fade percentage
+			if(fade >= 1) {
+				fade -= 1;
+				color1 = rgbColor2;
+				color2 = rgbColor3;
+			}
+		}
+
+		let diffRed = color2.red - color1.red;
+		let diffGreen = color2.green - color1.green;
+		let diffBlue = color2.blue - color1.blue;
+
+		let gradient = {
+			red: Math.round(Math.floor(color1.red + (diffRed * fade))),
+			green: Math.round(Math.floor(color1.green + (diffGreen * fade))),
+			blue: Math.round(Math.floor(color1.blue + (diffBlue * fade))),
+		};
+		return 'rgb(' + gradient.red + ',' + gradient.green + ',' + gradient.blue + ')';
+	}
 	/**
 	 * Create a textline image object for a given textline
 	 *
@@ -467,11 +587,25 @@ class TextViewer {
 	 */
 	_displayPredictedText(){
 		if($("#displayPrediction").is(":checked")){
-			$(".line-corrected").prev(".diff-text").hide();
-			$(".line-corrected").prev().prev(".pred-text").show();
+			document.getElementById("displayConfidenceContainer").style.display = "block";
+			$(".pred-text").show();
 		}else{
-			$(".line-corrected").prev(".diff-text").show();
+			document.getElementById("displayConfidenceContainer").style.display = "none";
 			$(".pred-text").hide();
+		}
+		this._toggleConfSettings();
+	}
+	_toggleConfSettings(){
+		if(!($("#displayConfidence").is(":checked")) || !($("#displayPrediction").is(":checked"))){
+			document.getElementById("inputConfThresholdContainer").style.display = "none";
+			document.getElementById("displayGlyphConfContainer").style.display = "none";
+			document.getElementById("displayWordConfContainer").style.display = "none";
+			document.getElementById("displayConfBelowContainer").style.display = "none";
+		}else{
+			document.getElementById("inputConfThresholdContainer").style.display = "block";
+			document.getElementById("displayGlyphConfContainer").style.display = "block";
+			document.getElementById("displayWordConfContainer").style.display = "block";
+			document.getElementById("displayConfBelowContainer").style.display = "block";
 		}
 	}
 	/**
@@ -536,11 +670,9 @@ class TextViewer {
 	 */
 	_displayDiff(){
 		if($("#displayDiff").is(":checked")){
-			document.getElementById("displayPredictionContainer").style.display = "block";
 			document.getElementById("displayMismatchContainer").style.display = "block";
 			$(".line-corrected").prev(".diff-text").show();
 		}else{
-			document.getElementById("displayPredictionContainer").style.display = "none";
 			document.getElementById("displayMismatchContainer").style.display = "none";
 			$(".diff-text").hide();
 		}
@@ -553,6 +685,25 @@ class TextViewer {
 		if($("#displayMismatch").is(":checked")){
 			$(".textline-container").each(function () {
 				if(parseInt($(this).attr("data-difflen")) > 1 ) {
+					$(this).show();
+				} else {
+					$(this).hide();
+				}
+			});
+		}else{
+			$(".textline-container").each(function () {
+				$(this).show();
+			});
+		}
+	}
+	/**
+	 * Hides textlines which only contains confidences above threshold
+	 *
+	 */
+	_displayOnlyBelowThreshold(){
+		if($("#displayConfBelow").is(":checked")){
+			$(".textline-container").each(function () {
+				if(parseFloat($(this).attr("data-minconf")) < parseFloat($("#confThreshold").val())) {
 					$(this).show();
 				} else {
 					$(this).hide();

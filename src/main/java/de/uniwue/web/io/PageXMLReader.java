@@ -20,9 +20,11 @@ import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.impl.CustomRegion;
 import org.primaresearch.dla.page.layout.physical.impl.NoiseRegion;
 import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
+import org.primaresearch.dla.page.layout.physical.text.impl.Glyph;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.TextContentVariant;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextRegion;
+import org.primaresearch.dla.page.layout.physical.text.impl.Word;
 import org.primaresearch.dla.page.metadata.MetaData;
 import org.primaresearch.shared.variable.IntegerValue;
 import org.primaresearch.shared.variable.IntegerVariable;
@@ -118,6 +120,30 @@ public class PageXMLReader {
 							final TextLine textLine = (TextLine) text;
 							final String id = text.getId().toString();
 
+							//get Words of TextLine if they exist
+							final List<de.uniwue.web.model.Word> words = new ArrayList<>();
+							if(((TextLine) text).hasTextObjects()) {
+								for(int i = 0; i < ((TextLine) text).getTextObjectCount(); i++) {
+									Word primaWord =(Word) ((TextLine) text).getTextObject(i);
+
+									// get Glyphs of Word if they exist
+									final List<de.uniwue.web.model.Glyph> glyphs = new ArrayList<>();
+									for(int j = 0; j < primaWord.getTextObjectCount(); j++) {
+										Glyph primaGlyph = (Glyph) primaWord.getTextObject(j);
+										glyphs.add(new de.uniwue.web.model.Glyph(primaGlyph.getId().toString(),
+														new de.uniwue.web.model.Polygon(primaGlyph.getCoords()),
+														primaGlyph.getText(),
+														primaGlyph.getConfidence()));
+									}
+
+									words.add(new de.uniwue.web.model.Word(primaWord.getId().toString(),
+													new de.uniwue.web.model.Polygon(primaWord.getCoords()),
+													primaWord.getText(),
+													primaWord.getConfidence(),
+													glyphs));
+								}
+							}
+
 							// Get Coords of TextLine
 							de.uniwue.web.model.Polygon textlineCoords = new de.uniwue.web.model.Polygon(textLine.getCoords());
 
@@ -153,7 +179,7 @@ public class PageXMLReader {
 								}
 							}
 
-							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content, textlineBaseline));
+							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content, textlineBaseline, words));
 							readingOrder.add(id);
 						}
 

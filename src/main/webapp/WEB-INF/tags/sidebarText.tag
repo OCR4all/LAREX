@@ -53,9 +53,31 @@
 						<input type="checkbox" id="displayMismatch"/>
 						<label for="displayMismatch">Only show mismatching lines</label>
 					</div>
-					<div id="displayPredictionContainer" class="row textModeCheckboxRow" style="display: none">
+					<div id="displayPredictionContainer" class="row textModeCheckboxRow">
 						<input type="checkbox" id="displayPrediction"/>
 						<label for="displayPrediction">Show Prediction</label>
+					</div>
+					<div id="displayConfidenceContainer" class="row textModeCheckboxRow confViewChange" style="display: block">
+						<input type="checkbox" id="displayConfidence"/>
+						<label for="displayConfidence">Show Confidence</label>
+					</div>
+					<div id="inputConfThresholdContainer" class="row textModeCheckboxRow" style="display: none">
+						<div class="settings-input">
+							<label style="font-size: 15px;" for="confThreshold">Threshold</label>
+							<input value="0.90" id="confThreshold" class="input-number confThreshold" type="number" min="0" max="1" step ="0.01" class="validate" />
+							</div>
+					</div>
+					<div id="displayWordConfContainer" class="row textModeCheckboxRow  confViewChange" style="display: none">
+						<input name="confidenceGroup" type="radio" id="displayWordConf"/>
+						<label for="displayWordConf">Word Confidence</label>
+					</div>
+					<div id="displayGlyphConfContainer" class="row textModeCheckboxRow  confViewChange" style="display: none">
+						<input name="confidenceGroup" type="radio" id="displayGlyphConf"/>
+						<label for="displayGlyphConf">Glyph Confidence</label>
+					</div>
+					<div id="displayConfBelowContainer" class="row textModeCheckboxRow" style="display: none; margin-bottom: 15px !important;">
+						<input type="checkbox" id="displayConfBelow"/>
+						<label for="displayConfBelow">Only show lines below threshold</label>
 					</div>
 				</div>
 			</div>
