@@ -56,7 +56,9 @@
 		let globalSettings ={
 			downloadPage:${globalSettings.getSetting("websave").equals("") ? true : globalSettings.getSetting("websave")},
 			diff_insert_color:"${globalSettings.getSetting("diff_insert_color")}",
-			diff_delete_color:"${globalSettings.getSetting("diff_delete_color")}"
+			diff_delete_color:"${globalSettings.getSetting("diff_delete_color")}",
+			conf_above_color:"${globalSettings.getSetting("conf_above_color")}",
+			conf_below_color:"${globalSettings.getSetting("conf_below_color")}"
 		}
 
 		//specify specific colors

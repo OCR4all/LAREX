@@ -492,12 +492,13 @@ class TextViewer {
 	 */
 	_markUpConfidence(text,confidence, threshold, useGradient){
 		//temporarily use insert/delete colors
-		let aboveColor = globalSettings.diff_insert_color;
-		let belowColor = globalSettings.diff_delete_color;
-		if(aboveColor == "" || !this._validColor(aboveColor)) {aboveColor = "#58e123";}
+		let aboveColor = globalSettings.conf_above_color;
+		let belowColor = globalSettings.conf_below_color;
+		if(aboveColor == "" || !this._validColor(aboveColor)) {aboveColor = "#FFFFFF";}
 		if(belowColor == "" || !this._validColor(belowColor)) {belowColor = "#e56123";}
 		let html;
 		if(confidence > threshold) {
+			if(aboveColor == "#FFFFFF") { return text;}
 			return '<span style="background:' + aboveColor + ';">' + text + '</span>';
 		} else {
 			return '<span style="background:' + belowColor + ';">' + text + '</span>';
