@@ -62,9 +62,10 @@
 						<label for="displayConfidence">Show Confidence</label>
 					</div>
 					<div id="inputConfThresholdContainer" class="row textModeCheckboxRow" style="display: none">
-						<p class="settings-header settings-input">Threshold</p>
-						<p class="settings-input"><input value="0.90" id="confThreshold" class="input-number confThreshold" type="number" min="0" max="1" step ="0.01" class="validate" />
-							<label for="confThreshold">Threshold</label></p>
+						<div class="settings-input">
+							<label style="font-size: 15px;" for="confThreshold">Threshold</label>
+							<input value="0.90" id="confThreshold" class="input-number confThreshold" type="number" min="0" max="1" step ="0.01" class="validate" />
+							</div>
 					</div>
 					<div id="displayWordConfContainer" class="row textModeCheckboxRow  confViewChange" style="display: none">
 						<input name="confidenceGroup" type="radio" id="displayWordConf"/>
@@ -74,9 +75,9 @@
 						<input name="confidenceGroup" type="radio" id="displayGlyphConf"/>
 						<label for="displayGlyphConf">Glyph Confidence</label>
 					</div>
-					<div id="displayConfBelowContainer" class="row textModeCheckboxRow" style="display: none">
+					<div id="displayConfBelowContainer" class="row textModeCheckboxRow" style="display: none; margin-bottom: 15px !important;">
 						<input type="checkbox" id="displayConfBelow"/>
-						<label for="displayConfBelow">Only show below threshold</label>
+						<label for="displayConfBelow">Only show lines below threshold</label>
 					</div>
 				</div>
 			</div>
