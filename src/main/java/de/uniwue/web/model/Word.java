@@ -39,7 +39,7 @@ public class Word extends Element{
      *
      * @return
      */
-    public String getWord() {
+    public String getText() {
         return text;
     }
 }

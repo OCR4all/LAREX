@@ -38,7 +38,7 @@ public class Glyph  extends Element {
      *
      * @return
      */
-    public String getGlyph() {
+    public String getText() {
         return text;
     }
 }
