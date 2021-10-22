@@ -519,11 +519,20 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#displayConfidence").change(function(){
 		_textViewer._toggleConfSettings();
 	})
-	$("#confThreshold").change(function(){
+	$("#displayConfidence2").change(function(){
+		_textViewer._toggleConfSettings();
+	})
+	$("#confThreshold1").change(function(){
 		_controller.confViewChange();
 	})
 	$("#displayConfBelow").click(function(){
 		_textViewer._displayOnlyBelowThreshold();
+	})
+	$("#displayConfAbove").click(function(){
+		_textViewer._displayOnlyAboveThreshold2();
+	})
+	$("#confThreshold2").change(function(){
+		_controller.confViewChange();
 	})
 
 	$("#toggleSegmentVisibility").change(function () {

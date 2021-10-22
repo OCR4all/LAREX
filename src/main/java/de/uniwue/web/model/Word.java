@@ -13,7 +13,7 @@ public class Word extends Element{
     @JsonProperty("conf")
     protected double conf;
     @JsonProperty("glyphs")
-    protected List<Glyph> glyphs;
+    protected List<GlyphContainer> glyphs;
 
     /**
      * Base constructor for the parsing from a JSON object, with all included data.
@@ -27,7 +27,7 @@ public class Word extends Element{
                 @JsonProperty("coords") Polygon coords,
                 @JsonProperty("text") String text,
                 @JsonProperty("conf") double conf,
-                @JsonProperty("glyphs") List<Glyph> glyphs) {
+                @JsonProperty("glyphs") List<GlyphContainer> glyphs) {
         super(id, coords);
         this.text = text;
         this.conf = conf;

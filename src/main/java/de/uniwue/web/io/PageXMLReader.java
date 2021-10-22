@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.util.*;
 
 
+import de.uniwue.web.model.GlyphContainer;
 import de.uniwue.web.model.Polygon;
 import org.primaresearch.dla.page.Page;
 import org.primaresearch.dla.page.io.xml.DefaultXmlNames;
@@ -18,6 +19,7 @@ import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.impl.CustomRegion;
 import org.primaresearch.dla.page.layout.physical.impl.NoiseRegion;
 import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
+import org.primaresearch.dla.page.layout.physical.text.graphemes.GraphemeElement;
 import org.primaresearch.dla.page.layout.physical.text.impl.Glyph;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.TextContentVariant;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
@@ -130,13 +132,16 @@ public class PageXMLReader {
 									Word primaWord =(Word) ((TextLine) text).getTextObject(i);
 
 									// get Glyphs of Word if they exist
-									final List<de.uniwue.web.model.Glyph> glyphs = new ArrayList<>();
+									final List<de.uniwue.web.model.GlyphContainer> glyphs = new ArrayList<>();
 									for(int j = 0; j < primaWord.getTextObjectCount(); j++) {
 										Glyph primaGlyph = (Glyph) primaWord.getTextObject(j);
-										glyphs.add(new de.uniwue.web.model.Glyph(primaGlyph.getId().toString(),
-														emptyPolygon,
-														primaGlyph.getText(),
-														primaGlyph.getConfidence()));
+										primaGlyph.getGraphemes();
+										List<GraphemeElement> graphemes = primaGlyph.getGraphemes();
+										for(GraphemeElement graphemeElement : graphemes) {
+											System.out.println(graphemeElement.toString());
+										}
+										//System.out.println(primaGlyph.getGraphemes().toString());
+										glyphs.add(new GlyphContainer(primaGlyph, emptyPolygon));
 									}
 									words.add(new de.uniwue.web.model.Word(primaWord.getId().toString(),
 													emptyPolygon,

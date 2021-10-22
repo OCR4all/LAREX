@@ -88,8 +88,9 @@ class TextViewer {
 		$textlineContainer.append(textObject[0]);
 		$textlineContainer.append(textObject[1]);
 		$textlineContainer.append(textObject[2]);
-		$textlineContainer.attr("data-difflen", textObject[3])
+		$textlineContainer.attr("data-difflen", textObject[3]);
 		$textlineContainer.attr("data-minconf", textObject[4]);
+		$textlineContainer.attr("data-hasValidVariant", textObject[5]);
 		this.container.append($textlineContainer);
 
 		this.zoomBase(textline.id);
@@ -98,6 +99,7 @@ class TextViewer {
 		this._displayDiff();
 		this._displayOnlyMismatch();
 		this._displayOnlyBelowThreshold();
+		this._displayOnlyAboveThreshold2();
 	}
 
 	/**
@@ -132,6 +134,7 @@ class TextViewer {
 		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(textObject[2]);
 		$(`.textline-container[data-id='${textline.id}']`).attr("data-difflen", textObject[3]);
 		$(`.textline-container[data-id='${textline.id}']`).attr("data-minconf", textObject[4]);
+		$(`.textline-container[data-id='${textline.id}']`).attr("data-hasValidVariant", textObject[5]);
 		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`);
 		if(textline.type === "TextLine_gt"){
 			$textlinecontent.addClass("line-corrected")
@@ -146,6 +149,7 @@ class TextViewer {
 		this._displayDiff();
 		this._displayOnlyMismatch();
 		this._displayOnlyBelowThreshold();
+		this._displayOnlyAboveThreshold2();
 	}
 
 	/**
@@ -437,8 +441,9 @@ class TextViewer {
 		let pred_text_container = this._checkConfidence(textline, hasPredict);
 		let pred_text = pred_text_container[0];
 		let minConf = pred_text_container[1];
+		let hasValidVariant = pred_text_container[2];
 		const $predText = $(`<p class="pred-text">${pred_text}</p>`);
-		return [$predText, ($diffText), ($textlineText), (diff.length), (minConf)];
+		return [$predText, ($diffText), ($textlineText), (diff.length), (minConf), (hasValidVariant)];
 	}
 
 	_checkConfidence(textline, hasPredict) {
@@ -446,10 +451,13 @@ class TextViewer {
 		let displayConf = $("#displayConfidence").is(":checked");
 		let displayWordConf = $("#displayWordConf").is(":checked");
 		let displayGlyphConf = $("#displayGlyphConf").is(":checked");
-		let threshold = parseFloat($("#confThreshold").val());
+		let threshold1 = parseFloat($("#confThreshold1").val());
+		let displayAlternativeGlyphs = $("#displayConfidence2").is(":checked");
+		let threshold2 = displayAlternativeGlyphs ? parseFloat($("#confThreshold2").val()) : -1.0;
 		let useGradient = false;
 		let minConf = 1.0;
-		if(hasPredict && displayConf && (displayWordConf || displayGlyphConf) && 'words' in textline && textline.words.length > 0 ) {
+		let hasValidVariants = false;
+		if(hasPredict && displayConf && (displayWordConf || displayGlyphConf || displayAlternativeGlyphs) && 'words' in textline && textline.words.length > 0 ) {
 			//ensure words are sorted by id
 			let collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
 			let sortedWords = textline.words.sort((a, b) => collator.compare(a.id, b.id));
@@ -458,27 +466,33 @@ class TextViewer {
 			if(textline.words.length !== pred_text.split(' ').length) {
 				console.log("WARNING: Textline length differs from word count:");
 				console.log('textline length    : ' + pred_text.split(' ').length.toString());
+				console.log(pred_text);
 				console.log('textline word count: ' + textline.words.length.toString());
 			}
 			for(let word of sortedWords) {
 				let word_text = word.text;
-				if(displayGlyphConf && 'glyphs' in word && word.glyphs.length > 0) {
+				if((displayGlyphConf || displayAlternativeGlyphs) && 'glyphs' in word && word.glyphs.length > 0) {
 					//ensure glyphs are sorted by id
 					let sortedGlyphs = word.glyphs.sort((a, b) => collator.compare(a.id, b.id));
 					let glyphList = [];
 					for(let glyph of sortedGlyphs) {
-						let glyph_text = glyph.text;
-						if('conf' in glyph) {
-							minConf = glyph.conf < minConf ? glyph.conf : minConf;
-							glyph_text = this._markUpConfidence(glyph_text, glyph.conf, threshold, false);
+						if('glyphVariants' in glyph && glyph.glyphVariants.length > 0) {
+							let mainVariant = glyph.glyphVariants[0];
+							let glyph_text = mainVariant.text;
+							if('conf' in mainVariant) {
+								minConf = mainVariant.conf < minConf ? mainVariant.conf : minConf;
+								let markedUp = this._markUpGlyphConfidence(glyph.glyphVariants, threshold1, threshold2);
+								glyph_text = markedUp[0]
+								hasValidVariants = hasValidVariants || markedUp[1];
+							}
+							glyphList.push(glyph_text);
 						}
-						glyphList.push(glyph_text);
 					}
 					word_text = glyphList.join('');
 				}else {
 					if('conf' in word) {
 						minConf = word.conf < minConf ? word.conf : minConf;
-						word_text = this._markUpConfidence(word_text, word.conf, threshold, false);
+						word_text = this._markUpConfidence(word_text, word.conf, threshold1, false);
 					}
 				}
 				wordList.push(word_text);
@@ -486,7 +500,7 @@ class TextViewer {
 			pred_text = wordList.join(' ');
 		}
 
-		return [pred_text,minConf];
+		return [pred_text,minConf,hasValidVariants];
 	}
 	/**
 	 * Checks if text is above certain threshold and colors its background using css
@@ -510,6 +524,42 @@ class TextViewer {
 		} else {
 			return '<span style="background:' + belowColor + ';">' + text + '</span>';
 		}
+	}
+	/**
+	 * Checks if text is above certain threshold and colors its background using css
+	 * @param text
+	 * @param confidence
+	 * @param threshold
+	 * @returns {(*|boolean)[]} html/css containing text with background
+	 * @private
+	 */
+	_markUpGlyphConfidence(glyphVariants, threshold1, threshold2){
+		//init colors
+		let belowT2Color = globalSettings.conf_below_threshold2_color;
+		if(belowT2Color == "" || !this._validColor(belowT2Color)) {belowT2Color = "#e5c223";}
+
+		let text = glyphVariants[0].text;
+		let confidence = glyphVariants[0].conf;
+		let hasValidVariant = false;
+		if(threshold2 > 0.0 && glyphVariants.length > 1) {
+			let validGlyphList = []
+			for(let i = 1; i < glyphVariants.length; i++) {
+				let glyphVariant = glyphVariants[i];
+				if('conf' in glyphVariant && glyphVariant.conf > threshold2 && glyphVariant.text != null) {
+					validGlyphList.push(glyphVariant);
+					hasValidVariant = true;
+				}
+			}
+			if(validGlyphList.length > 0) {
+				let variantHtml = "";
+				for (let variantGlyph of validGlyphList) {
+					variantHtml = variantHtml + '<option>' + variantGlyph.text + '</option>';
+				}
+				text = '<span></span><select class="glyph-select" style="background:' + belowT2Color + ';"><option>' + text + '</option>' + variantHtml + '</select></span>';
+				return [text,hasValidVariant];
+			}
+		}
+		return [this._markUpConfidence(text,confidence,threshold1,false),hasValidVariant];
 	}
 
 	/**
@@ -601,11 +651,21 @@ class TextViewer {
 			document.getElementById("displayGlyphConfContainer").style.display = "none";
 			document.getElementById("displayWordConfContainer").style.display = "none";
 			document.getElementById("displayConfBelowContainer").style.display = "none";
+			document.getElementById("displayConfidence2Container").style.display = "none";
+			document.getElementById("inputConfThreshold2Container").style.display = "none";
+			document.getElementById("displayConfAboveContainer").style.display = "none";
 		}else{
 			document.getElementById("inputConfThresholdContainer").style.display = "block";
 			document.getElementById("displayGlyphConfContainer").style.display = "block";
 			document.getElementById("displayWordConfContainer").style.display = "block";
 			document.getElementById("displayConfBelowContainer").style.display = "block";
+			if($("#displayGlyphConf").is(":checked")) {
+				document.getElementById("displayConfidence2Container").style.display = "block";
+				if($("#displayConfidence2").is(":checked")) {
+					document.getElementById("inputConfThreshold2Container").style.display = "block";
+					document.getElementById("displayConfAboveContainer").style.display = "block";
+				}
+			}
 		}
 	}
 	/**
@@ -704,6 +764,25 @@ class TextViewer {
 		if($("#displayConfBelow").is(":checked")){
 			$(".textline-container").each(function () {
 				if(parseFloat($(this).attr("data-minconf")) < parseFloat($("#confThreshold").val())) {
+					$(this).show();
+				} else {
+					$(this).hide();
+				}
+			});
+		}else{
+			$(".textline-container").each(function () {
+				$(this).show();
+			});
+		}
+	}
+	/**
+	 * Hides textlines which only contains confidences above threshold
+	 *
+	 */
+	_displayOnlyAboveThreshold2(){
+		if($("#displayConfAbove").is(":checked")){
+			$(".textline-container").each(function () {
+				if($(this).attr("data-hasValidVariant") == 'true') {
 					$(this).show();
 				} else {
 					$(this).hide();
