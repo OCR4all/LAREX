@@ -58,6 +58,7 @@
 						<label for="displayPrediction">Show Prediction</label>
 					</div>
 					<div id="displayConfidenceContainer" class="row textModeCheckboxRow confViewChange" style="display: block">
+						<div class="divider"></div>
 						<input type="checkbox" id="displayConfidence"/>
 						<label for="displayConfidence">Show Confidence</label>
 					</div>
@@ -79,9 +80,10 @@
 						<input type="checkbox" id="displayConfBelow"/>
 						<label for="displayConfBelow">Only show lines below threshold</label>
 					</div>
-					<div id="displayConfidence2Container" class="row textModeCheckboxRow confViewChange" style="display: block; margin-bottom: 17px !important;">
+					<div id="displayConfidence2Container" class="row textModeCheckboxRow confViewChange" style="display: block; margin-bottom: 25px !important;">
+						<div class="divider"></div>
 						<input type="checkbox" id="displayConfidence2"/>
-						<label for="displayConfidence2">Show Glyphs alternative above threshold</label>
+						<label for="displayConfidence2">Show Glyph alternatives above threshold</label>
 					</div>
 					<div id="inputConfThreshold2Container" class="row textModeCheckboxRow" style="display: none">
 						<div class="settings-input">
