@@ -97,9 +97,7 @@ class TextViewer {
 		this.resizeTextline(textline.id);
 		this._displayPredictedText();
 		this._displayDiff();
-		this._displayOnlyMismatch();
-		this._displayOnlyBelowThreshold();
-		this._displayOnlyAboveThreshold2();
+		this._displayOnly();
 	}
 
 	/**
@@ -147,9 +145,7 @@ class TextViewer {
 		this.resizeTextline(textline.id);
 		this._displayPredictedText();
 		this._displayDiff();
-		this._displayOnlyMismatch();
-		this._displayOnlyBelowThreshold();
-		this._displayOnlyAboveThreshold2();
+		this._displayOnly();
 	}
 
 	/**
@@ -654,6 +650,13 @@ class TextViewer {
 			document.getElementById("displayConfidence2Container").style.display = "none";
 			document.getElementById("inputConfThreshold2Container").style.display = "none";
 			document.getElementById("displayConfAboveContainer").style.display = "none";
+			if(!$("#displayGlyphConf").is(":checked")) {
+				document.getElementById("displayConfidence2Container").style.display = "none";
+				if(!$("#displayConfidence2").is(":checked")) {
+					document.getElementById("inputConfThreshold2Container").style.display = "none";
+					document.getElementById("displayConfAboveContainer").style.display = "none";
+				}
+			}
 		}else{
 			document.getElementById("inputConfThresholdContainer").style.display = "block";
 			document.getElementById("displayGlyphConfContainer").style.display = "block";
@@ -738,60 +741,25 @@ class TextViewer {
 		}
 	}
 	/**
-	 * Hides textlines with no differences
+	 * Hides textlines which do not meat configured criteria
 	 *
 	 */
-	_displayOnlyMismatch(){
-		if($("#displayMismatch").is(":checked")){
-			$(".textline-container").each(function () {
-				if(parseInt($(this).attr("data-difflen")) > 1 ) {
-					$(this).show();
-				} else {
-					$(this).hide();
-				}
-			});
-		}else{
-			$(".textline-container").each(function () {
+	_displayOnly(){
+		let onlyDiffMismatch = $("#displayMismatch").is(":checked");
+		let onlyConfBelow = $("#displayConfBelow").is(":checked");
+		let onlyConfAbove = $("#displayConfAbove").is(":checked");
+		$(".textline-container").each(function () {
+			let difflenBool = parseInt($(this).attr("data-difflen")) > 1;
+			let confBelowBool = (parseFloat($(this).attr("data-minconf")) < parseFloat($("#confThreshold1").val()));
+			let confAboveBool = $(this).attr("data-hasValidVariant") == 'true';
+			if((!onlyDiffMismatch || difflenBool) &&
+				(!onlyConfBelow || confBelowBool) &&
+				(!onlyConfAbove || confAboveBool)) {
 				$(this).show();
-			});
-		}
-	}
-	/**
-	 * Hides textlines which only contains confidences above threshold
-	 *
-	 */
-	_displayOnlyBelowThreshold(){
-		if($("#displayConfBelow").is(":checked")){
-			$(".textline-container").each(function () {
-				if(parseFloat($(this).attr("data-minconf")) < parseFloat($("#confThreshold").val())) {
-					$(this).show();
-				} else {
-					$(this).hide();
-				}
-			});
-		}else{
-			$(".textline-container").each(function () {
-				$(this).show();
-			});
-		}
-	}
-	/**
-	 * Hides textlines which only contains confidences above threshold
-	 *
-	 */
-	_displayOnlyAboveThreshold2(){
-		if($("#displayConfAbove").is(":checked")){
-			$(".textline-container").each(function () {
-				if($(this).attr("data-hasValidVariant") == 'true') {
-					$(this).show();
-				} else {
-					$(this).hide();
-				}
-			});
-		}else{
-			$(".textline-container").each(function () {
-				$(this).show();
-			});
-		}
+			} else {
+				$(this).hide();
+			}
+		});
+
 	}
 }

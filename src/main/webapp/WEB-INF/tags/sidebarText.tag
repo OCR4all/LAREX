@@ -50,7 +50,7 @@
 						<label for="displayDiff">Show Diff</label>
 					</div>
 					<div id="displayMismatchContainer" class="row textModeCheckboxRow" style="display: none">
-						<input type="checkbox" id="displayMismatch"/>
+						<input class="displayOnly" type="checkbox" id="displayMismatch"/>
 						<label for="displayMismatch">Only show mismatching lines</label>
 					</div>
 					<div id="displayPredictionContainer" class="row textModeCheckboxRow">
@@ -77,7 +77,7 @@
 						<label for="displayGlyphConf">Glyph Confidence</label>
 					</div>
 					<div id="displayConfBelowContainer" class="row textModeCheckboxRow" style="display: none; margin-bottom: 17px !important;">
-						<input type="checkbox" id="displayConfBelow"/>
+						<input class="displayOnly" type="checkbox" id="displayConfBelow"/>
 						<label for="displayConfBelow">Only show lines below threshold</label>
 					</div>
 					<div id="displayConfidence2Container" class="row textModeCheckboxRow confViewChange" style="display: block; margin-bottom: 25px !important;">
@@ -92,7 +92,7 @@
 						</div>
 					</div>
 					<div id="displayConfAboveContainer" class="row textModeCheckboxRow" style="display: none; margin-bottom: 17px !important;">
-						<input type="checkbox" id="displayConfAbove"/>
+						<input class="displayOnly" type="checkbox" id="displayConfAbove"/>
 						<label for="displayConfAbove">Only show lines with Alternatives</label>
 					</div>
 				</div>

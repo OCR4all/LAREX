@@ -510,8 +510,8 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer._displayDiff();
 	})
 
-	$("#displayMismatch").click(function(){
-		_textViewer._displayOnlyMismatch();
+	$(".displayOnly").click(function(){
+		_textViewer._displayOnly();
 	})
 	$(".confViewChange").click(function(){
 		_controller.confViewChange();
@@ -524,12 +524,6 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	})
 	$("#confThreshold1").change(function(){
 		_controller.confViewChange();
-	})
-	$("#displayConfBelow").click(function(){
-		_textViewer._displayOnlyBelowThreshold();
-	})
-	$("#displayConfAbove").click(function(){
-		_textViewer._displayOnlyAboveThreshold2();
 	})
 	$("#confThreshold2").change(function(){
 		_controller.confViewChange();
