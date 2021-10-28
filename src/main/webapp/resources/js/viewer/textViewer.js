@@ -549,9 +549,9 @@ class TextViewer {
 			if(validGlyphList.length > 0) {
 				let variantHtml = "";
 				for (let variantGlyph of validGlyphList) {
-					variantHtml = variantHtml + '<option>' + variantGlyph.text + '</option>';
+					variantHtml = variantHtml + '<option class="glyph-option">' + variantGlyph.text + '</option>';
 				}
-				text = '<span></span><select class="glyph-select" style="background:' + belowT2Color + ';"><option>' + text + '</option>' + variantHtml + '</select></span>';
+				text = '<span></span><select class="glyph-select" style="background:' + belowT2Color + ';"><option class="glyph-option">' + text + '</option>' + variantHtml + '</select></span>';
 				return [text,hasValidVariant];
 			}
 		}
@@ -761,5 +761,15 @@ class TextViewer {
 			}
 		});
 
+	}
+	_copyTextToClipboard(text) {
+		navigator.clipboard.writeText(text).then(function() {
+			console.log('Async: Copying to clipboard was successful!');
+			let toastMsg = text + " copied to clipboard!";
+			Materialize.toast(toastMsg, 4000, "green");
+		}, function(err) {
+			console.error('Async: Could not copy text: ', err);
+			Materialize.toast("ERROR: glyph could not be copied!", 4000, "grey darken-4");
+		});
 	}
 }
