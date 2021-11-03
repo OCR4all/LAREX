@@ -767,6 +767,15 @@ class TextViewer {
 			console.log('Async: Copying to clipboard was successful!');
 			let toastMsg = text + " copied to clipboard!";
 			Materialize.toast(toastMsg, 4000, "green");
+			// handle old materialize bug where multiple toasts are displayed
+			// TODO: remove with vue.js
+			let i = 0;
+			$('#toast-container').children().each(function () {
+				if(i > 0) {
+					$(this).remove();
+				}
+				i = i + 1;
+			});
 		}, function(err) {
 			console.error('Async: Could not copy text: ', err);
 			Materialize.toast("ERROR: glyph could not be copied!", 4000, "grey darken-4");
