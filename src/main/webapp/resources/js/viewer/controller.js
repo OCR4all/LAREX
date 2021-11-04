@@ -2296,6 +2296,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(!(typeof(segmentation.segments[key].textlines) === undefined || segmentation.segments[key].textlines == null)) {
 				Object.keys(segmentation.segments[key].textlines).forEach((keyLine) => {
 					segmentation.segments[key].textlines[keyLine].coords = this.rotatePolygon(negativeOrientation,segmentation.segments[key].textlines[keyLine].coords,negativeOffset,negativeCenter);
+					if(!(typeof(segmentation.segments[key].textlines[keyLine].baseline) === undefined || segmentation.segments[key].textlines[keyLine].baseline == null)) {
+						segmentation.segments[key].textlines[keyLine].baseline = this.rotatePolygon(segmentation.orientation,segmentation.segments[key].textlines[keyLine].baseline,negativeOffset,negativeCenter);
+					}
 				});
 			}
 		});
@@ -2344,6 +2347,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(!(typeof(result.segments[key].textlines) === undefined || result.segments[key].textlines == null)) {
 				Object.keys(result.segments[key].textlines).forEach((keyLine) => {
 					result.segments[key].textlines[keyLine].coords = this.rotatePolygon(result.orientation,result.segments[key].textlines[keyLine].coords,result.OffsetVector,result.center);
+					if(!(typeof(result.segments[key].textlines[keyLine].baseline) === undefined || result.segments[key].textlines[keyLine].baseline == null)) {
+						result.segments[key].textlines[keyLine].baseline = this.rotatePolygon(result.orientation,result.segments[key].textlines[keyLine].baseline,result.OffsetVector,result.center);
+					}
 				});
 			}
 		});
