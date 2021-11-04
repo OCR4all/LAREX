@@ -58,7 +58,8 @@
 			diff_insert_color:"${globalSettings.getSetting("diff_insert_color")}",
 			diff_delete_color:"${globalSettings.getSetting("diff_delete_color")}",
 			conf_above_color:"${globalSettings.getSetting("conf_above_color")}",
-			conf_below_color:"${globalSettings.getSetting("conf_below_color")}"
+			conf_below_color:"${globalSettings.getSetting("conf_below_color")}",
+			conf_below_threshold2_color:"${globalSettings.getSetting("conf_below_threshold2_color")}"
 		}
 
 		//specify specific colors

@@ -50,7 +50,7 @@
 						<label for="displayDiff">Show Diff</label>
 					</div>
 					<div id="displayMismatchContainer" class="row textModeCheckboxRow" style="display: none">
-						<input type="checkbox" id="displayMismatch"/>
+						<input class="displayOnly" type="checkbox" id="displayMismatch"/>
 						<label for="displayMismatch">Only show mismatching lines</label>
 					</div>
 					<div id="displayPredictionContainer" class="row textModeCheckboxRow">
@@ -58,13 +58,14 @@
 						<label for="displayPrediction">Show Prediction</label>
 					</div>
 					<div id="displayConfidenceContainer" class="row textModeCheckboxRow confViewChange" style="display: block">
+						<div class="divider"></div>
 						<input type="checkbox" id="displayConfidence"/>
 						<label for="displayConfidence">Show Confidence</label>
 					</div>
 					<div id="inputConfThresholdContainer" class="row textModeCheckboxRow" style="display: none">
 						<div class="settings-input">
-							<label style="font-size: 15px;" for="confThreshold">Threshold</label>
-							<input value="0.90" id="confThreshold" class="input-number confThreshold" type="number" min="0" max="1" step ="0.01" class="validate" />
+							<label style="font-size: 15px;" for="confThreshold1">Threshold</label>
+							<input value="0.90" id="confThreshold1" class="input-number confThreshold" type="number" min="0" max="1" step ="0.01" class="validate" />
 							</div>
 					</div>
 					<div id="displayWordConfContainer" class="row textModeCheckboxRow  confViewChange" style="display: none">
@@ -75,9 +76,24 @@
 						<input name="confidenceGroup" type="radio" id="displayGlyphConf"/>
 						<label for="displayGlyphConf">Glyph Confidence</label>
 					</div>
-					<div id="displayConfBelowContainer" class="row textModeCheckboxRow" style="display: none; margin-bottom: 15px !important;">
-						<input type="checkbox" id="displayConfBelow"/>
+					<div id="displayConfBelowContainer" class="row textModeCheckboxRow" style="display: none; margin-bottom: 17px !important;">
+						<input class="displayOnly" type="checkbox" id="displayConfBelow"/>
 						<label for="displayConfBelow">Only show lines below threshold</label>
+					</div>
+					<div id="displayConfidence2Container" class="row textModeCheckboxRow confViewChange" style="display: block; margin-bottom: 25px !important;">
+						<div class="divider"></div>
+						<input type="checkbox" id="displayConfidence2"/>
+						<label for="displayConfidence2">Show Glyph alternatives above threshold</label>
+					</div>
+					<div id="inputConfThreshold2Container" class="row textModeCheckboxRow" style="display: none">
+						<div class="settings-input">
+							<label style="font-size: 15px;" for="confThreshold2">Threshold Glyph</label>
+							<input value="0.30" id="confThreshold2" class="input-number confThreshold" type="number" min="0" max="1" step ="0.01" class="validate" />
+						</div>
+					</div>
+					<div id="displayConfAboveContainer" class="row textModeCheckboxRow" style="display: none; margin-bottom: 17px !important;">
+						<input class="displayOnly" type="checkbox" id="displayConfAbove"/>
+						<label for="displayConfAbove">Only show lines with Alternatives</label>
 					</div>
 				</div>
 			</div>

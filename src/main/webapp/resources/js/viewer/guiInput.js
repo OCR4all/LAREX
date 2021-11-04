@@ -510,8 +510,8 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer._displayDiff();
 	})
 
-	$("#displayMismatch").click(function(){
-		_textViewer._displayOnlyMismatch();
+	$(".displayOnly").click(function(){
+		_textViewer._displayOnly();
 	})
 	$(".confViewChange").click(function(){
 		_controller.confViewChange();
@@ -519,11 +519,17 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$("#displayConfidence").change(function(){
 		_textViewer._toggleConfSettings();
 	})
-	$("#confThreshold").change(function(){
+	$("#displayConfidence2").change(function(){
+		_textViewer._toggleConfSettings();
+	})
+	$("#confThreshold1").change(function(){
 		_controller.confViewChange();
 	})
-	$("#displayConfBelow").click(function(){
-		_textViewer._displayOnlyBelowThreshold();
+	$("#confThreshold2").change(function(){
+		_controller.confViewChange();
+	})
+	$("div").on("click", ".glyph-option", function(){
+		_textViewer._copyTextToClipboard($(this).text());
 	})
 
 	$("#toggleSegmentVisibility").change(function () {
