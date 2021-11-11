@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
+import org.locationtech.jts.geom.*;
+import org.locationtech.jts.geom.impl.CoordinateArraySequence;
+import org.locationtech.jts.simplify.TopologyPreservingSimplifier;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
@@ -142,5 +145,44 @@ public class ImageProcessingFacade {
 		points.add(asGlobal.apply(new Point(0,size.height)));
 
 		return new Rectangle(points, size.height, size.width, angle, segment.isRelative());
+	}
+
+	/**
+	 * Calculate a simplified polygon for each region in a given list of regions
+	 * @param segments regions to be simplified
+	 * @param tolerance simplifier tolerance
+	 * @return list containing simplified regions
+	 */
+	public static List<Region> simplify(List<Region> segments, int tolerance) {
+		ArrayList<Region> resultRegions = new ArrayList<Region>();
+		for (Region segment : segments) {
+			List<Point> coords = segment.getCoords().getPoints();
+			List<org.locationtech.jts.geom.Coordinate> points = new ArrayList<>();
+
+			//convert larex coords to jts coords
+			for(Point coord : coords) {
+				points.add(new Coordinate(coord.getX(),coord.getY()));
+			}
+			//add start coordinate to end of list to form linear ring
+			points.add(new Coordinate(coords.get(0).getX(),coords.get(0).getY()));
+
+			// simplify using jts libraries, preserving topology
+			Coordinate[] coordinates = points.toArray(new Coordinate[points.size()]);
+			//use lowest precision model to as we are using integer coordinates anyway
+			GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(PrecisionModel.FLOATING_SINGLE));
+			LinearRing linearRing = new LinearRing(new CoordinateArraySequence(coordinates), geometryFactory);
+			org.locationtech.jts.geom.Polygon polygon = new org.locationtech.jts.geom.Polygon(linearRing,null,geometryFactory);
+			org.locationtech.jts.geom.Polygon simplifiedPolygon = (org.locationtech.jts.geom.Polygon) TopologyPreservingSimplifier.simplify(polygon,tolerance);
+
+			//convert jts coords to larex coords
+			ArrayList<Point> newCoords = new ArrayList<>();
+			for(Coordinate coordinate : simplifiedPolygon.getCoordinates()) {
+				newCoords.add(new Point(coordinate.getX(),coordinate.getY()));
+			}
+			//set simplified region coords
+			segment.setCoords(new Polygon(newCoords));
+			resultRegions.add(segment);
+		}
+		return resultRegions;
 	}
 }

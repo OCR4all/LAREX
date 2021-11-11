@@ -1,9 +1,13 @@
 package de.uniwue.web.controller;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -77,5 +81,19 @@ public class ImageProcessingController {
 	@RequestMapping(value = "process/polygons/minarearect", method = RequestMethod.POST)
 	public @ResponseBody Rectangle getMinAreaRect(@RequestBody Polygon polygon) {
 		return ImageProcessingFacade.getMinAreaRectangle(polygon);
+	}
+
+	/**
+	 * Simplify Region Polygons
+	 *
+	 * @param segmentString Json string containing a list of regions
+	 * @param tolerance tolerance to be used when simplifying
+	 * @return list with simplified regions
+	 */
+	@RequestMapping(value = "process/regions/simplify", method = RequestMethod.POST, headers = "Accept=*/*")
+	public @ResponseBody List<Region> simplify(@RequestParam("segments") String segmentString, @RequestParam("tolerance") int tolerance) throws JsonProcessingException {
+		ObjectMapper mapper = new ObjectMapper();
+		mapper.configure(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY, true);
+		return ImageProcessingFacade.simplify(Arrays.asList(mapper.readValue(segmentString,Region[].class)), tolerance);
 	}
 }

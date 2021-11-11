@@ -181,6 +181,14 @@
 						</label>
 					</span>
 				</div>
+				<div class="divider row"></div>
+				<div class="simplifyPolygonSettings row">
+					<a class="col s10 offset-s1 waves-effect waves-light btn simplifyPolygon segment-only tooltipped" data-position="bottom" data-delay="50" data-tooltip="Simplify selected polygon(s)">Simplify Polygon</a>
+					<div class="settings-input col s10 offset-s1 ">
+						<label style="font-size: 15px;" for="simplifyTolerance">Tolerance</label>
+						<input value="5" id="simplifyTolerance" class="input-number confThreshold" type="number" min="0" step="1" class="validate" />
+					</div>
+				</div>
 			</div>
 		</li>
 	</ul>

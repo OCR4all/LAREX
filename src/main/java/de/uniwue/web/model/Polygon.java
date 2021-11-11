@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import de.uniwue.algorithm.geometry.PointList;
 
@@ -14,6 +15,7 @@ import de.uniwue.algorithm.geometry.PointList;
  * positioned via percentage (e.g. 0.1:0.1 -> 10%:10%)
  *
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Polygon {
 
 	@JsonProperty("points")

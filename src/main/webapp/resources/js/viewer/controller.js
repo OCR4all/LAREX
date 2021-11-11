@@ -1186,6 +1186,40 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
+	this.simplifySelectedPolygon = function (){
+		const selected = _selector.getSelectedSegments();
+		const selectType = _selector.getSelectedPolygonType();
+		const tolerance = parseInt($("#simplifyTolerance").val());
+
+		if(selected.length > 0 && (selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE)){
+			const segments = [];
+			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
+				let segment = null;
+				if (selectType === ElementType.SEGMENT) {
+					segment = _segmentation[_currentPage].segments[selected[i]];
+				} else {
+					segment = _segmentation[_currentPage].segments[this.textlineRegister[selected[i]]].textlines[selected[i]];
+				}
+				segments.push(segment);
+			}
+			if (segments.length > 0) {
+				_communicator.simplify(segments, tolerance).done((data) => {
+					const simplified = data;
+					if(Array.isArray(simplified) && simplified.length > 0){
+						for (let i = 0, simplifiedLength = simplified.length; i < simplifiedLength; i++) {
+							let simp_id = simplified[i].id;
+							let simp_coords = simplified[i].coords;
+							_segmentation[_currentPage].segments[simp_id].coords = simp_coords;
+							_editor.updateSegment(simplified[i]);
+						}
+					} else {
+						_gui.displayWarning("Simplification of segments returned no segments.");
+					}
+				});
+			}
+		}
+	}
+
 	this.mergeSelected = function () {
 		const selected = _selector.getSelectedSegments();
 		const selectType = _selector.getSelectedPolygonType();
