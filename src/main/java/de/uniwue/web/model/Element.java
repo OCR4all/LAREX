@@ -1,8 +1,9 @@
 package de.uniwue.web.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Element {
     @JsonProperty("id")
     protected String id;
@@ -36,6 +37,10 @@ public class Element {
 
     public Polygon getCoords(){
         return coords;
+    }
+
+    public void setCoords(Polygon coords){
+        this.coords = coords;
     }
 
     public String getParent(){

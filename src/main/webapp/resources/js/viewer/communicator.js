@@ -108,6 +108,10 @@ class Communicator {
 		return this.request("process/regions/merge", segments, DataType.JSON);
 	}
 
+	simplify(segments, tolerance) {
+		return this.request("process/regions/simplify", {segments:JSON.stringify(segments), tolerance:tolerance});
+	}
+
 	extractContours(pageid, bookid) {
 		return this.request("process/contours/extract", {pageid:pageid,bookid:bookid});
 	}

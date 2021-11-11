@@ -102,6 +102,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 
 	$('.combineSelected').click(() => _controller.mergeSelected());
 	$('.deleteSelected').click(() => _controller.deleteSelected());
+	$('.simplifyPolygon').click(() => _controller.simplifySelectedPolygon());
 	$('.fixSelected').click(() => _controller.fixSelected());
 	$('.editContours').click(() => _controller.displayContours());
 	$('.move').click(() => _controller.move());
