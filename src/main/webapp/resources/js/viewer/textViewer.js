@@ -84,7 +84,7 @@ class TextViewer {
 		$textlineContainer.append(this._createImageObject(textline));
 		$textlineContainer.append($("<br>"));
 
-		const textObject = this._createTextObject(textline);
+		const textObject = this._createTextObject(textline, -1.0);
 		$textlineContainer.append(textObject[0]);
 		$textlineContainer.append(textObject[1]);
 		$textlineContainer.append(textObject[2]);
@@ -125,7 +125,8 @@ class TextViewer {
 	 * @param {*} textline
 	 */
 	updateTextline(textline) {
-		const textObject = this._createTextObject(textline);
+		let minConf = parseFloat($(`.textline-container[data-id='${textline.id}']`).attr("data-minconf"));
+		const textObject = this._createTextObject(textline, minConf);
 		$(`.textline-container[data-id='${textline.id}'] > .textline-image`).replaceWith(this._createImageObject(textline));
 		$(`.textline-container[data-id='${textline.id}'] > .pred-text`).replaceWith(textObject[0]);
 		$(`.textline-container[data-id='${textline.id}'] > .diff-text`).replaceWith(textObject[1]);
@@ -408,7 +409,7 @@ class TextViewer {
 	 *
 	 * @param {*} textline
 	 */
-	_createTextObject(textline) {
+	_createTextObject(textline, minConf) {
 		const $textlineText =  $(`<input class='textline-text'></input>`);
 
 		// Fill with content
@@ -434,15 +435,15 @@ class TextViewer {
 		}
 		const $diffText = $(`<p class="diff-text">${this._prettifyDiff(diff)}</p>`);
 		if(diff === "") {$diffText.hide();} else {$diffText.show();}
-		let pred_text_container = this._checkConfidence(textline, hasPredict);
+		let pred_text_container = this._checkConfidence(textline, hasPredict, minConf);
 		let pred_text = pred_text_container[0];
-		let minConf = pred_text_container[1];
+		minConf = pred_text_container[1];
 		let hasValidVariant = pred_text_container[2];
 		const $predText = $(`<p class="pred-text">${pred_text}</p>`);
 		return [$predText, ($diffText), ($textlineText), (diff.length), (minConf), (hasValidVariant)];
 	}
 
-	_checkConfidence(textline, hasPredict) {
+	_checkConfidence(textline, hasPredict, minConf) {
 		let pred_text = hasPredict ? textline.text[1] : "";
 		let displayConf = $("#displayConfidence").is(":checked");
 		let displayWordConf = $("#displayWordConf").is(":checked");
@@ -451,10 +452,11 @@ class TextViewer {
 		let displayAlternativeGlyphs = $("#displayConfidence2").is(":checked");
 		let threshold2 = displayAlternativeGlyphs ? parseFloat($("#confThreshold2").val()) : -1.0;
 		let useGradient = false;
-		let minConf = 1.0;
+
 		let hasValidVariants = false;
-		if(hasPredict && displayConf && (displayWordConf || displayGlyphConf || displayAlternativeGlyphs) && 'words' in textline && textline.words.length > 0 ) {
+		if((minConf < 0.0 || minConf < threshold1) && hasPredict && displayConf && (displayWordConf || displayGlyphConf || displayAlternativeGlyphs) && 'words' in textline && textline.words.length > 0 ) {
 			//ensure words are sorted by id
+			minConf = 1.0;
 			let collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
 			let sortedWords = textline.words.sort((a, b) => collator.compare(a.id, b.id));
 			let wordList = [];
