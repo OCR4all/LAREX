@@ -524,13 +524,19 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer._toggleConfSettings();
 	})
 	$("#confThreshold1").change(function(){
-		_controller.confViewChange();
+		typewatch(function (){_controller.confViewChange();},500);
 	})
 	$("#confThreshold2").change(function(){
-		_controller.confViewChange();
+		typewatch(function (){_controller.confViewChange();},500);
 	})
 	$("div").on("click", ".glyph-option", function(){
-		_textViewer._copyTextToClipboard($(this).text());
+		let text = $(this).text()
+		if(text == '⌴') {
+			text = ' ';
+		} else if(text == _textViewer.blankCharacter) {
+			text = '';
+		}
+		_textViewer._copyTextToClipboard(text);
 	})
 
 	$("#toggleSegmentVisibility").change(function () {
@@ -560,4 +566,12 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('#showShortcuts').click(() => _controller.toggleShortcutModal());
 	$("#metadata-save").click(() => _controller.saveMetadata());
 	$("#openFullscreen").click(() => _gui.toggleFullscreen());
+
+	let typewatch = function(){
+		let timer = 0;
+		return function(callback, ms){
+			clearTimeout (timer);
+			timer = setTimeout(callback, ms);
+		}
+	}();
 }
