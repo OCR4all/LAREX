@@ -531,7 +531,11 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	})
 	$("div").on("click", ".glyph-option", function(){
 		let text = $(this).text()
-		if(text == '⌴') {text = ' ';}
+		if(text == '⌴') {
+			text = ' ';
+		} else if(text == _textViewer.blankCharacter) {
+			text = '';
+		}
 		_textViewer._copyTextToClipboard(text);
 	})
 
