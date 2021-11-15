@@ -530,7 +530,9 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_controller.confViewChange();
 	})
 	$("div").on("click", ".glyph-option", function(){
-		_textViewer._copyTextToClipboard($(this).text());
+		let text = $(this).text()
+		if(text == '⌴') {text = ' ';}
+		_textViewer._copyTextToClipboard(text);
 	})
 
 	$("#toggleSegmentVisibility").change(function () {

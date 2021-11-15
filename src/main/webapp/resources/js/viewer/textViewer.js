@@ -495,7 +495,8 @@ class TextViewer {
 			}
 			pred_text = wordList.join(' ');
 		}
-
+		//replace multiple whitespaces
+		pred_text = pred_text.replace( /  +/g, ' ' );
 		return [pred_text,minConf,hasValidVariants];
 	}
 	/**
@@ -515,9 +516,11 @@ class TextViewer {
 		if(belowColor == "" || !this._validColor(belowColor)) {belowColor = "#e56123";}
 		let html;
 		if(confidence > threshold) {
+			if(text == ' ') {text = '';}
 			if(aboveColor == "#FFFFFF") { return text;}
 			return '<span style="background:' + aboveColor + ';">' + text + '</span>';
 		} else {
+			if(text == ' ') {text = '⌴';}
 			return '<span style="background:' + belowColor + ';">' + text + '</span>';
 		}
 	}
@@ -535,6 +538,7 @@ class TextViewer {
 		if(belowT2Color == "" || !this._validColor(belowT2Color)) {belowT2Color = "#e5c223";}
 
 		let text = glyphVariants[0].text;
+		if(text == ' ') {text = '⌴';}
 		let confidence = glyphVariants[0].conf;
 		let hasValidVariant = false;
 		if(threshold2 > 0.0 && glyphVariants.length > 1) {
@@ -549,6 +553,8 @@ class TextViewer {
 			if(validGlyphList.length > 0) {
 				let variantHtml = "";
 				for (let variantGlyph of validGlyphList) {
+					let variantGlyphText = variantGlyph.text;
+					if(variantGlyphText == ' ') {variantGlyphText = '⌴';}
 					variantHtml = variantHtml + '<option class="glyph-option">' + variantGlyph.text + '</option>';
 				}
 				text = '<span></span><select class="glyph-select" style="background:' + belowT2Color + ';"><option class="glyph-option">' + text + '</option>' + variantHtml + '</select></span>';
@@ -765,6 +771,7 @@ class TextViewer {
 	_copyTextToClipboard(text) {
 		navigator.clipboard.writeText(text).then(function() {
 			console.log('Async: Copying to clipboard was successful!');
+			if(text = ' ') {text = '⌴';}
 			let toastMsg = text + " copied to clipboard!";
 			Materialize.toast(toastMsg, 4000, "green");
 			// handle old materialize bug where multiple toasts are displayed
