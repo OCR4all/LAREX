@@ -1209,7 +1209,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						for (let i = 0, simplifiedLength = simplified.length; i < simplifiedLength; i++) {
 							let simp_id = simplified[i].id;
 							let simp_coords = simplified[i].coords;
-							_segmentation[_currentPage].segments[simp_id].coords = simp_coords;
+							if(_mode === Mode.SEGMENT) {
+								_segmentation[_currentPage].segments[simp_id].coords = simp_coords;
+							} else if(_mode === Mode.LINES) {
+								_segmentation[_currentPage].segments[this.textlineRegister[simp_id]].textlines[simp_id].coords = simp_coords;
+							} else {
+								console.log("MODE was unspecified. Doing Nothing");
+							}
 							_editor.updateSegment(simplified[i]);
 						}
 					} else {
