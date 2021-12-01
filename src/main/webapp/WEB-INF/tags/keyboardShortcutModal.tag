@@ -365,6 +365,18 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>s</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Simplify selected polygons
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>Ctrl</span>+<span>s</span>
                                 </td>
                                 <td class="kbdtext">
@@ -799,6 +811,18 @@
                         <table>
                             <tr>
                                 <td class="kbd">
+                                    <span>s</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Simplify selected polygons
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
                                     <span>Ctrl</span>+<span>s</span>
                                 </td>
                                 <td class="kbdtext">
@@ -1213,6 +1237,18 @@
                                 </td>
                                 <td class="kbdtext">
                                     Toggle reading order editing
+                                </td>
+                            </tr>
+                        </table>
+                    </li>
+                    <li>
+                        <table>
+                            <tr>
+                                <td class="kbd">
+                                    <span>s</span>
+                                </td>
+                                <td class="kbdtext">
+                                    Simplify selected polygons
                                 </td>
                             </tr>
                         </table>
