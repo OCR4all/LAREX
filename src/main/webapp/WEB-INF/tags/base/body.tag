@@ -6,66 +6,39 @@
 			<div class="nav-wrapper">
 				<a href="#" class="brand-logo"> LAREX</a>
 				<ul id="nav-mobile" class="right hide-on-med-and-down">
-					<li><a href="http://www.is.informatik.uni-wuerzburg.de/en/homepage/">Chair of Artificial Intelligence and Applied Computer Science</a></li>
+					<li><a href="https://www.uni-wuerzburg.de/en/zpd/startseite/">Centre for Philology and Digitality</a></li>
 					<li><a href="https://www.uni-wuerzburg.de/en/home/">University of Würzburg</a></li>
 				</ul>
 			</div>
 		</nav>
 	</header>
 
-	<main id="main-div" role="main">
+	<main id="main-div" class="grey lighten-4" role="main">
 		<div id="content-main">
 			<jsp:doBody />
 		</div>
 	</main>
 		
 	<footer id="footer" class="page-footer colorable">
-		<div class="container">
-			<div class="row">
-				<div class="col l6 s12">
-					<ul class="grey-text text-lighten-4">
-						<li>
-							<b>
-								<a class="grey-text text-lighten-3"
-								href="http://www.is.informatik.uni-wuerzburg.de/staff/reul_christian/">
-									Dr. Christian Reul </a>
-							</b>
-						</li>
-						<li><i>Main Developer</i></li>
-						<li><i>Research Assistant</i></li>
-						<li>Email: <a href="mailto:christian.reul@uni-wuerzburg.de">christian.reul@uni-wuerzburg.de</a> </li>
-					</ul>
+			<div class="row center-align">
+				<div class="col offset-s3 s2">
+					<a target="_blank" href="https://github.com/OCR4all/LAREX">GitHub</a>
 				</div>
-				<div class="col l6 s12">
-					<ul class="grey-text text-lighten-4">
-						<li><b>Nico Balbach, B. Sc.</b></li>
-						<li><i>Web Developer</i></li>
-						<li><i>Student Research Assistant</i></li>
-						<li>Email: <a href="mailto:nico.balbach@informatik.uni-wuerzburg.de">nico.balbach@informatik.uni-wuerzburg.de</a></li>
-					</ul>
+				<div class="col s2">
+					<a target="_blank" href="https://mobile.twitter.com/uniwue_zpd">Twitter</a>
 				</div>
-				<div class="col l6 s12">
-					<ul class="grey-text text-lighten-4">
-						<li><b>Dr. Uwe Springmann</b></li>
-						<li>Email: <a href="mailto:uwe@springmann.net">uwe@springmann.net</a></li>
-					</ul>
+				<div class="col s2">
+					<a target="_blank" href="https://www.uni-wuerzburg.de/en/zpd/startseite/">Website</a>
 				</div>
-				<div class="col l6 s12">
-					<ul class="grey-text text-lighten-4">
-						<li><b> <a class="grey-text text-lighten-3"
-								href="http://www.is.informatik.uni-wuerzburg.de/staff/puppe_frank/">
-									Prof. Dr. Frank Puppe </a>
-						</b></li>
-						<li><i>Head of Chair of Computer Science VI</i></li>
-						<li><i>University of Würzburg</i></li>
-						<li>Email: <a href="mailto:frank.puppe@uni-wuerzburg.de">frank.puppe@uni-wuerzburg.de</a></li>
-					</ul>
-				</div>
-			</div>
 		</div>
 		<div class="footer-copyright">
-			<div class="container">
-				© <%= new java.text.SimpleDateFormat("yyyy").format(new java.util.Date()) %>
+			<div class="row center-align">
+				<div class="col s2">
+					<span>© <%= new java.text.SimpleDateFormat("yyyy").format(new java.util.Date()) %></span>
+				</div>
+				<div class="col offset-s8 s2">
+					<span id="larex-version"></span>
+				</div>
 			</div>
 		</div>
 	</footer>

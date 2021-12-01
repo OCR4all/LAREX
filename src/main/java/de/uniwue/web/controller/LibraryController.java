@@ -6,6 +6,8 @@ import java.util.*;
 
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 import de.uniwue.web.communication.DirectRequest;
 import de.uniwue.web.config.Constants;
@@ -214,5 +216,12 @@ public class LibraryController {
 			}
 		}
 		return fileMap;
+	}
+
+	@RequestMapping(value ="library/getVersion" , method = RequestMethod.GET)
+	public @ResponseBody
+	String getVersion() {
+		String larex_version = System.getenv("LAREX_VERSION");
+		return larex_version.equals("") ? "UNKNOWN" : larex_version;
 	}
 }

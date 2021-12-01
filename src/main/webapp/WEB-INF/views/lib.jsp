@@ -10,6 +10,19 @@
 		<script type="text/javascript" src="resources/js/navigation.js?version=${timeStamp}"></script>
 		<link rel="stylesheet" href="resources/css/lib.css?version=${timeStamp}">
 		<title>Larex - Library</title>
+
+		<script>
+			$(document).ready(function()
+			{
+				let LAREX_VERSION = "UNKNOWN"
+				$.get("library/getVersion")
+						.done(function getEnv(data) {
+							LAREX_VERSION = "v" + data;
+							$("#larex-version").html(LAREX_VERSION);
+						})
+
+			})
+		</script>
 	</b:head>
 
 	<b:body>
