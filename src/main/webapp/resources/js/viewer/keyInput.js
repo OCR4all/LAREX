@@ -287,6 +287,9 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						if (event.ctrlKey) {
 							_controller.exportPageXML();
 							validKey = true;
+						}else{
+							_controller.simplifySelectedPolygon();
+							validKey = true;
 						}
 						break;
 					case "PageUp":
