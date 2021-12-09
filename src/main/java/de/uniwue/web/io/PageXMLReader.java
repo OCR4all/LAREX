@@ -132,8 +132,6 @@ public class PageXMLReader {
 									final List<de.uniwue.web.model.GlyphContainer> glyphs = new ArrayList<>();
 									for(int j = 0; j < primaWord.getTextObjectCount(); j++) {
 										Glyph primaGlyph = (Glyph) primaWord.getTextObject(j);
-										primaGlyph.getGraphemes();
-										List<GraphemeElement> graphemes = primaGlyph.getGraphemes();
 										glyphs.add(new GlyphContainer(primaGlyph, emptyPolygon));
 									}
 									words.add(new de.uniwue.web.model.Word(primaWord.getId().toString(),
