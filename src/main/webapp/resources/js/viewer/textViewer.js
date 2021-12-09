@@ -461,13 +461,7 @@ class TextViewer {
 			let collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
 			let sortedWords = textline.words.sort((a, b) => collator.compare(a.id, b.id));
 			let wordList = [];
-			//check if line length matches word length
-			if(textline.words.length !== pred_text.split(' ').length) {
-				console.log("WARNING: Textline length differs from word count:");
-				console.log('textline length    : ' + pred_text.split(' ').length.toString());
-				console.log(pred_text);
-				console.log('textline word count: ' + textline.words.length.toString());
-			}
+
 			for(let word of sortedWords) {
 				let word_text = word.text;
 				if((displayGlyphConf || displayAlternativeGlyphs) && 'glyphs' in word && word.glyphs.length > 0) {
