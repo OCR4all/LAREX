@@ -126,16 +126,19 @@ class TextViewer {
 	 * @param {*} textline
 	 */
 	updateTextline(textline) {
-		let minConf = parseFloat($(`.textline-container[data-id='${textline.id}']`).attr("data-minconf"));
+		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`)
+
+		let minConf = parseFloat($textlinecontent.attr("data-minconf"));
 		const textObject = this._createTextObject(textline, minConf);
 		$(`.textline-container[data-id='${textline.id}'] > .textline-image`).replaceWith(this._createImageObject(textline));
 		$(`.textline-container[data-id='${textline.id}'] > .pred-text`).replaceWith(textObject[0]);
 		$(`.textline-container[data-id='${textline.id}'] > .diff-text`).replaceWith(textObject[1]);
 		$(`.textline-container[data-id='${textline.id}'] > .textline-text`).replaceWith(textObject[2]);
-		$(`.textline-container[data-id='${textline.id}']`).attr("data-difflen", textObject[3]);
-		$(`.textline-container[data-id='${textline.id}']`).attr("data-minconf", textObject[4]);
-		$(`.textline-container[data-id='${textline.id}']`).attr("data-hasValidVariant", textObject[5]);
-		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`);
+
+		$textlinecontent.attr("data-difflen", textObject[3]);
+		$textlinecontent.attr("data-minconf", textObject[4]);
+		$textlinecontent.attr("data-hasValidVariant", textObject[5]);
+
 		if(textline.type === "TextLine_gt"){
 			$textlinecontent.addClass("line-corrected")
 			$textlinecontent.addClass("line-saved");
@@ -143,6 +146,7 @@ class TextViewer {
 			$textlinecontent.removeClass("line-corrected")
 			$textlinecontent.removeClass("line-saved");
 		}
+
 		this.zoomBase(textline.id);
 		this.resizeTextline(textline.id);
 		this._displayPredictedText();
@@ -214,10 +218,7 @@ class TextViewer {
 	 */
 	isAnyLineFocused(){
 		const focused_element = document.activeElement;
-		if($(focused_element).hasClass("textline-text")){
-			return true;
-		}
-		return false;
+		return $(focused_element).hasClass("textline-text");
 	}
 
 	/**
@@ -225,10 +226,7 @@ class TextViewer {
 	 */
 	getFocusedId(){
 		const focused_element = document.activeElement;
-		if($(focused_element).hasClass("textline-text")){
-			return focused_element.parentElement.dataset.id;
-		}
-		return false;
+		return $(focused_element).hasClass("textline-text") ? focused_element.parentElement.dataset.id : false;
 	}
 
 	/**
@@ -238,10 +236,7 @@ class TextViewer {
 	 */
 	getText(id){
 		const $textline = $(`.textline-container[data-id='${id}'] > .textline-text`);
-		if($textline){
-			return $textline.val();
-		}
-		return null;
+		return $textline ? $textline.val() : null;
 	}
 
 	/**
@@ -409,6 +404,7 @@ class TextViewer {
 	 * Create a textline text object for a given textline.
 	 *
 	 * @param {*} textline
+	 * @param minConf
 	 */
 	_createTextObject(textline, minConf) {
 		const $textlineText =  $(`<input class='textline-text'></input>`);
@@ -536,7 +532,7 @@ class TextViewer {
 	_markUpGlyphConfidence(glyphVariants, threshold1, threshold2){
 		//init colors
 		let belowT2Color = globalSettings.conf_below_threshold2_color;
-		if(belowT2Color == "" || !this._validColor(belowT2Color)) {belowT2Color = "#e5c223";}
+		if(belowT2Color === "" || !this._validColor(belowT2Color)) {belowT2Color = "#e5c223";}
 
 		let text = glyphVariants[0].text;
 		let confidence = glyphVariants[0].conf;
@@ -554,16 +550,16 @@ class TextViewer {
 				let variantHtml = "";
 				for (let variantGlyph of validGlyphList) {
 					let variantGlyphText = variantGlyph.text;
-					if(variantGlyphText == ' ') {
+					if(variantGlyphText === ' ') {
 						variantGlyphText = '⌴';
-					} else if(variantGlyphText == '' || variantGlyphText == null) {
+					} else if(variantGlyphText === '' || variantGlyphText == null) {
 						variantGlyphText = this.blankCharacter;
 					}
 					variantHtml = variantHtml + '<option class="glyph-option">' + variantGlyphText + '</option>';
 				}
-				if(text == ' ') {
+				if(text === ' ') {
 					text = '⌴';
-				} else if(text == '' || text == null) {
+				} else if(text === '' || text == null) {
 					text = this.blankCharacter;
 				}
 				text = '<span></span><select class="glyph-select" style="background:' + belowT2Color + ';"><option class="glyph-option">' + text + '</option>' + variantHtml + '</select></span>';
@@ -707,8 +703,8 @@ class TextViewer {
 		let html = [];
 		let insertColor = globalSettings.diff_insert_color;
 		let deleteColor = globalSettings.diff_delete_color;
-		if(insertColor == "" || !this._validColor(insertColor)) {insertColor = "#58e123";}
-		if(deleteColor == "" || !this._validColor(deleteColor)) {deleteColor = "#e56123";}
+		if(insertColor === "" || !this._validColor(insertColor)) {insertColor = "#58e123";}
+		if(deleteColor === "" || !this._validColor(deleteColor)) {deleteColor = "#e56123";}
 		let pattern_amp = /&/g;
 		let pattern_lt = /</g;
 		let pattern_gt = />/g;
@@ -737,10 +733,10 @@ class TextViewer {
 	 * This works for ALL color types not just hex values. It also does not append unnecessary elements to the DOM tree.
 	 */
 	_validColor(color){
-		if(color=="")return false;
+		if(color==="") return false;
 		let $div = $("<div>");
 		$div.css("border", "1px solid "+color);
-		return ($div.css("border-color")!="")
+		return ($div.css("border-color")!=="")
 	}
 	/**
 	 * Checks whether differences between gt and pred should get displayed
@@ -766,7 +762,7 @@ class TextViewer {
 		$(".textline-container").each(function () {
 			let difflenBool = parseInt($(this).attr("data-difflen")) > 1;
 			let confBelowBool = (parseFloat($(this).attr("data-minconf")) < parseFloat($("#confThreshold1").val()));
-			let confAboveBool = $(this).attr("data-hasValidVariant") == 'true';
+			let confAboveBool = $(this).attr("data-hasValidVariant") === 'true';
 			if((!onlyDiffMismatch || difflenBool) &&
 				(!onlyConfBelow || confBelowBool) &&
 				(!onlyConfAbove || confAboveBool)) {
@@ -780,9 +776,9 @@ class TextViewer {
 	_copyTextToClipboard(text) {
 		navigator.clipboard.writeText(text).then(function() {
 			console.log('Async: Copying to clipboard was successful!');
-			if(text == ' ') {
+			if(text === ' ') {
 				text = '⌴';
-			} else if(text == '' || text == null ) {
+			} else if(text === '' || text == null ) {
 				text = this.blankCharacter;
 			}
 			let toastMsg = text + " copied to clipboard!";
