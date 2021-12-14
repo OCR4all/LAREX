@@ -56,7 +56,7 @@ class TextViewer {
 	}
 
 	/**
-	 * Clear the textViewer, by removing all existing text lines and reseting the image
+	 * Clear the textViewer, by removing all existing text lines and resetting the image
 	 */
 	clear() {
 		this.image = null;
