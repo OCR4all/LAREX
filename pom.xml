@@ -10,7 +10,7 @@
     <packaging>war</packaging>
 
     <name>Larex</name>
-    <url>http://www.larex-webapp.informatik.uni-wuerzburg.de/</url>
+    <url>https://github.com/OCR4all/LAREX</url>
 
     <properties>
         <jstl.version>1.2</jstl.version>
@@ -182,12 +182,12 @@
         <repository>
             <id>central</id>
             <name>artifactory-releases</name>
-            <url>http://artifactory-ls6.informatik.uni-wuerzburg.de/artifactory/libs-snapshot</url>
+            <url>https://artifactory-ls6.informatik.uni-wuerzburg.de/artifactory/libs-snapshot</url>
         </repository>
         <snapshotRepository>
             <id>snapshots</id>
             <name>artifactory-snapshots</name>
-            <url>http://artifactory-ls6.informatik.uni-wuerzburg.de/artifactory/libs-snapshot</url>
+            <url>https://artifactory-ls6.informatik.uni-wuerzburg.de/artifactory/libs-snapshot</url>
         </snapshotRepository>
     </distributionManagement>
 
