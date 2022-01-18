@@ -51,9 +51,9 @@ public class LarexFacade {
 		}
 		PageAnnotations segmentation = null;
 		Collection<RegionSegment> segmentationResult = null;
-		String imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
+		String imagePath = page.getImages().get(0);
 		if(fileManager.checkFlat()) {
-			imagePath = fileManager.getLocalBooksPath() + File.separator + page.getImages().get(0);
+			imagePath = page.getImages().get(0);
 		} else {
 			try{
 				List<String> imagesWithExt = new LinkedList<>();
