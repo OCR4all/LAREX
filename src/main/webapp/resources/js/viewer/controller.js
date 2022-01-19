@@ -1085,7 +1085,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		const points = [];
 		for (let pointItr = 0, pointMax = path.segments.length; pointItr < pointMax; pointItr++) {
 			const point = path.segments[pointItr].point;
-			let coords = {x: point.x, y: point.y}
+			let coords = {x: Math.max(0, point.x), y: Math.max(0, point.y)}
 			points.push(coords);
 		}
 		return points;
