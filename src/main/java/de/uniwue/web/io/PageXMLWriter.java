@@ -7,6 +7,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -249,32 +250,39 @@ public class PageXMLWriter {
 
 				for(Map.Entry<String, de.uniwue.web.model.TextLine> _textLine : element.getTextlines().entrySet()){
 					de.uniwue.web.model.TextLine textLine = _textLine.getValue();
-					Polygon textLineCoords = textLine.getCoords().toPrimaPolygon();if(physicalTextLines.containsKey(textLine.getId())){
+					Polygon textLineCoords = textLine.getCoords().toPrimaPolygon();
+					if(physicalTextLines.containsKey(textLine.getId())){
 						TextLine physicalTextLine = physicalTextLines.get(textLine.getId());
 						physicalTextLine.setCoords(textLineCoords);
-						for(Entry<Integer,String> content : textLine.getText().entrySet()) {
-							boolean indexExists = false;
-							final int index = content.getKey();
-							if(index == 0 || index == 1){
-								for(int i = 0; i < physicalTextLine.getTextContentVariantCount(); i++){
-									TextContent textContent = physicalTextLine.getTextContentVariant(i);
 
-									VariableMap textContentAttributes = textContent.getAttributes();
-									if(textContentAttributes.get("index") != null && textContentAttributes.get("index").getValue() != null){
-										int textContentIndex = Integer.parseInt(textContentAttributes.get("index").getValue().toString());
+						Map<Integer, String> textLineContent = textLine.getText().entrySet().stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+						
+						// Sync existing TextContentVariants with content from annotation
+						for(int i = 0; i < physicalTextLine.getTextContentVariantCount(); i++){
+							TextContent textContent = physicalTextLine.getTextContentVariant(i);
 
-										if(textContentIndex == index){
-											textContent.setText(textLine.getText().get(index));
-											indexExists = true;
-										}
+							VariableMap textContentAttributes = textContent.getAttributes();
+							if(textContentAttributes.get("index") != null && textContentAttributes.get("index").getValue() != null){
+								int textContentIndex = Integer.parseInt(textContentAttributes.get("index").getValue().toString());
+
+								if(textLineContent.containsKey(textContentIndex)){
+									textContent.setText(textLineContent.get(textContentIndex));
+									textLineContent.remove(textContentIndex);
+								}else{
+									// If index 0 isn't contained in the annotation but exists physically it was 
+									// discarded in the UI and therefore should set to empty
+									if(textContentIndex == 0){
+										textContent.setText("");
 									}
 								}
-								if(!indexExists){
-									TextContent textContent = physicalTextLine.addTextContentVariant();
-									textContent.setText(textLine.getText().get(index));
-									textContent.getAttributes().add(new IntegerVariable("index", new IntegerValue(index)));
-								}
 							}
+						}
+						
+						// Add TextContentVariants which exist in annotation but not physically
+						for(Integer index : textLineContent.keySet()){
+							TextContent textContent = physicalTextLine.addTextContentVariant();
+							textContent.setText(textLineContent.get(index));
+							textContent.getAttributes().add(new IntegerVariable("index", new IntegerValue(index)));
 						}
 					}else{
 						createTextLine(textLine, textRegion);
