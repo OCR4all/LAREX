@@ -25,7 +25,7 @@ public class GlyphContainer  extends Element {
      * @param primaGlyph         PrimaLibs Glyph Container
      * @param coords             Polygon which represents the coordinates in which the textline is enclosed
      */
-    @JsonCreator
+    //@JsonCreator
     public GlyphContainer(@JsonProperty("glyphVariants")Glyph primaGlyph,
                           @JsonProperty("coords") Polygon coords) {
         super(primaGlyph.getId().toString(), coords);
@@ -35,6 +35,15 @@ public class GlyphContainer  extends Element {
             double confidence = primaGlyph.getTextContentVariant(i).getConfidence();
             glyphVariants.add(new de.uniwue.web.model.Glyph(textContent,confidence));
         }
+        //sort descending from highest confidence
+        glyphVariants.sort(Comparator.comparing(de.uniwue.web.model.Glyph::getConf).reversed());
+        this.glyphVariants = glyphVariants;
+    }
+    @JsonCreator
+    public GlyphContainer(@JsonProperty("id") String id,
+                          @JsonProperty("glyphVariants")List<de.uniwue.web.model.Glyph> glyphVariants,
+                          @JsonProperty("coords") Polygon coords) {
+        super(id, coords);
         //sort descending from highest confidence
         glyphVariants.sort(Comparator.comparing(de.uniwue.web.model.Glyph::getConf).reversed());
         this.glyphVariants = glyphVariants;
