@@ -25,7 +25,6 @@ public class GlyphContainer  extends Element {
      * @param primaGlyph         PrimaLibs Glyph Container
      * @param coords             Polygon which represents the coordinates in which the textline is enclosed
      */
-    //@JsonCreator
     public GlyphContainer(@JsonProperty("glyphVariants")Glyph primaGlyph,
                           @JsonProperty("coords") Polygon coords) {
         super(primaGlyph.getId().toString(), coords);
