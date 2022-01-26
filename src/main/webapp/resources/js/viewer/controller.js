@@ -1269,7 +1269,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						this.selectElement(mergedSegment.id);
 						this.openContextMenu(true);
 					} else {
-						_gui.displayWarning("Combination of segments resulted in a segment with to few points. Segment will be ignored.");
+						_gui.displayWarning("Combination of segments resulted in a segment with too few points. Segment will be ignored.");
 					}
 				});
 			}
