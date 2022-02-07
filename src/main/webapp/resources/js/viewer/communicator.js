@@ -144,13 +144,14 @@ class Communicator {
 		return this.request("file/upload/segmentsettings", formData, DataType.BYTE);
 	}
 
-	uploadPageXML(file, pageNr, bookID) {
+	uploadPageXML(file, pageNr, bookID, xmlName) {
 		const formData = new FormData();
 		formData.append("file", file);
 		formData.append("pageNr", pageNr);
 		formData.append("bookID", bookID);
+		formData.append("xmlName", xmlName);
 
-		return this.request("file/upload/annotations", formData, DataType.SIMPLE);
+		return this.request("file/upload/annotations", formData, DataType.BYTE);
 	}
 
 	loadImage(image_path, id) {
