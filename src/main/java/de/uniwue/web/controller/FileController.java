@@ -20,6 +20,7 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
 import de.uniwue.web.config.Constants;
+import org.apache.commons.io.FileUtils;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfByte;
 import org.opencv.core.Size;
@@ -39,6 +40,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.commons.CommonsMultipartFile;
 import org.w3c.dom.Document;
 
 import de.uniwue.algorithm.data.MemoryCleaner;
@@ -194,12 +196,18 @@ public class FileController {
 	 * Upload a segmentation to load back into the gui.
 	 *
 	 */
-	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST)
-	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") File file) {
-		if (!file.isFile()) {
-			return PageXMLReader.getPageAnnotations(file);
-		}
-		return null;
+	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST, headers = "Accept=*/*")
+	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") CommonsMultipartFile multipart,
+															@RequestParam("pageNr") int pageNr,
+															@RequestParam("bookID") int bookID,
+															@RequestParam("xmlName") String xmlName) throws IOException {
+		multipart.getFileItem().getName();
+		File file = new File(xmlName);
+		FileUtils.writeByteArrayToFile(file, multipart.getBytes());
+		FileUtils.writeByteArrayToFile(file, multipart.getBytes());
+		PageAnnotations annotations = PageXMLReader.getPageAnnotations(file);
+		file.delete();
+		return annotations;
 	}
 
 	/**

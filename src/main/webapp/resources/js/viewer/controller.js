@@ -667,11 +667,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.uploadSegmentation = function (file) {
 		this.showPreloader(true);
 
-		_communicator.uploadPageXML(file, _currentPage, _book.id).done((page) => {
+		_communicator.uploadPageXML(file, _currentPage, _book.id, _segmentation[_currentPage].xmlName).done((page) => {
 			if(!page){
 				_gui.displayWarning("Couldn't retrieve annotations from file.", 4000, "red");
 				this.displayPage(_currentPage, this._imageVersion, true);
 			}else{
+				this.setChanged(_currentPage);
+				this.rotateAnnotations(page);
 				this._setPage(_currentPage,page);
 				this.displayPage(_currentPage);
 			}
