@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 
-import org.opencv.core.Size;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -17,18 +16,17 @@ import de.uniwue.algorithm.geometry.regions.type.TypeConverter;
 import de.uniwue.algorithm.segmentation.parameters.Parameters;
 
 /**
- * SegmentationSettingsReader is the main way to read segmentation settings xmls into 
+ * SegmentationSettingsReader is the main way to read segmentation settings xmls into
  * Parameters for the segmentation steps.
  */
 public class SegmentationSettingsReader {
 	/**
 	 * Read a settingsfile from a document into Parameters
-	 * 
+	 *
 	 * @param document
-	 * @param resized
 	 * @return
 	 */
-	public static Parameters loadSettings(Document document, Size resized) {
+	public static Parameters loadSettings(Document document) {
 		Parameters parameters = null;
 		try {
 			document.getDocumentElement().normalize();
@@ -46,7 +44,7 @@ public class SegmentationSettingsReader {
 	}
 	/**
 	 * Extract the Position data of a position elements
-	 * 
+	 *
 	 * @param positionElements
 	 * @return
 	 */
@@ -102,7 +100,7 @@ public class SegmentationSettingsReader {
 
 	/**
 	 * Extract parameters from a parameter Element
-	 * 
+	 *
 	 * @param parameterElement
 	 * @param regionmanager
 	 * @return
