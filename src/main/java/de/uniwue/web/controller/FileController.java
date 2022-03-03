@@ -285,19 +285,15 @@ public class FileController {
 	 * Upload a segmentation settings file and return a BookSettings json as result.
 	 *
 	 * @param file
-	 * @param bookID
 	 * @return
 	 */
 	@RequestMapping(value = "file/upload/segmentsettings", method = RequestMethod.POST)
-	public @ResponseBody SegmentationSettings uploadSettings(@RequestParam("file") MultipartFile file,
-			@RequestParam("bookID") int bookID) {
+	public @ResponseBody SegmentationSettings uploadSettings(@RequestParam("file") MultipartFile file) {
 		SegmentationSettings settings = null;
-		FileDatabase database = new FileDatabase(new File(fileManager.getLocalBooksPath()),
-				config.getListSetting("imagefilter"),fileManager.checkFlat());
 		if (!file.isEmpty()) {
 			try {
 				byte[] bytes = file.getBytes();
-				settings = LarexFacade.readSettings(bytes, bookID, fileManager, database);
+				settings = LarexFacade.readSettings(bytes);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
