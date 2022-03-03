@@ -136,10 +136,9 @@ class Communicator {
 		return this.request("file/download/segmentsettings", settings, DataType.JSON, DataType.BYTE);
 	}
 
-	uploadSettings(file, bookID) {
+	uploadSettings(file) {
 		const formData = new FormData();
 		formData.append("file", file);
-		formData.append("bookID", bookID);
 
 		return this.request("file/upload/segmentsettings", formData, DataType.BYTE);
 	}

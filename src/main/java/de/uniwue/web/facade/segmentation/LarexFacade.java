@@ -112,12 +112,9 @@ public class LarexFacade {
 	 * Read the segmentation settings from byte format into Web Segmentation Settings
 	 *
 	 * @param settingsFile bytes of a segmentation settings file
-	 * @param bookID book from with to take an example page (page size)
-	 * @param fileManager filePathManager to find a corresponding image path ĺocally
-	 * @param database database with all books and pages
 	 * @return
 	 */
-	public static SegmentationSettings readSettings(byte[] settingsFile, int bookID, FilePathManager fileManager, FileDatabase database) {
+	public static SegmentationSettings readSettings(byte[] settingsFile) {
 		SegmentationSettings settings = null;
 
 		try(ByteArrayInputStream stream = new ByteArrayInputStream(settingsFile)){
@@ -125,12 +122,9 @@ public class LarexFacade {
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document document = dBuilder.parse(stream);
 
-			Book book = database.getBook(bookID);
-			Page page = book.getPage(0);
+			Parameters parameters = SegmentationSettingsReader.loadSettings(document);
 
-			Parameters parameters = SegmentationSettingsReader.loadSettings(document, new Size(page.getWidth(),page.getHeight()));
-
-			settings = new SegmentationSettings(parameters, book);
+			settings = new SegmentationSettings(parameters);
 		} catch (SAXException | IOException | ParserConfigurationException e) {
 			e.printStackTrace();
 		}

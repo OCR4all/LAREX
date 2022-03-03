@@ -48,7 +48,8 @@ public class SegmentationSettings {
 	private ImageSegType imageSegType;
 
 	@JsonCreator
-	public SegmentationSettings(@JsonProperty("book") int bookID, @JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
+	public SegmentationSettings(@JsonProperty("book") int bookID,
+								@JsonProperty("fixedGeometry") FixedGeometry fixedGeometry,
 								@JsonProperty("parameters") Map<String, Number> parameters,
 								@JsonProperty("regions") Map<String, RegionSettings> regions,
 								@JsonProperty("regionTypes") Map<String, Integer> regionTypes,
@@ -60,7 +61,7 @@ public class SegmentationSettings {
 		this.parameters = parameters;
 		this.combine = combine;
 		this.imageSegType = imageSegType;
-		this.regionTypes = new HashMap<String, Integer>();
+		this.regionTypes = new HashMap<>();
 		int i = 0;
 		for (PAGERegionType type : PAGERegionType.values()) {
 			regionTypes.put(type.toString(), i);
@@ -72,11 +73,10 @@ public class SegmentationSettings {
 		this(new Parameters(), book);
 	}
 
-	public SegmentationSettings(Parameters parameters, Book book) {
-		this.bookID = book.getId();
-		this.regions = new HashMap<String, RegionSettings>();
+	public SegmentationSettings(Parameters parameters) {
+		this.regions = new HashMap<>();
 		fixedGeometry = new FixedGeometry();
-		this.parameters = new HashMap<String, Number>();
+		this.parameters = new HashMap<>();
 
 		this.parameters.put("textdilationX", parameters.getTextDilationX());
 		this.parameters.put("textdilationY", parameters.getTextDilationY());
@@ -86,7 +86,54 @@ public class SegmentationSettings {
 		this.combine = parameters.isCombineImages();
 		this.imageSegType = parameters.getImageSegType();
 
-		this.regions = new HashMap<String, RegionSettings>(regions);
+		this.regions = new HashMap<>(regions);
+		RegionManager regionManager = parameters.getRegionManager();
+		for (de.uniwue.algorithm.geometry.regions.Region region : regionManager.getRegions()) {
+			String regionType = region.getType().toString();
+			int minSize = region.getMinSize();
+			int maxOccurances = region.getMaxOccurances();
+			PriorityPosition priorityPosition = region.getPriorityPosition();
+			RegionSettings guiRegion = new RegionSettings(regionType, minSize, maxOccurances,
+					priorityPosition);
+
+			int regionCount = 0;
+			for (RelativePosition position : region.getPositions()) {
+				Polygon coords = new Polygon(true);
+				coords.addPoint(new Point(position.left(), position.top()));
+				coords.addPoint(new Point(position.right(), position.top()));
+				coords.addPoint(new Point(position.right(), position.bottom()));
+				coords.addPoint(new Point(position.left(), position.bottom()));
+
+				String id = regionType.toString() + regionCount;
+				guiRegion.addArea(new Region(id, regionType, null, coords, new HashMap<>(), new ArrayList<>()));
+				regionCount++;
+			}
+
+			this.regions.put(regionType, guiRegion);
+		}
+		this.regionTypes = new HashMap<>();
+		int i = 0;
+		for (PAGERegionType type : PAGERegionType.values()) {
+			regionTypes.put(type.toString(), i);
+			i++;
+		}
+	}
+
+	public SegmentationSettings(Parameters parameters, Book book) {
+		this.bookID = book.getId();
+		this.regions = new HashMap<>();
+		fixedGeometry = new FixedGeometry();
+		this.parameters = new HashMap<>();
+
+		this.parameters.put("textdilationX", parameters.getTextDilationX());
+		this.parameters.put("textdilationY", parameters.getTextDilationY());
+		this.parameters.put("imagedilationX", parameters.getImageRemovalDilationX());
+		this.parameters.put("imagedilationY", parameters.getImageRemovalDilationY());
+
+		this.combine = parameters.isCombineImages();
+		this.imageSegType = parameters.getImageSegType();
+
+		this.regions = new HashMap<>(regions);
 		RegionManager regionManager = parameters.getRegionManager();
 		for (de.uniwue.algorithm.geometry.regions.Region region : regionManager.getRegions()) {
 			String regionType = region.getType().toString();

@@ -836,7 +836,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	}
 
 	this.uploadSettings = function (file) {
-		_communicator.uploadSettings(file, _book.id).done((settings) => {
+		_communicator.uploadSettings(file).done((settings) => {
 			if (settings) {
 				_settings = settings;
 				_presentRegions = [];
