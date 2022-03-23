@@ -1,7 +1,7 @@
 ![larex](documentation/larex.gif)
 # LAREX
 
-[![Build Status](https://travis-ci.org/OCR4all/LAREX.svg?branch=master)](https://travis-ci.org/OCR4all/LAREX)
+[![Build verification with Maven](https://github.com/OCR4all/LAREX/actions/workflows/maven_build_verification.yml/badge.svg)](https://github.com/OCR4all/LAREX/actions/workflows/maven_build_verification.yml)
 
 LAREX is a semi-automatic open-source tool for layout analysis on early printed books. 
 It uses a rule based connected components approach which is very fast, 
