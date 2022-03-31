@@ -1195,6 +1195,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 
 		if(selected.length > 0 && (selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE)){
 			const segments = [];
+			const actions = [];
+
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				let segment = null;
 				if (selectType === ElementType.SEGMENT) {
@@ -1209,12 +1211,15 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 					const simplified = data;
 					if(Array.isArray(simplified) && simplified.length > 0){
 						for (let i = 0, simplifiedLength = simplified.length; i < simplifiedLength; i++) {
-							let simp_id = simplified[i].id;
-							let simp_coords = simplified[i].coords;
+							let id = simplified[i].id;
+							let coords = simplified[i].coords;
 							if(_mode === Mode.SEGMENT) {
-								_segmentation[_currentPage].segments[simp_id].coords = simp_coords;
+								actions.push(new ActionTransformSegment(id, coords.points, _editor,
+									_segmentation, _currentPage, this));
+								console.log("Action pushed");
 							} else if(_mode === Mode.LINES) {
-								_segmentation[_currentPage].segments[this.textlineRegister[simp_id]].textlines[simp_id].coords = simp_coords;
+								actions.push(new ActionTransformTextLine(id, coords.points, _editor,
+									_textViewer, _segmentation, _currentPage, this));
 							} else {
 								console.log("MODE was unspecified. Doing Nothing");
 							}
@@ -1222,6 +1227,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						}
 					} else {
 						_gui.displayWarning("Simplification of segments returned no segments.");
+					}
+					if(actions){
+						let simplificationAction = new ActionMultiple(actions);
+						_actionController.addAndExecuteAction(simplificationAction, _currentPage);
 					}
 				});
 			}
