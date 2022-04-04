@@ -17,8 +17,10 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 
 	// button registration
 	$("#viewer").contextmenu(() => {
-		_controller.openContextMenu(true);
-		return false; //prevents default contextmenu
+		if(_controller.getMode() !== Mode.TEXT && !(_gui.isTextLineContentActive() || _textViewer.isOpen())){
+			_controller.openContextMenu(true);
+			return false; //prevents default contextmenu
+		}
 	});
 	let block_mode_switch = false;
 	$('.mode').click(function(){
