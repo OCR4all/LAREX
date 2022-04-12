@@ -237,13 +237,18 @@ public class PageXMLWriter {
 			Region physicalRegion = layout.getRegion(id);
 			String physicalRegionType = physicalRegion.getType().toString();
 
-			if(isTextRegion(elementType) && isTextRegion(physicalRegionType)){
+			if(isTextRegion(elementType, true) && isTextRegion(physicalRegionType, true)){
 				TextRegion textRegion = (TextRegion) physicalRegion;
 				textRegion.setCoords(elementCoords);
+				String physicalSubtype = textRegion.getTextType();
 
 				if(isTextRegionSubtype(elementType)){
 					String subType = TypeConverter.stringToStringSubType(elementType);
 					textRegion.setTextType(subType);
+				}
+
+				if(physicalSubtype != null && isTextRegion(elementType, false)){
+					textRegion.setTextType(null);
 				}
 
 				Map<String, TextLine> physicalTextLines = getTextLines(textRegion);
@@ -256,7 +261,7 @@ public class PageXMLWriter {
 						physicalTextLine.setCoords(textLineCoords);
 
 						Map<Integer, String> textLineContent = textLine.getText().entrySet().stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
-						
+
 						// Sync existing TextContentVariants with content from annotation
 						for(int i = 0; i < physicalTextLine.getTextContentVariantCount(); i++){
 							TextContent textContent = physicalTextLine.getTextContentVariant(i);
@@ -269,7 +274,7 @@ public class PageXMLWriter {
 									textContent.setText(textLineContent.get(textContentIndex));
 									textLineContent.remove(textContentIndex);
 								}else{
-									// If index 0 isn't contained in the annotation but exists physically it was 
+									// If index 0 isn't contained in the annotation but exists physically it was
 									// discarded in the UI and therefore should set to empty
 									if(textContentIndex == 0){
 										textContent.setText("");
@@ -277,7 +282,7 @@ public class PageXMLWriter {
 								}
 							}
 						}
-						
+
 						// Add TextContentVariants which exist in annotation but not physically
 						for(Integer index : textLineContent.keySet()){
 							TextContent textContent = physicalTextLine.addTextContentVariant();
@@ -493,14 +498,17 @@ public class PageXMLWriter {
 	/**
 	 * Returns whether a type is a TextRegion (including subtypes)
 	 * @param type
+	 * @param includeSubtypes
 	 * @return
 	 */
-	private static boolean isTextRegion(String type) {
+	private static boolean isTextRegion(String type, boolean includeSubtypes) {
 		if(type.equals(RegionType.TextRegion.getName()))
 			return true;
-		for (de.uniwue.algorithm.geometry.regions.type.RegionSubType c : de.uniwue.algorithm.geometry.regions.type.RegionSubType.values()) {
-			if (c.name().equals(type)) {
-				return true;
+		if(includeSubtypes) {
+			for (de.uniwue.algorithm.geometry.regions.type.RegionSubType c : de.uniwue.algorithm.geometry.regions.type.RegionSubType.values()) {
+				if (c.name().equals(type)) {
+					return true;
+				}
 			}
 		}
 		return false;
