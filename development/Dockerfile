@@ -1,7 +1,7 @@
 # Base Image
 FROM tomcat:9.0-jdk8
 
-ENV LAREX_VERSION="0.7-RC1"
+ENV LAREX_VERSION="0.7.4"
 
 # Enable Networking on port 8080 (Tomcat)
 EXPOSE 8080
