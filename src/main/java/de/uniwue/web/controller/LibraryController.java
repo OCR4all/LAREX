@@ -6,8 +6,6 @@ import java.util.*;
 
 import javax.annotation.PostConstruct;
 import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
 
 import de.uniwue.web.communication.DirectRequest;
 import de.uniwue.web.config.Constants;

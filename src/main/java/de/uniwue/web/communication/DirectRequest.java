@@ -1,10 +1,6 @@
 package de.uniwue.web.communication;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import de.uniwue.web.model.PageAnnotations;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * Communication object for the library to request the editor
