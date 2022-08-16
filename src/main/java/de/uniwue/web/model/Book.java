@@ -8,9 +8,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Representation of a Book with a name and pages.
- * (Settings and Segmentation of a book are handled 
+ * (Settings and Segmentation of a book are handled
  * in BookSettings and BookSegmentation respectively)
- * 
+ *
  */
 public class Book {
 
@@ -31,10 +31,6 @@ public class Book {
 
 	public Book(int id, String name) {
 		this(id, name, new LinkedList<Page>());
-	}
-
-	public void addPage(Page page) {
-		pages.add(page);
 	}
 
 	// pagenumber starting with 0. Lower than 0 or higher than maxpages =>
