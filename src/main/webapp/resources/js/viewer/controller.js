@@ -70,7 +70,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	// Unsaved warning
 	window.onbeforeunload = () =>  {
 		let reloading = sessionStorage.getItem("reloading");
-		if(reloading != "false") {
+		if(reloading !== "false") {
 			sessionStorage.setItem("reloading", "true");
 		}
 		if(!this.isCurrentPageSaved() && _actionController.hasActions(_currentPage)){
@@ -2343,12 +2343,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 
 		Object.keys(segmentation.segments).forEach((key) => {
-			segmentation.segments[key].coords = this.rotatePolygon(negativeOrientation, segmentation.segments[key].coords, negativeOffset, negativeCenter);
-			if(!(typeof(segmentation.segments[key].textlines) === undefined || segmentation.segments[key].textlines == null)) {
-				Object.keys(segmentation.segments[key].textlines).forEach((keyLine) => {
-					segmentation.segments[key].textlines[keyLine].coords = this.rotatePolygon(negativeOrientation,segmentation.segments[key].textlines[keyLine].coords,negativeOffset,negativeCenter);
-					if(!(typeof(segmentation.segments[key].textlines[keyLine].baseline) === undefined || segmentation.segments[key].textlines[keyLine].baseline == null)) {
-						segmentation.segments[key].textlines[keyLine].baseline = this.rotatePolygon(segmentation.orientation,segmentation.segments[key].textlines[keyLine].baseline,negativeOffset,negativeCenter);
+			let segment = segmentation.segments[key]
+
+			segment.coords = this.rotatePolygon(negativeOrientation, segment.coords, negativeOffset, negativeCenter);
+			if(!(typeof(segment.textlines) === undefined || segment.textlines == null)) {
+				Object.keys(segment.textlines).forEach((keyLine) => {
+					segment.textlines[keyLine].coords = this.rotatePolygon(negativeOrientation, segment.textlines[keyLine].coords, negativeOffset, negativeCenter);
+					if(!(typeof(segment.textlines[keyLine].baseline) === undefined || segment.textlines[keyLine].baseline == null)) {
+						segment.textlines[keyLine].baseline = this.rotatePolygon(segmentation.orientation, segment.textlines[keyLine].baseline, negativeOffset, negativeCenter);
 					}
 				});
 			}
@@ -2387,19 +2389,24 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		//rotate whole page
 		this._orientation = result.orientation;
 		_gui.updateOrientation(result.orientation);
+
 		let dimensions = {};
 		dimensions.x = result.width;
 		dimensions.y = result.height;
+
 		let offsetCenter = _editor.calculateRotOffset(this._orientation, dimensions);
 		result.OffsetVector = offsetCenter.offsetVector;
 		result.center = offsetCenter.trueCenter;
+
 		Object.keys(result.segments).forEach((key) => {
-			result.segments[key].coords = this.rotatePolygon(result.orientation,result.segments[key].coords,result.OffsetVector,result.center);
-			if(!(typeof(result.segments[key].textlines) === undefined || result.segments[key].textlines == null)) {
-				Object.keys(result.segments[key].textlines).forEach((keyLine) => {
-					result.segments[key].textlines[keyLine].coords = this.rotatePolygon(result.orientation,result.segments[key].textlines[keyLine].coords,result.OffsetVector,result.center);
-					if(!(typeof(result.segments[key].textlines[keyLine].baseline) === undefined || result.segments[key].textlines[keyLine].baseline == null)) {
-						result.segments[key].textlines[keyLine].baseline = this.rotatePolygon(result.orientation,result.segments[key].textlines[keyLine].baseline,result.OffsetVector,result.center);
+			let segment = result.segments[key]
+
+			segment.coords = this.rotatePolygon(result.orientation, segment.coords, result.OffsetVector, result.center);
+			if(!(typeof(segment.textlines) === undefined || segment.textlines == null)) {
+				Object.keys(segment.textlines).forEach((keyLine) => {
+					segment.textlines[keyLine].coords = this.rotatePolygon(result.orientation, segment.textlines[keyLine].coords, result.OffsetVector, result.center);
+					if(!(typeof(segment.textlines[keyLine].baseline) === undefined || segment.textlines[keyLine].baseline == null)) {
+						segment.textlines[keyLine].baseline = this.rotatePolygon(result.orientation, segment.textlines[keyLine].baseline, result.OffsetVector, result.center);
 					}
 				});
 			}
