@@ -2404,9 +2404,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			segment.coords = this.rotatePolygon(result.orientation, segment.coords, result.OffsetVector, result.center);
 			if(!(typeof(segment.textlines) === undefined || segment.textlines == null)) {
 				Object.keys(segment.textlines).forEach((keyLine) => {
-					segment.textlines[keyLine].coords = this.rotatePolygon(result.orientation, segment.textlines[keyLine].coords, result.OffsetVector, result.center);
-					if(!(typeof(segment.textlines[keyLine].baseline) === undefined || segment.textlines[keyLine].baseline == null)) {
-						segment.textlines[keyLine].baseline = this.rotatePolygon(result.orientation, segment.textlines[keyLine].baseline, result.OffsetVector, result.center);
+					let line = segment.textlines[keyLine]
+					line.coords = this.rotatePolygon(result.orientation, line.coords, result.OffsetVector, result.center);
+					if(!(typeof(line.baseline) === undefined || line.baseline == null)) {
+						line.baseline = this.rotatePolygon(result.orientation, line.baseline, result.OffsetVector, result.center);
 					}
 				});
 			}
