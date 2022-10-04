@@ -115,7 +115,7 @@ public class FilePathManager {
 	 * @return local default virtual keyboard path
 	 */
 	public String getVirtualKeyboardFile() {
-		return servletContext.getRealPath("WEB-INF" + File.separator + "virtual_keyboards" + File.separator + "default.txt");
+		return servletContext.getRealPath("WEB-INF" + File.separator + "virtual_keyboards" + File.separator + "latin_no_pua.txt");
 	}
 
 	public String getVirtualKeyboardFile(String language) {

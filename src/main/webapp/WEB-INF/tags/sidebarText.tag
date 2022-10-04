@@ -18,7 +18,6 @@
 		<a class='btn col s4 waves-effect waves-light tooltipped vk-preset dropdown-button' href='#' data-position="left" data-delay="50" data-tooltip="Use predefined virtual keyboard"
 		   data-activates='vk-preset-dropdown'>Preset <i class="material-icons right">arrow_drop_down</i></a>
 		<ul id='vk-preset-dropdown' class='dropdown-content'>
-			<li><a href="#!" class="vk-preset-entry" data-language="default">Default</a></li>
 			<li><a href="#!" class="vk-preset-entry" data-language="latin_no_pua">Latin (no PUA)</a></li>
 			<li><a href="#!" class="vk-preset-entry" data-language="old_greek">Old Greek</a></li>
 
