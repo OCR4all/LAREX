@@ -2333,6 +2333,8 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			negativeCenter.x = segmentationSettings.center.x + segmentationSettings.OffsetVector.x;
 			negativeCenter.y = segmentationSettings.center.y + segmentationSettings.OffsetVector.y;
 		} else {
+			if(!segmentation.OffsetVector && !segmentation.center) return segmentation;
+
 			negativeOrientation = -segmentation.orientation;
 			negativeOffset = {};
 			negativeOffset.x = -segmentation.OffsetVector.x;
