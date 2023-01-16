@@ -20,7 +20,7 @@
 		<ul id='vk-preset-dropdown' class='dropdown-content'>
 			<li><a href="#!" class="vk-preset-entry" data-language="latin_no_pua">Latin (no PUA)</a></li>
 			<li><a href="#!" class="vk-preset-entry" data-language="old_greek">Old Greek</a></li>
-
+			<li><a href="#!" class="vk-preset-entry" data-language="latin_pua">Latin (PUA)</a></li>
 			<li><a href="#vk-preset-modal" class="vk-preset-info modal-trigger"><i class="material-icons left">info</i>Info</a></li>
 		</ul>
 	</div>
