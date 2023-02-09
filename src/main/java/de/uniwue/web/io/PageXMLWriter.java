@@ -303,7 +303,6 @@ public class PageXMLWriter {
 					textRegion.removeTextObject(lineEntry.getValue().getId());
 				}
 				if(element.getReadingOrder() != null) {
-					System.out.println(element.getReadingOrder());
 					List<String> readingOrder = element.getReadingOrder();
 					for (String _id : readingOrder){
 						textRegion.addTextObject(updatedPhysicalTextLines.get(_id));
