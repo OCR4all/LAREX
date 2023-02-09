@@ -290,9 +290,30 @@ public class PageXMLWriter {
 							textContent.getAttributes().add(new IntegerVariable("index", new IntegerValue(index)));
 						}
 					}else{
-						createTextLine(textLine, textRegion);
+						createTextLine(textLine, textRegion, element);
 					}
 				}
+
+				// Update TextLine reading order
+				// This process is necessary as there isn't a standard convention for setting the TextLine reading order
+				// via the PAGE schema and the reading order is therefore determined by the physical order in the XML
+				// file.
+				Map<String, TextLine> updatedPhysicalTextLines = getTextLines(textRegion);
+				for (Entry<String, TextLine> lineEntry : getTextLines(textRegion).entrySet()) {
+					textRegion.removeTextObject(lineEntry.getValue().getId());
+				}
+				if(element.getReadingOrder() != null) {
+					List<String> readingOrder = element.getReadingOrder();
+					for (String _id : readingOrder){
+						textRegion.addTextObject(updatedPhysicalTextLines.get(_id));
+						updatedPhysicalTextLines.remove(_id);
+					}
+				}
+				for (TextLine unindexedTextLine : updatedPhysicalTextLines.values()){
+					textRegion.addTextObject(unindexedTextLine);
+				}
+
+
 			}else if(!physicalRegion.getType().toString().equals(elementType)){
 				// Deletes region as it well created with the new type in the following step
 				// Todo: This should be changed to e.g. allow passing existing attributes (in case they're still allowed
@@ -310,8 +331,15 @@ public class PageXMLWriter {
 	 * @param textline
 	 * @param textRegion
 	 */
-	private static void createTextLine(de.uniwue.web.model.TextLine textline, TextRegion textRegion){
+	private static void createTextLine(de.uniwue.web.model.TextLine textline,
+									   TextRegion textRegion,
+									   de.uniwue.web.model.Region regionSegment){
 		final TextLine pageTextLine = textRegion.createTextLine();
+		List<String> textLineReadingOrder = regionSegment.getReadingOrder();
+		Collections.replaceAll(textLineReadingOrder,
+				textline.getId(),
+				pageTextLine.getId().toString());
+		regionSegment.setReadingOrder(textLineReadingOrder);
 
 		final Polygon coords = new Polygon();
 		for (Point point : textline.getCoords().getPoints()) {
@@ -341,7 +369,6 @@ public class PageXMLWriter {
 			if(textObject instanceof TextLine) {
 				TextLine _textLine = (TextLine) textObject;
 				String _id = _textLine.getId().toString();
-
 				physicalTextLines.put(_id, _textLine);
 			}
 		}
@@ -377,7 +404,6 @@ public class PageXMLWriter {
 			if(type.getSubtype() != null) {
 				textRegion.setTextType(TypeConverter.subTypeToString(type.getSubtype()));
 			}
-
 			// Add TextLines if existing
 			if(regionSegment.getTextlines() != null) {
 				final List<de.uniwue.web.model.TextLine> textlines = new ArrayList<>(regionSegment.getTextlines().values());
@@ -395,7 +421,7 @@ public class PageXMLWriter {
 
 				// Iterate over sorted text lines and add to PAGE XML
 				for (de.uniwue.web.model.TextLine textline : textlines) {
-					createTextLine(textline, textRegion);
+					createTextLine(textline, textRegion, regionSegment);
 				}
 			}
 		}

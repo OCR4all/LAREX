@@ -31,7 +31,7 @@ public class Region extends Element{
 	@JsonProperty("textlines")
 	protected final Map<String,TextLine> textlines;
 	@JsonProperty("readingOrder")
-	protected final List<String> readingOrder;
+	protected List<String> readingOrder;
 
 	@JsonCreator
 	public Region(@JsonProperty("id") String id, @JsonProperty("type") String type,
@@ -88,5 +88,13 @@ public class Region extends Element{
 	 */
 	public List<String> getReadingOrder() {
 		return readingOrder;
+	}
+
+	/**
+	 * Update the reading order of the contained textlines
+	 * @param readingOrder
+	 */
+	public void setReadingOrder(List<String> readingOrder) {
+		this.readingOrder = readingOrder;
 	}
 }
