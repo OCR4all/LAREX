@@ -18,8 +18,7 @@ import org.primaresearch.dla.page.layout.logical.RegionRef;
 import org.primaresearch.dla.page.layout.physical.Region;
 import org.primaresearch.dla.page.layout.physical.impl.CustomRegion;
 import org.primaresearch.dla.page.layout.physical.impl.NoiseRegion;
-import org.primaresearch.dla.page.layout.physical.text.LowLevelTextObject;
-import org.primaresearch.dla.page.layout.physical.text.graphemes.GraphemeElement;
+import org.primaresearch.dla.page.layout.physical.text.TextObject;
 import org.primaresearch.dla.page.layout.physical.text.impl.Glyph;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextContentVariants.TextContentVariant;
 import org.primaresearch.dla.page.layout.physical.text.impl.TextLine;
@@ -112,10 +111,11 @@ public class PageXMLReader {
 						subtype = TypeConverter.stringToSubType(textRegion.getTextType());
 					}
 					// Extract Text
-					for (LowLevelTextObject text : textRegion.getTextObjectsSorted()) {
+					for(int n = 0; n < textRegion.getTextObjectCount(); n++){
+						TextObject text = textRegion.getTextObject(n);
 						if (text instanceof TextLine) {
 							final TextLine textLine = (TextLine) text;
-							final String id = text.getId().toString();
+							final String id = textLine.getId().toString();
 
 							//get Words of TextLine if they exist
 							final List<de.uniwue.web.model.Word> words = new ArrayList<>();
