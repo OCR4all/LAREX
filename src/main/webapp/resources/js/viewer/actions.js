@@ -854,7 +854,12 @@ function ActionAddTextLineToReadingOrder(id, parentID, page, segmentation, contr
 			_isExecuted = true;
 
 			if (!_oldReadingOrder) {
-				_oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].segments[parentID].readingOrder));
+				if(segmentation[page].segments[parentID].readingOrder){
+					_oldReadingOrder = JSON.parse(JSON.stringify(segmentation[page].segments[parentID].readingOrder));
+				}else{
+					_oldReadingOrder = JSON.parse(JSON.stringify([]));
+				}
+
 			}
 
 			if (!_newReadingOrder) {
