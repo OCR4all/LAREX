@@ -336,9 +336,11 @@ public class PageXMLWriter {
 									   de.uniwue.web.model.Region regionSegment){
 		final TextLine pageTextLine = textRegion.createTextLine();
 		List<String> textLineReadingOrder = regionSegment.getReadingOrder();
-		Collections.replaceAll(textLineReadingOrder,
-				textline.getId(),
-				pageTextLine.getId().toString());
+		if(textLineReadingOrder != null){
+			Collections.replaceAll(textLineReadingOrder,
+					textline.getId(),
+					pageTextLine.getId().toString());
+		}
 		regionSegment.setReadingOrder(textLineReadingOrder);
 
 		final Polygon coords = new Polygon();
