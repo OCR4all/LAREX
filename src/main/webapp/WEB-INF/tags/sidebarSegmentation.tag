@@ -181,6 +181,15 @@
 						</label>
 					</span>
 				</div>
+				<div class="segmentationToggle row">
+					<span class="col s12 switch">
+						<label>
+							<input id="togglePermanentSegmentHighlighting" type="checkbox">
+							<span class="lever"></span>
+							Permanently highlight segments
+						</label>
+					</span>
+				</div>
 				<div class="divider row"></div>
 				<div class="simplifyPolygonSettings row">
 					<a class="col s10 offset-s1 waves-effect waves-light btn simplifyPolygon segment-only tooltipped" data-position="bottom" data-delay="50" data-tooltip="Simplify selected polygon(s)">Simplify Polygon</a>

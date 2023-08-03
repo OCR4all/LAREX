@@ -311,7 +311,9 @@ class Viewer {
 				if (doHighlight) {
 					polygon.fillColor.alpha = 0.6;
 				} else {
-					polygon.fillColor.alpha = polygon.fillColor.mainAlpha;
+					if(!controller.getState("isPermanentHighlightingActive")){
+						polygon.fillColor.alpha = polygon.fillColor.mainAlpha;
+					}
 				}
 			}
 		}

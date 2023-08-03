@@ -541,6 +541,16 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		_textViewer._copyTextToClipboard(text);
 	})
 
+	$("#togglePermanentSegmentHighlighting").change(function () {
+		if(this.checked){
+			_controller.setState("isPermanentHighlightingActive", true);
+			_controller.highlightAllSegments(true);
+		} else {
+			_controller.setState("isPermanentHighlightingActive", false);
+			_controller.highlightAllSegments(false);
+		}
+	})
+
 	$("#toggleSegmentVisibility").change(function () {
 		if(this.checked){
 			_controller.hideAllSegments(true);

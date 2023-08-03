@@ -47,6 +47,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _fixedGeometry = {};
 	let _editReadingOrder = false;
 	let _move = false;
+	let _state = {
+		isPermanentHighlightingActive: false,
+	}
 
 	let _newPolygonCounter = 0;
 	let _pastId;
@@ -1423,6 +1426,9 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				_editor, _segmentation, _currentPage, this);
 
 			_actionController.addAndExecuteAction(actionAdd, _currentPage);
+			if(this.getState("isPermanentHighlightingActive")){
+				this.highlightSegment(newID)
+			}
 			this.openContextMenu(false, newID);
 		} else {
 			_gui.displayWarning("Region need at least three unique points. Region will be ignored.")
@@ -1881,6 +1887,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			this.closeContextMenu();
 		}
 	}
+	this.highlightAllSegments = function(doHighlight = true){
+		const pageSegments = _segmentation[_currentPage] ? _segmentation[_currentPage].segments : null;
+		if (pageSegments) {
+			Object.keys(pageSegments).forEach((key) => {
+				this.highlightSegment(key, doHighlight)
+			})
+		}
+	}
 	this.highlightSegment = function (sectionID, doHighlight = true) {
 		if(doHighlight){
 			if (!_editor.isEditing || _editor.requiresSegmentHighlighting) {
@@ -1893,9 +1907,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				}
 			}
 		}else{
-			_editor.highlightSegment(sectionID, doHighlight);
-			_gui.highlightSegment(sectionID, doHighlight);
-			_hoveredElement = null;
+			if(!_state.isPermanentHighlightingActive){
+				_editor.highlightSegment(sectionID, doHighlight);
+				_gui.highlightSegment(sectionID, doHighlight);
+				_hoveredElement = null;
+			}
 		}
 	}
 	this.getHoveredElement = function(){
@@ -2424,6 +2440,16 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			}
 		}
 		return JSON.stringify(obj) === JSON.stringify({});
+	}
+
+	this.setState = function(property, state) {
+		_state[property] = state;
+	}
+
+	this.getState = function(property) {
+		if(_state[property] !== undefined){
+			return _state[property]
+		}
 	}
 
 	/** TextViewer

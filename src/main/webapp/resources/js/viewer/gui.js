@@ -96,6 +96,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$('#sidebar-segment').addClass('hide');
 				$('#sidebar-lines').removeClass('hide');
 				$('#sidebar-text').addClass('hide');
+				this.resetHighlightToggle()
 				this.displayReadingOrder(false);
 				this.closeTextLineContent();
 				break;
@@ -103,6 +104,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 				$('#sidebar-segment').addClass('hide');
 				$('#sidebar-lines').addClass('hide');
 				$('#sidebar-text').removeClass('hide');
+				this.resetHighlightToggle()
 				this.displayReadingOrder(false);
 				this.closeTextLineContent();
 				break;
@@ -953,6 +955,12 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 		$("#toggleSegmentVisibility").prop("checked", false);
 		$("#toggleLineVisibility").prop("checked", false);
 		$("#toggleBaselineVisibility").prop("checked", false);
+	}
+
+	this.resetHighlightToggle = function(){
+		$("#togglePermanentSegmentHighlighting").prop("checked", false);
+		controller.setState("isPermanentHighlightingActive", false);
+		controller.highlightAllSegments(false);
 	}
 
 	this.updateOrientation = function(orientation){
