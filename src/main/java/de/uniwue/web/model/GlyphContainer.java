@@ -31,7 +31,7 @@ public class GlyphContainer  extends Element {
         List<de.uniwue.web.model.Glyph> glyphVariants = new ArrayList<>();
         for(int i = 0; i < primaGlyph.getTextContentVariantCount(); i++) {
             String textContent = primaGlyph.getTextContentVariant(i).getText();
-            double confidence = primaGlyph.getTextContentVariant(i).getConfidence();
+            double confidence = primaGlyph.getTextContentVariant(i).getConfidence() != null ? primaGlyph.getTextContentVariant(i).getConfidence() : 1;
             glyphVariants.add(new de.uniwue.web.model.Glyph(textContent,confidence));
         }
         //sort descending from highest confidence
