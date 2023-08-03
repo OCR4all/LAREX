@@ -88,6 +88,7 @@
 		<title>Larex - Editor</title>
 	</b:head>
 	<t:keyboardShortcutModal/>
+	<t:settingsModal />
 	<t:batchSegmentModal/>
 	<t:metadataModal/>
 	<body>
@@ -229,6 +230,7 @@
 					<t:menuIcon jsClass="hideTextView hide" icon="description"
 						tooltip="Switch to Page View">pageView</t:menuIcon>
 				</div>
+				<t:menuIcon jsClass="rightsideMenuIcon" id="openSettings" icon="settings_applications" tooltip="Open LAREX settings">Settings</t:menuIcon>
 				<t:menuIcon jsClass="rightsideMenuIcon" id="openFullscreen" icon="fullscreen" tooltip="Open LAREX in fullscreen">Fullscreen</t:menuIcon>
 				<t:menuIcon jsClass="rightsideMenuIcon" id="showShortcuts" icon="keyboard" tooltip="Show a list of available keyboard shortcuts">Shortcuts</t:menuIcon>
 				<t:menuIcon id="reloadProject" jsClass="rightsideMenuIcon" icon="refresh"

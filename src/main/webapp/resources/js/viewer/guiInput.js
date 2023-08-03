@@ -476,6 +476,11 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('.modeSelect').click(function() {
 		_controller.checkNextBatch();
 	});
+	$('.doSaveUserSettings').click(function () {
+		_controller.setUserSetting("doubleClickTimeDelta", $("#settingsDoubleClickTimeDelta").val());
+		_controller.setUserSetting("doubleClickDistance", $("#settingsDoubleClickDistance").val());
+		$(".modal").modal("close");
+	})
 	$("#batchSegmentation").click(function () {
 		if($("#batchSegmentation").is(":checked")) {
 			$("#batchWarning").removeClass("hide");
@@ -578,6 +583,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 	$('#showShortcuts').click(() => _controller.toggleShortcutModal());
 	$("#metadata-save").click(() => _controller.saveMetadata());
 	$("#openFullscreen").click(() => _gui.toggleFullscreen());
+	$("#openSettings").click(() => _controller.toggleSettingsModal())
 
 	let typewatch = function(){
 		let timer = 0;

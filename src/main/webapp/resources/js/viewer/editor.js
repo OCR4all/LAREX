@@ -1141,7 +1141,7 @@ setImage(id) {
 
 /* Adds double click functionality for paperjs canvas */
 class DoubleClickListener{
-	constructor(action = (pos) => {}, maxTime = 500, maxDistance = 20) {
+	constructor(action = (pos) => {}, maxTime = 2, maxDistance = 10) {
 		this._lastClickedTime = undefined;
 		this._lastClickedPosition = undefined;
 		this._maxTime = maxTime;
@@ -1170,5 +1170,13 @@ class DoubleClickListener{
 
 	setAction(action = (pos) => {}){
 		this._action = action;
+	}
+
+	setMaxTime(time) {
+		this._maxTime = time
+	}
+
+	setMaxDistance(distance) {
+		this._maxDistance = distance
 	}
 }

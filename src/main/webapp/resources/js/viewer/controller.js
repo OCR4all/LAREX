@@ -50,6 +50,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	let _state = {
 		isPermanentHighlightingActive: false,
 	}
+	let _userSettings = localStorage.hasOwnProperty("user-settings") ? JSON.parse(localStorage["user-settings"]) : {}
 
 	let _newPolygonCounter = 0;
 	let _pastId;
@@ -184,6 +185,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			});
 
 			this.setMode(_mode);
+			this.applyUserSettings();
 		});
 	});
 
@@ -2299,6 +2301,14 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			$("#batchNext").addClass("disabled");
 		}
 	}
+	this.toggleSettingsModal = function() {
+		const $settingsModal = $("#settings-modal");
+		if($settingsModal.hasClass("open")){
+			$settingsModal.modal("close");
+		}else{
+			$settingsModal.modal("open");
+		}
+	}
 	this.toggleShortcutModal = function(){
 		const $shortcutModal = $("#kb-shortcut-modal");
 		const $tab = $("#kb-shortcut-modal-tabs")
@@ -2449,6 +2459,31 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 	this.getState = function(property) {
 		if(_state[property] !== undefined){
 			return _state[property]
+		}
+	}
+
+	this.setUserSetting = function(setting, value) {
+		if(value){
+			_userSettings[setting] = value
+			localStorage.setItem("user-settings", JSON.stringify(_userSettings))
+			this.applyUserSettings()
+		}
+	}
+
+	this.getUserSetting = function(setting) {
+		if(_userSettings[setting] !== "undefined"){
+			return _userSettings[setting]
+		}
+	}
+
+	this.applyUserSettings = function() {
+		if(_userSettings["doubleClickDistance"]){
+			_editor.DoubleClickListener.setMaxDistance(_userSettings["doubleClickDistance"])
+			$("#settingsDoubleClickTimeDelta").val(_userSettings["doubleClickDistance"])
+		}
+		if(_userSettings["doubleClickTimeDelta"]){
+			_editor.DoubleClickListener.setMaxTime(_userSettings["doubleClickTimeDelta"])
+			$("#settingsDoubleClickDistance").val(_userSettings["doubleClickTimeDelta"])
 		}
 	}
 
