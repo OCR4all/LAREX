@@ -107,19 +107,19 @@ $(document).ready(function () {
 		let metsFilePath = pageElemList[0].getAttribute('data-mets-path');
 		for(let i = 0; i<pageElemList.length;i++) {
 			if(pageElemList[i].checked) {
-				let fileKey = pageElemList[i].getAttribute('id');
+				let fileKey = encodeURIComponent(pageElemList[i].getAttribute('id'));
 				let pathList = pageElemList[i].getAttribute('data-page').split(':');
 				let filePathList = [];
 				let filePath = pathList[0];
 				for(let j = 0; j<pathList.length; j++) {
-					if(j % 2 == 0) {
+					if(j % 2 === 0) {
 						filePath = pathList[j];
-						filePathList.push(filePath);
+						filePathList.push(encodeURIComponent(filePath));
 					} else {
-						mimeTypMap[filePath] = pathList[j];
+						mimeTypMap[encodeURIComponent(filePath)] = encodeURIComponent(pathList[j]);
 					}
 				}
-				fileMap[fileKey] = filePathList;
+				fileMap[encodeURIComponent(fileKey)] = filePathList;
 			}
 		}
 		$.ajax({

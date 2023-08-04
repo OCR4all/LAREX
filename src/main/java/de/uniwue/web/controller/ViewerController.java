@@ -105,7 +105,8 @@ public class ViewerController {
 		}
 		if(customFlag.equals("true") && !customFolder.endsWith(File.separator)) { customFolder += File.separator; }
 		for(Map.Entry<String, List<String>> entry : fileMap.entrySet()) {
-			String fileName = entry.getKey().replaceAll("\"" , "");
+			String fileName = java.net.URLDecoder.decode(entry.getKey().replaceAll("\"" , ""));
+			System.out.println(fileName);
 			String fileKey = fileName.split("\\.")[0];
 			List<String> filePathList = entry.getValue();
 			String xmlPath;
