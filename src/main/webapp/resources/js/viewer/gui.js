@@ -656,7 +656,7 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 					const $deleteReadingOrderSegment = $('<i class="delete-reading-order-segment material-icons infocus" data-id="' + segment.id + '">delete</i>');
 					$collectionItem.append($legendTypeIcon);
 					const id = segment.id;
-					$collectionItem.append(id.substring(id.length - 3, id.length) + "-" + segment.type );
+					$collectionItem.append(id + "-" + segment.type );
 					$collectionItem.append($deleteReadingOrderSegment);
 					$readingOrderList.append($collectionItem);
 				}

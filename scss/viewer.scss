@@ -885,3 +885,9 @@ label{
   height: auto !important;
   appearance:none !important;
 }
+
+#reading-order-list-lines li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
