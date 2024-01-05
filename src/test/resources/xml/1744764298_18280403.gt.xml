@@ -1,0 +1,615 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15 http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15/pagecontent.xsd">
+	<Metadata>
+		<Creator>Universitäts-u. Landesbibliothek Sachsen-Anhalt</Creator>
+		<Created>2024-01-05T14:51:41</Created>
+		<LastChange>2024-01-05T14:51:41</LastChange>
+		<Comments>Measurement unit: pixel</Comments>
+	</Metadata>
+	<Page imageFilename="" imageHeight="7445" imageWidth="6205">
+		<PrintSpace>
+			<Coords points="0,0 6205,0 6205,7445 0,7445"/>
+		</PrintSpace>
+		<SeparatorRegion id="cblock_0">
+			<Coords points="1,3007 12,3007 12,3581 1,3581"/>
+		</SeparatorRegion>
+		<TextRegion id="block_0">
+			<Coords points="59,4348 87,4348 87,4579 59,4579"/>
+			<TextLine id="tl_1">
+				<Coords points="60,4348 87,4348 87,4481 60,4481"/>
+				<Baseline points="60,4481 87,4481"/>
+				<TextEquiv>
+					<Unicode>1</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>1</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<GraphicRegion id="cblock_2">
+			<Coords points="0,7092 6204,7092 6204,7444 0,7444"/>
+		</GraphicRegion>
+		<GraphicRegion id="cblock_3">
+			<Coords points="0,0 4964,0 4964,2509 0,2509"/>
+		</GraphicRegion>
+		<TextRegion id="block_1">
+			<Coords points="1631,2561 2977,2561 2977,2840 1631,2840"/>
+			<TextLine id="tl_2">
+				<Coords points="1631,2561 2977,2561 2977,2840 1631,2840"/>
+				<Baseline points="1631,2840 2977,2840"/>
+				<TextEquiv>
+					<Unicode>De r</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>De r</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_2">
+			<Coords points="475,2921 3675,2921 3675,3129 475,3129"/>
+			<TextLine id="tl_3">
+				<Coords points="475,2921 3675,2921 3675,3129 475,3129"/>
+				<Baseline points="475,3129 3675,3129"/>
+				<TextEquiv>
+					<Unicode>Halliſche Zeitung fur S</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Halliſche Zeitung fur S</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_3">
+			<Coords points="471,3215 5625,3215 5625,3678 471,3678"/>
+			<TextLine id="tl_4">
+				<Coords points="1168,3215 4920,3215 4920,3357 1168,3357"/>
+				<Baseline points="1168,3357 4920,3357"/>
+				<TextEquiv>
+					<Unicode>Jn der Expedition des Kuriers. (Redakteur C. G. Schwetſchke. )</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_5">
+				<Coords points="922,3383 5097,3383 5097,3511 922,3511"/>
+				<Baseline points="922,3511 5097,3511"/>
+				<TextEquiv>
+					<Unicode>Vierteljährl. Pränumerationspreis 20 Sgr. Jnſertionsgebühren für 1 gedruckte Zeile 1 Sgr.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_6">
+				<Coords points="471,3526 5624,3526 5624,3682 471,3682"/>
+				<Baseline points="471,3682 5624,3682"/>
+				<TextEquiv>
+					<Unicode>(Wegen des einfallenden h. Oſterfeſtes wird das nachſte Stuck erſt am Dienstage d. 8. April ausgegeben. )</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Jn der Expedition des Kuriers. (Redakteur C. G. Schwetſchke. )
+Vierteljährl. Pränumerationspreis 20 Sgr. Jnſertionsgebühren für 1 gedruckte Zeile 1 Sgr.
+(Wegen des einfallenden h. Oſterfeſtes wird das nachſte Stuck erſt am Dienstage d. 8. April ausgegeben. )</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<SeparatorRegion id="cblock_7">
+			<Coords points="3249,0 3825,0 3825,12 3249,12"/>
+		</SeparatorRegion>
+		<GraphicRegion id="cblock_8">
+			<Coords points="3163,0 6205,0 6205,78 3163,78"/>
+		</GraphicRegion>
+		<TextRegion id="block_4">
+			<Coords points="3142,2580 3822,2580 3822,3104 3142,3104"/>
+			<TextLine id="tl_7">
+				<Coords points="3142,2580 3822,2580 3822,2844 3142,2844"/>
+				<Baseline points="3142,2844 3822,2844"/>
+				<TextEquiv>
+					<Unicode>u r i</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_8">
+				<Coords points="3754,2959 3814,2959 3814,3104 3754,3104"/>
+				<Baseline points="3754,3104 3814,3104"/>
+				<TextEquiv>
+					<Unicode>t</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>u r i
+t</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<SeparatorRegion id="cblock_10">
+			<Coords points="488,3722 5602,3722 5602,3757 488,3757"/>
+		</SeparatorRegion>
+		<TextRegion id="block_5">
+			<Coords points="1773,3805 4298,3805 4298,3940 1773,3940"/>
+			<TextLine id="tl_9">
+				<Coords points="1773,3805 4298,3805 4298,3940 1773,3940"/>
+				<Baseline points="1773,3940 4298,3940"/>
+				<TextEquiv>
+					<Unicode>Nro 27. Donnerstag , den 3. April 1828.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Nro 27. Donnerstag , den 3. April 1828.</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<SeparatorRegion id="cblock_12">
+			<Coords points="942,3989 2195,3989 2195,4005 942,4005"/>
+		</SeparatorRegion>
+		<TextRegion id="block_6">
+			<Coords points="1147,4110 2303,4110 2303,4234 1147,4234"/>
+			<TextLine id="tl_10">
+				<Coords points="1147,4110 2303,4110 2303,4234 1147,4234"/>
+				<Baseline points="1147,4234 2303,4234"/>
+				<TextEquiv>
+					<Unicode>Berlin, den 30. Marz.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Berlin, den 30. Marz.</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_7">
+			<Coords points="462,4234 2992,4234 2992,4735 462,4735"/>
+			<TextLine id="tl_11">
+				<Coords points="640,4234 2992,4234 2992,4361 640,4361"/>
+				<Baseline points="640,4361 2992,4361"/>
+				<TextEquiv>
+					<Unicode>Seine Majeſtät der Konig haben dem General-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_12">
+				<Coords points="466,4359 2990,4359 2990,4484 466,4484"/>
+				<Baseline points="466,4484 2990,4484"/>
+				<TextEquiv>
+					<Unicode>Lieutenant von Horn, kommandirendem General des</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_13">
+				<Coords points="466,4483 2988,4483 2988,4612 466,4612"/>
+				<Baseline points="466,4612 2988,4612"/>
+				<TextEquiv>
+					<Unicode>7. Armee ⸗ Korps, den Schwarzen Adler⸗ Orden zu ver⸗</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_14">
+				<Coords points="462,4616 1111,4616 1111,4735 462,4735"/>
+				<Baseline points="462,4735 1111,4735"/>
+				<TextEquiv>
+					<Unicode>leihen geruhet.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Seine Majeſtät der Konig haben dem General-
+Lieutenant von Horn, kommandirendem General des
+7. Armee ⸗ Korps, den Schwarzen Adler⸗ Orden zu ver⸗
+leihen geruhet.</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_8">
+			<Coords points="1297,4728 2172,4728 2172,4843 1297,4843"/>
+			<TextLine id="tl_15">
+				<Coords points="1297,4728 2172,4728 2172,4843 1297,4843"/>
+				<Baseline points="1297,4843 2172,4843"/>
+				<TextEquiv>
+					<Unicode>Portugal.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Portugal.</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_9">
+			<Coords points="458,4842 2986,4842 2986,6791 458,6791"/>
+			<TextLine id="tl_16">
+				<Coords points="639,4842 2986,4842 2986,4974 639,4974"/>
+				<Baseline points="639,4974 2986,4974"/>
+				<TextEquiv>
+					<Unicode>Liſſabon, d. 16. Marz. Der Jnfant Don</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_17">
+				<Coords points="466,4967 2984,4967 2984,5097 466,5097"/>
+				<Baseline points="466,5097 2984,5097"/>
+				<TextEquiv>
+					<Unicode>Miguel, welcher in Gemaßheit der Beſtimmung</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_18">
+				<Coords points="467,5091 2981,5091 2981,5207 467,5207"/>
+				<Baseline points="467,5207 2981,5207"/>
+				<TextEquiv>
+					<Unicode>ſeines erlauchten Bruders, des Kaiſers Pedro von Bra⸗</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_19">
+				<Coords points="469,5212 2979,5212 2979,5339 469,5339"/>
+				<Baseline points="469,5339 2979,5339"/>
+				<TextEquiv>
+					<Unicode>ſilien, gleichzeitig Königs von Portugal, die Regent-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_20">
+				<Coords points="465,5331 2986,5331 2986,5455 465,5455"/>
+				<Baseline points="465,5455 2986,5455"/>
+				<TextEquiv>
+					<Unicode>ſchaft dieſes Königreiches bis zur Großjahrigkeit der</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_21">
+				<Coords points="462,5454 2982,5454 2982,5583 462,5583"/>
+				<Baseline points="462,5583 2982,5583"/>
+				<TextEquiv>
+					<Unicode>Königin Donna Maria da Gloria (Tochter des Kai-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_22">
+				<Coords points="467,5575 2981,5575 2981,5698 467,5698"/>
+				<Baseline points="467,5698 2981,5698"/>
+				<TextEquiv>
+					<Unicode>ſers Pedro und Braut des Jnfanten Don Miguel)</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_23">
+				<Coords points="463,5697 2985,5697 2985,5817 463,5817"/>
+				<Baseline points="463,5817 2985,5817"/>
+				<TextEquiv>
+					<Unicode>uübernommen hatte, ſcheint ſeine Abneigung gegen die</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_24">
+				<Coords points="462,5820 2986,5820 2986,5947 462,5947"/>
+				<Baseline points="462,5947 2986,5947"/>
+				<TextEquiv>
+					<Unicode>dem portugieſiſchen Volke vom Kaiſer Pedro verliehene</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_25">
+				<Coords points="464,5940 2986,5940 2986,6067 464,6067"/>
+				<Baseline points="464,6067 2986,6067"/>
+				<TextEquiv>
+					<Unicode>Verfaſſung, ſo wie ſeine ehrgeizigen Abſichten auf die</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_26">
+				<Coords points="461,6055 2982,6055 2982,6192 461,6192"/>
+				<Baseline points="461,6192 2982,6192"/>
+				<TextEquiv>
+					<Unicode>Königskrone Portugals nicht langer verbergen zu kon⸗</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_27">
+				<Coords points="463,6180 2981,6180 2981,6301 463,6301"/>
+				<Baseline points="463,6301 2981,6301"/>
+				<TextEquiv>
+					<Unicode>nen. Nachdem Don Miguel die Verfaſſung feier-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_28">
+				<Coords points="466,6305 2979,6305 2979,6422 466,6422"/>
+				<Baseline points="466,6422 2979,6422"/>
+				<TextEquiv>
+					<Unicode>lich beſchworen, ſetzt er ein Miniſterium zuſammen,</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_29">
+				<Coords points="464,6426 2984,6426 2984,6548 464,6548"/>
+				<Baseline points="464,6548 2984,6548"/>
+				<TextEquiv>
+					<Unicode>welches faſt ganzlich aus entſchiedenen Gegnern der</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_30">
+				<Coords points="458,6548 2983,6548 2983,6673 458,6673"/>
+				<Baseline points="458,6673 2983,6673"/>
+				<TextEquiv>
+					<Unicode>Verfaſſung beſteht, duldet es, daß rechtliche und der</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_31">
+				<Coords points="463,6663 2978,6663 2978,6791 463,6791"/>
+				<Baseline points="463,6791 2978,6791"/>
+				<TextEquiv>
+					<Unicode>Verfaſſung treu ergebene Maänner von einem zugello-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Liſſabon, d. 16. Marz. Der Jnfant Don
+Miguel, welcher in Gemaßheit der Beſtimmung
+ſeines erlauchten Bruders, des Kaiſers Pedro von Bra⸗
+ſilien, gleichzeitig Königs von Portugal, die Regent-
+ſchaft dieſes Königreiches bis zur Großjahrigkeit der
+Königin Donna Maria da Gloria (Tochter des Kai-
+ſers Pedro und Braut des Jnfanten Don Miguel)
+uübernommen hatte, ſcheint ſeine Abneigung gegen die
+dem portugieſiſchen Volke vom Kaiſer Pedro verliehene
+Verfaſſung, ſo wie ſeine ehrgeizigen Abſichten auf die
+Königskrone Portugals nicht langer verbergen zu kon⸗
+nen. Nachdem Don Miguel die Verfaſſung feier-
+lich beſchworen, ſetzt er ein Miniſterium zuſammen,
+welches faſt ganzlich aus entſchiedenen Gegnern der
+Verfaſſung beſteht, duldet es, daß rechtliche und der
+Verfaſſung treu ergebene Maänner von einem zugello-</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_10">
+			<Coords points="463,6788 3036,6788 3036,6911 463,6911"/>
+			<TextLine id="tl_32">
+				<Coords points="463,6788 3036,6788 3036,6911 463,6911"/>
+				<Baseline points="463,6911 3036,6911"/>
+				<TextEquiv>
+					<Unicode>ſen, beſoldeten Pöbelhaufen beſchimpft und gemiß-⸗</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>ſen, beſoldeten Pöbelhaufen beſchimpft und gemiß-⸗</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<SeparatorRegion id="cblock_15">
+			<Coords points="2173,3981 3652,3981 3652,4021 2173,4021"/>
+		</SeparatorRegion>
+		<SeparatorRegion id="cblock_16">
+			<Coords points="3032,4824 3048,4824 3048,6281 3032,6281"/>
+		</SeparatorRegion>
+		<SeparatorRegion id="cblock_17">
+			<Coords points="3032,6490 3038,6490 3038,6838 3032,6838"/>
+		</SeparatorRegion>
+		<SeparatorRegion id="cblock_18">
+			<Coords points="3606,4003 4831,4003 4831,4015 3606,4015"/>
+		</SeparatorRegion>
+		<TextRegion id="block_11">
+			<Coords points="3090,4122 5632,4122 5632,5098 3090,5098"/>
+			<TextLine id="tl_33">
+				<Coords points="3102,4122 5632,4122 5632,4256 3102,4256"/>
+				<Baseline points="3102,4256 5632,4256"/>
+				<TextEquiv>
+					<Unicode>Staatsdiener ihrer Stellen, und loöſt, um das Ganze</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_34">
+				<Coords points="3099,4242 5629,4242 5629,4377 3099,4377"/>
+				<Baseline points="3099,4377 5629,4377"/>
+				<TextEquiv>
+					<Unicode>zu krönen, (am 14. d.) die Kammern auf. Wie Eng-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_35">
+				<Coords points="3097,4365 5632,4365 5632,4494 3097,4494"/>
+				<Baseline points="3097,4494 5632,4494"/>
+				<TextEquiv>
+					<Unicode>land, welches bereits den größten Theil ſeiner Truppen</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_36">
+				<Coords points="3097,4489 5622,4489 5622,4608 3097,4608"/>
+				<Baseline points="3097,4608 5622,4608"/>
+				<TextEquiv>
+					<Unicode>aus Portugal herausgezogen hat, ſich uüber dieſes Ver⸗</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_37">
+				<Coords points="3095,4608 5621,4608 5621,4734 3095,4734"/>
+				<Baseline points="3095,4734 5621,4734"/>
+				<TextEquiv>
+					<Unicode>fahren des Jnfanten ausſprechen wird, durfte nicht</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_38">
+				<Coords points="3091,4734 5623,4734 5623,4853 3091,4853"/>
+				<Baseline points="3091,4853 5623,4853"/>
+				<TextEquiv>
+					<Unicode>zweifelhaft ſeyn. Ein meineidi„er Verräther</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_39">
+				<Coords points="3090,4854 5624,4854 5624,4975 3090,4975"/>
+				<Baseline points="3090,4975 5624,4975"/>
+				<TextEquiv>
+					<Unicode>iſt Oon Miguel, ruft der engl. Courier aus, wenn</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_40">
+				<Coords points="3091,4975 5317,4975 5317,5098 3091,5098"/>
+				<Baseline points="3091,5098 5317,5098"/>
+				<TextEquiv>
+					<Unicode>er ſeine Hand nach der Krone Portugals erhebt!</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Staatsdiener ihrer Stellen, und loöſt, um das Ganze
+zu krönen, (am 14. d.) die Kammern auf. Wie Eng-
+land, welches bereits den größten Theil ſeiner Truppen
+aus Portugal herausgezogen hat, ſich uüber dieſes Ver⸗
+fahren des Jnfanten ausſprechen wird, durfte nicht
+zweifelhaft ſeyn. Ein meineidi„er Verräther
+iſt Oon Miguel, ruft der engl. Courier aus, wenn
+er ſeine Hand nach der Krone Portugals erhebt!</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_12">
+			<Coords points="3967,5146 4753,5146 4753,5258 3967,5258"/>
+			<TextLine id="tl_41">
+				<Coords points="3967,5146 4753,5146 4753,5258 3967,5258"/>
+				<Baseline points="3967,5258 4753,5258"/>
+				<TextEquiv>
+					<Unicode>Spanien.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Spanien.</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_13">
+			<Coords points="3085,5263 5621,5263 5621,6235 3085,6235"/>
+			<TextLine id="tl_42">
+				<Coords points="3282,5263 5619,5263 5619,5387 3282,5387"/>
+				<Baseline points="3282,5387 5619,5387"/>
+				<TextEquiv>
+					<Unicode>Madrid, den 11. Maärz. Einem koöniglichen</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_43">
+				<Coords points="3089,5384 5621,5384 5621,5506 3089,5506"/>
+				<Baseline points="3089,5506 5621,5506"/>
+				<TextEquiv>
+					<Unicode>Dekrete zufolge ſoll der ruckſtaundige Sold fur die Mi-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_44">
+				<Coords points="3090,5508 5613,5508 5613,5625 3090,5625"/>
+				<Baseline points="3090,5625 5613,5625"/>
+				<TextEquiv>
+					<Unicode>litairs aller Grade gut geſchrieben, und erſt dann be-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_45">
+				<Coords points="3087,5630 5615,5630 5615,5748 3087,5748"/>
+				<Baseline points="3087,5748 5615,5748"/>
+				<TextEquiv>
+					<Unicode>zahlt werden , wenn die Regierung in eine beſſere Fi-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_46">
+				<Coords points="3085,5751 5614,5751 5614,5868 3085,5868"/>
+				<Baseline points="3085,5868 5614,5868"/>
+				<TextEquiv>
+					<Unicode>nanzlage kommt. Vom erſten Januar an ſoll der lau-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_47">
+				<Coords points="3087,5873 5619,5873 5619,5989 3087,5989"/>
+				<Baseline points="3087,5989 5619,5989"/>
+				<TextEquiv>
+					<Unicode>fende Sold alsdann wieder bezahlt werden. Dieſes</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_48">
+				<Coords points="3086,5991 5619,5991 5619,6113 3086,6113"/>
+				<Baseline points="3086,6113 5619,6113"/>
+				<TextEquiv>
+					<Unicode>Dekret, das man fur eine Art von Jnſolvenzerklarung</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_49">
+				<Coords points="3087,6111 5209,6111 5209,6235 3087,6235"/>
+				<Baseline points="3087,6235 5209,6235"/>
+				<TextEquiv>
+					<Unicode>anſieht, hat die größte Beſturzung verurſacht.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Madrid, den 11. Maärz. Einem koöniglichen
+Dekrete zufolge ſoll der ruckſtaundige Sold fur die Mi-
+litairs aller Grade gut geſchrieben, und erſt dann be-
+zahlt werden , wenn die Regierung in eine beſſere Fi-
+nanzlage kommt. Vom erſten Januar an ſoll der lau-
+fende Sold alsdann wieder bezahlt werden. Dieſes
+Dekret, das man fur eine Art von Jnſolvenzerklarung
+anſieht, hat die größte Beſturzung verurſacht.</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_14">
+			<Coords points="3847,6277 4870,6277 4870,6408 3847,6408"/>
+			<TextLine id="tl_50">
+				<Coords points="3847,6277 4870,6277 4870,6408 3847,6408"/>
+				<Baseline points="3847,6408 4870,6408"/>
+				<TextEquiv>
+					<Unicode>Frankreich</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Frankreich</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_15">
+			<Coords points="3265,6419 5618,6419 5618,6545 3265,6545"/>
+			<TextLine id="tl_51">
+				<Coords points="3265,6419 5618,6419 5618,6545 3265,6545"/>
+				<Baseline points="3265,6545 5618,6545"/>
+				<TextEquiv>
+					<Unicode>Paris, d. 24. Maärz. Die mit der Unterſuchung</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>Paris, d. 24. Maärz. Die mit der Unterſuchung</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_16">
+			<Coords points="3088,6540 5617,6540 5617,6665 3088,6665"/>
+			<TextLine id="tl_52">
+				<Coords points="3088,6540 5617,6540 5617,6665 3088,6665"/>
+				<Baseline points="3088,6665 5617,6665"/>
+				<TextEquiv>
+					<Unicode>des Antrages des Hrn. B. Conſtant uüber Aufhe-</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>des Antrages des Hrn. B. Conſtant uüber Aufhe-</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_17">
+			<Coords points="3085,6663 5620,6663 5620,6904 3085,6904"/>
+			<TextLine id="tl_53">
+				<Coords points="3086,6663 5620,6663 5620,6800 3086,6800"/>
+				<Baseline points="3086,6800 5620,6800"/>
+				<TextEquiv>
+					<Unicode>bung der beliebigen Cenſur beauftragte Kommiſſion der</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextLine id="tl_54">
+				<Coords points="3085,6784 5617,6784 5617,6904 3085,6904"/>
+				<Baseline points="3085,6904 5617,6904"/>
+				<TextEquiv>
+					<Unicode>Kammer hat mit einer Mehrheit von 7 Stimmen gegen 2</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>bung der beliebigen Cenſur beauftragte Kommiſſion der
+Kammer hat mit einer Mehrheit von 7 Stimmen gegen 2</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<SeparatorRegion id="cblock_22">
+			<Coords points="5231,4257 5232,4257 5232,4342 5231,4342"/>
+		</SeparatorRegion>
+		<TextRegion id="block_18">
+			<Coords points="464,6904 5619,6904 5619,7032 464,7032"/>
+			<TextLine id="tl_55">
+				<Coords points="464,6904 5619,6904 5619,7032 464,7032"/>
+				<Baseline points="464,7032 5619,7032"/>
+				<TextEquiv>
+					<Unicode>handelt werden, entſetzt verdiente und bewahrte ſich fur die Verwerfung des Antrages ausgeſprocher,</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>handelt werden, entſetzt verdiente und bewahrte ſich fur die Verwerfung des Antrages ausgeſprocher,</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_19">
+			<Coords points="3887,2950 5637,2950 5637,3134 3887,3134"/>
+			<TextLine id="tl_56">
+				<Coords points="3887,2950 5637,2950 5637,3134 3887,3134"/>
+				<Baseline points="3887,3134 5637,3134"/>
+				<TextEquiv>
+					<Unicode>adt und Land.</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>adt und Land.</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<TextRegion id="block_20">
+			<Coords points="6184,239 6205,239 6205,728 6184,728"/>
+			<TextLine id="tl_57">
+				<Coords points="6184,239 6205,239 6205,728 6184,728"/>
+				<Baseline points="6184,728 6205,728"/>
+				<TextEquiv>
+					<Unicode>S e r</Unicode>
+				</TextEquiv>
+			</TextLine>
+			<TextEquiv>
+				<Unicode>S e r</Unicode>
+			</TextEquiv>
+		</TextRegion>
+		<SeparatorRegion id="cblock_26">
+			<Coords points="6190,3864 6205,3864 6205,4439 6190,4439"/>
+		</SeparatorRegion>
+	</Page>
+</PcGts>

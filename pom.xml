@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>de.uniwue</groupId>
@@ -17,6 +16,7 @@
         <java.version>1.8</java.version>
         <spring.version>5.2.22.RELEASE</spring.version>
         <cglib.version>3.2.8</cglib.version>
+        <junit.jupiter.version>5.6.2</junit.jupiter.version>
     </properties>
 
     <dependencies>
@@ -132,7 +132,7 @@
             <version>1.4</version>
         </dependency>
 
-		<!-- PAGE xml -->
+        <!-- PAGE xml -->
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>basic</artifactId>
@@ -164,6 +164,14 @@
             <artifactId>jts-core</artifactId>
             <version>1.18.2</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <type>module</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
     <repositories>
         <repository>
@@ -172,10 +180,10 @@
             <url>https://oss.sonatype.org/content/repositories/springsource-milestones</url>
         </repository>
 
-		<repository>
-			<id>Internal project repository</id>
-			<url>file://${basedir}/src/lib/repository</url>
-		</repository>
+        <repository>
+            <id>Internal project repository</id>
+            <url>file://${basedir}/src/lib/repository</url>
+        </repository>
     </repositories>
 
     <distributionManagement>
