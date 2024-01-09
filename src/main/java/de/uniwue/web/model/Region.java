@@ -30,17 +30,38 @@ public class Region extends Element{
 	protected final Double orientation;
 	@JsonProperty("textlines")
 	protected final Map<String,TextLine> textlines;
+	@JsonProperty("readingDirection")
+	protected final String readingDirection;
 	@JsonProperty("readingOrder")
 	protected List<String> readingOrder;
 
 	@JsonCreator
-	public Region(@JsonProperty("id") String id, @JsonProperty("type") String type,
-				  @JsonProperty("orientation") Double orientation, @JsonProperty("coords") Polygon coords,
-				  @JsonProperty("textlines") Map<String,TextLine> textlines, @JsonProperty("readingOrder") List<String> readingOrder) {
+	public Region(@JsonProperty("id") String id,
+				  @JsonProperty("type") String type,
+				  @JsonProperty("orientation") Double orientation,
+				  @JsonProperty("coords") Polygon coords,
+				  @JsonProperty("textlines") Map<String,TextLine> textlines,
+				  @JsonProperty("readingDirection") String readingDirection,
+				  @JsonProperty("readingOrder") List<String> readingOrder) {
 		super(id, coords);
 		this.type = type;
 		this.orientation = orientation;
 		this.textlines = textlines;
+		this.readingDirection = readingDirection;
+		this.readingOrder = readingOrder;
+	}
+
+	public Region(String id,
+				  String type,
+				   Double orientation,
+				  Polygon coords,
+				  Map<String,TextLine> textlines,
+				  List<String> readingOrder) {
+		super(id, coords);
+		this.type = type;
+		this.orientation = orientation;
+		this.textlines = textlines;
+		this.readingDirection = null;
 		this.readingOrder = readingOrder;
 	}
 
@@ -49,6 +70,7 @@ public class Region extends Element{
 		this.type = type;
 		this.orientation = null;
 		this.textlines = new HashMap<>();
+		this.readingDirection = null;
 		this.readingOrder = new ArrayList<>();
 	}
 
@@ -81,6 +103,8 @@ public class Region extends Element{
 	public Double getOrientation() {
 		return orientation;
 	}
+
+	public String getReadingDirection() { return readingDirection; }
 
 	/**
 	 * Get the reading order of the contained textlines

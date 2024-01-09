@@ -98,6 +98,7 @@ public class PageXMLReader {
 				// Get Type
 				RegionType type = TypeConverter.stringToMainType(region.getType().getName());
 				RegionSubType subtype = null;
+				String readingDirection = null;
 
 				Double orientation = !(region instanceof CustomRegion || region instanceof NoiseRegion || type == RegionType.UnknownRegion) ?
 						PrimaLibHelper.getOrientation(region) : null;
@@ -107,6 +108,10 @@ public class PageXMLReader {
 
 				if (type != null && type.equals(RegionType.TextRegion)) {
 					TextRegion textRegion = (TextRegion) region;
+
+					// Get ReadingDirection
+					readingDirection = textRegion.getReadingDirection() != null ? textRegion.getReadingDirection() : "left-to-right";
+
 					if(textRegion.getAttributes().get("type").getValue() != null && textRegion.getTextType() != null) {
 						subtype = TypeConverter.stringToSubType(textRegion.getTextType());
 					}
@@ -196,7 +201,7 @@ public class PageXMLReader {
 				String id = region.getId().toString();
 				if (!regionCoords.getPoints().isEmpty()) {
 					resRegions.put(id, new de.uniwue.web.model.Region(id, new PAGERegionType(type, subtype).toString(),
-							orientation, regionCoords, textLines, readingOrder));
+							orientation, regionCoords, textLines, readingDirection, readingOrder));
 				}
 			}
 			final int height = page.getLayout().getHeight();
