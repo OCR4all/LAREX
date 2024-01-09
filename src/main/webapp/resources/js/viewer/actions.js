@@ -408,7 +408,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segm
 				segmentation[page].segments[segmentID].textlines[id] = JSON.parse(JSON.stringify(_textLine));
 			}
 			editor.addTextLine(_textLine);
-			textViewer.addTextline(_textLine);
+			textViewer.addTextline(_textLine, segmentation[page].segments[segmentID].readingDirection);
 			controller.textlineRegister[_textLine.id] = segmentID;
 			console.log('Do - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
 		}
@@ -461,7 +461,7 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
-			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)));
+			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)), segmentation[page].segments[_segmentID].readingDirection);
 			if(removeROAction) removeROAction.undo();
 
 			controller.textlineRegister[textline.id] = _segmentID;

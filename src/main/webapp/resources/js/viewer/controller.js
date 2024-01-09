@@ -256,7 +256,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 								textLine.type = "TextLine";
 							}
 							_editor.addTextLine(textLine);
-							_textViewer.addTextline(textLine);
+							_textViewer.addTextline(textLine, pageSegment.readingDirection);
 							if(textLine["baseline"]){
 								_editor.addBaseline(textLine, textLine["baseline"]);
 							}

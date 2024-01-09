@@ -73,8 +73,16 @@ class TextViewer {
 	/**
 	 * Add a textline to the textView with a textline-image and textline-text element
 	 */
-	addTextline(textline) {
+	addTextline(textline, readingDirection) {
 		const $textlineContainer = $(`<div class='textline-container' data-id='${textline.id}' data-difflen='0'></div>`);
+		switch(readingDirection){
+			case "right-to-left":
+				$textlineContainer.attr("dir", "rtl");
+				break;
+			case "left-to-right":
+				$textlineContainer.attr("dir", "ltr");
+				break;
+		}
 		if(textline.type === "TextLine_gt"){
 			$textlineContainer.addClass("line-corrected")
 			$textlineContainer.addClass("line-saved");
