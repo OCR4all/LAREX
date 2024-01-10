@@ -110,7 +110,7 @@ public class PageXMLReader {
 					TextRegion textRegion = (TextRegion) region;
 
 					// Get ReadingDirection
-					readingDirection = textRegion.getReadingDirection() != null ? textRegion.getReadingDirection() : "left-to-right";
+					readingDirection = textRegion.getReadingDirection();
 
 					if(textRegion.getAttributes().get("type").getValue() != null && textRegion.getTextType() != null) {
 						subtype = TypeConverter.stringToSubType(textRegion.getTextType());
