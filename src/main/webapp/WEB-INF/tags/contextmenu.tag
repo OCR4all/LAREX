@@ -26,8 +26,8 @@
 			<div id="directions">
 				<div class="select-directions">
 					<ul class="collection highlight">
-						<li class="reading-direction-item contextReadingDirectionOption" data-direction="unspecified">
-							Unspecified
+						<li class="reading-direction-item contextReadingDirectionOption" data-direction="unset">
+							Unset
 						</li>
 						<li class="reading-direction-item contextReadingDirectionOption" data-direction="left-to-right">
 							Left To Right

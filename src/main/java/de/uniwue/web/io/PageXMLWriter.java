@@ -241,9 +241,7 @@ public class PageXMLWriter {
 			if(isTextRegion(elementType, true) && isTextRegion(physicalRegionType, true)){
 				TextRegion textRegion = (TextRegion) physicalRegion;
 				textRegion.setCoords(elementCoords);
-				if(readingDirection != null){
-					textRegion.setReadingDirection(readingDirection);
-				}
+				textRegion.setReadingDirection(readingDirection);
 				String physicalSubtype = textRegion.getTextType();
 
 				if(isTextRegionSubtype(elementType)){

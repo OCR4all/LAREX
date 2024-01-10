@@ -217,7 +217,7 @@ function ActionChangeReadingDirection(id, newDirection, viewer, textViewer, cont
 	this.execute = function () {
 		if (!_isExecuted) {
 			_isExecuted = true;
-			if(newDirection === "unspecified"){
+			if(newDirection === "unset"){
 				_segment.readingDirection = null
 			}else{
 				_segment.readingDirection = newDirection

@@ -218,7 +218,7 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		const $this = $(this);
 		const $contextmenu = $("#contextmenu");
 		const doSelected = $contextmenu.data('doSelected');
-		const readingDirection = $this.data('direction');
+		const readingDirection = $this.data('direction') === "unset" ? null : $this.data('direction');
 
 		if (doSelected) {
 			_controller.changeReadingDirectionSelected(readingDirection);
