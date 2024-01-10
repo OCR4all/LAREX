@@ -306,10 +306,23 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	/**
 	 * Open the textline content, ready to edit
 	 */
-	this.openTextLineContent = function (textline) {
+	this.openTextLineContent = function (textline, readingDirection) {
+		console.log(readingDirection)
 		this.hideTextline(false);
 		const $textlinecontent = $("#textline-content");
 		$textlinecontent.removeClass("hide");
+
+		switch(readingDirection){
+			case "right-to-left":
+				$textlinecontent.attr("dir", "rtl");
+				break;
+			case "left-to-right":
+				$textlinecontent.attr("dir", "ltr");
+				break;
+			default:
+				$textlinecontent.removeAttr("dir")
+				break;
+		}
 
 		if(!this.tempTextline || this.tempTextline.id !== textline.id){
 			this.tempTextline = textline ? textline : this.tempTextline;

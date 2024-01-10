@@ -1835,7 +1835,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(selected && this.getIDType(selected[0]) === ElementType.TEXTLINE){
 				const id = selected[0];
 				const parentID = this.textlineRegister[id];
-				_gui.openTextLineContent(_segmentation[_currentPage].segments[parentID].textlines[id]);
+				_gui.openTextLineContent(_segmentation[_currentPage].segments[parentID].textlines[id], _segmentation[_currentPage].segments[parentID].readingDirection);
 			}
 			_gui.updateZoom();
 		}
@@ -2039,10 +2039,10 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 			if(!textline.minArea){
 				_communicator.minAreaRect(textline).done((minArea) => {
 					textline.minArea = minArea;
-					_gui.openTextLineContent(textline);
+					_gui.openTextLineContent(textline, _segmentation[_currentPage].segments[this.textlineRegister[id]].readingDirection);
 				});
 			} else {
-				_gui.openTextLineContent(textline);
+				_gui.openTextLineContent(textline, _segmentation[_currentPage].segments[this.textlineRegister[id]].readingDirection);
 			}
 		}
 	}
