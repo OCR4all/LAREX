@@ -223,6 +223,7 @@ public class PageXMLWriter {
 			String elementId = element.getId();
 			String elementType = element.getType();
 			Polygon elementCoords = element.getCoords().toPrimaPolygon();
+			String readingDirection = element.getReadingDirection();
 
 			if(!isRegion(elementType, true))
 				continue;
@@ -240,6 +241,7 @@ public class PageXMLWriter {
 			if(isTextRegion(elementType, true) && isTextRegion(physicalRegionType, true)){
 				TextRegion textRegion = (TextRegion) physicalRegion;
 				textRegion.setCoords(elementCoords);
+				textRegion.setReadingDirection(readingDirection);
 				String physicalSubtype = textRegion.getTextType();
 
 				if(isTextRegionSubtype(elementType)){

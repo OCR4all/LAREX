@@ -209,6 +209,48 @@ function ActionChangeTypeSegment(id, newType, viewer, textViewer, controller, se
 	}
 }
 
+function ActionChangeReadingDirection(id, newDirection, viewer, textViewer, controller, selector, segmentation, page) {
+	let _isExecuted = false;
+	let _segment = segmentation[page].segments[id];
+	const _oldDirection = _segment.readingDirection;
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			if(newDirection === "unset"){
+				_segment.readingDirection = null
+			}else{
+				_segment.readingDirection = newDirection
+			}
+
+			if(_segment.textlines){
+				let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
+				for(let textline of textlines){
+					textViewer.updateTextLineReadingDirection(textline, newDirection)
+				}
+			}
+
+			console.log('Do - Change Reading Direction: {id:"' + id + '",[..],readingDirection:"' + newDirection + '"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			_segment.readingDirection = _oldDirection
+
+			if(_segment.textlines){
+				let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
+				for(let textline of textlines){
+					textViewer.updateTextLineReadingDirection(textline, _oldDirection)
+				}
+			}
+
+			console.log('Undo - Change Reading Direction: {id:"' + id + '",[..],readingDirection:"' + _oldDirection + '"}');
+		}
+	}
+
+}
+
 function ActionAddRegionArea(id, points, type, editor, settings) {
 	let _isExecuted = false;
 	const _area = { id: id, coords: {points: points, isRelative: true}, type: type };
@@ -408,7 +450,7 @@ function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segm
 				segmentation[page].segments[segmentID].textlines[id] = JSON.parse(JSON.stringify(_textLine));
 			}
 			editor.addTextLine(_textLine);
-			textViewer.addTextline(_textLine);
+			textViewer.addTextline(_textLine, segmentation[page].segments[segmentID].readingDirection);
 			controller.textlineRegister[_textLine.id] = segmentID;
 			console.log('Do - Add TextLine Polygon: {id:"' + _textLine.id + '",[..],text:"' + text + '"}');
 		}
@@ -461,7 +503,7 @@ function ActionRemoveTextLine(textline, editor, textViewer, segmentation, page, 
 
 			segmentation[page].segments[_segmentID].textlines = JSON.parse(JSON.stringify(_oldTextLines));
 			editor.addTextLine(JSON.parse(JSON.stringify(_oldTextLine)));
-			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)));
+			textViewer.addTextline(JSON.parse(JSON.stringify(_oldTextLine)), segmentation[page].segments[_segmentID].readingDirection);
 			if(removeROAction) removeROAction.undo();
 
 			controller.textlineRegister[textline.id] = _segmentID;

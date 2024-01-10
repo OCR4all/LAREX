@@ -628,15 +628,18 @@ body{
   position: absolute;
   max-height: 40%;
   overflow-y: auto;
-  padding: 0px;
-  margin: 0px;
+  padding: 0;
+  margin: 0;
+  .card{
+    margin: 0;
+  }
   ul{
     padding: 0px;
     margin: 0px;
   }
   li{
     padding: 3px 10px !important;
-    min-height: 0px;
+    min-height: 0;
   }
   .legendicon{
     height: 10px;
@@ -644,7 +647,25 @@ body{
     display: inline-block;
     margin-right: 4px;
   }
-  .contextTypeOption{
+  .select-directions{
+    ul{
+      padding: 0;
+      margin: 0;
+    }
+    li{
+      padding: 3px 10px !important;
+      min-height: 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+  }
+  .reading-direction-item{
+    cursor: pointer;
+    &:hover{
+      background-color: $color3;
+      color: $color2;
+    }
+  }
+  .contextTypeOption, .contextReadingDirectionOption {
     cursor: pointer;
     &:hover{
       background-color: $color3;
@@ -846,7 +867,7 @@ label{
   }
 }
 
-#kb-shortcut-modal-tabs{
+.tabs{
   overflow-x: hidden;
   .indicator{
     background-color: #0277bd;
