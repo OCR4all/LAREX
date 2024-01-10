@@ -1529,6 +1529,30 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		}
 	}
 
+	this.changeReadingDirection = function(id, direction) {
+		const polygonType = this.getIDType(id);
+		if(polygonType === ElementType.SEGMENT && this.isIDTextRegion(id)){
+			const actionChangeReadingDirection = new ActionChangeReadingDirection(id, direction, _editor, _textViewer, this, _selector, _segmentation, _currentPage, false);
+			_actionController.addAndExecuteAction(actionChangeReadingDirection, _currentPage);
+		}
+	}
+
+	this.changeReadingDirectionSelected = function (direction){
+		const selected = _selector.getSelectedSegments();
+		const selectType = _selector.getSelectedPolygonType();
+		const selectedlength = selected.length;
+		if (selectType === ElementType.SEGMENT){
+			if (selectedlength || selectedlength > 0) {
+				const actions = [];
+				for (let i = 0; i < selectedlength; i++) {
+					if(this.isIDTextRegion(selected[i])) actions.push(new ActionChangeReadingDirection(selected[i], direction, _editor, _textViewer, this, _selector, _segmentation, _currentPage, false));
+				}
+				const multiChange = new ActionMultiple(actions);
+				_actionController.addAndExecuteAction(multiChange, _currentPage);
+			}
+		}
+	}
+
 	this.openRegionSettings = function (regionType) {
 		if(regionType){
 			let region = _settings.regions[regionType];

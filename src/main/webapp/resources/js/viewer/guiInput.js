@@ -214,6 +214,20 @@ function GuiInput(navigationController, controller, gui, textViewer, selector, c
 		}
 		_gui.closeContextMenu();
 	});
+	$('.contextReadingDirectionOption').click(function () {
+		const $this = $(this);
+		const $contextmenu = $("#contextmenu");
+		const doSelected = $contextmenu.data('doSelected');
+		const readingDirection = $this.data('direction');
+
+		if (doSelected) {
+			_controller.changeReadingDirectionSelected(readingDirection);
+		} else {
+			const id = $contextmenu.data('id');
+			_controller.changeReadingDirection(id, readingDirection);
+		}
+		_gui.closeContextMenu();
+	});
 
 	$('#regioneditorSave').click(() => {
 		const $regioneditor = $('#regioneditor');

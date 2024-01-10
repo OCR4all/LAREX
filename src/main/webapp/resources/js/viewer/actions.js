@@ -209,6 +209,48 @@ function ActionChangeTypeSegment(id, newType, viewer, textViewer, controller, se
 	}
 }
 
+function ActionChangeReadingDirection(id, newDirection, viewer, textViewer, controller, selector, segmentation, page) {
+	let _isExecuted = false;
+	let _segment = segmentation[page].segments[id];
+	const _oldDirection = _segment.readingDirection;
+
+	this.execute = function () {
+		if (!_isExecuted) {
+			_isExecuted = true;
+			if(newDirection === "unspecified"){
+				_segment.readingDirection = null
+			}else{
+				_segment.readingDirection = newDirection
+			}
+
+			if(_segment.textlines){
+				let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
+				for(let textline of textlines){
+					textViewer.updateTextLineReadingDirection(textline, newDirection)
+				}
+			}
+
+			console.log('Do - Change Reading Direction: {id:"' + id + '",[..],readingDirection:"' + newDirection + '"}');
+		}
+	}
+	this.undo = function () {
+		if (_isExecuted) {
+			_isExecuted = false;
+			_segment.readingDirection = _oldDirection
+
+			if(_segment.textlines){
+				let textlines = Object.entries(_segment.textlines).map(([_,t]) => t);
+				for(let textline of textlines){
+					textViewer.updateTextLineReadingDirection(textline, _oldDirection)
+				}
+			}
+
+			console.log('Undo - Change Reading Direction: {id:"' + id + '",[..],readingDirection:"' + _oldDirection + '"}');
+		}
+	}
+
+}
+
 function ActionAddRegionArea(id, points, type, editor, settings) {
 	let _isExecuted = false;
 	const _area = { id: id, coords: {points: points, isRelative: true}, type: type };

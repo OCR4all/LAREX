@@ -156,6 +156,8 @@ function GUI(canvas, viewer, colors, accessible_modes) {
 	this.openContextMenu = function (doSelected, id) {
 		const $contextmenu = $("#contextmenu");
 		$contextmenu.removeClass("hide");
+		const $contextMenuTab = $("#contextMenuTab")
+		$contextMenuTab.tabs("select_tab", "types");
 		const fitsInWindow = _mouse.y + $contextmenu.height() < $(window).height();
 
 		if (fitsInWindow) {

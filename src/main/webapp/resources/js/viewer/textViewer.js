@@ -162,6 +162,22 @@ class TextViewer {
 		this._displayOnly();
 	}
 
+	updateTextLineReadingDirection(textline, readingDirection){
+		const $textlinecontent = $(`.textline-container[data-id='${textline.id}']`)
+
+		switch(readingDirection){
+			case "right-to-left":
+				$textlinecontent.attr("dir", "rtl");
+				break;
+			case "left-to-right":
+				$textlinecontent.attr("dir", "ltr");
+				break;
+			default:
+				$textlinecontent.removeAttr("dir")
+				break;
+		}
+	}
+
 	/**
 	 * Display a save of the contents of a textline
 	 *
