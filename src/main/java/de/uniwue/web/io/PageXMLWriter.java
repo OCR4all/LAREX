@@ -408,6 +408,9 @@ public class PageXMLWriter {
 			if(type.getSubtype() != null) {
 				textRegion.setTextType(TypeConverter.subTypeToString(type.getSubtype()));
 			}
+			if (regionSegment.getReadingDirection() != null) {
+				textRegion.setReadingDirection(regionSegment.getReadingDirection());
+			}
 			// Add TextLines if existing
 			if(regionSegment.getTextlines() != null) {
 				final List<de.uniwue.web.model.TextLine> textlines = new ArrayList<>(regionSegment.getTextlines().values());
