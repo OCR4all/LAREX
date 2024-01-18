@@ -1249,6 +1249,7 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 		if(selected.length > 1 && (selectType === ElementType.SEGMENT || selectType === ElementType.TEXTLINE)){
 			const actions = [];
 			const segments = [];
+			let textlines = [];
 			let parent = null;
 			for (let i = 0, selectedlength = selected.length; i < selectedlength; i++) {
 				let segment = null;
@@ -1261,7 +1262,11 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 				if (segment.type !== 'ImageRegion') {
 					segments.push(segment);
 					if(_mode === Mode.SEGMENT || _mode === Mode.EDIT){
-						actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector));
+						// Keep textlines from segments to add to merged segment later on
+						if(segment.textlines){
+							textlines = textlines.concat(Object.entries(segment.textlines).map(([_,t]) => t))
+						}
+							actions.push(new ActionRemoveSegment(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector));
 					} else if(_mode === Mode.LINES){
 						parent = !parent ? this.textlineRegister[segment.id] : parent;
 						actions.push(new ActionRemoveTextLine(segment, _editor, _textViewer, _segmentation, _currentPage, this, _selector));
@@ -1275,6 +1280,13 @@ function Controller(bookID, accessible_modes, canvasID, regionColors, colors, gl
 						if(_mode === Mode.SEGMENT || _mode === Mode.EDIT){
 							actions.push(new ActionAddSegment(mergedSegment.id, mergedSegment.coords.points, mergedSegment.type,
 								_editor, _segmentation, _currentPage, this));
+							for (let i = 0; i < textlines.length; i++) {
+								const textline = textlines[i]
+								console.log(textline)
+								const newId = `${mergedSegment.id}_${String(i).padStart(4, "0")}`
+								actions.push(new ActionAddTextLine(newId, mergedSegment.id, textline.coords.points, textline.text, _editor,
+									_textViewer, _segmentation, _currentPage, this))
+							}
 						}else if(_mode === Mode.LINES){
 							actions.push(new ActionAddTextLine(mergedSegment.id, parent, mergedSegment.coords.points,
 								{}, _editor, _textViewer, _segmentation, _currentPage, this));
