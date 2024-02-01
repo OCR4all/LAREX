@@ -339,7 +339,7 @@ function ActionRemoveRegionType(regionType, controller, editor, settings) {
 
 function ActionAddSegment(id, points, type, editor, segmentation, page, controller) {
 	let _isExecuted = false;
-	const _segment = { id: id, coords: {points: points, isRelative: false}, type: type };
+	const _segment = { id: id, coords: {points: points, isRelative: false}, textlines: {}, type: type };
 	const _actionSetFixed = new ActionFixSegment(id, controller, true);
 
 	this.execute = function () {
@@ -438,7 +438,7 @@ function ActionRemoveSegment(segment, editor, textViewer, segmentation, page, co
 function ActionAddTextLine(id, segmentID, points, text, editor, textViewer, segmentation, page, controller) {
 	let _isExecuted = false;
 	const _textLine = { id: id, coords: {points: points, isRelative: false}, type:"TextLine", text: text };
-	let _oldTextLines = (segmentation[page].segments[segmentID].textlines) ?
+	let _oldTextLines = (segmentation[page].segments[segmentID] && segmentation[page].segments[segmentID].textlines) ?
 		JSON.parse(JSON.stringify(segmentation[page].segments[segmentID].textlines)) : {}
 
 	this.execute = function () {
