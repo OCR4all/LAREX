@@ -1,5 +1,5 @@
-![larex](documentation/larex.gif)
-# LAREX
+![larex](https://github.com/OCR4all/LAREX/blob/master/documentation/larex.gif)
+# [LAREX](https://github.com/OCR4all/LAREX)
 
 [![Build verification with Maven](https://github.com/OCR4all/LAREX/actions/workflows/maven_build_verification.yml/badge.svg)](https://github.com/OCR4all/LAREX/actions/workflows/maven_build_verification.yml)
 
