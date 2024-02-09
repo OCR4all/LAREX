@@ -35,6 +35,9 @@ public class Region extends Element{
 	@JsonProperty("readingOrder")
 	protected List<String> readingOrder;
 
+	@JsonProperty("comments")
+	protected String comments;
+
 	@JsonCreator
 	public Region(@JsonProperty("id") String id,
 				  @JsonProperty("type") String type,
@@ -42,13 +45,15 @@ public class Region extends Element{
 				  @JsonProperty("coords") Polygon coords,
 				  @JsonProperty("textlines") Map<String,TextLine> textlines,
 				  @JsonProperty("readingDirection") String readingDirection,
-				  @JsonProperty("readingOrder") List<String> readingOrder) {
+				  @JsonProperty("readingOrder") List<String> readingOrder,
+				  @JsonProperty("comments") String comments) {
 		super(id, coords);
 		this.type = type;
 		this.orientation = orientation;
 		this.textlines = textlines;
 		this.readingDirection = readingDirection;
 		this.readingOrder = readingOrder;
+		this.comments = comments;
 	}
 
 	public Region(String id,
@@ -56,13 +61,15 @@ public class Region extends Element{
 				   Double orientation,
 				  Polygon coords,
 				  Map<String,TextLine> textlines,
-				  List<String> readingOrder) {
+				  List<String> readingOrder,
+				  String comments) {
 		super(id, coords);
 		this.type = type;
 		this.orientation = orientation;
 		this.textlines = textlines;
 		this.readingDirection = null;
 		this.readingOrder = readingOrder;
+		this.comments = comments;
 	}
 
 	public Region(String id, Polygon coords, String type) {
@@ -72,6 +79,7 @@ public class Region extends Element{
 		this.textlines = new HashMap<>();
 		this.readingDirection = null;
 		this.readingOrder = new ArrayList<>();
+		this.comments = null;
 	}
 
 	/**
@@ -120,5 +128,21 @@ public class Region extends Element{
 	 */
 	public void setReadingOrder(List<String> readingOrder) {
 		this.readingOrder = readingOrder;
+	}
+
+	/**
+	 * Return the comments of the TextRegion
+	 * @return
+	 */
+	public String getComments() {
+		return this.comments;
+	}
+
+	/**
+	 * Update the comments of the textline
+	 * @param comments
+	 */
+	public void setComments(String comments) {
+		this.comments = comments;
 	}
 }

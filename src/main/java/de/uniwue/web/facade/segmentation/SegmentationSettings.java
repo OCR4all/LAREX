@@ -105,7 +105,7 @@ public class SegmentationSettings {
 				coords.addPoint(new Point(position.left(), position.bottom()));
 
 				String id = regionType.toString() + regionCount;
-				guiRegion.addArea(new Region(id, regionType, null, coords, new HashMap<>(), new ArrayList<>()));
+				guiRegion.addArea(new Region(id, regionType, null, coords, new HashMap<>(), new ArrayList<>(), ""));
 				regionCount++;
 			}
 
@@ -152,7 +152,7 @@ public class SegmentationSettings {
 				coords.addPoint(new Point(position.left(), position.bottom()));
 
 				String id = regionType.toString() + regionCount;
-				guiRegion.addArea(new Region(id, regionType, null, coords, new HashMap<>(), new ArrayList<>()));
+				guiRegion.addArea(new Region(id, regionType, null, coords, new HashMap<>(), new ArrayList<>(), ""));
 				regionCount++;
 			}
 

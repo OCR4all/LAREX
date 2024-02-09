@@ -158,6 +158,8 @@ public class PageXMLReader {
 							// Get Baseline of TextLine if it exists
 							de.uniwue.web.model.Polygon textlineBaseline = (textLine.getBaseline() != null) ? new de.uniwue.web.model.Polygon(textLine.getBaseline()) : null;
 
+							String comments = getComments(textLine);
+
 							//// TextLine text content
 							final Map<Integer,String> content = new HashMap<>();
 							// List of all unindexed text contents
@@ -187,7 +189,7 @@ public class PageXMLReader {
 								}
 							}
 
-							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content, textlineBaseline, words));
+							textLines.put(id, new de.uniwue.web.model.TextLine(id, textlineCoords, content, textlineBaseline, words, comments));
 							readingOrder.add(id);
 						}
 
@@ -197,11 +199,14 @@ public class PageXMLReader {
 				// Get Coords
 				de.uniwue.web.model.Polygon regionCoords = new de.uniwue.web.model.Polygon(region.getCoords());
 
+				// Get Comments
+				String comments = getComments(region);
+
 				// Id
 				String id = region.getId().toString();
 				if (!regionCoords.getPoints().isEmpty()) {
 					resRegions.put(id, new de.uniwue.web.model.Region(id, new PAGERegionType(type, subtype).toString(),
-							orientation, regionCoords, textLines, readingDirection, readingOrder));
+							orientation, regionCoords, textLines, readingDirection, readingOrder, comments));
 				}
 			}
 			final int height = page.getLayout().getHeight();
@@ -329,5 +334,19 @@ public class PageXMLReader {
 			return Double.parseDouble(page.getAttributes().get("orientation").getValue().toString());
 		}
 		return 0.0;
+	}
+
+	public static String getComments(Region region){
+		if(region.getAttributes().get("comments") != null && region.getAttributes().get("comments").getValue() != null){
+			return region.getAttributes().get("comments").getValue().toString();
+		}
+		return "";
+	}
+
+	public static String getComments(TextLine region){
+		if(region.getAttributes().get("comments") != null && region.getAttributes().get("comments").getValue() != null){
+			return region.getAttributes().get("comments").getValue().toString();
+		}
+		return "";
 	}
 }
