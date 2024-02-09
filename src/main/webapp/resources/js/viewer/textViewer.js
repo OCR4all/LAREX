@@ -15,7 +15,6 @@ class TextViewer {
 		this._baseFontSize = 20;
 		this._dmp = new diff_match_patch();
 		$("#displayDiff").prop('checked', true);
-		//$("#displayPrediction").prop('checked', true);
 		$("#displayWordConf").prop('checked', true);
 		this._toggleConfSettings();
 	}
