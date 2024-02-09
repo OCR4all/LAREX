@@ -66,4 +66,8 @@ public class TextLine extends Element {
 	public Map<Integer, String> getText() {
 		return new HashMap<>(text);
 	}
+
+	public String getComments(){
+		return this.comments;
+	}
 }

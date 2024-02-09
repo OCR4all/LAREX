@@ -224,6 +224,7 @@ public class PageXMLWriter {
 			String elementType = element.getType();
 			Polygon elementCoords = element.getCoords().toPrimaPolygon();
 			String readingDirection = element.getReadingDirection();
+			String comments = element.getComments();
 
 			if(!isRegion(elementType, true))
 				continue;
@@ -242,6 +243,7 @@ public class PageXMLWriter {
 				TextRegion textRegion = (TextRegion) physicalRegion;
 				textRegion.setCoords(elementCoords);
 				textRegion.setReadingDirection(readingDirection);
+				textRegion.setComments(comments);
 				String physicalSubtype = textRegion.getTextType();
 
 				if(isTextRegionSubtype(elementType)){
@@ -258,9 +260,11 @@ public class PageXMLWriter {
 				for(Map.Entry<String, de.uniwue.web.model.TextLine> _textLine : element.getTextlines().entrySet()){
 					de.uniwue.web.model.TextLine textLine = _textLine.getValue();
 					Polygon textLineCoords = textLine.getCoords().toPrimaPolygon();
+					String textLineComments = textLine.getComments();
 					if(physicalTextLines.containsKey(textLine.getId())){
 						TextLine physicalTextLine = physicalTextLines.get(textLine.getId());
 						physicalTextLine.setCoords(textLineCoords);
+						physicalTextLine.setComments(textLineComments);
 
 						Map<Integer, String> textLineContent = textLine.getText().entrySet().stream().collect(Collectors.toMap(Entry::getKey, Entry::getValue));
 
@@ -350,6 +354,7 @@ public class PageXMLWriter {
 			coords.addPoint((int) point.getX(), (int) point.getY());
 		}
 		pageTextLine.setCoords(coords);
+		pageTextLine.setComments(textline.getComments());
 
 		// Add Text
 		for(Entry<Integer,String> content : textline.getText().entrySet()) {
