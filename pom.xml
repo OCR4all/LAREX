@@ -141,7 +141,7 @@
         <dependency>
             <groupId>org.primaresearch</groupId>
             <artifactId>Dla</artifactId>
-            <version>1.5b</version>
+            <version>1.5c</version>
         </dependency>
         <dependency>
             <groupId>org.primaresearch</groupId>
