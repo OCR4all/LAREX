@@ -9,7 +9,7 @@ easily comprehensible for the user and allows an intuitive manual correction if 
 The PAGE XML format is used to support integration into existing OCR workflows. 
 Evaluations showed that LAREX provides an efficient and flexible way to segment pages of early printed books.
 
-Please feel free to visit the [tool homepage](https://www.uni-wuerzburg.de/zpd/larex/). A short user manual is available [here](http://www.is.informatik.uni-wuerzburg.de/fileadmin/10030600/Mitarbeiter/Reul_Christian/Projects/Layout_Analysis/LAREX_Quick_Guide.pdf).
+Please feel free to visit the [tool homepage](https://www.uni-wuerzburg.de/zpd/larex/). A short user manual is available [here](https://www.ocr4all.org/guide/user-guide/workflow#segmentation-%E2%80%93-larex).
 
 ## Table of Contents
 - [Installation](#installation)
