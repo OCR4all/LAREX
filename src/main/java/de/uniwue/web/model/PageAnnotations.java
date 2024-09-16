@@ -1,11 +1,13 @@
 package de.uniwue.web.model;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -19,6 +21,9 @@ import de.uniwue.web.config.Constants;
  * segment polygons.
  */
 public class PageAnnotations {
+
+	static Logger logger = LoggerFactory.getLogger(PageAnnotations.class);
+
 	/**
 	 * Name of the page (does not include image extensions)
 	 * Does not include sub extensions if imageSubFilter is active
@@ -181,9 +186,8 @@ public class PageAnnotations {
 		final List<String> imageExtensions = Constants.IMG_EXTENSIONS_DOTTED;
 		for (String ext : imageExtensions) {
 			if(name.toLowerCase().endsWith(ext))
-				System.err.println("[Warning] Page name '"+name+"' ends with an image extension ('"+ext+"').\n"+
-								   "\tThis should not happen unless '"+ext+"' is part of the page name.\n"+
-								   "\te.g. '"+name+".png'");
+				logger.error("Page {} ends with image extension ({}). This should not happen unless it's part of page name, i.e. {}.png", 
+				name, ext, name);
 		}
 
 	}

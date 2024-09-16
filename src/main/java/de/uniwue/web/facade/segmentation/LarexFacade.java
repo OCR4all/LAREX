@@ -13,6 +13,8 @@ import de.uniwue.web.config.Constants;
 import de.uniwue.web.model.*;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -31,6 +33,8 @@ import de.uniwue.web.io.SegmentationSettingsWriter;
  *  Facade between the LAREX Segmentation Algorithm and the Web GUI
  */
 public class LarexFacade {
+
+	static Logger logger = LoggerFactory.getLogger(LarexFacade.class);
 
 	/**
 	 * Segment a page with the LAREX segmentation algorithm
@@ -82,11 +86,9 @@ public class LarexFacade {
 			MemoryCleaner.clean(original);
 			segmentationResult = result;
 		} else {
-			System.err.println(
-					"Warning: Image file could not be found. Segmentation result will be empty. File: " + imagePath);
+			logger.warn("Image file {} could not be found. Segmentation will be empty!", imagePath);
 		}
 		// TODO fix metadata insertion here instead of frontend (?)
-
 		page.setOrientation(orientation);
 		if (segmentationResult != null) {
 			segmentation = new PageAnnotations(page.getName(), page.getXmlName(), page.getWidth(), page.getHeight(),
