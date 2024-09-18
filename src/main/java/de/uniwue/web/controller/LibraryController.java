@@ -35,6 +35,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Scope("request")
 public class LibraryController {
 
+	public static final String ENV_LAREX_VERSION = "LAREX_VERSION";
+
 	static Logger logger = LoggerFactory.getLogger(LibraryController.class);
 
 	@Autowired
@@ -231,14 +233,11 @@ public class LibraryController {
 	@RequestMapping(value ="library/getVersion" , method = RequestMethod.GET)
 	public @ResponseBody
 	String getVersion() {
-		logger.info("request LAREX_VERSION");
-		String larexVersion = "";
-		try {
-			larexVersion = System.getenv("LAREX_VERSION");
-			logger.info("request LAREX_VERSION: {}", larexVersion);
-		} catch (Exception e) {
-			logger.error("Unable to determine LAREX_VERSION: {}", e.getMessage());
+		String larexVersion = System.getenv(ENV_LAREX_VERSION);
+		if (larexVersion == null) {
+			logger.warn("LAREX_VERSION unset in Env");
+			larexVersion = "";
 		}
-		return larexVersion.equals("") ? "UNKNOWN" : larexVersion;
+		return "".equals(larexVersion) ? "UNKNOWN" : larexVersion;
 	}
 }
