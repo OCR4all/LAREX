@@ -13,6 +13,9 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.web.communication.DirectRequest;
 import de.uniwue.web.io.MetsReader;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -35,6 +38,9 @@ import de.uniwue.web.model.Book;
 @Controller
 @Scope("request")
 public class ViewerController {
+
+	static Logger logger = LoggerFactory.getLogger(ViewerController.class);
+
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
@@ -99,8 +105,7 @@ public class ViewerController {
 			}
 			mimeMap = mapper.readValue(java.net.URLDecoder.decode(mimeMapString, StandardCharsets.UTF_8.name()), TreeMap.class);
 		} catch (IOException e) {
-			System.out.println(e.getMessage());
-			e.printStackTrace();
+			logger.error("Internal Exception {}", e.getMessage());
 			return "redirect:/error/500";
 		}
 		if(customFlag.equals("true") && !customFolder.endsWith(File.separator)) { customFolder += File.separator; }

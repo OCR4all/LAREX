@@ -26,6 +26,8 @@ import org.opencv.core.MatOfByte;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.http.HttpHeaders;
@@ -62,6 +64,9 @@ import de.uniwue.web.model.PageAnnotations;
 @Controller
 @Scope("session")
 public class FileController {
+
+	static Logger logger = LoggerFactory.getLogger(FileController.class);
+
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
@@ -406,7 +411,8 @@ public class FileController {
 						if(!savedir.endsWith(File.separator)) { savedir += File.separator; }
 						return new File(savedir + xmlName);
 					} else {
-						System.err.println("Warning: Save dir is not set. File could not been saved.");
+						logger.error("Warning: Save dir {} not set. File {} could not been saved.", 
+						savedir, xmlName);
 					}
 				} else {
 					return new File(fileManager.getLocalXmlMap().get(xmlName.split("\\.")[0]));

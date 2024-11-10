@@ -8,6 +8,8 @@ import java.util.stream.Collectors;
 import de.uniwue.web.config.Constants;
 import org.apache.commons.io.FilenameUtils;
 import org.opencv.core.Size;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.uniwue.web.model.Book;
 import de.uniwue.web.model.Page;
@@ -37,6 +39,8 @@ import de.uniwue.web.model.Page;
  * ("." is a substitute for "no subextension")
  */
 public class FileDatabase {
+
+	static Logger logger = LoggerFactory.getLogger(FileDatabase.class);
 
 	private Map<Integer, File> books;
 	private File databaseFolder;
@@ -68,7 +72,8 @@ public class FileDatabase {
 	 * @param supportedFileExtensions supported image types to load
 	 * @param imageSubFilter     file extensions that are to be filtered
 	 */
-	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions, List<String> imageSubFilter, Boolean isFlat) {
+	public FileDatabase(File databaseFolder, List<String> supportedFileExtensions, List<String> imageSubFilter,
+			Boolean isFlat) {
 		this.databaseFolder = databaseFolder;
 		this.books = new HashMap<Integer, File>();
 		this.supportedFileExtensions = new ArrayList<String>(supportedFileExtensions);
@@ -144,23 +149,23 @@ public class FileDatabase {
 	public String checkType(File bookfolder) {
 		File[] metsFiles = bookfolder.listFiles((d, name) -> name.endsWith("mets.xml"));
 		List<File> imgFileList = new ArrayList<>();
-		for(String ext : supportedFileExtensions) {
+		for (String ext : supportedFileExtensions) {
 			imgFileList.addAll(Arrays.asList(bookfolder.listFiles((d, name) -> name.endsWith(ext))));
 		}
 		File[] imgFiles = imgFileList.toArray(new File[0]);
-		if( metsFiles.length != 0) {
+		if (metsFiles.length != 0) {
 			return "mets";
-		} else if(imgFiles.length != 0) {
+		} else if (imgFiles.length != 0) {
 			return "flat";
 		} else {
-			//try ./data/mets.xml
+			// try ./data/mets.xml
 			File dataFolder = new File(bookfolder.getAbsolutePath() + File.separator + "data");
-			if(dataFolder.exists() && dataFolder.isDirectory()) {
+			if (dataFolder.exists() && dataFolder.isDirectory()) {
 				metsFiles = dataFolder.listFiles((d, name) -> name.endsWith("mets.xml"));
-				if( metsFiles.length != 0) {
+				if (metsFiles.length != 0) {
 					return "mets-data";
 				} else {
-					System.out.println("data folder exists but contains no mets");
+					logger.warn("Data folder {} exists but contains no METS", dataFolder.getAbsolutePath());
 				}
 			}
 			return "empty";
@@ -208,12 +213,13 @@ public class FileDatabase {
 	 * Load a book object via Map.
 	 *
 	 * @param bookName name of book
-	 * @param bookID Identifier of the book to load
+	 * @param bookID   Identifier of the book to load
 	 * @param imageMap map of images from book
 	 * @return Loaded book
 	 */
-	public Book getBook(String bookName, Integer bookID,  Map<String, List<String>>  imageMap, Map<String, String> xmlMap) {
-		return readBook(bookName,imageMap, xmlMap, bookID);
+	public Book getBook(String bookName, Integer bookID, Map<String, List<String>> imageMap,
+			Map<String, String> xmlMap) {
+		return readBook(bookName, imageMap, xmlMap, bookID);
 	}
 
 	/**
@@ -256,14 +262,16 @@ public class FileDatabase {
 	 * @return Collection of all book pages in the selected book with a segmentation
 	 *         file
 	 */
-	public Collection<Integer> getPagesWithAnnotations(String bookName, Integer bookID,  Map<String, List<String>>  imageMap, Map<String, String> xmlMap) {
+	public Collection<Integer> getPagesWithAnnotations(String bookName, Integer bookID,
+			Map<String, List<String>> imageMap, Map<String, String> xmlMap) {
 		Collection<Integer> segmentedIds = new HashSet<>();
 		try {
-			Book book = getBook(bookName,bookID,imageMap, xmlMap);
+			Book book = getBook(bookName, bookID, imageMap, xmlMap);
 			for (Page page : book.getPages()) {
 				String key = page.getName();
 				String xmlKey = page.getXmlName().split("\\.")[0];
-				if ((xmlMap.get(key) != null && new File(xmlMap.get(key)).exists()) || (xmlMap.get(xmlKey) != null && new File(xmlMap.get(xmlKey)).exists())) {
+				if ((xmlMap.get(key) != null && new File(xmlMap.get(key)).exists())
+						|| (xmlMap.get(xmlKey) != null && new File(xmlMap.get(xmlKey)).exists())) {
 					segmentedIds.add(page.getId());
 				}
 
@@ -288,16 +296,18 @@ public class FileDatabase {
 		LinkedList<Page> pages = new LinkedList<Page>();
 		int pageCounter = 0;
 
-		if(imageSubFilter.isEmpty()) {
+		if (imageSubFilter.isEmpty()) {
 			// Interpret every image as its own page
 			List<File> imageFiles = Arrays.stream(Objects.requireNonNull(bookFile.listFiles()))
-					.filter(this::isSupportedImage).sorted(Comparator.comparing(File::getName)).collect(Collectors.toList());
+					.filter(this::isSupportedImage).sorted(Comparator.comparing(File::getName))
+					.collect(Collectors.toList());
 
-			for(File imageFile: imageFiles) {
+			for (File imageFile : imageFiles) {
 				Size imageSize = ImageLoader.readDimensions(imageFile);
 				String name = removeAllExtensions(imageFile.getName());
 				String imageURL = bookName + File.separator + imageFile.getName();
-				pages.add(new Page(pageCounter++, name, name + ".xml", Collections.singletonList(imageURL), (int) imageSize.width, (int) imageSize.height, 0.0));
+				pages.add(new Page(pageCounter++, name, name + ".xml", Collections.singletonList(imageURL),
+						(int) imageSize.width, (int) imageSize.height, 0.0));
 			}
 
 		} else {
@@ -315,13 +325,13 @@ public class FileDatabase {
 				List<String> images = new ArrayList<>();
 
 				Size imageSize = null;
-				for(String subExtension: imageSubFilter) {
+				for (String subExtension : imageSubFilter) {
 					List<File> subImages = !subExtension.equals(".") ? groupedImages.get(subExtension)
-												: groupedImages.get("");
+							: groupedImages.get("");
 
-					if(subImages != null) {
-						for(File subImage: subImages) {
-							if(imageSize == null) {
+					if (subImages != null) {
+						for (File subImage : subImages) {
+							if (imageSize == null) {
 								imageSize = ImageLoader.readDimensions(subImage);
 							}
 							images.add(bookName + File.separator + subImage.getName());
@@ -330,7 +340,8 @@ public class FileDatabase {
 				}
 
 				assert imageSize != null;
-				pages.add(new Page(pageCounter++, pageName, pageName + ".xml", images, (int) imageSize.width, (int) imageSize.height, 0.0));
+				pages.add(new Page(pageCounter++, pageName, pageName + ".xml", images, (int) imageSize.width,
+						(int) imageSize.height, 0.0));
 			}
 		}
 
@@ -345,17 +356,18 @@ public class FileDatabase {
 	 * @param bookID   Identifier that is to be used for the loaded book
 	 * @return
 	 */
-	private Book readBook(String bookName,  Map<String, List<String>>  imagemap, Map<String, String> xmlMap, int bookID) {
-		try{
+	private Book readBook(String bookName, Map<String, List<String>> imagemap, Map<String, String> xmlMap, int bookID) {
+		try {
 			LinkedList<Page> pages = new LinkedList<Page>();
 			int pageCounter = 0;
-			for(Entry<String, List<String>> imgEntry: imagemap.entrySet()) {
+			for (Entry<String, List<String>> imgEntry : imagemap.entrySet()) {
 				File imageFile = new File(imgEntry.getValue().get(0));
 				Size imageSize = ImageLoader.readDimensions(imageFile);
 				String name = removeAllExtensions(imageFile.getName());
 				String xmlName = (new File(xmlMap.get(imgEntry.getKey()))).getName();
-				if(isSupportedImage(imageFile)) {
-					pages.add(new Page(pageCounter++, name, xmlName, imgEntry.getValue(), (int) imageSize.width, (int) imageSize.height));
+				if (isSupportedImage(imageFile)) {
+					pages.add(new Page(pageCounter++, name, xmlName, imgEntry.getValue(), (int) imageSize.width,
+							(int) imageSize.height));
 				}
 			}
 			return new Book(bookID, bookName, pages);
@@ -419,13 +431,13 @@ public class FileDatabase {
 		if (passesSubFilter(filename)) {
 			final int extPointPos = filename.lastIndexOf(".");
 			final int subExtPointPos = filename.lastIndexOf(".", extPointPos - 1);
-			if(subExtPointPos > 0)
+			if (subExtPointPos > 0)
 				return filename.substring(0, subExtPointPos);
 			else
 				return filename.substring(0, extPointPos);
 		} else {
 			final int extensionPointer = filename.lastIndexOf(".");
-			if(extensionPointer > 0)
+			if (extensionPointer > 0)
 				return filename.substring(0, extensionPointer);
 
 		}
