@@ -88,7 +88,7 @@ public class LibraryController {
 		}
 		File bookPath = new File(fileManager.getLocalBooksPath());
 		if (!bookPath.isDirectory()) {
-			logger.error("Specified bookpath {} no directory, Please set a valid bookpath in larex.properties!",
+			logger.error("Specified bookpath {} not a directory. Please set a valid bookpath in larex.properties!",
 			bookPath);
 			return "redirect:/500";
 		}
@@ -129,7 +129,7 @@ public class LibraryController {
 				case "flat":
 					return getFileMap(baseFolder.getAbsolutePath(), Constants.IMG_EXTENSIONS_DOTTED);
 				default:
-					logger.error("Attempt open empty directory {}", baseFolder.getAbsolutePath());
+					logger.error("Attempt opening empty directory {}", baseFolder.getAbsolutePath());
 					break;
 			}
 		} catch (Exception e) {
@@ -173,7 +173,7 @@ public class LibraryController {
 	public @ResponseBody DirectRequest getOldRequest() {
 		DirectRequest directRequest = this.fileManager.getDirectRequest();
 		if (directRequest != null) {
-			logger.info("pass last {}", directRequest.getMetsPath());
+			logger.info("Pass last {}", directRequest.getMetsPath());
 		}
 		return directRequest;
 	}

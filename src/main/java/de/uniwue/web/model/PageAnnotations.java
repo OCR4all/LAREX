@@ -186,7 +186,7 @@ public class PageAnnotations {
 		final List<String> imageExtensions = Constants.IMG_EXTENSIONS_DOTTED;
 		for (String ext : imageExtensions) {
 			if(name.toLowerCase().endsWith(ext))
-				logger.error("Page {} ends with image extension ({}). This should not happen unless it's part of page name, i.e. {}.png", 
+				logger.error("Page {} ends with image extension ({}). This should not happen unless it's part of the page name, i.e. {}.png",
 				name, ext, name);
 		}
 

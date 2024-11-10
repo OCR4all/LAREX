@@ -165,7 +165,7 @@ public class FileDatabase {
 				if (metsFiles.length != 0) {
 					return "mets-data";
 				} else {
-					logger.warn("data folder {} exists but contains no mets", dataFolder.getAbsolutePath());
+					logger.warn("Data folder {} exists but contains no METS", dataFolder.getAbsolutePath());
 				}
 			}
 			return "empty";
