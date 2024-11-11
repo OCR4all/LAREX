@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -20,6 +22,9 @@ import de.uniwue.algorithm.segmentation.parameters.Parameters;
  * Parameters for the segmentation steps.
  */
 public class SegmentationSettingsReader {
+
+	static Logger logger = LoggerFactory.getLogger(SegmentationSettingsReader.class);
+
 	/**
 	 * Read a settingsfile from a document into Parameters
 	 *
@@ -37,8 +42,7 @@ public class SegmentationSettingsReader {
 			RegionManager regionmanager = extractRegions(regionNodes);
 			parameters = extractParameters(parameterElement, regionmanager);
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.out.println("Reading XML file failed!");
+			logger.error("Failed to process {}: {}", document.getDocumentURI(), e.getMessage());
 		}
 		return parameters;
 	}

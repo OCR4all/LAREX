@@ -1,6 +1,7 @@
 package de.uniwue.web.io;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -28,6 +29,8 @@ import org.primaresearch.dla.page.metadata.MetaData;
 import org.primaresearch.shared.variable.IntegerValue;
 import org.primaresearch.shared.variable.IntegerVariable;
 import org.primaresearch.shared.variable.Variable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import de.uniwue.algorithm.geometry.regions.type.PAGERegionType;
 import de.uniwue.algorithm.geometry.regions.type.RegionSubType;
@@ -60,6 +63,8 @@ import javax.xml.xpath.XPathFactory;
  */
 public class PageXMLReader {
 
+	static Logger logger = LoggerFactory.getLogger(PageXMLReader.class);
+
 	/**
 	 * Read a document to extract the PageAnnotations
 	 *
@@ -78,8 +83,7 @@ public class PageXMLReader {
 				fixFaultyPAGE(sourceFilename);
 				page = readPAGE(sourceFilename);
 			}catch (ParserConfigurationException | IOException | SAXException | XPathExpressionException e) {
-				e.printStackTrace();
-				System.err.println("Could not load source PAGE XML file: " + sourceFilename);
+				logger.error("Could not load source PAGE XML file {}: {}", sourceFilename, e.getMessage());
 			}
 		}
 
@@ -233,12 +237,13 @@ public class PageXMLReader {
 	public static Page readPAGE(File sourceFilename){
 		Page page = null;
 		try{
+			if (! sourceFilename.exists()) {
+				throw new FileNotFoundException(sourceFilename.getAbsolutePath());
+			}
 			page = PageXmlInputOutput.readPage(String.valueOf(sourceFilename));
 		}catch(Exception e){
-			e.printStackTrace();
-			System.err.println("Could not load source PAGE XML file: " + sourceFilename);
+			logger.error("Could not load source PAGE XML file {}: {} ", sourceFilename, e.getMessage());
 		}
-
 		return page;
 	}
 
@@ -311,8 +316,7 @@ public class PageXMLReader {
 		try {
 			segResult = getPageAnnotations(pageXMLInputPath);
 		} catch (Exception e) {
-			e.printStackTrace();
-			System.err.println("Reading XML file failed!");
+			logger.error("Failed to read {}: {}", pageXMLInputPath, e.getMessage());
 		}
 
 		return segResult;

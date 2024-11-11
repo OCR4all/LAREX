@@ -3,6 +3,8 @@ package de.uniwue.web.config;
 import java.io.*;
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +17,9 @@ import org.springframework.stereotype.Component;
 @Scope("session")
 public class LarexConfiguration {
 
+
+	static Logger logger = LoggerFactory.getLogger(LarexConfiguration.class);
+	private String configurationFile;
 	private Map<String, String> configurations;
 
 	/**
@@ -26,6 +31,7 @@ public class LarexConfiguration {
 	public void read(File configuration) {
 		configurations = new HashMap<>();
 		try {
+			this.configurationFile = configuration.getAbsolutePath();
 			FileReader input = new FileReader(configuration);
 			Properties prop = new Properties();
 			prop.load(input);
@@ -49,7 +55,7 @@ public class LarexConfiguration {
 	 */
 	public String getSetting(String setting) {
 		if (!isInitiated()) {
-			System.err.println("Configuration file has not been read.");
+			logger.error("Configuration {} has not been read, return empty String", this.configurationFile);
 			return "";
 		}
 		return configurations.getOrDefault(setting, "");
@@ -64,7 +70,7 @@ public class LarexConfiguration {
 	 */
 	public List<String> getListSetting(String setting) {
 		if (!isInitiated()) {
-			System.err.println("Configuration file has not been read.");
+			logger.error("Configuration {} has not been read, return empty List", this.configurationFile);
 			return new ArrayList<>();
 		}
 		if (configurations.containsKey(setting)) {
@@ -83,7 +89,7 @@ public class LarexConfiguration {
 	 */
 	public void setSetting(String setting, String value) {
 		if (!isInitiated()) {
-			System.err.println("Configuration file has not been read.");
+			logger.error("Configuration {} has not been read, set empty Map", this.configurationFile);
 			this.configurations = new HashMap<String, String>();
 		}
 		configurations.put(setting, value);

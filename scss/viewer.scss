@@ -310,9 +310,8 @@ body{
 #pagecontainer{
 	height: 100% !important;
 	overflow-x: hidden;
-  overflow-y: scroll;
+    overflow-y: scroll;
 	background-color: $color1;
-  cursor: pointer;
 }
 #menu{
   z-index:3;
@@ -461,6 +460,7 @@ body{
 .pageImageContainer{
   padding: 1px !important;
   opacity: 0.7;
+  cursor: pointer;
   &.selected{
     background-color: red;
   }

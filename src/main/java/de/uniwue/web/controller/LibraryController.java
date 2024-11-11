@@ -10,6 +10,9 @@ import javax.servlet.ServletContext;
 import de.uniwue.web.communication.DirectRequest;
 import de.uniwue.web.config.Constants;
 import de.uniwue.web.io.MetsReader;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
@@ -31,6 +34,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 @Scope("request")
 public class LibraryController {
+
+	public static final String ENV_LAREX_VERSION = "LAREX_VERSION";
+
+	static Logger logger = LoggerFactory.getLogger(LibraryController.class);
+
 	@Autowired
 	private ServletContext servletContext;
 	@Autowired
@@ -80,8 +88,8 @@ public class LibraryController {
 		}
 		File bookPath = new File(fileManager.getLocalBooksPath());
 		if (!bookPath.isDirectory()) {
-			System.err.println("ERROR:\tSpecified bookpath is not a directory");
-			System.err.println("\tPlease set a valid bookpath in larex.properties");
+			logger.error("Specified bookpath {} not a directory. Please set a valid bookpath in larex.properties!",
+			bookPath);
 			return "redirect:/500";
 		}
 		FileDatabase database = new FileDatabase(bookPath, config.getListSetting("imagefilter"), false);
@@ -89,6 +97,7 @@ public class LibraryController {
 
 		model.addAttribute("library", lib);
 		model.addAttribute("timeStamp", timeStamp);
+		logger.info("Start LAREX using {}", this.fileManager.getConfigurationFile());
 		return "lib";
 	}
 
@@ -120,7 +129,7 @@ public class LibraryController {
 				case "flat":
 					return getFileMap(baseFolder.getAbsolutePath(), Constants.IMG_EXTENSIONS_DOTTED);
 				default:
-					System.out.println("Attempting to open empty directory");
+					logger.error("Attempt opening empty directory {}", baseFolder.getAbsolutePath());
 					break;
 			}
 		} catch (Exception e) {
@@ -162,8 +171,13 @@ public class LibraryController {
 	 */
 	@RequestMapping(value = "library/getOldRequest", method = RequestMethod.POST, headers = "Accept=*/*")
 	public @ResponseBody DirectRequest getOldRequest() {
-		return fileManager.getDirectRequest();
+		DirectRequest directRequest = this.fileManager.getDirectRequest();
+		if (directRequest != null) {
+			logger.info("Pass last {}", directRequest.getMetsPath());
+		}
+		return directRequest;
 	}
+	
 	/**
 	 * returns each imagePath in given directory
 	 * respecting the SubExtensionFilter set in properties
@@ -219,7 +233,11 @@ public class LibraryController {
 	@RequestMapping(value ="library/getVersion" , method = RequestMethod.GET)
 	public @ResponseBody
 	String getVersion() {
-		String larex_version = System.getenv("LAREX_VERSION");
-		return larex_version.equals("") ? "UNKNOWN" : larex_version;
+		String larexVersion = System.getenv(ENV_LAREX_VERSION);
+		if (larexVersion == null) {
+			logger.warn("LAREX_VERSION unset in Env");
+			larexVersion = "";
+		}
+		return "".equals(larexVersion) ? "UNKNOWN" : larexVersion;
 	}
 }
