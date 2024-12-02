@@ -94,7 +94,7 @@ function KeyInput(_navigationController, _controller, _gui, _textViewer, _select
 						}
 						break;
 					case "d":
-						if(event.altKey){
+						if(event.altKey || event.metaKey){
 							_controller.discardGT();
 							event.preventDefault();
 						}
