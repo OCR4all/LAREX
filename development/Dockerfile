@@ -1,5 +1,5 @@
 # Base Image
-FROM tomcat:9.0-jdk8
+FROM tomcat:9.0-jdk11
 
 ENV LAREX_VERSION="0.7.4"
 
