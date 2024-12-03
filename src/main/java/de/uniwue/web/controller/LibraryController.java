@@ -4,13 +4,13 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import javax.annotation.PostConstruct;
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import de.uniwue.web.communication.DirectRequest;
 import de.uniwue.web.config.Constants;
 import de.uniwue.web.io.MetsReader;
 
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -177,7 +177,7 @@ public class LibraryController {
 		}
 		return directRequest;
 	}
-	
+
 	/**
 	 * returns each imagePath in given directory
 	 * respecting the SubExtensionFilter set in properties
