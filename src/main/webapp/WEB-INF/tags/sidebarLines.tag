@@ -1,5 +1,5 @@
 <%@tag description="Edit Segment Window" pageEncoding="UTF-8"%>
-<%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <div id="sidebar-lines" class="col s12 hide">
 

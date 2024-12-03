@@ -6,8 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 
-import javax.annotation.PostConstruct;
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,6 +28,8 @@ import de.uniwue.web.config.LarexConfiguration;
 import de.uniwue.web.io.FileDatabase;
 import de.uniwue.web.io.FilePathManager;
 import de.uniwue.web.model.Book;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * Communication Controller to handle requests for the main viewer/editor.

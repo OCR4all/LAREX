@@ -1,5 +1,5 @@
 <%@tag description="Tag for the addition of keys to the virtual keyboard" pageEncoding="UTF-8"%>
-<%@taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 
 <div id="virtual-keyboard-add" class="card hide infocus">

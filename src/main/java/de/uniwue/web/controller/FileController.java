@@ -8,11 +8,11 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import javax.imageio.ImageIO;
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
@@ -42,7 +42,6 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.multipart.commons.CommonsMultipartFile;
 import org.w3c.dom.Document;
 
 import de.uniwue.algorithm.data.MemoryCleaner;
@@ -109,11 +108,10 @@ public class FileController {
 	public ResponseEntity<byte[]> getImage(@PathVariable("imageEnc") final String imageEnc,
 			@RequestParam(value = "resize", defaultValue = "false") boolean doResize) throws IOException {
 		try {
-
 			File imageFile;
 			byte[] imageBytes = null;
 			String image = java.net.URLDecoder.decode(imageEnc, StandardCharsets.UTF_8.name()).replaceAll("‡","/");
-			if(image.startsWith("\"")) {	image = image.substring(1); }
+			image = image.replaceFirst("^\"", "").replaceFirst("\"$", "");
 			if(fileManager.checkFlat()) {
 				// Find file with image name
 				final File directory = new File(fileManager.getLocalBooksPath() + File.separator);
@@ -202,11 +200,11 @@ public class FileController {
 	 *
 	 */
 	@RequestMapping(value = "file/upload/annotations", method = RequestMethod.POST, headers = "Accept=*/*")
-	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") CommonsMultipartFile multipart,
+	public @ResponseBody PageAnnotations uploadSegmentation(@RequestParam("file") MultipartFile multipart,
 															@RequestParam("pageNr") int pageNr,
 															@RequestParam("bookID") int bookID,
 															@RequestParam("xmlName") String xmlName) throws IOException {
-		multipart.getFileItem().getName();
+		multipart.getName();
 		File file = new File(xmlName);
 		FileUtils.writeByteArrayToFile(file, multipart.getBytes());
 		FileUtils.writeByteArrayToFile(file, multipart.getBytes());
@@ -411,7 +409,7 @@ public class FileController {
 						if(!savedir.endsWith(File.separator)) { savedir += File.separator; }
 						return new File(savedir + xmlName);
 					} else {
-						logger.error("Warning: Save dir {} not set. File {} could not been saved.", 
+						logger.error("Warning: Save dir {} not set. File {} could not been saved.",
 						savedir, xmlName);
 					}
 				} else {
