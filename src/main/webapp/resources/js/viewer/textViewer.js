@@ -640,26 +640,47 @@ class TextViewer {
 	 * @param {*} textline
 	 */
 	_createImageObject(textline) {
+		const points = textline.coords.points;
+
 		let minX = this.image[0].naturalWidth;
 		let minY = this.image[0].naturalHeight;
 		let maxX = 0;
 		let maxY = 0;
-		for(const point of textline.coords.points){
-			minX = Math.min(point.x,minX);
-			minY = Math.min(point.y,minY);
-			maxX = Math.max(point.x,maxX);
-			maxY = Math.max(point.y,maxY);
+		for(const point of points){
+			minX = Math.min(point.x, minX);
+			minY = Math.min(point.y, minY);
+			maxX = Math.max(point.x, maxX);
+			maxY = Math.max(point.y, maxY);
 		}
 
-		const width = maxX-minX;
-		const height = maxY-minY;
+		const width = maxX - minX;
+		const height = maxY - minY;
 
-		const $textlineImage =  $(`<canvas class='textline-image' width='${width}' height='${height}'/>`);
-
+		const $textlineImage = $(`<canvas class='textline-image' width='${width}' height='${height}'/>`);
 		const ctx = $textlineImage[0].getContext("2d");
 
-		// Add image into clipping area
-		ctx.drawImage(this.image[0],minX,minY,width,height,0,0,width,height);
+		ctx.beginPath();
+		points.forEach((point, index) => {
+			const x = point.x - minX;
+			const y = point.y - minY;
+			if (index === 0) {
+				ctx.moveTo(x, y);
+			} else {
+				ctx.lineTo(x, y);
+			}
+		});
+		ctx.closePath();
+
+		ctx.clip();
+
+		ctx.drawImage(
+			this.image[0],
+			minX, minY,
+			width, height,
+			0, 0,
+			width, height
+		);
+
 		return $textlineImage;
 	}
 	/**
