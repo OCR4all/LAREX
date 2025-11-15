@@ -5,6 +5,7 @@ src/main/webapp/resources/books/
 #user settings
 src/main/webapp/WEB-INF/larex.properties
 src/main/resources/application-local.properties
+src/main/resources/application-local.yml
 
 .idea/
 target/
@@ -29,11 +30,20 @@ src/main/webapp/resources/.sass-cache/
 .sass-cache/
 *.css.map
 
-#development
+#development (legacy - to be removed)
 development/*
 !development/build.sh
 !development/dev.properties
 !development/Dockerfile
+
+# Docker volumes and local config
+config/larex.properties
+config/larex.yml
+books/*
+!books/README.md
+savedir/*
+!savedir/README.md
+docker-compose.override.yml
 
 ## Editors ##
 #eclipse

@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Build artifacts
+build/
+target/
+.gradle/
+*.jar
+!gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+documentation/
+
+# Development files
+development/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Config (will be mounted)
+config/
+books/
+savedir/
+
+# Tests
+src/test/
+
+# Other
+*.log
+*.tmp
+*.swp
+*~

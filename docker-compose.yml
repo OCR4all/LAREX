@@ -1,0 +1,66 @@
+services:
+  # Development service
+  larex-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: larex-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      # Source code for live reload
+      - ./src:/app/src:ro
+      # Configuration
+      - ./config:/config
+      # Books directory
+      - ./books:/home/books
+      # Save directory
+      - ./savedir:/home/savedir
+      # Gradle cache (speeds up rebuilds)
+      - gradle-cache:/root/.gradle
+    environment:
+      - LAREX_CONFIG=/config/larex.yml
+      - SPRING_PROFILES_ACTIVE=dev
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+    networks:
+      - larex-network
+    profiles:
+      - dev
+
+  # Production service
+  larex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: larex
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Configuration
+      - ./config:/config:ro
+      # Books directory
+      - ./books:/home/books
+      # Save directory
+      - ./savedir:/home/savedir
+    environment:
+      - LAREX_CONFIG=/config/larex.yml
+      - SPRING_PROFILES_ACTIVE=prod
+      - JAVA_OPTS=-Xmx2048m -XX:+UseG1GC
+    networks:
+      - larex-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - prod
+
+networks:
+  larex-network:
+    driver: bridge
+
+volumes:
+  gradle-cache:

@@ -1,0 +1,73 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    session:
+      timeout: 300m
+  error:
+    whitelabel:
+      enabled: false
+    path: /error
+
+spring:
+  mvc:
+    view:
+      prefix: /WEB-INF/views/
+      suffix: .jsp
+  
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 100MB
+      file-size-threshold: 2KB
+  
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  
+  web:
+    resources:
+      static-locations:
+        - classpath:/META-INF/resources/
+        - classpath:/resources/
+        - classpath:/static/
+        - classpath:/public/
+        - file:src/main/webapp/resources/
+
+logging:
+  level:
+    root: ERROR
+    de.uniwue: DEBUG
+  file:
+    name: ${user.home}/larex.log
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%-5level][%logger{36}] %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%-5level][%logger{36}] %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    defaults:
+      enabled: true
+
+# LAREX specific configuration
+# Uncomment and configure as needed
+#larex:
+#  modes: segment lines text
+#  bookpath: ""
+#  localsave: none
+#  savedir: ""
+#  websave: true
+#  imagefilter: ""
+#  ocr4all: disable
+#  diff-insert-color: "#58e123"
+#  diff-delete-color: "#e56123"

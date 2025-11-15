@@ -23,6 +23,10 @@ dependencies {
     // Spring Boot Starter dependencies
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-tomcat")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    
+    // Spring Boot DevTools for development
+    developmentOnly("org.springframework.boot:spring-boot-devtools")
     
     // JSP and JSTL support
     implementation("jakarta.servlet.jsp.jstl:jakarta.servlet.jsp.jstl-api:3.0.0")
