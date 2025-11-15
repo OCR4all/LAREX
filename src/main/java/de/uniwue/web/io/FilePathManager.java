@@ -1,13 +1,17 @@
 package de.uniwue.web.io;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import jakarta.servlet.ServletContext;
 
 import de.uniwue.web.communication.DirectRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 import de.uniwue.web.model.Page;
@@ -22,6 +26,7 @@ public class FilePathManager {
 
 	private boolean isInit = false;
 	private ServletContext servletContext;
+	private ResourceLoader resourceLoader;
 	private String booksPath;
 	private String saveDir;
 	private Map<String, String> xmlMap;
@@ -33,6 +38,11 @@ public class FilePathManager {
 	private String customFolder;
 	private DirectRequest directRequest = null;
 
+	@Autowired
+	public FilePathManager(ResourceLoader resourceLoader) {
+		this.resourceLoader = resourceLoader;
+	}
+
 	/**
 	 * Init FileManager with servletContext in order to provide f
 	 *
@@ -42,7 +52,7 @@ public class FilePathManager {
 	public void init(ServletContext servletContext) {
 		this.isInit = true;
 		this.servletContext = servletContext;
-		this.booksPath = servletContext.getRealPath("resources" + File.separator + "books");
+		this.booksPath = getResourcePath("resources" + File.separator + "books");
 		this.isFlat = true;
 	}
 
@@ -55,8 +65,29 @@ public class FilePathManager {
 	public void init(ServletContext servletContext, Boolean isFlat) {
 		this.isInit = true;
 		this.servletContext = servletContext;
-		this.booksPath = servletContext.getRealPath("resources" + File.separator + "books");
+		this.booksPath = getResourcePath("resources" + File.separator + "books");
 		this.isFlat = false;
+	}
+
+	/**
+	 * Get resource path handling both classpath and servlet context resources
+	 */
+	private String getResourcePath(String path) {
+		if (servletContext != null) {
+			String realPath = servletContext.getRealPath(path);
+			if (realPath != null) {
+				return realPath;
+			}
+		}
+		try {
+			Resource resource = resourceLoader.getResource("classpath:static/" + path);
+			if (resource.exists()) {
+				return resource.getFile().getAbsolutePath();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return "src/main/webapp/" + path;
 	}
 
 	/**
@@ -106,7 +137,7 @@ public class FilePathManager {
 		if (configPathVariable != null && !configPathVariable.equals("") && new File(configPathVariable).exists())
 			return configPathVariable;
 		else
-			return servletContext.getRealPath("WEB-INF" + File.separator + "larex.properties");
+			return getResourcePath("WEB-INF" + File.separator + "larex.properties");
 	}
 
 	/**
@@ -115,11 +146,11 @@ public class FilePathManager {
 	 * @return local default virtual keyboard path
 	 */
 	public String getVirtualKeyboardFile() {
-		return servletContext.getRealPath("WEB-INF" + File.separator + "virtual_keyboards" + File.separator + "latin_no_pua.txt");
+		return getResourcePath("WEB-INF" + File.separator + "virtual_keyboards" + File.separator + "latin_no_pua.txt");
 	}
 
 	public String getVirtualKeyboardFile(String language) {
-		return servletContext.getRealPath("WEB-INF" + File.separator + "virtual_keyboards" + File.separator + language + ".txt");
+		return getResourcePath("WEB-INF" + File.separator + "virtual_keyboards" + File.separator + language + ".txt");
 	}
 
 	/**

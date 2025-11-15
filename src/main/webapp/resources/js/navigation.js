@@ -123,7 +123,7 @@ $(document).ready(function () {
 			}
 		}
 		$.ajax({
-			url : "/Larex/directLibrary",
+			url : "/directLibrary",
 			type: "POST",
 			data: { "fileMap" : JSON.stringify(fileMap),
 					"mimeMap" : JSON.stringify(mimeTypMap),
@@ -207,7 +207,7 @@ $(document).ready(function () {
 			if(oldRequest){
 
 				$.ajax({
-					url : "/Larex/directLibrary",
+					url : "/directLibrary",
 					type: "POST",
 					data: { "fileMap" : oldRequest.fileMapString,
 							"mimeMap" : oldRequest.mimeMapString,

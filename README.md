@@ -14,6 +14,7 @@ Please feel free to visit the [tool homepage](https://www.uni-wuerzburg.de/zpd/l
 ## Table of Contents
 - [Installation](#installation)
   * [Docker](#docker)
+  * [Quick Start (Gradle)](#quick-start-gradle)
   * [Linux](#linux)
   * [Windows](#windows)
   * [Mac OS X](#macos)
@@ -33,72 +34,137 @@ This guide uses [Docker](https://www.docker.com/) and allows a platform agnostic
 #### Development
 * Configure `development/build.sh`, run `cd development` and `sh build.sh`
 
+### Quick Start (Gradle)
+**LAREX now uses Spring Boot 3 with embedded Tomcat and Gradle (Kotlin DSL) build system.**
+
+#### Prerequisites
+* Java 21 or higher
+* Gradle is not required (Gradle wrapper is included)
+
+#### Build and Run
+```bash
+# Clone the repository
+git clone https://github.com/OCR4all/LAREX.git
+cd LAREX
+
+# Build the project
+./gradlew build
+
+# Run the application
+./gradlew bootRun
+```
+
+The application will start on `http://localhost:8080`
+
+#### Create executable JAR
+```bash
+# Build a standalone executable JAR
+./gradlew bootJar
+
+# The JAR will be created at: build/libs/Larex.jar
+# Run it with:
+java -jar build/libs/Larex.jar
+```
+
+#### Configuration
+Create an `application.properties` file in the same directory as the JAR or use environment variables:
+
+```properties
+# Server port (default: 8080)
+server.port=8080
+
+# Book directory
+larex.bookpath=/path/to/books
+
+# Save settings
+larex.localsave=none
+larex.savedir=/path/to/save
+larex.websave=true
+```
+
+Or use environment variables:
+```bash
+export LAREX_CONFIG=/path/to/custom/larex.properties
+java -jar build/libs/Larex.jar
+```
+
 ### Linux
-This guide uses Tomcat 8, **Java 8** and Ubuntu (please adjust accordingly for your setup)
+This guide now uses the Gradle-based Spring Boot setup
 
 * Install required packages: 
-	`apt-get install tomcat8 maven openjdk-8-jdk`
+	`apt-get install openjdk-21-jdk git`
 * Clone Repository: 
 	`git clone https://github.com/OCR4all/LAREX.git`
-* Compile: 
-	`mvn clean install -f LAREX/pom.xml`.
-* Copy or link the created war file to Tomcat:
-	* Copy `cp LAREX/target/Larex.war /var/lib/tomcat8/webapps/Larex.war`
-	* Link: `sudo ln -s $PWD/LAREX/target/Larex.war /var/lib/tomcat8/webapps/Larex.war`
-* Start Tomcat:
-	`systemctl start tomcat8`
-	* (Restart Tomcat via `systemctl restart tomcat8`)
-	* (To start Tomcat automatically at system boot `systemctl enable tomcat8`)
+* Build and run: 
+	```bash
+	cd LAREX
+	./gradlew bootRun
+	```
+* Or build JAR and run:
+	```bash
+	./gradlew bootJar
+	java -jar build/libs/Larex.jar
+	```
 
 ### Windows
-This guide uses [Eclipse](https://www.eclipse.org/) to simplify the setup on Windows
+This guide uses [IntelliJ IDEA](https://www.jetbrains.com/idea/) or [Eclipse](https://www.eclipse.org/) to simplify the setup on Windows
 
+#### Using IntelliJ IDEA (Recommended)
+* Install IntelliJ IDEA Community Edition from the [official website](https://www.jetbrains.com/idea/download/)
+* Install Java 21 JDK
+* Clone Repository:
+	* `File` -> `New` -> `Project from Version Control`
+	-> Set `URL: https://github.com/OCR4all/LAREX.git` -> `Clone`
+* The project will be automatically detected as a Gradle project
+* Run the application:
+	* Open `src/main/java/de/uniwue/LarexApplication.java`
+	* Right click -> `Run 'LarexApplication'`
+
+#### Using Eclipse
 * Install _Eclipse IDE for Enterprise Java Developers_ from the [official website](https://www.eclipse.org/downloads/packages/)
-* Download Tomcat 8 or up from the [official website](http://tomcat.apache.org/download-90.cgi)
-* Create a Tomcat server in eclipse:
-	* Open `Window` -> `Show View` -> `Other...` -> `Server` -> `Servers`
-	* Click prompt to add a new server, select `Apache` -> `Tomcat <version> Server` -> `Next`-> set your Tomcat installation directory -> `Finish`.
+* Install Java 21 JDK
 * Clone Repository:
 	* `File` -> `Import` -> `Git` -> `Projects from Git` -> `Clone URI`
-	-> Set `URI: https://github.com/OCR4all/LAREX.git` -> `[✓] master` -> `Next >` -> `Next >` -> `Import as gernal project` -> `Finish`
-* Set as Maven Project:
-* Import Project
-	* Right click on `Larex` -> `Configure` -> `Convert to Maven Project` -> `Finish`
-* Update maven project (if not updated automatically)
-	* Rightclick on `Larex` -> `Maven` -> `Update Project...` -> `OK`
-* Start Larex
-	* Right click on `Larex` -> `Run As` -> `Run on Server`.
+	-> Set `URI: https://github.com/OCR4all/LAREX.git` -> `Next` -> `Import existing Gradle project` -> `Finish`
+* Run the application:
+	* Right click on `LarexApplication.java` -> `Run As` -> `Java Application`
 
 ### macOS
-**Note: LAREX is mainly developed on Linux so the macOS build introductions may be outdated from time to time. If this is the case, feel free to contact us**
+**Note: LAREX is mainly developed on Linux so the macOS build instructions may be outdated from time to time. If this is the case, feel free to contact us**
+
 This guide uses homebrew (please adjust accordingly for your setup).
 * Install Homebrew (see https://brew.sh/) and run `brew update`.
 * Install required packages:
-	* `brew cask install adoptopenjdk8`
-	* `brew install tomcat git maven`
-* (Verify Tomcat installation):
-	* `brew services list` tomcat should be listed in the output of this command
+	* `brew install openjdk@21 git`
+	* `sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk`
 * Clone Repository:
 	* `git clone https://github.com/OCR4all/LAREX.git`
-* Compile:
-	* run `mvn clean install -f LAREX/pom.xml`.
-* Copy or link the created war file to Tomcat
-	* Copy: `cp LAREX/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
-	* Link: `ln -s $PWD/LAREX/target/Larex.war /usr/local/Cellar/tomcat/[version]/libexec/webapps/Larex.war`
-* Start Tomcat:
-	* `brew services start tomcat`
-	* (Restart Tomcat via `brew services restart tomcat`)
+* Build and run:
+	```bash
+	cd LAREX
+	./gradlew bootRun
+	```
+* Or build JAR and run:
+	```bash
+	./gradlew bootJar
+	java -jar build/libs/Larex.jar
+	```
 
 
 ## Usage
 
 ### Access in browser
-Go to `localhost:8080/Larex`.
+Go to `http://localhost:8080` (default port).
+
+You can change the port by:
+- Setting `server.port=<port>` in `application.properties`
+- Using command line: `java -jar build/libs/Larex.jar --server.port=<port>`
+- Using environment variable: `SERVER_PORT=<port> java -jar build/libs/Larex.jar`
 
 ### Using your own images and books
-You can add your own books by copying them to `src/webapp/resources/books`
+You can add your own books by copying them to `src/main/webapp/resources/books`
 
-(Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.properties). See section [*Configuration*](#configuration) for more information).
+(Or an alternative direction set in the [config file](https://github.com/OCR4all/LAREX/blob/master/src/main/resources/application.properties). See section [*Configuration*](#configuration) for more information).
 
 Book directories must have the following structure:
 ```
@@ -115,21 +181,29 @@ Detailed information about the usage of LAREX can be found in the OCR4all [getti
 See sections and chapters about _Segmentation_, _Ground Truth Correction_ and _Post Correction_.
 
 ## Configuration ##
-LAREX contains a configuration file ([`src/webapp/WEB-INF/larex.properties`](https://github.com/OCR4all/LAREX/blob/master/src/main/webapp/WEB-INF/larex.properties)) with a few settings that can be set before running the application.
+LAREX contains a configuration file ([`src/main/resources/application.properties`](https://github.com/OCR4all/LAREX/blob/master/src/main/resources/application.properties)) with various settings.
+
+### Spring Boot Configuration
+Standard Spring Boot properties can be configured:
+- `server.port`: Application port (default: 8080)
+- `server.servlet.session.timeout`: Session timeout
+- `spring.servlet.multipart.max-file-size`: Maximum file upload size
+
+### LAREX Specific Configuration
 
 ### bookpath ###
-The setting *bookpath* sets the file path of the books folder.
+The setting *larex.bookpath* sets the file path of the books folder.
 
-e.g. `bookpath=/home/user/books` (Linux)
+e.g. `larex.bookpath=/home/user/books` (Linux)
 
-e.g. `bookpath=C:\Users\user\Documents\books` (Windows)
+e.g. `larex.bookpath=C:\\Users\\user\\Documents\\books` (Windows)
 
 LAREX will load the books from this folder.
 
-[default <Larex>/src/main/webapp/resources/books]
+[default: src/main/webapp/resources/books]
 
 ### localsave ###
-The setting *localsave* tells the application how to handle results locally when saved.
+The setting *larex.localsave* tells the application how to handle results locally when saved.
 
 _Please note_:  
 To work properly in local mode it's required that the `Page@imageFilename`-attribute matches the actual filename (apart from the extension). This label will be used for local storage.
@@ -142,17 +216,17 @@ To work properly in local mode it's required that the `Page@imageFilename`-attri
 
 `none`: do not save the result locally [default]
 
-e.g. `localsave:bookpath`
+e.g. `larex.localsave=bookpath`
 
 ### savedir ###
-The setting *savedir* is needed if localsave mode is set to "savedir".
+The setting *larex.savedir* is needed if localsave mode is set to "savedir".
 
-e.g. `savedir=/home/user/save` (Linux)
+e.g. `larex.savedir=/home/user/save` (Linux)
 
-e.g. `savedir=C:\Users\user\Documents\save` (Windows)
+e.g. `larex.savedir=C:\\Users\\user\\Documents\\save` (Windows)
 
 ### websave ###
-The setting *websave* tells the application how to handle results on the browser side when saved.
+The setting *larex.websave* tells the application how to handle results on the browser side when saved.
 
 `<value>=[true|false]`
 
@@ -160,20 +234,20 @@ The setting *websave* tells the application how to handle results on the browser
 
 `false`: no action after saving
 
-e.g. `websave=true`
+e.g. `larex.websave=true`
 
 ### modes ###
 Set the accessible modes in the LAREX GUI `<value>=[[segment][edit][lines][text]]`
 A combination of the modes "segment", "edit", "lines" and "text" can be set as 
 a space separated string. 
-e.g. `modes=segment lines`
+e.g. `larex.modes=segment lines`
 
 The order of those modes in the string also determines which mode is opened
 on startup, with the first in the list being opened as main mode.
 The mode "segment" can be replaced with "edit" in order to hide all auto 
 segmentation features. ("edit" will be ignored if both are present)
 
-[Default] `modes=segment lines text`
+[Default] `larex.modes=segment lines text`
 
 
 ### directrequest ###
@@ -187,13 +261,13 @@ This feature allows users to load a book from everywhere on the servers drive as
 
 `disable`: disable direct request [default]
 
-e.g. `directrequest=enable`
+e.g. `larex.directrequest=enable`
 
 This feature should be used with caution but is very useful when using LAREX in a workflow with other web applications. (e.g. in Docker)
 
 The easiest direct request would be via a html form with the values *bookpath*, *bookname*, *websave* (optional),  *localsave* (optional) and *savedir* (optional).
 ```html
-<form action="http://localhost:8080/Larex/direct" method="POST">
+<form action="http://localhost:8080/direct" method="POST">
 	bookpath: <input type="text" name="bookpath"/><br>
 	bookname: <input type="text" name="bookname"/><br>
 	websave: <input type="text" name="websave"/><br>
@@ -215,7 +289,14 @@ This setting allows displaying and/or hiding certain UI elements when LAREX is u
 
 `disable`: disable OCR4all UI mode [default]
 
-e.g. `ocr4all=enable`
+e.g. `larex.ocr4all=enable`
+
+### Environment Variables ###
+Alternatively, you can use the `LAREX_CONFIG` environment variable to point to a custom properties file:
+```bash
+export LAREX_CONFIG=/path/to/custom/larex.properties
+java -jar build/libs/Larex.jar
+```
 
 
 ## Citing LAREX

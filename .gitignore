@@ -4,9 +4,12 @@ src/main/webapp/resources/books/
 
 #user settings
 src/main/webapp/WEB-INF/larex.properties
+src/main/resources/application-local.properties
 
 .idea/
 target/
+build/
+.gradle/
 
 ## Code ##
 #java
@@ -15,6 +18,8 @@ target/
 
 #packages
 *.war
+*.jar
+!gradle-wrapper.jar
 *.zip
 *.tar.gz
 *.rar
@@ -52,6 +57,7 @@ local.properties
 *.swp
 #intelliJ
 *.iml
+out/
 
 # OS generated files #
 ######################
