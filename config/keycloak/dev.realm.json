@@ -1,0 +1,381 @@
+{
+  "realm": "larex-dev",
+  "enabled": true,
+  "loginTheme": "keycloakify-larex",
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "clients": [
+    {
+      "clientId": "larex-backend-service",
+      "enabled": true,
+      "secret": "PLEASE_CHANGE_IN_PRODUCTION",
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false
+    },
+    {
+      "clientId": "larex-frontend",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "PLEASE_CHANGE_IN_PRODUCTION",
+      "name": "Larex Frontend",
+      "description": "Client for the Larex Development Frontend",
+      "redirectUris": [
+        "http://larex.localhost/auth/keycloak",
+        "http://larex.localhost/auth/keycloak/password-change",
+        "http://larex.localhost/auth/keycloak/delete-account"
+      ],
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ],
+      "protocolMappers": [
+        {
+          "name": "User ID Mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "sub",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "User ID in custom claim",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "user_id",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "realm roles for userinfo",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "id.token.claim": "false",
+            "access.token.claim": "false",
+            "claim.name": "roles",
+            "multivalued": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "katarn",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Kyle",
+      "lastName": "Katarn",
+      "email": "kyle@sulon.com",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/b/b8/Katarn_portrait.jpg"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ors",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-larex-dev",
+        "GLOBAL_ADMIN"
+      ]
+    },
+    {
+      "username": "ors",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Jan",
+      "lastName": "Ors",
+      "email": "jan@alderaan.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "katarn",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-larex-dev"
+      ]
+    },
+    {
+      "username": "skywalker",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Luke",
+      "lastName": "Skywalker",
+      "email": "luke@tatooine.com",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/2/20/LukeTLJ.jpg"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "force",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-larex-dev"
+      ]
+    },
+    {
+      "username": "organa",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Leia",
+      "lastName": "Organa",
+      "email": "leia@alderaan.com",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/7/76/Vader_spots_a_continuity_error.jpg/revision/latest/scale-to-width-down/1000?cb=20200608114422"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "rebellion",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-larex-dev"
+      ]
+    },
+    {
+      "username": "solo",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Han",
+      "lastName": "Solo",
+      "email": "han@millennium.falcon",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/d/d9/HanSolo0BBY-TSWB.png/revision/latest?cb=20241220234647"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "chewie",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-larex-dev"
+      ]
+    },
+    {
+      "username": "calrissian",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Lando",
+      "lastName": "Calrissian",
+      "email": "lando@cloudcity.com",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/8/8f/Lando_ROTJ.png/revision/latest?cb=20241220215020"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "bespin",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "kenobi",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Obi-Wan",
+      "lastName": "Kenobi",
+      "email": "obiwan@jedi.temple",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/4/4e/ObiWanHS-SWE.jpg/revision/latest?cb=20111115052816"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "highground",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "vader",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Anakin",
+      "lastName": "Skywalker",
+      "email": "anakin@empire.gov",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/9/94/Vaderrotj.jpg/revision/latest?cb=20070418231644"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "padme",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "amidala",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Padmé",
+      "lastName": "Amidala",
+      "email": "padme@naboo.gov",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/b/b2/Padmegreenscrshot.jpg/revision/latest?cb=20100423143631"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "naboo",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "windu",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Mace",
+      "lastName": "Windu",
+      "email": "mace@jedi.temple",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/2/27/MaceWindu_-WoSW.png/revision/latest?cb=20220914013358"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "purple",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "fett",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Boba",
+      "lastName": "Fett",
+      "email": "boba@sarlacc.pit",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/4/46/BobaFett-SWI206.png/revision/latest/scale-to-width-down/1000?cb=20250317160030"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "mandalore",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "thrawn",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Mitth'raw'nuruodo",
+      "lastName": "Thrawn",
+      "email": "thrawn@empire.gov",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/7/73/GreaterGood-OOP-Art.jpg/revision/latest/scale-to-width-down/1000?cb=20220915163616"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "chiss",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "jade",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Mara",
+      "lastName": "Jade",
+      "email": "mara@emperor.hand",
+      "attributes": {
+        "picture": ["https://static.wikia.nocookie.net/starwars/images/b/b1/Mara-Insider47cover.jpg/revision/latest?cb=20070701201021"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "emperor",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "service-account-larex-backend-service",
+      "emailVerified": false,
+      "enabled": true,
+      "serviceAccountClientId": "larex-backend-service",
+      "realmRoles": [
+        "default-roles-larex-dev"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users",
+          "query-users"
+        ]
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "GLOBAL_ADMIN",
+        "description": "Global administrator role with access to all administrative features and all workspaces"
+      }
+    ],
+    "client": {
+      "larex-backend-service": [
+        {
+          "name": "view-users",
+          "description": "Allows viewing users in the realm"
+        }
+      ]
+    }
+  },
+  "defaultRoles": [
+    "delete-account"
+  ],
+  "scopeMappings": [
+    {
+      "client": "larex-backend-service",
+      "roles": [
+        "view-users",
+        "manage-users",
+        "query-users"
+      ]
+    }
+  ]
+}

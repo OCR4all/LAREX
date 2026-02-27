@@ -1,0 +1,147 @@
+/* Dockview theme variables and overrides.
+   Reference: https://dockview.dev/docs/overview/getStarted/theme/ */
+
+.dockview-theme-larex-light {
+  --dv-paneview-active-outline-color: var(--color-burnt-sienna-500);
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-height: 36px;
+  --dv-drag-over-background-color: color-mix(in srgb, var(--color-burnt-sienna-500) 15%, transparent);
+  --dv-drag-over-border-color: var(--color-burnt-sienna-400);
+  --dv-tabs-container-scrollbar-color: var(--color-cararra-400);
+  --dv-icon-hover-background-color: var(--color-cararra-200);
+  --dv-floating-box-shadow: 8px 8px 8px 0px rgba(0, 0, 0, 0.1);
+  --dv-overlay-z-index: 999;
+  --dv-border-radius: 0px;
+  --dv-tab-margin: 0;
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--color-burnt-sienna-400);
+  --dv-active-sash-transition-duration: 0.1s;
+  --dv-active-sash-transition-delay: 0.5s;
+
+  --dv-group-view-background-color: var(--color-cararra-50);
+
+  --dv-tabs-and-actions-container-background-color: var(--color-cararra-50);
+
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-tab-divider-color: transparent;
+
+  --dv-activegroup-visiblepanel-tab-color: var(--color-cararra-900);
+  --dv-activegroup-hiddenpanel-tab-color: var(--color-cararra-400);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-cararra-600);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-cararra-400);
+
+  --dv-separator-border: var(--color-cararra-200);
+  --dv-paneview-header-border-color: var(--color-cararra-800);
+  --dv-scrollbar-background-color: rgba(0, 0, 0, 0.25);
+
+  --dv-underline-color-active: var(--color-burnt-sienna-500);
+  --dv-underline-color-inactive: var(--color-cararra-400);
+  --dv-underline-thickness: 2px;
+  --dv-tab-hover-background: var(--color-cararra-200);
+}
+
+.dockview-theme-larex-dark {
+  --dv-paneview-active-outline-color: var(--color-burnt-sienna-500);
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-height: 36px;
+  --dv-drag-over-background-color: color-mix(in srgb, var(--color-burnt-sienna-500) 20%, transparent);
+  --dv-drag-over-border-color: var(--color-burnt-sienna-400);
+  --dv-tabs-container-scrollbar-color: var(--color-cararra-600);
+  --dv-icon-hover-background-color: var(--color-cararra-700);
+  --dv-floating-box-shadow: 8px 8px 8px 0px rgba(0, 0, 0, 0.5);
+  --dv-overlay-z-index: 999;
+  --dv-border-radius: 0px;
+  --dv-tab-margin: 0;
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--color-burnt-sienna-400);
+  --dv-active-sash-transition-duration: 0.1s;
+  --dv-active-sash-transition-delay: 0.5s;
+
+  --dv-group-view-background-color: var(--color-cararra-950);
+
+  --dv-tabs-and-actions-container-background-color: var(--color-cararra-900);
+
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-tab-divider-color: transparent;
+
+  --dv-activegroup-visiblepanel-tab-color: #ffffff;
+  --dv-activegroup-hiddenpanel-tab-color: var(--color-cararra-500);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--color-cararra-300);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--color-cararra-500);
+
+  --dv-separator-border: var(--color-cararra-700);
+  --dv-paneview-header-border-color: var(--color-cararra-200);
+  --dv-scrollbar-background-color: rgba(255, 255, 255, 0.15);
+
+  --dv-underline-color-active: var(--color-burnt-sienna-500);
+  --dv-underline-color-inactive: var(--color-cararra-600);
+  --dv-underline-thickness: 2px;
+  --dv-tab-hover-background: var(--color-cararra-800);
+}
+
+.dockview-theme-larex-light .dv-groupview > .dv-tabs-and-actions-container,
+.dockview-theme-larex-dark .dv-groupview > .dv-tabs-and-actions-container {
+  border-bottom: 1px solid var(--dv-separator-border);
+  box-sizing: border-box;
+}
+
+.dockview-theme-larex-light .dv-groupview .dv-tab,
+.dockview-theme-larex-dark .dv-groupview .dv-tab {
+  position: relative;
+  transition: color 0.15s ease, background-color 0.15s ease;
+  border-bottom: var(--dv-underline-thickness) solid transparent;
+  margin-bottom: -1px;
+}
+
+.dockview-theme-larex-light .dv-groupview .dv-tab:hover,
+.dockview-theme-larex-dark .dv-groupview .dv-tab:hover {
+  background-color: var(--dv-tab-hover-background);
+}
+
+.dockview-theme-larex-light .dv-groupview.dv-active-group .dv-tab.dv-active-tab,
+.dockview-theme-larex-dark .dv-groupview.dv-active-group .dv-tab.dv-active-tab {
+  padding-bottom: 2px;
+  border-bottom-color: var(--dv-underline-color-active);
+}
+
+.dockview-theme-larex-light .dv-groupview.dv-active-group .dv-tab.dv-inactive-tab,
+.dockview-theme-larex-dark .dv-groupview.dv-active-group .dv-tab.dv-inactive-tab {
+  border-bottom-color: transparent;
+}
+
+.dockview-theme-larex-light .dv-groupview.dv-inactive-group .dv-tab.dv-active-tab,
+.dockview-theme-larex-dark .dv-groupview.dv-inactive-group .dv-tab.dv-active-tab {
+  border-bottom-color: var(--dv-underline-color-inactive);
+}
+
+.dockview-theme-larex-light .dv-groupview.dv-inactive-group .dv-tab.dv-inactive-tab,
+.dockview-theme-larex-dark .dv-groupview.dv-inactive-group .dv-tab.dv-inactive-tab {
+  border-bottom-color: transparent;
+}
+
+.dockview-theme-larex-light .dv-groupview .dv-tab .dv-default-tab-action,
+.dockview-theme-larex-dark .dv-groupview .dv-tab .dv-default-tab-action {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.dockview-theme-larex-light .dv-groupview .dv-tab.dv-active-tab .dv-default-tab-action,
+.dockview-theme-larex-dark .dv-groupview .dv-tab.dv-active-tab .dv-default-tab-action {
+  opacity: 0.6;
+}
+
+.dockview-theme-larex-light .dv-groupview .dv-tab:hover .dv-default-tab-action,
+.dockview-theme-larex-dark .dv-groupview .dv-tab:hover .dv-default-tab-action {
+  opacity: 0.8;
+}
+
+.dockview-theme-larex-light .dv-groupview .dv-tab .dv-default-tab-action:hover,
+.dockview-theme-larex-dark .dv-groupview .dv-tab .dv-default-tab-action:hover {
+  opacity: 1;
+}

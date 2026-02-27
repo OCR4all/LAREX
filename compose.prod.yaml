@@ -1,0 +1,174 @@
+services:
+  postgres:
+    image: postgres:18.2-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: larexdb
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d larexdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.4
+    restart: unless-stopped
+    command: start
+    ports:
+      - "${LAREX_PUBLISH_IP:-127.0.0.1}:8090:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost:8090}
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    networks:
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    build:
+      context: backend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    ports:
+      - "${LAREX_PUBLISH_IP:-127.0.0.1}:8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_RESOURCE_CLIENT_ID: ${KEYCLOAK_RESOURCE_CLIENT_ID:-larex-backend}
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      KEYCLOAK_ADMIN_SERVER_URL: ${KEYCLOAK_ADMIN_SERVER_URL:-http://keycloak:8080}
+      KEYCLOAK_ADMIN_REALM: ${KEYCLOAK_ADMIN_REALM:-larex-prod}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:-http://localhost:8090/realms/larex-prod}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI:-http://keycloak:8080/realms/larex-prod/protocol/openid-connect/certs}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
+      MAIL_HOST: ${MAIL_HOST:-smtp.example.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM:-noreply@example.com}
+      MAIL_ENABLED: ${MAIL_ENABLED:-true}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
+      LAREX_UPLOAD_DIR: ${LAREX_UPLOAD_DIR:-/mnt/data/uploads}
+      LAREX_UPLOAD_TEMP_DIR: ${LAREX_UPLOAD_TEMP_DIR:-/mnt/data/uploads/temp}
+      LAREX_UPLOAD_STARTUP_FAIL_FAST: ${LAREX_UPLOAD_STARTUP_FAIL_FAST:-true}
+    volumes:
+      - app_data:/mnt/data
+    networks:
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "code=$$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health || true); [ \"$$code\" = \"200\" ] || [ \"$$code\" = \"401\" ]"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    ports:
+      - "${LAREX_PUBLISH_IP:-127.0.0.1}:3000:3000"
+    environment:
+      NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD:?required}
+      NUXT_API_BASE_INTERNAL: ${NUXT_API_BASE_INTERNAL:-http://app:8080/api/v1}
+      NUXT_OAUTH_KEYCLOAK_SERVER_URL: ${NUXT_OAUTH_KEYCLOAK_SERVER_URL:-http://localhost:8090}
+      NUXT_OAUTH_KEYCLOAK_SERVER_URL_INTERNAL: ${NUXT_OAUTH_KEYCLOAK_SERVER_URL_INTERNAL:-http://keycloak:8080}
+      NUXT_OAUTH_KEYCLOAK_REALM: ${NUXT_OAUTH_KEYCLOAK_REALM:-larex-prod}
+      NUXT_OAUTH_KEYCLOAK_CLIENT_ID: ${NUXT_OAUTH_KEYCLOAK_CLIENT_ID:-larex-frontend}
+      NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET: ${NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET}
+      NUXT_OAUTH_KEYCLOAK_REDIRECT_URL: ${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL:-http://localhost:3000/auth/keycloak}
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/api/health/backend').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  keycloak_data:
+  app_data:

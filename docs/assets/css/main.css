@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+    --font-sans: 'Geist', sans-serif;
+
+    --breakpoint-3xl: 1920px;
+
+
+    --color-burnt-sienna-50: #fdf4ef;
+    --color-burnt-sienna-100: #fbe6d9;
+    --color-burnt-sienna-200: #f5cab3;
+    --color-burnt-sienna-300: #eea683;
+    --color-burnt-sienna-400: #e77952;
+    --color-burnt-sienna-500: #e1552e;
+    --color-burnt-sienna-600: #d23e24;
+    --color-burnt-sienna-700: #af2e1f;
+    --color-burnt-sienna-800: #8c2720;
+    --color-burnt-sienna-900: #71231d;
+    --color-burnt-sienna-950: #3d0f0d;
+
+    --color-cararra-50: #f7f6f3;
+    --color-cararra-100: #f0eee6;
+    --color-cararra-200: #d5d2c5;
+    --color-cararra-300: #b6b3a9;
+    --color-cararra-400: #9b998f;
+    --color-cararra-500: #7e7c74;
+    --color-cararra-600: #65635d;
+    --color-cararra-700: #4a4944;
+    --color-cararra-800: #33332f;
+    --color-cararra-900: #1c1c19;
+    --color-cararra-950: #11110f;
+}
+
+body {
+    color: black;
+}

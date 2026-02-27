@@ -1,0 +1,135 @@
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.4.2
+    environment:
+      CONTAINERS: 1
+      EVENTS: 1
+      SERVICES: 1
+      SWARM: 0
+      NETWORKS: 1
+      TASKS: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket-proxy
+    restart: unless-stopped
+
+  traefik:
+    image: traefik:v3.6.8
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "8081:8080"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - default
+      - socket-proxy
+    depends_on:
+      - socket-proxy
+
+  postgres:
+    image: postgres:18.2-alpine
+    environment:
+      POSTGRES_DB: larexdb
+      POSTGRES_USER: larex
+      POSTGRES_PASSWORD: larex_dev_pw
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U larex -d larexdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.5.4
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
+      KC_DB_USERNAME: larex
+      KC_DB_PASSWORD: larex_dev_pw
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_FRONTEND_URL: http://keycloak.localhost
+    volumes:
+      - ./config/keycloak/dev.realm.json:/opt/keycloak/data/import/dev.realm.json
+      - ./config/keycloak/theme.jar:/opt/keycloak/providers/larex_theme.jar
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.localhost`)"
+      - "traefik.http.routers.keycloak.entrypoints=web"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mailpit:
+    image: axllent/mailpit:v1.29.1
+    ports:
+      - "8025:8025"  # Web UI
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailpit.rule=Host(`mail.localhost`)"
+      - "traefik.http.routers.mailpit.entrypoints=web"
+      - "traefik.http.services.mailpit.loadbalancer.server.port=8025"
+
+  app:
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      KEYCLOAK_ADMIN_CLIENT_SECRET: PLEASE_CHANGE_IN_PRODUCTION
+      SPRING_DEVTOOLS_RESTART_ENABLED: true
+      SPRING_DEVTOOLS_LIVERELOAD_ENABLED: true
+    volumes:
+      - ./backend/src:/app/src:cached
+      - ./backend/build.gradle.kts:/app/build.gradle.kts:ro
+      - ./backend/settings.gradle.kts:/app/settings.gradle.kts:ro
+      - gradle_cache:/home/gradle/.gradle
+      - ./backend/uploads:/uploads
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+    depends_on:
+      - postgres
+      - keycloak
+      - mailpit
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`larex.localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+    extra_hosts:
+      - "keycloak.localhost:host-gateway"
+
+volumes:
+  postgres_data:
+  gradle_cache:
+
+networks:
+  socket-proxy:
+    driver: bridge

@@ -1,0 +1,65 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  install:
+    desc: Install dependencies
+    cmds:
+      - pnpm install
+
+  dev:
+    desc: Start development server
+    cmds:
+      - pnpm dev
+
+  build:
+    desc: Build for production
+    cmds:
+      - pnpm build
+
+  preview:
+    desc: Preview production build
+    cmds:
+      - pnpm preview
+
+  lint:
+    desc: Run ESLint
+    cmds:
+      - pnpm lint
+
+  lint:fix:
+    desc: Run ESLint with auto-fix
+    cmds:
+      - pnpm lint --fix
+
+  typecheck:
+    desc: Run TypeScript type checking
+    cmds:
+      - pnpm typecheck
+
+  test:
+    desc: Run tests (lint + typecheck)
+    cmds:
+      - task: lint
+      - task: typecheck
+
+  clean:
+    desc: Clean build artifacts and dependencies
+    cmds:
+      - rm -rf .nuxt .output node_modules
+
+  clean:build:
+    desc: Clean only build artifacts
+    cmds:
+      - rm -rf .nuxt .output
+
+  generate:
+    desc: Generate static site
+    cmds:
+      - pnpm generate
+
+  postinstall:
+    desc: Run postinstall script
+    cmds:
+      - pnpm postinstall

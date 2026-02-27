@@ -1,0 +1,60 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  dev:
+    desc: Run development server
+    cmds:
+      - ./gradlew bootRun
+
+  dev:debug:
+    desc: Run development server with debug enabled
+    cmds:
+      - ./gradlew bootRun -Pdebug
+
+  build:
+    desc: Build the application
+    cmds:
+      - ./gradlew build -x test
+
+  build:jar:
+    desc: Build the application JAR
+    cmds:
+      - ./gradlew bootJar
+
+  test:
+    desc: Run tests
+    cmds:
+      - ./gradlew test
+
+  test:verbose:
+    desc: Run tests with verbose output
+    cmds:
+      - ./gradlew test --info
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - ./gradlew clean
+
+  deps:
+    desc: List all dependencies
+    cmds:
+      - ./gradlew dependencies
+
+  deps:updates:
+    desc: Check for dependency updates
+    cmds:
+      - ./gradlew dependencyUpdates
+
+  format:
+    desc: Format code (if formatter plugin is configured)
+    cmds:
+      - ./gradlew spotlessApply
+    ignore_error: true
+
+  lint:
+    desc: Run linting checks
+    cmds:
+      - ./gradlew check -x test

@@ -1,0 +1,8 @@
+# Theme build outputs
+/dist
+/dist_keycloak
+/build_keycloak
+/storybook-static
+
+# Build output of jsx-email (when account/email theme is initialized)
+/.rendered

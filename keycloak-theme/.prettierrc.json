@@ -1,0 +1,21 @@
+{
+  "printWidth": 90,
+  "tabWidth": 2,
+  "trailingComma": "none",
+  "arrowParens": "avoid",
+  "overrides": [
+    {
+      "files": [
+        "**/login/pages/*.tsx",
+        "**/account/pages/*.tsx",
+        "**/login/Template.tsx",
+        "**/account/Template.tsx",
+        "**/login/UserProfileFormFields.tsx",
+        "KcApp.tsx"
+      ],
+      "options": {
+        "printWidth": 150
+      }
+    }
+  ]
+}

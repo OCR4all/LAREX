@@ -1,0 +1,6 @@
+export const isPUA = (hex: string) => {
+  if (!hex) return false
+  const code = parseInt(hex, 16)
+  if (isNaN(code)) return false
+  return (code >= 0xE000 && code <= 0xF8FF) || (code >= 0xF0000 && code <= 0xFFFFD) || (code >= 0x100000 && code <= 0x10FFFD)
+}

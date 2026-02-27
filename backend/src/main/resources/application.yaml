@@ -1,0 +1,139 @@
+spring:
+  application:
+    name: backend
+  devtools:
+    livereload:
+      enabled: true
+    restart:
+      enabled: true
+  mvc:
+    servlet:
+      path: /api/v1
+  servlet:
+    multipart:
+      enabled: true
+      location: ${larex.upload.temp-directory:${file.upload-dir}/temp}
+      max-file-size: 100MB
+      max-request-size: 500MB
+  datasource:
+    url: jdbc:postgresql://postgres:5432/larexdb
+    username: larex
+    password: larex_dev_pw
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak.localhost/realms/larex-dev
+          jwk-set-uri: http://keycloak:8080/realms/larex-dev/protocol/openid-connect/certs
+  # Email configuration
+  mail:
+    host: ${MAIL_HOST:mailpit}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    from: ${MAIL_FROM:noreply@larex.localhost}
+    enabled: ${MAIL_ENABLED:true}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
+
+keycloak:
+  resource-client-id: larex-backend
+  admin:
+    server-url: http://keycloak:8080
+    realm: larex-dev
+    client-id: larex-backend-service
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:PLEASE_CHANGE_IN_PRODUCTION}
+
+file:
+  upload-dir: ${LAREX_UPLOAD_DIR:/uploads}
+
+app:
+  name: ${APP_NAME:LAREX}
+  upload:
+    profile-images:
+      path: ${file.upload-dir}/profile-images
+      base-url: /api/profile/images
+
+# Storage quota configuration
+larex:
+  storage:
+    # Default storage quota per workspace in bytes (default: 1GB = 1073741824 bytes)
+    default-quota-bytes: ${LAREX_DEFAULT_QUOTA_BYTES:1073741824}
+    # Enable quota enforcement (default: true)
+    quota-enforcement-enabled: ${LAREX_QUOTA_ENFORCEMENT_ENABLED:true}
+    # Warning threshold percentage (default: 80%)
+    quota-warning-threshold: ${LAREX_QUOTA_WARNING_THRESHOLD:80.0}
+  # XML versioning configuration
+  versioning:
+    # Maximum number of versions to keep per XML file (default: 25)
+    max-versions-per-xml: ${LAREX_VERSIONING_MAX_VERSIONS:25}
+  # Chunked upload configuration
+  upload:
+    # Chunk size in bytes (default: 5MB = 5242880 bytes)
+    chunk-size-bytes: ${LAREX_UPLOAD_CHUNK_SIZE:5242880}
+    # Temp directory for upload chunks
+    temp-directory: ${LAREX_UPLOAD_TEMP_DIR:${file.upload-dir}/temp}
+    directories:
+      root-directory: ${file.upload-dir}
+      temp-directory: ${larex.upload.temp-directory}
+      create-if-missing: ${LAREX_UPLOAD_CREATE_IF_MISSING:true}
+      verify-writable: ${LAREX_UPLOAD_VERIFY_WRITABLE:true}
+      fail-fast: ${LAREX_UPLOAD_STARTUP_FAIL_FAST:true}
+    # Session timeout in hours (default: 24 hours)
+    session-timeout-hours: ${LAREX_UPLOAD_SESSION_TIMEOUT:24}
+    # Batch size for processing files (default: 10)
+    batch-size: ${LAREX_UPLOAD_BATCH_SIZE:10}
+    # Max concurrent sessions per user (default: 50)
+    max-concurrent-sessions: ${LAREX_UPLOAD_MAX_SESSIONS:50}
+    # Async executor configuration
+    async:
+      core-pool-size: ${LAREX_UPLOAD_ASYNC_CORE_POOL:2}
+      max-pool-size: ${LAREX_UPLOAD_ASYNC_MAX_POOL:5}
+      queue-capacity: ${LAREX_UPLOAD_ASYNC_QUEUE:100}
+    index-async:
+      core-pool-size: ${LAREX_UPLOAD_INDEX_ASYNC_CORE_POOL:1}
+      max-pool-size: ${LAREX_UPLOAD_INDEX_ASYNC_MAX_POOL:2}
+      queue-capacity: ${LAREX_UPLOAD_INDEX_ASYNC_QUEUE:200}
+  # Server-side import configuration
+  import:
+    # Enable server-side import feature (default: true)
+    enabled: ${LAREX_IMPORT_ENABLED:true}
+    # Allowed paths for import (comma-separated)
+    allowed-paths: ${LAREX_IMPORT_ALLOWED_PATHS:/data/imports,/mnt/shared/datasets}
+    # Max directory scan depth (default: 10)
+    max-scan-depth: ${LAREX_IMPORT_MAX_SCAN_DEPTH:10}
+    # Max files per import job (default: 100000)
+    max-files-per-job: ${LAREX_IMPORT_MAX_FILES:100000}
+  backup:
+    # Enable admin dump/reseed feature (default: true)
+    enabled: ${LAREX_BACKUP_ENABLED:true}
+    # Allowed source/output paths for backup jobs (comma-separated)
+    allowed-paths: ${LAREX_BACKUP_ALLOWED_PATHS:/uploads,/mnt/data,/mnt/data/backups}
+    # Default output directory for dump files and reseed markers
+    output-dir: ${LAREX_BACKUP_OUTPUT_DIR:/uploads/backups}
+    # Maximum number of files allowed per backup/reseed job
+    max-files-per-job: ${LAREX_BACKUP_MAX_FILES:500000}
+
+cors:
+  enabled: true
+  allowed-origin: http://larex.localhost
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always

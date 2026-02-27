@@ -1,0 +1,92 @@
+@import "tailwindcss" theme(static);
+@import "@nuxt/ui";
+@import "./dockview-theme.css";
+
+@theme {
+  --font-sans: 'Geist', sans-serif;
+}
+
+:root {
+  --ui-radius: 0.25rem;
+  --ui-primary: #1c1c19;
+}
+
+.dark {
+  --ui-primary: #f0eee6;
+}
+
+@font-face {
+  font-family: 'Junicode';
+  src: url('~/assets/fonts/JunicodeVF-Roman.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Junicode';
+  src: url('~/assets/fonts/JunicodeVF-Italic.woff2') format('woff2');
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@theme static {
+  --font-sans: 'Geist', sans-serif;
+  --font-junicode: 'Junicode', serif;
+
+  --color-burnt-sienna-50: #fdf4ef;
+  --color-burnt-sienna-100: #fbe6d9;
+  --color-burnt-sienna-200: #f5cab3;
+  --color-burnt-sienna-300: #eea683;
+  --color-burnt-sienna-400: #e77952;
+  --color-burnt-sienna-500: #e1552e;
+  --color-burnt-sienna-600: #d23e24;
+  --color-burnt-sienna-700: #af2e1f;
+  --color-burnt-sienna-800: #8c2720;
+  --color-burnt-sienna-900: #71231d;
+  --color-burnt-sienna-950: #3d0f0d;
+
+  --color-cararra-50: #f7f6f3;
+  --color-cararra-100: #f0eee6;
+  --color-cararra-200: #d5d2c5;
+  --color-cararra-300: #b6b3a9;
+  --color-cararra-400: #9b998f;
+  --color-cararra-500: #7e7c74;
+  --color-cararra-600: #65635d;
+  --color-cararra-700: #4a4944;
+  --color-cararra-800: #33332f;
+  --color-cararra-900: #1c1c19;
+  --color-cararra-950: #11110f;
+}
+
+.font-junicode {
+  font-family: var(--font-junicode), serif;
+}
+
+.editor-sidebar-image-scroll {
+  /* Keep content clear of the thumb when overlay scrollbars are active */
+  padding-inline-end: 0.25rem;
+  /* Reserve gutter where supported to avoid overlap in non-overlay environments */
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(115 115 115 / 0.5) transparent;
+}
+
+.editor-sidebar-image-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.editor-sidebar-image-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-sidebar-image-scroll::-webkit-scrollbar-thumb {
+  background: rgb(115 115 115 / 0.5);
+  border-radius: 9999px;
+}
+
+.editor-sidebar-image-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(82 82 82 / 0.65);
+}

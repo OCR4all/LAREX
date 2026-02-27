@@ -1,0 +1,161 @@
+<script setup lang="ts">
+import type { NavigationMenuItem } from '@nuxt/ui'
+
+interface Props {
+  open: boolean
+}
+
+interface Emits {
+  'update:open': [value: boolean]
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
+
+const route = useRoute()
+
+const sidebarOpen = computed({
+  get: () => props.open,
+  set: value => emit('update:open', value)
+})
+
+const isAdmin = computed(() => route.path.startsWith('/admin'))
+
+const isActive = (to: string, exact?: boolean) =>
+  exact ? route.path === to : route.path.startsWith(to)
+
+const isTaskRoute = computed(() =>
+  route.path === '/tasks' || route.path.startsWith('/tasks/')
+)
+
+const isLibraryRoute = computed(() =>
+  route.path === '/' || route.path.startsWith('/project/')
+)
+
+const withActive = <T extends { to?: string, exact?: boolean }>(items: T[]) =>
+  items.map(item => ({ ...item, active: item.to ? isActive(item.to, item.exact) : false }))
+
+const defaultNavigation = computed<NavigationMenuItem[]>(() => {
+  const utilitiesChildren = withActive([
+    { label: 'Labels', icon: 'i-lucide-tags', to: '/labels', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Virtual Keyboards', icon: 'i-lucide-keyboard', to: '/virtual-keyboard', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Codecs', icon: 'i-lucide-case-lower', to: '/codecs', onSelect: () => { sidebarOpen.value = false } }
+  ])
+  const workspaceChildren = withActive([
+    { label: 'General', to: '/workspace/settings', icon: 'i-lucide-sliders-horizontal', exact: true, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Members', to: '/workspace/settings/members', icon: 'i-lucide-users', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Requests', to: '/workspace/settings/requests', icon: 'i-lucide-git-pull-request', onSelect: () => { sidebarOpen.value = false } }
+  ])
+  const settingsChildren = withActive([
+    { label: 'Profile', to: '/settings', icon: 'i-lucide-user', exact: true, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Invitations', to: '/settings/invitations', icon: 'i-lucide-mailbox', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Notifications', to: '/settings/notifications', icon: 'i-lucide-bell', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Security', to: '/settings/security', icon: 'i-lucide-shield', onSelect: () => { sidebarOpen.value = false } }
+  ])
+
+  const hasActive = (items: { active: boolean }[]) => items.some(i => i.active)
+
+  return [
+    { label: 'Library', icon: 'i-lucide-library', to: '/', active: isLibraryRoute.value, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Tasks', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Utilities', icon: 'i-lucide-tool-case', defaultOpen: hasActive(utilitiesChildren), type: 'trigger', children: utilitiesChildren },
+    { label: 'Workspace', icon: 'i-lucide-layers', defaultOpen: hasActive(workspaceChildren), type: 'trigger', children: workspaceChildren },
+    { label: 'Settings', icon: 'i-lucide-settings', defaultOpen: hasActive(settingsChildren), type: 'trigger', children: settingsChildren }
+  ]
+})
+
+const adminNavigation = computed<NavigationMenuItem[]>(() => {
+  const actuatorChildren = withActive([
+    { label: 'Health', to: '/admin/actuator', exact: true },
+    { label: 'Info', to: '/admin/actuator/info' }
+  ])
+
+  const hasActive = (items: { active: boolean }[]) => items.some(i => i.active)
+
+  return [
+    { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/admin', active: route.path === '/admin' },
+    { label: 'Actuator', icon: 'i-lucide-heart-pulse', defaultOpen: hasActive(actuatorChildren), type: 'trigger', children: actuatorChildren },
+    { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index', active: isActive('/admin/search-index') },
+    { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas', active: isActive('/admin/quotas') },
+    { label: 'Backup', icon: 'i-lucide-database-backup', to: '/admin/backup', active: isActive('/admin/backup') },
+    { label: 'Storage', icon: 'i-lucide-trash-2', to: '/admin/storage', active: isActive('/admin/storage') },
+    { label: 'Workspaces', icon: 'i-lucide-layers', to: '/admin/workspaces', active: isActive('/admin/workspaces') },
+    { label: 'Users', icon: 'i-lucide-users', to: '/admin/users', active: isActive('/admin/users') }
+  ]
+})
+
+const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaultNavigation.value)
+</script>
+
+<template>
+  <UDashboardSidebar
+    id="dashboard"
+    v-model:open="sidebarOpen"
+    collapsible
+    resizable
+    :min-size="17"
+    :default-size="20"
+    :max-size="25"
+    class="bg-elevated/25"
+    :ui="{ header: 'px-0 py-2 border-b border-default', footer: 'lg:border-t lg:border-default' }"
+  >
+    <template #header="{ collapsed }">
+      <div class="flex content-center w-full h-full" :class="[collapsed ? 'px-2 justify-center' : 'px-4 justify-between']">
+        <template v-if="isAdmin">
+          <UiLogo
+            size="32"
+            class="self-center cursor-pointer"
+            @click="navigateTo('/')"
+          />
+          <span v-show="!collapsed" class="font-medium inline-block self-center">Administration</span>
+        </template>
+        <template v-else>
+          <UiLogo
+            v-show="!collapsed"
+            size="32"
+            class="self-center cursor-pointer"
+            @click="navigateTo('/')"
+          />
+          <WorkspaceMenu :collapsed="collapsed" />
+        </template>
+      </div>
+    </template>
+
+    <template #default="{ collapsed }">
+      <UDashboardSearchButton
+        :collapsed="collapsed"
+        class="bg-transparent ring-default"
+        :kbds="['meta', '/']"
+        data-tour="search-button"
+      />
+
+      <template v-if="isAdmin">
+        <UButton
+          to="/"
+          color="neutral"
+          variant="subtle"
+          :icon="collapsed ? 'i-lucide-arrow-left' : undefined"
+          :label="collapsed ? undefined : 'Back to Application'"
+          :leading-icon="collapsed ? undefined : 'i-lucide-arrow-left'"
+          block
+          class="justify-start"
+        />
+      </template>
+
+      <UNavigationMenu
+        :collapsed="collapsed"
+        :items="navigation"
+        orientation="vertical"
+        tooltip
+        popover
+      />
+
+      <LayoutSidebarFavorites v-if="!isAdmin" :collapsed="collapsed" class="mt-4" />
+    </template>
+
+    <template #footer="{ collapsed }">
+      <UserMenu :collapsed="collapsed" />
+    </template>
+  </UDashboardSidebar>
+</template>

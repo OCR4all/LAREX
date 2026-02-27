@@ -1,0 +1,2 @@
+file:
+  upload-dir: ${java.io.tmpdir}/larex-test-uploads

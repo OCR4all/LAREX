@@ -1,0 +1,330 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  VERSION:
+    sh: cat VERSION
+  DOCKER_REGISTRY: ghcr.io/your-org/larex
+  COMPOSE_FILE: docker-compose.yaml
+  COMPOSE_PROD_FILE: compose.prod.yaml
+  COMPOSE_PROD_LOCAL_FILE: compose.prod.local.yaml
+  COMPOSE_PROD_TRAEFIK_FILE: compose.prod.traefik.yaml
+  COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE: compose.prod.external-keycloak.yaml
+
+includes:
+  backend:
+    taskfile: ./backend/Taskfile.yml
+    dir: ./backend
+  frontend:
+    taskfile: ./frontend/Taskfile.yml
+    dir: ./frontend
+  theme:
+    taskfile: ./keycloak-theme/Taskfile.yml
+    dir: ./keycloak-theme
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+
+  # ============================================================================
+  # Development Setup
+  # ============================================================================
+
+  setup:
+    desc: One-time setup for new developers
+    cmds:
+      - task: install
+      - task: docker:infra
+      - echo "Setup complete! Run 'task dev' to start development."
+
+  install:
+    desc: Install all dependencies
+    cmds:
+      - task: frontend:install
+      - task: theme:install
+      - echo "All dependencies installed."
+
+  dev:
+    desc: Start development environment (requires infrastructure running)
+    deps:
+      - docker:infra
+    cmds:
+      - 'echo "Infrastructure is running. Start backend and frontend manually:"'
+      - 'echo "  Terminal 1: task backend:dev"'
+      - 'echo "  Terminal 2: task frontend:dev"'
+      - 'echo ""'
+      - 'echo "Or use Docker for everything: task docker:up"'
+
+  # ============================================================================
+  # Docker Orchestration
+  # ============================================================================
+
+  docker:up:
+    desc: Start all services with Docker Compose
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} up -d
+
+  docker:up:build:
+    desc: Build and start all services with Docker Compose
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} up -d --build
+
+  docker:down:
+    desc: Stop all services
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} down
+
+  docker:down:clean:
+    desc: Stop all services and remove volumes
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} down -v
+
+  docker:infra:
+    desc: Start only infrastructure services (postgres, keycloak, traefik)
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} up -d postgres keycloak traefik
+
+  docker:logs:
+    desc: View logs from all services
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} logs -f
+
+  docker:logs:backend:
+    desc: View backend logs
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} logs -f app
+
+  docker:logs:frontend:
+    desc: View frontend logs
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} logs -f frontend
+
+  docker:ps:
+    desc: Show running containers
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} ps
+
+  # ============================================================================
+  # Production Docker
+  # ============================================================================
+
+  docker:prod:up:
+    desc: "Start production services (default: no Traefik, bundled Keycloak)"
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_FILE}} up -d
+
+  docker:prod:down:
+    desc: Stop production services (default variant)
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_FILE}} down
+
+  docker:prod:logs:
+    desc: View production logs (default variant)
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_FILE}} logs -f
+
+  docker:prod:config:
+    desc: Validate default production compose configuration
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_FILE}} config >/dev/null
+
+  docker:prod:traefik:up:
+    desc: Start secondary/advanced production services (Traefik + LetsEncrypt)
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} up -d
+
+  docker:prod:traefik:down:
+    desc: Stop secondary/advanced Traefik production services
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} down
+
+  docker:prod:traefik:logs:
+    desc: View logs for secondary/advanced Traefik production services
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} logs -f
+
+  docker:prod:traefik:config:
+    desc: Validate secondary/advanced Traefik production compose configuration
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} config >/dev/null
+
+  docker:prod:local:up:
+    desc: Start production-like local stack (Traefik + local hostnames + Mailpit)
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} up -d
+
+  docker:prod:local:down:
+    desc: Stop production-like local stack
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} down
+
+  docker:prod:local:logs:
+    desc: View logs for production-like local stack
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} logs -f
+
+  docker:prod:local:config:
+    desc: Validate production-like local compose configuration
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} config >/dev/null
+
+  docker:prod:external-keycloak:up:
+    desc: Start production services (no Traefik, external Keycloak)
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} up -d
+
+  docker:prod:external-keycloak:down:
+    desc: Stop production services (external Keycloak variant)
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} down
+
+  docker:prod:external-keycloak:logs:
+    desc: View logs for external Keycloak production variant
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} logs -f
+
+  docker:prod:external-keycloak:config:
+    desc: Validate external Keycloak production compose configuration
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} config >/dev/null
+
+  # ============================================================================
+  # Testing
+  # ============================================================================
+
+  test:
+    desc: Run all tests (backend + frontend)
+    cmds:
+      - task: test:backend
+      - task: test:frontend
+
+  test:backend:
+    desc: Run backend tests
+    cmds:
+      - task: backend:test
+
+  test:frontend:
+    desc: Run frontend lint and typecheck
+    cmds:
+      - task: frontend:lint
+      - task: frontend:typecheck
+
+  # ============================================================================
+  # Building
+  # ============================================================================
+
+  build:
+    desc: Build all projects
+    cmds:
+      - task: backend:build
+      - task: frontend:build
+      - task: theme:build
+
+  build:docker:
+    desc: Build production Docker images
+    cmds:
+      - docker compose -f {{.COMPOSE_PROD_FILE}} build
+
+  # ============================================================================
+  # Versioning
+  # ============================================================================
+
+  ver:
+    desc: Show current version
+    cmds:
+      - echo "Current version {{.VERSION}}"
+
+  ver:sync:
+    desc: Sync VERSION file to all projects
+    cmds:
+      - ./scripts/version-sync.sh
+
+  ver:bump:major:
+    desc: Bump major version (X.0.0)
+    cmds:
+      - |
+        IFS='.' read -r major minor patch < VERSION
+        echo "$((major + 1)).0.0" > VERSION
+      - task: ver:sync
+      - task: ver
+
+  ver:bump:minor:
+    desc: Bump minor version (0.X.0)
+    cmds:
+      - |
+        IFS='.' read -r major minor patch < VERSION
+        echo "${major}.$((minor + 1)).0" > VERSION
+      - task: ver:sync
+      - task: ver
+
+  ver:bump:patch:
+    desc: Bump patch version (0.0.X)
+    cmds:
+      - |
+        IFS='.' read -r major minor patch < VERSION
+        echo "${major}.${minor}.$((patch + 1))" > VERSION
+      - task: ver:sync
+      - task: ver
+
+  # ============================================================================
+  # Release
+  # ============================================================================
+
+  release:docker:
+    desc: Build and tag Docker images for release
+    cmds:
+      - 'echo "Building release images for version {{.VERSION}}..."'
+      - 'docker build -t {{.DOCKER_REGISTRY}}/backend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/backend:latest ./backend'
+      - 'docker build -t {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}} -t {{.DOCKER_REGISTRY}}/frontend:latest ./frontend'
+
+  release:docker:push:
+    desc: Push Docker images to registry
+    cmds:
+      - 'docker push {{.DOCKER_REGISTRY}}/backend:{{.VERSION}}'
+      - 'docker push {{.DOCKER_REGISTRY}}/backend:latest'
+      - 'docker push {{.DOCKER_REGISTRY}}/frontend:{{.VERSION}}'
+      - 'docker push {{.DOCKER_REGISTRY}}/frontend:latest'
+
+  # ============================================================================
+  # Utilities
+  # ============================================================================
+
+  data:dump:
+    desc: Create a full file-based data dump via admin backup API
+    cmds:
+      - ./scripts/larex-backup.sh dump --output "${LAREX_BACKUP_OUTPUT_PATH:-/mnt/data/backups}"
+
+  data:reseed:
+    desc: Reseed file-based data from a dump archive via admin backup API
+    cmds:
+      - ./scripts/larex-backup.sh reseed --source "${LAREX_RESEED_SOURCE_PATH:?set LAREX_RESEED_SOURCE_PATH}" --output "${LAREX_RESEED_OUTPUT_PATH:-/mnt/data/backups}"
+
+  clean:
+    desc: Clean all build artifacts
+    cmds:
+      - task: backend:clean
+      - task: frontend:clean
+      - task: theme:clean
+      - echo "All build artifacts cleaned."
+
+  status:
+    desc: Show status of all services
+    cmds:
+      - 'echo "=== Docker Services ==="'
+      - docker compose -f {{.COMPOSE_FILE}} ps
+      - 'echo ""'
+      - 'echo "=== Version ==="'
+      - 'echo "Current version {{.VERSION}}"'
+
+  db:shell:
+    desc: Open PostgreSQL shell
+    cmds:
+      - 'docker compose -f {{.COMPOSE_FILE}} exec postgres psql -U larex_user -d larex_dev'
+
+  keycloak:shell:
+    desc: Open Keycloak container shell
+    cmds:
+      - 'docker compose -f {{.COMPOSE_FILE}} exec keycloak bash'

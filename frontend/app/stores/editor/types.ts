@@ -1,0 +1,114 @@
+export type UiMode = 'layout' | 'text'
+export type LayoutViewMode = 'default' | 'textline' | 'baseline'
+export type LineWidthPreset = 'thin' | 'light' | 'normal' | 'medium' | 'bold' | 'extraBold'
+export type UiModeScope = 'global' | 'per-canvas'
+export type ToolbarLayout = 'floating' | 'docked-top' | 'docked-bottom' | 'docked-left' | 'docked-right'
+export type VirtualKeyboardMode = 'off' | 'floating' | 'slideover'
+export type TextItemLayout = 'side-by-side' | 'vertical'
+export type ConfidenceHeatmapMode = 'indices' | 'average'
+
+export interface ConfidenceHeatmapSettings {
+  enabled: boolean
+  mode: ConfidenceHeatmapMode
+  selectedIndices: number[]
+  logScale: boolean
+  logScaleStrength: number
+  fillOpacity: number
+}
+
+export interface ImageVariant {
+  id: string
+  url: string
+  type?: string
+  label: string
+}
+
+export interface ResolvedTag {
+  id: string
+  label: string
+  color: string | null
+}
+
+export type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
+
+export interface XmlFile {
+  id: string
+  fileName: string
+  schema: 'PAGE_XML' | 'ALTO_XML' | 'UNKNOWN'
+  schemaVersion?: string
+  variant?: string
+}
+
+export interface PageData {
+  id: string
+  projectId: string
+  projectName?: string
+  label: string
+  imageVariants: ImageVariant[]
+  xmlFiles: XmlFile[]
+  thumbnail?: string
+  tags?: string[]
+  resolvedTags?: ResolvedTag[] | null
+  locked?: boolean
+  lockedReason?: string | null
+  /** Available from page list API before enrichment */
+  imageCount?: number
+  /** Available from page list API before enrichment */
+  xmlFileCount?: number
+  indexingStatus?: PageIndexingStatus
+}
+
+export interface GlobalSettings {
+  constrainToImage: boolean
+  constrainToParent: boolean
+  autoSelect: boolean
+  /** Minimum polygon area threshold for cut operations. Polygons below this area are auto-deleted. Default: 0.0001 (0.01% of normalized space) */
+  cutMinAreaThreshold: number
+  /** When moving elements, also move all children (textlines, baselines) */
+  moveWithChildren: boolean
+  /** Default line width preset for polygon and polyline outlines */
+  defaultLineWidth: LineWidthPreset
+}
+
+export interface ReadingOrderOverlaySettings {
+  /** Whether to show the reading order overlay */
+  visible: boolean
+  /** Show arrows between consecutive reading order items */
+  showArrows: boolean
+  /** Show dashed bounding boxes around groups */
+  showGroupBounds: boolean
+  /** Show order numbers at region centroids */
+  showOrderNumbers: boolean
+  /** Show ALL regions including nested ones (not just top-level) */
+  showAllRegions: boolean
+  /** Show labels next to order numbers and group bounds */
+  showLabels: boolean
+}
+
+export interface CanvasState {
+  id: string
+  projectId: string | null
+  pageId: string | null
+  imageVariantId: string | null
+  imageSrc: string | null
+  selectedRegionId: string | null
+  selectedBaselineId: string | null
+  drawingMode: string
+  regionType: string
+  hoveredRegionId: string | null
+  hoveredBaselineId: string | null
+  hoveredNodeIndex: number
+  imageSize?: { width: number, height: number }
+  /** Whether annotations are currently being loaded for this canvas */
+  isLoadingAnnotations?: boolean
+  /** The XML file ID that was loaded for this canvas (for saving back) */
+  xmlFileId?: string
+  /** Whether annotations are currently being saved */
+  isSavingAnnotations?: boolean
+  /** Whether the annotations have unsaved changes */
+  hasUnsavedChanges?: boolean
+  /** Command history index at last save/load baseline */
+  historyBaselineIndex?: number
+  /** Current command history index */
+  historyCurrentIndex?: number
+}

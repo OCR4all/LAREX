@@ -1,0 +1,202 @@
+<script setup lang="ts">
+import { h, resolveComponent } from 'vue'
+import { wsKey } from '@/utils/fetch-keys'
+
+const UBadge = resolveComponent('UBadge')
+const UButton = resolveComponent('UButton')
+const NuxtTime = resolveComponent('NuxtTime')
+
+const toast = useToast()
+const workspace = useWorkspaceStore()
+const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+
+type TransferRequest = {
+  id: string
+  projectId?: string
+  projectName?: string
+  resourceId?: string
+  resourceName?: string
+  resourceType?: 'CODEC' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET'
+  sourceWorkspaceId: string
+  sourceWorkspaceName: string
+  targetWorkspaceId: string
+  targetWorkspaceName: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | 'CANCELLED'
+  transferType: 'MOVE' | 'COPY'
+  message?: string
+  created: string
+}
+
+const { data: incomingProjects, refresh: refreshIncomingProjects } = await useFetch<TransferRequest[]>(
+  () => `/api/project-transfers/workspace/${selectedWorkspace.value}/incoming`,
+  {
+    key: computed(() => wsKey(selectedWorkspace.value as string, 'project-transfers', 'incoming')),
+    watch: [selectedWorkspace],
+    default: () => []
+  }
+)
+const { data: incomingResources, refresh: refreshIncomingResources } = await useFetch<TransferRequest[]>(
+  () => `/api/resource-transfers/workspace/${selectedWorkspace.value}/incoming`,
+  {
+    key: computed(() => wsKey(selectedWorkspace.value as string, 'resource-transfers', 'incoming')),
+    watch: [selectedWorkspace],
+    default: () => []
+  }
+)
+const { data: outgoingProjects, refresh: refreshOutgoingProjects } = await useFetch<TransferRequest[]>(
+  () => `/api/project-transfers/workspace/${selectedWorkspace.value}/outgoing`,
+  {
+    key: computed(() => wsKey(selectedWorkspace.value as string, 'project-transfers', 'outgoing')),
+    watch: [selectedWorkspace],
+    default: () => []
+  }
+)
+const { data: outgoingResources, refresh: refreshOutgoingResources } = await useFetch<TransferRequest[]>(
+  () => `/api/resource-transfers/workspace/${selectedWorkspace.value}/outgoing`,
+  {
+    key: computed(() => wsKey(selectedWorkspace.value as string, 'resource-transfers', 'outgoing')),
+    watch: [selectedWorkspace],
+    default: () => []
+  }
+)
+
+const incoming = computed(() => [...(incomingProjects.value || []), ...(incomingResources.value || [])])
+const outgoing = computed(() => [...(outgoingProjects.value || []), ...(outgoingResources.value || [])])
+
+async function refreshAll() {
+  await Promise.all([refreshIncomingProjects(), refreshIncomingResources(), refreshOutgoingProjects(), refreshOutgoingResources()])
+}
+
+async function approve(request: TransferRequest) {
+  const endpoint = request.projectId ? `/api/project-transfers/${request.id}/approve` : `/api/resource-transfers/${request.id}/approve`
+  try {
+    await $fetch(endpoint, { method: 'POST' })
+    toast.add({ title: 'Transfer approved', color: 'success' })
+    await refreshAll()
+  } catch {
+    toast.add({ title: 'Failed to approve', color: 'error' })
+  }
+}
+
+async function reject(request: TransferRequest) {
+  const endpoint = request.projectId ? `/api/project-transfers/${request.id}/reject` : `/api/resource-transfers/${request.id}/reject`
+  try {
+    await $fetch(endpoint, { method: 'POST', body: { rejectionReason: '' } })
+    toast.add({ title: 'Transfer rejected', color: 'neutral' })
+    await refreshAll()
+  } catch {
+    toast.add({ title: 'Failed to reject', color: 'error' })
+  }
+}
+
+async function cancel(request: TransferRequest) {
+  const endpoint = request.projectId ? `/api/project-transfers/${request.id}/cancel` : `/api/resource-transfers/${request.id}/cancel`
+  try {
+    await $fetch(endpoint, { method: 'POST' })
+    toast.add({ title: 'Request cancelled', color: 'neutral' })
+    await refreshAll()
+  } catch {
+    toast.add({ title: 'Failed to cancel', color: 'error' })
+  }
+}
+
+const incomingColumns = [
+  {
+    accessorKey: 'name',
+    header: 'Resource',
+    cell: ({ row }: { row: any }) => h('div', [
+      h('p', { class: 'font-medium' }, row.original.projectName || row.original.resourceName),
+      h('p', { class: 'text-xs text-muted' }, row.original.resourceType || 'Project')
+    ])
+  },
+  {
+    accessorKey: 'transferType',
+    header: 'Type',
+    cell: ({ row }: { row: any }) => h(UBadge, { color: 'neutral', variant: 'soft', size: 'sm' }, () => row.original.transferType)
+  },
+  {
+    accessorKey: 'source',
+    header: 'From',
+    cell: ({ row }: { row: any }) => h('span', { class: 'text-sm' }, row.original.sourceWorkspaceName)
+  },
+  {
+    accessorKey: 'created',
+    header: 'Requested',
+    cell: ({ row }: { row: any }) => h(NuxtTime, { datetime: row.original.created })
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }: { row: any }) => h('div', { class: 'flex gap-2' }, [
+      h(UButton, { size: 'xs', color: 'neutral', variant: 'outline', onClick: () => reject(row.original) }, () => 'Reject'),
+      h(UButton, { size: 'xs', onClick: () => approve(row.original) }, () => 'Approve')
+    ])
+  }
+]
+
+const outgoingColumns = [
+  {
+    accessorKey: 'name',
+    header: 'Resource',
+    cell: ({ row }: { row: any }) => h('div', [
+      h('p', { class: 'font-medium' }, row.original.projectName || row.original.resourceName),
+      h('p', { class: 'text-xs text-muted' }, row.original.resourceType || 'Project')
+    ])
+  },
+  {
+    accessorKey: 'transferType',
+    header: 'Type',
+    cell: ({ row }: { row: any }) => h(UBadge, { color: 'neutral', variant: 'soft', size: 'sm' }, () => row.original.transferType)
+  },
+  {
+    accessorKey: 'target',
+    header: 'To',
+    cell: ({ row }: { row: any }) => h('span', { class: 'text-sm' }, row.original.targetWorkspaceName)
+  },
+  {
+    accessorKey: 'created',
+    header: 'Requested',
+    cell: ({ row }: { row: any }) => h(NuxtTime, { datetime: row.original.created })
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }: { row: any }) => h(UButton, { size: 'xs', color: 'neutral', variant: 'ghost', onClick: () => cancel(row.original) }, () => 'Cancel')
+  }
+]
+</script>
+
+<template>
+  <div class="flex justify-end">
+    <UButton
+      icon="i-lucide-refresh-cw"
+      color="neutral"
+      variant="ghost"
+      @click="refreshAll"
+    >
+      Refresh
+    </UButton>
+  </div>
+  <UPageCard
+    data-tour="workspace-requests-incoming"
+    title="Incoming Requests"
+    variant="subtle"
+  >
+    <div v-if="incoming.length === 0" class="text-center py-8 text-muted">
+      <UIcon name="i-lucide-inbox" class="mx-auto text-3xl mb-2" />
+      <p>No pending incoming requests</p>
+    </div>
+    <UTable v-else :columns="incomingColumns" :data="incoming" />
+  </UPageCard>
+  <UPageCard
+    data-tour="workspace-requests-outgoing"
+    title="Outgoing Requests"
+    variant="subtle"
+  >
+    <div v-if="outgoing.length === 0" class="text-center py-8 text-muted">
+      <UIcon name="i-lucide-send" class="mx-auto text-3xl mb-2" />
+      <p>No pending outgoing requests</p>
+    </div>
+    <UTable v-else :columns="outgoingColumns" :data="outgoing" />
+  </UPageCard>
+</template>

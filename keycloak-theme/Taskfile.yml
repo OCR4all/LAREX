@@ -1,0 +1,51 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  install:
+    desc: Install dependencies
+    cmds:
+      - pnpm install --frozen-lockfile
+
+  dev:
+    desc: Start development server
+    cmds:
+      - pnpm dev
+
+  build:
+    desc: Build the theme (Vite only)
+    cmds:
+      - pnpm build
+
+  build:theme:
+    desc: Build Keycloak theme JAR
+    cmds:
+      - pnpm build-keycloak-theme
+
+  deploy:
+    desc: Build theme and copy to config/keycloak/theme.jar
+    cmds:
+      - task: build:theme
+      - 'cp dist_keycloak/keycloak-theme-for-kc-all-other-versions.jar ../config/keycloak/theme.jar'
+      - 'echo "Theme deployed to config/keycloak/theme.jar"'
+
+  storybook:
+    desc: Run Storybook
+    cmds:
+      - pnpm storybook
+
+  format:
+    desc: Format code with Prettier
+    cmds:
+      - pnpm format
+
+  clean:
+    desc: Clean build artifacts and dependencies
+    cmds:
+      - rm -rf dist node_modules build_keycloak
+
+  clean:build:
+    desc: Clean only build artifacts
+    cmds:
+      - rm -rf dist build_keycloak

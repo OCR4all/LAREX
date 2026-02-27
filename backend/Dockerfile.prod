@@ -1,0 +1,31 @@
+FROM gradle:jdk21-corretto AS builder
+LABEL maintainer="maximilian.noeth@uni-wuerzburg.de"
+LABEL description="Build stage for the LAREX backend"
+
+COPY --chown=gradle:gradle . /app
+
+WORKDIR /app
+
+COPY build.gradle.kts ./
+COPY settings.gradle.kts ./
+
+COPY src ./src
+
+RUN gradle build --no-daemon -x test
+
+
+FROM eclipse-temurin:21-jre-jammy
+LABEL description="Production image for the LAREX backend"
+
+WORKDIR /app
+
+RUN groupadd -r appgroup && useradd --no-log-init -r -g appgroup appuser
+
+COPY --from=builder /app/build/libs/*.jar app.jar
+COPY docker/entrypoint.sh /app/entrypoint.sh
+
+RUN chown appuser:appgroup app.jar && chmod 755 /app/entrypoint.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/entrypoint.sh"]

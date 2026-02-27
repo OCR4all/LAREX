@@ -1,0 +1,21 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+dist
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# npm pack
+*.tgz
+
+# Temp files
+.tmp
+.profile
+*.0x
+
+.wrangler

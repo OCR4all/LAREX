@@ -1,0 +1,155 @@
+package de.uniwue.zpd.dachs.larex.backend.entity;
+
+import jakarta.persistence.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Entity
+@Table(name = "pages", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"name", "project_id"}, name = "uk_page_name_project")
+})
+@EntityListeners(AuditingEntityListener.class)
+public class Page {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime created;
+
+    @LastModifiedDate
+    @Column(nullable = false)
+    private LocalDateTime updated;
+
+    @ElementCollection
+    @CollectionTable(name = "page_tags", joinColumns = @JoinColumn(name = "page_id"))
+    @Column(name = "tag")
+    private List<String> tags = new ArrayList<>();
+
+    @Column(nullable = false)
+    private boolean locked = false;
+
+    @Column(name = "locked_reason", columnDefinition = "TEXT")
+    private String lockedReason;
+
+    @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<PageImage> images = new HashSet<>();
+
+    @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Set<PageXml> xmlFiles = new HashSet<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
+
+    public Page() {}
+
+    public Page(String name, String description, Project project) {
+        this.name = name;
+        this.description = description;
+        this.project = project;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public LocalDateTime getCreated() {
+        return created;
+    }
+
+    public void setCreated(LocalDateTime created) {
+        this.created = created;
+    }
+
+    public LocalDateTime getUpdated() {
+        return updated;
+    }
+
+    public void setUpdated(LocalDateTime updated) {
+        this.updated = updated;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public void setLocked(boolean locked) {
+        this.locked = locked;
+    }
+
+    public String getLockedReason() {
+        return lockedReason;
+    }
+
+    public void setLockedReason(String lockedReason) {
+        this.lockedReason = lockedReason;
+    }
+
+    public Set<PageImage> getImages() {
+        return images;
+    }
+
+    public void setImages(Set<PageImage> images) {
+        this.images = images;
+    }
+
+    public Set<PageXml> getXmlFiles() {
+        return xmlFiles;
+    }
+
+    public void setXmlFiles(Set<PageXml> xmlFiles) {
+        this.xmlFiles = xmlFiles;
+    }
+
+    public Project getProject() {
+        return project;
+    }
+
+    public void setProject(Project project) {
+        this.project = project;
+    }
+}

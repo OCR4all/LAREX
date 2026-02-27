@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: backend
+  mvc:
+    servlet:
+      path: /api/v1
+  servlet:
+    multipart:
+      enabled: true
+      location: ${larex.upload.temp-directory:${file.upload-dir}/temp}
+      max-file-size: 100MB
+      max-request-size: 500MB
+  datasource:
+    url: jdbc:postgresql://postgres:5432/larexdb
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    hibernate:
+      # Just for fast "production-like" deployment, needs to be replaced with "validate" + flyway in production
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8080/realms/larex-prod
+          jwk-set-uri: ${spring.security.oauth2.resourceserver.jwt.issuer-uri}/protocol/openid-connect/certs
+
+keycloak:
+  resource-client-id: ${KEYCLOAK_RESOURCE_CLIENT_ID}
+  admin:
+    server-url: http://keycloak:8080
+    realm: larex-prod
+    client-id: larex-backend-service
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+
+file:
+  upload-dir: ${LAREX_UPLOAD_DIR:/mnt/data/uploads}
+
+larex:
+  upload:
+    temp-directory: ${LAREX_UPLOAD_TEMP_DIR:${file.upload-dir}/temp}
+    directories:
+      root-directory: ${file.upload-dir}
+      temp-directory: ${larex.upload.temp-directory}
+      create-if-missing: ${LAREX_UPLOAD_CREATE_IF_MISSING:true}
+      verify-writable: ${LAREX_UPLOAD_VERIFY_WRITABLE:true}
+      fail-fast: ${LAREX_UPLOAD_STARTUP_FAIL_FAST:true}
+  backup:
+    enabled: ${LAREX_BACKUP_ENABLED:true}
+    allowed-paths: ${LAREX_BACKUP_ALLOWED_PATHS:/mnt/data,/mnt/data/backups}
+    output-dir: ${LAREX_BACKUP_OUTPUT_DIR:/mnt/data/backups}
+    max-files-per-job: ${LAREX_BACKUP_MAX_FILES:500000}
+
+cors:
+  allowed-origin: ${CORS_ALLOWED_ORIGIN}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
