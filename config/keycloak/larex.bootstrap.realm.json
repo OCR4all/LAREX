@@ -1,8 +1,12 @@
 {
   "realm": "${KEYCLOAK_ADMIN_REALM}",
   "enabled": true,
+  "loginTheme": "keycloakify-larex",
   "resetPasswordAllowed": true,
   "rememberMe": true,
+  "attributes": {
+    "frontendUrl": "${KEYCLOAK_FRONTEND_URL}"
+  },
   "requiredActions": [
     {
       "alias": "VERIFY_EMAIL",

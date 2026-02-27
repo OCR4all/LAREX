@@ -41,10 +41,10 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-localhost:8090}
-      KC_HOSTNAME_STRICT: false
-      KC_HOSTNAME_STRICT_HTTPS: false
-      KC_HTTP_ENABLED: true
-      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME_STRICT: ${KEYCLOAK_HOSTNAME_STRICT:-false}
+      KC_HOSTNAME_STRICT_HTTPS: ${KEYCLOAK_HOSTNAME_STRICT_HTTPS:-false}
+      KC_HTTP_ENABLED: ${KEYCLOAK_HTTP_ENABLED:-true}
+      KC_PROXY_HEADERS: ${KEYCLOAK_PROXY_HEADERS:-xforwarded}
       KC_PROXY: edge
       KC_HEALTH_ENABLED: true
       KEYCLOAK_ADMIN_REALM: ${KEYCLOAK_ADMIN_REALM:-larex-prod}
@@ -52,6 +52,7 @@ services:
       NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET: ${NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET}
       NUXT_OAUTH_KEYCLOAK_REDIRECT_URL: ${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL:-http://localhost:3000/auth/keycloak}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN}
+      KEYCLOAK_FRONTEND_URL: ${KEYCLOAK_FRONTEND_URL:-}
       LAREX_INITIAL_ADMIN_USERNAME: ${LAREX_INITIAL_ADMIN_USERNAME}
       LAREX_INITIAL_ADMIN_EMAIL: ${LAREX_INITIAL_ADMIN_EMAIL}
       LAREX_INITIAL_ADMIN_FIRST_NAME: ${LAREX_INITIAL_ADMIN_FIRST_NAME}
@@ -60,6 +61,7 @@ services:
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./config/keycloak/larex.bootstrap.realm.json:/opt/keycloak/data/import/larex.bootstrap.realm.json:ro
+      - ./config/keycloak/theme.jar:/opt/keycloak/providers/larex_theme.jar:ro
     networks:
       - backend
     depends_on:
