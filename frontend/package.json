@@ -44,6 +44,7 @@
     "pinia-plugin-persistedstate": "^4.7.1",
     "rbush": "^4.0.1",
     "sortablejs": "^1.15.7",
+    "tailwindcss": "^4.2.0",
     "vue-draggable-plus": "^0.6.1",
     "zod": "^4.3.6"
   },
