@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
     command: start --import-realm
     ports:
-      - "${LAREX_PUBLISH_IP:-127.0.0.1}:8090:8080"
+      - "${LAREX_PUBLISH_IP:-127.0.0.1}:${LAREX_KEYCLOAK_PUBLISHED_PORT:-8090}:8080"
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
@@ -108,6 +108,7 @@ services:
       MAIL_FROM: ${MAIL_FROM:-noreply@example.com}
       MAIL_ENABLED: ${MAIL_ENABLED:-true}
       MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_SSL_ENABLE: ${MAIL_SMTP_SSL_ENABLE:-false}
       MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-true}
       LAREX_UPLOAD_DIR: ${LAREX_UPLOAD_DIR:-/mnt/data/uploads}
       LAREX_UPLOAD_TEMP_DIR: ${LAREX_UPLOAD_TEMP_DIR:-/mnt/data/uploads/temp}
@@ -144,7 +145,7 @@ services:
       dockerfile: Dockerfile.prod
     restart: unless-stopped
     ports:
-      - "${LAREX_PUBLISH_IP:-127.0.0.1}:3000:3000"
+      - "${LAREX_PUBLISH_IP:-127.0.0.1}:${LAREX_FRONTEND_PUBLISHED_PORT:-3000}:3000"
     environment:
       NUXT_SESSION_PASSWORD: ${NUXT_SESSION_PASSWORD:?required}
       NUXT_API_BASE_INTERNAL: ${NUXT_API_BASE_INTERNAL:-http://app:8080/api/v1}
