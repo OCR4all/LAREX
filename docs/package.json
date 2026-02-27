@@ -2,7 +2,9 @@
   "name": "docs",
   "scripts": {
     "dev": "nuxt dev --extends docus",
-    "build": "nuxt build --extends docus"
+    "build": "nuxt build --extends docus",
+    "deploy": "pnpm run build && wrangler deploy",
+    "preview": "pnpm run build && wrangler dev"
   },
   "dependencies": {
     "@nuxt/a11y": "1.0.0-alpha.1",
@@ -13,7 +15,9 @@
     "@nuxt/scripts": "0.13.2",
     "@nuxt/test-utils": "3.23.0",
     "@nuxthub/core": "0.10.6",
+    "@nuxtjs/mcp-toolkit": "0.7.0",
     "@unhead/vue": "^2.1.9",
+    "agents": "^0.4.1",
     "better-sqlite3": "^12.6.2",
     "docus": "latest",
     "eslint": "^10.0.2",
@@ -28,5 +32,9 @@
       "unrs-resolver",
       "vue-demi"
     ]
+  },
+  "devDependencies": {
+    "nitro-cloudflare-dev": "^0.2.2",
+    "wrangler": "^4.69.0"
   }
 }

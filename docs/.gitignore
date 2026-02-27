@@ -19,3 +19,6 @@ dist
 *.0x
 
 .wrangler
+
+.dev.vars*
+!.dev.vars.example

@@ -1,4 +1,13 @@
 export default defineNuxtConfig({
-    modules: ['@nuxt/ui'],
-    css: ['~/assets/css/main.css']
+    modules: ["nitro-cloudflare-dev"],
+    css: ['~/assets/css/main.css'],
+
+    nitro: {
+        preset: "cloudflare_module",
+
+        cloudflare: {
+            deployConfig: true,
+            nodeCompat: true
+        }
+    }
 })
