@@ -34,9 +34,9 @@ const schema = z.object({
   codecId: z.string().optional().or(z.literal('')),
   labelSetId: z.string().optional().or(z.literal('')),
   tagSetId: z.string().optional().or(z.literal('')),
-  defaultGtIndexInput: z.string().optional().or(z.literal('')),
+  defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
-  defaultRecognitionIndicesInput: z.array(z.string()).optional(),
+  defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
   defaultRecognitionIndicesUndefined: z.boolean().optional()
 })
 
@@ -98,7 +98,7 @@ const canEditTextIndexDefaults = computed(() => workspace.isCurrentUserOwner)
 
 const isSubmitting = ref(false)
 
-function parseDefaultGtIndex(value: string | undefined): number {
+function parseDefaultGtIndex(value: string | number | undefined): number {
   const parsed = Number.parseInt(String(value ?? '').trim(), 10)
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new Error('Default GT index must be a non-negative integer.')
@@ -106,7 +106,7 @@ function parseDefaultGtIndex(value: string | undefined): number {
   return parsed
 }
 
-function parseRecognitionIndices(values: string[] | undefined, gtIndex: number, includeUndefined: boolean): number[] {
+function parseRecognitionIndices(values: Array<string | number> | undefined, gtIndex: number, includeUndefined: boolean): number[] {
   const parsed = (values ?? [])
     .flatMap(v => String(v).split(','))
     .map(v => v.trim())

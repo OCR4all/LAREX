@@ -34,9 +34,9 @@ const schema = z.object({
   codecId: z.string().optional(),
   labelSetId: z.string().optional(),
   tagSetId: z.string().optional(),
-  defaultGtIndexInput: z.string().optional(),
+  defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
-  defaultRecognitionIndicesInput: z.array(z.string()).optional(),
+  defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
   defaultRecognitionIndicesUndefined: z.boolean().optional()
 })
 
@@ -145,7 +145,7 @@ watch(workspaceDetails, (workspace) => {
 
 const toast = useToast()
 
-function parseDefaultGtIndex(value: string | undefined): number {
+function parseDefaultGtIndex(value: string | number | undefined): number {
   const parsed = Number.parseInt(String(value ?? '').trim(), 10)
   if (!Number.isInteger(parsed) || parsed < 0) {
     throw new Error('Default GT index must be a non-negative integer.')
@@ -153,7 +153,7 @@ function parseDefaultGtIndex(value: string | undefined): number {
   return parsed
 }
 
-function parseRecognitionIndices(values: string[] | undefined, gtIndex: number, includeUndefined: boolean): number[] {
+function parseRecognitionIndices(values: Array<string | number> | undefined, gtIndex: number, includeUndefined: boolean): number[] {
   const parsed = (values ?? [])
     .flatMap(value => String(value).split(','))
     .map(value => value.trim())
@@ -301,6 +301,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             :disabled="!!labelSetsError || labelSets.length === 0"
           />
         </UFormField>
+
+        <UiFormSectionHeader title="Text Variants" />
 
         <UFormField label="Default GT Index" name="defaultGtIndexInput" hint="Single Ground Truth index used in the text editor.">
           <div class="flex items-center gap-3">
