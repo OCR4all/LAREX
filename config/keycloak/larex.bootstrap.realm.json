@@ -1,0 +1,118 @@
+{
+  "realm": "${KEYCLOAK_ADMIN_REALM}",
+  "enabled": true,
+  "resetPasswordAllowed": true,
+  "rememberMe": true,
+  "requiredActions": [
+    {
+      "alias": "VERIFY_EMAIL",
+      "name": "Verify Email",
+      "providerId": "VERIFY_EMAIL",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 10,
+      "config": {}
+    },
+    {
+      "alias": "UPDATE_PASSWORD",
+      "name": "Update Password",
+      "providerId": "UPDATE_PASSWORD",
+      "enabled": true,
+      "defaultAction": false,
+      "priority": 20,
+      "config": {}
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "larex-backend-service",
+      "enabled": true,
+      "secret": "${KEYCLOAK_ADMIN_CLIENT_SECRET}",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": false,
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "publicClient": false
+    },
+    {
+      "clientId": "larex-frontend",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET}",
+      "name": "LAREX Frontend",
+      "description": "Client for the LAREX frontend",
+      "redirectUris": [
+        "${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL}",
+        "${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL}/password-change",
+        "${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL}/delete-account"
+      ],
+      "webOrigins": [
+        "${CORS_ALLOWED_ORIGIN}"
+      ],
+      "protocol": "openid-connect",
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "${LAREX_INITIAL_ADMIN_USERNAME}",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "${LAREX_INITIAL_ADMIN_FIRST_NAME}",
+      "lastName": "${LAREX_INITIAL_ADMIN_LAST_NAME}",
+      "email": "${LAREX_INITIAL_ADMIN_EMAIL}",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${LAREX_INITIAL_ADMIN_TEMP_PASSWORD}",
+          "temporary": true
+        }
+      ],
+      "requiredActions": [
+        "UPDATE_PASSWORD"
+      ],
+      "realmRoles": [
+        "GLOBAL_ADMIN",
+        "default-roles-${KEYCLOAK_ADMIN_REALM}"
+      ]
+    },
+    {
+      "username": "service-account-larex-backend-service",
+      "emailVerified": false,
+      "enabled": true,
+      "serviceAccountClientId": "larex-backend-service",
+      "realmRoles": [
+        "default-roles-${KEYCLOAK_ADMIN_REALM}"
+      ],
+      "clientRoles": {
+        "realm-management": [
+          "query-users",
+          "view-users",
+          "manage-users"
+        ]
+      }
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "GLOBAL_ADMIN",
+        "description": "Global administrator role with access to all administrative features and all workspaces"
+      }
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminWorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
@@ -91,8 +92,13 @@ public class AdminService {
         return result;
     }
 
-    public List<AdminUserDto> getAllUsersForAdmin() {
-        return userService.getAllUsersForAdmin();
+    public List<AdminUserDto> getAllUsersForAdmin(boolean includeServiceAccounts) {
+        return userService.getAllUsersForAdmin(includeServiceAccounts);
+    }
+
+    @Transactional
+    public AdminUserDto createUserForAdmin(AdminCreateUserRequest request) {
+        return userService.createUserForAdmin(request);
     }
 
     private Map<String, Long> toLongMap(Collection<Object[]> rows) {

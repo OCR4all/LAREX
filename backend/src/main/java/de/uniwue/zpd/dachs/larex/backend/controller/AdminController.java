@@ -1,9 +1,12 @@
 package de.uniwue.zpd.dachs.larex.backend.controller;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminWorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
 import de.uniwue.zpd.dachs.larex.backend.service.AdminService;
 import de.uniwue.zpd.dachs.larex.backend.service.PageFilterIndexService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -36,9 +39,16 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public ResponseEntity<List<AdminUserDto>> getAllUsers() {
-        List<AdminUserDto> users = adminService.getAllUsersForAdmin();
+    public ResponseEntity<List<AdminUserDto>> getAllUsers(
+            @RequestParam(value = "includeServiceAccounts", defaultValue = "false") boolean includeServiceAccounts) {
+        List<AdminUserDto> users = adminService.getAllUsersForAdmin(includeServiceAccounts);
         return ResponseEntity.ok(users);
+    }
+
+    @PostMapping("/users")
+    public ResponseEntity<AdminUserDto> createUser(@Valid @RequestBody AdminCreateUserRequest request) {
+        AdminUserDto createdUser = adminService.createUserForAdmin(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
 
     // ============================================================================

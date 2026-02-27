@@ -53,6 +53,10 @@ keycloak:
     realm: larex-dev
     client-id: larex-backend-service
     client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:PLEASE_CHANGE_IN_PRODUCTION}
+    action-email:
+      client-id: ${KEYCLOAK_ACTION_EMAIL_CLIENT_ID:larex-frontend}
+      redirect-uri: ${KEYCLOAK_ACTION_EMAIL_REDIRECT_URI:http://larex.localhost/auth/keycloak}
+      lifespan-seconds: ${KEYCLOAK_ACTION_EMAIL_LIFESPAN_SECONDS:43200}
 
 file:
   upload-dir: ${LAREX_UPLOAD_DIR:/uploads}

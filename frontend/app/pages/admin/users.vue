@@ -3,6 +3,7 @@ import { globalKey } from '@/utils/fetch-keys'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
+const toast = useToast()
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const UAvatar = resolveComponent('UAvatar')
@@ -22,6 +23,19 @@ interface AdminUser {
 const { data: users, refresh, pending } = await useFetch<AdminUser[]>('/api/admin/users', {
   key: globalKey('admin', 'users', 'all'),
   default: () => []
+})
+
+const isCreateUserModalOpen = ref(false)
+const isCreatingUser = ref(false)
+const createUserForm = reactive({
+  username: '',
+  email: '',
+  firstName: '',
+  lastName: ''
+})
+
+const canCreateUser = computed(() => {
+  return createUserForm.username.trim().length > 0 && createUserForm.email.trim().length > 0
 })
 
 type AdminUserRow = AdminUser & {
@@ -94,6 +108,64 @@ const columns = [
 
 const activeCount = computed(() => users.value.filter(u => u.enabled).length)
 const verifiedCount = computed(() => users.value.filter(u => u.emailVerified).length)
+
+function resetCreateUserForm() {
+  createUserForm.username = ''
+  createUserForm.email = ''
+  createUserForm.firstName = ''
+  createUserForm.lastName = ''
+}
+
+function openCreateUserModal() {
+  resetCreateUserForm()
+  isCreateUserModalOpen.value = true
+}
+
+function closeCreateUserModal() {
+  isCreateUserModalOpen.value = false
+}
+
+async function createUser() {
+  if (!canCreateUser.value) {
+    toast.add({
+      title: 'Missing required fields',
+      description: 'Username and email are required.',
+      color: 'warning'
+    })
+    return
+  }
+
+  isCreatingUser.value = true
+  try {
+    await $fetch('/api/admin/users', {
+      method: 'POST',
+      body: {
+        username: createUserForm.username.trim(),
+        email: createUserForm.email.trim(),
+        firstName: createUserForm.firstName.trim() || undefined,
+        lastName: createUserForm.lastName.trim() || undefined
+      }
+    })
+
+    toast.add({
+      title: 'User created, setup email sent',
+      color: 'success'
+    })
+
+    closeCreateUserModal()
+    await refresh()
+  } catch (error: unknown) {
+    const maybeError = error as { data?: { message?: string }, message?: string }
+    const message = maybeError.data?.message || maybeError.message || 'Failed to create user.'
+    toast.add({
+      title: 'User creation failed',
+      description: message,
+      color: 'error'
+    })
+  } finally {
+    isCreatingUser.value = false
+  }
+}
 </script>
 
 <template>
@@ -104,6 +176,13 @@ const verifiedCount = computed(() => users.value.filter(u => u.emailVerified).le
           <UDashboardSidebarCollapse />
         </template>
         <template #right>
+          <UButton
+            color="primary"
+            variant="solid"
+            icon="i-lucide-user-plus"
+            label="Create User"
+            @click="openCreateUserModal"
+          />
           <UButton
             color="neutral"
             variant="outline"
@@ -180,4 +259,68 @@ const verifiedCount = computed(() => users.value.filter(u => u.emailVerified).le
       <UTable :data="filteredAndSortedData" :columns="columns" :loading="pending" />
     </template>
   </UDashboardPanel>
+
+  <UModal
+    v-model:open="isCreateUserModalOpen"
+    title="Create User"
+    :close="{ onClick: closeCreateUserModal }"
+  >
+    <template #body>
+      <div class="space-y-4">
+        <UFormField label="Username" required>
+          <UInput
+            v-model="createUserForm.username"
+            placeholder="username"
+            autocomplete="off"
+          />
+        </UFormField>
+
+        <UFormField label="Email" required>
+          <UInput
+            v-model="createUserForm.email"
+            type="email"
+            placeholder="user@example.org"
+            autocomplete="off"
+          />
+        </UFormField>
+
+        <UFormField label="First name">
+          <UInput
+            v-model="createUserForm.firstName"
+            placeholder="Optional"
+            autocomplete="off"
+          />
+        </UFormField>
+
+        <UFormField label="Last name">
+          <UInput
+            v-model="createUserForm.lastName"
+            placeholder="Optional"
+            autocomplete="off"
+          />
+        </UFormField>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex justify-end gap-2 w-full">
+        <UButton
+          color="neutral"
+          variant="outline"
+          :disabled="isCreatingUser"
+          @click="closeCreateUserModal"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          color="primary"
+          :loading="isCreatingUser"
+          :disabled="!canCreateUser || isCreatingUser"
+          @click="createUser"
+        >
+          Create User
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

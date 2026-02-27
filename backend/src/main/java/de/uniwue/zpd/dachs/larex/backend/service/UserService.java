@@ -1,22 +1,27 @@
 package de.uniwue.zpd.dachs.larex.backend.service;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserProfileDto;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.CreatedResponseUtil;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
+import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
+import jakarta.ws.rs.core.Response;
 
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -28,10 +33,21 @@ public class UserService {
 
     private final Keycloak keycloakAdmin;
     private final String realm;
+    private final String actionEmailClientId;
+    private final String actionEmailRedirectUri;
+    private final Integer actionEmailLifespanSeconds;
 
-    public UserService(Keycloak keycloakAdmin, @Value("${keycloak.admin.realm:larex-dev}") String realm) {
+    public UserService(
+            Keycloak keycloakAdmin,
+            @Value("${keycloak.admin.realm:larex-dev}") String realm,
+            @Value("${keycloak.admin.action-email.client-id:larex-frontend}") String actionEmailClientId,
+            @Value("${keycloak.admin.action-email.redirect-uri:http://larex.localhost/auth/keycloak}") String actionEmailRedirectUri,
+            @Value("${keycloak.admin.action-email.lifespan-seconds:43200}") Integer actionEmailLifespanSeconds) {
         this.keycloakAdmin = keycloakAdmin;
         this.realm = realm;
+        this.actionEmailClientId = actionEmailClientId;
+        this.actionEmailRedirectUri = actionEmailRedirectUri;
+        this.actionEmailLifespanSeconds = actionEmailLifespanSeconds;
     }
 
     public List<UserDto> getAllUsers() {
@@ -43,13 +59,58 @@ public class UserService {
                 .toList();
     }
 
-    public List<AdminUserDto> getAllUsersForAdmin() {
+    public List<AdminUserDto> getAllUsersForAdmin(boolean includeServiceAccounts) {
         RealmResource realmResource = keycloakAdmin.realm(realm);
         List<UserRepresentation> users = realmResource.users().list();
 
         return users.stream()
+                .filter(user -> includeServiceAccounts || !isServiceAccount(user))
                 .map(this::mapToAdminUserDto)
                 .toList();
+    }
+
+    public AdminUserDto createUserForAdmin(AdminCreateUserRequest request) {
+        String username = request.username().trim();
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        String firstName = normalizeOptional(request.firstName());
+        String lastName = normalizeOptional(request.lastName());
+
+        RealmResource realmResource = keycloakAdmin.realm(realm);
+        UsersResource usersResource = realmResource.users();
+
+        ensureUserDoesNotExist(usersResource, username, email);
+
+        UserRepresentation newUser = new UserRepresentation();
+        newUser.setUsername(username);
+        newUser.setEmail(email);
+        newUser.setFirstName(firstName);
+        newUser.setLastName(lastName);
+        newUser.setEnabled(true);
+        newUser.setEmailVerified(false);
+        newUser.setRequiredActions(List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
+
+        String createdUserId;
+        try (Response response = usersResource.create(newUser)) {
+            int status = response.getStatus();
+            if (status != Response.Status.CREATED.getStatusCode()) {
+                if (status == Response.Status.CONFLICT.getStatusCode()) {
+                    throw new IllegalArgumentException("A user with this username or email already exists.");
+                }
+                throw new IllegalArgumentException("Failed to create user in Keycloak (status " + status + ").");
+            }
+            createdUserId = CreatedResponseUtil.getCreatedId(response);
+        }
+
+        UserResource createdUserResource = usersResource.get(createdUserId);
+        try {
+            sendSetupActionsEmail(createdUserResource, List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
+        } catch (Exception e) {
+            rollbackCreatedUser(createdUserResource, createdUserId);
+            throw new IllegalArgumentException("Failed to send account setup email. User creation was rolled back.");
+        }
+
+        UserRepresentation createdUser = createdUserResource.toRepresentation();
+        return mapToAdminUserDto(createdUser);
     }
 
     private AdminUserDto mapToAdminUserDto(UserRepresentation user) {
@@ -62,7 +123,7 @@ public class UserService {
                 user.getFirstName(),
                 user.getLastName(),
                 avatar,
-                user.isEnabled(),
+                Boolean.TRUE.equals(user.isEnabled()),
                 Boolean.TRUE.equals(user.isEmailVerified()),
                 user.getCreatedTimestamp() != null
                     ? Instant.ofEpochMilli(user.getCreatedTimestamp()).toString()
@@ -265,5 +326,67 @@ public class UserService {
         return uniqueUsers.values().stream()
                 .limit(limit)
                 .toList();
+    }
+
+    private void ensureUserDoesNotExist(UsersResource usersResource, String username, String email) {
+        boolean usernameTaken = usersResource.searchByUsername(username, true).stream()
+                .map(UserRepresentation::getUsername)
+                .filter(existingUsername -> existingUsername != null)
+                .anyMatch(existingUsername -> existingUsername.equalsIgnoreCase(username));
+        if (usernameTaken) {
+            throw new IllegalArgumentException("A user with this username already exists.");
+        }
+
+        boolean emailTaken = usersResource.searchByEmail(email, true).stream()
+                .map(UserRepresentation::getEmail)
+                .filter(existingEmail -> existingEmail != null)
+                .anyMatch(existingEmail -> existingEmail.equalsIgnoreCase(email));
+        if (emailTaken) {
+            throw new IllegalArgumentException("A user with this email already exists.");
+        }
+    }
+
+    private void rollbackCreatedUser(UserResource createdUserResource, String userId) {
+        try {
+            createdUserResource.remove();
+        } catch (Exception deleteException) {
+            logger.error("Failed to roll back user {} after action-email failure: {}", userId, deleteException.getMessage(), deleteException);
+        }
+    }
+
+    private void sendSetupActionsEmail(UserResource userResource, List<String> actions) {
+        String clientId = normalizeOptional(actionEmailClientId);
+        String redirectUri = normalizeOptional(actionEmailRedirectUri);
+
+        if (clientId != null && redirectUri != null) {
+            userResource.executeActionsEmail(clientId, redirectUri, actionEmailLifespanSeconds, actions);
+            return;
+        }
+
+        if (clientId == null ^ redirectUri == null) {
+            logger.warn("Incomplete action-email redirect configuration. Falling back to default execute-actions-email flow.");
+        }
+
+        if (actionEmailLifespanSeconds != null) {
+            userResource.executeActionsEmail(actions, actionEmailLifespanSeconds);
+        } else {
+            userResource.executeActionsEmail(actions);
+        }
+    }
+
+    private boolean isServiceAccount(UserRepresentation user) {
+        if (user.getServiceAccountClientId() != null && !user.getServiceAccountClientId().isBlank()) {
+            return true;
+        }
+        String username = user.getUsername();
+        return username != null && username.startsWith("service-account-");
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }
