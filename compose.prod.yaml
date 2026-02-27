@@ -44,6 +44,7 @@ services:
       KC_HOSTNAME_STRICT: false
       KC_HOSTNAME_STRICT_HTTPS: false
       KC_HTTP_ENABLED: true
+      KC_PROXY_HEADERS: xforwarded
       KC_PROXY: edge
       KC_HEALTH_ENABLED: true
       KEYCLOAK_ADMIN_REALM: ${KEYCLOAK_ADMIN_REALM:-larex-prod}
