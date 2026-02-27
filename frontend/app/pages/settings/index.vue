@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { UserProfile, UpdateUserProfileRequest } from '~/types'
 import { globalKey } from '@/utils/fetch-keys'
+import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 const toast = useToast()
 const { resetTours } = useOnboarding()
@@ -55,7 +56,7 @@ watchEffect(() => {
   if (profile.value) {
     form.firstName = profile.value.firstName || ''
     form.lastName = profile.value.lastName || ''
-    form.avatar = profile.value.avatar || ''
+    form.avatar = resolveManagedProfileAvatarSrc(profile.value.avatar) || ''
   }
 })
 
@@ -72,14 +73,15 @@ const displayName = computed(() => {
 })
 
 const avatarFallback = computed(() => {
-  if (profile.value?.firstName && profile.value?.lastName) {
-    return `${profile.value.firstName.charAt(0)}${profile.value.lastName.charAt(0)}`
-  } else if (profile.value?.firstName) {
-    return profile.value.firstName.charAt(0)
-  } else if (profile.value?.username) {
-    return profile.value.username.charAt(0).toUpperCase()
-  }
-  return 'U'
+  return getAvatarInitials({
+    firstName: profile.value?.firstName,
+    lastName: profile.value?.lastName,
+    username: profile.value?.username
+  })
+})
+
+const avatarSrc = computed(() => {
+  return resolveManagedProfileAvatarSrc(form.avatar || profile.value?.avatar)
 })
 
 const startEditing = () => {
@@ -90,7 +92,7 @@ const cancelEditing = () => {
   if (profile.value) {
     form.firstName = profile.value.firstName || ''
     form.lastName = profile.value.lastName || ''
-    form.avatar = profile.value.avatar || ''
+    form.avatar = resolveManagedProfileAvatarSrc(profile.value.avatar) || ''
   }
   isEditing.value = false
 }
@@ -103,7 +105,7 @@ const saveProfile = async () => {
     const updateRequest: UpdateUserProfileRequest = {
       firstName: form.firstName.trim() || undefined,
       lastName: form.lastName.trim() || undefined,
-      avatar: form.avatar.trim() || undefined
+      avatar: resolveManagedProfileAvatarSrc(form.avatar) || undefined
     }
 
     await $fetch('/api/profile', {
@@ -174,12 +176,12 @@ const handleImageUpload = async (event: Event) => {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await $fetch<{ avatarUrl: string }>('/api/profile/image', {
+    const response = await $fetch<{ avatarUrl: string }>('/api/upload-proxy/profile/image', {
       method: 'POST',
       body: formData
     })
 
-    form.avatar = response.avatarUrl
+    form.avatar = resolveManagedProfileAvatarSrc(response.avatarUrl) || ''
     await refresh()
 
     try {
@@ -209,12 +211,12 @@ const handleImageUpload = async (event: Event) => {
 }
 
 const removeImage = async () => {
-  if (!profile.value?.avatar) return
+  if (!avatarSrc.value) return
 
   isUploadingImage.value = true
 
   try {
-    await $fetch('/api/profile/image', {
+    await $fetch('/api/upload-proxy/profile/image', {
       method: 'DELETE'
     })
 
@@ -305,7 +307,7 @@ const removeImage = async () => {
       <div v-else-if="profile" class="space-y-6">
         <div class="flex items-center gap-4">
           <UAvatar
-            :src="form.avatar || profile.avatar"
+            :src="avatarSrc"
             :alt="displayName"
             size="xl"
             :fallback="avatarFallback"
@@ -334,7 +336,7 @@ const removeImage = async () => {
                   Upload Image
                 </UButton>
                 <UButton
-                  v-if="profile.avatar"
+                  v-if="avatarSrc"
                   color="red"
                   variant="outline"
                   :loading="isUploadingImage"

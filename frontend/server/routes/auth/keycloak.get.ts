@@ -1,16 +1,11 @@
+import { buildSessionUser } from '../../utils/session-profile'
+
 export default defineOAuthKeycloakEventHandler({
   async onSuccess(event, { user, tokens }) {
-    const roles = user.realm_access?.roles || user.roles || []
+    const sessionUser = await buildSessionUser(event, user, tokens.access_token)
 
     await setUserSession(event, {
-      user: {
-        id: user.sub || user.id,
-        login: user.preferred_username || user.id,
-        name: user.name || user.preferred_username || user.given_name || user.family_name,
-        email: user.email,
-        avatar: user.picture,
-        roles
-      },
+      user: sessionUser,
       secure: {
         accessToken: tokens.access_token,
         refreshToken: tokens.refresh_token,

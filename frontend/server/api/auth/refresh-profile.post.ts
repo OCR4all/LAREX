@@ -1,3 +1,6 @@
+import { buildSessionUser } from '../../utils/session-profile'
+import { refreshTokenIfExpired } from '../../utils/auth'
+
 export default defineEventHandler(async (event) => {
   try {
     const { user, secure } = await getUserSession(event)
@@ -9,6 +12,16 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    await refreshTokenIfExpired(event, { user, secure })
+
+    const updatedSession = await getUserSession(event)
+    if (!updatedSession.user || !updatedSession.secure?.accessToken) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'No valid session after token refresh'
+      })
+    }
+
     const config = useRuntimeConfig(event)
     const keycloakConfig = config.oauth.keycloak
 
@@ -16,22 +29,29 @@ export default defineEventHandler(async (event) => {
 
     const response = await $fetch(userInfoUrl, {
       headers: {
-        Authorization: `Bearer ${secure.accessToken}`
+        Authorization: `Bearer ${updatedSession.secure.accessToken}`
       }
     })
 
-    const roles = response.realm_access?.roles || response.roles || []
+    const sessionUser = await buildSessionUser(
+      event,
+      response as {
+        sub?: string
+        id?: string
+        preferred_username?: string
+        name?: string
+        given_name?: string
+        family_name?: string
+        email?: string
+        realm_access?: { roles?: string[] }
+        roles?: string[]
+      },
+      updatedSession.secure.accessToken
+    )
 
     await setUserSession(event, {
-      user: {
-        id: response.sub,
-        login: response.preferred_username || response.sub,
-        name: response.name || response.preferred_username || response.given_name || response.family_name,
-        email: response.email,
-        avatar: response.picture,
-        roles
-      },
-      secure
+      user: sessionUser,
+      secure: updatedSession.secure
     })
 
     return {

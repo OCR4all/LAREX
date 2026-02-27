@@ -4,12 +4,12 @@ declare module '#auth-utils' {
     login: string
     name: string
     email: string
-    avatar: string
+    avatar?: string
     roles: string[]
   }
 
-  interface UserSession {
-  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- required module augmentation hook
+  interface UserSession {}
 
   interface SecureSessionData {
     accessToken: string

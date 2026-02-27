@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
+import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 defineProps<{
   collapsed?: boolean
@@ -9,6 +10,22 @@ const colorMode = useColorMode()
 const { user } = useUserSession()
 const { isNotificationsSlideoverOpen } = useDashboard()
 const { unreadCount } = useNotifications()
+
+const displayName = computed(() => {
+  return user.value?.name || user.value?.login || 'User'
+})
+
+const avatarSrc = computed(() => {
+  return resolveManagedProfileAvatarSrc(user.value?.avatar)
+})
+
+const avatarFallback = computed(() => {
+  return getAvatarInitials({
+    name: user.value?.name,
+    login: user.value?.login,
+    email: user.value?.email
+  })
+})
 
 const hasAdminRole = computed(() => {
   return user.value?.roles?.includes('GLOBAL_ADMIN') || false
@@ -24,9 +41,11 @@ const displayRole = computed(() => {
 const items = computed<DropdownMenuItem[][]>(() => {
   const menuItems: DropdownMenuItem[][] = [[{
     type: 'label',
-    label: user.value.name,
+    label: displayName.value,
     avatar: {
-      src: user.value.avatar
+      src: avatarSrc.value,
+      alt: displayName.value,
+      fallback: avatarFallback.value
     },
     slot: 'user-label'
   }], [{
@@ -103,10 +122,12 @@ const items = computed<DropdownMenuItem[][]>(() => {
     <UButton
       v-bind="{
         avatar: {
-          src: user?.avatar,
+          src: avatarSrc,
+          alt: displayName,
+          fallback: avatarFallback,
           chip: unreadCount > 0 ? { text: String(unreadCount), color: 'error', size: 'xl' } : false
         },
-        label: collapsed ? undefined : user?.name,
+        label: collapsed ? undefined : displayName,
         trailingIcon: collapsed ? undefined : 'i-lucide-chevrons-up-down'
       }"
       color="neutral"
