@@ -1,57 +1,37 @@
 # Frontend Production Dockerfile
 FROM node:22-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install pnpm globally
 RUN npm install -g pnpm@latest
 
-# Copy package files
-COPY package.json ./
-
-# Install dependencies
-RUN pnpm install
-
-# Copy source code
-COPY . .
-
-# Build the application
-RUN pnpm build
-
-# Production stage
-FROM node:22-alpine AS runner
-
-# Set working directory
-WORKDIR /app
-
-# Install pnpm globally
-RUN npm install -g pnpm@latest
-
-# Copy package files
+# Copy package manifests first for layer caching and deterministic installs
 COPY package.json pnpm-lock.yaml ./
 
-# Install only production dependencies
-RUN pnpm install --frozen-lockfile --prod
+# Build must use the checked-in lockfile, otherwise Nuxt standalone output can
+# reference package layouts that differ from the runtime image.
+RUN pnpm install --frozen-lockfile
 
-# Copy built application from builder stage
+COPY . .
+
+RUN pnpm build
+
+FROM node:22-alpine AS runner
+
+WORKDIR /app
+
 COPY --from=builder /app/.output ./.output
 
-# Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nuxt -u 1001
 
-# Change ownership of the app directory
 RUN chown -R nuxt:nodejs /app
 USER nuxt
 
-# Expose port
 EXPOSE 3000
 
-# Set environment to production
 ENV NODE_ENV=production
 ENV NUXT_HOST=0.0.0.0
 ENV NUXT_PORT=3000
 
-# Start the application
 CMD ["node", ".output/server/index.mjs"]
