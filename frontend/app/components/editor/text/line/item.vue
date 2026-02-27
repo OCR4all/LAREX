@@ -883,7 +883,7 @@ onBeforeUnmount(() => {
                     :data-textequiv-pos="String(textEquiv.pos)"
                     class="textline-textarea flex-1 min-w-0 min-h-[44px] h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                     :class="[
-                      variantRole(textEquiv.index) === 'gt' && 'textline-textarea--gt border-emerald-300',
+                      variantRole(textEquiv.index) === 'gt' && 'textline-textarea--gt border-emerald-300 bg-emerald-100/95 dark:bg-emerald-900/90',
                       variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
                       variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200 text-muted'
                     ]"
@@ -1050,14 +1050,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .textline-textarea :deep(textarea) {
   font-size: var(--text-font-size, 18px);
-}
-
-.textline-textarea.textline-textarea--gt :deep(textarea) {
-  background-color: rgb(220 252 231 / 0.95);
-}
-
-:global(.dark) .textline-textarea.textline-textarea--gt :deep(textarea) {
-  background-color: rgb(20 83 45 / 0.9);
 }
 
 .textline-textarea.textline-textarea--recognition :deep(textarea) {
