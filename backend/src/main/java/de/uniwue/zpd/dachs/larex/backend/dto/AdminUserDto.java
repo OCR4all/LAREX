@@ -9,5 +9,9 @@ public record AdminUserDto(
     String avatar,
     boolean enabled,
     boolean emailVerified,
+    boolean serviceAccount,
+    boolean externallyManaged,
+    AdminUserIdentitySource identitySource,
+    AdminUserOnboardingState onboardingState,
     String createdTimestamp
 ) {}

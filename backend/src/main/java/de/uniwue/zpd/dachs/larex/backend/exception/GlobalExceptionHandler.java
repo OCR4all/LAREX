@@ -77,6 +77,25 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle typed admin user-management errors with stable machine-readable codes.
+     */
+    @ExceptionHandler(AdminUserManagementException.class)
+    public ResponseEntity<ErrorResponseDto> handleAdminUserManagementException(
+            AdminUserManagementException ex, HttpServletRequest request) {
+
+        HttpStatus status = resolveAdminUserStatus(ex.getCode());
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.getCode().name()
+        );
+
+        return ResponseEntity.status(status).body(errorResponse);
+    }
+
+    /**
      * Handle IllegalArgumentException (business logic validation)
      */
     @ExceptionHandler(IllegalArgumentException.class)
@@ -228,5 +247,21 @@ public class GlobalExceptionHandler {
      */
     private String formatFieldError(FieldError fieldError) {
         return fieldError.getField() + ": " + fieldError.getDefaultMessage();
+    }
+
+    private HttpStatus resolveAdminUserStatus(AdminUserErrorCode code) {
+        return switch (code) {
+            case ADMIN_USER_DUPLICATE_USERNAME, ADMIN_USER_DUPLICATE_EMAIL -> HttpStatus.CONFLICT;
+            case ADMIN_USER_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case ADMIN_USER_SERVICE_ACCOUNT_FORBIDDEN,
+                    ADMIN_USER_SELF_DISABLE_FORBIDDEN,
+                    ADMIN_USER_PROVISIONING_DISABLED,
+                    ADMIN_USER_EXTERNALLY_MANAGED -> HttpStatus.FORBIDDEN;
+            case ADMIN_USER_INVALID_USERNAME,
+                    ADMIN_USER_ALREADY_ENABLED,
+                    ADMIN_USER_ALREADY_DISABLED,
+                    ADMIN_USER_RESEND_NOT_ALLOWED -> HttpStatus.BAD_REQUEST;
+            case ADMIN_USER_SETUP_EMAIL_FAILED, ADMIN_USER_KEYCLOAK_OPERATION_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
     }
 }

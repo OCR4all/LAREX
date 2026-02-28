@@ -72,6 +72,8 @@ app:
 
 # Storage quota configuration
 larex:
+  auth:
+    user-provisioning-mode: ${LAREX_USER_PROVISIONING_MODE:LOCAL}
   storage:
     # Default storage quota per workspace in bytes (default: 1GB = 1073741824 bytes)
     default-quota-bytes: ${LAREX_DEFAULT_QUOTA_BYTES:1073741824}

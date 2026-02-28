@@ -15,14 +15,23 @@ public record ErrorResponseDto(
         String error,
         String message,
         String path,
-        List<String> details
+        List<String> details,
+        String code
 ) {
     
     public ErrorResponseDto(int status, String error, String message, String path) {
-        this(LocalDateTime.now(), status, error, message, path, null);
+        this(LocalDateTime.now(), status, error, message, path, null, null);
     }
     
     public ErrorResponseDto(int status, String error, String message, String path, List<String> details) {
-        this(LocalDateTime.now(), status, error, message, path, details);
+        this(LocalDateTime.now(), status, error, message, path, details, null);
+    }
+
+    public ErrorResponseDto(int status, String error, String message, String path, String code) {
+        this(LocalDateTime.now(), status, error, message, path, null, code);
+    }
+
+    public ErrorResponseDto(int status, String error, String message, String path, List<String> details, String code) {
+        this(LocalDateTime.now(), status, error, message, path, details, code);
     }
 }

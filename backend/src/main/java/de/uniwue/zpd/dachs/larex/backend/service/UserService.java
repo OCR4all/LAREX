@@ -1,11 +1,24 @@
 package de.uniwue.zpd.dachs.larex.backend.service;
 
+import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
+import de.uniwue.zpd.dachs.larex.backend.config.auth.UserProvisioningMode;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditAction;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditOutcome;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserIdentitySource;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserOnboardingState;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserProfileDto;
-import org.keycloak.admin.client.Keycloak;
+import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
+import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.core.Response;
 import org.keycloak.admin.client.CreatedResponseUtil;
+import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
@@ -15,11 +28,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import jakarta.ws.rs.core.Response;
-
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,24 +42,38 @@ import java.util.stream.Collectors;
 public class UserService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+    private static final List<String> SETUP_ACTIONS = List.of("VERIFY_EMAIL", "UPDATE_PASSWORD");
+    private static final String SERVICE_ACCOUNT_USERNAME_PREFIX = "service-account-";
 
     private final Keycloak keycloakAdmin;
     private final String realm;
     private final String actionEmailClientId;
     private final String actionEmailRedirectUri;
     private final Integer actionEmailLifespanSeconds;
+    private final AdminUserAuditService adminUserAuditService;
+    private final AuthProvisioningProperties authProvisioningProperties;
 
     public UserService(
             Keycloak keycloakAdmin,
             @Value("${keycloak.admin.realm:larex-dev}") String realm,
             @Value("${keycloak.admin.action-email.client-id:larex-frontend}") String actionEmailClientId,
             @Value("${keycloak.admin.action-email.redirect-uri:http://larex.localhost/auth/keycloak}") String actionEmailRedirectUri,
-            @Value("${keycloak.admin.action-email.lifespan-seconds:43200}") Integer actionEmailLifespanSeconds) {
+            @Value("${keycloak.admin.action-email.lifespan-seconds:43200}") Integer actionEmailLifespanSeconds,
+            AdminUserAuditService adminUserAuditService,
+            AuthProvisioningProperties authProvisioningProperties) {
         this.keycloakAdmin = keycloakAdmin;
         this.realm = realm;
         this.actionEmailClientId = actionEmailClientId;
         this.actionEmailRedirectUri = actionEmailRedirectUri;
         this.actionEmailLifespanSeconds = actionEmailLifespanSeconds;
+        this.adminUserAuditService = adminUserAuditService;
+        this.authProvisioningProperties = authProvisioningProperties;
+    }
+
+    private enum AdminMutationAction {
+        ENABLE,
+        DISABLE,
+        RESEND_SETUP
     }
 
     public List<UserDto> getAllUsers() {
@@ -59,26 +85,99 @@ public class UserService {
                 .toList();
     }
 
-    public List<AdminUserDto> getAllUsersForAdmin(boolean includeServiceAccounts) {
-        RealmResource realmResource = keycloakAdmin.realm(realm);
-        List<UserRepresentation> users = realmResource.users().list();
+    public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status) {
+        List<UserRepresentation> users = keycloakAdmin.realm(realm).users().list();
+        String normalizedSearch = normalizeOptional(search);
 
-        return users.stream()
+        List<AdminUserDto> filteredUsers = users.stream()
                 .filter(user -> includeServiceAccounts || !isServiceAccount(user))
+                .sorted(this::compareByCreatedTimestampDesc)
                 .map(this::mapToAdminUserDto)
+                .filter(user -> matchesSearch(user, normalizedSearch))
+                .filter(user -> matchesStatus(user, status))
                 .toList();
+
+        long totalElements = filteredUsers.size();
+        int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / size);
+        int fromIndex = Math.min(page * size, filteredUsers.size());
+        int toIndex = Math.min(fromIndex + size, filteredUsers.size());
+
+        return new AdminUserPageDto(
+                filteredUsers.subList(fromIndex, toIndex),
+                page,
+                size,
+                totalElements,
+                totalPages,
+                !isLdapManagedDeployment(),
+                !isLdapManagedDeployment()
+        );
     }
 
-    public AdminUserDto createUserForAdmin(AdminCreateUserRequest request) {
-        String username = request.username().trim();
-        String email = request.email().trim().toLowerCase(Locale.ROOT);
+    public AdminUserDto getUserForAdmin(String userId) {
+        return mapToAdminUserDto(getRequiredUserRepresentation(userId));
+    }
+
+    public List<AdminUserAuditEventDto> getUserAuditEventsForAdmin(String targetUserId, int limit) {
+        getRequiredUserRepresentation(targetUserId);
+        return adminUserAuditService.getAuditEvents(targetUserId, limit);
+    }
+
+    public AdminUserDto createUserForAdmin(String actorUserId, String actorUsername, AdminCreateUserRequest request) {
+        String rawUsername = normalizeOptional(request.username());
+
+        try {
+            assertProvisioningEnabledForCreate();
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    null,
+                    rawUsername,
+                    AdminUserAuditAction.CREATE,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(null, null, ex.getCode(), null)
+            );
+            throw ex;
+        }
+
+        String username;
+        String email;
+
+        try {
+            username = normalizeRequiredUsername(request.username());
+            email = normalizeRequiredEmail(request.email());
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    null,
+                    rawUsername,
+                    AdminUserAuditAction.CREATE,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(null, null, ex.getCode(), null)
+            );
+            throw ex;
+        }
+
         String firstName = normalizeOptional(request.firstName());
         String lastName = normalizeOptional(request.lastName());
 
-        RealmResource realmResource = keycloakAdmin.realm(realm);
-        UsersResource usersResource = realmResource.users();
+        UsersResource usersResource = keycloakAdmin.realm(realm).users();
 
-        ensureUserDoesNotExist(usersResource, username, email);
+        try {
+            ensureUserDoesNotExist(usersResource, username, email);
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    null,
+                    username,
+                    AdminUserAuditAction.CREATE,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(null, null, ex.getCode(), identitySourceDetails(AdminUserIdentitySource.LOCAL))
+            );
+            throw ex;
+        }
 
         UserRepresentation newUser = new UserRepresentation();
         newUser.setUsername(username);
@@ -87,67 +186,176 @@ public class UserService {
         newUser.setLastName(lastName);
         newUser.setEnabled(true);
         newUser.setEmailVerified(false);
-        newUser.setRequiredActions(List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
+        newUser.setRequiredActions(SETUP_ACTIONS);
 
         String createdUserId;
         try (Response response = usersResource.create(newUser)) {
             int status = response.getStatus();
             if (status != Response.Status.CREATED.getStatusCode()) {
-                if (status == Response.Status.CONFLICT.getStatusCode()) {
-                    throw new IllegalArgumentException("A user with this username or email already exists.");
-                }
-                throw new IllegalArgumentException("Failed to create user in Keycloak (status " + status + ").");
+                AdminUserManagementException ex = new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                        status == Response.Status.CONFLICT.getStatusCode()
+                                ? "Failed to create user because the identity provider reported a conflict."
+                                : "Failed to create user in the identity provider."
+                );
+                adminUserAuditService.logEvent(
+                        actorUserId,
+                        actorUsername,
+                        null,
+                        username,
+                        AdminUserAuditAction.CREATE,
+                        AdminUserAuditOutcome.FAILURE,
+                        auditDetails(null, null, ex.getCode(), identitySourceDetails(AdminUserIdentitySource.LOCAL))
+                );
+                throw ex;
             }
             createdUserId = CreatedResponseUtil.getCreatedId(response);
+        } catch (AdminUserManagementException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    null,
+                    username,
+                    AdminUserAuditAction.CREATE,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(null, null, AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED, identitySourceDetails(AdminUserIdentitySource.LOCAL))
+            );
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Failed to create user in the identity provider.",
+                    ex
+            );
         }
 
         UserResource createdUserResource = usersResource.get(createdUserId);
         try {
-            sendSetupActionsEmail(createdUserResource, List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
-        } catch (Exception e) {
+            sendSetupActionsEmail(createdUserResource, SETUP_ACTIONS);
+            UserRepresentation createdUser = createdUserResource.toRepresentation();
+            AdminUserDto createdDto = mapToAdminUserDto(createdUser);
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    createdUserId,
+                    username,
+                    AdminUserAuditAction.CREATE,
+                    AdminUserAuditOutcome.SUCCESS,
+                    auditDetails(null, createdDto.onboardingState(), null, identitySourceDetails(createdDto.identitySource()))
+            );
+            return createdDto;
+        } catch (Exception ex) {
             rollbackCreatedUser(createdUserResource, createdUserId);
-            throw new IllegalArgumentException("Failed to send account setup email. User creation was rolled back.");
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    createdUserId,
+                    username,
+                    AdminUserAuditAction.CREATE,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(null, null, AdminUserErrorCode.ADMIN_USER_SETUP_EMAIL_FAILED, identitySourceDetails(AdminUserIdentitySource.LOCAL))
+            );
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_SETUP_EMAIL_FAILED,
+                    "Failed to send account setup email. User creation was rolled back.",
+                    ex
+            );
+        }
+    }
+
+    public AdminUserDto disableUserForAdmin(String actorUserId, String actorUsername, String targetUserId) {
+        return updateUserEnabledStateForAdmin(actorUserId, actorUsername, targetUserId, false);
+    }
+
+    public AdminUserDto enableUserForAdmin(String actorUserId, String actorUsername, String targetUserId) {
+        return updateUserEnabledStateForAdmin(actorUserId, actorUsername, targetUserId, true);
+    }
+
+    public AdminUserDto resendSetupEmailForAdmin(String actorUserId, String actorUsername, String targetUserId) {
+        UserRepresentation user;
+        try {
+            user = getRequiredUserRepresentation(targetUserId);
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    null,
+                    AdminUserAuditAction.RESEND_SETUP_EMAIL,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(null, null, ex.getCode(), null)
+            );
+            throw ex;
         }
 
-        UserRepresentation createdUser = createdUserResource.toRepresentation();
-        return mapToAdminUserDto(createdUser);
+        AdminUserOnboardingState previousState = deriveOnboardingState(user);
+        AdminUserIdentitySource identitySource = deriveIdentitySource(user);
+
+        try {
+            assertNotServiceAccount(user);
+            assertMutableInCurrentMode(user, AdminMutationAction.RESEND_SETUP);
+            if (user.getEmail() == null || user.getEmail().isBlank() || previousState != AdminUserOnboardingState.PENDING_SETUP) {
+                throw new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_RESEND_NOT_ALLOWED,
+                        "Setup email can only be resent for users who are still completing onboarding."
+                );
+            }
+
+            UserResource userResource = keycloakAdmin.realm(realm).users().get(targetUserId);
+            sendSetupActionsEmail(userResource, SETUP_ACTIONS);
+            UserRepresentation refreshedUser = userResource.toRepresentation();
+            AdminUserDto updatedDto = mapToAdminUserDto(refreshedUser);
+
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    refreshedUser.getUsername(),
+                    AdminUserAuditAction.RESEND_SETUP_EMAIL,
+                    AdminUserAuditOutcome.SUCCESS,
+                    auditDetails(previousState, updatedDto.onboardingState(), null, identitySourceDetails(updatedDto.identitySource()))
+            );
+
+            return updatedDto;
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    AdminUserAuditAction.RESEND_SETUP_EMAIL,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(previousState, previousState, ex.getCode(), identitySourceDetails(identitySource))
+            );
+            throw ex;
+        } catch (Exception ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    AdminUserAuditAction.RESEND_SETUP_EMAIL,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(previousState, previousState, AdminUserErrorCode.ADMIN_USER_SETUP_EMAIL_FAILED, identitySourceDetails(identitySource))
+            );
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_SETUP_EMAIL_FAILED,
+                    "Failed to send account setup email.",
+                    ex
+            );
+        }
     }
 
-    private AdminUserDto mapToAdminUserDto(UserRepresentation user) {
-        String avatar = extractAvatarUrl(user);
-
-        return new AdminUserDto(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName(),
-                avatar,
-                Boolean.TRUE.equals(user.isEnabled()),
-                Boolean.TRUE.equals(user.isEmailVerified()),
-                user.getCreatedTimestamp() != null
-                    ? Instant.ofEpochMilli(user.getCreatedTimestamp()).toString()
-                    : null
-        );
-    }
-
-    /**
-     * Get a single user by ID
-     */
     public Optional<UserDto> getUserById(String userId) {
         try {
             RealmResource realmResource = keycloakAdmin.realm(realm);
             UserRepresentation user = realmResource.users().get(userId).toRepresentation();
             return Optional.of(mapToUserDto(user));
         } catch (Exception e) {
-            // User not found or other error
             return Optional.empty();
         }
     }
 
-    /**
-     * Get multiple users by their IDs - optimized for batch lookups
-     */
     public Map<String, UserDto> getUsersByIds(List<String> userIds) {
         if (userIds.isEmpty()) {
             return Map.of();
@@ -160,7 +368,6 @@ public class UserService {
                         UserRepresentation user = realmResource.users().get(userId).toRepresentation();
                         return mapToUserDto(user);
                     } catch (Exception e) {
-                        // User not found, return null (will be filtered out)
                         return null;
                     }
                 })
@@ -168,39 +375,6 @@ public class UserService {
                 .collect(Collectors.toMap(UserDto::id, user -> user));
     }
 
-    private UserDto mapToUserDto(UserRepresentation user) {
-        String avatar = extractAvatarUrl(user);
-
-        return new UserDto(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getFirstName(),
-                user.getLastName(),
-                avatar
-        );
-    }
-
-    private String extractAvatarUrl(UserRepresentation user) {
-        // Check for avatar in user attributes (common attribute names)
-        if (user.getAttributes() != null) {
-            // Try different common attribute names for avatar
-            String[] avatarAttributes = {"avatar", "picture", "profile_picture", "photo"};
-
-            for (String attr : avatarAttributes) {
-                List<String> values = user.getAttributes().get(attr);
-                if (values != null && !values.isEmpty() && values.get(0) != null && !values.get(0).trim().isEmpty()) {
-                    return values.get(0).trim();
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Get user profile (including avatar from attributes)
-     */
     public Optional<UserProfileDto> getUserProfile(String userId) {
         try {
             RealmResource realmResource = keycloakAdmin.realm(realm);
@@ -220,16 +394,12 @@ public class UserService {
         }
     }
 
-    /**
-     * Update user profile (firstName, lastName, avatar only - no security-related fields)
-     */
     public boolean updateUserProfile(String userId, UserProfileDto.UpdateRequest updateRequest) {
         try {
             RealmResource realmResource = keycloakAdmin.realm(realm);
             UserResource userResource = realmResource.users().get(userId);
             UserRepresentation user = userResource.toRepresentation();
 
-            // Update basic profile fields
             if (updateRequest.firstName() != null) {
                 user.setFirstName(updateRequest.firstName().trim());
             }
@@ -237,7 +407,6 @@ public class UserService {
                 user.setLastName(updateRequest.lastName().trim());
             }
 
-            // Update avatar in user attributes
             if (updateRequest.avatar() != null) {
                 Map<String, List<String>> attributes = user.getAttributes();
                 if (attributes == null) {
@@ -245,16 +414,13 @@ public class UserService {
                 }
 
                 if (updateRequest.avatar().trim().isEmpty()) {
-                    // Remove avatar if empty string provided
                     attributes.remove("picture");
                 } else {
-                    // Set avatar URL
                     attributes.put("picture", Arrays.asList(updateRequest.avatar().trim()));
                 }
                 user.setAttributes(attributes);
             }
 
-            // Save the updated user
             userResource.update(user);
             return true;
 
@@ -264,9 +430,6 @@ public class UserService {
         }
     }
 
-    /**
-     * Get user IDs by usernames (for @mention resolution)
-     */
     public List<String> getUserIdsByUsernames(List<String> usernames) {
         if (usernames == null || usernames.isEmpty()) {
             return List.of();
@@ -290,9 +453,6 @@ public class UserService {
                 .toList();
     }
 
-    /**
-     * Search users by username or email
-     */
     public List<UserDto> searchUsers(String query, int limit) {
         if (query == null || query.trim().length() < 2) {
             return List.of();
@@ -301,18 +461,12 @@ public class UserService {
         RealmResource realmResource = keycloakAdmin.realm(realm);
         String searchTerm = query.trim();
 
-        // Search by username
         List<UserRepresentation> usernameResults = realmResource.users().searchByUsername(searchTerm, true);
-        
-        // Search by email
         List<UserRepresentation> emailResults = realmResource.users().searchByEmail(searchTerm, true);
-
-        // Also search with broader matching
         List<UserRepresentation> broadResults = realmResource.users().search(searchTerm, 0, limit);
 
-        // Combine and deduplicate
         Map<String, UserDto> uniqueUsers = new HashMap<>();
-        
+
         for (UserRepresentation user : usernameResults) {
             uniqueUsers.putIfAbsent(user.getId(), mapToUserDto(user));
         }
@@ -328,13 +482,107 @@ public class UserService {
                 .toList();
     }
 
+    private AdminUserDto updateUserEnabledStateForAdmin(String actorUserId, String actorUsername, String targetUserId, boolean enabled) {
+        AdminUserAuditAction action = enabled ? AdminUserAuditAction.ENABLE : AdminUserAuditAction.DISABLE;
+        AdminMutationAction mutationAction = enabled ? AdminMutationAction.ENABLE : AdminMutationAction.DISABLE;
+        UserRepresentation user;
+
+        try {
+            user = getRequiredUserRepresentation(targetUserId);
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    null,
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(null, null, ex.getCode(), null)
+            );
+            throw ex;
+        }
+
+        AdminUserOnboardingState previousState = deriveOnboardingState(user);
+        AdminUserIdentitySource identitySource = deriveIdentitySource(user);
+
+        try {
+            assertNotServiceAccount(user);
+            assertMutableInCurrentMode(user, mutationAction);
+            if (!enabled && targetUserId.equals(actorUserId)) {
+                throw new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_SELF_DISABLE_FORBIDDEN,
+                        "You cannot disable your own account."
+                );
+            }
+            if (enabled && Boolean.TRUE.equals(user.isEnabled())) {
+                throw new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_ALREADY_ENABLED,
+                        "User is already enabled."
+                );
+            }
+            if (!enabled && !Boolean.TRUE.equals(user.isEnabled())) {
+                throw new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_ALREADY_DISABLED,
+                        "User is already disabled."
+                );
+            }
+
+            UserResource userResource = keycloakAdmin.realm(realm).users().get(targetUserId);
+            user.setEnabled(enabled);
+            userResource.update(user);
+
+            UserRepresentation refreshedUser = userResource.toRepresentation();
+            AdminUserDto updatedDto = mapToAdminUserDto(refreshedUser);
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    refreshedUser.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.SUCCESS,
+                    auditDetails(previousState, updatedDto.onboardingState(), null, identitySourceDetails(updatedDto.identitySource()))
+            );
+
+            return updatedDto;
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(previousState, previousState, ex.getCode(), identitySourceDetails(identitySource))
+            );
+            throw ex;
+        } catch (Exception ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    auditDetails(previousState, previousState, AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED, identitySourceDetails(identitySource))
+            );
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Failed to update the user in the identity provider.",
+                    ex
+            );
+        }
+    }
+
     private void ensureUserDoesNotExist(UsersResource usersResource, String username, String email) {
         boolean usernameTaken = usersResource.searchByUsername(username, true).stream()
                 .map(UserRepresentation::getUsername)
                 .filter(existingUsername -> existingUsername != null)
                 .anyMatch(existingUsername -> existingUsername.equalsIgnoreCase(username));
         if (usernameTaken) {
-            throw new IllegalArgumentException("A user with this username already exists.");
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_DUPLICATE_USERNAME,
+                    "A user with this username already exists."
+            );
         }
 
         boolean emailTaken = usersResource.searchByEmail(email, true).stream()
@@ -342,8 +590,233 @@ public class UserService {
                 .filter(existingEmail -> existingEmail != null)
                 .anyMatch(existingEmail -> existingEmail.equalsIgnoreCase(email));
         if (emailTaken) {
-            throw new IllegalArgumentException("A user with this email already exists.");
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_DUPLICATE_EMAIL,
+                    "A user with this email already exists."
+            );
         }
+    }
+
+    private UserRepresentation getRequiredUserRepresentation(String userId) {
+        try {
+            return keycloakAdmin.realm(realm).users().get(userId).toRepresentation();
+        } catch (NotFoundException ex) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_NOT_FOUND,
+                    "User not found.",
+                    ex
+            );
+        } catch (AdminUserManagementException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_NOT_FOUND,
+                    "User not found.",
+                    ex
+            );
+        }
+    }
+
+    private void assertProvisioningEnabledForCreate() {
+        if (isLdapManagedDeployment()) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_PROVISIONING_DISABLED,
+                    "User creation is disabled because this deployment uses LDAP-managed identities."
+            );
+        }
+    }
+
+    private void assertMutableInCurrentMode(UserRepresentation user, AdminMutationAction action) {
+        if (isLdapManagedDeployment()) {
+            if (action == AdminMutationAction.RESEND_SETUP) {
+                throw new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_PROVISIONING_DISABLED,
+                        "Setup email actions are disabled because this deployment uses LDAP-managed identities."
+                );
+            }
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_EXTERNALLY_MANAGED,
+                    "This user is managed externally through LDAP and cannot be changed here."
+            );
+        }
+
+        if (isExternallyManaged(user)) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_EXTERNALLY_MANAGED,
+                    "This user is managed externally through LDAP and cannot be changed here."
+            );
+        }
+    }
+
+    private AdminUserDto mapToAdminUserDto(UserRepresentation user) {
+        String avatar = extractAvatarUrl(user);
+        boolean serviceAccount = isServiceAccount(user);
+        AdminUserIdentitySource identitySource = deriveIdentitySource(user);
+        boolean externallyManaged = identitySource != AdminUserIdentitySource.LOCAL;
+        AdminUserOnboardingState onboardingState = deriveOnboardingState(user);
+
+        return new AdminUserDto(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                avatar,
+                Boolean.TRUE.equals(user.isEnabled()),
+                Boolean.TRUE.equals(user.isEmailVerified()),
+                serviceAccount,
+                externallyManaged,
+                identitySource,
+                onboardingState,
+                user.getCreatedTimestamp() != null
+                        ? Instant.ofEpochMilli(user.getCreatedTimestamp()).toString()
+                        : null
+        );
+    }
+
+    private UserDto mapToUserDto(UserRepresentation user) {
+        String avatar = extractAvatarUrl(user);
+
+        return new UserDto(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                avatar
+        );
+    }
+
+    private AdminUserOnboardingState deriveOnboardingState(UserRepresentation user) {
+        if (isServiceAccount(user)) {
+            return AdminUserOnboardingState.SERVICE_ACCOUNT;
+        }
+        if (!Boolean.TRUE.equals(user.isEnabled())) {
+            return AdminUserOnboardingState.DISABLED;
+        }
+
+        List<String> requiredActions = user.getRequiredActions() != null ? user.getRequiredActions() : List.of();
+        boolean pendingSetup = !Boolean.TRUE.equals(user.isEmailVerified())
+                || requiredActions.contains("VERIFY_EMAIL")
+                || requiredActions.contains("UPDATE_PASSWORD");
+
+        return pendingSetup ? AdminUserOnboardingState.PENDING_SETUP : AdminUserOnboardingState.ACTIVE;
+    }
+
+    private AdminUserIdentitySource deriveIdentitySource(UserRepresentation user) {
+        if (isServiceAccount(user)) {
+            return AdminUserIdentitySource.SERVICE_ACCOUNT;
+        }
+        String federationLink = normalizeOptional(user.getFederationLink());
+        if (federationLink != null) {
+            return AdminUserIdentitySource.LDAP;
+        }
+        return AdminUserIdentitySource.LOCAL;
+    }
+
+    private boolean isExternallyManaged(UserRepresentation user) {
+        return deriveIdentitySource(user) != AdminUserIdentitySource.LOCAL;
+    }
+
+    private boolean isLdapManagedDeployment() {
+        return authProvisioningProperties.getUserProvisioningMode() == UserProvisioningMode.LDAP_MANAGED;
+    }
+
+    private boolean matchesSearch(AdminUserDto user, String normalizedSearch) {
+        if (normalizedSearch == null) {
+            return true;
+        }
+
+        String query = normalizedSearch.toLowerCase(Locale.ROOT);
+        return containsIgnoreCase(user.username(), query)
+                || containsIgnoreCase(user.email(), query)
+                || containsIgnoreCase(user.firstName(), query)
+                || containsIgnoreCase(user.lastName(), query);
+    }
+
+    private boolean matchesStatus(AdminUserDto user, AdminUserStatusFilter status) {
+        if (status == null || status == AdminUserStatusFilter.ALL) {
+            return true;
+        }
+        return switch (status) {
+            case ACTIVE -> user.onboardingState() == AdminUserOnboardingState.ACTIVE;
+            case PENDING_SETUP -> user.onboardingState() == AdminUserOnboardingState.PENDING_SETUP;
+            case DISABLED -> user.onboardingState() == AdminUserOnboardingState.DISABLED;
+            case ALL -> true;
+        };
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedQuery) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(normalizedQuery);
+    }
+
+    private int compareByCreatedTimestampDesc(UserRepresentation left, UserRepresentation right) {
+        long rightCreated = right.getCreatedTimestamp() != null ? right.getCreatedTimestamp() : Long.MIN_VALUE;
+        long leftCreated = left.getCreatedTimestamp() != null ? left.getCreatedTimestamp() : Long.MIN_VALUE;
+        return Long.compare(rightCreated, leftCreated);
+    }
+
+    private Map<String, Object> auditDetails(
+            AdminUserOnboardingState previousState,
+            AdminUserOnboardingState newState,
+            AdminUserErrorCode errorCode,
+            Map<String, Object> extraDetails) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        if (previousState != null) {
+            details.put("previousState", previousState.name());
+        }
+        if (newState != null) {
+            details.put("newState", newState.name());
+        }
+        if (errorCode != null) {
+            details.put("errorCode", errorCode.name());
+        }
+        if (extraDetails != null) {
+            extraDetails.forEach((key, value) -> {
+                if (value != null) {
+                    details.put(key, value);
+                }
+            });
+        }
+        return details;
+    }
+
+    private Map<String, Object> identitySourceDetails(AdminUserIdentitySource identitySource) {
+        if (identitySource == null) {
+            return null;
+        }
+        return Map.of("identitySource", identitySource.name());
+    }
+
+    private void assertNotServiceAccount(UserRepresentation user) {
+        if (isServiceAccount(user)) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_SERVICE_ACCOUNT_FORBIDDEN,
+                    "Service accounts cannot be managed here."
+            );
+        }
+    }
+
+    private String normalizeRequiredUsername(String username) {
+        String normalized = normalizeOptional(username);
+        if (normalized == null || normalized.toLowerCase(Locale.ROOT).startsWith(SERVICE_ACCOUNT_USERNAME_PREFIX)) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_INVALID_USERNAME,
+                    "This username is not allowed."
+            );
+        }
+        return normalized;
+    }
+
+    private String normalizeRequiredEmail(String email) {
+        String normalized = normalizeOptional(email);
+        if (normalized == null) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Email is required."
+            );
+        }
+        return normalized.toLowerCase(Locale.ROOT);
     }
 
     private void rollbackCreatedUser(UserResource createdUserResource, String userId) {
@@ -379,7 +852,22 @@ public class UserService {
             return true;
         }
         String username = user.getUsername();
-        return username != null && username.startsWith("service-account-");
+        return username != null && username.startsWith(SERVICE_ACCOUNT_USERNAME_PREFIX);
+    }
+
+    private String extractAvatarUrl(UserRepresentation user) {
+        if (user.getAttributes() != null) {
+            String[] avatarAttributes = {"avatar", "picture", "profile_picture", "photo"};
+
+            for (String attr : avatarAttributes) {
+                List<String> values = user.getAttributes().get(attr);
+                if (values != null && !values.isEmpty() && values.get(0) != null && !values.get(0).trim().isEmpty()) {
+                    return values.get(0).trim();
+                }
+            }
+        }
+
+        return null;
     }
 
     private String normalizeOptional(String value) {

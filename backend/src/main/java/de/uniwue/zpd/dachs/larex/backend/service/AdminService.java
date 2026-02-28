@@ -1,7 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.service;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminWorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
@@ -92,13 +95,36 @@ public class AdminService {
         return result;
     }
 
-    public List<AdminUserDto> getAllUsersForAdmin(boolean includeServiceAccounts) {
-        return userService.getAllUsersForAdmin(includeServiceAccounts);
+    public AdminUserPageDto getUserPageForAdmin(int page, int size, String search, boolean includeServiceAccounts, AdminUserStatusFilter status) {
+        return userService.getUserPageForAdmin(page, size, search, includeServiceAccounts, status);
+    }
+
+    public AdminUserDto getUserForAdmin(String userId) {
+        return userService.getUserForAdmin(userId);
     }
 
     @Transactional
-    public AdminUserDto createUserForAdmin(AdminCreateUserRequest request) {
-        return userService.createUserForAdmin(request);
+    public AdminUserDto createUserForAdmin(String actorUserId, String actorUsername, AdminCreateUserRequest request) {
+        return userService.createUserForAdmin(actorUserId, actorUsername, request);
+    }
+
+    @Transactional
+    public AdminUserDto disableUserForAdmin(String actorUserId, String actorUsername, String targetUserId) {
+        return userService.disableUserForAdmin(actorUserId, actorUsername, targetUserId);
+    }
+
+    @Transactional
+    public AdminUserDto enableUserForAdmin(String actorUserId, String actorUsername, String targetUserId) {
+        return userService.enableUserForAdmin(actorUserId, actorUsername, targetUserId);
+    }
+
+    @Transactional
+    public AdminUserDto resendSetupEmailForAdmin(String actorUserId, String actorUsername, String targetUserId) {
+        return userService.resendSetupEmailForAdmin(actorUserId, actorUsername, targetUserId);
+    }
+
+    public List<AdminUserAuditEventDto> getUserAuditEventsForAdmin(String targetUserId, int limit) {
+        return userService.getUserAuditEventsForAdmin(targetUserId, limit);
     }
 
     private Map<String, Long> toLongMap(Collection<Object[]> rows) {

@@ -1,6 +1,12 @@
 package de.uniwue.zpd.dachs.larex.backend;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserIdentitySource;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserOnboardingState;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
+import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
+import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.AdminService;
 import de.uniwue.zpd.dachs.larex.backend.service.PageFilterIndexService;
 import org.junit.jupiter.api.Test;
@@ -13,10 +19,17 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,16 +65,13 @@ class AdminControllerSecurityTest {
     @Test
     @WithMockUser(roles = "GLOBAL_ADMIN")
     void createUser_createdForAdmin() throws Exception {
-        when(adminService.createUserForAdmin(any())).thenReturn(new AdminUserDto(
+        when(adminService.createUserForAdmin(any(), any(), any())).thenReturn(adminUser(
                 "user-1",
-                "alice",
-                "alice@example.org",
-                "Alice",
-                "Admin",
-                null,
                 true,
                 false,
-                null
+                false,
+                AdminUserIdentitySource.LOCAL,
+                AdminUserOnboardingState.PENDING_SETUP
         ));
 
         mockMvc.perform(post("/admin/users")
@@ -76,7 +86,11 @@ class AdminControllerSecurityTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.username").value("alice"))
-                .andExpect(jsonPath("$.email").value("alice@example.org"));
+                .andExpect(jsonPath("$.email").value("alice@example.org"))
+                .andExpect(jsonPath("$.serviceAccount").value(false))
+                .andExpect(jsonPath("$.externallyManaged").value(false))
+                .andExpect(jsonPath("$.identitySource").value("LOCAL"))
+                .andExpect(jsonPath("$.onboardingState").value("PENDING_SETUP"));
     }
 
     @Test
@@ -93,6 +107,140 @@ class AdminControllerSecurityTest {
                                 """))
                 .andExpect(status().isBadRequest());
 
-        verify(adminService, never()).createUserForAdmin(any());
+        verify(adminService, never()).createUserForAdmin(any(), any(), any());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void createUser_returnsProvisioningDisabledErrorCode() throws Exception {
+        when(adminService.createUserForAdmin(any(), any(), any()))
+                .thenThrow(new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_PROVISIONING_DISABLED,
+                        "User creation is disabled because this deployment uses LDAP-managed identities."
+                ));
+
+        mockMvc.perform(post("/admin/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "alice",
+                                  "email": "alice@example.org"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ADMIN_USER_PROVISIONING_DISABLED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void disableUser_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(post("/admin/users/user-1/disable"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void enableUser_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(post("/admin/users/user-1/enable"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void resendSetup_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(post("/admin/users/user-1/resend-setup"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void disableUser_allowedForAdmin() throws Exception {
+        when(adminService.disableUserForAdmin(any(), any(), eq("user-1")))
+                .thenReturn(adminUser("user-1", false, false, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.DISABLED));
+
+        mockMvc.perform(post("/admin/users/user-1/disable"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.enabled").value(false))
+                .andExpect(jsonPath("$.onboardingState").value("DISABLED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void disableUser_returnsStructuredErrorCode() throws Exception {
+        when(adminService.disableUserForAdmin(any(), any(), eq("user-1")))
+                .thenThrow(new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_SELF_DISABLE_FORBIDDEN,
+                        "You cannot disable your own account."
+                ));
+
+        mockMvc.perform(post("/admin/users/user-1/disable"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ADMIN_USER_SELF_DISABLE_FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("You cannot disable your own account."));
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void disableUser_returnsExternallyManagedErrorCode() throws Exception {
+        when(adminService.disableUserForAdmin(any(), any(), eq("ldap-1")))
+                .thenThrow(new AdminUserManagementException(
+                        AdminUserErrorCode.ADMIN_USER_EXTERNALLY_MANAGED,
+                        "This user is managed externally through LDAP and cannot be changed here."
+                ));
+
+        mockMvc.perform(post("/admin/users/ldap-1/disable"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ADMIN_USER_EXTERNALLY_MANAGED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void getUsers_returnsPagedPayloadWithCapabilities() throws Exception {
+        when(adminService.getUserPageForAdmin(eq(0), eq(25), any(), anyBoolean(), eq(AdminUserStatusFilter.ALL)))
+                .thenReturn(new AdminUserPageDto(
+                        List.of(adminUser("user-1", true, false, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.PENDING_SETUP)),
+                        0,
+                        25,
+                        1,
+                        1,
+                        false,
+                        false
+                ));
+
+        mockMvc.perform(get("/admin/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(25))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.creationAllowed").value(false))
+                .andExpect(jsonPath("$.setupEmailAllowed").value(false))
+                .andExpect(jsonPath("$.items[0].username").value("alice"))
+                .andExpect(jsonPath("$.items[0].identitySource").value("LOCAL"))
+                .andExpect(jsonPath("$.items[0].externallyManaged").value(false))
+                .andExpect(jsonPath("$.items[0].onboardingState").value("PENDING_SETUP"));
+    }
+
+    private AdminUserDto adminUser(
+            String id,
+            boolean enabled,
+            boolean emailVerified,
+            boolean externallyManaged,
+            AdminUserIdentitySource identitySource,
+            AdminUserOnboardingState onboardingState) {
+        return new AdminUserDto(
+                id,
+                "alice",
+                "alice@example.org",
+                "Alice",
+                "Admin",
+                null,
+                enabled,
+                emailVerified,
+                identitySource == AdminUserIdentitySource.SERVICE_ACCOUNT,
+                externallyManaged,
+                identitySource,
+                onboardingState,
+                null
+        );
     }
 }

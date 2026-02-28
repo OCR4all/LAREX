@@ -119,22 +119,44 @@ export default defineEventHandler(async (event) => {
       return
     }
 
-    const resolvedError = error as { response?: { status?: number }, message?: string }
-    const statusCode = resolvedError.response?.status || 500
+    const resolvedError = error as {
+      response?: { status?: number, statusText?: string }
+      statusCode?: number
+      statusMessage?: string
+      data?: unknown
+      message?: string
+    }
+    const statusCode = resolvedError.response?.status || resolvedError.statusCode || 500
+    const errorData = isErrorResponseData(resolvedError.data) ? resolvedError.data : undefined
 
     if (statusCode === 401) {
       throw createError({
         statusCode: 401,
-        statusMessage: 'Unauthorized'
+        statusMessage: 'Unauthorized',
+        data: errorData
       })
     }
 
     throw createError({
       statusCode,
-      statusMessage: resolvedError.message || 'Internal Server Error'
+      statusMessage: errorData?.message
+        || resolvedError.statusMessage
+        || resolvedError.response?.statusText
+        || resolvedError.message
+        || 'Internal Server Error',
+      data: errorData
     })
   }
 })
+
+type ErrorResponseData = {
+  status?: number
+  error?: string
+  message?: string
+  path?: string
+  details?: string[]
+  code?: string
+}
 
 function toRequestBody(body: unknown): BodyInit | undefined {
   if (body == null) {
@@ -168,6 +190,15 @@ function toQueryString(query: Record<string, string | string[] | undefined>): st
   }
   const serialized = params.toString()
   return serialized ? `?${serialized}` : ''
+}
+
+function isErrorResponseData(value: unknown): value is ErrorResponseData {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return typeof candidate.message === 'string'
 }
 
 type ProxyMethod = 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'CONNECT' | 'OPTIONS' | 'TRACE'

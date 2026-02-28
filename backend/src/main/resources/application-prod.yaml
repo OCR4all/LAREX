@@ -44,6 +44,8 @@ file:
   upload-dir: ${LAREX_UPLOAD_DIR:/mnt/data/uploads}
 
 larex:
+  auth:
+    user-provisioning-mode: ${LAREX_USER_PROVISIONING_MODE:LOCAL}
   upload:
     temp-directory: ${LAREX_UPLOAD_TEMP_DIR:${file.upload-dir}/temp}
     directories:
