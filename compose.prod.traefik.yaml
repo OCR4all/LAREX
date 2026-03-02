@@ -89,11 +89,11 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
-      KC_HOSTNAME_STRICT: true
-      KC_HOSTNAME_STRICT_HTTPS: true
-      KC_HTTP_ENABLED: false
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
+      KC_HTTP_ENABLED: "false"
       KC_PROXY: edge
-      KC_HEALTH_ENABLED: true
+      KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ADMIN_REALM: ${KEYCLOAK_ADMIN_REALM:-larex-prod}
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
       NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET: ${NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET}
@@ -171,7 +171,6 @@ services:
       - app_data:/mnt/data
     networks:
       - backend
-      - web
     depends_on:
       postgres:
         condition: service_healthy
@@ -193,16 +192,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.app.rule=Host(`${API_HOSTNAME}`)"
-      - "traefik.http.routers.app.entrypoints=websecure"
-      - "traefik.http.routers.app.tls.certresolver=le"
-      - "traefik.http.services.app.loadbalancer.server.port=8080"
-      - "traefik.http.middlewares.app-redirect.redirectscheme.scheme=https"
-      - "traefik.http.routers.app-http.rule=Host(`${API_HOSTNAME}`)"
-      - "traefik.http.routers.app-http.entrypoints=web"
-      - "traefik.http.routers.app-http.middlewares=app-redirect"
 
   frontend:
     build:
