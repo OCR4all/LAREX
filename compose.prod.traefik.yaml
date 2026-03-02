@@ -78,6 +78,9 @@ services:
         max-file: "3"
 
   keycloak:
+    image: quay.io/keycloak/keycloak:26.5.4
+    restart: unless-stopped
+    command: start --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
