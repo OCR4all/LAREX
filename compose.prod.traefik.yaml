@@ -78,9 +78,6 @@ services:
         max-file: "3"
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.5.4
-    restart: unless-stopped
-    command: start --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
@@ -88,11 +85,10 @@ services:
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
+      KC_HOSTNAME: https://${KEYCLOAK_HOSTNAME}
       KC_HOSTNAME_STRICT: "true"
-      KC_HOSTNAME_STRICT_HTTPS: "true"
-      KC_HTTP_ENABLED: "false"
-      KC_PROXY: edge
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: "xforwarded"
       KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ADMIN_REALM: ${KEYCLOAK_ADMIN_REALM:-larex-prod}
       KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
