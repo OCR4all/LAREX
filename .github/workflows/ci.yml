@@ -135,6 +135,57 @@ jobs:
           name: keycloak-theme
           path: keycloak-theme/build_keycloak/
 
+  compose-validation:
+    name: Compose Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate local dev compose
+        run: docker compose -f compose.yaml config >/dev/null
+
+      - name: Validate local production-like compose
+        run: |
+          docker compose --env-file deployment/env/.env.prod.local.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.bundled-keycloak.yaml \
+            -f compose.prod.local.yaml \
+            config >/dev/null
+
+      - name: Validate production compose with bundled Keycloak
+        run: |
+          docker compose --env-file deployment/env/.env.prod.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.bundled-keycloak.yaml \
+            -f compose.prod.publish.localhost.yaml \
+            config >/dev/null
+
+      - name: Validate production compose with external Keycloak
+        run: |
+          docker compose --env-file deployment/env/.env.prod.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.external-keycloak.yaml \
+            -f compose.prod.publish.localhost.yaml \
+            config >/dev/null
+
+      - name: Validate production compose with bundled Nginx
+        run: |
+          docker compose --env-file deployment/env/.env.prod.example \
+            -f compose.prod.base.yaml \
+            -f compose.prod.auth.bundled-keycloak.yaml \
+            -f compose.prod.publish.localhost.yaml \
+            -f compose.prod.nginx.yaml \
+            config >/dev/null
+
+      - name: Check for removed deployment references
+        run: |
+          if grep -R -n -E 'compose\.prod\.traefik\.yaml|compose\.prod\.external-keycloak\.yaml|\.env\.prod\.traefik\.example|\.env\.prod\.external-keycloak\.example|API_HOSTNAME|compose\.prod\.local\.nginx\.yaml' README.md docs Taskfile.yml; then
+            echo "Found stale deployment references"
+            exit 1
+          fi
+
   docker-build:
     name: Docker Build Test
     runs-on: ubuntu-latest

@@ -6,11 +6,13 @@ vars:
   VERSION:
     sh: cat VERSION
   DOCKER_REGISTRY: ghcr.io/your-org/larex
-  COMPOSE_FILE: docker-compose.yaml
-  COMPOSE_PROD_FILE: compose.prod.yaml
+  COMPOSE_FILE: compose.yaml
+  COMPOSE_PROD_BASE_FILE: compose.prod.base.yaml
+  COMPOSE_PROD_AUTH_BUNDLED_FILE: compose.prod.auth.bundled-keycloak.yaml
+  COMPOSE_PROD_AUTH_EXTERNAL_FILE: compose.prod.auth.external-keycloak.yaml
+  COMPOSE_PROD_PUBLISH_FILE: compose.prod.publish.localhost.yaml
   COMPOSE_PROD_LOCAL_FILE: compose.prod.local.yaml
-  COMPOSE_PROD_TRAEFIK_FILE: compose.prod.traefik.yaml
-  COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE: compose.prod.external-keycloak.yaml
+  COMPOSE_PROD_NGINX_FILE: compose.prod.nginx.yaml
 
 includes:
   backend:
@@ -112,84 +114,64 @@ tasks:
   # ============================================================================
 
   docker:prod:up:
-    desc: "Start production services (default: no Traefik, bundled Keycloak)"
+    desc: "Start opinionated production services (bundled Keycloak, external reverse proxy friendly)"
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_FILE}} up -d
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} up -d
 
   docker:prod:down:
-    desc: Stop production services (default variant)
+    desc: Stop opinionated production services
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_FILE}} down
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} down
 
   docker:prod:logs:
-    desc: View production logs (default variant)
+    desc: View logs for opinionated production services
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_FILE}} logs -f
-
-  docker:prod:config:
-    desc: Validate default production compose configuration
-    cmds:
-      - docker compose -f {{.COMPOSE_PROD_FILE}} config >/dev/null
-
-  docker:prod:traefik:up:
-    desc: Start secondary/advanced production services (Traefik + LetsEncrypt)
-    cmds:
-      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} up -d
-
-  docker:prod:traefik:down:
-    desc: Stop secondary/advanced Traefik production services
-    cmds:
-      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} down
-
-  docker:prod:traefik:logs:
-    desc: View logs for secondary/advanced Traefik production services
-    cmds:
-      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} logs -f
-
-  docker:prod:traefik:config:
-    desc: Validate secondary/advanced Traefik production compose configuration
-    cmds:
-      - docker compose -f {{.COMPOSE_PROD_TRAEFIK_FILE}} config >/dev/null
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} logs -f
 
   docker:prod:local:up:
     desc: Start production-like local stack (Traefik + local hostnames + Mailpit)
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} up -d
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} up -d
 
   docker:prod:local:down:
     desc: Stop production-like local stack
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} down
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} down
 
   docker:prod:local:logs:
     desc: View logs for production-like local stack
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} logs -f
-
-  docker:prod:local:config:
-    desc: Validate production-like local compose configuration
-    cmds:
-      - docker compose -f {{.COMPOSE_PROD_LOCAL_FILE}} config >/dev/null
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} logs -f
 
   docker:prod:external-keycloak:up:
-    desc: Start production services (no Traefik, external Keycloak)
+    desc: Start opinionated production services with external Keycloak
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} up -d
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_EXTERNAL_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} up -d
 
   docker:prod:external-keycloak:down:
-    desc: Stop production services (external Keycloak variant)
+    desc: Stop opinionated production services with external Keycloak
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} down
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_EXTERNAL_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} down
 
   docker:prod:external-keycloak:logs:
-    desc: View logs for external Keycloak production variant
+    desc: View logs for the external Keycloak production variant
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} logs -f
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_EXTERNAL_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} logs -f
 
-  docker:prod:external-keycloak:config:
-    desc: Validate external Keycloak production compose configuration
+  docker:prod:nginx:up:
+    desc: Start opinionated production services with bundled Nginx
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_EXTERNAL_KEYCLOAK_FILE}} config >/dev/null
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_NGINX_FILE}} up -d
+
+  docker:prod:nginx:down:
+    desc: Stop opinionated production services with bundled Nginx
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_NGINX_FILE}} down
+
+  docker:prod:nginx:logs:
+    desc: View logs for the bundled Nginx production variant
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_NGINX_FILE}} logs -f
 
   # ============================================================================
   # Testing
@@ -226,7 +208,7 @@ tasks:
   build:docker:
     desc: Build production Docker images
     cmds:
-      - docker compose -f {{.COMPOSE_PROD_FILE}} build
+      - docker compose -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} build
 
   # ============================================================================
   # Versioning
@@ -322,7 +304,7 @@ tasks:
   db:shell:
     desc: Open PostgreSQL shell
     cmds:
-      - 'docker compose -f {{.COMPOSE_FILE}} exec postgres psql -U larex_user -d larex_dev'
+      - 'docker compose -f {{.COMPOSE_FILE}} exec postgres psql -U larex -d larexdb'
 
   keycloak:shell:
     desc: Open Keycloak container shell

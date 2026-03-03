@@ -7,17 +7,25 @@ LAREX (Layout Analysis and Recognition) is a full-stack web application for anno
 - Frontend: Nuxt 4
 - Backend: Spring Boot (Java 21)
 - Database: PostgreSQL
-- Authentication: Keycloak (OIDC/OAuth2)
-- Deployment/orchestration: Docker Compose
-- Development helper: Taskfile (optional)
+- Authentication: Keycloak
+- Deployment: Docker Compose
 
-## Quick Start (Docker Compose)
+## Supported Setups
 
-### Prerequisites
+| Setup | Purpose | Command |
+|-------|---------|---------|
+| Local dev | Source-mounted developer workflow with Traefik and `*.localhost` | `docker compose up -d` |
+| Local production-like | Production images/runtime with Traefik, `*.localhost`, and Mailpit | `docker compose --env-file .env.prod.local -f compose.prod.base.yaml -f compose.prod.auth.bundled-keycloak.yaml -f compose.prod.local.yaml up -d` |
+| Opinionated production | Production images/runtime with loopback-bound ports for your own reverse proxy | `docker compose --env-file .env.prod -f compose.prod.base.yaml -f compose.prod.auth.bundled-keycloak.yaml -f compose.prod.publish.localhost.yaml up -d` |
 
-- Docker Desktop
+Production supports two small overrides:
 
-### Start the project
+- External Keycloak: replace `compose.prod.auth.bundled-keycloak.yaml` with `compose.prod.auth.external-keycloak.yaml`
+- Bundled Nginx: add `-f compose.prod.nginx.yaml`
+
+## Quick Start
+
+### Local dev
 
 ```bash
 git clone <repository-url>
@@ -25,59 +33,52 @@ cd larex
 docker compose up -d
 ```
 
-### Default local services
+Local dev routes through Traefik:
 
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- Keycloak: `http://localhost:8090`
+- App: `http://larex.localhost`
+- API: `http://api.localhost`
+- Keycloak: `http://keycloak.localhost`
+- Mailpit: `http://mail.localhost`
 
-## Development (Optional)
-
-For local development workflows, the repository also provides a `Taskfile`.
-
-### Additional prerequisites (development only)
-
-- Node.js 20+
-- Java 21+
-- [Task](https://taskfile.dev) (`brew install go-task` on macOS)
-
-### Development startup
+### Local production-like
 
 ```bash
-task setup
-task dev
+cp deployment/env/.env.prod.local.example .env.prod.local
+docker compose --env-file .env.prod.local \
+  -f compose.prod.base.yaml \
+  -f compose.prod.auth.bundled-keycloak.yaml \
+  -f compose.prod.local.yaml \
+  up -d
+```
+
+### Opinionated production
+
+```bash
+cp deployment/env/.env.prod.example .env.prod
+docker compose --env-file .env.prod \
+  -f compose.prod.base.yaml \
+  -f compose.prod.auth.bundled-keycloak.yaml \
+  -f compose.prod.publish.localhost.yaml \
+  up -d
+```
+
+The production default binds frontend to `127.0.0.1:3000` and bundled Keycloak to `127.0.0.1:8090`. Put your own Nginx, Caddy, Apache, or similar reverse proxy in front.
+
+## Taskfile
+
+Optional helper commands are available through [Task](https://taskfile.dev):
+
+```bash
+task --list
+task docker:up
+task docker:prod:up
+task docker:prod:local:up
 ```
 
 ## Documentation
 
-Detailed documentation is maintained on the separate documentation website.
-
-- Documentation source (website content): [`docs/`](docs/)
-- API docs (local): `http://localhost:8080/swagger-ui.html`
-
-## Repository Structure
-
-- `frontend/` - Nuxt application
-- `backend/` - Spring Boot API
-- `keycloak-theme/` - Custom Keycloak theme
-- `docs/` - Documentation website source
-- `deployment/` - Deployment assets and environment templates
-- `Taskfile.yml` - Monorepo task orchestration
-
-## Common Commands (Development)
-
-```bash
-task --list        # List available tasks
-task status        # Check service status
-task test          # Run backend + frontend tests
-task docker:up     # Start services
-task docker:down   # Stop services
-```
-
-## Contributing
-
-Please use the documentation website for development, deployment, and troubleshooting guides. Run `task test` (or the equivalent backend/frontend test commands) before opening a pull request.
+- Deployment docs live in `docs/`
+- API docs are available locally at `http://localhost:8080/swagger-ui.html`
 
 ## License
 

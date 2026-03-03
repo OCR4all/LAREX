@@ -59,6 +59,9 @@
         "http://larex.localhost/auth/keycloak/password-change",
         "http://larex.localhost/auth/keycloak/delete-account"
       ],
+      "webOrigins": [
+        "http://larex.localhost"
+      ],
       "protocol": "openid-connect",
       "clientAuthenticatorType": "client-secret",
       "standardFlowEnabled": true,
