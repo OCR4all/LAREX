@@ -18,6 +18,7 @@ server {
     ssl_certificate /etc/nginx/certs/${LAREX_PUBLIC_HOST}.crt;
     ssl_certificate_key /etc/nginx/certs/${LAREX_PUBLIC_HOST}.key;
 
+    client_max_body_size 500m;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
@@ -32,7 +33,17 @@ server {
         proxy_pass http://frontend:3000/_ws;
     }
 
+    location /api/upload-proxy/ {
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_pass http://frontend:3000;
+    }
+
     location / {
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
         proxy_pass http://frontend:3000;
     }
 }
