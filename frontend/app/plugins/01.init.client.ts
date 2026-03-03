@@ -34,6 +34,10 @@ async function initializeApp() {
   }
 
   try {
+    await $fetch('/api/auth/refresh-profile', {
+      method: 'POST'
+    })
+
     const { checkHealth, startMonitoring } = useBackendHealth()
 
     let attempts = 0

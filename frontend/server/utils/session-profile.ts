@@ -1,3 +1,4 @@
+import { jwtDecode } from 'jwt-decode'
 import type { H3Event } from 'h3'
 
 type RoleClaims = {
@@ -52,13 +53,30 @@ function resolveManagedProfileAvatarSrc(avatar?: string | null): string | undefi
   }
 }
 
-function resolveRoles(identity: RoleClaims): string[] {
+function resolveRolesFromClaims(identity: RoleClaims): string[] {
   if (Array.isArray(identity.realm_access?.roles)) {
     return identity.realm_access.roles
   }
   if (Array.isArray(identity.roles)) {
     return identity.roles
   }
+  return []
+}
+
+function decodeRoleClaims(accessToken: string): RoleClaims | null {
+  try {
+    return jwtDecode<RoleClaims>(accessToken)
+  } catch {
+    return null
+  }
+}
+
+function resolveRoles(accessToken: string): string[] {
+  const tokenClaims = decodeRoleClaims(accessToken)
+  if (tokenClaims) {
+    return resolveRolesFromClaims(tokenClaims)
+  }
+
   return []
 }
 
@@ -107,7 +125,7 @@ export async function buildSessionUser(
   const name = resolveDisplayName(identity, profile, login)
   const email = profile?.email?.trim() || identity.email?.trim() || ''
   const avatar = resolveManagedProfileAvatarSrc(profile?.avatar)
-  const roles = resolveRoles(identity)
+  const roles = resolveRoles(accessToken)
 
   return {
     id,
