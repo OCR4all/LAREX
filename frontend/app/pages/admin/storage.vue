@@ -9,6 +9,15 @@ const UButton = resolveComponent('UButton')
 
 const toast = useToast()
 
+const datatableUi = {
+  base: 'table-fixed border-separate border-spacing-0',
+  thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+  tbody: '[&>tr]:last:[&>td]:border-b-0',
+  th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+  td: 'border-b border-default',
+  separator: 'h-0'
+}
+
 interface OrphanedFile {
   path: string
   type: 'image' | 'xml' | 'thumbnail' | 'temp'
@@ -605,17 +614,12 @@ async function refreshAll() {
             :columns="columns"
             :data="currentPageFiles"
             :loading="orphanedPending"
-            :ui="{
-              base: 'table-fixed border-separate border-spacing-0',
-              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0',
-              th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-              td: 'border-b border-default',
-              separator: 'h-0'
-            }"
+            :ui="datatableUi"
           />
+        </template>
 
-          <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-default">
+        <template #footer>
+          <div v-if="totalItems > 0" class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div class="text-sm text-muted">
               Showing {{ totalItems === 0 ? 0 : (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} files
             </div>

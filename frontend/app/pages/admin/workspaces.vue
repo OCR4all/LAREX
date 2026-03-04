@@ -38,6 +38,25 @@ const datatableUi = {
 
 const { sort, globalFilter, filteredAndSortedData, activeFilters, resetAllFilters } = useTableFilters(workspaces, { column: 'created', direction: 'desc' })
 
+const page = ref(1)
+const itemsPerPage = ref(25)
+const totalItems = computed(() => filteredAndSortedData.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const paginatedRows = computed(() => {
+  const start = (page.value - 1) * itemsPerPage.value
+  return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
+})
+
+watch([globalFilter, itemsPerPage], () => {
+  page.value = 1
+})
+
+watch(totalPages, (newTotalPages) => {
+  if (page.value > newTotalPages) {
+    page.value = newTotalPages
+  }
+})
+
 function openWorkspace(workspace: AdminWorkspace) {
   workspaceStore.selectWorkspaceAsAdmin({
     id: workspace.id,
@@ -166,39 +185,70 @@ const teamCount = computed(() => workspaces.value.filter(w => !w.isPersonal).len
         </UCard>
       </div>
 
-      <div class="mb-6 space-y-4">
-        <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div class="flex-1 max-w-md">
-            <UInput v-model="globalFilter" placeholder="Search workspaces..." icon="i-lucide-search">
-              <template v-if="globalFilter" #trailing>
-                <UButton
-                  color="neutral"
-                  variant="link"
-                  icon="i-lucide-x"
-                  :padded="false"
-                  @click="globalFilter = ''"
-                />
-              </template>
-            </UInput>
+      <UCard>
+        <template #header>
+          <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div class="flex-1 max-w-md">
+              <UInput v-model="globalFilter" placeholder="Search workspaces..." icon="i-lucide-search">
+                <template v-if="globalFilter" #trailing>
+                  <UButton
+                    color="neutral"
+                    variant="link"
+                    icon="i-lucide-x"
+                    :padded="false"
+                    @click="globalFilter = ''"
+                  />
+                </template>
+              </UInput>
+            </div>
+            <UButton
+              v-if="activeFilters.length > 0"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              @click="resetAllFilters"
+            >
+              Clear Filters
+            </UButton>
           </div>
-          <UButton
-            v-if="activeFilters.length > 0"
-            color="neutral"
-            variant="outline"
-            size="sm"
-            @click="resetAllFilters"
-          >
-            Clear Filters
-          </UButton>
-        </div>
-      </div>
+        </template>
 
-      <UTable
-        :data="filteredAndSortedData"
-        :columns="columns"
-        :loading="pending"
-        :ui="datatableUi"
-      />
+        <UTable
+          :data="paginatedRows"
+          :columns="columns"
+          :loading="pending"
+          :ui="datatableUi"
+        />
+
+        <template #footer>
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="text-sm text-muted">
+              Showing {{ totalItems === 0 ? 0 : (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} workspaces
+            </div>
+
+            <div class="flex items-center gap-4">
+              <USelect
+                v-model="itemsPerPage"
+                :items="[10, 25, 50, 100]"
+                class="w-32"
+                size="sm"
+              >
+                <template #label>
+                  {{ itemsPerPage }} per page
+                </template>
+              </USelect>
+
+              <UPagination
+                v-model:page="page"
+                :total="totalItems"
+                :items-per-page="itemsPerPage"
+                show-edges
+                :sibling-count="1"
+              />
+            </div>
+          </div>
+        </template>
+      </UCard>
     </template>
   </UDashboardPanel>
 </template>

@@ -79,6 +79,15 @@ const workspaceNameById = computed<Record<string, string>>(() => {
   return Object.fromEntries((adminWorkspaces.value ?? []).map(workspace => [workspace.id, workspace.name]))
 })
 
+const datatableUi = {
+  base: 'table-fixed border-separate border-spacing-0',
+  thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+  tbody: '[&>tr]:last:[&>td]:border-b-0',
+  th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+  td: 'border-b border-default',
+  separator: 'h-0'
+}
+
 const quotaRows = computed<AdminQuotaRow[]>(() => {
   return (quotas.value ?? []).map((quota) => {
     const workspaceName = workspaceNameById.value[quota.workspaceId] || quota.workspaceId
@@ -93,6 +102,25 @@ const quotaRows = computed<AdminQuotaRow[]>(() => {
 })
 
 const { sort, globalFilter, columnFilters, filteredAndSortedData, activeFilters, resetAllFilters } = useTableFilters(quotaRows, { column: 'usagePercentage', direction: 'desc' })
+
+const page = ref(1)
+const itemsPerPage = ref(25)
+const totalItems = computed(() => filteredAndSortedData.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const paginatedRows = computed(() => {
+  const start = (page.value - 1) * itemsPerPage.value
+  return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
+})
+
+watch([globalFilter, columnFilters, itemsPerPage], () => {
+  page.value = 1
+}, { deep: true })
+
+watch(totalPages, (newTotalPages) => {
+  if (page.value > newTotalPages) {
+    page.value = newTotalPages
+  }
+})
 
 function toggleSort(column: string, initialDirection: 'asc' | 'desc' = 'asc') {
   if (sort.value.column === column) {
@@ -139,7 +167,6 @@ const columns: TableColumn<AdminQuotaRow>[] = [
     header: () => sortableHeader('Usage', 'usagePercentage', 'desc'),
     cell: ({ row }) => {
       const pct = row.original.usagePercentage
-      console.log(pct)
       return h('div', { class: 'min-w-24 space-y-1' }, [
         h(UProgress, {
           modelValue: pct,
@@ -254,61 +281,6 @@ function formatBytes(bytes: number) {
           />
         </template>
       </UDashboardNavbar>
-
-      <UDashboardToolbar>
-        <template #left>
-          <UInput
-            v-model="globalFilter"
-            placeholder="Search by workspace name or ID..."
-            icon="i-lucide-search"
-            class="w-80"
-          >
-            <template v-if="globalFilter" #trailing>
-              <UButton
-                color="neutral"
-                variant="link"
-                icon="i-lucide-x"
-                :padded="false"
-                @click="globalFilter = ''"
-              />
-            </template>
-          </UInput>
-
-          <USelectMenu
-            v-model="columnFilters['isQuotaExceeded']"
-            :items="statusOptions"
-            value-key="value"
-            class="w-40"
-          >
-            <template #label>
-              <span v-if="columnFilters['isQuotaExceeded']">{{ columnFilters['isQuotaExceeded'] === 'true' ? 'Exceeded' : 'OK' }}</span>
-              <span v-else class="text-muted">All Statuses</span>
-            </template>
-          </USelectMenu>
-
-          <USelectMenu
-            v-model="columnFilters['isCustom']"
-            :items="customOptions"
-            value-key="value"
-            class="w-40"
-          >
-            <template #label>
-              <span v-if="columnFilters['isCustom']">{{ columnFilters['isCustom'] === 'true' ? 'Custom' : 'Default' }}</span>
-              <span v-else class="text-muted">All Types</span>
-            </template>
-          </USelectMenu>
-
-          <UButton
-            v-if="activeFilters.length > 0"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            @click="resetAllFilters"
-          >
-            Clear Filters
-          </UButton>
-        </template>
-      </UDashboardToolbar>
     </template>
 
     <template #body>
@@ -355,39 +327,123 @@ function formatBytes(bytes: number) {
         </UCard>
       </div>
 
-      <div v-if="activeFilters.length > 0" class="mb-4 flex flex-wrap gap-2">
-        <UBadge
-          v-for="filter in activeFilters"
-          :key="`${filter.type}-${filter.column || 'global'}`"
-          variant="solid"
-          color="primary"
-          class="flex items-center gap-1"
-        >
-          {{ filter.label }}
-          <UButton
-            size="2xs"
-            color="primary"
-            variant="link"
-            icon="i-lucide-x"
-            :padded="false"
-            @click="filter.clear()"
-          />
-        </UBadge>
-      </div>
+      <UCard>
+        <template #header>
+          <div class="space-y-4">
+            <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div class="flex-1 max-w-md">
+                <UInput
+                  v-model="globalFilter"
+                  placeholder="Search by workspace name or ID..."
+                  icon="i-lucide-search"
+                >
+                  <template v-if="globalFilter" #trailing>
+                    <UButton
+                      color="neutral"
+                      variant="link"
+                      icon="i-lucide-x"
+                      :padded="false"
+                      @click="globalFilter = ''"
+                    />
+                  </template>
+                </UInput>
+              </div>
 
-      <UTable
-        :data="filteredAndSortedData"
-        :columns="columns"
-        :loading="pending"
-        :ui="{
-          base: 'table-fixed border-separate border-spacing-0',
-          thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-          tbody: '[&>tr]:last:[&>td]:border-b-0',
-          th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-          td: 'border-b border-default',
-          separator: 'h-0'
-        }"
-      />
+              <div class="flex flex-wrap gap-3">
+                <USelectMenu
+                  v-model="columnFilters['isQuotaExceeded']"
+                  :items="statusOptions"
+                  value-key="value"
+                  class="w-40"
+                >
+                  <template #label>
+                    <span v-if="columnFilters['isQuotaExceeded']">{{ columnFilters['isQuotaExceeded'] === 'true' ? 'Exceeded' : 'OK' }}</span>
+                    <span v-else class="text-muted">All Statuses</span>
+                  </template>
+                </USelectMenu>
+
+                <USelectMenu
+                  v-model="columnFilters['isCustom']"
+                  :items="customOptions"
+                  value-key="value"
+                  class="w-40"
+                >
+                  <template #label>
+                    <span v-if="columnFilters['isCustom']">{{ columnFilters['isCustom'] === 'true' ? 'Custom' : 'Default' }}</span>
+                    <span v-else class="text-muted">All Types</span>
+                  </template>
+                </USelectMenu>
+
+                <UButton
+                  v-if="activeFilters.length > 0"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  @click="resetAllFilters"
+                >
+                  Clear Filters
+                </UButton>
+              </div>
+            </div>
+
+            <div v-if="activeFilters.length > 0" class="flex flex-wrap gap-2">
+              <UBadge
+                v-for="filter in activeFilters"
+                :key="`${filter.type}-${filter.column || 'global'}`"
+                variant="solid"
+                color="primary"
+                class="flex items-center gap-1"
+              >
+                {{ filter.label }}
+                <UButton
+                  size="2xs"
+                  color="primary"
+                  variant="link"
+                  icon="i-lucide-x"
+                  :padded="false"
+                  @click="filter.clear()"
+                />
+              </UBadge>
+            </div>
+          </div>
+        </template>
+
+        <UTable
+          :data="paginatedRows"
+          :columns="columns"
+          :loading="pending"
+          :ui="datatableUi"
+        />
+
+        <template #footer>
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="text-sm text-muted">
+              Showing {{ totalItems === 0 ? 0 : (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} quota entries
+            </div>
+
+            <div class="flex items-center gap-4">
+              <USelect
+                v-model="itemsPerPage"
+                :items="[10, 25, 50, 100]"
+                class="w-32"
+                size="sm"
+              >
+                <template #label>
+                  {{ itemsPerPage }} per page
+                </template>
+              </USelect>
+
+              <UPagination
+                v-model:page="page"
+                :total="totalItems"
+                :items-per-page="itemsPerPage"
+                show-edges
+                :sibling-count="1"
+              />
+            </div>
+          </div>
+        </template>
+      </UCard>
     </template>
   </UDashboardPanel>
 </template>

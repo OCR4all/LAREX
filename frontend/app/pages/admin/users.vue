@@ -106,13 +106,6 @@ const statusOptions: { label: string, value: AdminUserStatusFilter }[] = [
   { label: 'Disabled', value: 'DISABLED' }
 ]
 
-const pageSizeOptions = [
-  { label: '10 per page', value: 10 },
-  { label: '25 per page', value: 25 },
-  { label: '50 per page', value: 50 },
-  { label: '100 per page', value: 100 }
-]
-
 const page = ref(1)
 const itemsPerPage = ref(25)
 const statusFilter = ref<AdminUserStatusFilter>('ALL')
@@ -713,35 +706,36 @@ async function resendSetupEmail(user: AdminUser) {
           :ui="datatableUi"
         />
 
-        <template #footer>
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="text-sm text-muted">
-              Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} users
-            </div>
-
-            <div class="flex items-center gap-4">
-              <div class="hidden text-sm text-muted md:block">
-                Active on page: {{ visibleActiveCount }}
-              </div>
-
-              <USelect
-                v-model="itemsPerPage"
-                :items="pageSizeOptions"
-                value-key="value"
-                class="w-32"
-                size="sm"
-              />
-
-              <UPagination
-                v-model:page="page"
-                :total="totalItems"
-                :items-per-page="itemsPerPage"
-                show-edges
-                :sibling-count="1"
-              />
-            </div>
+        <div class="flex flex-col gap-4 border-t border-default p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="text-sm text-muted">
+            Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} users
           </div>
-        </template>
+
+          <div class="flex items-center gap-4">
+            <div class="hidden text-sm text-muted md:block">
+              Active on page: {{ visibleActiveCount }}
+            </div>
+
+            <USelect
+              v-model="itemsPerPage"
+              :items="[10, 25, 50, 100]"
+              class="w-32"
+              size="sm"
+            >
+              <template #label>
+                {{ itemsPerPage }} per page
+              </template>
+            </USelect>
+
+            <UPagination
+              v-model:page="page"
+              :total="totalItems"
+              :items-per-page="itemsPerPage"
+              show-edges
+              :sibling-count="1"
+            />
+          </div>
+        </div>
       </UCard>
     </template>
   </UDashboardPanel>
