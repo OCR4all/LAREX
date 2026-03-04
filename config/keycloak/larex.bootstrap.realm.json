@@ -164,6 +164,14 @@
   },
   "scopeMappings": [
     {
+      "client": "larex-backend-service",
+      "roles": [
+        "view-users",
+        "manage-users",
+        "query-users"
+      ]
+    },
+    {
       "client": "larex-frontend",
       "roles": [
         "GLOBAL_ADMIN"

@@ -389,8 +389,11 @@ public class UserService {
                     userDto.lastName(),
                     userDto.avatar()
             ));
-        } catch (Exception e) {
+        } catch (NotFoundException e) {
             return Optional.empty();
+        } catch (Exception e) {
+            logger.error("Failed to load user profile for userId: {}, error: {}", userId, e.getMessage(), e);
+            throw new IllegalStateException("Failed to load user profile", e);
         }
     }
 
