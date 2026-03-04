@@ -46,8 +46,46 @@ export class Metadata {
   }
 }
 
+export interface AlternativeImage {
+  filename: string
+  comments?: string
+  confidence?: number
+}
+
+export interface TextStyleAttributes {
+  fontFamily?: string
+  serif?: boolean
+  monospace?: boolean
+  fontSize?: number
+  xHeight?: number
+  kerning?: number
+  textColour?: string
+  textColourRgb?: number
+  bgColour?: string
+  bgColourRgb?: number
+  reverseVideo?: boolean
+  bold?: boolean
+  italic?: boolean
+  underlined?: boolean
+  underlineStyle?: string
+  subscript?: boolean
+  superscript?: boolean
+  strikethrough?: boolean
+  smallCaps?: boolean
+  letterSpaced?: boolean
+}
+
+export type UserAttributeType = 'xsd:string' | 'xsd:integer' | 'xsd:boolean' | 'xsd:float'
+
+export interface UserAttribute {
+  name?: string
+  description?: string
+  type?: UserAttributeType
+  value?: string
+}
+
 export interface UserDefined {
-  entries: Record<string, string>
+  attributes: UserAttribute[]
 }
 
 export type MetadataItemType = 'author' | 'imageProperties' | 'processingStep' | 'other'

@@ -60,6 +60,18 @@ public record PageDto(
     List<RegionDto> regions,
     /** Reading order */
     ReadingOrderDto readingOrder,
+    /** Alternative page images */
+    List<AlternativeImageDto> alternativeImages,
+    /** PAGE labels */
+    List<LabelsDto> labels,
+    /** User-defined attributes */
+    UserDefinedDto userDefined,
+    /** Page-level text style */
+    TextStyleDto textStyle,
+    /** Logical layers */
+    LayersDto layers,
+    /** Object relations */
+    RelationsDto relations,
     
     // Format version
     /** PAGE XML format version used */
@@ -69,6 +81,66 @@ public record PageDto(
     /** Label IDs from LabelSet applied at page level */
     List<String> labelIds
 ) {
+    public PageDto(
+        String imageFilename,
+        int imageWidth,
+        int imageHeight,
+        Integer imageXResolution,
+        Integer imageYResolution,
+        String imageResolutionUnit,
+        MetadataDto metadata,
+        String pcGtsId,
+        String type,
+        String custom,
+        Double orientation,
+        String primaryLanguage,
+        String secondaryLanguage,
+        String primaryScript,
+        String secondaryScript,
+        String readingDirection,
+        String textLineOrder,
+        Double confidence,
+        PolygonDto border,
+        PolygonDto printSpace,
+        List<RegionDto> regions,
+        ReadingOrderDto readingOrder,
+        String formatVersion,
+        List<String> labelIds
+    ) {
+        this(
+            imageFilename,
+            imageWidth,
+            imageHeight,
+            imageXResolution,
+            imageYResolution,
+            imageResolutionUnit,
+            metadata,
+            pcGtsId,
+            type,
+            custom,
+            orientation,
+            primaryLanguage,
+            secondaryLanguage,
+            primaryScript,
+            secondaryScript,
+            readingDirection,
+            textLineOrder,
+            confidence,
+            border,
+            printSpace,
+            regions,
+            readingOrder,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            formatVersion,
+            labelIds
+        );
+    }
+
     /**
      * Get page dimensions.
      */

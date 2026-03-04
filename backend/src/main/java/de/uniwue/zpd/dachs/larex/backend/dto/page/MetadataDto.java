@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.dto.page;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.List;
 
 /**
  * DTO for PAGE XML metadata, aligned with page4j's MetaData.
@@ -16,5 +17,19 @@ public record MetadataDto(
     /** Comments */
     String comments,
     /** External references */
-    String externalRef
-) {}
+    String externalRef,
+    /** User-defined metadata attributes */
+    UserDefinedDto userDefined,
+    /** Additional metadata items */
+    List<MetadataItemDto> items
+) {
+    public MetadataDto(
+        String creator,
+        String created,
+        String lastChange,
+        String comments,
+        String externalRef
+    ) {
+        this(creator, created, lastChange, comments, externalRef, null, null);
+    }
+}

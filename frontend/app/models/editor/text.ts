@@ -1,4 +1,5 @@
 import type { Polygon, Polyline } from './geometry'
+import type { AlternativeImage, Labels, TextStyleAttributes, UserDefined } from './document'
 
 export interface Baseline {
   points: Polyline
@@ -15,6 +16,10 @@ export class TextLine {
   baseline?: Baseline
   words?: Word[]
   textContentVariants?: TextContentVariant[]
+  alternativeImages?: AlternativeImage[]
+  labels?: Labels[]
+  userDefined?: UserDefined
+  textStyle?: TextStyleAttributes
 
   styleRefs?: string[]
   processingRefs?: string[]
@@ -34,6 +39,10 @@ export class TextLine {
     baseline?: Baseline
     words?: Word[]
     textContentVariants?: TextContentVariant[]
+    alternativeImages?: AlternativeImage[]
+    labels?: Labels[]
+    userDefined?: UserDefined
+    textStyle?: TextStyleAttributes
     styleRefs?: string[]
     processingRefs?: string[]
     confidence?: number
@@ -51,6 +60,10 @@ export class TextLine {
     this.baseline = params.baseline
     this.words = params.words
     this.textContentVariants = params.textContentVariants
+    this.alternativeImages = params.alternativeImages
+    this.labels = params.labels
+    this.userDefined = params.userDefined
+    this.textStyle = params.textStyle
     this.styleRefs = params.styleRefs
     this.processingRefs = params.processingRefs
     this.confidence = params.confidence
@@ -94,8 +107,17 @@ export class Word {
   processingRefs?: string[]
   confidence?: number
   language?: string
+  primaryScript?: string
+  secondaryScript?: string
   script?: string
   readingDirection?: string
+  production?: string
+  custom?: string
+  comments?: string
+  alternativeImages?: AlternativeImage[]
+  labels?: Labels[]
+  userDefined?: UserDefined
+  textStyle?: TextStyleAttributes
   metadata?: Record<string, unknown>
 
   constructor(
@@ -107,9 +129,18 @@ export class Word {
     processingRefs?: string[],
     confidence?: number,
     language?: string,
+    primaryScript?: string,
+    secondaryScript?: string,
     script?: string,
     readingDirection?: string,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    production?: string,
+    custom?: string,
+    comments?: string,
+    alternativeImages?: AlternativeImage[],
+    labels?: Labels[],
+    userDefined?: UserDefined,
+    textStyle?: TextStyleAttributes
   ) {
     this.id = id
     this.coords = coords
@@ -119,9 +150,18 @@ export class Word {
     this.processingRefs = processingRefs
     this.confidence = confidence
     this.language = language
+    this.primaryScript = primaryScript
+    this.secondaryScript = secondaryScript
     this.script = script
     this.readingDirection = readingDirection
     this.metadata = metadata
+    this.production = production
+    this.custom = custom
+    this.comments = comments
+    this.alternativeImages = alternativeImages
+    this.labels = labels
+    this.userDefined = userDefined
+    this.textStyle = textStyle
   }
 
   addGlyph(glyph: Glyph): Word {
@@ -134,9 +174,18 @@ export class Word {
       this.processingRefs,
       this.confidence,
       this.language,
+      this.primaryScript,
+      this.secondaryScript,
       this.script,
       this.readingDirection,
-      this.metadata
+      this.metadata,
+      this.production,
+      this.custom,
+      this.comments,
+      this.alternativeImages,
+      this.labels,
+      this.userDefined,
+      this.textStyle
     )
   }
 
@@ -168,33 +217,57 @@ export class Glyph {
   id: string
   coords: Polygon
   unicode?: string
+  textContentVariants?: TextContentVariant[]
   ligature?: boolean
   symbol?: boolean
   script?: string
   production?: 'manual' | 'automatic'
   confidence?: number
+  custom?: string
+  comments?: string
+  alternativeImages?: AlternativeImage[]
+  labels?: Labels[]
+  userDefined?: UserDefined
+  textStyle?: TextStyleAttributes
+  graphemes?: Graphemes
   metadata?: Record<string, unknown>
 
   constructor(
     id: string,
     coords: Polygon,
     unicode?: string,
+    textContentVariants?: TextContentVariant[],
     ligature?: boolean,
     symbol?: boolean,
     script?: string,
     production?: 'manual' | 'automatic',
     confidence?: number,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
+    custom?: string,
+    comments?: string,
+    alternativeImages?: AlternativeImage[],
+    labels?: Labels[],
+    userDefined?: UserDefined,
+    textStyle?: TextStyleAttributes,
+    graphemes?: Graphemes
   ) {
     this.id = id
     this.coords = coords
     this.unicode = unicode
+    this.textContentVariants = textContentVariants
     this.ligature = ligature
     this.symbol = symbol
     this.script = script
     this.production = production
     this.confidence = confidence
     this.metadata = metadata
+    this.custom = custom
+    this.comments = comments
+    this.alternativeImages = alternativeImages
+    this.labels = labels
+    this.userDefined = userDefined
+    this.textStyle = textStyle
+    this.graphemes = graphemes
   }
 
   isLigature(): boolean {
@@ -237,4 +310,22 @@ export class TextContentVariant {
   getDisplayText(): string {
     return this.plainText || this.unicode
   }
+}
+
+export interface GraphemeElement {
+  kind: 'grapheme' | 'nonPrintingChar' | 'graphemeGroup'
+  id?: string
+  index?: number
+  charType?: string
+  ligature?: boolean
+  custom?: string
+  comments?: string
+  coords?: Polygon
+  textContentVariants?: TextContentVariant[]
+  labels?: Labels[]
+  members?: GraphemeElement[]
+}
+
+export interface Graphemes {
+  elements?: GraphemeElement[]
 }

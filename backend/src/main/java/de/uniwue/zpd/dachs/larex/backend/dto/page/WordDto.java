@@ -16,6 +16,14 @@ public record WordDto(
     List<TextContentVariantDto> textContentVariants,
     /** Child glyphs */
     List<GlyphDto> glyphs,
+    /** Alternative images */
+    List<AlternativeImageDto> alternativeImages,
+    /** PAGE labels */
+    List<LabelsDto> labels,
+    /** User-defined attributes */
+    UserDefinedDto userDefined,
+    /** Text style attributes */
+    TextStyleDto textStyle,
     
     // Style attributes (from page4j LowLevelTextObject)
     Boolean bold,
@@ -30,6 +38,9 @@ public record WordDto(
     
     // Additional attributes
     String language,
+    String primaryScript,
+    String secondaryScript,
+    /** Deprecated; use primaryScript/secondaryScript */
     String script,
     String readingDirection,
     String production,
@@ -37,6 +48,58 @@ public record WordDto(
     String custom,
     String comments
 ) {
+    public WordDto(
+        String id,
+        PolygonDto coords,
+        List<TextContentVariantDto> textContentVariants,
+        List<GlyphDto> glyphs,
+        Boolean bold,
+        Boolean italic,
+        Boolean underlined,
+        String underlineStyle,
+        Boolean subscript,
+        Boolean superscript,
+        Boolean strikethrough,
+        Boolean smallCaps,
+        Boolean letterSpaced,
+        String language,
+        String script,
+        String readingDirection,
+        String production,
+        Double confidence,
+        String custom,
+        String comments
+    ) {
+        this(
+            id,
+            coords,
+            textContentVariants,
+            glyphs,
+            null,
+            null,
+            null,
+            null,
+            bold,
+            italic,
+            underlined,
+            underlineStyle,
+            subscript,
+            superscript,
+            strikethrough,
+            smallCaps,
+            letterSpaced,
+            language,
+            script,
+            null,
+            script,
+            readingDirection,
+            production,
+            confidence,
+            custom,
+            comments
+        );
+    }
+
     /**
      * Get the primary text content.
      */

@@ -18,6 +18,14 @@ public record TextLineDto(
     List<TextContentVariantDto> textContentVariants,
     /** Child words */
     List<WordDto> words,
+    /** Alternative images */
+    List<AlternativeImageDto> alternativeImages,
+    /** PAGE labels */
+    List<LabelsDto> labels,
+    /** User-defined attributes */
+    UserDefinedDto userDefined,
+    /** Text style attributes */
+    TextStyleDto textStyle,
     
     // Style attributes (from page4j LowLevelTextObject)
     Boolean bold,
@@ -41,6 +49,62 @@ public record TextLineDto(
     String custom,
     String comments
 ) {
+    public TextLineDto(
+        String id,
+        PolygonDto coords,
+        PolygonDto baseline,
+        List<TextContentVariantDto> textContentVariants,
+        List<WordDto> words,
+        Boolean bold,
+        Boolean italic,
+        Boolean underlined,
+        String underlineStyle,
+        Boolean subscript,
+        Boolean superscript,
+        Boolean strikethrough,
+        Boolean smallCaps,
+        Boolean letterSpaced,
+        String primaryLanguage,
+        String primaryScript,
+        String secondaryScript,
+        String readingDirection,
+        String production,
+        Double confidence,
+        Integer index,
+        String custom,
+        String comments
+    ) {
+        this(
+            id,
+            coords,
+            baseline,
+            textContentVariants,
+            words,
+            null,
+            null,
+            null,
+            null,
+            bold,
+            italic,
+            underlined,
+            underlineStyle,
+            subscript,
+            superscript,
+            strikethrough,
+            smallCaps,
+            letterSpaced,
+            primaryLanguage,
+            primaryScript,
+            secondaryScript,
+            readingDirection,
+            production,
+            confidence,
+            index,
+            custom,
+            comments
+        );
+    }
+
     /**
      * Get the primary text content.
      */

@@ -25,17 +25,39 @@ public record ReadingOrderDto(
         String id,
         /** Whether this is an ordered group */
         boolean ordered,
+        /** Group index (for indexed groups) */
+        Integer index,
         /** Caption/display name */
         String caption,
+        /** Group type (paragraph, list, etc.) */
+        String groupType,
         /** Reference to a parent region (for nested region groups) */
         String regionRef,
         /** Group members (can be RegionRefs or nested Groups) */
         List<GroupMemberDto> members,
+        /** Continuation flag */
+        Boolean continuation,
+        /** User-defined attributes */
+        UserDefinedDto userDefined,
+        /** PAGE labels */
+        List<LabelsDto> labels,
         /** Custom attribute */
         String custom,
         /** Comments */
         String comments
-    ) {}
+    ) {
+        public GroupDto(
+            String id,
+            boolean ordered,
+            String caption,
+            String regionRef,
+            List<GroupMemberDto> members,
+            String custom,
+            String comments
+        ) {
+            this(id, ordered, null, caption, null, regionRef, members, null, null, null, custom, comments);
+        }
+    }
 
     /**
      * DTO for a group member - either a region reference or a nested group.

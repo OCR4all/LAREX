@@ -1,126 +1,159 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapper;
 
 import com.maxnth.page4j.basic.ident.IdRegister;
+import com.maxnth.page4j.basic.labels.HasLabels;
+import com.maxnth.page4j.basic.labels.LabelImpl;
+import com.maxnth.page4j.basic.labels.LabelGroup;
+import com.maxnth.page4j.basic.labels.Labels;
+import com.maxnth.page4j.basic.variable.BooleanVariable;
 import com.maxnth.page4j.basic.variable.StringValue;
+import com.maxnth.page4j.basic.variable.StringVariable;
+import com.maxnth.page4j.basic.variable.Variable;
 import com.maxnth.page4j.basic.variable.VariableMap;
+import com.maxnth.page4j.basic.variable.VariableValue;
+import com.maxnth.page4j.dla.page.AlternativeImage;
 import com.maxnth.page4j.dla.page.Page;
 import com.maxnth.page4j.dla.page.io.xml.DefaultXmlNames;
 import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
 import com.maxnth.page4j.dla.page.layout.GeometricObjectImpl;
 import com.maxnth.page4j.dla.page.layout.PageLayout;
+import com.maxnth.page4j.dla.page.layout.logical.ContentObjectRelation;
 import com.maxnth.page4j.dla.page.layout.logical.Group;
 import com.maxnth.page4j.dla.page.layout.logical.GroupMember;
+import com.maxnth.page4j.dla.page.layout.logical.Layer;
+import com.maxnth.page4j.dla.page.layout.logical.Layers;
 import com.maxnth.page4j.dla.page.layout.logical.ReadingOrder;
+import com.maxnth.page4j.dla.page.layout.logical.Relations;
+import com.maxnth.page4j.dla.page.layout.physical.ContentObject;
 import com.maxnth.page4j.dla.page.layout.physical.Region;
+import com.maxnth.page4j.dla.page.layout.physical.impl.TableGrid;
+import com.maxnth.page4j.dla.page.layout.physical.impl.TableRegion;
+import com.maxnth.page4j.dla.page.layout.physical.role.RegionRole;
+import com.maxnth.page4j.dla.page.layout.physical.shared.ContentType;
+import com.maxnth.page4j.dla.page.layout.physical.shared.LowLevelTextType;
 import com.maxnth.page4j.dla.page.layout.physical.shared.RegionType;
+import com.maxnth.page4j.dla.page.layout.physical.shared.RoleType;
 import com.maxnth.page4j.dla.page.layout.physical.text.LowLevelTextContainer;
 import com.maxnth.page4j.dla.page.layout.physical.text.LowLevelTextObject;
 import com.maxnth.page4j.dla.page.layout.physical.text.TextContent;
 import com.maxnth.page4j.dla.page.layout.physical.text.TextContentVariants;
+import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.Grapheme;
+import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.GraphemeElement;
+import com.maxnth.page4j.dla.page.layout.physical.text.graphemes.GraphemeGroup;
 import com.maxnth.page4j.dla.page.layout.physical.text.impl.Glyph;
 import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextLine;
 import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextRegion;
 import com.maxnth.page4j.dla.page.layout.physical.text.impl.Word;
 import com.maxnth.page4j.dla.page.metadata.MetaData;
+import com.maxnth.page4j.dla.page.metadata.MetadataItem;
 import com.maxnth.page4j.maths.geometry.Polygon;
-
-import de.uniwue.zpd.dachs.larex.backend.dto.page.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.AlternativeImageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.GlyphDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.GraphemeElementDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.GraphemesDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.GridDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.GridPointsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.LabelDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.LabelsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.LayerDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.LayersDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.MetadataDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.MetadataItemDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.PointDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.PolygonDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.ReadingOrderDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.RegionKind;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.RelationDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.RelationsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.TableCellRoleDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.TextContentVariantDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.TextLineDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.TextStyleDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.UserAttributeDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.UserDefinedDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.WordDto;
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
-
-import org.springframework.stereotype.Component;
-
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashSet;
-import java.util.Locale;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import org.springframework.stereotype.Component;
 
-/**
- * Maps PageDto DTOs back to page4j Page objects.
- * This mapper creates page4j objects from JSON-deserialized DTOs,
- * enabling save/export operations.
- */
 @Component
 public class DtoToPage4jMapper {
 
     private static final DateTimeFormatter ISO_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
-    // Image dimensions for coordinate conversion (set during toPage4j call)
     private int imageWidth;
     private int imageHeight;
 
-    /**
-     * Convert a PageDto to a page4j Page.
-     */
     public Page toPage4j(PageDto dto) {
         if (dto == null) {
             return null;
         }
 
-        // Store image dimensions for coordinate conversion
         this.imageWidth = dto.imageWidth();
         this.imageHeight = dto.imageHeight();
 
-        // Create a new page with the latest schema
         Page page = new Page(PageXmlInputOutput.getLatestSchemaModel());
-
-        // Set image filename
         page.setImageFilename(dto.imageFilename());
 
-        // Set page dimensions
         PageLayout layout = page.getLayout();
         layout.setSize(dto.imageWidth(), dto.imageHeight());
 
-        // Set metadata
         if (dto.metadata() != null) {
             setMetadata(page.getMetaData(), dto.metadata());
         }
 
-        // Set pcGtsId if present
         if (dto.pcGtsId() != null) {
             try {
                 page.setGtsId(dto.pcGtsId());
-            } catch (IdRegister.InvalidIdException e) {
-                // ID already registered or invalid
+            } catch (IdRegister.InvalidIdException ignored) {
             }
         }
 
         setPageAttributes(page, dto);
-        prunePageAttributes(page, dto);
+        applyAlternativeImages(page.getAlternativeImages(), dto.alternativeImages());
+        setLabels(page, dto.labels());
+        page.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
+        applyTextStyle(page.getAttributes(), dto.textStyle());
 
-        // Set border
         if (dto.border() != null) {
             layout.setBorder(new GeometricObjectImpl(toPolygon(dto.border())));
         }
-
-        // Set print space
         if (dto.printSpace() != null) {
             layout.setPrintSpace(new GeometricObjectImpl(toPolygon(dto.printSpace())));
         }
 
-        // Convert regions
         if (dto.regions() != null) {
             for (RegionDto regionDto : dto.regions()) {
-                addRegion(layout, regionDto);
+                addRegion(layout, null, regionDto);
             }
         }
 
-        // Convert reading order
         if (dto.readingOrder() != null) {
             setReadingOrder(layout, dto.readingOrder());
         }
+        if (dto.layers() != null) {
+            setLayers(layout, dto.layers());
+        }
+        if (dto.relations() != null) {
+            setRelations(layout, dto.relations());
+        }
 
-        // TODO: Map LabelSet IDs back to page4j Labels
         mapLabelIdsToLabels(page, dto.labelIds());
-
-        // page4j initializes many optional string attributes with empty values.
-        // Remove them so they are omitted from XML output instead of failing schema enums.
+        prunePageAttributes(page, dto);
         removeEmptyStringAttributes(page);
-
         return page;
     }
 
@@ -130,88 +163,119 @@ public class DtoToPage4jMapper {
             try {
                 LocalDateTime ldt = LocalDateTime.parse(dto.created().trim(), ISO_FORMAT);
                 metaData.setCreationTime(Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant()));
-            } catch (DateTimeParseException e) {
-                // Ignore malformed dates
+            } catch (DateTimeParseException ignored) {
             }
         }
         if (hasText(dto.lastChange())) {
             try {
                 LocalDateTime ldt = LocalDateTime.parse(dto.lastChange().trim(), ISO_FORMAT);
                 metaData.setLastModifiedTime(Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant()));
-            } catch (DateTimeParseException e) {
-                // Ignore malformed dates
+            } catch (DateTimeParseException ignored) {
             }
         }
         metaData.setComments(normalizeNullable(dto.comments()));
         metaData.setExternalRef(normalizeNullable(dto.externalRef()));
+        metaData.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
+
+        if (dto.items() != null) {
+            for (MetadataItemDto itemDto : dto.items()) {
+                if (itemDto == null) {
+                    continue;
+                }
+                MetadataItem item = metaData.addMetadataItem();
+                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_type, itemDto.type());
+                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_name, itemDto.name());
+                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_value, itemDto.value());
+                setStringAttr(item.getAttributes(), DefaultXmlNames.ATTR_date, itemDto.date());
+                setLabels(item, itemDto.labels());
+            }
+        }
     }
 
-    private void addRegion(PageLayout layout, RegionDto dto) {
+    private void addRegion(PageLayout layout, Region parent, RegionDto dto) {
         if (dto == null) {
             return;
         }
+        Region region = parent == null
+            ? layout.createRegion(toRegionType(dto.kind()), dto.id())
+            : layout.createRegion(toRegionType(dto.kind()), dto.id(), parent);
 
-        RegionType regionType = toRegionType(dto.kind());
-        Region region = layout.createRegion(regionType, dto.id());
-
-        // Set coordinates
         if (dto.coords() != null) {
             region.setCoords(toPolygon(dto.coords()));
         }
-        setRegionCommonAttributes(region, dto);
 
-        // Handle TextRegion specifics
+        setRegionCommonAttributes(region, dto);
+        applyAlternativeImages(region.getAlternativeImages(), dto.alternativeImages());
+        setLabels(region, dto.labels());
+        region.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
+        applyTextStyle(region.getAttributes(), dto.textStyle());
+        setRoles(region, dto.tableCellRoleFromRoles());
+        setGrid(region, dto.grid());
+
         if (region instanceof TextRegion textRegion) {
             setTextRegionAttributes(textRegion, dto);
-
-            // Add text lines
             if (dto.textLines() != null) {
                 for (TextLineDto lineDto : dto.textLines()) {
                     addTextLine(textRegion, lineDto);
                 }
             }
-
-            // Set text content variants
-            if (dto.textContentVariants() != null) {
-                setTextContentVariants(textRegion, dto.textContentVariants());
-            }
+            setTextContentVariants(textRegion, dto.textContentVariants());
         }
 
         pruneRegionAttributes(region, dto);
 
-        // Handle nested regions
         if (dto.nestedRegions() != null) {
-            for (RegionDto nestedDto : dto.nestedRegions()) {
-                addNestedRegion(region, layout, nestedDto);
+            for (RegionDto nested : dto.nestedRegions()) {
+                addRegion(layout, region, nested);
             }
         }
 
-        // TODO: Map LabelSet IDs back to region Labels
         mapLabelIdsToRegionLabels(region, dto.labelIds());
     }
 
-    private void addNestedRegion(Region parent, PageLayout layout, RegionDto dto) {
-        RegionType regionType = toRegionType(dto.kind());
-        Region nested = layout.createRegion(regionType, dto.id(), parent);
-
-        if (dto.coords() != null) {
-            nested.setCoords(toPolygon(dto.coords()));
+    private void setRoles(Region region, TableCellRoleDto roleDto) {
+        if (region == null || roleDto == null) {
+            return;
         }
-        setRegionCommonAttributes(nested, dto);
+        RegionRole role = region.addRole(RoleType.TableCellRole);
+        if (role == null) {
+            return;
+        }
+        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_rowIndex, roleDto.rowIndex());
+        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_columnIndex, roleDto.columnIndex());
+        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_rowSpan, roleDto.rowSpan());
+        setIntegerAttr(role.getAttributes(), DefaultXmlNames.ATTR_colSpan, roleDto.colSpan());
+        setBooleanAttr(role.getAttributes(), DefaultXmlNames.ATTR_header, roleDto.header());
+    }
 
-        if (nested instanceof TextRegion textRegion) {
-            setTextRegionAttributes(textRegion, dto);
-            if (dto.textLines() != null) {
-                for (TextLineDto lineDto : dto.textLines()) {
-                    addTextLine(textRegion, lineDto);
+    private void setGrid(Region region, GridDto gridDto) {
+        if (!(region instanceof TableRegion tableRegion) || gridDto == null) {
+            return;
+        }
+        TableGrid grid = new TableGrid();
+        tableRegion.setGrid(grid);
+
+        if (gridDto.rows() == null || gridDto.rows().isEmpty()) {
+            return;
+        }
+
+        List<GridPointsDto> rows = new ArrayList<>(gridDto.rows());
+        rows.sort(Comparator.comparing(r -> r.index() != null ? r.index() : Integer.MAX_VALUE));
+        try {
+            Field rowsField = TableGrid.class.getDeclaredField("rows");
+            rowsField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            List<TableGrid.TableGridRow> rowList = (List<TableGrid.TableGridRow>) rowsField.get(grid);
+            for (GridPointsDto rowDto : rows) {
+                if (rowDto == null) {
+                    continue;
                 }
+                TableGrid.TableGridRow row = new TableGrid.TableGridRow();
+                row.setCoords(toPolygon(rowDto.points()));
+                rowList.add(row);
             }
-            if (dto.textContentVariants() != null) {
-                setTextContentVariants(textRegion, dto.textContentVariants());
-            }
+        } catch (ReflectiveOperationException ignored) {
         }
-
-        pruneRegionAttributes(nested, dto);
     }
 
     private void setTextRegionAttributes(TextRegion textRegion, RegionDto dto) {
@@ -221,8 +285,15 @@ public class DtoToPage4jMapper {
         setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_bgColour, dto.bgColour());
         setBooleanAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_reverseVideo, dto.reverseVideo());
         setDoubleAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_fontSize, dto.fontSize());
+        setStringAttr(textRegion.getAttributes(), "fontFamily", dto.fontFamily());
+        setBooleanAttr(textRegion.getAttributes(), "serif", dto.serif());
+        setBooleanAttr(textRegion.getAttributes(), "monospace", dto.monospace());
+        setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_xHeight, dto.xHeight());
         setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_leading, dto.leading());
         setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_kerning, dto.kerning());
+        setStringAttr(textRegion.getAttributes(), "align", dto.align());
+        setIntegerAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_textColourRgb, dto.textColourRgb());
+        setIntegerAttr(textRegion.getAttributes(), "bgColourRgb", dto.bgColourRgb());
         setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
         setDoubleAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_readingOrientation, dto.readingOrientation());
         setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
@@ -232,15 +303,33 @@ public class DtoToPage4jMapper {
         setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
         setStringAttr(textRegion.getAttributes(), DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
         setStringAttr(textRegion.getAttributes(), "production", dto.production());
+        applyTextStyle(textRegion.getAttributes(), dto.textStyle());
+    }
+
+    private void setTextRegionTypeAttr(VariableMap attributes, String value) {
+        if (attributes == null) {
+            return;
+        }
+        String normalized = normalizeNullable(value);
+        if (normalized != null && "custom".equalsIgnoreCase(normalized)) {
+            normalized = "other";
+        }
+        if (normalized == null) {
+            removeAttribute(attributes, DefaultXmlNames.ATTR_type);
+            return;
+        }
+        Variable variable = findVariable(attributes, DefaultXmlNames.ATTR_type);
+        if (variable == null) {
+            return;
+        }
+        variable.parseValue(normalized);
     }
 
     private void addTextLine(TextRegion textRegion, TextLineDto dto) {
         if (dto == null) {
             return;
         }
-
         TextLine textLine = textRegion.createTextLine(dto.id());
-
         if (dto.coords() != null) {
             textLine.setCoords(toPolygon(dto.coords()));
         }
@@ -248,20 +337,21 @@ public class DtoToPage4jMapper {
             textLine.setBaseline(toPolygon(dto.baseline()));
         }
 
-        // Set text content variants
-        if (dto.textContentVariants() != null) {
-            setTextContentVariants(textLine, dto.textContentVariants());
-        }
+        setTextContentVariants(textLine, dto.textContentVariants());
+        applyAlternativeImages(textLine.getAlternativeImages(), dto.alternativeImages());
+        setLabels(textLine, dto.labels());
+        textLine.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
 
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_bold, dto.bold());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_italic, dto.italic());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_underlined, dto.underlined());
-        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, dto.underlineStyle());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_subscript, dto.subscript());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_superscript, dto.superscript());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_strikethrough, dto.strikethrough());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_smallCaps, dto.smallCaps());
-        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, dto.letterSpaced());
+        applyTextStyle(textLine.getAttributes(), dto.textStyle());
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
+        setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
+        setBooleanAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
         setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
         setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
         setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
@@ -271,9 +361,9 @@ public class DtoToPage4jMapper {
         setIntegerAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_index, dto.index());
         setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
         setStringAttr(textLine.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
+
         pruneTextLineAttributes(textLine, dto);
 
-        // Add words
         if (dto.words() != null) {
             for (WordDto wordDto : dto.words()) {
                 addWord(textLine, wordDto);
@@ -285,37 +375,38 @@ public class DtoToPage4jMapper {
         if (dto == null) {
             return;
         }
-
         Word word = textLine.createWord(dto.id());
-
         if (dto.coords() != null) {
             word.setCoords(toPolygon(dto.coords()));
         }
 
-        // Set text content variants
-        if (dto.textContentVariants() != null) {
-            setTextContentVariants(word, dto.textContentVariants());
-        }
+        setTextContentVariants(word, dto.textContentVariants());
+        applyAlternativeImages(word.getAlternativeImages(), dto.alternativeImages());
+        setLabels(word, dto.labels());
+        word.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
+        applyTextStyle(word.getAttributes(), dto.textStyle());
 
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_bold, dto.bold());
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_italic, dto.italic());
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_underlined, dto.underlined());
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, dto.underlineStyle());
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_subscript, dto.subscript());
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_superscript, dto.superscript());
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_strikethrough, dto.strikethrough());
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_smallCaps, dto.smallCaps());
-        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, dto.letterSpaced());
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
+        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
+        setBooleanAttr(word.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
         setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_language, dto.language());
-        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_script, dto.script());
+        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
+        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
+        setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_script, firstNonBlank(dto.script(), dto.primaryScript()));
         setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
         setStringAttr(word.getAttributes(), "production", dto.production());
         setDoubleAttr(word.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
         setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
         setStringAttr(word.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
+
         pruneWordAttributes(word, dto);
 
-        // Add glyphs
         if (dto.glyphs() != null) {
             for (GlyphDto glyphDto : dto.glyphs()) {
                 addGlyph(word, glyphDto);
@@ -327,27 +418,26 @@ public class DtoToPage4jMapper {
         if (dto == null) {
             return;
         }
-
         Glyph glyph = word.createGlyph(dto.id());
-
         if (dto.coords() != null) {
             glyph.setCoords(toPolygon(dto.coords()));
         }
 
-        // Set text content variants
-        if (dto.textContentVariants() != null) {
-            setTextContentVariants(glyph, dto.textContentVariants());
-        }
+        setTextContentVariants(glyph, dto.textContentVariants());
+        applyAlternativeImages(glyph.getAlternativeImages(), dto.alternativeImages());
+        setLabels(glyph, dto.labels());
+        glyph.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
+        applyTextStyle(glyph.getAttributes(), dto.textStyle());
 
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_bold, dto.bold());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_italic, dto.italic());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_underlined, dto.underlined());
-        setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, dto.underlineStyle());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_subscript, dto.subscript());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_superscript, dto.superscript());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_strikethrough, dto.strikethrough());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_smallCaps, dto.smallCaps());
-        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, dto.letterSpaced());
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
+        setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
+        setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
         setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_ligature, dto.ligature());
         setBooleanAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_symbol, dto.symbol());
         setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_script, dto.script());
@@ -355,94 +445,115 @@ public class DtoToPage4jMapper {
         setDoubleAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
         setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
         setStringAttr(glyph.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
+
+        addGraphemes(glyph, dto.graphemes());
         pruneGlyphAttributes(glyph, dto);
     }
 
-    private void setTextContentVariants(TextRegion textRegion, List<TextContentVariantDto> variants) {
-        if (variants == null || variants.isEmpty()) {
+    private void addGraphemes(Glyph glyph, GraphemesDto graphemesDto) {
+        if (glyph == null || graphemesDto == null || graphemesDto.elements() == null) {
             return;
         }
-
-        // First variant goes to the default slot
-        TextContentVariantDto first = variants.get(0);
-        if (first.unicode() != null && !first.unicode().isEmpty()) {
-            textRegion.setText(first.unicode());
-        }
-        if (first.plainText() != null && !first.plainText().isEmpty()) {
-            textRegion.setPlainText(first.plainText());
-        }
-        if (first.confidence() != null) {
-            textRegion.setConfidence(first.confidence());
-        }
-        setTextContentIndex(textRegion.getTextContentVariant(0), first.index());
-
-        // Additional variants
-        for (int i = 1; i < variants.size(); i++) {
-            TextContentVariantDto v = variants.get(i);
-            var tc = textRegion.addTextContentVariant();
-            if (v.unicode() != null && !v.unicode().isEmpty()) tc.setText(v.unicode());
-            if (v.plainText() != null && !v.plainText().isEmpty()) tc.setPlainText(v.plainText());
-            if (v.confidence() != null) tc.setConfidence(v.confidence());
-            if (v.dataType() != null && !v.dataType().isEmpty()) tc.setDataType(v.dataType());
-            if (v.dataTypeDetails() != null && !v.dataTypeDetails().isEmpty()) tc.setDataTypeDetails(v.dataTypeDetails());
-            if (v.comments() != null && !v.comments().isEmpty()) tc.setComments(v.comments());
-            setTextContentIndex(tc, v.index());
+        List<GraphemeElementDto> elements = new ArrayList<>(graphemesDto.elements());
+        elements.sort(Comparator.comparing(e -> e.index() != null ? e.index() : Integer.MAX_VALUE));
+        for (GraphemeElementDto dto : elements) {
+            addGraphemeElement(glyph, null, dto);
         }
     }
 
-    private void setTextContentVariants(com.maxnth.page4j.dla.page.layout.physical.text.LowLevelTextObject textObj, List<TextContentVariantDto> variants) {
-        if (variants == null || variants.isEmpty()) {
+    private void addGraphemeElement(Glyph glyph, GraphemeGroup parentGroup, GraphemeElementDto dto) {
+        if (glyph == null || dto == null) {
+            return;
+        }
+        LowLevelTextType type = toGraphemeType(dto.kind());
+        GraphemeElement element = glyph.createGraphemeElement(dto.id(), type, parentGroup);
+        if (element == null) {
             return;
         }
 
-        // First variant goes to the default slot
+        setIntegerAttr(element.getAttributes(), DefaultXmlNames.ATTR_index, dto.index());
+        setStringAttr(element.getAttributes(), DefaultXmlNames.ATTR_charType, dto.charType());
+        setBooleanAttr(element.getAttributes(), DefaultXmlNames.ATTR_ligature, dto.ligature());
+        setStringAttr(element.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
+        setStringAttr(element.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
+        setTextContentVariants(element, dto.textContentVariants());
+
+        if (element instanceof Grapheme grapheme) {
+            if (dto.coords() != null) {
+                grapheme.setCoords(toPolygon(dto.coords()));
+            }
+            setLabels(grapheme, dto.labels());
+        }
+
+        if (element instanceof GraphemeGroup group && dto.members() != null) {
+            List<GraphemeElementDto> members = new ArrayList<>(dto.members());
+            members.sort(Comparator.comparing(e -> e.index() != null ? e.index() : Integer.MAX_VALUE));
+            for (GraphemeElementDto member : members) {
+                addGraphemeElement(glyph, group, member);
+            }
+        }
+    }
+
+    private LowLevelTextType toGraphemeType(String kind) {
+        if ("graphemeGroup".equals(kind)) {
+            return LowLevelTextType.GraphemeGroup;
+        }
+        if ("nonPrintingChar".equals(kind)) {
+            return LowLevelTextType.NonPrintingCharacter;
+        }
+        return LowLevelTextType.Grapheme;
+    }
+
+    private void setTextContentVariants(TextContentVariants textObj, List<TextContentVariantDto> variants) {
+        if (textObj == null || variants == null || variants.isEmpty()) {
+            return;
+        }
+
         TextContentVariantDto first = variants.get(0);
-        if (first.unicode() != null && !first.unicode().isEmpty()) {
+        if (hasText(first.unicode())) {
             textObj.setText(first.unicode());
         }
-        if (first.plainText() != null && !first.plainText().isEmpty()) {
+        if (hasText(first.plainText())) {
             textObj.setPlainText(first.plainText());
-        }
-        if (first.dataType() != null && !first.dataType().isEmpty()) {
-            textObj.setDataType(first.dataType());
-        }
-        if (first.dataTypeDetails() != null && !first.dataTypeDetails().isEmpty()) {
-            textObj.setDataTypeDetails(first.dataTypeDetails());
-        }
-        if (first.comments() != null && !first.comments().isEmpty()) {
-            textObj.setComments(first.comments());
         }
         if (first.confidence() != null) {
             textObj.setConfidence(first.confidence());
         }
+        if (hasText(first.dataType())) {
+            textObj.setDataType(first.dataType());
+        }
+        if (hasText(first.dataTypeDetails())) {
+            textObj.setDataTypeDetails(first.dataTypeDetails());
+        }
+        if (hasText(first.comments())) {
+            textObj.setComments(first.comments());
+        }
         setTextContentIndex(textObj.getTextContentVariant(0), first.index());
 
-        // Additional variants
         for (int i = 1; i < variants.size(); i++) {
             TextContentVariantDto v = variants.get(i);
-            var tc = textObj.addTextContentVariant();
-            if (v.unicode() != null && !v.unicode().isEmpty()) tc.setText(v.unicode());
-            if (v.plainText() != null && !v.plainText().isEmpty()) tc.setPlainText(v.plainText());
+            TextContent tc = textObj.addTextContentVariant();
+            if (hasText(v.unicode())) tc.setText(v.unicode());
+            if (hasText(v.plainText())) tc.setPlainText(v.plainText());
             if (v.confidence() != null) tc.setConfidence(v.confidence());
-            if (v.dataType() != null && !v.dataType().isEmpty()) tc.setDataType(v.dataType());
-            if (v.dataTypeDetails() != null && !v.dataTypeDetails().isEmpty()) tc.setDataTypeDetails(v.dataTypeDetails());
-            if (v.comments() != null && !v.comments().isEmpty()) tc.setComments(v.comments());
+            if (hasText(v.dataType())) tc.setDataType(v.dataType());
+            if (hasText(v.dataTypeDetails())) tc.setDataTypeDetails(v.dataTypeDetails());
+            if (hasText(v.comments())) tc.setComments(v.comments());
             setTextContentIndex(tc, v.index());
         }
     }
 
-    private void setTextContentIndex(com.maxnth.page4j.dla.page.layout.physical.text.TextContent tc, Integer index) {
+    private void setTextContentIndex(TextContent tc, Integer index) {
         if (tc == null || tc.getAttributes() == null) return;
-        var indexVar = findVariable(tc.getAttributes(), com.maxnth.page4j.dla.page.io.xml.DefaultXmlNames.ATTR_index);
+        Variable indexVar = findVariable(tc.getAttributes(), DefaultXmlNames.ATTR_index);
         if (index == null) {
-            removeAttribute(tc.getAttributes(), com.maxnth.page4j.dla.page.io.xml.DefaultXmlNames.ATTR_index);
+            removeAttribute(tc.getAttributes(), DefaultXmlNames.ATTR_index);
             return;
         }
         if (indexVar == null) return;
         try {
-            indexVar.setValue(com.maxnth.page4j.basic.variable.VariableValue.of(index));
-        } catch (com.maxnth.page4j.basic.variable.Variable.WrongVariableTypeException e) {
-            // ignore
+            indexVar.setValue(VariableValue.of(index));
+        } catch (Variable.WrongVariableTypeException ignored) {
         }
     }
 
@@ -450,63 +561,169 @@ public class DtoToPage4jMapper {
         if (dto == null || dto.root() == null) {
             return;
         }
-
         ReadingOrder readingOrder = layout.createReadingOrder();
         if (dto.confidence() != null) {
             readingOrder.setConfidence(dto.confidence());
         }
-
-        // Populate the root group
-        populateGroup(readingOrder.getRoot(), dto.root(), layout);
+        populateGroup(readingOrder.getRoot(), dto.root());
     }
 
-    private void populateGroup(Group group, ReadingOrderDto.GroupDto dto, PageLayout layout) {
-        if (dto == null) {
+    private void populateGroup(Group group, ReadingOrderDto.GroupDto dto) {
+        if (group == null || dto == null) {
             return;
         }
 
         group.setOrdered(dto.ordered());
-        if (dto.caption() != null) {
+        if (hasText(dto.caption())) {
             group.setCaption(dto.caption());
         }
-        if (dto.regionRef() != null) {
+        if (hasText(dto.regionRef())) {
             group.setRegionRef(dto.regionRef());
         }
+        setStringAttr(group.getAttributes(), DefaultXmlNames.ATTR_type, dto.groupType());
+        setBooleanAttr(group.getAttributes(), DefaultXmlNames.ATTR_continuation, dto.continuation());
         setStringAttr(group.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
         setStringAttr(group.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
+        group.setUserDefinedAttributes(toVariableMap(dto.userDefined()));
+        setLabels(group, dto.labels());
 
-        // Add members
         if (dto.members() != null) {
             for (ReadingOrderDto.GroupMemberDto member : dto.members()) {
                 if (member instanceof ReadingOrderDto.RegionRefDto refDto) {
-                    try {
+                    if (hasText(refDto.regionRef())) {
                         group.addRegionRef(refDto.regionRef());
-                    } catch (Exception e) {
-                        // Region ref creation failed
                     }
                 } else if (member instanceof ReadingOrderDto.NestedGroupDto nestedDto) {
                     try {
-                        Group childGroup = group.createChildGroup();
-                        populateGroup(childGroup, nestedDto.group(), layout);
-                    } catch (Exception e) {
-                        // Child group creation failed
+                        Group child = group.createChildGroup();
+                        populateGroup(child, nestedDto.group());
+                    } catch (Exception ignored) {
                     }
                 }
             }
         }
+
+        pruneGroupAttributes(group, dto);
+    }
+
+    private void setLayers(PageLayout layout, LayersDto dto) {
+        if (dto == null || dto.layers() == null || dto.layers().isEmpty()) {
+            return;
+        }
+        Layers layers = layout.createLayers();
+        layers.setManageZIndexes(false);
+        for (LayerDto layerDto : dto.layers()) {
+            if (layerDto == null) {
+                continue;
+            }
+            Layer layer = layers.createLayer(true);
+            if (layer == null) {
+                continue;
+            }
+            if (hasText(layerDto.id())) {
+                try {
+                    layer.setId(layerDto.id());
+                } catch (Exception ignored) {
+                }
+            }
+            if (layerDto.zIndex() != null) {
+                layer.setZIndex(layerDto.zIndex());
+            }
+            if (hasText(layerDto.caption())) {
+                layer.setCaption(layerDto.caption());
+            }
+            if (layerDto.regionRefs() != null) {
+                for (String regionRef : layerDto.regionRefs()) {
+                    if (hasText(regionRef)) {
+                        layer.addRegionRef(regionRef);
+                    }
+                }
+            }
+        }
+        layers.sort();
+    }
+
+    private void setRelations(PageLayout layout, RelationsDto dto) {
+        if (dto == null || dto.relations() == null || dto.relations().isEmpty()) {
+            return;
+        }
+        Relations relations = layout.getRelations();
+        for (RelationDto relationDto : dto.relations()) {
+            if (relationDto == null) {
+                continue;
+            }
+            Region source = findRegion(layout, relationDto.sourceRegionRef());
+            Region target = findRegion(layout, relationDto.targetRegionRef());
+            if (source == null || target == null) {
+                continue;
+            }
+            ContentObjectRelation relation = relations.addRelation(
+                source,
+                target,
+                toRelationType(relationDto.type()),
+                relationDto.id()
+            );
+            if (relation == null) {
+                continue;
+            }
+            relation.setCustomField(normalizeNullable(relationDto.custom()));
+            relation.setComments(normalizeNullable(relationDto.comments()));
+            setLabels(relation, relationDto.labels());
+        }
+    }
+
+    private Region findRegion(PageLayout layout, String id) {
+        if (layout == null || !hasText(id)) {
+            return null;
+        }
+        Region direct = layout.getRegion(id);
+        if (direct != null) {
+            return direct;
+        }
+        for (int i = 0; i < layout.getRegionCount(); i++) {
+            Region nested = findRegion(layout.getRegion(i), id);
+            if (nested != null) {
+                return nested;
+            }
+        }
+        return null;
+    }
+
+    private Region findRegion(Region parent, String id) {
+        if (parent == null || !hasText(id)) {
+            return null;
+        }
+        if (parent.getId() != null && id.equals(parent.getId().toString())) {
+            return parent;
+        }
+        for (int i = 0; i < parent.getRegionCount(); i++) {
+            Region found = findRegion(parent.getRegion(i), id);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private ContentObjectRelation.RelationType toRelationType(String type) {
+        if ("join".equalsIgnoreCase(type)) {
+            return ContentObjectRelation.RelationType.Join;
+        }
+        if ("ParentChildRelation".equalsIgnoreCase(type)) {
+            return ContentObjectRelation.RelationType.ParentChildRelation;
+        }
+        return ContentObjectRelation.RelationType.Link;
     }
 
     private Polygon toPolygon(PolygonDto dto) {
         if (dto == null || dto.points() == null || dto.points().isEmpty()) {
             return null;
         }
-
         Polygon polygon = new Polygon();
         for (PointDto point : dto.points()) {
-            // Convert world coordinates back to pixel coordinates for PAGE XML
-            int pixelX = CoordinateUtils.worldToPixelX(point.x(), imageWidth);
-            int pixelY = CoordinateUtils.worldToPixelY(point.y(), imageHeight);
-            polygon.addPoint(pixelX, pixelY);
+            int x = CoordinateUtils.worldToPixelX(point.x(), imageWidth);
+            int y = CoordinateUtils.worldToPixelY(point.y(), imageHeight);
+            polygon.addPoint(x, y);
         }
         if (dto.confidence() != null) {
             polygon.setConfidence(dto.confidence());
@@ -518,7 +735,6 @@ public class DtoToPage4jMapper {
         if (kind == null) {
             return RegionType.UnknownRegion;
         }
-
         return switch (kind) {
             case TextRegion -> RegionType.TextRegion;
             case ImageRegion -> RegionType.ImageRegion;
@@ -538,14 +754,10 @@ public class DtoToPage4jMapper {
         };
     }
 
-    // TODO: Implement bi-directional label mapping
     private void mapLabelIdsToLabels(Page page, List<String> labelIds) {
-        // TODO: Look up LabelSet entries by ID and create corresponding page4j Labels
-        // This requires access to the LabelSetService to resolve label definitions
     }
 
     private void mapLabelIdsToRegionLabels(Region region, List<String> labelIds) {
-        // TODO: Look up LabelSet entries by ID and create corresponding page4j Labels for this region
     }
 
     private void setPageAttributes(Page page, PageDto dto) {
@@ -564,6 +776,142 @@ public class DtoToPage4jMapper {
         setDoubleAttr(page.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
     }
 
+    private void setRegionCommonAttributes(Region region, RegionDto dto) {
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
+        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_continuation, dto.continuation());
+        setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_type, dto.type());
+        setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_orientation, dto.orientation());
+        setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_numColours, dto.numColours());
+        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_embText, dto.embText());
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_colourDepth, dto.colourDepth());
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_lineColour, dto.lineColour());
+        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_lineSeparators, dto.lineSeparators());
+        setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_rows, dto.rows());
+        setIntegerAttr(region.getAttributes(), DefaultXmlNames.ATTR_columns, dto.columns());
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_colour, dto.colour());
+        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_penColour, dto.penColour());
+        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_borderPresent, dto.borderPresent());
+    }
+
+    private void applyAlternativeImages(List<AlternativeImage> target, List<AlternativeImageDto> source) {
+        if (target == null) {
+            return;
+        }
+        target.clear();
+        if (source == null) {
+            return;
+        }
+        for (AlternativeImageDto dto : source) {
+            if (dto == null || !hasText(dto.filename())) {
+                continue;
+            }
+            AlternativeImage image = new AlternativeImage(dto.filename());
+            image.setComments(normalizeNullable(dto.comments()));
+            image.setConfidence(dto.confidence());
+            target.add(image);
+        }
+    }
+
+    private void setLabels(HasLabels target, List<LabelsDto> labelGroups) {
+        if (target == null) {
+            return;
+        }
+        if (labelGroups == null || labelGroups.isEmpty()) {
+            target.setLabels(null);
+            return;
+        }
+        Labels labels = new Labels();
+        for (LabelsDto groupDto : labelGroups) {
+            if (groupDto == null) {
+                continue;
+            }
+            LabelGroup group = new LabelGroup(normalizeNullable(groupDto.externalModel()));
+            group.setExternalId(normalizeNullable(groupDto.externalId()));
+            group.setPrefix(normalizeNullable(groupDto.prefix()));
+            group.setComments(normalizeNullable(groupDto.comments()));
+            if (groupDto.labels() != null) {
+                for (LabelDto labelDto : groupDto.labels()) {
+                    if (labelDto == null || !hasText(labelDto.value())) {
+                        continue;
+                    }
+                    LabelImpl label = new LabelImpl(labelDto.value(), group.getExternalModel());
+                    label.setType(normalizeNullable(labelDto.type()));
+                    label.setComments(normalizeNullable(labelDto.comments()));
+                    group.addLabel(label);
+                }
+            }
+            labels.addGroup(group);
+        }
+        target.setLabels(labels);
+    }
+
+    private VariableMap toVariableMap(UserDefinedDto dto) {
+        if (dto == null || dto.attributes() == null || dto.attributes().isEmpty()) {
+            return null;
+        }
+        VariableMap map = new VariableMap();
+        for (UserAttributeDto attr : dto.attributes()) {
+            if (attr == null || !hasText(attr.name())) {
+                continue;
+            }
+            Variable variable = createUserVariable(attr);
+            if (variable == null) {
+                continue;
+            }
+            if (hasText(attr.description())) {
+                variable.setDescription(attr.description().trim());
+            }
+            if (hasText(attr.value())) {
+                variable.parseValue(attr.value().trim());
+            }
+            map.add(variable);
+        }
+        return map.getSize() == 0 ? null : map;
+    }
+
+    private Variable createUserVariable(UserAttributeDto attr) {
+        String type = normalizeNullable(attr.type());
+        String name = attr.name().trim();
+        if ("xsd:integer".equals(type)) {
+            return new com.maxnth.page4j.basic.variable.IntegerVariable(name);
+        }
+        if ("xsd:float".equals(type)) {
+            return new com.maxnth.page4j.basic.variable.DoubleVariable(name);
+        }
+        if ("xsd:boolean".equals(type)) {
+            return new BooleanVariable(name);
+        }
+        return new StringVariable(name);
+    }
+
+    private void applyTextStyle(VariableMap attributes, TextStyleDto style) {
+        if (attributes == null || style == null) {
+            return;
+        }
+        setStringAttr(attributes, "fontFamily", style.fontFamily());
+        setBooleanAttr(attributes, "serif", style.serif());
+        setBooleanAttr(attributes, "monospace", style.monospace());
+        setDoubleAttr(attributes, DefaultXmlNames.ATTR_fontSize, style.fontSize());
+        setIntegerAttr(attributes, DefaultXmlNames.ATTR_xHeight, style.xHeight());
+        setIntegerAttr(attributes, DefaultXmlNames.ATTR_kerning, style.kerning());
+        setStringAttr(attributes, DefaultXmlNames.ATTR_textColour, style.textColour());
+        setIntegerAttr(attributes, DefaultXmlNames.ATTR_textColourRgb, style.textColourRgb());
+        setStringAttr(attributes, DefaultXmlNames.ATTR_bgColour, style.bgColour());
+        setIntegerAttr(attributes, "bgColourRgb", style.bgColourRgb());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_reverseVideo, style.reverseVideo());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_bold, style.bold());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_italic, style.italic());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_underlined, style.underlined());
+        setStringAttr(attributes, DefaultXmlNames.ATTR_underlineStyle, style.underlineStyle());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_subscript, style.subscript());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_superscript, style.superscript());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_strikethrough, style.strikethrough());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_smallCaps, style.smallCaps());
+        setBooleanAttr(attributes, DefaultXmlNames.ATTR_letterSpaced, style.letterSpaced());
+    }
+
     private void prunePageAttributes(Page page, PageDto dto) {
         Set<String> allowed = new HashSet<>();
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_imageXResolution, dto.imageXResolution());
@@ -579,18 +927,10 @@ public class DtoToPage4jMapper {
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
-        pruneAttributes(page.getAttributes(), allowed);
-    }
-
-    private void setRegionCommonAttributes(Region region, RegionDto dto) {
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_custom, dto.custom());
-        setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_comments, dto.comments());
-        setBooleanAttr(region.getAttributes(), DefaultXmlNames.ATTR_continuation, dto.continuation());
-        setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_conf, dto.confidence());
-        if (!(region instanceof TextRegion)) {
-            setStringAttr(region.getAttributes(), DefaultXmlNames.ATTR_type, dto.type());
-            setDoubleAttr(region.getAttributes(), DefaultXmlNames.ATTR_orientation, dto.orientation());
+        if (dto.textStyle() != null) {
+            addTextStyleAllowed(allowed, dto.textStyle());
         }
+        pruneAttributes(page.getAttributes(), allowed);
     }
 
     private void pruneRegionAttributes(Region region, RegionDto dto) {
@@ -599,42 +939,57 @@ public class DtoToPage4jMapper {
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_continuation, dto.continuation());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
-        if (region instanceof TextRegion) {
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_type, dto.type());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_orientation, dto.orientation());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColour, dto.textColour());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bgColour, dto.bgColour());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_reverseVideo, dto.reverseVideo());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_fontSize, dto.fontSize());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_leading, dto.leading());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_kerning, dto.kerning());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingOrientation, dto.readingOrientation());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_indented, dto.indented());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryLanguage, dto.secondaryLanguage());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
-            addAllowedIfPresent(allowed, "production", dto.production());
-        } else {
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_type, dto.type());
-            addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_orientation, dto.orientation());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_type, dto.type());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_orientation, dto.orientation());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_numColours, dto.numColours());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_embText, dto.embText());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_colourDepth, dto.colourDepth());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_lineColour, dto.lineColour());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_lineSeparators, dto.lineSeparators());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_rows, dto.rows());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_columns, dto.columns());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_colour, dto.colour());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_penColour, dto.penColour());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_borderPresent, dto.borderPresent());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColour, dto.textColour());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bgColour, dto.bgColour());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_reverseVideo, dto.reverseVideo());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_fontSize, dto.fontSize());
+        addAllowedIfPresent(allowed, "fontFamily", dto.fontFamily());
+        addAllowedIfPresent(allowed, "serif", dto.serif());
+        addAllowedIfPresent(allowed, "monospace", dto.monospace());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_xHeight, dto.xHeight());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_leading, dto.leading());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_kerning, dto.kerning());
+        addAllowedIfPresent(allowed, "align", dto.align());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColourRgb, dto.textColourRgb());
+        addAllowedIfPresent(allowed, "bgColourRgb", dto.bgColourRgb());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingOrientation, dto.readingOrientation());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textLineOrder, dto.textLineOrder());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_indented, dto.indented());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryLanguage, dto.secondaryLanguage());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
+        addAllowedIfPresent(allowed, "production", dto.production());
+        if (dto.textStyle() != null) {
+            addTextStyleAllowed(allowed, dto.textStyle());
         }
         pruneAttributes(region.getAttributes(), allowed);
     }
 
     private void pruneTextLineAttributes(TextLine textLine, TextLineDto dto) {
         Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, dto.bold());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, dto.italic());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, dto.underlined());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, dto.underlineStyle());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, dto.subscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, dto.superscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, dto.strikethrough());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, dto.smallCaps());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, dto.letterSpaced());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryLanguage, dto.primaryLanguage());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
@@ -644,41 +999,49 @@ public class DtoToPage4jMapper {
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_index, dto.index());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
+        if (dto.textStyle() != null) {
+            addTextStyleAllowed(allowed, dto.textStyle());
+        }
         pruneAttributes(textLine.getAttributes(), allowed);
     }
 
     private void pruneWordAttributes(Word word, WordDto dto) {
         Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, dto.bold());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, dto.italic());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, dto.underlined());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, dto.underlineStyle());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, dto.subscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, dto.superscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, dto.strikethrough());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, dto.smallCaps());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, dto.letterSpaced());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_language, dto.language());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_script, dto.script());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_primaryScript, dto.primaryScript());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_secondaryScript, dto.secondaryScript());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_script, firstNonBlank(dto.script(), dto.primaryScript()));
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_readingDirection, dto.readingDirection());
         addAllowedIfPresent(allowed, "production", dto.production());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
+        if (dto.textStyle() != null) {
+            addTextStyleAllowed(allowed, dto.textStyle());
+        }
         pruneAttributes(word.getAttributes(), allowed);
     }
 
     private void pruneGlyphAttributes(Glyph glyph, GlyphDto dto) {
         Set<String> allowed = new HashSet<>();
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, dto.bold());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, dto.italic());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, dto.underlined());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, dto.underlineStyle());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, dto.subscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, dto.superscript());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, dto.strikethrough());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, dto.smallCaps());
-        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, dto.letterSpaced());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, firstNonNull(dto.bold(), dto.textStyle() != null ? dto.textStyle().bold() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, firstNonNull(dto.italic(), dto.textStyle() != null ? dto.textStyle().italic() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, firstNonNull(dto.underlined(), dto.textStyle() != null ? dto.textStyle().underlined() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, firstNonBlank(dto.underlineStyle(), dto.textStyle() != null ? dto.textStyle().underlineStyle() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, firstNonNull(dto.subscript(), dto.textStyle() != null ? dto.textStyle().subscript() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, firstNonNull(dto.superscript(), dto.textStyle() != null ? dto.textStyle().superscript() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, firstNonNull(dto.strikethrough(), dto.textStyle() != null ? dto.textStyle().strikethrough() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, firstNonNull(dto.smallCaps(), dto.textStyle() != null ? dto.textStyle().smallCaps() : null));
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, firstNonNull(dto.letterSpaced(), dto.textStyle() != null ? dto.textStyle().letterSpaced() : null));
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_ligature, dto.ligature());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_symbol, dto.symbol());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_script, dto.script());
@@ -686,7 +1049,54 @@ public class DtoToPage4jMapper {
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_conf, dto.confidence());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
         addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
+        if (dto.textStyle() != null) {
+            addTextStyleAllowed(allowed, dto.textStyle());
+        }
         pruneAttributes(glyph.getAttributes(), allowed);
+    }
+
+    private void pruneGroupAttributes(Group group, ReadingOrderDto.GroupDto dto) {
+        Set<String> allowed = new HashSet<>();
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_caption, dto.caption());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_type, dto.groupType());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_continuation, dto.continuation());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_custom, dto.custom());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_comments, dto.comments());
+        pruneAttributes(group.getAttributes(), allowed);
+    }
+
+    private void addTextStyleAllowed(Set<String> allowed, TextStyleDto style) {
+        addAllowedIfPresent(allowed, "fontFamily", style.fontFamily());
+        addAllowedIfPresent(allowed, "serif", style.serif());
+        addAllowedIfPresent(allowed, "monospace", style.monospace());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_fontSize, style.fontSize());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_xHeight, style.xHeight());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_kerning, style.kerning());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColour, style.textColour());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_textColourRgb, style.textColourRgb());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bgColour, style.bgColour());
+        addAllowedIfPresent(allowed, "bgColourRgb", style.bgColourRgb());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_reverseVideo, style.reverseVideo());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_bold, style.bold());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_italic, style.italic());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlined, style.underlined());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_underlineStyle, style.underlineStyle());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_subscript, style.subscript());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_superscript, style.superscript());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_strikethrough, style.strikethrough());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_smallCaps, style.smallCaps());
+        addAllowedIfPresent(allowed, DefaultXmlNames.ATTR_letterSpaced, style.letterSpaced());
+    }
+
+    private <T> T firstNonNull(T first, T second) {
+        return first != null ? first : second;
+    }
+
+    private String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return (second != null && !second.isBlank()) ? second : null;
     }
 
     private void addAllowedIfPresent(Set<String> allowed, String attrName, Object value) {
@@ -704,7 +1114,7 @@ public class DtoToPage4jMapper {
             return;
         }
         for (int i = attributes.getSize() - 1; i >= 0; i--) {
-            var variable = attributes.get(i);
+            Variable variable = attributes.get(i);
             if (variable == null || variable.getName() == null) {
                 attributes.remove(i);
                 continue;
@@ -732,34 +1142,11 @@ public class DtoToPage4jMapper {
             removeAttribute(attributes, attrName);
             return;
         }
-        var variable = findVariable(attributes, attrName);
+        Variable variable = findVariable(attributes, attrName);
         if (variable == null) {
             return;
         }
-        String coerced = coerceStringValue(attrName, normalized);
-        variable.parseValue(coerced);
-    }
-
-    private void setTextRegionTypeAttr(VariableMap attributes, String value) {
-        if (attributes == null) {
-            return;
-        }
-
-        String normalized = normalizeNullable(value);
-        // LAREX stores custom TextRegion subtypes in @custom structure.type and exports PAGE-valid type="other".
-        if (normalized != null && "custom".equalsIgnoreCase(normalized)) {
-            normalized = "other";
-        }
-        if (normalized == null) {
-            removeAttribute(attributes, DefaultXmlNames.ATTR_type);
-            return;
-        }
-
-        var variable = findVariable(attributes, DefaultXmlNames.ATTR_type);
-        if (variable == null) {
-            return;
-        }
-        variable.parseValue(normalized);
+        variable.parseValue(coerceStringValue(attrName, normalized));
     }
 
     private void setBooleanAttr(VariableMap attributes, String attrName, Boolean value) {
@@ -770,7 +1157,7 @@ public class DtoToPage4jMapper {
             removeAttribute(attributes, attrName);
             return;
         }
-        var variable = findVariable(attributes, attrName);
+        Variable variable = findVariable(attributes, attrName);
         if (variable == null) {
             return;
         }
@@ -785,7 +1172,7 @@ public class DtoToPage4jMapper {
             removeAttribute(attributes, attrName);
             return;
         }
-        var variable = findVariable(attributes, attrName);
+        Variable variable = findVariable(attributes, attrName);
         if (variable == null) {
             return;
         }
@@ -800,23 +1187,23 @@ public class DtoToPage4jMapper {
             removeAttribute(attributes, attrName);
             return;
         }
-        var variable = findVariable(attributes, attrName);
+        Variable variable = findVariable(attributes, attrName);
         if (variable == null) {
             return;
         }
         variable.parseValue(Double.toString(value));
     }
 
-    private com.maxnth.page4j.basic.variable.Variable findVariable(VariableMap attributes, String attrName) {
+    private Variable findVariable(VariableMap attributes, String attrName) {
         if (attributes == null || attrName == null) {
             return null;
         }
-        var byName = attributes.get(attrName);
+        Variable byName = attributes.get(attrName);
         if (byName != null) {
             return byName;
         }
         for (int i = 0; i < attributes.getSize(); i++) {
-            var variable = attributes.get(i);
+            Variable variable = attributes.get(i);
             if (variable != null && attrName.equals(variable.getName())) {
                 return variable;
             }
@@ -834,7 +1221,6 @@ public class DtoToPage4jMapper {
             || DefaultXmlNames.ATTR_language.equals(attrName)) {
             return coerceLanguageValue(value);
         }
-
         return value;
     }
 
@@ -846,9 +1232,6 @@ public class DtoToPage4jMapper {
 
         String normalized = trimmed.replace('_', '-');
         String lower = normalized.toLowerCase(Locale.ROOT);
-
-        // PAGE LanguageSimpleType in page4j expects language names (e.g. "English"),
-        // while UI users often enter ISO codes (e.g. "en", "deu"). Convert both.
         if (normalized.matches("^[A-Za-z]{2,3}([_-][A-Za-z]{2})?$")) {
             Locale locale = Locale.forLanguageTag(lower);
             String display = locale.getDisplayLanguage(Locale.ENGLISH);
@@ -863,21 +1246,17 @@ public class DtoToPage4jMapper {
             if (display == null || display.isBlank()) {
                 continue;
             }
-
             if (display.equalsIgnoreCase(trimmed)) {
                 return display;
             }
-
             try {
                 String iso3 = locale.getISO3Language();
                 if (iso3 != null && iso3.equalsIgnoreCase(trimmed)) {
                     return display;
                 }
             } catch (Exception ignored) {
-                // Ignore locales without ISO3 mapping
             }
         }
-
         return trimmed;
     }
 
@@ -886,7 +1265,7 @@ public class DtoToPage4jMapper {
             return;
         }
         for (int i = attributes.getSize() - 1; i >= 0; i--) {
-            var variable = attributes.get(i);
+            Variable variable = attributes.get(i);
             if (variable != null && attrName.equals(variable.getName())) {
                 attributes.remove(i);
             }
@@ -901,16 +1280,14 @@ public class DtoToPage4jMapper {
         if (page == null) {
             return;
         }
-
         removeEmptyStringAttributes(page.getAttributes());
 
-        var layout = page.getLayout();
+        PageLayout layout = page.getLayout();
         if (layout != null) {
             for (int i = 0; i < layout.getRegionCount(); i++) {
                 sanitizeRegion(layout.getRegion(i));
             }
-
-            var readingOrder = layout.getReadingOrder();
+            ReadingOrder readingOrder = layout.getReadingOrder();
             if (readingOrder != null && readingOrder.getRoot() != null) {
                 sanitizeGroup(readingOrder.getRoot());
             }
@@ -918,10 +1295,6 @@ public class DtoToPage4jMapper {
     }
 
     private void sanitizeGroup(Group group) {
-        if (group == null) {
-            return;
-        }
-
         removeEmptyStringAttributes(group.getAttributes());
         for (int i = 0; i < group.getSize(); i++) {
             GroupMember member = group.getMember(i);
@@ -935,33 +1308,25 @@ public class DtoToPage4jMapper {
         if (region == null) {
             return;
         }
-
         removeEmptyStringAttributes(region.getAttributes());
         if (region instanceof TextContentVariants variants) {
             sanitizeTextContentVariants(variants);
         }
-
         if (region instanceof LowLevelTextContainer container && container.hasTextObjects()) {
             for (int i = 0; i < container.getTextObjectCount(); i++) {
                 sanitizeTextObject(container.getTextObject(i));
             }
         }
-
         for (int i = 0; i < region.getRegionCount(); i++) {
             sanitizeRegion(region.getRegion(i));
         }
     }
 
     private void sanitizeTextObject(LowLevelTextObject textObject) {
-        if (textObject == null) {
-            return;
-        }
-
         removeEmptyStringAttributes(textObject.getAttributes());
         if (textObject instanceof TextContentVariants variants) {
             sanitizeTextContentVariants(variants);
         }
-
         if (textObject instanceof LowLevelTextContainer container && container.hasTextObjects()) {
             for (int i = 0; i < container.getTextObjectCount(); i++) {
                 sanitizeTextObject(container.getTextObject(i));
@@ -970,10 +1335,6 @@ public class DtoToPage4jMapper {
     }
 
     private void sanitizeTextContentVariants(TextContentVariants variants) {
-        if (variants == null) {
-            return;
-        }
-
         for (int i = 0; i < variants.getTextContentVariantCount(); i++) {
             TextContent textContent = variants.getTextContentVariant(i);
             if (textContent != null) {
@@ -986,13 +1347,11 @@ public class DtoToPage4jMapper {
         if (attributes == null) {
             return;
         }
-
         for (int i = attributes.getSize() - 1; i >= 0; i--) {
-            var variable = attributes.get(i);
+            Variable variable = attributes.get(i);
             if (variable == null || variable.getValue() == null) {
                 continue;
             }
-
             if (variable.getValue() instanceof StringValue stringValue) {
                 if (stringValue.val == null || stringValue.val.isBlank()) {
                     attributes.remove(i);

@@ -1,6 +1,6 @@
 import type { Polygon } from './geometry'
 import type { TextContentVariant, TextLine } from './text'
-import type { Labels, UserDefined } from './document'
+import type { AlternativeImage, Labels, TextStyleAttributes, UserDefined } from './document'
 
 export type RegionKind
   = | 'TextRegion'
@@ -209,14 +209,21 @@ export function serializeCustomLabels(data: CustomLabelData): string | undefined
   return JSON.stringify(obj)
 }
 
-export interface AlternativeImage {
-  filename: string
-  comments?: string
-  conf?: number
+export interface Roles {
+  tableCellRole?: {
+    rowIndex?: number
+    columnIndex?: number
+    rowSpan?: number
+    colSpan?: number
+    header?: boolean
+  }
 }
 
-export interface Roles {
-  role?: Array<{ value: string, type?: string, comments?: string }>
+export interface Grid {
+  rows?: Array<{
+    index?: number
+    points: Polygon
+  }>
 }
 
 /** PAGE XML 2019: RegionType (abstract) */
@@ -232,6 +239,8 @@ export interface RegionBase {
   userDefined?: UserDefined
   labels?: Labels[]
   roles?: Roles
+  grid?: Grid
+  textStyle?: TextStyleAttributes
   regions?: Region[]
 
   /** @custom */
@@ -242,6 +251,21 @@ export interface RegionBase {
   continuation?: boolean
   /** @conf */
   confidence?: number
+  numColours?: number
+  embText?: boolean
+  colourDepth?: string
+  lineColour?: string
+  lineSeparators?: boolean
+  rows?: number
+  columns?: number
+  colour?: string
+  penColour?: string
+  borderPresent?: boolean
+  serif?: boolean
+  monospace?: boolean
+  xHeight?: number
+  textColourRgb?: number
+  bgColourRgb?: number
 }
 
 export interface TextRegion extends RegionBase {

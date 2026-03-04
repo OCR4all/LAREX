@@ -1,3 +1,5 @@
+import type { Labels, UserDefined } from './document'
+
 export type ReadingOrderNode = ReadingOrderGroup | RegionRef
 
 /** PAGE XML 2019: ReadingOrderType (contains exactly one group) */
@@ -9,8 +11,16 @@ export type ReadingOrderGroup = OrderedGroup | UnorderedGroup | OrderedGroupInde
 
 export interface BaseGroup {
   id: string
+  index?: number
   /** Optional link of a group to a region (RegionType/@id) */
   regionRef?: string
+  caption?: string
+  groupType?: string
+  continuation?: boolean
+  custom?: string
+  comments?: string
+  userDefined?: UserDefined
+  labels?: Labels[]
   elements: ReadingOrderNode[]
 }
 

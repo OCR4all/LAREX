@@ -17,7 +17,7 @@ export type {
 export { Polygon, Polyline } from './geometry'
 
 export { TextLine, Word, Glyph, TextContentVariant } from './text'
-export type { Baseline } from './text'
+export type { Baseline, GraphemeElement, Graphemes } from './text'
 
 export {
   isTextRegion,
@@ -46,7 +46,7 @@ export type {
 } from './region'
 
 export { Page } from './page'
-export type { Border, PrintSpace } from './page'
+export type { Border, Layer, PrintSpace, Relation } from './page'
 
 export {
   type ReadingOrder,
@@ -76,4 +76,14 @@ export {
   Metadata
 } from './document'
 
-export type { UserDefined, MetadataItem, MetadataItemType, Labels, Label } from './document'
+export type {
+  AlternativeImage,
+  Label,
+  Labels,
+  MetadataItem,
+  MetadataItemType,
+  TextStyleAttributes,
+  UserAttribute,
+  UserAttributeType,
+  UserDefined
+} from './document'

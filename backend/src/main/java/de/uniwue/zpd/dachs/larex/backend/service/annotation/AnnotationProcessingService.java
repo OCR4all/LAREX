@@ -273,13 +273,17 @@ public class AnnotationProcessingService {
         String created = normalize(metadata != null ? metadata.created() : null);
         String comments = normalize(metadata != null ? metadata.comments() : null);
         String externalRef = normalize(metadata != null ? metadata.externalRef() : null);
+        var userDefined = metadata != null ? metadata.userDefined() : null;
+        var items = metadata != null ? metadata.items() : null;
 
         var saveMetadata = new de.uniwue.zpd.dachs.larex.backend.dto.page.MetadataDto(
             creator != null ? creator : fallbackCreator,
             created != null ? created : now,
             now,
             comments,
-            externalRef
+            externalRef,
+            userDefined,
+            items
         );
 
         return new PageDto(
@@ -305,6 +309,12 @@ public class AnnotationProcessingService {
             dto.printSpace(),
             dto.regions(),
             dto.readingOrder(),
+            dto.alternativeImages(),
+            dto.labels(),
+            dto.userDefined(),
+            dto.textStyle(),
+            dto.layers(),
+            dto.relations(),
             dto.formatVersion(),
             dto.labelIds()
         );

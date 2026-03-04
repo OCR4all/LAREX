@@ -1,3 +1,22 @@
+import type { AlternativeImage, Labels, TextStyleAttributes, UserDefined } from './document'
+
+export interface Layer {
+  id?: string
+  zIndex?: number
+  caption?: string
+  regionRefs?: string[]
+}
+
+export interface Relation {
+  id?: string
+  type?: string
+  sourceRegionRef?: string
+  targetRegionRef?: string
+  custom?: string
+  comments?: string
+  labels?: Labels[]
+}
+
 export class Page {
   imageFilename: string
   imageWidth: number
@@ -9,6 +28,12 @@ export class Page {
   border?: Border
   printSpace?: PrintSpace
   readingOrder?: import('./reading-order').ReadingOrder
+  alternativeImages?: AlternativeImage[]
+  labels?: Labels[]
+  userDefined?: UserDefined
+  textStyle?: TextStyleAttributes
+  layers?: Layer[]
+  relations?: Relation[]
 
   regions: import('./region').Region[]
 
@@ -33,6 +58,12 @@ export class Page {
     border?: Border
     printSpace?: PrintSpace
     readingOrder?: import('./reading-order').ReadingOrder
+    alternativeImages?: AlternativeImage[]
+    labels?: Labels[]
+    userDefined?: UserDefined
+    textStyle?: TextStyleAttributes
+    layers?: Layer[]
+    relations?: Relation[]
     regions?: import('./region').Region[]
     custom?: string
     orientation?: number
@@ -54,6 +85,12 @@ export class Page {
     this.border = params.border
     this.printSpace = params.printSpace
     this.readingOrder = params.readingOrder
+    this.alternativeImages = params.alternativeImages
+    this.labels = params.labels
+    this.userDefined = params.userDefined
+    this.textStyle = params.textStyle
+    this.layers = params.layers
+    this.relations = params.relations
     this.regions = params.regions ?? []
     this.custom = params.custom
     this.orientation = params.orientation

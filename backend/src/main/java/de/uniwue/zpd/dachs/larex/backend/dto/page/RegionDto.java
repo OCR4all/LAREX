@@ -21,6 +21,18 @@ public record RegionDto(
     List<TextLineDto> textLines,
     /** Text content variants (only for TextRegion) */
     List<TextContentVariantDto> textContentVariants,
+    /** Alternative images */
+    List<AlternativeImageDto> alternativeImages,
+    /** PAGE labels */
+    List<LabelsDto> labels,
+    /** User-defined attributes */
+    UserDefinedDto userDefined,
+    /** Region roles */
+    RolesDto roles,
+    /** Table grid */
+    GridDto grid,
+    /** Text style attributes */
+    TextStyleDto textStyle,
     
     // TextRegion-specific attributes
     /** TextRegion type attribute (paragraph, heading, caption, etc.) */
@@ -37,10 +49,22 @@ public record RegionDto(
     Double fontSize,
     /** Font family */
     String fontFamily,
+    /** Serif text style flag */
+    Boolean serif,
+    /** Monospace text style flag */
+    Boolean monospace,
+    /** x-height */
+    Integer xHeight,
     /** Leading (line spacing) */
     Integer leading,
     /** Kerning */
     Integer kerning,
+    /** Alignment */
+    String align,
+    /** Text colour (RGB integer) */
+    Integer textColourRgb,
+    /** Background colour (RGB integer) */
+    Integer bgColourRgb,
     /** Reading direction */
     String readingDirection,
     /** Reading orientation */
@@ -59,6 +83,26 @@ public record RegionDto(
     String secondaryScript,
     /** Production type */
     String production,
+    /** Number of colours */
+    Integer numColours,
+    /** Contains embedded text */
+    Boolean embText,
+    /** Colour depth */
+    String colourDepth,
+    /** Line colour */
+    String lineColour,
+    /** Line separators present */
+    Boolean lineSeparators,
+    /** Table rows */
+    Integer rows,
+    /** Table columns */
+    Integer columns,
+    /** Generic colour */
+    String colour,
+    /** Pen colour */
+    String penColour,
+    /** Border present */
+    Boolean borderPresent,
     
     // Nested regions
     /** Child/nested regions */
@@ -78,6 +122,92 @@ public record RegionDto(
     /** Label IDs from LabelSet (for bi-directional mapping) */
     List<String> labelIds
 ) {
+    public RegionDto(
+        String id,
+        RegionKind kind,
+        PolygonDto coords,
+        List<TextLineDto> textLines,
+        List<TextContentVariantDto> textContentVariants,
+        String type,
+        Double orientation,
+        String textColour,
+        String bgColour,
+        Boolean reverseVideo,
+        Double fontSize,
+        String fontFamily,
+        Integer leading,
+        Integer kerning,
+        String readingDirection,
+        Double readingOrientation,
+        String textLineOrder,
+        Boolean indented,
+        String primaryLanguage,
+        String secondaryLanguage,
+        String primaryScript,
+        String secondaryScript,
+        String production,
+        List<RegionDto> nestedRegions,
+        Double confidence,
+        String custom,
+        String comments,
+        Boolean continuation,
+        List<String> labelIds
+    ) {
+        this(
+            id,
+            kind,
+            coords,
+            textLines,
+            textContentVariants,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            type,
+            orientation,
+            textColour,
+            bgColour,
+            reverseVideo,
+            fontSize,
+            fontFamily,
+            null,
+            null,
+            null,
+            leading,
+            kerning,
+            null,
+            null,
+            null,
+            readingDirection,
+            readingOrientation,
+            textLineOrder,
+            indented,
+            primaryLanguage,
+            secondaryLanguage,
+            primaryScript,
+            secondaryScript,
+            production,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            nestedRegions,
+            confidence,
+            custom,
+            comments,
+            continuation,
+            labelIds
+        );
+    }
+
     /**
      * Get the primary text content.
      */
@@ -110,5 +240,9 @@ public record RegionDto(
      */
     public boolean isTextRegion() {
         return kind == RegionKind.TextRegion;
+    }
+
+    public TableCellRoleDto tableCellRoleFromRoles() {
+        return roles != null ? roles.tableCellRole() : null;
     }
 }

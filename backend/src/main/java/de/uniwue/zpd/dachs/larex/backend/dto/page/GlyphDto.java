@@ -14,6 +14,16 @@ public record GlyphDto(
     PolygonDto coords,
     /** Text content variants (multiple OCR interpretations) */
     List<TextContentVariantDto> textContentVariants,
+    /** Alternative images */
+    List<AlternativeImageDto> alternativeImages,
+    /** PAGE labels */
+    List<LabelsDto> labels,
+    /** User-defined attributes */
+    UserDefinedDto userDefined,
+    /** Text style attributes */
+    TextStyleDto textStyle,
+    /** Grapheme container */
+    GraphemesDto graphemes,
     
     // Style attributes (from page4j LowLevelTextObject)
     Boolean bold,
@@ -35,6 +45,55 @@ public record GlyphDto(
     String custom,
     String comments
 ) {
+    public GlyphDto(
+        String id,
+        PolygonDto coords,
+        List<TextContentVariantDto> textContentVariants,
+        Boolean bold,
+        Boolean italic,
+        Boolean underlined,
+        String underlineStyle,
+        Boolean subscript,
+        Boolean superscript,
+        Boolean strikethrough,
+        Boolean smallCaps,
+        Boolean letterSpaced,
+        Boolean ligature,
+        Boolean symbol,
+        String script,
+        String production,
+        Double confidence,
+        String custom,
+        String comments
+    ) {
+        this(
+            id,
+            coords,
+            textContentVariants,
+            null,
+            null,
+            null,
+            null,
+            null,
+            bold,
+            italic,
+            underlined,
+            underlineStyle,
+            subscript,
+            superscript,
+            strikethrough,
+            smallCaps,
+            letterSpaced,
+            ligature,
+            symbol,
+            script,
+            production,
+            confidence,
+            custom,
+            comments
+        );
+    }
+
     /**
      * Get the primary text content (first variant's unicode).
      */

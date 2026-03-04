@@ -28,7 +28,13 @@ import {
   type TextRegionMetadataFormState,
   type GenericRegionMetadataFormState,
   type TextLineMetadataFormState,
-  type BaselineMetadataFormState
+  type BaselineMetadataFormState,
+  type AlternativeImageFormState,
+  type LabelsFormState,
+  type LabelFormState,
+  type UserAttributeFormState,
+  type MetadataItemFormState,
+  type GridRowFormState
 } from '@/utils/editor/metadata-schema'
 
 const overlay = useOverlay()
@@ -54,7 +60,9 @@ const documentFormState = reactive<DocumentMetadataFormState>({
   created: '',
   lastChange: '',
   comments: '',
-  externalRef: ''
+  externalRef: '',
+  userDefinedAttributes: [],
+  items: []
 })
 
 const pageFormState = reactive<PageMetadataFormState>({
@@ -73,7 +81,11 @@ const pageFormState = reactive<PageMetadataFormState>({
   secondaryScript: undefined,
   readingDirection: undefined,
   textLineOrder: undefined,
-  conf: undefined
+  conf: undefined,
+  alternativeImages: [],
+  labels: [],
+  userDefinedAttributes: [],
+  textStyle: {}
 })
 
 const textRegionFormState = reactive<TextRegionMetadataFormState>({
@@ -94,7 +106,11 @@ const textRegionFormState = reactive<TextRegionMetadataFormState>({
   secondaryLanguage: undefined,
   primaryScript: undefined,
   secondaryScript: undefined,
-  production: undefined
+  production: undefined,
+  alternativeImages: [],
+  labels: [],
+  userDefinedAttributes: [],
+  textStyle: {}
 })
 
 const genericRegionFormState = reactive<GenericRegionMetadataFormState>({
@@ -103,7 +119,26 @@ const genericRegionFormState = reactive<GenericRegionMetadataFormState>({
   type: '',
   custom: '',
   comments: '',
-  continuation: undefined
+  continuation: undefined,
+  orientation: undefined,
+  numColours: undefined,
+  embText: undefined,
+  colourDepth: '',
+  lineColour: '',
+  lineSeparators: undefined,
+  rows: undefined,
+  columns: undefined,
+  colour: '',
+  penColour: '',
+  borderPresent: undefined,
+  textColourRgb: undefined,
+  bgColourRgb: undefined,
+  tableCellRole: {},
+  gridRows: [],
+  alternativeImages: [],
+  labels: [],
+  userDefinedAttributes: [],
+  textStyle: {}
 })
 
 const textLineFormState = reactive<TextLineMetadataFormState>({
@@ -115,7 +150,11 @@ const textLineFormState = reactive<TextLineMetadataFormState>({
   production: undefined,
   custom: '',
   comments: '',
-  index: undefined
+  index: undefined,
+  alternativeImages: [],
+  labels: [],
+  userDefinedAttributes: [],
+  textStyle: {}
 })
 
 const baselineFormState = reactive<BaselineMetadataFormState>({
@@ -340,6 +379,18 @@ const resolutionUnitOptions = [
   { label: 'Pixels per Centimeter (PPCM)', value: 'PPCM' },
   { label: 'Other', value: 'other' }
 ]
+const userAttributeTypeOptions = [
+  { label: 'String', value: 'xsd:string' },
+  { label: 'Integer', value: 'xsd:integer' },
+  { label: 'Boolean', value: 'xsd:boolean' },
+  { label: 'Float', value: 'xsd:float' }
+]
+const metadataItemTypeOptions = [
+  { label: 'Author', value: 'author' },
+  { label: 'Image Properties', value: 'imageProperties' },
+  { label: 'Processing Step', value: 'processingStep' },
+  { label: 'Other', value: 'other' }
+]
 const languageOptions = [
   ...LANGUAGE_SIMPLE_TYPE_VALUES
 ]
@@ -372,6 +423,62 @@ function formatSubtypeLabel(subtype: string): string {
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
+}
+
+function addAlternativeImageRow(target: AlternativeImageFormState[]) {
+  target.push({
+    filename: '',
+    comments: '',
+    confidence: undefined
+  })
+}
+
+function addLabelGroup(target: LabelsFormState[]) {
+  target.push({
+    externalModel: '',
+    externalId: '',
+    prefix: '',
+    comments: '',
+    labels: []
+  })
+}
+
+function addLabelRow(target: LabelFormState[]) {
+  target.push({
+    value: '',
+    type: '',
+    comments: ''
+  })
+}
+
+function addUserAttributeRow(target: UserAttributeFormState[]) {
+  target.push({
+    name: '',
+    description: '',
+    type: undefined,
+    value: ''
+  })
+}
+
+function addMetadataItemRow(target: MetadataItemFormState[]) {
+  target.push({
+    type: undefined,
+    name: '',
+    value: '',
+    date: '',
+    labels: []
+  })
+}
+
+function addGridRow(target: GridRowFormState[]) {
+  target.push({
+    index: undefined,
+    points: ''
+  })
+}
+
+function removeAt<T>(target: T[], index: number) {
+  target.splice(index, 1)
 }
 
 async function handleRegionKindChange(newKind: RegionKind) {
@@ -457,6 +564,166 @@ watch(() => props.selectedElement, () => {
             <UFormField label="External Reference" name="externalRef">
               <UInput v-model="documentFormState.externalRef" placeholder="URL or reference" />
             </UFormField>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">User-Defined Attributes</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addUserAttributeRow(documentFormState.userDefinedAttributes)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div
+                v-for="(attr, attrIndex) in documentFormState.userDefinedAttributes"
+                :key="`doc-attr-${attrIndex}`"
+                class="space-y-2 rounded-md border border-border p-2"
+              >
+                <UFormField label="Name">
+                  <UInput v-model="attr.name" placeholder="Attribute name" />
+                </UFormField>
+                <UFormField label="Description">
+                  <UInput v-model="attr.description" placeholder="Description" />
+                </UFormField>
+                <UFormField label="Type">
+                  <USelect v-model="attr.type" :items="userAttributeTypeOptions" placeholder="Select type" />
+                </UFormField>
+                <UFormField label="Value">
+                  <UInput v-model="attr.value" placeholder="Value" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(documentFormState.userDefinedAttributes, attrIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Metadata Items</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addMetadataItemRow(documentFormState.items)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div
+                v-for="(item, itemIndex) in documentFormState.items"
+                :key="`doc-item-${itemIndex}`"
+                class="space-y-2 rounded-md border border-border p-2"
+              >
+                <UFormField label="Type">
+                  <USelect v-model="item.type" :items="metadataItemTypeOptions" placeholder="Select type" />
+                </UFormField>
+                <UFormField label="Name">
+                  <UInput v-model="item.name" placeholder="Name" />
+                </UFormField>
+                <UFormField label="Value">
+                  <UTextarea v-model="item.value" placeholder="Value" :rows="2" />
+                </UFormField>
+                <UFormField label="Date">
+                  <UInput v-model="item.date" placeholder="ISO date/time" />
+                </UFormField>
+
+                <div class="space-y-2 rounded-md border border-border p-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium">Label Groups</span>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      @click="addLabelGroup(item.labels)"
+                    >
+                      Add Group
+                    </UButton>
+                  </div>
+                  <div
+                    v-for="(group, groupIndex) in item.labels"
+                    :key="`doc-item-${itemIndex}-group-${groupIndex}`"
+                    class="space-y-2 rounded-md border border-border p-2"
+                  >
+                    <UFormField label="External Model">
+                      <UInput v-model="group.externalModel" placeholder="External model" />
+                    </UFormField>
+                    <UFormField label="External ID">
+                      <UInput v-model="group.externalId" placeholder="External ID" />
+                    </UFormField>
+                    <UFormField label="Prefix">
+                      <UInput v-model="group.prefix" placeholder="Prefix" />
+                    </UFormField>
+                    <UFormField label="Comments">
+                      <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" />
+                    </UFormField>
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium">Labels</span>
+                        <UButton
+                          type="button"
+                          size="xs"
+                          variant="ghost"
+                          @click="addLabelRow(group.labels)"
+                        >
+                          Add Label
+                        </UButton>
+                      </div>
+                      <div
+                        v-for="(label, labelIndex) in group.labels"
+                        :key="`doc-item-${itemIndex}-group-${groupIndex}-label-${labelIndex}`"
+                        class="space-y-2 rounded-md border border-border p-2"
+                      >
+                        <UFormField label="Value">
+                          <UInput v-model="label.value" placeholder="Value" />
+                        </UFormField>
+                        <UFormField label="Type">
+                          <UInput v-model="label.type" placeholder="Type" />
+                        </UFormField>
+                        <UFormField label="Comments">
+                          <UInput v-model="label.comments" placeholder="Comments" />
+                        </UFormField>
+                        <UButton
+                          type="button"
+                          size="xs"
+                          color="error"
+                          variant="ghost"
+                          @click="removeAt(group.labels, labelIndex)"
+                        >
+                          Remove Label
+                        </UButton>
+                      </div>
+                    </div>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      @click="removeAt(item.labels, groupIndex)"
+                    >
+                      Remove Group
+                    </UButton>
+                  </div>
+                </div>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(documentFormState.items, itemIndex)"
+                >
+                  Remove Item
+                </UButton>
+              </div>
+            </div>
 
             <div class="flex gap-2 pt-4 border-t border-border">
               <UButton type="submit" class="flex-1">
@@ -601,6 +868,206 @@ watch(() => props.selectedElement, () => {
             <UFormField label="Custom" name="custom">
               <UInput v-model="pageFormState.custom" placeholder="Custom data" />
             </UFormField>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Alternative Images</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addAlternativeImageRow(pageFormState.alternativeImages)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(img, imgIndex) in pageFormState.alternativeImages" :key="`page-alt-${imgIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Filename">
+                  <UInput v-model="img.filename" placeholder="Image filename" />
+                </UFormField>
+                <UFormField label="Confidence">
+                  <UInput
+                    v-model.number="img.confidence"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    placeholder="0.0 - 1.0"
+                  />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="img.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(pageFormState.alternativeImages, imgIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Labels</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addLabelGroup(pageFormState.labels)"
+                >
+                  Add Group
+                </UButton>
+              </div>
+              <div v-for="(group, groupIndex) in pageFormState.labels" :key="`page-label-group-${groupIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="External Model">
+                  <UInput v-model="group.externalModel" placeholder="External model" />
+                </UFormField>
+                <UFormField label="External ID">
+                  <UInput v-model="group.externalId" placeholder="External ID" />
+                </UFormField>
+                <UFormField label="Prefix">
+                  <UInput v-model="group.prefix" placeholder="Prefix" />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium">Labels</span>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      @click="addLabelRow(group.labels)"
+                    >
+                      Add Label
+                    </UButton>
+                  </div>
+                  <div v-for="(label, labelIndex) in group.labels" :key="`page-label-group-${groupIndex}-label-${labelIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                    <UFormField label="Value">
+                      <UInput v-model="label.value" placeholder="Value" />
+                    </UFormField>
+                    <UFormField label="Type">
+                      <UInput v-model="label.type" placeholder="Type" />
+                    </UFormField>
+                    <UFormField label="Comments">
+                      <UInput v-model="label.comments" placeholder="Comments" />
+                    </UFormField>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      @click="removeAt(group.labels, labelIndex)"
+                    >
+                      Remove Label
+                    </UButton>
+                  </div>
+                </div>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(pageFormState.labels, groupIndex)"
+                >
+                  Remove Group
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">User-Defined Attributes</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addUserAttributeRow(pageFormState.userDefinedAttributes)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(attr, attrIndex) in pageFormState.userDefinedAttributes" :key="`page-attr-${attrIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Name">
+                  <UInput v-model="attr.name" placeholder="Attribute name" />
+                </UFormField>
+                <UFormField label="Description">
+                  <UInput v-model="attr.description" placeholder="Description" />
+                </UFormField>
+                <UFormField label="Type">
+                  <USelect v-model="attr.type" :items="userAttributeTypeOptions" placeholder="Select type" />
+                </UFormField>
+                <UFormField label="Value">
+                  <UInput v-model="attr.value" placeholder="Value" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(pageFormState.userDefinedAttributes, attrIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <span class="text-sm font-medium">Text Style</span>
+              <UFormField label="Font Family">
+                <UInput v-model="pageFormState.textStyle.fontFamily" placeholder="Font family" />
+              </UFormField>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Font Size">
+                  <UInput v-model.number="pageFormState.textStyle.fontSize" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="X Height">
+                  <UInput v-model.number="pageFormState.textStyle.xHeight" type="number" step="0.1" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Kerning">
+                  <UInput v-model.number="pageFormState.textStyle.kerning" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="Underline Style">
+                  <UInput v-model="pageFormState.textStyle.underlineStyle" placeholder="Underline style" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour">
+                  <UInput v-model="pageFormState.textStyle.textColour" placeholder="Named colour" />
+                </UFormField>
+                <UFormField label="Background Colour">
+                  <UInput v-model="pageFormState.textStyle.bgColour" placeholder="Named colour" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour RGB">
+                  <UInput v-model.number="pageFormState.textStyle.textColourRgb" type="number" />
+                </UFormField>
+                <UFormField label="Background Colour RGB">
+                  <UInput v-model.number="pageFormState.textStyle.bgColourRgb" type="number" />
+                </UFormField>
+              </div>
+              <div class="space-y-1">
+                <UCheckbox v-model="pageFormState.textStyle.serif" label="Serif" />
+                <UCheckbox v-model="pageFormState.textStyle.monospace" label="Monospace" />
+                <UCheckbox v-model="pageFormState.textStyle.bold" label="Bold" />
+                <UCheckbox v-model="pageFormState.textStyle.italic" label="Italic" />
+                <UCheckbox v-model="pageFormState.textStyle.underlined" label="Underlined" />
+                <UCheckbox v-model="pageFormState.textStyle.subscript" label="Subscript" />
+                <UCheckbox v-model="pageFormState.textStyle.superscript" label="Superscript" />
+                <UCheckbox v-model="pageFormState.textStyle.strikethrough" label="Strikethrough" />
+                <UCheckbox v-model="pageFormState.textStyle.smallCaps" label="Small Caps" />
+                <UCheckbox v-model="pageFormState.textStyle.letterSpaced" label="Letter Spaced" />
+                <UCheckbox v-model="pageFormState.textStyle.reverseVideo" label="Reverse Video" />
+              </div>
+            </div>
 
             <div class="flex gap-2 pt-4 border-t border-border">
               <UButton type="submit" class="flex-1">
@@ -755,6 +1222,205 @@ watch(() => props.selectedElement, () => {
               <UInput v-model="textRegionFormState.custom" placeholder="Custom data" />
             </UFormField>
 
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Alternative Images</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addAlternativeImageRow(textRegionFormState.alternativeImages)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(img, imgIndex) in textRegionFormState.alternativeImages" :key="`text-region-alt-${imgIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Filename">
+                  <UInput v-model="img.filename" placeholder="Image filename" />
+                </UFormField>
+                <UFormField label="Confidence">
+                  <UInput
+                    v-model.number="img.confidence"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                  />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="img.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(textRegionFormState.alternativeImages, imgIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Labels</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addLabelGroup(textRegionFormState.labels)"
+                >
+                  Add Group
+                </UButton>
+              </div>
+              <div v-for="(group, groupIndex) in textRegionFormState.labels" :key="`text-region-label-group-${groupIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="External Model">
+                  <UInput v-model="group.externalModel" placeholder="External model" />
+                </UFormField>
+                <UFormField label="External ID">
+                  <UInput v-model="group.externalId" placeholder="External ID" />
+                </UFormField>
+                <UFormField label="Prefix">
+                  <UInput v-model="group.prefix" placeholder="Prefix" />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium">Labels</span>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      @click="addLabelRow(group.labels)"
+                    >
+                      Add Label
+                    </UButton>
+                  </div>
+                  <div v-for="(label, labelIndex) in group.labels" :key="`text-region-label-group-${groupIndex}-label-${labelIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                    <UFormField label="Value">
+                      <UInput v-model="label.value" placeholder="Value" />
+                    </UFormField>
+                    <UFormField label="Type">
+                      <UInput v-model="label.type" placeholder="Type" />
+                    </UFormField>
+                    <UFormField label="Comments">
+                      <UInput v-model="label.comments" placeholder="Comments" />
+                    </UFormField>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      @click="removeAt(group.labels, labelIndex)"
+                    >
+                      Remove Label
+                    </UButton>
+                  </div>
+                </div>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(textRegionFormState.labels, groupIndex)"
+                >
+                  Remove Group
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">User-Defined Attributes</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addUserAttributeRow(textRegionFormState.userDefinedAttributes)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(attr, attrIndex) in textRegionFormState.userDefinedAttributes" :key="`text-region-attr-${attrIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Name">
+                  <UInput v-model="attr.name" placeholder="Attribute name" />
+                </UFormField>
+                <UFormField label="Description">
+                  <UInput v-model="attr.description" placeholder="Description" />
+                </UFormField>
+                <UFormField label="Type">
+                  <USelect v-model="attr.type" :items="userAttributeTypeOptions" placeholder="Select type" />
+                </UFormField>
+                <UFormField label="Value">
+                  <UInput v-model="attr.value" placeholder="Value" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(textRegionFormState.userDefinedAttributes, attrIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <span class="text-sm font-medium">Text Style</span>
+              <UFormField label="Font Family">
+                <UInput v-model="textRegionFormState.textStyle.fontFamily" placeholder="Font family" />
+              </UFormField>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Font Size">
+                  <UInput v-model.number="textRegionFormState.textStyle.fontSize" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="X Height">
+                  <UInput v-model.number="textRegionFormState.textStyle.xHeight" type="number" step="0.1" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Kerning">
+                  <UInput v-model.number="textRegionFormState.textStyle.kerning" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="Underline Style">
+                  <UInput v-model="textRegionFormState.textStyle.underlineStyle" placeholder="Underline style" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour">
+                  <UInput v-model="textRegionFormState.textStyle.textColour" placeholder="Named colour" />
+                </UFormField>
+                <UFormField label="Background Colour">
+                  <UInput v-model="textRegionFormState.textStyle.bgColour" placeholder="Named colour" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour RGB">
+                  <UInput v-model.number="textRegionFormState.textStyle.textColourRgb" type="number" />
+                </UFormField>
+                <UFormField label="Background Colour RGB">
+                  <UInput v-model.number="textRegionFormState.textStyle.bgColourRgb" type="number" />
+                </UFormField>
+              </div>
+              <div class="space-y-1">
+                <UCheckbox v-model="textRegionFormState.textStyle.serif" label="Serif" />
+                <UCheckbox v-model="textRegionFormState.textStyle.monospace" label="Monospace" />
+                <UCheckbox v-model="textRegionFormState.textStyle.bold" label="Bold" />
+                <UCheckbox v-model="textRegionFormState.textStyle.italic" label="Italic" />
+                <UCheckbox v-model="textRegionFormState.textStyle.underlined" label="Underlined" />
+                <UCheckbox v-model="textRegionFormState.textStyle.subscript" label="Subscript" />
+                <UCheckbox v-model="textRegionFormState.textStyle.superscript" label="Superscript" />
+                <UCheckbox v-model="textRegionFormState.textStyle.strikethrough" label="Strikethrough" />
+                <UCheckbox v-model="textRegionFormState.textStyle.smallCaps" label="Small Caps" />
+                <UCheckbox v-model="textRegionFormState.textStyle.letterSpaced" label="Letter Spaced" />
+                <UCheckbox v-model="textRegionFormState.textStyle.reverseVideo" label="Reverse Video" />
+              </div>
+            </div>
+
             <div class="flex gap-2 pt-4 border-t border-border">
               <UButton type="submit" class="flex-1">
                 <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
@@ -811,6 +1477,316 @@ watch(() => props.selectedElement, () => {
             <UFormField label="Custom" name="custom">
               <UInput v-model="genericRegionFormState.custom" placeholder="Custom data" />
             </UFormField>
+
+            <UFormField label="Orientation" name="orientation">
+              <UInput
+                v-model.number="genericRegionFormState.orientation"
+                type="number"
+                step="0.1"
+                placeholder="0"
+              />
+            </UFormField>
+
+            <div class="grid grid-cols-2 gap-2">
+              <UFormField label="Num Colours" name="numColours">
+                <UInput v-model.number="genericRegionFormState.numColours" type="number" min="0" />
+              </UFormField>
+              <UFormField label="Embedded Text" name="embText">
+                <UCheckbox v-model="genericRegionFormState.embText" label="Embedded text present" />
+              </UFormField>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <UFormField label="Rows" name="rows">
+                <UInput v-model.number="genericRegionFormState.rows" type="number" min="0" />
+              </UFormField>
+              <UFormField label="Columns" name="columns">
+                <UInput v-model.number="genericRegionFormState.columns" type="number" min="0" />
+              </UFormField>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <UFormField label="Colour Depth" name="colourDepth">
+                <UInput v-model="genericRegionFormState.colourDepth" placeholder="Colour depth" />
+              </UFormField>
+              <UFormField label="Line Colour" name="lineColour">
+                <UInput v-model="genericRegionFormState.lineColour" placeholder="Line colour" />
+              </UFormField>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <UFormField label="Colour" name="colour">
+                <UInput v-model="genericRegionFormState.colour" placeholder="Colour" />
+              </UFormField>
+              <UFormField label="Pen Colour" name="penColour">
+                <UInput v-model="genericRegionFormState.penColour" placeholder="Pen colour" />
+              </UFormField>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <UFormField label="Text Colour RGB" name="textColourRgb">
+                <UInput v-model.number="genericRegionFormState.textColourRgb" type="number" />
+              </UFormField>
+              <UFormField label="Background Colour RGB" name="bgColourRgb">
+                <UInput v-model.number="genericRegionFormState.bgColourRgb" type="number" />
+              </UFormField>
+            </div>
+
+            <div class="space-y-1">
+              <UCheckbox v-model="genericRegionFormState.lineSeparators" label="Line separators" />
+              <UCheckbox v-model="genericRegionFormState.borderPresent" label="Border present" />
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <span class="text-sm font-medium">Table Cell Role</span>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Row Index">
+                  <UInput v-model.number="genericRegionFormState.tableCellRole.rowIndex" type="number" min="0" />
+                </UFormField>
+                <UFormField label="Column Index">
+                  <UInput v-model.number="genericRegionFormState.tableCellRole.columnIndex" type="number" min="0" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Row Span">
+                  <UInput v-model.number="genericRegionFormState.tableCellRole.rowSpan" type="number" min="0" />
+                </UFormField>
+                <UFormField label="Column Span">
+                  <UInput v-model.number="genericRegionFormState.tableCellRole.colSpan" type="number" min="0" />
+                </UFormField>
+              </div>
+              <UCheckbox v-model="genericRegionFormState.tableCellRole.header" label="Header cell" />
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Table Grid Rows</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addGridRow(genericRegionFormState.gridRows)"
+                >
+                  Add Row
+                </UButton>
+              </div>
+              <div v-for="(row, rowIndex) in genericRegionFormState.gridRows" :key="`region-grid-row-${rowIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Row Index">
+                  <UInput v-model.number="row.index" type="number" min="0" />
+                </UFormField>
+                <UFormField label="Points">
+                  <UTextarea v-model="row.points" placeholder="x,y x,y x,y ..." :rows="2" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(genericRegionFormState.gridRows, rowIndex)"
+                >
+                  Remove Row
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Alternative Images</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addAlternativeImageRow(genericRegionFormState.alternativeImages)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(img, imgIndex) in genericRegionFormState.alternativeImages" :key="`region-alt-${imgIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Filename">
+                  <UInput v-model="img.filename" placeholder="Image filename" />
+                </UFormField>
+                <UFormField label="Confidence">
+                  <UInput
+                    v-model.number="img.confidence"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                  />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="img.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(genericRegionFormState.alternativeImages, imgIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Labels</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addLabelGroup(genericRegionFormState.labels)"
+                >
+                  Add Group
+                </UButton>
+              </div>
+              <div v-for="(group, groupIndex) in genericRegionFormState.labels" :key="`region-label-group-${groupIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="External Model">
+                  <UInput v-model="group.externalModel" placeholder="External model" />
+                </UFormField>
+                <UFormField label="External ID">
+                  <UInput v-model="group.externalId" placeholder="External ID" />
+                </UFormField>
+                <UFormField label="Prefix">
+                  <UInput v-model="group.prefix" placeholder="Prefix" />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium">Labels</span>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      @click="addLabelRow(group.labels)"
+                    >
+                      Add Label
+                    </UButton>
+                  </div>
+                  <div v-for="(label, labelIndex) in group.labels" :key="`region-label-group-${groupIndex}-label-${labelIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                    <UFormField label="Value">
+                      <UInput v-model="label.value" placeholder="Value" />
+                    </UFormField>
+                    <UFormField label="Type">
+                      <UInput v-model="label.type" placeholder="Type" />
+                    </UFormField>
+                    <UFormField label="Comments">
+                      <UInput v-model="label.comments" placeholder="Comments" />
+                    </UFormField>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      @click="removeAt(group.labels, labelIndex)"
+                    >
+                      Remove Label
+                    </UButton>
+                  </div>
+                </div>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(genericRegionFormState.labels, groupIndex)"
+                >
+                  Remove Group
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">User-Defined Attributes</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addUserAttributeRow(genericRegionFormState.userDefinedAttributes)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(attr, attrIndex) in genericRegionFormState.userDefinedAttributes" :key="`region-attr-${attrIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Name">
+                  <UInput v-model="attr.name" placeholder="Attribute name" />
+                </UFormField>
+                <UFormField label="Description">
+                  <UInput v-model="attr.description" placeholder="Description" />
+                </UFormField>
+                <UFormField label="Type">
+                  <USelect v-model="attr.type" :items="userAttributeTypeOptions" placeholder="Select type" />
+                </UFormField>
+                <UFormField label="Value">
+                  <UInput v-model="attr.value" placeholder="Value" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(genericRegionFormState.userDefinedAttributes, attrIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <span class="text-sm font-medium">Text Style</span>
+              <UFormField label="Font Family">
+                <UInput v-model="genericRegionFormState.textStyle.fontFamily" placeholder="Font family" />
+              </UFormField>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Font Size">
+                  <UInput v-model.number="genericRegionFormState.textStyle.fontSize" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="X Height">
+                  <UInput v-model.number="genericRegionFormState.textStyle.xHeight" type="number" step="0.1" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Kerning">
+                  <UInput v-model.number="genericRegionFormState.textStyle.kerning" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="Underline Style">
+                  <UInput v-model="genericRegionFormState.textStyle.underlineStyle" placeholder="Underline style" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour">
+                  <UInput v-model="genericRegionFormState.textStyle.textColour" placeholder="Named colour" />
+                </UFormField>
+                <UFormField label="Background Colour">
+                  <UInput v-model="genericRegionFormState.textStyle.bgColour" placeholder="Named colour" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour RGB">
+                  <UInput v-model.number="genericRegionFormState.textStyle.textColourRgb" type="number" />
+                </UFormField>
+                <UFormField label="Background Colour RGB">
+                  <UInput v-model.number="genericRegionFormState.textStyle.bgColourRgb" type="number" />
+                </UFormField>
+              </div>
+              <div class="space-y-1">
+                <UCheckbox v-model="genericRegionFormState.textStyle.serif" label="Serif" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.monospace" label="Monospace" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.bold" label="Bold" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.italic" label="Italic" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.underlined" label="Underlined" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.subscript" label="Subscript" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.superscript" label="Superscript" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.strikethrough" label="Strikethrough" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.smallCaps" label="Small Caps" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.letterSpaced" label="Letter Spaced" />
+                <UCheckbox v-model="genericRegionFormState.textStyle.reverseVideo" label="Reverse Video" />
+              </div>
+            </div>
 
             <div class="flex gap-2 pt-4 border-t border-border">
               <UButton type="submit" class="flex-1">
@@ -896,6 +1872,205 @@ watch(() => props.selectedElement, () => {
             <UFormField label="Custom" name="custom">
               <UInput v-model="textLineFormState.custom" placeholder="Custom data" />
             </UFormField>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Alternative Images</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addAlternativeImageRow(textLineFormState.alternativeImages)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(img, imgIndex) in textLineFormState.alternativeImages" :key="`text-line-alt-${imgIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Filename">
+                  <UInput v-model="img.filename" placeholder="Image filename" />
+                </UFormField>
+                <UFormField label="Confidence">
+                  <UInput
+                    v-model.number="img.confidence"
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                  />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="img.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(textLineFormState.alternativeImages, imgIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">Labels</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addLabelGroup(textLineFormState.labels)"
+                >
+                  Add Group
+                </UButton>
+              </div>
+              <div v-for="(group, groupIndex) in textLineFormState.labels" :key="`text-line-label-group-${groupIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="External Model">
+                  <UInput v-model="group.externalModel" placeholder="External model" />
+                </UFormField>
+                <UFormField label="External ID">
+                  <UInput v-model="group.externalId" placeholder="External ID" />
+                </UFormField>
+                <UFormField label="Prefix">
+                  <UInput v-model="group.prefix" placeholder="Prefix" />
+                </UFormField>
+                <UFormField label="Comments">
+                  <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" />
+                </UFormField>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium">Labels</span>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      @click="addLabelRow(group.labels)"
+                    >
+                      Add Label
+                    </UButton>
+                  </div>
+                  <div v-for="(label, labelIndex) in group.labels" :key="`text-line-label-group-${groupIndex}-label-${labelIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                    <UFormField label="Value">
+                      <UInput v-model="label.value" placeholder="Value" />
+                    </UFormField>
+                    <UFormField label="Type">
+                      <UInput v-model="label.type" placeholder="Type" />
+                    </UFormField>
+                    <UFormField label="Comments">
+                      <UInput v-model="label.comments" placeholder="Comments" />
+                    </UFormField>
+                    <UButton
+                      type="button"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      @click="removeAt(group.labels, labelIndex)"
+                    >
+                      Remove Label
+                    </UButton>
+                  </div>
+                </div>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(textLineFormState.labels, groupIndex)"
+                >
+                  Remove Group
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium">User-Defined Attributes</span>
+                <UButton
+                  type="button"
+                  size="xs"
+                  variant="soft"
+                  @click="addUserAttributeRow(textLineFormState.userDefinedAttributes)"
+                >
+                  Add
+                </UButton>
+              </div>
+              <div v-for="(attr, attrIndex) in textLineFormState.userDefinedAttributes" :key="`text-line-attr-${attrIndex}`" class="space-y-2 rounded-md border border-border p-2">
+                <UFormField label="Name">
+                  <UInput v-model="attr.name" placeholder="Attribute name" />
+                </UFormField>
+                <UFormField label="Description">
+                  <UInput v-model="attr.description" placeholder="Description" />
+                </UFormField>
+                <UFormField label="Type">
+                  <USelect v-model="attr.type" :items="userAttributeTypeOptions" placeholder="Select type" />
+                </UFormField>
+                <UFormField label="Value">
+                  <UInput v-model="attr.value" placeholder="Value" />
+                </UFormField>
+                <UButton
+                  type="button"
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  @click="removeAt(textLineFormState.userDefinedAttributes, attrIndex)"
+                >
+                  Remove
+                </UButton>
+              </div>
+            </div>
+
+            <div class="space-y-2 rounded-md border border-border p-3">
+              <span class="text-sm font-medium">Text Style</span>
+              <UFormField label="Font Family">
+                <UInput v-model="textLineFormState.textStyle.fontFamily" placeholder="Font family" />
+              </UFormField>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Font Size">
+                  <UInput v-model.number="textLineFormState.textStyle.fontSize" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="X Height">
+                  <UInput v-model.number="textLineFormState.textStyle.xHeight" type="number" step="0.1" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Kerning">
+                  <UInput v-model.number="textLineFormState.textStyle.kerning" type="number" step="0.1" />
+                </UFormField>
+                <UFormField label="Underline Style">
+                  <UInput v-model="textLineFormState.textStyle.underlineStyle" placeholder="Underline style" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour">
+                  <UInput v-model="textLineFormState.textStyle.textColour" placeholder="Named colour" />
+                </UFormField>
+                <UFormField label="Background Colour">
+                  <UInput v-model="textLineFormState.textStyle.bgColour" placeholder="Named colour" />
+                </UFormField>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <UFormField label="Text Colour RGB">
+                  <UInput v-model.number="textLineFormState.textStyle.textColourRgb" type="number" />
+                </UFormField>
+                <UFormField label="Background Colour RGB">
+                  <UInput v-model.number="textLineFormState.textStyle.bgColourRgb" type="number" />
+                </UFormField>
+              </div>
+              <div class="space-y-1">
+                <UCheckbox v-model="textLineFormState.textStyle.serif" label="Serif" />
+                <UCheckbox v-model="textLineFormState.textStyle.monospace" label="Monospace" />
+                <UCheckbox v-model="textLineFormState.textStyle.bold" label="Bold" />
+                <UCheckbox v-model="textLineFormState.textStyle.italic" label="Italic" />
+                <UCheckbox v-model="textLineFormState.textStyle.underlined" label="Underlined" />
+                <UCheckbox v-model="textLineFormState.textStyle.subscript" label="Subscript" />
+                <UCheckbox v-model="textLineFormState.textStyle.superscript" label="Superscript" />
+                <UCheckbox v-model="textLineFormState.textStyle.strikethrough" label="Strikethrough" />
+                <UCheckbox v-model="textLineFormState.textStyle.smallCaps" label="Small Caps" />
+                <UCheckbox v-model="textLineFormState.textStyle.letterSpaced" label="Letter Spaced" />
+                <UCheckbox v-model="textLineFormState.textStyle.reverseVideo" label="Reverse Video" />
+              </div>
+            </div>
 
             <div class="flex gap-2 pt-4 border-t border-border">
               <UButton type="submit" class="flex-1">

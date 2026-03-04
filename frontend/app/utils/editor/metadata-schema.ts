@@ -11,6 +11,8 @@ export const productionEnum = z.enum(['printed', 'handwritten-cursive', 'handwri
 export const pageTypeEnum = z.enum(['front-cover', 'back-cover', 'title', 'table-of-contents', 'index', 'content', 'blank', 'other'])
 export const alignEnum = z.enum(['left', 'centre', 'right', 'justify'])
 export const resolutionUnitEnum = z.enum(['PPI', 'PPCM', 'other'])
+export const userAttributeTypeEnum = z.enum(['xsd:string', 'xsd:integer', 'xsd:boolean', 'xsd:float'])
+export const metadataItemTypeEnum = z.enum(['author', 'imageProperties', 'processingStep', 'other'])
 
 const optionalString = z.string().optional().transform(val => val?.trim() || undefined)
 const optionalEnumValue = <TValues extends readonly [string, ...string[]]>(values: TValues) => z.preprocess((value) => {
@@ -34,6 +36,88 @@ const optionalCoercedNumber = (schema: z.ZodNumber) => z.preprocess((value) => {
   return value
 }, schema.optional())
 const optionalNumber = optionalCoercedNumber(z.number())
+const optionalInteger = optionalCoercedNumber(z.number().int())
+const optionalBoolean = z.boolean().optional()
+
+export const labelSchema = z.object({
+  value: optionalString,
+  type: optionalString,
+  comments: optionalString
+})
+
+export const labelsSchema = z.object({
+  externalModel: optionalString,
+  externalId: optionalString,
+  prefix: optionalString,
+  comments: optionalString,
+  labels: z.array(labelSchema).default([])
+})
+
+export const alternativeImageSchema = z.object({
+  filename: optionalString,
+  comments: optionalString,
+  confidence: optionalCoercedNumber(z.number().min(0).max(1))
+})
+
+export const userAttributeSchema = z.object({
+  name: optionalString,
+  description: optionalString,
+  type: userAttributeTypeEnum.optional(),
+  value: optionalString
+})
+
+export const textStyleSchema = z.object({
+  fontFamily: optionalString,
+  serif: optionalBoolean,
+  monospace: optionalBoolean,
+  fontSize: optionalNumber,
+  xHeight: optionalNumber,
+  kerning: optionalNumber,
+  textColour: optionalString,
+  textColourRgb: optionalNumber,
+  bgColour: optionalString,
+  bgColourRgb: optionalNumber,
+  reverseVideo: optionalBoolean,
+  bold: optionalBoolean,
+  italic: optionalBoolean,
+  underlined: optionalBoolean,
+  underlineStyle: optionalString,
+  subscript: optionalBoolean,
+  superscript: optionalBoolean,
+  strikethrough: optionalBoolean,
+  smallCaps: optionalBoolean,
+  letterSpaced: optionalBoolean
+})
+
+export const metadataItemSchema = z.object({
+  type: metadataItemTypeEnum.optional(),
+  name: optionalString,
+  value: optionalString,
+  date: optionalString,
+  labels: z.array(labelsSchema).default([])
+})
+
+export const tableCellRoleSchema = z.object({
+  rowIndex: optionalInteger,
+  columnIndex: optionalInteger,
+  rowSpan: optionalInteger,
+  colSpan: optionalInteger,
+  header: optionalBoolean
+})
+
+export const gridRowSchema = z.object({
+  index: optionalInteger,
+  points: optionalString
+})
+
+export type LabelFormState = z.infer<typeof labelSchema>
+export type LabelsFormState = z.infer<typeof labelsSchema>
+export type AlternativeImageFormState = z.infer<typeof alternativeImageSchema>
+export type UserAttributeFormState = z.infer<typeof userAttributeSchema>
+export type TextStyleFormState = z.infer<typeof textStyleSchema>
+export type MetadataItemFormState = z.infer<typeof metadataItemSchema>
+export type TableCellRoleFormState = z.infer<typeof tableCellRoleSchema>
+export type GridRowFormState = z.infer<typeof gridRowSchema>
 
 /**
  * Schema for document-level Metadata (MetadataType)
@@ -43,7 +127,9 @@ export const documentMetadataSchema = z.object({
   created: z.string(), // Read-only
   lastChange: z.string(), // Read-only, auto-updated
   comments: optionalString,
-  externalRef: optionalString
+  externalRef: optionalString,
+  userDefinedAttributes: z.array(userAttributeSchema).default([]),
+  items: z.array(metadataItemSchema).default([])
 })
 
 export type DocumentMetadataFormState = z.infer<typeof documentMetadataSchema>
@@ -67,7 +153,11 @@ export const pageMetadataSchema = z.object({
   secondaryScript: optionalScript,
   readingDirection: readingDirectionEnum.optional(),
   textLineOrder: textLineOrderEnum.optional(),
-  conf: optionalCoercedNumber(z.number().min(0).max(1))
+  conf: optionalCoercedNumber(z.number().min(0).max(1)),
+  alternativeImages: z.array(alternativeImageSchema).default([]),
+  labels: z.array(labelsSchema).default([]),
+  userDefinedAttributes: z.array(userAttributeSchema).default([]),
+  textStyle: textStyleSchema.default({})
 })
 
 export type PageMetadataFormState = z.infer<typeof pageMetadataSchema>
@@ -93,7 +183,11 @@ export const textRegionMetadataSchema = z.object({
   secondaryLanguage: optionalLanguage,
   primaryScript: optionalScript,
   secondaryScript: optionalScript,
-  production: productionEnum.optional()
+  production: productionEnum.optional(),
+  alternativeImages: z.array(alternativeImageSchema).default([]),
+  labels: z.array(labelsSchema).default([]),
+  userDefinedAttributes: z.array(userAttributeSchema).default([]),
+  textStyle: textStyleSchema.default({})
 })
 
 export type TextRegionMetadataFormState = z.infer<typeof textRegionMetadataSchema>
@@ -108,7 +202,26 @@ export const genericRegionMetadataSchema = z.object({
   type: optionalString, // Subtype for GraphicRegion, ChartRegion, etc.
   custom: optionalString,
   comments: optionalString,
-  continuation: z.boolean().optional()
+  continuation: z.boolean().optional(),
+  orientation: optionalCoercedNumber(z.number().min(-180).max(180)),
+  numColours: optionalInteger,
+  embText: optionalBoolean,
+  colourDepth: optionalString,
+  lineColour: optionalString,
+  lineSeparators: optionalBoolean,
+  rows: optionalInteger,
+  columns: optionalInteger,
+  colour: optionalString,
+  penColour: optionalString,
+  borderPresent: optionalBoolean,
+  textColourRgb: optionalNumber,
+  bgColourRgb: optionalNumber,
+  tableCellRole: tableCellRoleSchema.default({}),
+  gridRows: z.array(gridRowSchema).default([]),
+  alternativeImages: z.array(alternativeImageSchema).default([]),
+  labels: z.array(labelsSchema).default([]),
+  userDefinedAttributes: z.array(userAttributeSchema).default([]),
+  textStyle: textStyleSchema.default({})
 })
 
 export type GenericRegionMetadataFormState = z.infer<typeof genericRegionMetadataSchema>
@@ -125,7 +238,11 @@ export const textLineMetadataSchema = z.object({
   production: productionEnum.optional(),
   custom: optionalString,
   comments: optionalString,
-  index: optionalCoercedNumber(z.number().int().min(0))
+  index: optionalCoercedNumber(z.number().int().min(0)),
+  alternativeImages: z.array(alternativeImageSchema).default([]),
+  labels: z.array(labelsSchema).default([]),
+  userDefinedAttributes: z.array(userAttributeSchema).default([]),
+  textStyle: textStyleSchema.default({})
 })
 
 export type TextLineMetadataFormState = z.infer<typeof textLineMetadataSchema>
@@ -145,13 +262,61 @@ export function createDocumentMetadataFormState(metadata: {
   lastChange?: string
   comments?: string
   externalRef?: string
+  userDefined?: {
+    attributes?: Array<{
+      name?: string
+      description?: string
+      type?: 'xsd:string' | 'xsd:integer' | 'xsd:boolean' | 'xsd:float'
+      value?: string
+    }>
+  }
+  items?: Array<{
+    type?: 'author' | 'imageProperties' | 'processingStep' | 'other'
+    name?: string
+    value?: string
+    date?: string
+    labels?: Array<{
+      externalModel?: string
+      externalId?: string
+      prefix?: string
+      comments?: string
+      labels?: Array<{
+        value: string
+        type?: string
+        comments?: string
+      }>
+    }>
+  }>
 }): DocumentMetadataFormState {
   return {
     creator: metadata.creator ?? '',
     created: metadata.created ?? '',
     lastChange: metadata.lastChange ?? '',
     comments: metadata.comments ?? '',
-    externalRef: metadata.externalRef ?? ''
+    externalRef: metadata.externalRef ?? '',
+    userDefinedAttributes: (metadata.userDefined?.attributes ?? []).map(attr => ({
+      name: attr.name ?? '',
+      description: attr.description ?? '',
+      type: attr.type,
+      value: attr.value ?? ''
+    })),
+    items: (metadata.items ?? []).map(item => ({
+      type: item.type,
+      name: item.name ?? '',
+      value: item.value ?? '',
+      date: item.date ?? '',
+      labels: (item.labels ?? []).map(group => ({
+        externalModel: group.externalModel ?? '',
+        externalId: group.externalId ?? '',
+        prefix: group.prefix ?? '',
+        comments: group.comments ?? '',
+        labels: (group.labels ?? []).map(label => ({
+          value: label.value ?? '',
+          type: label.type ?? '',
+          comments: label.comments ?? ''
+        }))
+      }))
+    }))
   }
 }
 
@@ -172,6 +337,52 @@ export function createPageMetadataFormState(page: {
   readingDirection?: 'left-to-right' | 'right-to-left' | 'top-to-bottom' | 'bottom-to-top'
   textLineOrder?: 'top-to-bottom' | 'bottom-to-top' | 'left-to-right' | 'right-to-left'
   conf?: number
+  alternativeImages?: Array<{
+    filename: string
+    comments?: string
+    confidence?: number
+  }>
+  labels?: Array<{
+    externalModel?: string
+    externalId?: string
+    prefix?: string
+    comments?: string
+    labels?: Array<{
+      value: string
+      type?: string
+      comments?: string
+    }>
+  }>
+  userDefined?: {
+    attributes?: Array<{
+      name?: string
+      description?: string
+      type?: 'xsd:string' | 'xsd:integer' | 'xsd:boolean' | 'xsd:float'
+      value?: string
+    }>
+  }
+  textStyle?: {
+    fontFamily?: string
+    serif?: boolean
+    monospace?: boolean
+    fontSize?: number
+    xHeight?: number
+    kerning?: number
+    textColour?: string
+    textColourRgb?: number
+    bgColour?: string
+    bgColourRgb?: number
+    reverseVideo?: boolean
+    bold?: boolean
+    italic?: boolean
+    underlined?: boolean
+    underlineStyle?: string
+    subscript?: boolean
+    superscript?: boolean
+    strikethrough?: boolean
+    smallCaps?: boolean
+    letterSpaced?: boolean
+  }
 }): PageMetadataFormState {
   return {
     imageFilename: page.imageFilename,
@@ -189,7 +400,51 @@ export function createPageMetadataFormState(page: {
     secondaryScript: page.secondaryScript,
     readingDirection: page.readingDirection,
     textLineOrder: page.textLineOrder,
-    conf: page.conf
+    conf: page.conf,
+    alternativeImages: (page.alternativeImages ?? []).map(img => ({
+      filename: img.filename ?? '',
+      comments: img.comments ?? '',
+      confidence: img.confidence
+    })),
+    labels: (page.labels ?? []).map(group => ({
+      externalModel: group.externalModel ?? '',
+      externalId: group.externalId ?? '',
+      prefix: group.prefix ?? '',
+      comments: group.comments ?? '',
+      labels: (group.labels ?? []).map(label => ({
+        value: label.value ?? '',
+        type: label.type ?? '',
+        comments: label.comments ?? ''
+      }))
+    })),
+    userDefinedAttributes: (page.userDefined?.attributes ?? []).map(attr => ({
+      name: attr.name ?? '',
+      description: attr.description ?? '',
+      type: attr.type,
+      value: attr.value ?? ''
+    })),
+    textStyle: {
+      fontFamily: page.textStyle?.fontFamily,
+      serif: page.textStyle?.serif,
+      monospace: page.textStyle?.monospace,
+      fontSize: page.textStyle?.fontSize,
+      xHeight: page.textStyle?.xHeight,
+      kerning: page.textStyle?.kerning,
+      textColour: page.textStyle?.textColour,
+      textColourRgb: page.textStyle?.textColourRgb,
+      bgColour: page.textStyle?.bgColour,
+      bgColourRgb: page.textStyle?.bgColourRgb,
+      reverseVideo: page.textStyle?.reverseVideo,
+      bold: page.textStyle?.bold,
+      italic: page.textStyle?.italic,
+      underlined: page.textStyle?.underlined,
+      underlineStyle: page.textStyle?.underlineStyle,
+      subscript: page.textStyle?.subscript,
+      superscript: page.textStyle?.superscript,
+      strikethrough: page.textStyle?.strikethrough,
+      smallCaps: page.textStyle?.smallCaps,
+      letterSpaced: page.textStyle?.letterSpaced
+    }
   }
 }
 
@@ -212,6 +467,52 @@ export function createTextRegionMetadataFormState(region: {
   primaryScript?: string
   secondaryScript?: string
   production?: string
+  alternativeImages?: Array<{
+    filename: string
+    comments?: string
+    confidence?: number
+  }>
+  labels?: Array<{
+    externalModel?: string
+    externalId?: string
+    prefix?: string
+    comments?: string
+    labels?: Array<{
+      value: string
+      type?: string
+      comments?: string
+    }>
+  }>
+  userDefined?: {
+    attributes?: Array<{
+      name?: string
+      description?: string
+      type?: 'xsd:string' | 'xsd:integer' | 'xsd:boolean' | 'xsd:float'
+      value?: string
+    }>
+  }
+  textStyle?: {
+    fontFamily?: string
+    serif?: boolean
+    monospace?: boolean
+    fontSize?: number
+    xHeight?: number
+    kerning?: number
+    textColour?: string
+    textColourRgb?: number
+    bgColour?: string
+    bgColourRgb?: number
+    reverseVideo?: boolean
+    bold?: boolean
+    italic?: boolean
+    underlined?: boolean
+    underlineStyle?: string
+    subscript?: boolean
+    superscript?: boolean
+    strikethrough?: boolean
+    smallCaps?: boolean
+    letterSpaced?: boolean
+  }
 }): TextRegionMetadataFormState {
   return {
     id: region.id,
@@ -231,7 +532,51 @@ export function createTextRegionMetadataFormState(region: {
     secondaryLanguage: region.secondaryLanguage,
     primaryScript: region.primaryScript,
     secondaryScript: region.secondaryScript,
-    production: region.production as TextRegionMetadataFormState['production']
+    production: region.production as TextRegionMetadataFormState['production'],
+    alternativeImages: (region.alternativeImages ?? []).map(img => ({
+      filename: img.filename ?? '',
+      comments: img.comments ?? '',
+      confidence: img.confidence
+    })),
+    labels: (region.labels ?? []).map(group => ({
+      externalModel: group.externalModel ?? '',
+      externalId: group.externalId ?? '',
+      prefix: group.prefix ?? '',
+      comments: group.comments ?? '',
+      labels: (group.labels ?? []).map(label => ({
+        value: label.value ?? '',
+        type: label.type ?? '',
+        comments: label.comments ?? ''
+      }))
+    })),
+    userDefinedAttributes: (region.userDefined?.attributes ?? []).map(attr => ({
+      name: attr.name ?? '',
+      description: attr.description ?? '',
+      type: attr.type,
+      value: attr.value ?? ''
+    })),
+    textStyle: {
+      fontFamily: region.textStyle?.fontFamily,
+      serif: region.textStyle?.serif,
+      monospace: region.textStyle?.monospace,
+      fontSize: region.textStyle?.fontSize,
+      xHeight: region.textStyle?.xHeight,
+      kerning: region.textStyle?.kerning,
+      textColour: region.textStyle?.textColour,
+      textColourRgb: region.textStyle?.textColourRgb,
+      bgColour: region.textStyle?.bgColour,
+      bgColourRgb: region.textStyle?.bgColourRgb,
+      reverseVideo: region.textStyle?.reverseVideo,
+      bold: region.textStyle?.bold,
+      italic: region.textStyle?.italic,
+      underlined: region.textStyle?.underlined,
+      underlineStyle: region.textStyle?.underlineStyle,
+      subscript: region.textStyle?.subscript,
+      superscript: region.textStyle?.superscript,
+      strikethrough: region.textStyle?.strikethrough,
+      smallCaps: region.textStyle?.smallCaps,
+      letterSpaced: region.textStyle?.letterSpaced
+    }
   }
 }
 
@@ -242,14 +587,160 @@ export function createGenericRegionMetadataFormState(region: {
   custom?: string
   comments?: string
   continuation?: boolean
+  orientation?: number
+  numColours?: number
+  embText?: boolean
+  colourDepth?: string
+  lineColour?: string
+  lineSeparators?: boolean
+  rows?: number
+  columns?: number
+  colour?: string
+  penColour?: string
+  borderPresent?: boolean
+  textColourRgb?: number
+  bgColourRgb?: number
+  roles?: {
+    tableCellRole?: {
+      rowIndex?: number
+      columnIndex?: number
+      rowSpan?: number
+      colSpan?: number
+      header?: boolean
+    }
+  }
+  grid?: {
+    rows?: Array<{
+      index?: number
+      points?: {
+        points?: Array<[number, number]>
+      }
+    }>
+  }
+  alternativeImages?: Array<{
+    filename: string
+    comments?: string
+    confidence?: number
+  }>
+  labels?: Array<{
+    externalModel?: string
+    externalId?: string
+    prefix?: string
+    comments?: string
+    labels?: Array<{
+      value: string
+      type?: string
+      comments?: string
+    }>
+  }>
+  userDefined?: {
+    attributes?: Array<{
+      name?: string
+      description?: string
+      type?: 'xsd:string' | 'xsd:integer' | 'xsd:boolean' | 'xsd:float'
+      value?: string
+    }>
+  }
+  textStyle?: {
+    fontFamily?: string
+    serif?: boolean
+    monospace?: boolean
+    fontSize?: number
+    xHeight?: number
+    kerning?: number
+    textColour?: string
+    textColourRgb?: number
+    bgColour?: string
+    bgColourRgb?: number
+    reverseVideo?: boolean
+    bold?: boolean
+    italic?: boolean
+    underlined?: boolean
+    underlineStyle?: string
+    subscript?: boolean
+    superscript?: boolean
+    strikethrough?: boolean
+    smallCaps?: boolean
+    letterSpaced?: boolean
+  }
 }): GenericRegionMetadataFormState {
+  const gridRows = region.grid?.rows?.map(row => ({
+    index: row.index,
+    points: row.points?.points?.map(point => `${point[0]},${point[1]}`).join(' ')
+  })) ?? []
+
   return {
     id: region.id,
     kind: region.kind,
     type: region.type ?? '',
     custom: region.custom ?? '',
     comments: region.comments ?? '',
-    continuation: region.continuation
+    continuation: region.continuation,
+    orientation: region.orientation,
+    numColours: region.numColours,
+    embText: region.embText,
+    colourDepth: region.colourDepth ?? '',
+    lineColour: region.lineColour ?? '',
+    lineSeparators: region.lineSeparators,
+    rows: region.rows,
+    columns: region.columns,
+    colour: region.colour ?? '',
+    penColour: region.penColour ?? '',
+    borderPresent: region.borderPresent,
+    textColourRgb: region.textColourRgb,
+    bgColourRgb: region.bgColourRgb,
+    tableCellRole: {
+      rowIndex: region.roles?.tableCellRole?.rowIndex,
+      columnIndex: region.roles?.tableCellRole?.columnIndex,
+      rowSpan: region.roles?.tableCellRole?.rowSpan,
+      colSpan: region.roles?.tableCellRole?.colSpan,
+      header: region.roles?.tableCellRole?.header
+    },
+    gridRows,
+    alternativeImages: (region.alternativeImages ?? []).map(img => ({
+      filename: img.filename ?? '',
+      comments: img.comments ?? '',
+      confidence: img.confidence
+    })),
+    labels: (region.labels ?? []).map(group => ({
+      externalModel: group.externalModel ?? '',
+      externalId: group.externalId ?? '',
+      prefix: group.prefix ?? '',
+      comments: group.comments ?? '',
+      labels: (group.labels ?? []).map(label => ({
+        value: label.value ?? '',
+        type: label.type ?? '',
+        comments: label.comments ?? ''
+      }))
+    })),
+    userDefinedAttributes: (region.userDefined?.attributes ?? []).map(attr => ({
+      name: attr.name ?? '',
+      description: attr.description ?? '',
+      type: attr.type,
+      value: attr.value ?? ''
+    })),
+    textStyle: {
+      fontFamily: region.textStyle?.fontFamily,
+      serif: region.textStyle?.serif,
+      monospace: region.textStyle?.monospace,
+      fontSize: region.textStyle?.fontSize,
+      xHeight: region.textStyle?.xHeight,
+      kerning: region.textStyle?.kerning,
+      textColour: region.textStyle?.textColour,
+      textColourRgb: region.textStyle?.textColourRgb,
+      bgColour: region.textStyle?.bgColour,
+      bgColourRgb: region.textStyle?.bgColourRgb,
+      reverseVideo: region.textStyle?.reverseVideo,
+      bold: region.textStyle?.bold,
+      italic: region.textStyle?.italic,
+      underlined: region.textStyle?.underlined,
+      underlineStyle: region.textStyle?.underlineStyle,
+      subscript: region.textStyle?.subscript,
+      superscript: region.textStyle?.superscript,
+      strikethrough: region.textStyle?.strikethrough,
+      smallCaps: region.textStyle?.smallCaps,
+      letterSpaced: region.textStyle?.letterSpaced
+    }
   }
 }
 
@@ -263,6 +754,52 @@ export function createTextLineMetadataFormState(textLine: {
   custom?: string
   comments?: string
   index?: number
+  alternativeImages?: Array<{
+    filename: string
+    comments?: string
+    confidence?: number
+  }>
+  labels?: Array<{
+    externalModel?: string
+    externalId?: string
+    prefix?: string
+    comments?: string
+    labels?: Array<{
+      value: string
+      type?: string
+      comments?: string
+    }>
+  }>
+  userDefined?: {
+    attributes?: Array<{
+      name?: string
+      description?: string
+      type?: 'xsd:string' | 'xsd:integer' | 'xsd:boolean' | 'xsd:float'
+      value?: string
+    }>
+  }
+  textStyle?: {
+    fontFamily?: string
+    serif?: boolean
+    monospace?: boolean
+    fontSize?: number
+    xHeight?: number
+    kerning?: number
+    textColour?: string
+    textColourRgb?: number
+    bgColour?: string
+    bgColourRgb?: number
+    reverseVideo?: boolean
+    bold?: boolean
+    italic?: boolean
+    underlined?: boolean
+    underlineStyle?: string
+    subscript?: boolean
+    superscript?: boolean
+    strikethrough?: boolean
+    smallCaps?: boolean
+    letterSpaced?: boolean
+  }
 }): TextLineMetadataFormState {
   return {
     id: textLine.id,
@@ -273,7 +810,51 @@ export function createTextLineMetadataFormState(textLine: {
     production: textLine.production as TextLineMetadataFormState['production'],
     custom: textLine.custom ?? '',
     comments: textLine.comments ?? '',
-    index: textLine.index
+    index: textLine.index,
+    alternativeImages: (textLine.alternativeImages ?? []).map(img => ({
+      filename: img.filename ?? '',
+      comments: img.comments ?? '',
+      confidence: img.confidence
+    })),
+    labels: (textLine.labels ?? []).map(group => ({
+      externalModel: group.externalModel ?? '',
+      externalId: group.externalId ?? '',
+      prefix: group.prefix ?? '',
+      comments: group.comments ?? '',
+      labels: (group.labels ?? []).map(label => ({
+        value: label.value ?? '',
+        type: label.type ?? '',
+        comments: label.comments ?? ''
+      }))
+    })),
+    userDefinedAttributes: (textLine.userDefined?.attributes ?? []).map(attr => ({
+      name: attr.name ?? '',
+      description: attr.description ?? '',
+      type: attr.type,
+      value: attr.value ?? ''
+    })),
+    textStyle: {
+      fontFamily: textLine.textStyle?.fontFamily,
+      serif: textLine.textStyle?.serif,
+      monospace: textLine.textStyle?.monospace,
+      fontSize: textLine.textStyle?.fontSize,
+      xHeight: textLine.textStyle?.xHeight,
+      kerning: textLine.textStyle?.kerning,
+      textColour: textLine.textStyle?.textColour,
+      textColourRgb: textLine.textStyle?.textColourRgb,
+      bgColour: textLine.textStyle?.bgColour,
+      bgColourRgb: textLine.textStyle?.bgColourRgb,
+      reverseVideo: textLine.textStyle?.reverseVideo,
+      bold: textLine.textStyle?.bold,
+      italic: textLine.textStyle?.italic,
+      underlined: textLine.textStyle?.underlined,
+      underlineStyle: textLine.textStyle?.underlineStyle,
+      subscript: textLine.textStyle?.subscript,
+      superscript: textLine.textStyle?.superscript,
+      strikethrough: textLine.textStyle?.strikethrough,
+      smallCaps: textLine.textStyle?.smallCaps,
+      letterSpaced: textLine.textStyle?.letterSpaced
+    }
   }
 }
 
