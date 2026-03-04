@@ -85,6 +85,14 @@ larex:
   versioning:
     # Maximum number of versions to keep per XML file (default: 25)
     max-versions-per-xml: ${LAREX_VERSIONING_MAX_VERSIONS:25}
+  annotation:
+    read-cache:
+      maximum-size: ${LAREX_ANNOTATION_READ_CACHE_MAX_SIZE:250}
+      expire-after-access-minutes: ${LAREX_ANNOTATION_READ_CACHE_EXPIRE_AFTER_ACCESS_MINUTES:10}
+    post-save:
+      core-pool-size: ${LAREX_ANNOTATION_POST_SAVE_CORE_POOL:1}
+      max-pool-size: ${LAREX_ANNOTATION_POST_SAVE_MAX_POOL:2}
+      queue-capacity: ${LAREX_ANNOTATION_POST_SAVE_QUEUE:200}
   # Chunked upload configuration
   upload:
     # Chunk size in bytes (default: 5MB = 5242880 bytes)

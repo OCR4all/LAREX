@@ -1,14 +1,17 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.parser;
 
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
+import org.xml.sax.helpers.DefaultHandler;
 
-import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.SAXParserFactory;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -33,93 +36,39 @@ public record PageXmlPresenceIndex(
         return new PageXmlPresenceIndex(Set.of(), Map.of(), false, false, false, false, false, Set.of(), Map.of());
     }
 
+    public static PageXmlPresenceIndex fromPath(Path xmlPath) {
+        if (xmlPath == null) {
+            return empty();
+        }
+
+        try (InputStream inputStream = Files.newInputStream(xmlPath)) {
+            return parse(new InputSource(inputStream));
+        } catch (Exception ignored) {
+            return empty();
+        }
+    }
+
     public static PageXmlPresenceIndex fromXml(String xml) {
         if (xml == null || xml.isBlank()) {
             return empty();
         }
 
         try {
-            var factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            Document document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
-            return fromDocument(document);
+            return parse(new InputSource(new StringReader(xml)));
         } catch (Exception ignored) {
             return empty();
         }
     }
 
-    private static PageXmlPresenceIndex fromDocument(Document document) {
-        if (document == null) {
-            return empty();
-        }
+    private static PageXmlPresenceIndex parse(InputSource inputSource) throws Exception {
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setValidating(false);
+        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
 
-        boolean metadataCreator = false;
-        boolean metadataCreated = false;
-        boolean metadataLastChange = false;
-        boolean metadataComments = false;
-        boolean metadataExternalRef = false;
-        Set<String> pageAttributes = new HashSet<>();
-        Map<String, Set<String>> attributesByElementId = new HashMap<>();
-        Set<String> textRegionIdsWithType = new HashSet<>();
-        Map<String, Set<Integer>> textEquivConfPositionsByElementId = new HashMap<>();
-
-        NodeList allElements = document.getElementsByTagName("*");
-        for (int i = 0; i < allElements.getLength(); i++) {
-            Node node = allElements.item(i);
-            if (!(node instanceof Element element)) {
-                continue;
-            }
-
-            String name = localName(element);
-            if ("Page".equals(name)) {
-                pageAttributes.addAll(attributeNames(element));
-            }
-            String id = element.getAttribute("id");
-            if (id != null && !id.isBlank()) {
-                attributesByElementId.put(id, attributeNames(element));
-                Set<Integer> confPositions = textEquivConfidencePositions(element);
-                if (!confPositions.isEmpty()) {
-                    textEquivConfPositionsByElementId.put(id, confPositions);
-                }
-            }
-            if ("Metadata".equals(name)) {
-                metadataExternalRef |= element.hasAttribute("externalRef");
-                NodeList metadataChildren = element.getChildNodes();
-                for (int j = 0; j < metadataChildren.getLength(); j++) {
-                    Node child = metadataChildren.item(j);
-                    if (!(child instanceof Element childElement)) {
-                        continue;
-                    }
-                    String childName = localName(childElement);
-                    if ("Creator".equals(childName)) {
-                        metadataCreator = true;
-                    } else if ("Created".equals(childName)) {
-                        metadataCreated = true;
-                    } else if ("LastChange".equals(childName)) {
-                        metadataLastChange = true;
-                    } else if ("Comments".equals(childName)) {
-                        metadataComments = true;
-                    }
-                }
-            } else if ("TextRegion".equals(name) && element.hasAttribute("type")) {
-                String regionId = element.getAttribute("id");
-                if (regionId != null && !regionId.isBlank()) {
-                    textRegionIdsWithType.add(regionId);
-                }
-            }
-        }
-
-        return new PageXmlPresenceIndex(
-            Set.copyOf(pageAttributes),
-            copyAttributesByElementId(attributesByElementId),
-            metadataCreator,
-            metadataCreated,
-            metadataLastChange,
-            metadataComments,
-            metadataExternalRef,
-            Set.copyOf(textRegionIdsWithType),
-            copyTextEquivConfPositionsByElementId(textEquivConfPositionsByElementId)
-        );
+        PresenceHandler handler = new PresenceHandler();
+        factory.newSAXParser().parse(inputSource, handler);
+        return handler.toIndex();
     }
 
     public boolean hasMetadataCreator() {
@@ -166,46 +115,10 @@ public record PageXmlPresenceIndex(
         return positions != null && positions.contains(textEquivPosition);
     }
 
-    private static Set<String> attributeNames(Element element) {
-        Set<String> names = new HashSet<>();
-        NamedNodeMap attrs = element.getAttributes();
-        for (int i = 0; i < attrs.getLength(); i++) {
-            Node attr = attrs.item(i);
-            if (attr == null) {
-                continue;
-            }
-            String name = localName(attr.getNodeName());
-            if (name != null && !name.isBlank()) {
-                names.add(name);
-            }
-        }
-        return names;
-    }
-
     private static Map<String, Set<String>> copyAttributesByElementId(Map<String, Set<String>> source) {
         Map<String, Set<String>> copy = new HashMap<>();
         source.forEach((key, value) -> copy.put(key, Set.copyOf(value)));
         return Map.copyOf(copy);
-    }
-
-    private static Set<Integer> textEquivConfidencePositions(Element element) {
-        Set<Integer> positions = new HashSet<>();
-        NodeList children = element.getChildNodes();
-        int textEquivPos = 0;
-        for (int i = 0; i < children.getLength(); i++) {
-            Node child = children.item(i);
-            if (!(child instanceof Element childElement)) {
-                continue;
-            }
-            if (!"TextEquiv".equals(localName(childElement))) {
-                continue;
-            }
-            if (childElement.hasAttribute("conf")) {
-                positions.add(textEquivPos);
-            }
-            textEquivPos++;
-        }
-        return positions;
     }
 
     private static Map<String, Set<Integer>> copyTextEquivConfPositionsByElementId(Map<String, Set<Integer>> source) {
@@ -214,21 +127,127 @@ public record PageXmlPresenceIndex(
         return Map.copyOf(copy);
     }
 
-    private static String localName(Element element) {
-        String local = element.getLocalName();
-        if (local != null && !local.isBlank()) {
-            return local;
+    private static String localName(String localName, String qName) {
+        if (localName != null && !localName.isBlank()) {
+            return localName;
         }
-        String nodeName = element.getNodeName();
-        int index = nodeName.indexOf(':');
-        return index >= 0 ? nodeName.substring(index + 1) : nodeName;
+        if (qName == null || qName.isBlank()) {
+            return qName;
+        }
+        int index = qName.indexOf(':');
+        return index >= 0 ? qName.substring(index + 1) : qName;
     }
 
-    private static String localName(String nodeName) {
-        if (nodeName == null || nodeName.isBlank()) {
-            return nodeName;
+    private static final class PresenceHandler extends DefaultHandler {
+        private boolean metadataCreator;
+        private boolean metadataCreated;
+        private boolean metadataLastChange;
+        private boolean metadataComments;
+        private boolean metadataExternalRef;
+        private final Set<String> pageAttributes = new HashSet<>();
+        private final Map<String, Set<String>> attributesByElementId = new HashMap<>();
+        private final Set<String> textRegionIdsWithType = new HashSet<>();
+        private final Map<String, Set<Integer>> textEquivConfPositionsByElementId = new HashMap<>();
+        private final Deque<ElementState> stack = new ArrayDeque<>();
+
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes) {
+            String name = localName(localName, qName);
+            String elementId = attrValue(attributes, "id");
+            Set<String> attributeNames = attributeNames(attributes);
+
+            if ("Page".equals(name)) {
+                pageAttributes.addAll(attributeNames);
+            }
+            if (elementId != null && !elementId.isBlank()) {
+                attributesByElementId.put(elementId, attributeNames);
+            }
+            if ("Metadata".equals(name) && hasAttribute(attributes, "externalRef")) {
+                metadataExternalRef = true;
+            } else if ("TextRegion".equals(name) && hasAttribute(attributes, "type") && elementId != null && !elementId.isBlank()) {
+                textRegionIdsWithType.add(elementId);
+            } else if ("Creator".equals(name) && isInside("Metadata")) {
+                metadataCreator = true;
+            } else if ("Created".equals(name) && isInside("Metadata")) {
+                metadataCreated = true;
+            } else if ("LastChange".equals(name) && isInside("Metadata")) {
+                metadataLastChange = true;
+            } else if ("Comments".equals(name) && isInside("Metadata")) {
+                metadataComments = true;
+            } else if ("TextEquiv".equals(name) && !stack.isEmpty()) {
+                ElementState parent = stack.peek();
+                if (parent != null && parent.id != null && !parent.id.isBlank()) {
+                    int position = parent.nextTextEquivPosition++;
+                    if (hasAttribute(attributes, "conf")) {
+                        textEquivConfPositionsByElementId
+                                .computeIfAbsent(parent.id, ignored -> new HashSet<>())
+                                .add(position);
+                    }
+                }
+            }
+
+            stack.push(new ElementState(name, elementId));
         }
-        int index = nodeName.indexOf(':');
-        return index >= 0 ? nodeName.substring(index + 1) : nodeName;
+
+        @Override
+        public void endElement(String uri, String localName, String qName) {
+            if (!stack.isEmpty()) {
+                stack.pop();
+            }
+        }
+
+        private boolean isInside(String expectedParentName) {
+            return !stack.isEmpty() && expectedParentName.equals(stack.peek().name);
+        }
+
+        private boolean hasAttribute(Attributes attributes, String expectedName) {
+            return attrValue(attributes, expectedName) != null;
+        }
+
+        private String attrValue(Attributes attributes, String expectedName) {
+            for (int i = 0; i < attributes.getLength(); i++) {
+                String name = localName(attributes.getLocalName(i), attributes.getQName(i));
+                if (expectedName.equals(name)) {
+                    return attributes.getValue(i);
+                }
+            }
+            return null;
+        }
+
+        private Set<String> attributeNames(Attributes attributes) {
+            Set<String> names = new HashSet<>();
+            for (int i = 0; i < attributes.getLength(); i++) {
+                String name = localName(attributes.getLocalName(i), attributes.getQName(i));
+                if (name != null && !name.isBlank()) {
+                    names.add(name);
+                }
+            }
+            return names;
+        }
+
+        private PageXmlPresenceIndex toIndex() {
+            return new PageXmlPresenceIndex(
+                    Set.copyOf(pageAttributes),
+                    copyAttributesByElementId(attributesByElementId),
+                    metadataCreator,
+                    metadataCreated,
+                    metadataLastChange,
+                    metadataComments,
+                    metadataExternalRef,
+                    Set.copyOf(textRegionIdsWithType),
+                    copyTextEquivConfPositionsByElementId(textEquivConfPositionsByElementId)
+            );
+        }
+    }
+
+    private static final class ElementState {
+        private final String name;
+        private final String id;
+        private int nextTextEquivPosition;
+
+        private ElementState(String name, String id) {
+            this.name = name;
+            this.id = id;
+        }
     }
 }

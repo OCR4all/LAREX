@@ -6,6 +6,8 @@ import com.maxnth.page4j.dla.page.io.xml.PageXmlInputOutput;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapper.Page4jToDtoMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -18,6 +20,8 @@ import java.nio.file.Path;
  */
 @Component
 public class PageXmlToAnnotationParser {
+
+    private static final Logger log = LoggerFactory.getLogger(PageXmlToAnnotationParser.class);
 
     private final Page4jToDtoMapper mapper;
 
@@ -39,14 +43,26 @@ public class PageXmlToAnnotationParser {
         }
 
         try {
-            String originalXml = Files.readString(xmlPath);
-            PageXmlPresenceIndex presenceIndex = PageXmlPresenceIndex.fromXml(originalXml);
+            long startedAt = System.nanoTime();
+            PageXmlPresenceIndex presenceIndex = PageXmlPresenceIndex.fromPath(xmlPath);
+            long presenceIndexMs = (System.nanoTime() - startedAt) / 1_000_000;
 
             // Use page4j to parse the PAGE XML file
+            startedAt = System.nanoTime();
             Page page = PageXmlInputOutput.readPage(xmlPath.toString());
+            long parseMs = (System.nanoTime() - startedAt) / 1_000_000;
 
             // Convert to DTO using sparse presence information from source XML
-            return mapper.toDto(page, presenceIndex);
+            startedAt = System.nanoTime();
+            PageDto dto = mapper.toDto(page, presenceIndex);
+            long mapMs = (System.nanoTime() - startedAt) / 1_000_000;
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "Parsed PAGE XML {} in {} ms (presence={} ms, page4j={} ms, mapper={} ms)",
+                        xmlPath, presenceIndexMs + parseMs + mapMs, presenceIndexMs, parseMs, mapMs
+                );
+            }
+            return dto;
         } catch (Exception e) {
             throw new IOException("Failed to parse PAGE XML file: " + xmlPath, e);
         }

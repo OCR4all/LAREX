@@ -43,6 +43,15 @@ public class AsyncConfig {
     @Value("${larex.async.default.queue-capacity:100}")
     private int defaultQueueCapacity;
 
+    @Value("${larex.annotation.post-save.core-pool-size:1}")
+    private int annotationPostSaveCorePoolSize;
+
+    @Value("${larex.annotation.post-save.max-pool-size:2}")
+    private int annotationPostSaveMaxPoolSize;
+
+    @Value("${larex.annotation.post-save.queue-capacity:200}")
+    private int annotationPostSaveQueueCapacity;
+
     @Bean(name = "taskExecutor")
     public ThreadPoolTaskExecutor taskExecutor() {
         logger.info("Initializing default async task executor with core pool size: {}, max pool size: {}, queue capacity: {}",
@@ -102,6 +111,22 @@ public class AsyncConfig {
         executor.setMaxPoolSize(2);
         executor.setQueueCapacity(10);
         executor.setThreadNamePrefix("import-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(120);
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean(name = "annotationPostSaveTaskExecutor")
+    public ThreadPoolTaskExecutor annotationPostSaveTaskExecutor() {
+        logger.info("Initializing annotation post-save task executor with core pool size: {}, max pool size: {}, queue capacity: {}",
+                annotationPostSaveCorePoolSize, annotationPostSaveMaxPoolSize, annotationPostSaveQueueCapacity);
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(annotationPostSaveCorePoolSize);
+        executor.setMaxPoolSize(annotationPostSaveMaxPoolSize);
+        executor.setQueueCapacity(annotationPostSaveQueueCapacity);
+        executor.setThreadNamePrefix("annotation-post-save-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(120);
         executor.initialize();

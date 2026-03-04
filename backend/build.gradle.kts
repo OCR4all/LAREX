@@ -21,6 +21,7 @@ repositories {
 dependencies {
 	// PAGE XML / ALTO XML parsing library from Maven Central
 	implementation("com.maxnth:page4j-dla:.1.0.0")
+	implementation("com.github.ben-manes.caffeine:caffeine:3.2.2")
 
 	implementation("org.springframework.boot:spring-boot-starter-cache")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")

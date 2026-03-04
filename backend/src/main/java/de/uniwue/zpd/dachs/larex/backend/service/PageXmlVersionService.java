@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.PageXmlVersionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class PageXmlVersionService {
 
     private final PageXmlVersionRepository versionRepository;
     private final PageXmlRepository pageXmlRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -36,9 +38,12 @@ public class PageXmlVersionService {
     @Value("${larex.versioning.max-versions-per-xml:25}")
     private int maxVersionsPerXml;
 
-    public PageXmlVersionService(PageXmlVersionRepository versionRepository, PageXmlRepository pageXmlRepository) {
+    public PageXmlVersionService(PageXmlVersionRepository versionRepository,
+                                 PageXmlRepository pageXmlRepository,
+                                 ApplicationEventPublisher applicationEventPublisher) {
         this.versionRepository = versionRepository;
         this.pageXmlRepository = pageXmlRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Transactional
@@ -68,8 +73,7 @@ public class PageXmlVersionService {
         version = versionRepository.save(version);
 
         log.info("Created version {} for XML {} ({})", nextVersion, pageXmlId, comment);
-
-        pruneOldVersions(pageXmlId);
+        applicationEventPublisher.publishEvent(new PageXmlVersionCreatedEvent(pageXmlId));
 
         return version;
     }
