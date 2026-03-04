@@ -37,6 +37,17 @@ export interface DrawingModeState {
   value: DrawingMode
 }
 
+type ViewModeSelectionRuntime = {
+  selectedPolygonIndex?: Ref<number>
+  selectedPolylineIndex?: Ref<number>
+  selectedPolygonIds?: Ref<string[]>
+  selectedPolylineIds?: Ref<string[]>
+  selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
+  selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
+  unhoverPolygon?: () => void
+  unhoverPolyline?: () => void
+}
+
 export function useCanvasControl(canvasId: string) {
   const commander = new Commander()
   const editorStore = useEditorStore()
@@ -170,7 +181,29 @@ export function useCanvasControl(canvasId: string) {
     regionType.value = value
   }
 
+  const clearSelectionForViewModeChange = (): void => {
+    const runtime = controls as typeof controls & ViewModeSelectionRuntime
+
+    runtime.selectPolygonById?.(null, { zoomToFit: false })
+    runtime.selectPolylineById?.(null, { zoomToFit: false })
+
+    if (runtime.selectedPolygonIndex) runtime.selectedPolygonIndex.value = -1
+    if (runtime.selectedPolylineIndex) runtime.selectedPolylineIndex.value = -1
+    if (runtime.selectedPolygonIds) runtime.selectedPolygonIds.value = []
+    if (runtime.selectedPolylineIds) runtime.selectedPolylineIds.value = []
+
+    runtime.unhoverPolygon?.()
+    runtime.unhoverPolyline?.()
+
+    editorUiStore.setTemporaryHoverPolygonId(null)
+    editorUiStore.setTemporaryHoverPolylineId(null)
+    editorStore.clearCanvasSelection(canvasId)
+  }
+
   const setViewMode = (value: ViewMode): void => {
+    if (viewMode.value === value) return
+
+    clearSelectionForViewModeChange()
     viewMode.value = value
     editorUiStore.setLastLayoutViewMode(value)
   }
@@ -194,7 +227,7 @@ export function useCanvasControl(canvasId: string) {
     return `Mode: ${drawingMode.value.charAt(0).toUpperCase() + drawingMode.value.slice(1)}`
   })
 
-  return {
+  const controls = {
     commander,
 
     drawingMode,
@@ -237,4 +270,6 @@ export function useCanvasControl(canvasId: string) {
     canRedo,
     selectionInfo
   }
+
+  return controls
 }

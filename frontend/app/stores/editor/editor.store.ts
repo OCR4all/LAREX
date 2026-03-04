@@ -703,6 +703,17 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  function clearCanvasSelection(canvasId?: string | null) {
+    const targetCanvasId = canvasId ?? activeCanvasId.value
+    if (!targetCanvasId) return
+
+    const canvas = canvases.value[targetCanvasId]
+    if (!canvas) return
+
+    canvas.selectedRegionId = null
+    canvas.selectedBaselineId = null
+  }
+
   function setDrawingMode(mode: string) {
     const canvas = activeCanvas.value
     if (canvas) {
@@ -1200,6 +1211,7 @@ export const useEditorStore = defineStore('editor', () => {
     removeRegion,
     selectRegionById,
     clearRegionSelection,
+    clearCanvasSelection,
     addBaseline,
     updateBaseline,
     removeBaseline,

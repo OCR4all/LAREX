@@ -1229,6 +1229,7 @@ type EditorControls = {
   hoveredPolylineId?: { value: string | null }
   drawingMode?: { value: DrawingMode }
   viewMode?: { value: ViewMode }
+  setViewMode?: (mode: ViewMode) => void
   regionType?: { value: PolygonType }
   commander?: Commander | null
   handleUndo?: () => void
@@ -1880,7 +1881,9 @@ if (import.meta.client) {
       },
       setViewMode: (mode: ViewMode) => {
         const controls = activeControls.value
-        if (controls?.viewMode) {
+        if (controls?.setViewMode) {
+          controls.setViewMode(mode)
+        } else if (controls?.viewMode) {
           controls.viewMode.value = mode
         }
       },
