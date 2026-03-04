@@ -1,4 +1,4 @@
-package de.uniwue.zpd.dachs.larex.backend.service.annotation.parser;
+package de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

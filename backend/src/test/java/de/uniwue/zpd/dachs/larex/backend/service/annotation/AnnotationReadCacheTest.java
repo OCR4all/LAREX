@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation;
 
-import de.uniwue.zpd.dachs.larex.backend.dto.page.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

@@ -78,6 +78,7 @@ task docker:prod:local:up
 ## Documentation
 
 - Deployment docs live in `docs/`
+- Backend PAGE package map: `docs/backend/page-packages.md`
 - API docs are available locally at `http://localhost:8080/swagger-ui.html`
 
 ## License

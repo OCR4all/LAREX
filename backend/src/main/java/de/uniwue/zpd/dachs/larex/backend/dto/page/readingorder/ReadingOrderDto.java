@@ -1,0 +1,106 @@
+package de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder;
+
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.style.*;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.*;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import java.util.List;
+
+/**
+ * DTO for reading order, aligned with page4j's ReadingOrder.
+ * PAGE XML ReadingOrder element.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record ReadingOrderDto(
+    /** Root group */
+    GroupDto root,
+    /** Confidence score */
+    Double confidence
+) {
+    /**
+     * DTO for a reading order group, aligned with page4j's Group.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record GroupDto(
+        /** Group ID */
+        String id,
+        /** Whether this is an ordered group */
+        boolean ordered,
+        /** Group index (for indexed groups) */
+        Integer index,
+        /** Caption/display name */
+        String caption,
+        /** Group type (paragraph, list, etc.) */
+        String groupType,
+        /** Reference to a parent region (for nested region groups) */
+        String regionRef,
+        /** Group members (can be RegionRefs or nested Groups) */
+        List<GroupMemberDto> members,
+        /** Continuation flag */
+        Boolean continuation,
+        /** User-defined attributes */
+        UserDefinedDto userDefined,
+        /** PAGE labels */
+        List<LabelsDto> labels,
+        /** Custom attribute */
+        String custom,
+        /** Comments */
+        String comments
+    ) {
+        public GroupDto(
+            String id,
+            boolean ordered,
+            String caption,
+            String regionRef,
+            List<GroupMemberDto> members,
+            String custom,
+            String comments
+        ) {
+            this(id, ordered, null, caption, null, regionRef, members, null, null, null, custom, comments);
+        }
+    }
+
+    /**
+     * DTO for a group member - either a region reference or a nested group.
+     */
+    @JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        include = JsonTypeInfo.As.PROPERTY,
+        property = "type"
+    )
+    @JsonSubTypes({
+        @JsonSubTypes.Type(value = RegionRefDto.class, name = "regionRef"),
+        @JsonSubTypes.Type(value = NestedGroupDto.class, name = "nestedGroup")
+    })
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public sealed interface GroupMemberDto permits RegionRefDto, NestedGroupDto {}
+
+    /**
+     * DTO for a region reference in the reading order.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record RegionRefDto(
+        /** Reference ID */
+        String id,
+        /** Referenced region ID */
+        String regionRef,
+        /** Index (for indexed groups) */
+        Integer index
+    ) implements GroupMemberDto {}
+
+    /**
+     * DTO for a nested group in the reading order.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record NestedGroupDto(
+        GroupDto group
+    ) implements GroupMemberDto {}
+}

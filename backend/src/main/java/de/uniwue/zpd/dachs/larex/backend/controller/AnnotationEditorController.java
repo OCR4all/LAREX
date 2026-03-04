@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.controller;
 
-import de.uniwue.zpd.dachs.larex.backend.dto.page.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

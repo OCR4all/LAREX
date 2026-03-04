@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
@@ -9,11 +9,14 @@ import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.UserService;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.exporter.AnnotationToAltoXmlExporter;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.exporter.AnnotationToPageXmlExporter;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.exporter.PageXmlWriteResult;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.parser.AltoXmlToAnnotationParser;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.events.AnnotationSavedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToAltoXmlExporter;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.AnnotationToPageXmlExporter;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;

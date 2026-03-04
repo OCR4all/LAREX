@@ -1,14 +1,14 @@
-package de.uniwue.zpd.dachs.larex.backend.service.annotation.exporter;
+package de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter;
 
-import de.uniwue.zpd.dachs.larex.backend.dto.page.MetadataDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.PageDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.PointDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.PolygonDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.RegionDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.RegionKind;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.TextLineDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.TextContentVariantDto;
-import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapper.DtoToPage4jMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.MetadataDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
