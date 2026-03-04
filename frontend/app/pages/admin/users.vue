@@ -600,20 +600,20 @@ async function resendSetupEmail(user: AdminUser) {
         </template>
         <template #right>
           <UButton
-            v-if="creationAllowed"
-            color="primary"
-            variant="solid"
-            icon="i-lucide-user-plus"
-            label="Create User"
-            @click="openCreateUserModal"
-          />
-          <UButton
             color="neutral"
             variant="outline"
             icon="i-lucide-refresh-cw"
             label="Refresh"
             :loading="pending"
             @click="refreshUsersAndDetails"
+          />
+          <UButton
+            v-if="creationAllowed"
+            color="primary"
+            variant="solid"
+            icon="i-lucide-user-plus"
+            label="Create User"
+            @click="openCreateUserModal"
           />
         </template>
       </UDashboardNavbar>
@@ -925,7 +925,7 @@ async function resendSetupEmail(user: AdminUser) {
                     <span class="text-sm text-muted">by {{ event.actorUsername }}</span>
                     <span class="text-sm text-muted">{{ formatDate(event.created) }}</span>
                   </div>
-                  <pre class="whitespace-pre-wrap break-words text-sm text-muted font-sans">{{ formatAuditDetails(event.details) }}</pre>
+                  <pre class="whitespace-pre-wrap wrap-break-word text-sm text-muted font-sans">{{ formatAuditDetails(event.details) }}</pre>
                 </div>
               </UCard>
             </div>

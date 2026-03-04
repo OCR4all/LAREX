@@ -400,7 +400,7 @@ async function refreshAll() {
           <UButton
             v-if="orphanedFiles && orphanedFiles.totalCount > 0"
             color="error"
-            variant="solid"
+            variant="subtle"
             icon="i-lucide-trash-2"
             label="Delete All Orphaned"
             :loading="isDeletingAll"
