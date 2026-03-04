@@ -66,6 +66,15 @@ const UButton = resolveComponent('UButton')
 
 const currentUserId = computed(() => sessionUser.value?.id || '')
 
+const datatableUi = {
+  base: 'table-fixed border-separate border-spacing-0',
+  thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+  tbody: '[&>tr]:last:[&>td]:border-b-0',
+  th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+  td: 'border-b border-default',
+  separator: 'h-0'
+}
+
 const errorCodeMessages: Record<string, string> = {
   ADMIN_USER_DUPLICATE_USERNAME: 'Username already exists.',
   ADMIN_USER_DUPLICATE_EMAIL: 'Email already exists.',
@@ -697,7 +706,12 @@ async function resendSetupEmail(user: AdminUser) {
           </div>
         </template>
 
-        <UTable :data="users" :columns="columns" :loading="pending" />
+        <UTable
+          :data="users"
+          :columns="columns"
+          :loading="pending"
+          :ui="datatableUi"
+        />
 
         <template #footer>
           <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

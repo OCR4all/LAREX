@@ -70,6 +70,11 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Health', to: '/admin/actuator', exact: true },
     { label: 'Info', to: '/admin/actuator/info' }
   ])
+  const dataManagementChildren = withActive([
+    { label: 'Import', icon: 'i-lucide-folder-input', to: '/admin/import' },
+    { label: 'Backup', icon: 'i-lucide-database-backup', to: '/admin/backup' },
+    { label: 'Storage', icon: 'i-lucide-trash-2', to: '/admin/storage' }
+  ])
 
   const hasActive = (items: { active: boolean }[]) => items.some(i => i.active)
 
@@ -78,8 +83,7 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Actuator', icon: 'i-lucide-heart-pulse', defaultOpen: hasActive(actuatorChildren), type: 'trigger', children: actuatorChildren },
     { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index', active: isActive('/admin/search-index') },
     { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas', active: isActive('/admin/quotas') },
-    { label: 'Backup', icon: 'i-lucide-database-backup', to: '/admin/backup', active: isActive('/admin/backup') },
-    { label: 'Storage', icon: 'i-lucide-trash-2', to: '/admin/storage', active: isActive('/admin/storage') },
+    { label: 'Data Management', icon: 'i-lucide-database', defaultOpen: hasActive(dataManagementChildren), type: 'trigger', children: dataManagementChildren },
     { label: 'Workspaces', icon: 'i-lucide-layers', to: '/admin/workspaces', active: isActive('/admin/workspaces') },
     { label: 'Users', icon: 'i-lucide-users', to: '/admin/users', active: isActive('/admin/users') }
   ]

@@ -155,7 +155,8 @@ async function rebuildGlobalIndex() {
         </UCard>
 
         <UAlert
-          color="warning"
+          color="info"
+          variant="subtle"
           icon="i-lucide-alert-triangle"
           title="Rebuilding takes time"
           description="Rebuilding the global index processes all XML files in all projects. This can take several minutes for large installations. The process runs in the background and won't block other operations."

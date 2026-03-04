@@ -4,11 +4,11 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 const adminSections = [
   { title: 'Actuator', description: 'Monitor application health and system info', icon: 'i-lucide-heart-pulse', to: '/admin/actuator' },
   { title: 'Quotas', description: 'Manage storage quotas for workspaces', icon: 'i-lucide-hard-drive', to: '/admin/quotas' },
+  { title: 'Import', description: 'Import files from server directories', icon: 'i-lucide-folder-input', to: '/admin/import' },
   { title: 'Backup', description: 'Create dumps and reseed file-based data', icon: 'i-lucide-database-backup', to: '/admin/backup' },
   { title: 'Storage', description: 'Clean up orphaned files and manage storage', icon: 'i-lucide-trash-2', to: '/admin/storage' },
   { title: 'Workspaces', description: 'View and manage all workspaces', icon: 'i-lucide-layers', to: '/admin/workspaces' },
   { title: 'Users', description: 'View all registered users', icon: 'i-lucide-users', to: '/admin/users' },
-  { title: 'Import', description: 'Import files from server directories', icon: 'i-lucide-folder-input', to: '/admin/import' },
   { title: 'Search Index', description: 'Rebuild search indexes for page filtering', icon: 'i-lucide-search', to: '/admin/search-index' }
 ]
 </script>
@@ -42,7 +42,6 @@ const adminSections = [
             :icon="section.icon"
             :title="section.title"
             :description="section.description"
-            class="transition-colors hover:bg-elevated/50"
           />
         </UPageColumns>
       </div>

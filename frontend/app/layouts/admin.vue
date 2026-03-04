@@ -190,6 +190,13 @@ const groups = computed(() => {
       to: '/admin/backup',
       onSelect: () => { open.value = false }
     }, {
+      id: 'go-admin-import',
+      label: 'Go to Import',
+      icon: 'i-lucide-folder-input',
+      suffix: 'Import files from server directories',
+      to: '/admin/import',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'go-admin-storage',
       label: 'Go to Storage',
       icon: 'i-lucide-trash-2',
