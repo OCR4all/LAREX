@@ -2,6 +2,7 @@
   "realm": "${KEYCLOAK_ADMIN_REALM}",
   "enabled": true,
   "loginTheme": "keycloakify-larex",
+  "emailTheme": "keycloakify-larex",
   "resetPasswordAllowed": true,
   "rememberMe": true,
   "attributes": {

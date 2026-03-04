@@ -2,6 +2,7 @@
   "realm": "larex-dev",
   "enabled": true,
   "loginTheme": "keycloakify-larex",
+  "emailTheme": "keycloakify-larex",
   "resetPasswordAllowed": true,
   "rememberMe": true,
   "attributes": {

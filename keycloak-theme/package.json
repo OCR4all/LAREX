@@ -8,6 +8,7 @@
   },
   "type": "module",
   "scripts": {
+    "postinstall": "keycloakify sync-extensions",
     "dev": "vite",
     "build": "tsc && vite build",
     "build-keycloak-theme": "npm run build && keycloakify build",
@@ -34,7 +35,8 @@
     "react-hook-form": "^7.61.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
-    "zod": "^4.0.14"
+    "zod": "^4.0.14",
+    "@keycloakify/email-native": "~260007.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
