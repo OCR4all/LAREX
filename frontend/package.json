@@ -13,8 +13,15 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@codemirror/lang-xml": "^6.1.0",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/lint": "^6.9.5",
+    "@codemirror/search": "^6.6.0",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.16",
     "@iconify-json/lucide": "^1.2.95",
     "@iconify-json/simple-icons": "^1.2.72",
+    "@lezer/highlight": "^1.2.3",
     "@nuxt/a11y": "1.0.0-alpha.1",
     "@nuxt/fonts": "0.11.4",
     "@nuxt/image": "2.0.0",
@@ -28,6 +35,7 @@
     "@unovis/ts": "^1.6.4",
     "@unovis/vue": "^1.6.4",
     "@vueuse/nuxt": "^14.2.1",
+    "codemirror": "^6.0.2",
     "date-fns": "^4.1.0",
     "diff-match-patch": "^1.0.5",
     "dockview-core": "^5.1.0",

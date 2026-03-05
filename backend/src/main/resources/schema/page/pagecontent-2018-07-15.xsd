@@ -1,0 +1,2499 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<schema targetNamespace="http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15"
+        elementFormDefault="qualified" xmlns="http://www.w3.org/2001/XMLSchema"
+        xmlns:pc="http://schema.primaresearch.org/PAGE/gts/pagecontent/2018-07-15" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+    <element name="PcGts" type="pc:PcGtsType">
+        <annotation>
+            <documentation>Page Content - Ground Truth and Storage</documentation>
+        </annotation></element>
+    <complexType name="PcGtsType">
+        <sequence>
+            <element name="Metadata" type="pc:MetadataType"></element>
+            <element name="Page" type="pc:PageType"></element>
+        </sequence>
+        <attribute name="pcGtsId" type="ID" use="optional"></attribute>
+    </complexType>
+    <complexType name="MetadataType">
+        <sequence>
+            <element name="Creator" type="string"></element>
+            <element name="Created" type="dateTime">
+                <annotation>
+                    <documentation>
+                        The timestamp has to be in UTC (Coordinated
+                        Universal Time) and not local time.
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="LastChange" type="dateTime">
+                <annotation>
+                    <documentation>
+                        The timestamp has to be in UTC (Coordinated
+                        Universal Time) and not local time.
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Comments" type="string" minOccurs="0"
+                     maxOccurs="1">
+            </element>
+            <element name="UserDefined" type="pc:UserDefinedType"
+                     minOccurs="0" maxOccurs="1">
+            </element>
+
+            <element name="MetadataItem" type="pc:MetadataItemType" minOccurs="0" maxOccurs="unbounded"></element>
+        </sequence>
+        <attribute name="externalRef" type="string" use="optional">
+            <annotation>
+                <documentation>External reference of any kind</documentation>
+            </annotation></attribute>
+    </complexType>
+    <complexType name="MetadataItemType">
+        <sequence>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation></element>
+        </sequence>
+        <attribute name="type" use="optional">
+            <annotation>
+                <documentation>
+                    Type of metadata (e.g. author)
+                </documentation>
+            </annotation>
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="author"></enumeration>
+                    <enumeration value="imageProperties"></enumeration>
+                    <enumeration value="processingStep"></enumeration>
+                    <enumeration value="other"></enumeration>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="name" type="string" use="optional">
+            <annotation>
+                <documentation>
+                    E.g. imagePhotometricInterpretation
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="value" type="string" use="required">
+            <annotation>
+                <documentation>E.g. RGB</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="date" type="dateTime"></attribute>
+    </complexType>
+    <complexType name="LabelsType">
+        <sequence>
+            <element name="Label" type="pc:LabelType" minOccurs="0"
+                     maxOccurs="unbounded">
+                <annotation>
+                    <documentation>
+                        A semantic label / tag
+                    </documentation>
+                </annotation>
+            </element>
+        </sequence>
+        <attribute name="externalModel" type="string" use="optional">
+            <annotation>
+                <documentation>
+                    Reference to external model / ontology / schema
+                </documentation>
+            </annotation>
+        </attribute>
+
+        <attribute name="externalId" type="string" use="optional">
+            <annotation>
+                <documentation>E.g. an RDF resource identifier (to be used as subject or object of an RDF triple)</documentation>
+            </annotation></attribute>
+        <attribute name="prefix" type="string" use="optional">
+            <annotation>
+                <documentation>
+                    Prefix for all labels (e.g. first part of an URI)
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="comments" type="string" use="optional">
+        </attribute>
+
+    </complexType>
+    <complexType name="LabelType">
+        <annotation>
+            <documentation>Semantic label</documentation>
+        </annotation>
+        <attribute name="value" type="string" use="required">
+            <annotation>
+                <documentation>
+                    The label / tag (e.g. 'person'). Can be an RDF resource identifier (e.g. object of an RDF triple).
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="type" type="string" use="optional">
+            <annotation>
+                <documentation>
+                    Additional information on the label (e.g. 'YYYY-mm-dd' for a date label). Can be used as predicate of an RDF triple.
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="comments" type="string" use="optional">
+        </attribute>
+    </complexType>
+    <complexType name="PageType">
+        <sequence>
+            <element name="AlternativeImage"
+                     type="pc:AlternativeImageType" minOccurs="0"
+                     maxOccurs="unbounded">
+                <annotation>
+                    <documentation>
+                        Alternative document page images (e.g.
+                        black-and-white)
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Border" type="pc:BorderType" minOccurs="0"
+                     maxOccurs="1">
+            </element>
+            <element name="PrintSpace" type="pc:PrintSpaceType"
+                     minOccurs="0" maxOccurs="1">
+            </element>
+            <element name="ReadingOrder" type="pc:ReadingOrderType"
+                     minOccurs="0" maxOccurs="1">
+                <annotation>
+                    <documentation></documentation>
+                </annotation>
+            </element>
+            <element name="Layers" type="pc:LayersType" minOccurs="0"
+                     maxOccurs="1">
+                <annotation>
+                    <documentation>
+                        Unassigned regions are considered to be in the
+                        (virtual) default layer which is to be treated
+                        as below any other layers.
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Relations" type="pc:RelationsType"
+                     minOccurs="0">
+            </element>
+            <element name="UserDefined" type="pc:UserDefinedType" minOccurs="0" maxOccurs="1"></element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+
+            <choice minOccurs="0" maxOccurs="unbounded">
+                <element name="TextRegion" type="pc:TextRegionType"></element>
+                <element name="ImageRegion" type="pc:ImageRegionType">
+                </element>
+                <element name="LineDrawingRegion"
+                         type="pc:LineDrawingRegionType">
+                </element>
+                <element name="GraphicRegion"
+                         type="pc:GraphicRegionType">
+                </element>
+                <element name="TableRegion" type="pc:TableRegionType">
+                </element>
+                <element name="ChartRegion" type="pc:ChartRegionType">
+                </element>
+                <element name="MapRegion" type="pc:MapRegionType"></element>
+                <element name="SeparatorRegion"
+                         type="pc:SeparatorRegionType">
+                </element>
+                <element name="MathsRegion" type="pc:MathsRegionType">
+                </element>
+                <element name="ChemRegion" type="pc:ChemRegionType"></element>
+                <element name="MusicRegion" type="pc:MusicRegionType"></element>
+                <element name="AdvertRegion"
+                         type="pc:AdvertRegionType">
+                </element>
+                <element name="NoiseRegion" type="pc:NoiseRegionType">
+                </element>
+                <element name="UnknownRegion"
+                         type="pc:UnknownRegionType">
+                </element>
+                <element name="CustomRegion"
+                         type="pc:CustomRegionType">
+                </element>
+            </choice>
+
+        </sequence>
+        <attribute name="imageFilename" type="string" use="required">
+            <annotation>
+                <documentation>
+                    Contains the image file name including the file extension.
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="imageWidth" type="int" use="required">
+            <annotation>
+                <documentation>Specifies the width of the image.</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="imageHeight" type="int" use="required">
+            <annotation>
+                <documentation>Specifies the height of the image.</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="imageXResolution" type="float" use="optional">
+            <annotation>
+                <documentation>Specifies the image resolution in width.</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="imageYResolution" type="float" use="optional">
+            <annotation>
+                <documentation>Specifies the image resolution in height.</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="imageResolutionUnit" use="optional">
+            <annotation>
+                <documentation>
+                    Specifies the unit of the resolution information
+                    referring to a standardised unit of measurement (pixels per inch, pixels per centimeter or other).
+                </documentation>
+            </annotation>
+            <simpleType>
+                <restriction base="string">
+
+                    <enumeration value="PPI"></enumeration>
+                    <enumeration value="PPCM"></enumeration>
+                    <enumeration value="other"></enumeration>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="custom" type="string">
+            <annotation>
+                <documentation>For generic use</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="type" type="pc:PageTypeSimpleType">
+            <annotation>
+                <documentation>Page type</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="primaryLanguage" type="pc:LanguageSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The primary language used in the page (lower-level definitions override the page-level definition)
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="secondaryLanguage" type="pc:LanguageSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The secondary language used in the page (lower-level definitions override the page-level definition)
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="primaryScript" type="pc:ScriptSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The primary script used in the page (lower-level definitions override the page-level definition)
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="secondaryScript" type="pc:ScriptSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The secondary script used in the page (lower-level definitions override the page-level definition)
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="readingDirection"
+                   type="pc:ReadingDirectionSimpleType" use="optional">
+            <annotation>
+                <documentation>
+                    The direction in which text in a region should be
+                    read (within lines) (lower-level definitions override the page-level definition)
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="textLineOrder"
+                   type="pc:TextLineOrderSimpleType" use="optional">
+            <annotation>
+                <documentation>Inner-block order of text lines (in addition to “readingDirection” which is the inner-text line order of words and characters) (lower-level definitions override the page-level definition)</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="conf" type="pc:ConfSimpleType" use="optional">
+            <annotation>
+                <documentation>Confidence value for whole page (between 0 and 1)</documentation>
+            </annotation>
+        </attribute>
+
+    </complexType>
+    <complexType name="TextRegionType">
+        <annotation>
+            <documentation>
+                Pure text is represented as a text region. This includes
+                drop capitals, but practically ornate text may be
+                considered as a graphic.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <sequence>
+                    <element name="TextLine" type="pc:TextLineType"
+                             minOccurs="0" maxOccurs="unbounded">
+                    </element>
+                    <element name="TextEquiv" type="pc:TextEquivType"
+                             minOccurs="0" maxOccurs="unbounded">
+                    </element>
+                    <element name="TextStyle" type="pc:TextStyleType"
+                             minOccurs="0" maxOccurs="1">
+                    </element>
+                </sequence>
+                <attribute name="orientation" type="float" use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="type" type="pc:TextTypeSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The nature of the text in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="leading" type="int" use="optional">
+                    <annotation>
+                        <documentation>
+                            The degree of space in points between the lines of
+                            text (line spacing)
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="readingDirection"
+                           type="pc:ReadingDirectionSimpleType" use="optional">
+                    <annotation>
+                        <documentation>
+                            The direction in which text in a region should be
+                            read (within lines)
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="textLineOrder"
+                           type="pc:TextLineOrderSimpleType" use="optional">
+                    <annotation>
+                        <documentation>Inner-block order of text lines (in addition to “readingDirection” which is the inner-text line order of words and characters)</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="readingOrientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the baseline of text withing a region has to be rotated (relative to the rectangle encapsulating the region) in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="indented" type="boolean" use="optional">
+                    <annotation>
+                        <documentation>
+                            Defines whether a region of text is indented or not
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="align" type="pc:AlignSimpleType">
+                    <annotation>
+                        <documentation>Text align</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="primaryLanguage" type="pc:LanguageSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The primary language used in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="secondaryLanguage" type="pc:LanguageSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The secondary language used in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="primaryScript" type="pc:ScriptSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The primary script used in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="secondaryScript" type="pc:ScriptSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The secondary script used in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="production" type="pc:ProductionSimpleType" use="optional"></attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="CoordsType">
+        <attribute name="points" use="required" type="pc:PointsType">
+            <annotation>
+                <documentation>Point list with format "x1,y1 x2,y2 ..."</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="conf" type="pc:ConfSimpleType" use="optional">
+            <annotation>
+                <documentation>Confidence value (between 0 and 1)</documentation>
+            </annotation>
+        </attribute>
+    </complexType>
+    <complexType name="TextLineType">
+        <sequence>
+            <element name="AlternativeImage"
+                     type="pc:AlternativeImageType" minOccurs="0"
+                     maxOccurs="unbounded">
+                <annotation>
+                    <documentation>
+                        Alternative text line images (e.g.
+                        black-and-white)
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Coords" type="pc:CoordsType"></element>
+            <element name="Baseline" type="pc:BaselineType"
+                     minOccurs="0">
+                <annotation>
+                    <documentation>
+                        Multiple connected points that mark the baseline
+                        of the glyphs
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Word" type="pc:WordType" minOccurs="0"
+                     maxOccurs="unbounded">
+            </element>
+            <element name="TextEquiv" type="pc:TextEquivType"
+                     minOccurs="0" maxOccurs="unbounded">
+            </element>
+            <element name="TextStyle" type="pc:TextStyleType"
+                     minOccurs="0">
+            </element>
+            <element name="UserDefined" type="pc:UserDefinedType" minOccurs="0" maxOccurs="1"></element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="primaryLanguage"
+                   type="pc:LanguageSimpleType">
+            <annotation>
+                <documentation>
+                    Overrides primaryLanguage attribute of parent text
+                    region
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="primaryScript" type="pc:ScriptSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The primary script used in the text line
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="secondaryScript" type="pc:ScriptSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The secondary script used in the text line
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="readingDirection"
+                   type="pc:ReadingDirectionSimpleType" use="optional">
+            <annotation>
+                <documentation>
+                    The direction in which text in a text line should be read
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="production" type="pc:ProductionSimpleType" use="optional">
+            <annotation>
+                <documentation>
+                    Overrides the production attribute of the parent
+                    text region
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="custom" type="string">
+            <annotation>
+                <documentation>For generic use</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="comments" type="string"></attribute>
+        <attribute name="index" type="int" use="optional">
+            <annotation>
+                <documentation>
+                    Position (order number) of this text line within the
+                    parent text region.
+                </documentation>
+            </annotation>
+        </attribute>
+
+    </complexType>
+    <complexType name="WordType">
+        <sequence>
+            <element name="AlternativeImage"
+                     type="pc:AlternativeImageType" minOccurs="0"
+                     maxOccurs="unbounded">
+                <annotation>
+                    <documentation>
+                        Alternative word images (e.g.
+                        black-and-white)
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Coords" type="pc:CoordsType"></element>
+            <element name="Glyph" type="pc:GlyphType" minOccurs="0"
+                     maxOccurs="unbounded">
+            </element>
+            <element name="TextEquiv" type="pc:TextEquivType"
+                     minOccurs="0" maxOccurs="unbounded">
+            </element>
+            <element name="TextStyle" type="pc:TextStyleType"
+                     minOccurs="0">
+            </element>
+            <element name="UserDefined" type="pc:UserDefinedType" minOccurs="0" maxOccurs="1"></element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="language" type="pc:LanguageSimpleType">
+            <annotation>
+                <documentation>
+                    Overrides primaryLanguage attribute of parent line
+                    and/or text region
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="primaryScript" type="pc:ScriptSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The primary script used in the word
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="secondaryScript" type="pc:ScriptSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The secondary script used in the word
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="readingDirection"
+                   type="pc:ReadingDirectionSimpleType" use="optional">
+            <annotation>
+                <documentation>
+                    The direction in which characters in a word should be read
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="production" type="pc:ProductionSimpleType" use="optional">
+            <annotation>
+                <documentation>
+                    Overrides the production attribute of the parent
+                    text line and/or text region.
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="custom" type="string">
+            <annotation>
+                <documentation>For generic use</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="comments" type="string"></attribute>
+    </complexType>
+    <complexType name="GlyphType">
+        <sequence>
+            <element name="AlternativeImage"
+                     type="pc:AlternativeImageType" minOccurs="0"
+                     maxOccurs="unbounded">
+                <annotation>
+                    <documentation>
+                        Alternative glyph images (e.g.
+                        black-and-white)
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Coords" type="pc:CoordsType"></element>
+            <element name="Graphemes" type="pc:GraphemesType"
+                     minOccurs="0" maxOccurs="1">
+                <annotation>
+                    <documentation>
+                        Container for graphemes, grapheme groups and
+                        non-printing characters
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="TextEquiv" type="pc:TextEquivType"
+                     minOccurs="0" maxOccurs="unbounded">
+            </element>
+            <element name="TextStyle" type="pc:TextStyleType"
+                     minOccurs="0">
+            </element>
+            <element name="UserDefined" type="pc:UserDefinedType" minOccurs="0" maxOccurs="1"></element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="ligature" use="optional" type="boolean">
+        </attribute>
+        <attribute name="symbol" use="optional" type="boolean">
+        </attribute>
+        <attribute name="script" type="pc:ScriptSimpleType"
+                   use="optional">
+            <annotation>
+                <documentation>
+                    The script used for the glyph
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="production" type="pc:ProductionSimpleType" use="optional">
+            <annotation>
+                <documentation>
+                    Overrides the production attribute of the parent
+                    word / text line / text region.
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="custom" type="string">
+            <annotation>
+                <documentation>For generic use</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="comments" type="string"></attribute>
+    </complexType>
+    <complexType name="TextEquivType">
+        <sequence>
+            <element name="PlainText" type="string" minOccurs="0">
+                <annotation>
+                    <documentation>
+                        Text in a "simple" form (ASCII or extended ASCII
+                        as mostly used for typing). I.e. no use of
+                        special characters for ligatures (should be
+                        stored as two separate characters) etc.
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Unicode" type="string">
+                <annotation>
+                    <documentation>
+                        Correct encoding of the original, always using
+                        the corresponding Unicode code point. I.e.
+                        ligatures have to be represented as one
+                        character etc.
+                    </documentation>
+                </annotation>
+            </element>
+        </sequence>
+        <attribute name="index" use="optional">
+            <annotation>
+                <documentation>Used for sort order in case multiple TextEquivs are defined. The text content with the lowest index should be interpreted as the main text content.</documentation>
+            </annotation>
+            <simpleType>
+                <restriction base="integer">
+                    <minInclusive value="0"></minInclusive>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="conf" type="pc:ConfSimpleType" use="optional">
+            <annotation>
+                <documentation>OCR confidence value (between 0 and 1)</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="dataType" type="pc:TextDataTypeSimpleType" use="optional">
+            <annotation>
+                <documentation>Type of text content (is it free text or a number, for instance)
+                    This is only a descriptive attribute, the text type is not checked during XML validation</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="dataTypeDetails" type="string" use="optional">
+            <annotation>
+                <documentation>Refinement for dataType attribute. Can be a regular expression, for instance.</documentation>
+            </annotation>
+        </attribute>
+        <!-- <attribute name="mergeWithNextRule" type="pc:TextMergeRuleSimpleType" use="optional">
+                <annotation>
+                    <documentation>Rule for merging consecutive text objects. The rule applies to the first object of a pair (i.e. 'remove-last' removes the last
+        character of the first region, can be used to remove hyphen, for example)</documentation>
+                </annotation>
+        </attribute>
+        <attribute name="mergeWithNextRuleData" type="string" use="optional">
+                <annotation>
+                    <documentation>Custom data for mergeRule attribute. Can number of characters to be removed, for example.</documentation>
+                </annotation>
+        </attribute> -->
+        <attribute name="comments" type="string" use="optional"></attribute>
+    </complexType>
+    <complexType name="ImageRegionType">
+        <annotation>
+            <documentation>
+                An image is considered to be more intricate and complex
+                than a graphic. These can be photos or drawings.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="colourDepth"
+                           type="pc:ColourDepthSimpleType" use="optional">
+                    <annotation>
+                        <documentation>
+                            The colour bit depth required for the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="embText" type="boolean"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            Specifies whether the region also contains
+                            text
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="LineDrawingRegionType">
+        <annotation>
+            <documentation>
+                A line drawing is a single colour illustration without
+                solid areas.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="penColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The pen (foreground) colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="embText" type="boolean"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            Specifies whether the region also contains
+                            text
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="GraphicRegionType">
+        <annotation>
+            <documentation>
+                Regions containing simple graphics, such as a company
+                logo, should be marked as graphic regions.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="type" use="optional"
+                           type="pc:GraphicsTypeSimpleType">
+                    <annotation>
+                        <documentation>
+                            The type of graphic in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="numColours" type="int"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            An approximation of the number of colours
+                            used in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="embText" type="boolean"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            Specifies whether the region also contains
+                            text.
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="TableRegionType">
+        <annotation>
+            <documentation>
+                Tabular data in any form is represented with a table
+                region. Rows and columns may or may not have separator
+                lines; these lines are not separator regions.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <sequence>
+                    <element name="Grid" type="pc:GridType" minOccurs="0" maxOccurs="1">
+                        <annotation>
+                            <documentation>Table grid (visible or virtual grid lines)</documentation>
+                        </annotation></element>
+                </sequence>
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The angle the rectangle encapsulating a
+                            region has to be rotated in clockwise
+                            direction in order to correct the present
+                            skew (negative values indicate
+                            anti-clockwise rotation). Range:
+                            -179.999,180
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="rows" type="int" use="optional">
+                    <annotation>
+                        <documentation>
+                            The number of rows present in the table
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="columns" type="int" use="optional">
+                    <annotation>
+                        <documentation>
+                            The number of columns present in the table
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="lineColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The colour of the lines used in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="lineSeparators" type="boolean"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            Specifies the presence of line separators
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="embText" type="boolean"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            Specifies whether the region also contains
+                            text
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="GridType">
+        <annotation>
+            <documentation>Matrix of grid points defining the table grid on the page</documentation>
+        </annotation>
+        <sequence>
+            <element name="GridPoints" type="pc:GridPointsType" minOccurs="2" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>One row in the grid point matrix. Points with x,y coordinates. (note: for a table with n table rows there should be n+1 grid rows)</documentation>
+                </annotation></element>
+        </sequence>
+    </complexType>
+    <complexType name="GridPointsType">
+        <annotation>
+            <documentation>Points with x,y coordinates.</documentation>
+        </annotation>
+        <attribute name="index" type="int" use="required">
+            <annotation>
+                <documentation>
+                    The grid row index
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="points" type="pc:PointsType" use="required"></attribute>
+    </complexType>
+
+    <complexType name="ChartRegionType">
+        <annotation>
+            <documentation>
+                Regions containing charts or graphs of any type, should
+                be marked as chart regions.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="type" use="optional"
+                           type="pc:ChartTypeSimpleType">
+                    <annotation>
+                        <documentation>
+                            The type of chart in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="numColours" type="int"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            An approximation of the number of colours
+                            used in the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="embText" type="boolean"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            Specifies whether the region also contains
+                            text
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="SeparatorRegionType">
+        <annotation>
+            <documentation>
+                Separators are lines that lie between columns and
+                paragraphs and can be used to logically separate
+                different articles from each other.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="colour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The colour of the separator
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="MathsRegionType">
+        <annotation>
+            <documentation>
+                Regions containing equations and mathematical symbols
+                should be marked as maths regions.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="ChemRegionType">
+        <annotation>
+            <documentation>
+                Regions containing chemical formulas.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The angle the rectangle encapsulating a
+                            region has to be rotated in clockwise
+                            direction in order to correct the present
+                            skew (negative values indicate
+                            anti-clockwise rotation). Range:
+                            -179.999,180
+                        </documentation>
+                    </annotation>
+                </attribute>
+
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="MapRegionType">
+        <annotation>
+            <documentation>
+                Regions containing maps.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The angle the rectangle encapsulating a
+                            region has to be rotated in clockwise
+                            direction in order to correct the present
+                            skew (negative values indicate
+                            anti-clockwise rotation). Range:
+                            -179.999,180
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="MusicRegionType">
+        <annotation>
+            <documentation>
+                Regions containing musical notations.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180</documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="AdvertRegionType">
+        <annotation>
+            <documentation>
+                Regions containing advertisements.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="orientation" type="float"
+                           use="optional">
+                    <annotation>
+                        <documentation>The angle the rectangle encapsulating a region has to be rotated in clockwise direction in order to correct the present skew (negative values indicate anti-clockwise rotation).
+                            Range: -179.999,180
+                        </documentation>
+                    </annotation>
+                </attribute>
+                <attribute name="bgColour" type="pc:ColourSimpleType"
+                           use="optional">
+                    <annotation>
+                        <documentation>
+                            The background colour of the region
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+    <complexType name="NoiseRegionType">
+        <annotation>
+            <documentation>
+                Noise regions are regions where no real data lies, only
+                false data created by artifacts on the document or
+                scanner noise.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType"></extension>
+        </complexContent>
+    </complexType>
+    <complexType name="UnknownRegionType">
+        <annotation>
+            <documentation>
+                To be used if the region type cannot be ascertained.
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType"></extension>
+        </complexContent>
+    </complexType>
+    <complexType name="CustomRegionType">
+        <annotation>
+            <documentation>
+                Regions containing content that is not covered by the default types (text, graphic, image, line drawing, chart, table, separator, maths, map, music, chem, advert, noise, unknown)
+            </documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:RegionType">
+                <attribute name="type" use="optional"
+                           type="string">
+                    <annotation>
+                        <documentation>
+                            Information on the type of content represented by this region
+                        </documentation>
+                    </annotation>
+                </attribute>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <complexType name="PrintSpaceType">
+        <annotation>
+            <documentation>Determines the effective area on the paper of a printed page. Its size is equal for all pages of a book (exceptions: titlepage, multipage pictures).
+                It contains all living elements (except marginals) like body type, footnotes, headings, running titles.
+                It does not contain pagenumber (if not part of running title), marginals, signature mark, preview words.
+            </documentation>
+        </annotation>
+        <sequence>
+            <element name="Coords" type="pc:CoordsType"></element>
+        </sequence>
+    </complexType>
+
+    <complexType name="ReadingOrderType">
+        <annotation>
+            <documentation>Definition of the reading order within the page. To express a reading order between elements they have to be included in an OrderedGroup. Groups may contain further groups.</documentation>
+        </annotation>
+
+        <choice minOccurs="1" maxOccurs="1">
+            <element name="OrderedGroup" type="pc:OrderedGroupType"></element>
+            <element name="UnorderedGroup" type="pc:UnorderedGroupType"></element>
+        </choice>
+
+        <attribute name="conf" type="pc:ConfSimpleType" use="optional">
+            <annotation>
+                <documentation>Confidence value (between 0 and 1)</documentation>
+            </annotation>
+        </attribute>
+
+    </complexType>
+
+    <complexType name="RegionRefIndexedType">
+        <annotation>
+            <documentation>Numbered region</documentation>
+        </annotation>
+        <attribute name="index" type="int" use="required">
+            <annotation>
+                <documentation>Position (order number) of this item within the current hierarchy level.</documentation>
+            </annotation></attribute>
+        <attribute name="regionRef" type="IDREF" use="required"></attribute>
+    </complexType>
+
+    <complexType name="OrderedGroupIndexedType">
+        <annotation>
+            <documentation>
+                Indexed group containing ordered elements
+            </documentation>
+        </annotation>
+        <sequence>
+            <element name="UserDefined" type="pc:UserDefinedType"
+                     minOccurs="0" maxOccurs="1">
+            </element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+            <choice minOccurs="1" maxOccurs="unbounded">
+                <element name="RegionRefIndexed"
+                         type="pc:RegionRefIndexedType">
+                </element>
+                <element name="OrderedGroupIndexed"
+                         type="pc:OrderedGroupIndexedType">
+                </element>
+                <element name="UnorderedGroupIndexed"
+                         type="pc:UnorderedGroupIndexedType">
+                </element>
+            </choice>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="regionRef" type="IDREF" use="optional">
+            <annotation><documentation>Optional link to a parent region of nested regions. The parent region doubles as reading order group. Only the nested regions should be allowed as group members.</documentation></annotation>
+        </attribute>
+        <attribute name="index" type="int" use="required">
+            <annotation>
+                <documentation>
+                    Position (order number) of this item within the
+                    current hierarchy level.
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="caption" type="string"></attribute>
+        <attribute name="type" type="pc:GroupTypeSimpleType"></attribute>
+        <attribute name="continuation" type="boolean">
+            <annotation>
+                <documentation>
+                    Is this group a continuation of another group (from
+                    previous column or page, for example)?
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="custom" type="string"></attribute>
+        <attribute name="comments" type="string"></attribute>
+    </complexType>
+
+    <complexType name="UnorderedGroupIndexedType">
+        <annotation>
+            <documentation>
+                Indexed group containing unordered elements
+            </documentation>
+        </annotation>
+        <sequence>
+            <element name="UserDefined" type="pc:UserDefinedType"
+                     minOccurs="0" maxOccurs="1">
+            </element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+            <choice minOccurs="1" maxOccurs="unbounded">
+                <element name="RegionRef" type="pc:RegionRefType"></element>
+                <element name="OrderedGroup"
+                         type="pc:OrderedGroupType">
+                </element>
+                <element name="UnorderedGroup"
+                         type="pc:UnorderedGroupType">
+                </element>
+            </choice>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="regionRef" type="IDREF" use="optional">
+            <annotation><documentation>Optional link to a parent region of nested regions. The parent region doubles as reading order group. Only the nested regions should be allowed as group members.</documentation></annotation>
+        </attribute>
+        <attribute name="index" type="int" use="required">
+            <annotation>
+                <documentation>
+                    Position (order number) of this item within the
+                    current hierarchy level.
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="caption" type="string"></attribute>
+        <attribute name="type" type="pc:GroupTypeSimpleType"></attribute>
+        <attribute name="continuation" type="boolean">
+            <annotation>
+                <documentation>Is this group a continuation of another group (from previous column or page, for example)?</documentation></annotation></attribute>
+        <attribute name="custom" type="string"></attribute>
+        <attribute name="comments" type="string"></attribute>
+    </complexType>
+
+    <complexType name="RegionRefType">
+        <attribute name="regionRef" type="IDREF" use="required"></attribute>
+    </complexType>
+
+    <complexType name="OrderedGroupType">
+        <annotation>
+            <documentation>
+                Numbered group (contains ordered elements)
+            </documentation>
+        </annotation>
+        <sequence>
+            <element name="UserDefined" type="pc:UserDefinedType"
+                     minOccurs="0" maxOccurs="1">
+            </element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+            <choice minOccurs="1" maxOccurs="unbounded">
+                <element name="RegionRefIndexed"
+                         type="pc:RegionRefIndexedType">
+                </element>
+                <element name="OrderedGroupIndexed"
+                         type="pc:OrderedGroupIndexedType">
+                </element>
+                <element name="UnorderedGroupIndexed"
+                         type="pc:UnorderedGroupIndexedType">
+                </element>
+            </choice>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="regionRef" type="IDREF" use="optional">
+            <annotation><documentation>Optional link to a parent region of nested regions. The parent region doubles as reading order group. Only the nested regions should be allowed as group members.</documentation></annotation>
+        </attribute>
+        <attribute name="caption" type="string"></attribute>
+        <attribute name="type" type="pc:GroupTypeSimpleType"></attribute>
+        <attribute name="continuation" type="boolean">
+            <annotation>
+                <documentation>Is this group a continuation of another group (from previous column or page, for example)?</documentation>
+            </annotation></attribute>
+        <attribute name="custom" type="string"></attribute>
+        <attribute name="comments" type="string"></attribute>
+    </complexType>
+
+    <complexType name="UnorderedGroupType">
+        <annotation>
+            <documentation>
+                Numbered group (contains unordered elements)
+            </documentation>
+        </annotation>
+        <sequence>
+            <element name="UserDefined" type="pc:UserDefinedType"
+                     minOccurs="0" maxOccurs="1">
+            </element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+            <choice minOccurs="1" maxOccurs="unbounded">
+                <element name="RegionRef" type="pc:RegionRefType"></element>
+                <element name="OrderedGroup"
+                         type="pc:OrderedGroupType">
+                </element>
+                <element name="UnorderedGroup"
+                         type="pc:UnorderedGroupType">
+                </element>
+            </choice>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="regionRef" type="IDREF" use="optional">
+            <annotation><documentation>Optional link to a parent region of nested regions. The parent region doubles as reading order group. Only the nested regions should be allowed as group members.</documentation></annotation>
+        </attribute>
+        <attribute name="caption" type="string"></attribute>
+        <attribute name="type" type="pc:GroupTypeSimpleType"></attribute>
+        <attribute name="continuation" type="boolean">
+            <annotation>
+                <documentation>Is this group a continuation of another group (from previous column or page, for example)?</documentation></annotation></attribute>
+        <attribute name="custom" type="string"></attribute>
+        <attribute name="comments" type="string"></attribute>
+    </complexType>
+
+    <complexType name="BorderType">
+        <annotation>
+            <documentation>Border of the actual page (if the scanned image contains parts not belonging to the page).</documentation>
+        </annotation>
+        <sequence>
+            <element name="Coords" type="pc:CoordsType"></element>
+        </sequence>
+    </complexType>
+    <simpleType name="ColourSimpleType">
+        <restriction base="string">
+            <enumeration value="black"></enumeration>
+            <enumeration value="blue"></enumeration>
+            <enumeration value="brown"></enumeration>
+            <enumeration value="cyan"></enumeration>
+            <enumeration value="green"></enumeration>
+            <enumeration value="grey"></enumeration>
+            <enumeration value="indigo"></enumeration>
+            <enumeration value="magenta"></enumeration>
+            <enumeration value="orange"></enumeration>
+            <enumeration value="pink"></enumeration>
+            <enumeration value="red"></enumeration>
+            <enumeration value="turquoise"></enumeration>
+            <enumeration value="violet"></enumeration>
+            <enumeration value="white"></enumeration>
+            <enumeration value="yellow"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="ReadingDirectionSimpleType">
+        <restriction base="string">
+            <enumeration value="left-to-right"></enumeration>
+            <enumeration value="right-to-left"></enumeration>
+            <enumeration value="top-to-bottom"></enumeration>
+            <enumeration value="bottom-to-top"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="TextLineOrderSimpleType">
+        <restriction base="string">
+            <enumeration value="top-to-bottom"></enumeration>
+            <enumeration value="bottom-to-top"></enumeration>
+            <enumeration value="left-to-right"></enumeration>
+            <enumeration value="right-to-left"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="TextTypeSimpleType">
+        <restriction base="string">
+            <enumeration value="paragraph"></enumeration>
+            <enumeration value="heading"></enumeration>
+            <enumeration value="caption"></enumeration>
+            <enumeration value="header"></enumeration>
+            <enumeration value="footer"></enumeration>
+            <enumeration value="page-number"></enumeration>
+            <enumeration value="drop-capital"></enumeration>
+            <enumeration value="credit"></enumeration>
+            <enumeration value="floating"></enumeration>
+            <enumeration value="signature-mark"></enumeration>
+            <enumeration value="catch-word"></enumeration>
+            <enumeration value="marginalia"></enumeration>
+            <enumeration value="footnote"></enumeration>
+            <enumeration value="footnote-continued"></enumeration>
+            <enumeration value="endnote"></enumeration>
+            <enumeration value="TOC-entry"></enumeration>
+            <enumeration value="list-label"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="PageTypeSimpleType">
+        <restriction base="string">
+            <enumeration value="front-cover"></enumeration>
+            <enumeration value="back-cover"></enumeration>
+            <enumeration value="title"></enumeration>
+            <enumeration value="table-of-contents"></enumeration>
+            <enumeration value="index"></enumeration>
+            <enumeration value="content"></enumeration>
+            <enumeration value="blank"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="ConfSimpleType">
+        <restriction base="float">
+            <minInclusive value="0"></minInclusive>
+            <maxInclusive value="1"></maxInclusive>
+        </restriction>
+    </simpleType>
+    <simpleType name="LanguageSimpleType">
+        <annotation>
+            <documentation> ISO 639.x 2016-07-14</documentation>
+        </annotation>
+        <restriction base="string">
+            <enumeration value="Abkhaz"></enumeration>
+            <enumeration value="Afar"></enumeration>
+            <enumeration value="Afrikaans"></enumeration>
+            <enumeration value="Akan"></enumeration>
+            <enumeration value="Albanian"></enumeration>
+            <enumeration value="Amharic"></enumeration>
+            <enumeration value="Arabic"></enumeration>
+            <enumeration value="Aragonese"></enumeration>
+            <enumeration value="Armenian"></enumeration>
+            <enumeration value="Assamese"></enumeration>
+            <enumeration value="Avaric"></enumeration>
+            <enumeration value="Avestan"></enumeration>
+            <enumeration value="Aymara"></enumeration>
+            <enumeration value="Azerbaijani"></enumeration>
+            <enumeration value="Bambara"></enumeration>
+            <enumeration value="Bashkir"></enumeration>
+            <enumeration value="Basque"></enumeration>
+            <enumeration value="Belarusian"></enumeration>
+            <enumeration value="Bengali"></enumeration>
+            <enumeration value="Bihari"></enumeration>
+            <enumeration value="Bislama"></enumeration>
+            <enumeration value="Bosnian"></enumeration>
+            <enumeration value="Breton"></enumeration>
+            <enumeration value="Bulgarian"></enumeration>
+            <enumeration value="Burmese"></enumeration>
+            <enumeration value="Cambodian"></enumeration>
+            <enumeration value="Cantonese"></enumeration>
+            <enumeration value="Catalan"></enumeration>
+            <enumeration value="Chamorro"></enumeration>
+            <enumeration value="Chechen"></enumeration>
+            <enumeration value="Chichewa"></enumeration>
+            <enumeration value="Chinese"></enumeration>
+            <enumeration value="Chuvash"></enumeration>
+            <enumeration value="Cornish"></enumeration>
+            <enumeration value="Corsican"></enumeration>
+            <enumeration value="Cree"></enumeration>
+            <enumeration value="Croatian"></enumeration>
+            <enumeration value="Czech"></enumeration>
+            <enumeration value="Danish"></enumeration>
+            <enumeration value="Divehi"></enumeration>
+            <enumeration value="Dutch"></enumeration>
+            <enumeration value="Dzongkha"></enumeration>
+            <enumeration value="English"></enumeration>
+            <enumeration value="Esperanto"></enumeration>
+            <enumeration value="Estonian"></enumeration>
+            <enumeration value="Ewe"></enumeration>
+            <enumeration value="Faroese"></enumeration>
+            <enumeration value="Fijian"></enumeration>
+            <enumeration value="Finnish"></enumeration>
+            <enumeration value="French"></enumeration>
+            <enumeration value="Fula"></enumeration>
+            <enumeration value="Gaelic"></enumeration>
+            <enumeration value="Galician"></enumeration>
+            <enumeration value="Ganda"></enumeration>
+            <enumeration value="Georgian"></enumeration>
+            <enumeration value="German"></enumeration>
+            <enumeration value="Greek"></enumeration>
+            <enumeration value="Guaraní"></enumeration>
+            <enumeration value="Gujarati"></enumeration>
+            <enumeration value="Haitian"></enumeration>
+            <enumeration value="Hausa"></enumeration>
+            <enumeration value="Hebrew"></enumeration>
+            <enumeration value="Herero"></enumeration>
+            <enumeration value="Hindi"></enumeration>
+            <enumeration value="Hiri Motu"></enumeration>
+            <enumeration value="Hungarian"></enumeration>
+            <enumeration value="Icelandic"></enumeration>
+            <enumeration value="Ido"></enumeration>
+            <enumeration value="Igbo"></enumeration>
+            <enumeration value="Indonesian"></enumeration>
+            <enumeration value="Interlingua"></enumeration>
+            <enumeration value="Interlingue"></enumeration>
+            <enumeration value="Inuktitut"></enumeration>
+            <enumeration value="Inupiaq"></enumeration>
+            <enumeration value="Irish"></enumeration>
+            <enumeration value="Italian"></enumeration>
+            <enumeration value="Japanese"></enumeration>
+            <enumeration value="Javanese"></enumeration>
+            <enumeration value="Kalaallisut"></enumeration>
+            <enumeration value="Kannada"></enumeration>
+            <enumeration value="Kanuri"></enumeration>
+            <enumeration value="Kashmiri"></enumeration>
+            <enumeration value="Kazakh"></enumeration>
+            <enumeration value="Khmer"></enumeration>
+            <enumeration value="Kikuyu"></enumeration>
+            <enumeration value="Kinyarwanda"></enumeration>
+            <enumeration value="Kirundi"></enumeration>
+            <enumeration value="Komi"></enumeration>
+            <enumeration value="Kongo"></enumeration>
+            <enumeration value="Korean"></enumeration>
+            <enumeration value="Kurdish"></enumeration>
+            <enumeration value="Kwanyama"></enumeration>
+            <enumeration value="Kyrgyz"></enumeration>
+            <enumeration value="Lao"></enumeration>
+            <enumeration value="Latin"></enumeration>
+            <enumeration value="Latvian"></enumeration>
+            <enumeration value="Limburgish"></enumeration>
+            <enumeration value="Lingala"></enumeration>
+            <enumeration value="Lithuanian"></enumeration>
+            <enumeration value="Luba-Katanga"></enumeration>
+            <enumeration value="Luxembourgish"></enumeration>
+            <enumeration value="Macedonian"></enumeration>
+            <enumeration value="Malagasy"></enumeration>
+            <enumeration value="Malay"></enumeration>
+            <enumeration value="Malayalam"></enumeration>
+            <enumeration value="Maltese"></enumeration>
+            <enumeration value="Manx"></enumeration>
+            <enumeration value="Māori"></enumeration>
+            <enumeration value="Marathi"></enumeration>
+            <enumeration value="Marshallese"></enumeration>
+            <enumeration value="Mongolian"></enumeration>
+            <enumeration value="Nauru"></enumeration>
+            <enumeration value="Navajo"></enumeration>
+            <enumeration value="Ndonga"></enumeration>
+            <enumeration value="Nepali"></enumeration>
+            <enumeration value="North Ndebele"></enumeration>
+            <enumeration value="Northern Sami"></enumeration>
+            <enumeration value="Norwegian"></enumeration>
+            <enumeration value="Norwegian Bokmål"></enumeration>
+            <enumeration value="Norwegian Nynorsk"></enumeration>
+            <enumeration value="Nuosu"></enumeration>
+            <enumeration value="Occitan"></enumeration>
+            <enumeration value="Ojibwe"></enumeration>
+            <enumeration value="Old Church Slavonic"></enumeration>
+            <enumeration value="Oriya"></enumeration>
+            <enumeration value="Oromo"></enumeration>
+            <enumeration value="Ossetian"></enumeration>
+            <enumeration value="Pāli"></enumeration>
+            <enumeration value="Panjabi"></enumeration>
+            <enumeration value="Pashto"></enumeration>
+            <enumeration value="Persian"></enumeration>
+            <enumeration value="Polish"></enumeration>
+            <enumeration value="Portuguese"></enumeration>
+            <enumeration value="Punjabi"></enumeration>
+            <enumeration value="Quechua"></enumeration>
+            <enumeration value="Romanian"></enumeration>
+            <enumeration value="Romansh"></enumeration>
+            <enumeration value="Russian"></enumeration>
+            <enumeration value="Samoan"></enumeration>
+            <enumeration value="Sango"></enumeration>
+            <enumeration value="Sanskrit"></enumeration>
+            <enumeration value="Sardinian"></enumeration>
+            <enumeration value="Serbian"></enumeration>
+            <enumeration value="Shona"></enumeration>
+            <enumeration value="Sindhi"></enumeration>
+            <enumeration value="Sinhala"></enumeration>
+            <enumeration value="Slovak"></enumeration>
+            <enumeration value="Slovene"></enumeration>
+            <enumeration value="Somali"></enumeration>
+            <enumeration value="South Ndebele"></enumeration>
+            <enumeration value="Southern Sotho"></enumeration>
+            <enumeration value="Spanish"></enumeration>
+            <enumeration value="Sundanese"></enumeration>
+            <enumeration value="Swahili"></enumeration>
+            <enumeration value="Swati"></enumeration>
+            <enumeration value="Swedish"></enumeration>
+            <enumeration value="Tagalog"></enumeration>
+            <enumeration value="Tahitian"></enumeration>
+            <enumeration value="Tajik"></enumeration>
+            <enumeration value="Tamil"></enumeration>
+            <enumeration value="Tatar"></enumeration>
+            <enumeration value="Telugu"></enumeration>
+            <enumeration value="Thai"></enumeration>
+            <enumeration value="Tibetan"></enumeration>
+            <enumeration value="Tigrinya"></enumeration>
+            <enumeration value="Tonga"></enumeration>
+            <enumeration value="Tsonga"></enumeration>
+            <enumeration value="Tswana"></enumeration>
+            <enumeration value="Turkish"></enumeration>
+            <enumeration value="Turkmen"></enumeration>
+            <enumeration value="Twi"></enumeration>
+            <enumeration value="Uighur"></enumeration>
+            <enumeration value="Ukrainian"></enumeration>
+            <enumeration value="Urdu"></enumeration>
+            <enumeration value="Uzbek"></enumeration>
+            <enumeration value="Venda"></enumeration>
+            <enumeration value="Vietnamese"></enumeration>
+            <enumeration value="Volapük"></enumeration>
+            <enumeration value="Walloon"></enumeration>
+            <enumeration value="Welsh"></enumeration>
+            <enumeration value="Western Frisian"></enumeration>
+            <enumeration value="Wolof"></enumeration>
+            <enumeration value="Xhosa"></enumeration>
+            <enumeration value="Yiddish"></enumeration>
+            <enumeration value="Yoruba"></enumeration>
+            <enumeration value="Zhuang"></enumeration>
+            <enumeration value="Zulu"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+
+    <simpleType name="ScriptSimpleType">
+        <annotation>
+            <documentation> iso15924 2016-07-14</documentation>
+        </annotation>
+
+        <restriction base="string">
+            <enumeration value="Adlm - Adlam"></enumeration>
+            <enumeration value="Afak - Afaka"></enumeration>
+            <enumeration value="Aghb - Caucasian Albanian"></enumeration>
+            <enumeration value="Ahom - Ahom, Tai Ahom"></enumeration>
+            <enumeration value="Arab - Arabic"></enumeration>
+            <enumeration value="Aran - Arabic (Nastaliq variant)"></enumeration>
+            <enumeration value="Armi - Imperial Aramaic"></enumeration>
+            <enumeration value="Armn - Armenian"></enumeration>
+            <enumeration value="Avst - Avestan"></enumeration>
+            <enumeration value="Bali - Balinese"></enumeration>
+            <enumeration value="Bamu - Bamum"></enumeration>
+            <enumeration value="Bass - Bassa Vah"></enumeration>
+            <enumeration value="Batk - Batak"></enumeration>
+            <enumeration value="Beng - Bengali"></enumeration>
+            <enumeration value="Bhks - Bhaiksuki"></enumeration>
+            <enumeration value="Blis - Blissymbols"></enumeration>
+            <enumeration value="Bopo - Bopomofo"></enumeration>
+            <enumeration value="Brah - Brahmi"></enumeration>
+            <enumeration value="Brai - Braille"></enumeration>
+            <enumeration value="Bugi - Buginese"></enumeration>
+            <enumeration value="Buhd - Buhid"></enumeration>
+            <enumeration value="Cakm - Chakma"></enumeration>
+            <enumeration value="Cans - Unified Canadian Aboriginal Syllabics"></enumeration>
+            <enumeration value="Cari - Carian"></enumeration>
+            <enumeration value="Cham - Cham"></enumeration>
+            <enumeration value="Cher - Cherokee"></enumeration>
+            <enumeration value="Cirt - Cirth"></enumeration>
+            <enumeration value="Copt - Coptic"></enumeration>
+            <enumeration value="Cprt - Cypriot"></enumeration>
+            <enumeration value="Cyrl - Cyrillic"></enumeration>
+            <enumeration value="Cyrs - Cyrillic (Old Church Slavonic variant)"></enumeration>
+            <enumeration value="Deva - Devanagari (Nagari)"></enumeration>
+            <enumeration value="Dsrt - Deseret (Mormon)"></enumeration>
+            <enumeration value="Dupl - Duployan shorthand, Duployan stenography"></enumeration>
+            <enumeration value="Egyd - Egyptian demotic"></enumeration>
+            <enumeration value="Egyh - Egyptian hieratic"></enumeration>
+            <enumeration value="Egyp - Egyptian hieroglyphs"></enumeration>
+            <enumeration value="Elba - Elbasan"></enumeration>
+            <enumeration value="Ethi - Ethiopic"></enumeration>
+            <enumeration value="Geok - Khutsuri (Asomtavruli and Nuskhuri)"></enumeration>
+            <enumeration value="Geor - Georgian (Mkhedruli)"></enumeration>
+            <enumeration value="Glag - Glagolitic"></enumeration>
+            <enumeration value="Goth - Gothic"></enumeration>
+            <enumeration value="Gran - Grantha"></enumeration>
+            <enumeration value="Grek - Greek"></enumeration>
+            <enumeration value="Gujr - Gujarati"></enumeration>
+            <enumeration value="Guru - Gurmukhi"></enumeration>
+            <enumeration value="Hanb - Han with Bopomofo"></enumeration>
+            <enumeration value="Hang - Hangul"></enumeration>
+            <enumeration value="Hani - Han (Hanzi, Kanji, Hanja)"></enumeration>
+            <enumeration value="Hano - Hanunoo (Hanunóo)"></enumeration>
+            <enumeration value="Hans - Han (Simplified variant)"></enumeration>
+            <enumeration value="Hant - Han (Traditional variant)"></enumeration>
+            <enumeration value="Hatr - Hatran"></enumeration>
+            <enumeration value="Hebr - Hebrew"></enumeration>
+            <enumeration value="Hira - Hiragana"></enumeration>
+            <enumeration value="Hluw - Anatolian Hieroglyphs"></enumeration>
+            <enumeration value="Hmng - Pahawh Hmong"></enumeration>
+            <enumeration value="Hrkt - Japanese syllabaries"></enumeration>
+            <enumeration value="Hung - Old Hungarian (Hungarian Runic)"></enumeration>
+            <enumeration value="Inds - Indus (Harappan)"></enumeration>
+            <enumeration value="Ital - Old Italic (Etruscan, Oscan etc.)"></enumeration>
+            <enumeration value="Jamo - Jamo"></enumeration>
+            <enumeration value="Java - Javanese"></enumeration>
+            <enumeration value="Jpan - Japanese"></enumeration>
+            <enumeration value="Jurc - Jurchen"></enumeration>
+            <enumeration value="Kali - Kayah Li"></enumeration>
+            <enumeration value="Kana - Katakana"></enumeration>
+            <enumeration value="Khar - Kharoshthi"></enumeration>
+            <enumeration value="Khmr - Khmer"></enumeration>
+            <enumeration value="Khoj - Khojki"></enumeration>
+            <enumeration value="Kitl - Khitan large script"></enumeration>
+            <enumeration value="Kits - Khitan small script"></enumeration>
+            <enumeration value="Knda - Kannada"></enumeration>
+            <enumeration value="Kore - Korean (alias for Hangul + Han)"></enumeration>
+            <enumeration value="Kpel - Kpelle"></enumeration>
+            <enumeration value="Kthi - Kaithi"></enumeration>
+            <enumeration value="Lana - Tai Tham (Lanna)"></enumeration>
+            <enumeration value="Laoo - Lao"></enumeration>
+            <enumeration value="Latf - Latin (Fraktur variant)"></enumeration>
+            <enumeration value="Latg - Latin (Gaelic variant)"></enumeration>
+            <enumeration value="Latn - Latin"></enumeration>
+            <enumeration value="Leke - Leke"></enumeration>
+            <enumeration value="Lepc - Lepcha (Róng)"></enumeration>
+            <enumeration value="Limb - Limbu"></enumeration>
+            <enumeration value="Lina - Linear A"></enumeration>
+            <enumeration value="Linb - Linear B"></enumeration>
+            <enumeration value="Lisu - Lisu (Fraser)"></enumeration>
+            <enumeration value="Loma - Loma"></enumeration>
+            <enumeration value="Lyci - Lycian"></enumeration>
+            <enumeration value="Lydi - Lydian"></enumeration>
+            <enumeration value="Mahj - Mahajani"></enumeration>
+            <enumeration value="Mand - Mandaic, Mandaean"></enumeration>
+            <enumeration value="Mani - Manichaean"></enumeration>
+            <enumeration value="Marc - Marchen"></enumeration>
+            <enumeration value="Maya - Mayan hieroglyphs"></enumeration>
+            <enumeration value="Mend - Mende Kikakui"></enumeration>
+            <enumeration value="Merc - Meroitic Cursive"></enumeration>
+            <enumeration value="Mero - Meroitic Hieroglyphs"></enumeration>
+            <enumeration value="Mlym - Malayalam"></enumeration>
+            <enumeration value="Modi - Modi, Moḍī"></enumeration>
+            <enumeration value="Mong - Mongolian"></enumeration>
+            <enumeration value="Moon - Moon (Moon code, Moon script, Moon type)"></enumeration>
+            <enumeration value="Mroo - Mro, Mru"></enumeration>
+            <enumeration value="Mtei - Meitei Mayek (Meithei, Meetei)"></enumeration>
+            <enumeration value="Mult - Multani"></enumeration>
+            <enumeration value="Mymr - Myanmar (Burmese)"></enumeration>
+            <enumeration value="Narb - Old North Arabian (Ancient North Arabian)"></enumeration>
+            <enumeration value="Nbat - Nabataean"></enumeration>
+            <enumeration value="Newa - Newa, Newar, Newari"></enumeration>
+            <enumeration value="Nkgb - Nakhi Geba"></enumeration>
+            <enumeration value="Nkoo - N’Ko"></enumeration>
+            <enumeration value="Nshu - Nüshu"></enumeration>
+            <enumeration value="Ogam - Ogham"></enumeration>
+            <enumeration value="Olck - Ol Chiki (Ol Cemet’, Ol, Santali)"></enumeration>
+            <enumeration value="Orkh - Old Turkic, Orkhon Runic"></enumeration>
+            <enumeration value="Orya - Oriya"></enumeration>
+            <enumeration value="Osge - Osage"></enumeration>
+            <enumeration value="Osma - Osmanya"></enumeration>
+            <enumeration value="Palm - Palmyrene"></enumeration>
+            <enumeration value="Pauc - Pau Cin Hau"></enumeration>
+            <enumeration value="Perm - Old Permic"></enumeration>
+            <enumeration value="Phag - Phags-pa"></enumeration>
+            <enumeration value="Phli - Inscriptional Pahlavi"></enumeration>
+            <enumeration value="Phlp - Psalter Pahlavi"></enumeration>
+            <enumeration value="Phlv - Book Pahlavi"></enumeration>
+            <enumeration value="Phnx - Phoenician"></enumeration>
+            <enumeration value="Piqd - Klingon (KLI pIqaD)"></enumeration>
+            <enumeration value="Plrd - Miao (Pollard)"></enumeration>
+            <enumeration value="Prti - Inscriptional Parthian"></enumeration>
+            <enumeration value="Rjng - Rejang (Redjang, Kaganga)"></enumeration>
+            <enumeration value="Roro - Rongorongo"></enumeration>
+            <enumeration value="Runr - Runic"></enumeration>
+            <enumeration value="Samr - Samaritan"></enumeration>
+            <enumeration value="Sara - Sarati"></enumeration>
+            <enumeration value="Sarb - Old South Arabian"></enumeration>
+            <enumeration value="Saur - Saurashtra"></enumeration>
+            <enumeration value="Sgnw - SignWriting"></enumeration>
+            <enumeration value="Shaw - Shavian (Shaw)"></enumeration>
+            <enumeration value="Shrd - Sharada, Śāradā"></enumeration>
+            <enumeration value="Sidd - Siddham"></enumeration>
+            <enumeration value="Sind - Khudawadi, Sindhi"></enumeration>
+            <enumeration value="Sinh - Sinhala"></enumeration>
+            <enumeration value="Sora - Sora Sompeng"></enumeration>
+            <enumeration value="Sund - Sundanese"></enumeration>
+            <enumeration value="Sylo - Syloti Nagri"></enumeration>
+            <enumeration value="Syrc - Syriac"></enumeration>
+            <enumeration value="Syre - Syriac (Estrangelo variant)"></enumeration>
+            <enumeration value="Syrj - Syriac (Western variant)"></enumeration>
+            <enumeration value="Syrn - Syriac (Eastern variant)"></enumeration>
+            <enumeration value="Tagb - Tagbanwa"></enumeration>
+            <enumeration value="Takr - Takri"></enumeration>
+            <enumeration value="Tale - Tai Le"></enumeration>
+            <enumeration value="Talu - New Tai Lue"></enumeration>
+            <enumeration value="Taml - Tamil"></enumeration>
+            <enumeration value="Tang - Tangut"></enumeration>
+            <enumeration value="Tavt - Tai Viet"></enumeration>
+            <enumeration value="Telu - Telugu"></enumeration>
+            <enumeration value="Teng - Tengwar"></enumeration>
+            <enumeration value="Tfng - Tifinagh (Berber)"></enumeration>
+            <enumeration value="Tglg - Tagalog (Baybayin, Alibata)"></enumeration>
+            <enumeration value="Thaa - Thaana"></enumeration>
+            <enumeration value="Thai - Thai"></enumeration>
+            <enumeration value="Tibt - Tibetan"></enumeration>
+            <enumeration value="Tirh - Tirhuta"></enumeration>
+            <enumeration value="Ugar - Ugaritic"></enumeration>
+            <enumeration value="Vaii - Vai"></enumeration>
+            <enumeration value="Visp - Visible Speech"></enumeration>
+            <enumeration value="Wara - Warang Citi (Varang Kshiti)"></enumeration>
+            <enumeration value="Wole - Woleai"></enumeration>
+            <enumeration value="Xpeo - Old Persian"></enumeration>
+            <enumeration value="Xsux - Cuneiform, Sumero-Akkadian"></enumeration>
+            <enumeration value="Yiii - Yi"></enumeration>
+            <enumeration value="Zinh - Code for inherited script"></enumeration>
+            <enumeration value="Zmth - Mathematical notation"></enumeration>
+            <enumeration value="Zsye - Symbols (Emoji variant)"></enumeration>
+            <enumeration value="Zsym - Symbols"></enumeration>
+            <enumeration value="Zxxx - Code for unwritten documents"></enumeration>
+            <enumeration value="Zyyy - Code for undetermined script"></enumeration>
+            <enumeration value="Zzzz - Code for uncoded script"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="ColourDepthSimpleType">
+        <restriction base="string">
+            <enumeration value="bilevel"></enumeration>
+            <enumeration value="greyscale"></enumeration>
+            <enumeration value="colour"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="GraphicsTypeSimpleType">
+        <restriction base="string">
+            <enumeration value="logo"></enumeration>
+            <enumeration value="letterhead"></enumeration>
+            <enumeration value="decoration"></enumeration>
+            <enumeration value="frame"></enumeration>
+            <enumeration value="handwritten-annotation"></enumeration>
+            <enumeration value="stamp"></enumeration>
+            <enumeration value="signature"></enumeration>
+            <enumeration value="barcode"></enumeration>
+            <enumeration value="paper-grow"></enumeration>
+            <enumeration value="punch-hole"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="ChartTypeSimpleType">
+        <restriction base="string">
+            <enumeration value="bar"></enumeration>
+            <enumeration value="line"></enumeration>
+            <enumeration value="pie"></enumeration>
+            <enumeration value="scatter"></enumeration>
+            <enumeration value="surface"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+
+    <complexType name="LayersType">
+        <annotation>
+            <documentation>
+                Can be used to express the z-index of overlapping
+                regions. An element with a greater z-index is always in
+                front of another element with lower z-index.
+            </documentation>
+        </annotation>
+        <sequence minOccurs="1" maxOccurs="unbounded">
+            <element name="Layer" type="pc:LayerType"></element>
+        </sequence>
+    </complexType>
+
+
+    <complexType name="LayerType">
+        <sequence minOccurs="1" maxOccurs="unbounded">
+            <element name="RegionRef" type="pc:RegionRefType"></element>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="zIndex" type="int" use="required"></attribute>
+        <attribute name="caption" type="string"></attribute>
+    </complexType>
+
+
+    <complexType name="BaselineType">
+        <attribute name="points" type="pc:PointsType" use="required"></attribute>
+        <attribute name="conf" type="pc:ConfSimpleType" use="optional">
+            <annotation>
+                <documentation>Confidence value (between 0 and 1)</documentation>
+            </annotation>
+        </attribute>
+    </complexType>
+
+    <simpleType name="PointsType">
+        <annotation>
+            <documentation>Point list with format "x1,y1 x2,y2 ..."</documentation>
+        </annotation>
+        <restriction base="string">
+            <pattern value="([0-9]+,[0-9]+ )+([0-9]+,[0-9]+)"></pattern>
+        </restriction>
+    </simpleType>
+
+    <complexType name="RelationsType">
+        <annotation>
+            <documentation>
+                Container for one-to-one relations between layout
+                objects (for example: DropCap - paragraph, caption -
+                image)
+            </documentation>
+        </annotation>
+        <sequence minOccurs="1" maxOccurs="unbounded">
+            <element name="Relation" type="pc:RelationType"></element>
+        </sequence>
+    </complexType>
+
+    <complexType name="RelationType">
+        <annotation>
+            <documentation>
+                One-to-one relation between to layout object. Use 'link'
+                for loose relations and 'join' for strong relations
+                (where something is fragmented for instance).
+
+                Examples for 'link': caption - image floating -
+                paragraph paragraph - paragraph (when a paragraph is
+                split across columns and the last word of the first
+                paragraph DOES NOT continue in the second paragraph)
+                drop-cap - paragraph (when the drop-cap is a whole word)
+
+                Examples for 'join': word - word (separated word at the
+                end of a line) drop-cap - paragraph (when the drop-cap
+                is not a whole word) paragraph - paragraph (when a
+                pragraph is split across columns and the last word of
+                the first paragraph DOES continue in the second
+                paragraph)
+            </documentation>
+        </annotation>
+
+        <sequence>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+            <element name="SourceRegionRef" type="pc:RegionRefType" minOccurs="1" maxOccurs="1"></element>
+            <element name="TargetRegionRef" type="pc:RegionRefType" minOccurs="1" maxOccurs="1"></element>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="type" use="optional">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="link"></enumeration>
+                    <enumeration value="join"></enumeration>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="custom" type="string">
+            <annotation>
+                <documentation>For generic use</documentation></annotation></attribute>
+        <attribute name="comments" type="string"></attribute>
+    </complexType>
+
+    <simpleType name="ProductionSimpleType">
+        <annotation>
+            <documentation>Text production type</documentation>
+        </annotation>
+        <restriction base="string">
+            <enumeration value="printed"></enumeration>
+            <enumeration value="typewritten"></enumeration>
+            <enumeration value="handwritten-cursive"></enumeration>
+            <enumeration value="handwritten-printscript"></enumeration>
+            <enumeration value="medieval-manuscript"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+
+    <complexType name="TextStyleType">
+        <annotation>
+            <documentation>
+                Monospace (fixed-pitch, non-proportional) or
+                proportional font
+            </documentation>
+        </annotation>
+        <attribute name="fontFamily" type="string">
+            <annotation>
+                <documentation>
+                    For instance: Arial, Times New Roman. Add more
+                    information if necessary (e.g. blackletter,
+                    antiqua).
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="serif" type="boolean">
+            <annotation>
+                <documentation>
+                    Serif or sans-serif typeface
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="monospace" type="boolean"></attribute>
+        <attribute name="fontSize" type="float">
+            <annotation>
+                <documentation>
+                    The size of the characters in points
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="xHeight" type="integer" use="optional">
+            <annotation>
+                <documentation>The x-height or corpus size refers to the distance between the baseline and the mean line of lower-case letters in a typeface. The unit is assumed to be pixels.</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="kerning" type="int">
+            <annotation>
+                <documentation>
+                    The degree of space (in points) between the
+                    characters in a string of text
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="textColour" type="pc:ColourSimpleType"></attribute>
+        <attribute name="textColourRgb" type="integer">
+            <annotation>
+                <documentation>Text colour in RGB encoded format (red value) + (256 x green value) + (65536 x blue value)</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="bgColour" type="pc:ColourSimpleType">
+            <annotation>
+                <documentation>Background colour</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="bgColourRgb" type="integer">
+            <annotation>
+                <documentation>Background colour in RGB encoded format (red value) + (256 x green value) + (65536 x blue value)</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="reverseVideo" type="boolean">
+            <annotation>
+                <documentation>
+                    Specifies whether the colour of the text appears
+                    reversed against a background colour
+                </documentation>
+            </annotation>
+        </attribute>
+        <attribute name="bold" type="boolean"></attribute>
+        <attribute name="italic" type="boolean"></attribute>
+        <attribute name="underlined" type="boolean"></attribute>
+        <attribute name="subscript" type="boolean"></attribute>
+        <attribute name="superscript" type="boolean"></attribute>
+        <attribute name="strikethrough" type="boolean"></attribute>
+        <attribute name="smallCaps" type="boolean"></attribute>
+        <attribute name="letterSpaced" type="boolean"></attribute>
+    </complexType>
+
+    <complexType name="RegionType" abstract="true">
+        <sequence>
+            <element name="AlternativeImage"
+                     type="pc:AlternativeImageType" minOccurs="0"
+                     maxOccurs="unbounded">
+                <annotation>
+                    <documentation>
+                        Alternative region images (e.g.
+                        black-and-white)
+                    </documentation>
+                </annotation>
+            </element>
+            <element name="Coords" type="pc:CoordsType"></element>
+            <element name="UserDefined" type="pc:UserDefinedType"
+                     minOccurs="0" maxOccurs="1">
+            </element>
+            <element name="Labels" type="pc:LabelsType" minOccurs="0" maxOccurs="unbounded">
+                <annotation>
+                    <documentation>Semantic labels / tags</documentation>
+                </annotation>
+            </element>
+            <element name="Roles" type="pc:RolesType" minOccurs="0"
+                     maxOccurs="1">
+                <annotation>
+                    <documentation>
+                        Roles the region takes (e.g. in context of a
+                        parent region)
+                    </documentation>
+                </annotation>
+            </element>
+            <choice minOccurs="0" maxOccurs="unbounded">
+                <element name="TextRegion" type="pc:TextRegionType"></element>
+                <element name="ImageRegion" type="pc:ImageRegionType"></element>
+                <element name="LineDrawingRegion"
+                         type="pc:LineDrawingRegionType">
+                </element>
+                <element name="GraphicRegion"
+                         type="pc:GraphicRegionType">
+                </element>
+                <element name="TableRegion" type="pc:TableRegionType"></element>
+                <element name="ChartRegion" type="pc:ChartRegionType"></element>
+                <element name="SeparatorRegion"
+                         type="pc:SeparatorRegionType">
+                </element>
+                <element name="MathsRegion" type="pc:MathsRegionType"></element>
+                <element name="ChemRegion" type="pc:ChemRegionType"></element>
+                <element name="MusicRegion" type="pc:MusicRegionType"></element>
+                <element name="AdvertRegion"
+                         type="pc:AdvertRegionType">
+                </element>
+                <element name="NoiseRegion" type="pc:NoiseRegionType"></element>
+                <element name="UnknownRegion"
+                         type="pc:UnknownRegionType">
+                </element>
+                <element name="CustomRegion"
+                         type="pc:CustomRegionType">
+                </element>
+            </choice>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="custom" type="string">
+            <annotation>
+                <documentation>For generic use</documentation>
+            </annotation>
+        </attribute>
+        <attribute name="comments" type="string"></attribute>
+        <attribute name="continuation" type="boolean">
+            <annotation>
+                <documentation>Is this region a continuation of another region (in previous column or page, for example)?</documentation>
+            </annotation></attribute>
+    </complexType>
+
+    <complexType name="AlternativeImageType">
+        <attribute name="filename" type="string" use="required"></attribute>
+        <attribute name="comments" type="string"></attribute>
+        <attribute name="conf" type="pc:ConfSimpleType" use="optional">
+            <annotation>
+                <documentation>Confidence value (between 0 and 1)</documentation>
+            </annotation>
+        </attribute>
+    </complexType>
+
+    <simpleType name="AlignSimpleType">
+        <restriction base="string">
+            <enumeration value="left"></enumeration>
+            <enumeration value="centre"></enumeration>
+            <enumeration value="right"></enumeration>
+            <enumeration value="justify"></enumeration>
+        </restriction>
+    </simpleType>
+    <simpleType name="GroupTypeSimpleType">
+        <restriction base="string">
+            <enumeration value="paragraph"></enumeration>
+            <enumeration value="list"></enumeration>
+            <enumeration value="list-item"></enumeration>
+            <enumeration value="figure"></enumeration>
+            <enumeration value="article"></enumeration>
+            <enumeration value="div"></enumeration>
+            <enumeration value="other"></enumeration>
+        </restriction>
+    </simpleType>
+
+    <simpleType name="TextDataTypeSimpleType">
+        <restriction base="string">
+            <enumeration value="xsd:decimal">
+                <annotation>
+                    <documentation>Examples: "123.456", "+1234.456", "-1234.456", "-.456", "-456"</documentation>
+                </annotation></enumeration>
+            <enumeration value="xsd:float">
+                <annotation>
+                    <documentation>Examples: "123.456", "+1234.456", "-1.2344e56", "-.45E-6", "INF", "-INF", "NaN"</documentation>
+                </annotation></enumeration>
+            <enumeration value="xsd:integer">
+                <annotation>
+                    <documentation>Examples: "123456", "+00000012", "-1", "-456"</documentation>
+                </annotation></enumeration>
+            <enumeration value="xsd:boolean">
+                <annotation>
+                    <documentation>Examples: "true", "false", "1", "0"</documentation>
+                </annotation></enumeration>
+            <enumeration value="xsd:date">
+                <annotation>
+                    <documentation>Examples: "2001-10-26", "2001-10-26+02:00", "2001-10-26Z", "2001-10-26+00:00", "-2001-10-26", "-20000-04-01"</documentation>
+                </annotation></enumeration>
+            <enumeration value="xsd:time">
+                <annotation>
+                    <documentation>Examples: "21:32:52", "21:32:52+02:00", "19:32:52Z", "19:32:52+00:00", "21:32:52.12679"</documentation>
+                </annotation></enumeration>
+            <enumeration value="xsd:dateTime">
+                <annotation>
+                    <documentation>Examples: "2001-10-26T21:32:52", "2001-10-26T21:32:52+02:00", "2001-10-26T19:32:52Z", "2001-10-26T19:32:52+00:00", "-2001-10-26T21:32:52", "2001-10-26T21:32:52.12679"</documentation>
+                </annotation></enumeration>
+            <enumeration value="xsd:string">
+                <annotation>
+                    <documentation>Generic text string</documentation>
+                </annotation></enumeration>
+            <enumeration value="other">
+                <annotation>
+                    <documentation>An XSD type that is not listed or a custom type (use dataTypeDetails attribute)</documentation>
+                </annotation></enumeration>
+        </restriction>
+    </simpleType>
+
+    <!-- <simpleType name="TextMergeRuleSimpleType">
+    <restriction base="string">
+        <enumeration value="no-whitespace">
+            <annotation>
+                <documentation>Concatenate text without adding anything</documentation>
+            </annotation></enumeration>
+        <enumeration value="add-space">
+            <annotation>
+                <documentation>Adds a single space character between the text two parts</documentation>
+            </annotation></enumeration>
+        <enumeration value="add-tab">
+            <annotation>
+                <documentation>Adds a single tab character between the text two parts</documentation>
+            </annotation></enumeration>
+        <enumeration value="add-line-break">
+            <annotation>
+                <documentation>Adds a single line break character between the text two parts</documentation>
+            </annotation></enumeration>
+        <enumeration value="add-custom">
+            <annotation>
+                <documentation>Adds a user-defined string between the two text parts (specify in merge rule data)</documentation>
+            </annotation></enumeration>
+        <enumeration value="remove-last">
+            <annotation>
+                <documentation>Removes the last character of the first text part (e.g. remove hyphen)</documentation>
+            </annotation></enumeration>
+        <enumeration value="remove-multiple">
+            <annotation>
+                <documentation>Removes the last x characters from the first text part (specify number in merge rule data)</documentation>
+            </annotation></enumeration>
+        <enumeration value="remove-all">
+            <annotation>
+                <documentation>Ignores the first text part completely (e.g. for drop caps that are repeated in the following paragraph)</documentation>
+            </annotation></enumeration>
+    </restriction>
+</simpleType> -->
+
+    <complexType name="GraphemesType">
+        <annotation>
+            <documentation>
+                Container for graphemes, grapheme groups and
+                non-printing characters
+            </documentation>
+        </annotation>
+        <choice minOccurs="1" maxOccurs="unbounded">
+            <element name="Grapheme" type="pc:GraphemeType"></element>
+            <element name="NonPrintingChar" type="pc:NonPrintingCharType"></element>
+            <element name="GraphemeGroup" type="pc:GraphemeGroupType"></element>
+        </choice>
+    </complexType>
+
+    <complexType name="GraphemeBaseType">
+        <annotation>
+            <documentation>Base type for graphemes, grapheme groups and non-printing characters</documentation>
+        </annotation>
+        <sequence>
+            <element name="TextEquiv" type="pc:TextEquivType"
+                     minOccurs="0" maxOccurs="unbounded">
+            </element>
+        </sequence>
+        <attribute name="id" type="ID" use="required"></attribute>
+        <attribute name="index" use="required">
+            <annotation>
+                <documentation>Order index of grapheme, group, or non-printing character within the parent container (graphemes or glyph or grapheme group)</documentation>
+            </annotation>
+            <simpleType>
+                <restriction base="int">
+                    <minInclusive value="0"></minInclusive>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="ligature" type="boolean"></attribute>
+        <attribute name="charType">
+            <annotation>
+                <documentation>Type of character represented by the grapheme/group/non-printing character element</documentation>
+            </annotation>
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="base"></enumeration>
+                    <enumeration value="combining"></enumeration>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="custom" type="string">
+            <annotation>
+                <documentation>For generic use</documentation></annotation></attribute>
+        <attribute name="comments" type="string">
+            <annotation>
+                <documentation>For generic use</documentation></annotation></attribute>
+    </complexType>
+
+    <complexType name="GraphemeType">
+        <annotation>
+            <documentation>Represents a sub-element of a glyph. Smallest graphical unit that can be assigned a Unicode code point</documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:GraphemeBaseType">
+                <sequence>
+                    <element name="Coords" type="pc:CoordsType"></element>
+                </sequence>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <complexType name="NonPrintingCharType">
+        <annotation>
+            <documentation>A glyph component without visual representation but with Unicode code point. Non-visual / non-printing / control character. Part of grapheme container (of glyph) or grapheme sub group.</documentation>
+        </annotation>
+        <complexContent>
+            <extension base="pc:GraphemeBaseType"></extension>
+        </complexContent>
+    </complexType>
+
+    <complexType name="GraphemeGroupType">
+        <complexContent>
+            <extension base="pc:GraphemeBaseType">
+                <choice minOccurs="0" maxOccurs="unbounded">
+                    <element name="Grapheme" type="pc:GraphemeType"></element>
+                    <element name="NonPrintingChar"
+                             type="pc:NonPrintingCharType">
+                    </element>
+                </choice>
+            </extension>
+        </complexContent>
+    </complexType>
+
+    <complexType name="UserDefinedType">
+        <annotation>
+            <documentation>Container for user-defined attributes</documentation>
+        </annotation>
+        <sequence>
+            <element name="UserAttribute" type="pc:UserAttributeType" minOccurs="1" maxOccurs="unbounded"></element>
+        </sequence>
+    </complexType>
+
+    <complexType name="UserAttributeType">
+        <annotation>
+            <documentation>Structured custom data defined by name, type and value.</documentation>
+        </annotation>
+        <attribute name="name" type="string"></attribute>
+        <attribute name="description" type="string"></attribute>
+        <attribute name="type">
+            <simpleType>
+                <restriction base="string">
+                    <enumeration value="xsd:string"></enumeration>
+                    <enumeration value="xsd:integer"></enumeration>
+                    <enumeration value="xsd:boolean"></enumeration>
+                    <enumeration value="xsd:float"></enumeration>
+                </restriction>
+            </simpleType>
+        </attribute>
+        <attribute name="value" type="string"></attribute>
+    </complexType>
+
+    <complexType name="TableCellRoleType">
+        <attribute name="rowIndex" type="int" use="required">
+            <annotation>
+                <documentation>Cell position in table starting with row 0</documentation>
+            </annotation></attribute>
+        <attribute name="columnIndex" type="int" use="required">
+            <annotation>
+                <documentation>Cell position in table starting with column 0</documentation>
+            </annotation></attribute>
+        <attribute name="rowSpan" type="int" use="optional">
+            <annotation>
+                <documentation>Number of rows the cell spans (optional; default is 1)</documentation>
+            </annotation></attribute>
+        <attribute name="colSpan" type="int" use="optional">
+            <annotation>
+                <documentation>Number of columns the cell spans (optional; default is 1)</documentation>
+            </annotation></attribute>
+        <attribute name="header" type="boolean" use="optional">
+            <annotation>
+                <documentation>
+                    Is the cell a column or row header?
+                </documentation>
+            </annotation>
+        </attribute>
+    </complexType>
+
+    <complexType name="RolesType">
+        <sequence>
+            <element name="TableCellRole" type="pc:TableCellRoleType" minOccurs="0" maxOccurs="1">
+                <annotation>
+                    <documentation>Data for a region that takes on the role of a table cell within a parent table region</documentation>
+                </annotation></element>
+        </sequence>
+    </complexType>
+</schema>

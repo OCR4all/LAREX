@@ -7,6 +7,7 @@ import {
   LazyProjectSlideoverPdfPrefix,
   LazyProjectSlideoverEdit,
   LazyProjectSlideoverBulkDeletePages,
+  LazyProjectSlideoverXmlEditor,
   LazyUiDeleteSlideover,
   LazyEditorVersionHistorySlideover,
   LazyShareSlideover } from '#components'
@@ -876,6 +877,7 @@ const projectShareSlideover = overlay.create(LazyShareSlideover, {
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePages)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
+const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 
 const router = useRouter()
 const isDeletingProject = ref(false)
@@ -1454,6 +1456,7 @@ const pageColumns: TableColumn<Page>[] = [
       items: [
         { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked, onSelect: () => openEditModal(row.original) },
         { label: 'View Images', icon: 'i-lucide-images', disabled: row.original.imageCount === 0, onSelect: () => openImageModal(row.original) },
+        { label: 'View/Edit XML', icon: 'i-lucide-file-pen-line', disabled: row.original.xmlFileCount === 0, onSelect: () => openXmlEditor(row.original) },
         { label: 'Export XML', icon: 'i-lucide-file-code-2', disabled: row.original.xmlFileCount === 0, onSelect: () => exportPageXml(row.original) },
         { label: 'Version History', icon: 'i-lucide-history', disabled: row.original.xmlFileCount === 0, onSelect: () => openVersionHistory(row.original) },
         { type: 'separator' },
@@ -1533,6 +1536,43 @@ async function openVersionHistory(page: Page) {
     toast.add({
       title: 'Error',
       description: 'Failed to load XML files for this page.',
+      color: 'error'
+    })
+  }
+}
+
+async function openXmlEditor(page: Page) {
+  try {
+    const xmlFiles = await $fetch<Array<{ id: string, schema: string }>>(`/api/projects/${projectId}/pages/${page.id}/xml`)
+    if (!xmlFiles?.length) {
+      toast.add({
+        title: 'No XML files',
+        description: 'This page has no XML annotation files.',
+        color: 'warning'
+      })
+      return
+    }
+
+    const pageXml = xmlFiles.find(xml => xml.schema === 'PAGE_XML')
+    if (!pageXml) {
+      toast.add({
+        title: 'No PAGE XML',
+        description: 'This page has no PAGE XML file to edit.',
+        color: 'warning'
+      })
+      return
+    }
+
+    xmlEditorSlideover.open({
+      projectId,
+      pageId: page.id,
+      xmlId: pageXml.id,
+      pageName: page.name
+    })
+  } catch {
+    toast.add({
+      title: 'Error',
+      description: 'Failed to load PAGE XML for this page.',
       color: 'error'
     })
   }

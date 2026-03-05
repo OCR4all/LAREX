@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.page;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PaginatedResponse;
+import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.SubtaskDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.TagSetDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
@@ -12,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusRe
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlRawEditService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,17 +49,20 @@ public class PageController {
     private final PageFilterIndexService pageFilterIndexService;
     private final PageIndexStatusReadService pageIndexStatusReadService;
     private final TagLookupService tagLookupService;
+    private final PageXmlRawEditService pageXmlRawEditService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
     public PageController(PageService pageService, SubtaskService subtaskService, PageFilterIndexService pageFilterIndexService,
-                          PageIndexStatusReadService pageIndexStatusReadService, TagLookupService tagLookupService) {
+                          PageIndexStatusReadService pageIndexStatusReadService, TagLookupService tagLookupService,
+                          PageXmlRawEditService pageXmlRawEditService) {
         this.pageService = pageService;
         this.subtaskService = subtaskService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.pageIndexStatusReadService = pageIndexStatusReadService;
         this.tagLookupService = tagLookupService;
+        this.pageXmlRawEditService = pageXmlRawEditService;
     }
 
     @GetMapping
@@ -329,6 +334,72 @@ public class PageController {
                 .map(this::mapToXmlResponse)
                 .toList();
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{pageId}/xml/{xmlId}/text")
+    public ResponseEntity<PageXmlTextDto.XmlTextResponse> getXmlText(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @PathVariable String xmlId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        try {
+            PageXmlTextDto.XmlTextResponse response = pageXmlRawEditService.getXmlText(projectId, pageId, xmlId, userId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (UnsupportedOperationException e) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/{pageId}/xml/{xmlId}/validate")
+    public ResponseEntity<PageXmlTextDto.XmlValidationResult> validateXmlText(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @PathVariable String xmlId,
+            @Valid @RequestBody PageXmlTextDto.ValidateRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        try {
+            // Authorization and path consistency check.
+            pageXmlRawEditService.assertPageXmlAccess(projectId, pageId, xmlId, userId);
+            PageXmlTextDto.XmlValidationResult validation = pageXmlRawEditService.validateXmlText(request.xml());
+            return ResponseEntity.ok(validation);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (UnsupportedOperationException e) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        }
+    }
+
+    @PutMapping("/{pageId}/xml/{xmlId}/text")
+    public ResponseEntity<?> saveXmlText(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @PathVariable String xmlId,
+            @Valid @RequestBody PageXmlTextDto.SaveRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        try {
+            PageXmlTextDto.XmlValidationResult validation = pageXmlRawEditService.saveXmlText(
+                    projectId,
+                    pageId,
+                    xmlId,
+                    request.xml(),
+                    request.comment(),
+                    userId
+            );
+            if (!validation.valid()) {
+                return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(validation);
+            }
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        } catch (UnsupportedOperationException e) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     private PageDto.XmlResponse mapToXmlResponse(PageXml xml) {
