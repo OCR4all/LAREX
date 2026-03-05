@@ -290,11 +290,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <UModal
+  <USlideover
     v-bind="attrs"
+    side="right"
+    :dismissible="!lightboxOpen"
     :close="{ onClick: () => { if (!lightboxOpen) emit('close', false) } }"
-    fullscreen
-    :ui="{ content: 'flex flex-col' }"
+    :ui="{ content: 'w-full max-w-[96vw] sm:max-w-[92vw] flex flex-col' }"
   >
     <template #header>
       <div class="flex items-center justify-between w-full gap-4">
@@ -586,7 +587,7 @@ onUnmounted(() => {
         </UButton>
       </div>
     </template>
-  </UModal>
+  </USlideover>
 </template>
 
 <style scoped>
