@@ -2,7 +2,7 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import { globalKey } from '~/utils/fetch-keys'
-import { LazyWorkspaceSlideoverCreate, LazyWorkspaceSlideoverInviteMember, LazyUiDeleteSlideover } from '#components'
+import { LazyWorkspaceSlideoverCreate, LazyUiDeleteSlideover } from '#components'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
@@ -11,10 +11,10 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
 const toast = useToast()
 const overlay = useOverlay()
 const workspaceStore = useWorkspaceStore()
+const { refreshWorkspaceList } = useDataRefresh()
 const { user } = useUserSession()
 
 const createWorkspaceSlideover = overlay.create(LazyWorkspaceSlideoverCreate)
-const inviteMemberSlideover = overlay.create(LazyWorkspaceSlideoverInviteMember)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 interface Workspace {
@@ -26,7 +26,7 @@ interface Workspace {
   type: 'personal' | 'team'
 }
 
-const { data: workspaces, refresh } = await useFetch<Workspace[]>('/api/workspaces', {
+const { data: workspaces } = await useFetch<Workspace[]>('/api/workspaces', {
   key: globalKey('workspaces', 'list'),
   default: () => []
 })
@@ -171,8 +171,7 @@ async function openDeleteSlideover(ws: WorkspaceRow) {
   try {
     await $fetch(`/api/workspaces/${ws.id}`, { method: 'DELETE' })
     toast.add({ title: 'Workspace deleted', color: 'success' })
-    await refresh()
-    await workspaceStore.refreshWorkspaces()
+    await refreshWorkspaceList()
   } catch (err: any) {
     toast.add({ title: 'Failed to delete', description: err?.data?.message || 'An error occurred', color: 'error' })
   }
@@ -190,7 +189,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
   try {
     await $fetch(`/api/workspaces/${ws.id}/leave`, { method: 'POST' })
     toast.add({ title: 'Left workspace', color: 'success' })
-    await refresh()
+    await refreshWorkspaceList()
   } catch {
     toast.add({ title: 'Failed to leave workspace', color: 'error' })
   }

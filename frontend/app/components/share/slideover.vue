@@ -18,6 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [], transferred: [] }>()
 
 const toast = useToast()
+const { refreshUserTransfers, refreshWorkspaceTransfers } = useDataRefresh()
 
 const { data: workspaces } = await useFetch<Workspace[]>('/api/workspaces', {
   key: globalKey('workspaces', 'list'),
@@ -56,6 +57,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       : { resourceId: props.resourceId, resourceType: props.resourceType, targetWorkspaceId: event.data.targetWorkspaceId, transferType: event.data.transferType, message: event.data.message }
 
     await $fetch(endpoint.value, { method: 'POST', body })
+    await Promise.all([
+      refreshUserTransfers(),
+      refreshWorkspaceTransfers(props.currentWorkspaceId),
+      refreshWorkspaceTransfers(event.data.targetWorkspaceId)
+    ])
     toast.add({ title: event.data.transferType === 'MOVE' ? 'Transfer Requested' : 'Copy Requested', color: 'success', icon: 'i-lucide-check' })
     emit('transferred')
     emit('close')

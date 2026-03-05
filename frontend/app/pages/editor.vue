@@ -195,6 +195,7 @@ const sessionStore = useEditorSessionStore()
 const projectDockviewRegistry = useProjectDockviewRegistry()
 const projectTabCloseState = useProjectTabCloseState()
 const toast = useToast()
+const { refreshTaskCaches } = useDataRefresh()
 const workspace = useWorkspaceStore()
 if (!workspace.hasFetched) {
   await workspace.fetchWorkspaces()
@@ -2041,6 +2042,7 @@ async function completeSubtask(subtask: Subtask) {
   if (isActivePageLocked.value) return
   try {
     await $fetch(`/api/tasks/${subtask.taskId}/subtasks/${subtask.id}/toggle`, { method: 'PUT' })
+    await refreshTaskCaches(subtask.taskId, selectedWorkspace.value)
     await fetchOpenSubtasks()
     await fetchActivePageTasks(activePageId.value)
   } catch (err: unknown) {
@@ -2061,6 +2063,8 @@ async function completeActivePageSubtasks() {
         $fetch(`/api/tasks/${subtask.taskId}/subtasks/${subtask.id}/toggle`, { method: 'PUT' })
       )
     )
+    const affectedTaskIds = [...new Set(activeOpenSubtasks.value.map(subtask => subtask.taskId))]
+    await Promise.all(affectedTaskIds.map(taskId => refreshTaskCaches(taskId, selectedWorkspace.value)))
     await fetchOpenSubtasks()
     await fetchActivePageTasks(activePageId.value)
     toast.add({

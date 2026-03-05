@@ -10,6 +10,7 @@ import type {
   ValidateCodecAgainstSourcesRequest,
   ValidateCodecAgainstSourcesResponse
 } from '@/types/codec'
+import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData } from '@/services/editor/project-loader'
 import type { PageResponse } from '@/services/editor/project-loader'
 
@@ -657,7 +658,10 @@ async function handleSubmit() {
         color: 'success'
       })
 
-      await refreshNuxtData()
+      await refreshNuxtData(wsKey(props.workspaceId, 'codecs', 'list'))
+      if (!response.createdNewCodec && response.codec?.id) {
+        await refreshNuxtData(wsKey(props.workspaceId, 'codecs', response.codec.id))
+      }
       return
     }
 

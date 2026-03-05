@@ -10,10 +10,11 @@ const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
 const { refreshTaskOverview } = useTaskOverviewRefresh()
+const { refreshTaskCaches } = useDataRefresh()
 
 const taskId = computed(() => route.params.id as string)
 
-const { data: task, refresh: refreshTask, pending: taskPending } = await useFetch<Task>(
+const { data: task, pending: taskPending } = await useFetch<Task>(
   () => `/api/tasks/${taskId.value}`,
   {
     key: globalKey('tasks', taskId.value, 'detail'),
@@ -88,7 +89,7 @@ const { data: links, refresh: refreshLinks } = await useFetch<TaskLinks>(
   }
 )
 
-const { data: subtasks, refresh: refreshSubtasks } = await useFetch<Subtask[]>(
+const { data: subtasks } = await useFetch<Subtask[]>(
   () => `/api/tasks/${taskId.value}/subtasks`,
   {
     key: globalKey('tasks', taskId.value, 'subtasks'),
@@ -96,7 +97,7 @@ const { data: subtasks, refresh: refreshSubtasks } = await useFetch<Subtask[]>(
   }
 )
 
-const { data: subtaskProgress, refresh: refreshSubtaskProgress } = await useFetch<SubtaskProgress>(
+const { data: subtaskProgress } = await useFetch<SubtaskProgress>(
   () => `/api/tasks/${taskId.value}/subtasks/progress`,
   {
     key: globalKey('tasks', taskId.value, 'subtasks-progress'),
@@ -104,7 +105,7 @@ const { data: subtaskProgress, refresh: refreshSubtaskProgress } = await useFetc
   }
 )
 
-const { data: reminders, refresh: refreshReminders } = await useFetch<TaskReminder[]>(
+const { data: reminders } = await useFetch<TaskReminder[]>(
   () => `/api/tasks/${taskId.value}/reminders`,
   {
     key: globalKey('tasks', taskId.value, 'reminders'),
@@ -119,7 +120,7 @@ watch(taskId, () => {
 })
 
 async function refreshAllSubtaskData() {
-  await Promise.all([refreshSubtasks(), refreshSubtaskProgress()])
+  await refreshTaskCaches(taskId.value, workspaceId.value)
 }
 
 const membersKey = computed(() => {
@@ -199,7 +200,7 @@ async function createReminder() {
       body: { reminderTime }
     })
     reminderTimeInput.value = ''
-    await refreshReminders()
+    await refreshTaskCaches(taskId.value, workspaceId.value)
     toast.add({ title: 'Reminder added', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to add reminder', description: err?.data?.message, color: 'error' })
@@ -211,7 +212,7 @@ async function createReminder() {
 async function deleteReminder(reminderId: string) {
   try {
     await $fetch(`/api/tasks/${taskId.value}/reminders/${reminderId}`, { method: 'DELETE' })
-    await refreshReminders()
+    await refreshTaskCaches(taskId.value, workspaceId.value)
     toast.add({ title: 'Reminder removed', color: 'success' })
   } catch (err: any) {
     toast.add({ title: 'Failed to remove reminder', description: err?.data?.message, color: 'error' })
@@ -230,8 +231,7 @@ async function updateStatus(newStatus: TaskStatus) {
       method: 'PUT',
       body: { status: newStatus }
     })
-    await refreshTask()
-    await refreshTaskOverview(workspaceId.value)
+    await refreshTaskCaches(taskId.value, workspaceId.value)
     await refreshActivity()
     toast.add({ title: 'Status updated', color: 'success' })
   } catch (err: any) {
@@ -273,7 +273,7 @@ async function openEditSlideover() {
     isAdmin: isAdmin.value,
     currentUserId: currentUserId.value,
     onUpdated: async () => {
-      await refreshTask()
+      await refreshTaskCaches(taskId.value, workspaceId.value)
       await refreshActivity()
     }
   })

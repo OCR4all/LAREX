@@ -29,6 +29,7 @@ interface StorageQuota {
 const workspaceStore = useWorkspaceStore()
 const toast = useToast()
 const overlay = useOverlay()
+const { refreshWorkspaceDetails, refreshWorkspaceList } = useDataRefresh()
 
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
@@ -37,7 +38,7 @@ const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
 
-const { data: workspace, pending: workspacePending, refresh: refreshWorkspace } = await useFetch<Workspace>(
+const { data: workspace } = await useFetch<Workspace>(
   `/api/workspaces/${selectedWorkspace.value}`,
   {
     key: computed(() => selectedWorkspace.value
@@ -225,8 +226,10 @@ const saveWorkspace = async () => {
       }
     })
 
-    await refreshWorkspace()
-    await workspaceStore.refreshWorkspaces()
+    await Promise.all([
+      refreshWorkspaceDetails(selectedWorkspace.value),
+      refreshWorkspaceList()
+    ])
 
     isEditing.value = false
 
@@ -260,7 +263,7 @@ const leaveWorkspace = async () => {
       color: 'success'
     })
 
-    await workspaceStore.refreshWorkspaces()
+    await refreshWorkspaceList()
     await workspaceStore.validateAndSelectWorkspace()
     navigateTo('/')
   } catch (err: any) {
@@ -285,7 +288,7 @@ async function openDeleteSlideover() {
   try {
     await $fetch(`/api/workspaces/${workspace.value.id}`, { method: 'DELETE' })
     toast.add({ title: 'Workspace deleted', color: 'success' })
-    await workspaceStore.refreshWorkspaces()
+    await refreshWorkspaceList()
     await workspaceStore.validateAndSelectWorkspace()
     navigateTo('/')
   } catch (err: any) {

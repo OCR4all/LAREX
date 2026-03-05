@@ -10,12 +10,9 @@ const props = defineProps<{
   currentUserId: string
 }>()
 
-const emit = defineEmits<{
-  refresh: []
-}>()
-
 const toast = useToast()
 const overlay = useOverlay()
+const { refreshWorkspaceMembership } = useDataRefresh()
 
 const roleOptions = [
   { label: 'Administrator', value: 'ADMINISTRATOR' },
@@ -33,14 +30,13 @@ async function updateMemberRole(member: WorkspaceMember, newRole: 'ADMINISTRATOR
       method: 'PUT',
       body: { role: newRole }
     })
+    await refreshWorkspaceMembership(props.workspaceId)
 
     toast.add({
       title: 'Role updated',
       description: `${member.displayName || member.username} is now a${newRole === 'ADMINISTRATOR' ? 'n' : ''} ${ROLE_LABELS[newRole].toLowerCase()}`,
       color: 'success'
     })
-
-    emit('refresh')
   } catch (err: any) {
     toast.add({
       title: 'Failed to update role',
@@ -69,14 +65,13 @@ async function confirmRemoveMember(member: WorkspaceMember) {
     await $fetch(`/api/workspaces/${props.workspaceId}/members/${member.userId}`, {
       method: 'DELETE'
     })
+    await refreshWorkspaceMembership(props.workspaceId)
 
     toast.add({
       title: 'Member removed',
       description: `${member.displayName || member.username} has been removed from the workspace`,
       color: 'success'
     })
-
-    emit('refresh')
   } catch (err: any) {
     toast.add({
       title: 'Failed to remove member',

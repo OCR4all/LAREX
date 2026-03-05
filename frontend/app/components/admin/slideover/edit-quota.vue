@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { globalKey } from '@/utils/fetch-keys'
-
 interface Props {
   quota: {
     workspaceId: string
@@ -14,6 +12,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{ close: [], saved: [] }>()
 
 const toast = useToast()
+const { refreshAdminQuotas } = useDataRefresh()
 const isSaving = ref(false)
 
 const GB = 1024 * 1024 * 1024
@@ -31,7 +30,7 @@ async function save() {
       body: { quotaLimitBytes: Math.round(quotaInGB.value * GB), isCustom: isCustom.value }
     })
     toast.add({ title: 'Quota updated', color: 'success' })
-    await refreshNuxtData(globalKey('admin', 'storage-quotas', 'all'))
+    await refreshAdminQuotas()
     emit('saved')
     emit('close')
   } catch {

@@ -9,6 +9,7 @@ const NuxtTime = resolveComponent('NuxtTime')
 const toast = useToast()
 const workspace = useWorkspaceStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+const { refreshWorkspaceTransfers, refreshUserTransfers } = useDataRefresh()
 
 type TransferRequest = {
   id: string
@@ -27,7 +28,7 @@ type TransferRequest = {
   created: string
 }
 
-const { data: incomingProjects, refresh: refreshIncomingProjects } = await useFetch<TransferRequest[]>(
+const { data: incomingProjects } = await useFetch<TransferRequest[]>(
   () => `/api/project-transfers/workspace/${selectedWorkspace.value}/incoming`,
   {
     key: computed(() => wsKey(selectedWorkspace.value as string, 'project-transfers', 'incoming')),
@@ -35,7 +36,7 @@ const { data: incomingProjects, refresh: refreshIncomingProjects } = await useFe
     default: () => []
   }
 )
-const { data: incomingResources, refresh: refreshIncomingResources } = await useFetch<TransferRequest[]>(
+const { data: incomingResources } = await useFetch<TransferRequest[]>(
   () => `/api/resource-transfers/workspace/${selectedWorkspace.value}/incoming`,
   {
     key: computed(() => wsKey(selectedWorkspace.value as string, 'resource-transfers', 'incoming')),
@@ -43,7 +44,7 @@ const { data: incomingResources, refresh: refreshIncomingResources } = await use
     default: () => []
   }
 )
-const { data: outgoingProjects, refresh: refreshOutgoingProjects } = await useFetch<TransferRequest[]>(
+const { data: outgoingProjects } = await useFetch<TransferRequest[]>(
   () => `/api/project-transfers/workspace/${selectedWorkspace.value}/outgoing`,
   {
     key: computed(() => wsKey(selectedWorkspace.value as string, 'project-transfers', 'outgoing')),
@@ -51,7 +52,7 @@ const { data: outgoingProjects, refresh: refreshOutgoingProjects } = await useFe
     default: () => []
   }
 )
-const { data: outgoingResources, refresh: refreshOutgoingResources } = await useFetch<TransferRequest[]>(
+const { data: outgoingResources } = await useFetch<TransferRequest[]>(
   () => `/api/resource-transfers/workspace/${selectedWorkspace.value}/outgoing`,
   {
     key: computed(() => wsKey(selectedWorkspace.value as string, 'resource-transfers', 'outgoing')),
@@ -64,7 +65,18 @@ const incoming = computed(() => [...(incomingProjects.value || []), ...(incoming
 const outgoing = computed(() => [...(outgoingProjects.value || []), ...(outgoingResources.value || [])])
 
 async function refreshAll() {
-  await Promise.all([refreshIncomingProjects(), refreshIncomingResources(), refreshOutgoingProjects(), refreshOutgoingResources()])
+  await Promise.all([
+    refreshWorkspaceTransfers(selectedWorkspace.value),
+    refreshUserTransfers()
+  ])
+}
+
+async function refreshTransferCaches(request: TransferRequest) {
+  await Promise.all([
+    refreshWorkspaceTransfers(request.sourceWorkspaceId),
+    refreshWorkspaceTransfers(request.targetWorkspaceId),
+    refreshUserTransfers()
+  ])
 }
 
 async function approve(request: TransferRequest) {
@@ -72,7 +84,7 @@ async function approve(request: TransferRequest) {
   try {
     await $fetch(endpoint, { method: 'POST' })
     toast.add({ title: 'Transfer approved', color: 'success' })
-    await refreshAll()
+    await refreshTransferCaches(request)
   } catch {
     toast.add({ title: 'Failed to approve', color: 'error' })
   }
@@ -83,7 +95,7 @@ async function reject(request: TransferRequest) {
   try {
     await $fetch(endpoint, { method: 'POST', body: { rejectionReason: '' } })
     toast.add({ title: 'Transfer rejected', color: 'neutral' })
-    await refreshAll()
+    await refreshTransferCaches(request)
   } catch {
     toast.add({ title: 'Failed to reject', color: 'error' })
   }
@@ -94,7 +106,7 @@ async function cancel(request: TransferRequest) {
   try {
     await $fetch(endpoint, { method: 'POST' })
     toast.add({ title: 'Request cancelled', color: 'neutral' })
-    await refreshAll()
+    await refreshTransferCaches(request)
   } catch {
     toast.add({ title: 'Failed to cancel', color: 'error' })
   }

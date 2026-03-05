@@ -12,6 +12,7 @@ const UProgress = resolveComponent('UProgress')
 
 const toast = useToast()
 const overlay = useOverlay()
+const { refreshAdminQuotas } = useDataRefresh()
 
 const editSlideover = overlay.create(LazyAdminSlideoverEditQuota)
 
@@ -72,7 +73,7 @@ async function openEditQuotaSlideover(quota: AdminQuotaRow) {
 
   const instance = editSlideover.open(payload)
   await instance.result
-  await refresh()
+  await refreshAdminQuotas()
 }
 
 const workspaceNameById = computed<Record<string, string>>(() => {
@@ -208,7 +209,7 @@ async function recalculateUsage(workspaceId: string) {
   try {
     await $fetch(`/api/storage/quotas/workspace/${workspaceId}/recalculate`, { method: 'POST' })
     toast.add({ title: 'Success', description: 'Usage recalculated successfully', color: 'success' })
-    await refreshNuxtData(globalKey('admin', 'storage-quotas', 'all'))
+    await refreshAdminQuotas()
   } catch {
     toast.add({ title: 'Error', description: 'Failed to recalculate usage', color: 'error' })
   }
@@ -223,7 +224,7 @@ async function resetToDefault(workspaceId: string) {
       body: { quotaLimitBytes: defaultQuota.value, isCustom: false }
     })
     toast.add({ title: 'Success', description: 'Quota reset to default', color: 'success' })
-    await refreshNuxtData(globalKey('admin', 'storage-quotas', 'all'))
+    await refreshAdminQuotas()
   } catch {
     toast.add({ title: 'Error', description: 'Failed to reset quota', color: 'error' })
   }
@@ -233,7 +234,7 @@ async function resetAllToDefault() {
   try {
     await $fetch('/api/storage/quotas/admin/reset-defaults', { method: 'POST' })
     toast.add({ title: 'Success', description: 'All non-custom quotas reset to default', color: 'success' })
-    await refreshNuxtData(globalKey('admin', 'storage-quotas', 'all'))
+    await refreshAdminQuotas()
   } catch {
     toast.add({ title: 'Error', description: 'Failed to reset quotas', color: 'error' })
   }

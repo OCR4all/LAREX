@@ -5,6 +5,7 @@ import { LazyWorkspaceSlideoverInviteMember } from '#components'
 
 const workspace = useWorkspaceStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+const { refreshWorkspaceMembership } = useDataRefresh()
 
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
@@ -14,7 +15,7 @@ const membersKey = computed(() => {
   return wsKey(selectedWorkspace.value, 'members', 'list')
 })
 
-const { data: members, error: memberError, pending: membersPending, refresh: membersRefresh } = await useFetch<WorkspaceMember[]>(
+const { data: members } = await useFetch<WorkspaceMember[]>(
   `/api/workspaces/${selectedWorkspace.value}/members`,
   {
     key: membersKey,
@@ -63,7 +64,7 @@ async function openInviteModal() {
   const instance = inviteSlideover.open({ workspaceId: selectedWorkspace.value })
   const invited = await instance.result
   if (invited) {
-    await membersRefresh()
+    await refreshWorkspaceMembership(selectedWorkspace.value)
   }
 }
 </script>
@@ -124,7 +125,6 @@ async function openInviteModal() {
         :workspace-id="selectedWorkspace || ''"
         :is-current-user-admin="isCurrentUserAdmin"
         :current-user-id="currentUserId"
-        @refresh="membersRefresh"
       />
     </UPageCard>
   </div>

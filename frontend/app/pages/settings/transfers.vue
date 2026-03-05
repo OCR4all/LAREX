@@ -7,6 +7,7 @@ const UButton = resolveComponent('UButton')
 const NuxtTime = resolveComponent('NuxtTime')
 
 const toast = useToast()
+const { refreshUserTransfers, refreshWorkspaceTransfers } = useDataRefresh()
 
 type TransferRequest = {
   id: string
@@ -40,14 +41,16 @@ const allTransfers = computed(() => [
   ...(resourceTransfers.value || []).map(t => ({ ...t, type: 'resource' as const }))
 ].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()))
 
-const pendingIncoming = computed(() => allTransfers.value.filter(t => t.status === 'PENDING'))
-
 async function cancelRequest(request: TransferRequest & { type: string }) {
   try {
     const endpoint = request.type === 'project' ? `/api/project-transfers/${request.id}/cancel` : `/api/resource-transfers/${request.id}/cancel`
     await $fetch(endpoint, { method: 'POST' })
     toast.add({ title: 'Request cancelled', color: 'success' })
-    await Promise.all([refreshProjectTransfers(), refreshResourceTransfers()])
+    await Promise.all([
+      refreshUserTransfers(),
+      refreshWorkspaceTransfers(request.sourceWorkspaceId),
+      refreshWorkspaceTransfers(request.targetWorkspaceId)
+    ])
   } catch {
     toast.add({ title: 'Failed to cancel', color: 'error' })
   }

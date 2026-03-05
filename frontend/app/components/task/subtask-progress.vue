@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SubtaskProgress } from '~/types/index'
+import { globalKey } from '@/utils/fetch-keys'
 
 const props = defineProps<{
   taskId: string
@@ -9,7 +10,7 @@ const props = defineProps<{
 const { data: progress } = await useFetch<SubtaskProgress>(
   () => `/api/tasks/${props.taskId}/subtasks/progress`,
   {
-    key: computed(() => `task-${props.taskId}-subtasks-progress`),
+    key: computed(() => globalKey('tasks', props.taskId, 'subtasks-progress')),
     default: () => ({ total: 0, completed: 0, percentage: 0 })
   }
 )

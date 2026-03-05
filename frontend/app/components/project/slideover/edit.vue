@@ -2,8 +2,8 @@
 import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { wsKey } from '@/utils/fetch-keys'
-
 import type { LabelSetSummary } from '~/types/label-set'
+
 const UNDEFINED_RECOGNITION_SENTINEL = -1
 
 interface Project {
@@ -26,6 +26,7 @@ const emit = defineEmits<{ close: [boolean], updated: [project: Project] }>()
 
 const workspace = useWorkspaceStore()
 const toast = useToast()
+const { refreshProjectCaches } = useDataRefresh()
 
 const schema = z.object({
   name: z.string().trim().min(1, { error: 'Required' }).max(100),
@@ -158,6 +159,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
       }
     })
+    await refreshProjectCaches(workspace.selectedWorkspaceId, props.project.id)
     toast.add({ title: 'Project Updated', color: 'success', icon: 'i-lucide-check' })
     emit('updated', response)
     emit('close')

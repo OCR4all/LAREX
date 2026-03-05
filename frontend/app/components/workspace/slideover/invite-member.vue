@@ -10,6 +10,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { refreshWorkspaceMembership } = useDataRefresh()
 
 const searchQuery = ref('')
 const selectedUser = ref<UserProfile | null>(null)
@@ -72,6 +73,7 @@ async function handleSubmit() {
         role: selectedRole.value
       }
     })
+    await refreshWorkspaceMembership(props.workspaceId)
 
     toast.add({
       title: 'Invitation sent',

@@ -7,6 +7,13 @@ import { getNotificationLink } from '~/utils/notifications'
 const { isNotificationsSlideoverOpen } = useDashboard()
 const toast = useToast()
 const workspaceStore = useWorkspaceStore()
+const {
+  refreshWorkspaceList,
+  refreshWorkspaceMembership,
+  refreshWorkspaceTransfers,
+  refreshUserInvitations,
+  refreshUserTransfers
+} = useDataRefresh()
 
 const {
   groupedNotifications,
@@ -19,6 +26,13 @@ const {
   hasReadNotifications,
   toggleGroupExpanded
 } = useNotifications()
+
+type TransferRequest = {
+  id: string
+  projectId?: string
+  sourceWorkspaceId: string
+  targetWorkspaceId: string
+}
 
 const hasUnread = computed(() => groupedNotifications.value.some(g => g.items.some(n => !n.read)))
 
@@ -53,12 +67,20 @@ async function acceptInvite(invitation: WorkspaceInvitation) {
   try {
     await $fetch(`/api/workspaces/${invitation.workspaceId}/invitations/accept`, { method: 'POST' })
     toast.add({ title: 'Invitation accepted!', description: `You are now a member of ${invitation.workspaceName}`, color: 'success' })
-    await workspaceStore.refreshWorkspaces()
+    await refreshWorkspaceList()
     workspaceStore.selectWorkspace(invitation.workspaceId)
-    await refreshNuxtData()
+    await Promise.all([
+      refreshWorkspaceMembership(invitation.workspaceId),
+      refreshWorkspaceTransfers(invitation.workspaceId),
+      refreshUserInvitations(),
+      refreshUserTransfers()
+    ])
     await refresh()
-  } catch (err: any) {
-    toast.add({ title: 'Failed to accept invitation', description: err?.data?.message || 'Please try again', color: 'error' })
+  } catch (err: unknown) {
+    const message = typeof err === 'object' && err !== null && 'data' in err
+      ? (err as { data?: { message?: string } }).data?.message
+      : null
+    toast.add({ title: 'Failed to accept invitation', description: message || 'Please try again', color: 'error' })
   }
 }
 
@@ -66,28 +88,42 @@ async function declineInvite(invitation: WorkspaceInvitation) {
   try {
     await $fetch(`/api/workspaces/${invitation.workspaceId}/invitations/decline`, { method: 'POST' })
     toast.add({ title: 'Invitation declined', color: 'neutral' })
+    await refreshUserInvitations()
     await refresh()
-  } catch (err: any) {
-    toast.add({ title: 'Failed to decline invitation', description: err?.data?.message || 'Please try again', color: 'error' })
+  } catch (err: unknown) {
+    const message = typeof err === 'object' && err !== null && 'data' in err
+      ? (err as { data?: { message?: string } }).data?.message
+      : null
+    toast.add({ title: 'Failed to decline invitation', description: message || 'Please try again', color: 'error' })
   }
 }
 
-async function approveTransfer(transfer: any) {
+async function refreshTransferCaches(transfer: TransferRequest) {
+  await Promise.all([
+    refreshWorkspaceTransfers(transfer.targetWorkspaceId),
+    refreshWorkspaceTransfers(transfer.sourceWorkspaceId),
+    refreshUserTransfers()
+  ])
+}
+
+async function approveTransfer(transfer: TransferRequest) {
   const endpoint = transfer.projectId ? `/api/project-transfers/${transfer.id}/approve` : `/api/resource-transfers/${transfer.id}/approve`
   try {
     await $fetch(endpoint, { method: 'POST' })
     toast.add({ title: 'Transfer approved', color: 'success' })
+    await refreshTransferCaches(transfer)
     await refresh()
   } catch {
     toast.add({ title: 'Failed to approve', color: 'error' })
   }
 }
 
-async function rejectTransfer(transfer: any) {
+async function rejectTransfer(transfer: TransferRequest) {
   const endpoint = transfer.projectId ? `/api/project-transfers/${transfer.id}/reject` : `/api/resource-transfers/${transfer.id}/reject`
   try {
     await $fetch(endpoint, { method: 'POST', body: { rejectionReason: '' } })
     toast.add({ title: 'Transfer rejected', color: 'neutral' })
+    await refreshTransferCaches(transfer)
     await refresh()
   } catch {
     toast.add({ title: 'Failed to reject', color: 'error' })

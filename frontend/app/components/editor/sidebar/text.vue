@@ -131,6 +131,7 @@ const activeProjectId = computed(() => sessionStore.projectId ?? null)
 const canEditProjectTextIndexDefaults = computed(() => workspaceStore.isCurrentUserOwner)
 const isSavingTextIndexDefaults = ref(false)
 const textIndexDefaultsSaveError = ref<string | null>(null)
+const { refreshProjectCaches } = useDataRefresh()
 
 async function saveProjectTextIndexDefaults(payload: { defaultGtIndex: number, defaultRecognitionIndices: number[] }) {
   const workspaceId = workspaceStore.selectedWorkspaceId
@@ -158,6 +159,7 @@ async function saveProjectTextIndexDefaults(payload: { defaultGtIndex: number, d
       gtIndex: updated.defaultGtIndex ?? payload.defaultGtIndex,
       recognitionIndices: updated.defaultRecognitionIndices ?? payload.defaultRecognitionIndices
     }, projectId)
+    await refreshProjectCaches(workspaceId, projectId)
   } catch (error: any) {
     textIndexDefaultsSaveError.value = error?.data?.message || error?.message || 'Failed to save defaults'
   } finally {

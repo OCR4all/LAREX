@@ -5,8 +5,9 @@ import { formatTimeAgo } from '@vueuse/core'
 import { globalKey } from '@/utils/fetch-keys'
 
 const toast = useToast()
+const { refreshUserInvitations, refreshWorkspaceList, refreshWorkspaceMembership } = useDataRefresh()
 
-const { data: invitations, pending, error, refresh } = await useFetch<WorkspaceInvitation[]>('/api/workspaces/invitations', {
+const { data: invitations, pending, error } = await useFetch<WorkspaceInvitation[]>('/api/workspaces/invitations', {
   key: globalKey('user', 'invitations', 'list'),
   default: () => []
 })
@@ -23,10 +24,11 @@ async function acceptInvite(invitation: WorkspaceInvitation) {
       color: 'success'
     })
 
-    const workspaceStore = useWorkspaceStore()
-    await workspaceStore.fetchWorkspaces()
-
-    await refresh()
+    await Promise.all([
+      refreshWorkspaceList(),
+      refreshWorkspaceMembership(invitation.workspaceId),
+      refreshUserInvitations()
+    ])
   } catch (err: any) {
     toast.add({
       title: 'Failed to accept invitation',
@@ -47,7 +49,7 @@ async function declineInvite(invitation: WorkspaceInvitation) {
       color: 'neutral'
     })
 
-    await refresh()
+    await refreshUserInvitations()
   } catch (err: any) {
     toast.add({
       title: 'Failed to decline invitation',
