@@ -10,6 +10,12 @@
 
 import type { Point, AspectRatioScale, ImageSize, View } from '@/models/editor'
 
+const DEFAULT_ROTATION_COS = 1
+const DEFAULT_ROTATION_SIN = 0
+const DEFAULT_ROTATION_ASPECT = 1
+const DEFAULT_SCALE = 1
+const MIN_ROTATION_MAGNITUDE = 1e-6
+
 /**
  * Convert normalized coordinates (0-1) to image pixel coordinates
  * @param normalized - Point with values in 0-1 range
@@ -78,6 +84,88 @@ export function imageArrayToNormalized(points: Point[], imageSize: ImageSize): P
   return points.map(p => imageToNormalized(p, imageSize))
 }
 
+function normalizeScale(value: number | undefined): number {
+  if (typeof value === 'number' && isFinite(value) && value !== 0) {
+    return value
+  }
+  return DEFAULT_SCALE
+}
+
+function normalizeRotationAspect(scale: Partial<AspectRatioScale> | null | undefined): number {
+  const rotationAspect = scale?.rotationAspect
+  if (typeof rotationAspect === 'number' && isFinite(rotationAspect) && rotationAspect > 0) {
+    return rotationAspect
+  }
+  return DEFAULT_ROTATION_ASPECT
+}
+
+export function normalizeRotationComponents(scale: Partial<AspectRatioScale> | null | undefined): { rotationCos: number, rotationSin: number } {
+  const rotationCos = scale?.rotationCos
+  const rotationSin = scale?.rotationSin
+
+  if (
+    typeof rotationCos !== 'number'
+    || typeof rotationSin !== 'number'
+    || !isFinite(rotationCos)
+    || !isFinite(rotationSin)
+  ) {
+    return { rotationCos: DEFAULT_ROTATION_COS, rotationSin: DEFAULT_ROTATION_SIN }
+  }
+
+  const magnitude = Math.hypot(rotationCos, rotationSin)
+  if (!isFinite(magnitude) || magnitude < MIN_ROTATION_MAGNITUDE) {
+    return { rotationCos: DEFAULT_ROTATION_COS, rotationSin: DEFAULT_ROTATION_SIN }
+  }
+
+  return {
+    rotationCos: rotationCos / magnitude,
+    rotationSin: rotationSin / magnitude
+  }
+}
+
+export function applyRotation(point: Point, scale: Partial<AspectRatioScale> | null | undefined): Point {
+  const { rotationCos, rotationSin } = normalizeRotationComponents(scale)
+  const rotationAspect = normalizeRotationAspect(scale)
+  return {
+    x: point.x * rotationCos - (point.y * rotationSin) / rotationAspect,
+    y: point.x * rotationSin * rotationAspect + point.y * rotationCos
+  }
+}
+
+export function applyInverseRotation(point: Point, scale: Partial<AspectRatioScale> | null | undefined): Point {
+  const { rotationCos, rotationSin } = normalizeRotationComponents(scale)
+  const rotationAspect = normalizeRotationAspect(scale)
+  return {
+    x: point.x * rotationCos + (point.y * rotationSin) / rotationAspect,
+    y: -point.x * rotationSin * rotationAspect + point.y * rotationCos
+  }
+}
+
+export function worldToClipCoords(world: Point, view: View, aspectRatioScale: AspectRatioScale): Point {
+  const scaleX = normalizeScale(aspectRatioScale.scaleX)
+  const scaleY = normalizeScale(aspectRatioScale.scaleY)
+
+  const scaled = {
+    x: ((world.x * view.zoom) + view.offsetX) * scaleX,
+    y: ((world.y * view.zoom) + view.offsetY) * scaleY
+  }
+
+  return applyRotation(scaled, aspectRatioScale)
+}
+
+export function clipToWorldCoords(clip: Point, view: View, aspectRatioScale: AspectRatioScale): Point {
+  const scaleX = normalizeScale(aspectRatioScale.scaleX)
+  const scaleY = normalizeScale(aspectRatioScale.scaleY)
+  const zoom = (typeof view.zoom === 'number' && isFinite(view.zoom) && view.zoom !== 0) ? view.zoom : 1
+
+  const unrotated = applyInverseRotation(clip, aspectRatioScale)
+
+  return {
+    x: ((unrotated.x / scaleX) - view.offsetX) / zoom,
+    y: ((unrotated.y / scaleY) - view.offsetY) / zoom
+  }
+}
+
 /**
  * Convert screen coordinates from a mouse event to world coordinates.
  *
@@ -94,18 +182,11 @@ export function getWorldCoordsFromEvent(
   aspectRatioScale: AspectRatioScale
 ): Point {
   const rect = canvas.getBoundingClientRect()
-  const scale = aspectRatioScale
 
   const mouseClipX = ((e.clientX - rect.left) / canvas.clientWidth) * 2 - 1
   const mouseClipY = -(((e.clientY - rect.top) / canvas.clientHeight) * 2 - 1)
 
-  const posScaledX = mouseClipX / scale.scaleX
-  const posScaledY = mouseClipY / scale.scaleY
-
-  const worldX = (posScaledX - view.offsetX) / view.zoom
-  const worldY = (posScaledY - view.offsetY) / view.zoom
-
-  return { x: worldX, y: worldY }
+  return clipToWorldCoords({ x: mouseClipX, y: mouseClipY }, view, aspectRatioScale)
 }
 
 /**

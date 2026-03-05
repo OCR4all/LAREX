@@ -121,37 +121,49 @@ const view = mouseInteraction.view
 
 const aspectRatioScale = computed(() => {
   const gl = webglRenderer.gl()
-  if (!gl) return { scaleX: 1, scaleY: 1 }
+  const pageOrientation = session.document.value?.page?.orientation
+  const orientationValue = Number(pageOrientation)
+  const orientationDegrees = isFinite(orientationValue) ? orientationValue : 0
+  const radians = -orientationDegrees * (Math.PI / 180)
+  const rotationCos = Math.cos(radians)
+  const rotationSin = Math.sin(radians)
+  const canvasWidth = canvasDimensions.value.width || gl?.canvas.clientWidth || 0
+  const canvasHeight = canvasDimensions.value.height || gl?.canvas.clientHeight || 0
+  const rotationAspect = (canvasWidth > 0 && canvasHeight > 0) ? (canvasWidth / canvasHeight) : 1
 
-  const canvasWidth = canvasDimensions.value.width || gl.canvas.clientWidth
-  const canvasHeight = canvasDimensions.value.height || gl.canvas.clientHeight
+  if (!gl) {
+    return { scaleX: 1, scaleY: 1, rotationCos, rotationSin, rotationAspect }
+  }
 
   if (canvasWidth === 0 || canvasHeight === 0) {
-    return { scaleX: 1, scaleY: 1 }
+    return { scaleX: 1, scaleY: 1, rotationCos, rotationSin, rotationAspect }
   }
 
   const imageWidth = webglRenderer.imageSize.value.width
   const imageHeight = webglRenderer.imageSize.value.height
 
   if (imageWidth === 0 || imageHeight === 0) {
-    return { scaleX: 1, scaleY: 1 }
+    return { scaleX: 1, scaleY: 1, rotationCos, rotationSin, rotationAspect }
   }
 
-  const canvasAspect = canvasWidth / canvasHeight
-  const imageAspect = imageWidth / imageHeight
+  const absCos = Math.abs(rotationCos)
+  const absSin = Math.abs(rotationSin)
+  const rotatedBoxWidth = imageWidth * absCos + imageHeight * absSin
+  const rotatedBoxHeight = imageWidth * absSin + imageHeight * absCos
 
-  let scaleX = 1, scaleY = 1
-  if (imageAspect > canvasAspect) {
-    scaleY = canvasAspect / imageAspect
-  } else {
-    scaleX = imageAspect / canvasAspect
+  if (rotatedBoxWidth === 0 || rotatedBoxHeight === 0) {
+    return { scaleX: 1, scaleY: 1, rotationCos, rotationSin, rotationAspect }
   }
+
+  const fitScale = Math.min(canvasWidth / rotatedBoxWidth, canvasHeight / rotatedBoxHeight)
+  const scaleX = fitScale * (imageWidth / canvasWidth)
+  const scaleY = fitScale * (imageHeight / canvasHeight)
 
   if (!isFinite(scaleX) || !isFinite(scaleY) || scaleX === 0 || scaleY === 0) {
-    return { scaleX: 1, scaleY: 1 }
+    return { scaleX: 1, scaleY: 1, rotationCos, rotationSin, rotationAspect }
   }
 
-  return { scaleX, scaleY }
+  return { scaleX, scaleY, rotationCos, rotationSin, rotationAspect }
 })
 
 const polygonDrawing = usePolygonDraw(

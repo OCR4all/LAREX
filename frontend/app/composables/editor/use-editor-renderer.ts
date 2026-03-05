@@ -201,6 +201,7 @@ export function useEditorRenderer(
       () => moveInteraction?.state.isInvalid,
       bufferPreview,
       view,
+      aspectRatioScale,
       canvasDimensions,
       () => mouseInteraction.actionState.action,
       viewMode,

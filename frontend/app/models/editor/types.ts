@@ -87,6 +87,9 @@ export interface View {
 export interface AspectRatioScale {
   scaleX: number
   scaleY: number
+  rotationCos?: number
+  rotationSin?: number
+  rotationAspect?: number
 }
 
 /**

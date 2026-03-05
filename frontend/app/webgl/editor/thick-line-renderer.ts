@@ -45,17 +45,27 @@ export class ThickLineRenderer {
       uniform vec2 u_scale;
       uniform vec2 u_offset;
       uniform float u_zoom;
+      uniform vec2 u_rotation;
+      uniform float u_canvasAspect;
       uniform float u_thickness;
       uniform vec2 u_resolution;
 
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
 
         vec2 pixelSize = ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_PIXEL_SCALE)} / u_resolution;
         vec2 offset = a_normal * u_thickness * pixelSize * ${glslFloatLiteral(WEBGL_GLSL.HALF)};
+        vec2 clipOffset = vec2(
+          offset.x * u_rotation.x - (offset.y * u_rotation.y) / u_canvasAspect,
+          offset.x * u_rotation.y * u_canvasAspect + offset.y * u_rotation.x
+        );
 
-        gl_Position = vec4(pos + offset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
+        gl_Position = vec4(clip + clipOffset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
       }`
 
     const fsSource = `#version ${WEBGL_GLSL.VERSION} ${WEBGL_GLSL.ES_SUFFIX}

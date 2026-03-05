@@ -139,6 +139,8 @@ export class ReadingOrderRenderer {
       uniform vec2 u_scale;
       uniform vec2 u_offset;
       uniform float u_zoom;
+      uniform vec2 u_rotation;
+      uniform float u_canvasAspect;
       uniform float u_thickness;
       uniform vec2 u_resolution;
       
@@ -147,12 +149,20 @@ export class ReadingOrderRenderer {
       
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
         
         vec2 pixelSize = ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_PIXEL_SCALE)} / u_resolution;
         vec2 offset = a_normal * u_thickness * pixelSize * ${glslFloatLiteral(WEBGL_GLSL.HALF)};
+        vec2 clipOffset = vec2(
+          offset.x * u_rotation.x - (offset.y * u_rotation.y) / u_canvasAspect,
+          offset.x * u_rotation.y * u_canvasAspect + offset.y * u_rotation.x
+        );
         
-        gl_Position = vec4(pos + offset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
+        gl_Position = vec4(clip + clipOffset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
         v_uv = a_uv;
         v_color = a_color;
       }`
@@ -218,14 +228,20 @@ export class ReadingOrderRenderer {
       uniform vec2 u_scale;
       uniform vec2 u_offset;
       uniform float u_zoom;
+      uniform vec2 u_rotation;
+      uniform float u_canvasAspect;
       
       out vec4 v_color;
       
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
         
-        gl_Position = vec4(pos, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
+        gl_Position = vec4(clip, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
         v_color = a_color;
       }`
 
@@ -267,6 +283,8 @@ export class ReadingOrderRenderer {
       uniform vec2 u_scale;
       uniform vec2 u_offset;
       uniform float u_zoom;
+      uniform vec2 u_rotation;
+      uniform float u_canvasAspect;
       uniform float u_thickness;
       uniform vec2 u_resolution;
       
@@ -274,12 +292,20 @@ export class ReadingOrderRenderer {
       
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
         
         vec2 pixelSize = ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_PIXEL_SCALE)} / u_resolution;
         vec2 offset = a_normal * u_thickness * pixelSize * ${glslFloatLiteral(WEBGL_GLSL.HALF)};
+        vec2 clipOffset = vec2(
+          offset.x * u_rotation.x - (offset.y * u_rotation.y) / u_canvasAspect,
+          offset.x * u_rotation.y * u_canvasAspect + offset.y * u_rotation.x
+        );
         
-        gl_Position = vec4(pos + offset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
+        gl_Position = vec4(clip + clipOffset, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
         v_uv = a_uv;
       }`
 
@@ -386,6 +412,8 @@ export class ReadingOrderRenderer {
     const scaleLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_scale')
     const offsetLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_offset')
     const zoomLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_zoom')
+    const rotationLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_rotation')
+    const canvasAspectLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_canvasAspect')
     const thicknessLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_thickness')
     const resolutionLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_resolution')
     const dashLengthLocation = this.gl.getUniformLocation(this.arrowShaftProgram, 'u_dashLength')
@@ -395,6 +423,8 @@ export class ReadingOrderRenderer {
     this.gl.uniform2f(scaleLocation, scale.scaleX, scale.scaleY)
     this.gl.uniform2f(offsetLocation, view.offsetX, view.offsetY)
     this.gl.uniform1f(zoomLocation, view.zoom)
+    this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
+    this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? (canvasWidth / canvasHeight))
     this.gl.uniform1f(thicknessLocation, ARROW_SHAFT_THICKNESS)
     this.gl.uniform2f(resolutionLocation, canvasWidth, canvasHeight)
     this.gl.uniform1f(dashLengthLocation, DASH_LENGTH)
@@ -448,10 +478,14 @@ export class ReadingOrderRenderer {
     const scaleLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_scale')
     const offsetLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_offset')
     const zoomLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_zoom')
+    const rotationLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_rotation')
+    const canvasAspectLocation = this.gl.getUniformLocation(this.arrowHeadProgram, 'u_canvasAspect')
 
     this.gl.uniform2f(scaleLocation, scale.scaleX, scale.scaleY)
     this.gl.uniform2f(offsetLocation, view.offsetX, view.offsetY)
     this.gl.uniform1f(zoomLocation, view.zoom)
+    this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
+    this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? (canvasWidth / canvasHeight))
 
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.arrowHeadPositionBuffer!)
     this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(positions), this.gl.DYNAMIC_DRAW)
@@ -612,6 +646,7 @@ export class ReadingOrderRenderer {
     canvasWidth: number,
     canvasHeight: number
   ): void {
+    if (!this.dashedLineProgram || !this.dashedVao) return
     if (bound.points.length < 4) return
 
     const positions: number[] = []
@@ -663,21 +698,26 @@ export class ReadingOrderRenderer {
 
     if (positions.length === 0) return
 
-    this.gl.useProgram(this.dashedLineProgram)
+    const dashedProgram = this.dashedLineProgram
+    this.gl.useProgram(dashedProgram)
     this.gl.bindVertexArray(this.dashedVao)
 
-    const scaleLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_scale')
-    const offsetLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_offset')
-    const zoomLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_zoom')
-    const thicknessLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_thickness')
-    const resolutionLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_resolution')
-    const colorLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_color')
-    const dashLengthLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_dashLength')
-    const gapLengthLocation = this.gl.getUniformLocation(this.dashedLineProgram, 'u_gapLength')
+    const scaleLocation = this.gl.getUniformLocation(dashedProgram, 'u_scale')
+    const offsetLocation = this.gl.getUniformLocation(dashedProgram, 'u_offset')
+    const zoomLocation = this.gl.getUniformLocation(dashedProgram, 'u_zoom')
+    const rotationLocation = this.gl.getUniformLocation(dashedProgram, 'u_rotation')
+    const canvasAspectLocation = this.gl.getUniformLocation(dashedProgram, 'u_canvasAspect')
+    const thicknessLocation = this.gl.getUniformLocation(dashedProgram, 'u_thickness')
+    const resolutionLocation = this.gl.getUniformLocation(dashedProgram, 'u_resolution')
+    const colorLocation = this.gl.getUniformLocation(dashedProgram, 'u_color')
+    const dashLengthLocation = this.gl.getUniformLocation(dashedProgram, 'u_dashLength')
+    const gapLengthLocation = this.gl.getUniformLocation(dashedProgram, 'u_gapLength')
 
     this.gl.uniform2f(scaleLocation, scale.scaleX, scale.scaleY)
     this.gl.uniform2f(offsetLocation, view.offsetX, view.offsetY)
     this.gl.uniform1f(zoomLocation, view.zoom)
+    this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
+    this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? (canvasWidth / canvasHeight))
     this.gl.uniform1f(thicknessLocation, GROUP_BOUNDS_THICKNESS)
     this.gl.uniform2f(resolutionLocation, canvasWidth, canvasHeight)
     this.gl.uniform4f(colorLocation, bound.color[0], bound.color[1], bound.color[2], bound.color[3])

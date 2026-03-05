@@ -1,4 +1,6 @@
 import { ZOOM, TIMING } from '@/utils/editor/editor-constants'
+import { applyInverseRotation } from '@/utils/editor/coordinates'
+import type { AspectRatioScale } from '@/models/editor'
 
 export type MouseAction
   = | 'idle'
@@ -173,9 +175,10 @@ export function useMouseInteraction() {
    */
   function handleWheel(
     e: WheelEvent,
-    canvas: HTMLCanvasElement,
-    aspectRatioScale: { scaleX: number, scaleY: number }
+    canvas: HTMLElement | null,
+    aspectRatioScale: AspectRatioScale
   ) {
+    if (!canvas) return
     e.preventDefault()
     actionState.action = 'scrolling'
     updatePosition(e.clientX, e.clientY)
@@ -189,8 +192,11 @@ export function useMouseInteraction() {
     const newZoom = Math.min(Math.max(view.zoom * zoomFactor, ZOOM.MIN), ZOOM.MAX)
     const effectiveZoomFactor = newZoom / view.zoom
 
-    const mouseWorldX = mouseX / scale.scaleX
-    const mouseWorldY = mouseY / scale.scaleY
+    const scaleX = (typeof scale.scaleX === 'number' && isFinite(scale.scaleX) && scale.scaleX !== 0) ? scale.scaleX : 1
+    const scaleY = (typeof scale.scaleY === 'number' && isFinite(scale.scaleY) && scale.scaleY !== 0) ? scale.scaleY : 1
+    const unrotatedClip = applyInverseRotation({ x: mouseX, y: mouseY }, scale)
+    const mouseWorldX = unrotatedClip.x / scaleX
+    const mouseWorldY = unrotatedClip.y / scaleY
 
     view.offsetX = mouseWorldX * (1 - effectiveZoomFactor) + view.offsetX * effectiveZoomFactor
     view.offsetY = mouseWorldY * (1 - effectiveZoomFactor) + view.offsetY * effectiveZoomFactor
@@ -223,9 +229,10 @@ export function useMouseInteraction() {
    */
   function updatePanning(
     e: MouseEvent,
-    canvas: HTMLCanvasElement,
-    aspectRatioScale: { scaleX: number, scaleY: number }
+    canvas: HTMLElement | null,
+    aspectRatioScale: AspectRatioScale
   ) {
+    if (!canvas) return
     if (!panState.isDragging) return
 
     const scale = aspectRatioScale
@@ -235,8 +242,11 @@ export function useMouseInteraction() {
     panState.lastX = e.clientX
     panState.lastY = e.clientY
 
-    view.offsetX += dx / scale.scaleX
-    view.offsetY += dy / scale.scaleY
+    const scaleX = (typeof scale.scaleX === 'number' && isFinite(scale.scaleX) && scale.scaleX !== 0) ? scale.scaleX : 1
+    const scaleY = (typeof scale.scaleY === 'number' && isFinite(scale.scaleY) && scale.scaleY !== 0) ? scale.scaleY : 1
+    const unrotatedDelta = applyInverseRotation({ x: dx, y: dy }, scale)
+    view.offsetX += unrotatedDelta.x / scaleX
+    view.offsetY += unrotatedDelta.y / scaleY
   }
 
   /**

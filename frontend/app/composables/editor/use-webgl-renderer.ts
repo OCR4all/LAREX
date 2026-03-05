@@ -112,6 +112,30 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     return { x: preview.x, y: preview.y }
   }
 
+  function getRotationForScale(scale: AspectRatioScale): { rotationCos: number, rotationSin: number } {
+    const rotationCos = (typeof scale.rotationCos === 'number' && isFinite(scale.rotationCos)) ? scale.rotationCos : 1
+    const rotationSin = (typeof scale.rotationSin === 'number' && isFinite(scale.rotationSin)) ? scale.rotationSin : 0
+    return { rotationCos, rotationSin }
+  }
+
+  function setProgramRotation(program: WebGLProgram, scale: AspectRatioScale): void {
+    if (!gl) return
+    const rotationLocation = gl.getUniformLocation(program, 'u_rotation')
+    if (rotationLocation) {
+      const { rotationCos, rotationSin } = getRotationForScale(scale)
+      gl.uniform2f(rotationLocation, rotationCos, rotationSin)
+    }
+
+    const canvasAspectLocation = gl.getUniformLocation(program, 'u_canvasAspect')
+    if (canvasAspectLocation) {
+      const fallbackAspect = (gl.canvas.width > 0 && gl.canvas.height > 0) ? (gl.canvas.width / gl.canvas.height) : 1
+      const rotationAspect = (typeof scale.rotationAspect === 'number' && isFinite(scale.rotationAspect) && scale.rotationAspect > 0)
+        ? scale.rotationAspect
+        : fallbackAspect
+      gl.uniform1f(canvasAspectLocation, rotationAspect)
+    }
+  }
+
   let polygonProgram: WebGLProgram | null = null
   let polygonVao: WebGLVertexArrayObject | null = null
   let polygonBuffer: WebGLBuffer | null = null
@@ -177,11 +201,15 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
 
     const imageVsSource = `#version 300 es
       in vec2 a_position; in vec2 a_uv; out vec2 v_uv;
-      uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom;
+      uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom; uniform vec2 u_rotation; uniform float u_canvasAspect;
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
-        gl_Position = vec4(pos, 0.0, 1.0);
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
+        gl_Position = vec4(clip, 0.0, 1.0);
         v_uv = a_uv;
       }`
     const imageFsSource = `#version 300 es
@@ -212,12 +240,16 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
 
     const polygonVsSource = `#version 300 es
       in vec2 a_position;
-      uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom;
+      uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom; uniform vec2 u_rotation; uniform float u_canvasAspect;
       uniform float u_pointSize;
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
-        gl_Position = vec4(pos, 0.0, 1.0);
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
+        gl_Position = vec4(clip, 0.0, 1.0);
         gl_PointSize = u_pointSize;
       }`
     const polygonFsSource = `#version 300 es
@@ -233,18 +265,28 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
       uniform vec2 u_scale;
       uniform vec2 u_offset;
       uniform float u_zoom;
+      uniform vec2 u_rotation;
+      uniform float u_canvasAspect;
       uniform float u_thickness;
       uniform vec2 u_resolution;
       out vec4 v_color;
 
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
         
         vec2 pixelSize = 2.0 / u_resolution;
         vec2 offset = a_normal * u_thickness * pixelSize * 0.5;
+        vec2 clipOffset = vec2(
+          offset.x * u_rotation.x - (offset.y * u_rotation.y) / u_canvasAspect,
+          offset.x * u_rotation.y * u_canvasAspect + offset.y * u_rotation.x
+        );
         
-        gl_Position = vec4(pos + offset, 0.0, 1.0);
+        gl_Position = vec4(clip + clipOffset, 0.0, 1.0);
         v_color = a_color;
       }`
     const lineFsSource = `#version 300 es
@@ -260,11 +302,15 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
 
     const fillVsSource = `#version 300 es
       in vec2 a_position;
-      uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom;
+      uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom; uniform vec2 u_rotation; uniform float u_canvasAspect;
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
-        pos *= u_scale;
-        gl_Position = vec4(pos, 0.0, 1.0);
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
+        gl_Position = vec4(clip, 0.0, 1.0);
       }`
     const fillFsSource = `#version 300 es
       precision mediump float; uniform vec4 u_color; out vec4 outColor;
@@ -303,6 +349,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_scale'), scale.scaleX, scale.scaleY)
     gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_offset'), view.offsetX, view.offsetY)
     gl.uniform1f(gl.getUniformLocation(imageProgram, 'u_zoom'), view.zoom)
+    setProgramRotation(imageProgram, scale)
 
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
@@ -938,6 +985,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
     gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
     gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+    setProgramRotation(polygonProgram, scale)
     gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
     gl.uniform4f(gl.getUniformLocation(polygonProgram, 'u_color'), color[0], color[1], color[2], color[3])
 
@@ -985,6 +1033,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
       gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
       gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
       gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+      setProgramRotation(polygonProgram, scale)
       gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
       gl.uniform4f(gl.getUniformLocation(polygonProgram, 'u_color'), color[0], color[1], color[2], color[3])
 
@@ -1058,6 +1107,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
         gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
         gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
         gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+        setProgramRotation(polygonProgram, scale)
         gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
 
         const polylineData = new Float32Array(polyline.points.flatMap((p: Point) => [p.x, p.y]))
@@ -1204,6 +1254,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
     gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
     gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+    setProgramRotation(polygonProgram, scale)
     gl.uniform4f(
       gl.getUniformLocation(polygonProgram, 'u_color'),
       RENDER_COLORS.PREVIEW_PINK[0],
@@ -1238,6 +1289,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
     gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
     gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+    setProgramRotation(polygonProgram, scale)
     gl.uniform4f(
       gl.getUniformLocation(polygonProgram, 'u_color'),
       RENDER_COLORS.ACTIVE_YELLOW_POLYLINE[0],
@@ -1411,6 +1463,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
       gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_scale'), scale.scaleX, scale.scaleY)
       gl.uniform2f(gl.getUniformLocation(polygonProgram, 'u_offset'), view.offsetX, view.offsetY)
       gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_zoom'), view.zoom)
+      setProgramRotation(polygonProgram, scale)
       gl.uniform1f(gl.getUniformLocation(polygonProgram, 'u_pointSize'), RENDER_SIZES.POLYGON_POINT_SIZE)
       gl.uniform4f(gl.getUniformLocation(polygonProgram, 'u_color'), outlineColor[0], outlineColor[1], outlineColor[2], outlineColor[3])
 

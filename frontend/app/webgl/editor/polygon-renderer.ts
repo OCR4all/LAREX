@@ -177,6 +177,17 @@ export class PolygonRenderer {
       this.gl.getUniformLocation(this.program, 'u_zoom'),
       view.zoom
     )
+    const rotationLocation = this.gl.getUniformLocation(this.program, 'u_rotation')
+    const canvasAspectLocation = this.gl.getUniformLocation(this.program, 'u_canvasAspect')
+    if (rotationLocation) {
+      this.gl.uniform2f(rotationLocation, scale.rotationCos ?? 1, scale.rotationSin ?? 0)
+    }
+    if (canvasAspectLocation) {
+      const fallbackAspect = (this.gl.canvas.width > 0 && this.gl.canvas.height > 0)
+        ? (this.gl.canvas.width / this.gl.canvas.height)
+        : 1
+      this.gl.uniform1f(canvasAspectLocation, scale.rotationAspect ?? fallbackAspect)
+    }
   }
 
   cleanup(): void {

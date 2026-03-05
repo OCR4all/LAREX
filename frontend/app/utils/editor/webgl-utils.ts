@@ -5,6 +5,9 @@
 export interface Scale {
   scaleX: number
   scaleY: number
+  rotationCos?: number
+  rotationSin?: number
+  rotationAspect?: number
 }
 
 export interface Offset {
@@ -30,12 +33,28 @@ export function setTransformUniforms(
   const scaleLocation = gl.getUniformLocation(program, 'u_scale')
   const offsetLocation = gl.getUniformLocation(program, 'u_offset')
   const zoomLocation = gl.getUniformLocation(program, 'u_zoom')
+  const rotationLocation = gl.getUniformLocation(program, 'u_rotation')
+  const canvasAspectLocation = gl.getUniformLocation(program, 'u_canvasAspect')
 
   if (!scaleLocation || !offsetLocation || !zoomLocation) return
 
   gl.uniform2f(scaleLocation, scale.scaleX, scale.scaleY)
   gl.uniform2f(offsetLocation, offset.offsetX, offset.offsetY)
   gl.uniform1f(zoomLocation, zoom)
+
+  if (rotationLocation) {
+    const rotationCos = (typeof scale.rotationCos === 'number' && isFinite(scale.rotationCos)) ? scale.rotationCos : 1
+    const rotationSin = (typeof scale.rotationSin === 'number' && isFinite(scale.rotationSin)) ? scale.rotationSin : 0
+    gl.uniform2f(rotationLocation, rotationCos, rotationSin)
+  }
+
+  if (canvasAspectLocation) {
+    const fallbackAspect = (gl.canvas.width > 0 && gl.canvas.height > 0) ? (gl.canvas.width / gl.canvas.height) : 1
+    const canvasAspect = (typeof scale.rotationAspect === 'number' && isFinite(scale.rotationAspect) && scale.rotationAspect > 0)
+      ? scale.rotationAspect
+      : fallbackAspect
+    gl.uniform1f(canvasAspectLocation, canvasAspect)
+  }
 }
 
 /**

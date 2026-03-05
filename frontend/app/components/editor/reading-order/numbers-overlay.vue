@@ -8,6 +8,7 @@
 
 import type { Point, View, AspectRatioScale } from '@/models/editor'
 import type { OrderNumber, GroupBounds } from '@/webgl/editor/reading-order-renderer'
+import { worldToClipCoords } from '@/utils/editor/coordinates'
 
 interface Props {
   /** Order numbers to display */
@@ -34,14 +35,10 @@ const props = defineProps<Props>()
 function worldToScreen(point: Point): { x: number, y: number } {
   const { view, aspectRatioScale, canvasDimensions } = props
 
-  let x = (point.x * view.zoom) + view.offsetX
-  let y = (point.y * view.zoom) + view.offsetY
+  const clip = worldToClipCoords(point, view, aspectRatioScale)
 
-  x *= aspectRatioScale.scaleX
-  y *= aspectRatioScale.scaleY
-
-  const screenX = (x + 1) * 0.5 * canvasDimensions.width
-  const screenY = (1 - y) * 0.5 * canvasDimensions.height // Y is inverted
+  const screenX = (clip.x + 1) * 0.5 * canvasDimensions.width
+  const screenY = (1 - clip.y) * 0.5 * canvasDimensions.height // Y is inverted
 
   return { x: screenX, y: screenY }
 }

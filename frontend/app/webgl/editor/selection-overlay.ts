@@ -52,13 +52,19 @@ export class SelectionOverlayRenderer {
       uniform vec2 u_scale;
       uniform vec2 u_offset;
       uniform float u_zoom;
+      uniform vec2 u_rotation;
+      uniform float u_canvasAspect;
       uniform bool u_skipTransform;
 
       void main() {
         vec2 pos = a_position;
         if (!u_skipTransform) {
           pos = (a_position * u_zoom) + u_offset;
-          pos *= u_scale;
+          vec2 scaled = pos * u_scale;
+          pos = vec2(
+            scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+            scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+          );
         }
         gl_Position = vec4(pos, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_Z)}, ${glslFloatLiteral(WEBGL_GLSL.CLIPSPACE_W)});
       }`
