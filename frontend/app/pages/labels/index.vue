@@ -350,6 +350,16 @@ const items = (row: LabelSetRow) => {
 
   return [actions]
 }
+
+const contextMenuLabelSet = ref<LabelSetRow | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuLabelSet.value) return []
+  return items(contextMenuLabelSet.value)
+})
+
+function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
+  contextMenuLabelSet.value = row.original as unknown as LabelSetRow
+}
 </script>
 
 <template>
@@ -485,20 +495,23 @@ const items = (row: LabelSetRow) => {
         ]"
       />
       <div v-else-if="labelSets">
-        <UTable
-          data-tour="labels-table"
-          :data="paginatedData"
-          :columns="columns"
-          class="flex-1"
-          :ui="{
-            base: 'table-fixed border-separate border-spacing-0',
-            thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-            tbody: '[&>tr]:last:[&>td]:border-b-0',
-            th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-            td: 'border-b border-default',
-            separator: 'h-0'
-          }"
-        />
+        <UContextMenu :items="contextMenuItems as any">
+          <UTable
+            data-tour="labels-table"
+            :data="paginatedData"
+            :columns="columns"
+            class="flex-1"
+            :ui="{
+              base: 'table-fixed border-separate border-spacing-0',
+              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+              tbody: '[&>tr]:last:[&>td]:border-b-0',
+              th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+              td: 'border-b border-default',
+              separator: 'h-0'
+            }"
+            @contextmenu="handleRowContextMenu"
+          />
+        </UContextMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
           <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">

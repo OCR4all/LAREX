@@ -1453,18 +1453,32 @@ const pageColumns: TableColumn<Page>[] = [
     id: 'actions',
     cell: ({ row }: { row: { original: Page } }) => h(UDropdownMenu, {
       content: { align: 'end' },
-      items: [
-        { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked, onSelect: () => openEditModal(row.original) },
-        { label: 'View Images', icon: 'i-lucide-images', disabled: row.original.imageCount === 0, onSelect: () => openImageModal(row.original) },
-        { label: 'View/Edit XML', icon: 'i-lucide-file-pen-line', disabled: row.original.xmlFileCount === 0, onSelect: () => openXmlEditor(row.original) },
-        { label: 'Export XML', icon: 'i-lucide-file-code-2', disabled: row.original.xmlFileCount === 0, onSelect: () => exportPageXml(row.original) },
-        { label: 'Version History', icon: 'i-lucide-history', disabled: row.original.xmlFileCount === 0, onSelect: () => openVersionHistory(row.original) },
-        { type: 'separator' },
-        { label: 'Delete', icon: 'i-lucide-trash', color: 'error', disabled: project.value?.locked, onSelect: () => openDeleteModal(row.original) }
-      ]
+      items: getPageRowItems(row.original)
     }, () => h(UButton, { icon: 'i-lucide-ellipsis-vertical', color: 'neutral', variant: 'ghost' }))
   }
 ]
+
+function getPageRowItems(page: Page) {
+  return [
+    { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked, onSelect: () => openEditModal(page) },
+    { label: 'View Images', icon: 'i-lucide-images', disabled: page.imageCount === 0, onSelect: () => openImageModal(page) },
+    { label: 'View/Edit XML', icon: 'i-lucide-file-pen-line', disabled: page.xmlFileCount === 0, onSelect: () => openXmlEditor(page) },
+    { label: 'Export XML', icon: 'i-lucide-file-code-2', disabled: page.xmlFileCount === 0, onSelect: () => exportPageXml(page) },
+    { label: 'Version History', icon: 'i-lucide-history', disabled: page.xmlFileCount === 0, onSelect: () => openVersionHistory(page) },
+    { type: 'separator' },
+    { label: 'Delete', icon: 'i-lucide-trash', color: 'error', disabled: project.value?.locked, onSelect: () => openDeleteModal(page) }
+  ]
+}
+
+const contextMenuPage = ref<Page | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuPage.value) return []
+  return getPageRowItems(contextMenuPage.value)
+})
+
+function handlePageRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
+  contextMenuPage.value = row.original as unknown as Page
+}
 
 function openEditModal(page: Page) {
   pageEditSlideover.open({
@@ -1923,21 +1937,24 @@ useHead({
         </div>
 
         <div v-else-if="pages">
-          <UTable
-            v-if="paginatedPages.length > 0"
-            :columns="pageColumns"
-            :data="paginatedPages"
-            :loading="isManualPagesRefresh"
-            class="flex-1"
-            :ui="{
-              base: 'table-fixed border-separate border-spacing-0',
-              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0',
-              th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-              td: 'border-b border-default',
-              separator: 'h-0'
-            }"
-          />
+          <UContextMenu :items="contextMenuItems as any">
+            <UTable
+              v-if="paginatedPages.length > 0"
+              :columns="pageColumns"
+              :data="paginatedPages"
+              :loading="isManualPagesRefresh"
+              class="flex-1"
+              :ui="{
+                base: 'table-fixed border-separate border-spacing-0',
+                thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+                tbody: '[&>tr]:last:[&>td]:border-b-0',
+                th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+                td: 'border-b border-default',
+                separator: 'h-0'
+              }"
+              @contextmenu="handlePageRowContextMenu"
+            />
+          </UContextMenu>
 
           <div v-if="totalPagesCount > 1" class="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
             <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">

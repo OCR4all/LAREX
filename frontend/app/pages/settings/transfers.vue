@@ -27,6 +27,8 @@ type TransferRequest = {
   created: string
 }
 
+type TransferRow = TransferRequest & { type: 'project' | 'resource' }
+
 const { data: projectTransfers, refresh: refreshProjectTransfers } = await useFetch<TransferRequest[]>('/api/project-transfers/my-requests', {
   key: globalKey('user', 'project-transfers', 'my-requests'),
   default: () => []
@@ -36,7 +38,7 @@ const { data: resourceTransfers, refresh: refreshResourceTransfers } = await use
   default: () => []
 })
 
-const allTransfers = computed(() => [
+const allTransfers = computed<TransferRow[]>(() => [
   ...(projectTransfers.value || []).map(t => ({ ...t, type: 'project' as const })),
   ...(resourceTransfers.value || []).map(t => ({ ...t, type: 'resource' as const }))
 ].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()))
@@ -54,6 +56,16 @@ async function cancelRequest(request: TransferRequest & { type: string }) {
   } catch {
     toast.add({ title: 'Failed to cancel', color: 'error' })
   }
+}
+
+function getRowActions(row: TransferRow) {
+  if (row.status !== 'PENDING') return []
+
+  return [{
+    label: 'Cancel',
+    icon: 'i-lucide-x',
+    onSelect: () => cancelRequest(row)
+  }]
 }
 
 const statusColors: Record<string, 'warning' | 'success' | 'error' | 'neutral'> = {
@@ -96,11 +108,23 @@ const columns = [
   {
     id: 'actions',
     header: '',
-    cell: ({ row }: { row: any }) => row.original.status === 'PENDING'
+    cell: ({ row }: { row: any }) => getRowActions(row.original).length > 0
       ? h(UButton, { icon: 'i-lucide-x', color: 'neutral', variant: 'ghost', size: 'sm', onClick: () => cancelRequest(row.original) }, () => 'Cancel')
       : null
   }
 ]
+
+const contextMenuTransfer = ref<TransferRow | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuTransfer.value) return []
+  const actions = getRowActions(contextMenuTransfer.value)
+  if (actions.length === 0) return []
+  return [actions]
+})
+
+function handleRowContextMenu(_event: Event, row: any) {
+  contextMenuTransfer.value = row.original as TransferRow
+}
 </script>
 
 <template>
@@ -129,7 +153,13 @@ const columns = [
           </p>
         </div>
 
-        <UTable v-else :columns="columns" :data="allTransfers" />
+        <UContextMenu v-else :items="contextMenuItems as any">
+          <UTable
+            :columns="columns"
+            :data="allTransfers"
+            @contextmenu="handleRowContextMenu"
+          />
+        </UContextMenu>
       </div>
     </template>
   </UDashboardPanel>

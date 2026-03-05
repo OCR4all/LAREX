@@ -195,6 +195,62 @@ watch(totalPages, (newTotalPages) => {
   }
 })
 
+type UserRowAction = {
+  key: string
+  label: string
+  icon: string
+  color: 'neutral' | 'primary' | 'error'
+  loading?: boolean
+  onSelect: () => void
+}
+
+function getRowActions(user: AdminUser): UserRowAction[] {
+  const actions: UserRowAction[] = [
+    {
+      key: `details-${user.id}`,
+      label: 'Details',
+      icon: 'i-lucide-info',
+      color: 'neutral',
+      onSelect: () => openUserDetails(user.id)
+    }
+  ]
+
+  if (canResendSetup(user)) {
+    actions.push({
+      key: `resend-${user.id}`,
+      label: 'Resend Setup',
+      icon: 'i-lucide-send',
+      color: 'primary',
+      loading: isActionPending(user.id, 'resend'),
+      onSelect: () => resendSetupEmail(user)
+    })
+  }
+
+  if (canEnable(user)) {
+    actions.push({
+      key: `enable-${user.id}`,
+      label: 'Enable',
+      icon: 'i-lucide-check-circle',
+      color: 'primary',
+      loading: isActionPending(user.id, 'enable'),
+      onSelect: () => enableUser(user)
+    })
+  }
+
+  if (canDisable(user)) {
+    actions.push({
+      key: `disable-${user.id}`,
+      label: 'Disable',
+      icon: 'i-lucide-ban',
+      color: 'error',
+      loading: isActionPending(user.id, 'disable'),
+      onSelect: () => disableUser(user)
+    })
+  }
+
+  return actions
+}
+
 const columns = computed<TableColumn<AdminUser>[]>(() => [
   {
     accessorKey: 'user',
@@ -240,57 +296,36 @@ const columns = computed<TableColumn<AdminUser>[]>(() => [
     header: () => h('div', { class: 'text-right' }, 'Actions'),
     cell: ({ row }) => {
       const user = row.original
-      const actions = [
-        h(UButton, {
-          key: `details-${user.id}`,
-          size: 'xs',
-          variant: 'ghost',
-          color: 'neutral',
-          label: 'Details',
-          onClick: () => openUserDetails(user.id)
-        })
-      ]
-
-      if (canResendSetup(user)) {
-        actions.push(h(UButton, {
-          key: `resend-${user.id}`,
-          size: 'xs',
-          variant: 'ghost',
-          color: 'primary',
-          label: 'Resend Setup',
-          loading: isActionPending(user.id, 'resend'),
-          onClick: () => resendSetupEmail(user)
-        }))
-      }
-
-      if (canEnable(user)) {
-        actions.push(h(UButton, {
-          key: `enable-${user.id}`,
-          size: 'xs',
-          variant: 'ghost',
-          color: 'primary',
-          label: 'Enable',
-          loading: isActionPending(user.id, 'enable'),
-          onClick: () => enableUser(user)
-        }))
-      }
-
-      if (canDisable(user)) {
-        actions.push(h(UButton, {
-          key: `disable-${user.id}`,
-          size: 'xs',
-          variant: 'ghost',
-          color: 'error',
-          label: 'Disable',
-          loading: isActionPending(user.id, 'disable'),
-          onClick: () => disableUser(user)
-        }))
-      }
+      const actions = getRowActions(user).map(action => h(UButton, {
+        key: action.key,
+        size: 'xs',
+        variant: 'ghost',
+        color: action.color,
+        label: action.label,
+        loading: action.loading,
+        onClick: action.onSelect
+      }))
 
       return h('div', { class: 'flex flex-wrap justify-end gap-2' }, actions)
     }
   }
 ])
+
+const contextMenuUser = ref<AdminUser | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuUser.value) return []
+  return [getRowActions(contextMenuUser.value).map(action => ({
+    label: action.label,
+    icon: action.icon,
+    color: action.color,
+    disabled: action.loading,
+    onSelect: action.onSelect
+  }))]
+})
+
+function handleRowContextMenu(_event: Event, row: any) {
+  contextMenuUser.value = row.original as AdminUser
+}
 
 function displayName(user: AdminUser): string {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
@@ -699,12 +734,15 @@ async function resendSetupEmail(user: AdminUser) {
           </div>
         </template>
 
-        <UTable
-          :data="users"
-          :columns="columns"
-          :loading="pending"
-          :ui="datatableUi"
-        />
+        <UContextMenu :items="contextMenuItems as any">
+          <UTable
+            :data="users"
+            :columns="columns"
+            :loading="pending"
+            :ui="datatableUi"
+            @contextmenu="handleRowContextMenu"
+          />
+        </UContextMenu>
 
         <div class="flex flex-col gap-4 border-t border-default p-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">

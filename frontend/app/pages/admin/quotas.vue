@@ -205,6 +205,16 @@ const getActions = (quota: AdminQuotaRow) => [
   { label: 'Reset to Default', icon: 'i-lucide-rotate-ccw', onSelect: () => resetToDefault(quota.workspaceId) }
 ]
 
+const contextMenuQuota = ref<AdminQuotaRow | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuQuota.value) return []
+  return [getActions(contextMenuQuota.value)]
+})
+
+function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
+  contextMenuQuota.value = row.original as unknown as AdminQuotaRow
+}
+
 async function recalculateUsage(workspaceId: string) {
   try {
     await $fetch(`/api/storage/quotas/workspace/${workspaceId}/recalculate`, { method: 'POST' })
@@ -409,12 +419,15 @@ function formatBytes(bytes: number) {
           </div>
         </template>
 
-        <UTable
-          :data="paginatedRows"
-          :columns="columns"
-          :loading="pending"
-          :ui="datatableUi"
-        />
+        <UContextMenu :items="contextMenuItems as any">
+          <UTable
+            :data="paginatedRows"
+            :columns="columns"
+            :loading="pending"
+            :ui="datatableUi"
+            @contextmenu="handleRowContextMenu"
+          />
+        </UContextMenu>
 
         <template #footer>
           <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

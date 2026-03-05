@@ -74,6 +74,14 @@ function openWorkspace(workspace: AdminWorkspace) {
   router.push('/')
 }
 
+function getRowActions(workspace: AdminWorkspace) {
+  return [{
+    label: 'Open',
+    icon: 'i-lucide-external-link',
+    onSelect: () => openWorkspace(workspace)
+  }]
+}
+
 const columns = [
   {
     accessorKey: 'name',
@@ -126,6 +134,16 @@ const columns = [
     })
   }
 ]
+
+const contextMenuWorkspace = ref<AdminWorkspace | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuWorkspace.value) return []
+  return getRowActions(contextMenuWorkspace.value)
+})
+
+function handleRowContextMenu(_event: Event, row: any) {
+  contextMenuWorkspace.value = row.original as AdminWorkspace
+}
 
 const personalCount = computed(() => workspaces.value.filter(w => w.isPersonal).length)
 const teamCount = computed(() => workspaces.value.filter(w => !w.isPersonal).length)
@@ -213,12 +231,15 @@ const teamCount = computed(() => workspaces.value.filter(w => !w.isPersonal).len
           </div>
         </template>
 
-        <UTable
-          :data="paginatedRows"
-          :columns="columns"
-          :loading="pending"
-          :ui="datatableUi"
-        />
+        <UContextMenu :items="contextMenuItems as any">
+          <UTable
+            :data="paginatedRows"
+            :columns="columns"
+            :loading="pending"
+            :ui="datatableUi"
+            @contextmenu="handleRowContextMenu"
+          />
+        </UContextMenu>
 
         <template #footer>
           <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

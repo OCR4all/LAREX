@@ -112,6 +112,19 @@ async function cancel(request: TransferRequest) {
   }
 }
 
+function getIncomingActions(request: TransferRequest) {
+  return [
+    { label: 'Reject', icon: 'i-lucide-x', onSelect: () => reject(request) },
+    { label: 'Approve', icon: 'i-lucide-check', onSelect: () => approve(request) }
+  ]
+}
+
+function getOutgoingActions(request: TransferRequest) {
+  return [
+    { label: 'Cancel', icon: 'i-lucide-x', onSelect: () => cancel(request) }
+  ]
+}
+
 const incomingColumns = [
   {
     accessorKey: 'name',
@@ -176,6 +189,26 @@ const outgoingColumns = [
     cell: ({ row }: { row: any }) => h(UButton, { size: 'xs', color: 'neutral', variant: 'ghost', onClick: () => cancel(row.original) }, () => 'Cancel')
   }
 ]
+
+const incomingContextRequest = ref<TransferRequest | null>(null)
+const incomingContextMenuItems = computed(() => {
+  if (!incomingContextRequest.value) return []
+  return [getIncomingActions(incomingContextRequest.value)]
+})
+
+const outgoingContextRequest = ref<TransferRequest | null>(null)
+const outgoingContextMenuItems = computed(() => {
+  if (!outgoingContextRequest.value) return []
+  return [getOutgoingActions(outgoingContextRequest.value)]
+})
+
+function handleIncomingRowContextMenu(_event: Event, row: any) {
+  incomingContextRequest.value = row.original as TransferRequest
+}
+
+function handleOutgoingRowContextMenu(_event: Event, row: any) {
+  outgoingContextRequest.value = row.original as TransferRequest
+}
 </script>
 
 <template>
@@ -198,7 +231,13 @@ const outgoingColumns = [
       <UIcon name="i-lucide-inbox" class="mx-auto text-3xl mb-2" />
       <p>No pending incoming requests</p>
     </div>
-    <UTable v-else :columns="incomingColumns" :data="incoming" />
+    <UContextMenu v-else :items="incomingContextMenuItems as any">
+      <UTable
+        :columns="incomingColumns"
+        :data="incoming"
+        @contextmenu="handleIncomingRowContextMenu"
+      />
+    </UContextMenu>
   </UPageCard>
   <UPageCard
     data-tour="workspace-requests-outgoing"
@@ -209,6 +248,12 @@ const outgoingColumns = [
       <UIcon name="i-lucide-send" class="mx-auto text-3xl mb-2" />
       <p>No pending outgoing requests</p>
     </div>
-    <UTable v-else :columns="outgoingColumns" :data="outgoing" />
+    <UContextMenu v-else :items="outgoingContextMenuItems as any">
+      <UTable
+        :columns="outgoingColumns"
+        :data="outgoing"
+        @contextmenu="handleOutgoingRowContextMenu"
+      />
+    </UContextMenu>
   </UPageCard>
 </template>

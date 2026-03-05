@@ -159,6 +159,16 @@ function getActions(ws: WorkspaceRow) {
   return actions
 }
 
+const contextMenuWorkspace = ref<WorkspaceRow | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuWorkspace.value) return []
+  return getActions(contextMenuWorkspace.value)
+})
+
+function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
+  contextMenuWorkspace.value = row.original as unknown as WorkspaceRow
+}
+
 async function openDeleteSlideover(ws: WorkspaceRow) {
   const instance = deleteSlideover.open({
     name: ws.name,
@@ -247,19 +257,22 @@ async function leaveWorkspace(ws: WorkspaceRow) {
 
     <template #body>
       <div v-if="workspaces?.length">
-        <UTable
-          :data="paginatedData"
-          :columns="columns"
-          class="flex-1"
-          :ui="{
-            base: 'table-fixed border-separate border-spacing-0',
-            thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-            tbody: '[&>tr]:last:[&>td]:border-b-0',
-            th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-            td: 'border-b border-default',
-            separator: 'h-0'
-          }"
-        />
+        <UContextMenu :items="contextMenuItems as any">
+          <UTable
+            :data="paginatedData"
+            :columns="columns"
+            class="flex-1"
+            :ui="{
+              base: 'table-fixed border-separate border-spacing-0',
+              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+              tbody: '[&>tr]:last:[&>td]:border-b-0',
+              th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+              td: 'border-b border-default',
+              separator: 'h-0'
+            }"
+            @contextmenu="handleRowContextMenu"
+          />
+        </UContextMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
           <span class="text-sm text-gray-600 dark:text-gray-400">

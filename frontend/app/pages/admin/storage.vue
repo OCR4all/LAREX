@@ -385,6 +385,25 @@ const columns: TableColumn<OrphanedFile>[] = [
   }
 ]
 
+function getRowActions(file: OrphanedFile) {
+  return [{
+    label: 'Delete',
+    icon: 'i-lucide-trash-2',
+    color: 'error' as const,
+    onSelect: () => deleteSingleFile(file.path)
+  }]
+}
+
+const contextMenuFile = ref<OrphanedFile | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuFile.value) return []
+  return getRowActions(contextMenuFile.value)
+})
+
+function handleRowContextMenu(_event: Event, row: any) {
+  contextMenuFile.value = row.original as OrphanedFile
+}
+
 async function refreshAll() {
   await Promise.all([refreshOverview(), refreshOrphaned()])
 }
@@ -610,12 +629,15 @@ async function refreshAll() {
         </div>
 
         <template v-else>
-          <UTable
-            :columns="columns"
-            :data="currentPageFiles"
-            :loading="orphanedPending"
-            :ui="datatableUi"
-          />
+          <UContextMenu :items="contextMenuItems as any">
+            <UTable
+              :columns="columns"
+              :data="currentPageFiles"
+              :loading="orphanedPending"
+              :ui="datatableUi"
+              @contextmenu="handleRowContextMenu"
+            />
+          </UContextMenu>
         </template>
 
         <template #footer>

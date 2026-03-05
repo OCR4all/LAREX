@@ -265,6 +265,16 @@ function getRowActions(task: Task) {
   return actions
 }
 
+const contextMenuTask = ref<Task | null>(null)
+const contextMenuItems = computed(() => {
+  if (!contextMenuTask.value) return []
+  return getRowActions(contextMenuTask.value)
+})
+
+function handleRowContextMenu(_event: Event, row: any) {
+  contextMenuTask.value = row.original as unknown as Task
+}
+
 const columns: TableColumn<Task>[] = [
   {
     id: 'select',
@@ -520,18 +530,21 @@ const viewModeItems = [
       />
 
       <div v-else-if="viewMode === 'table'">
-        <UTable
-          :data="filteredTasks"
-          :columns="columns"
-          :ui="{
-            base: 'table-fixed border-separate border-spacing-0',
-            thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-            tbody: '[&>tr]:last:[&>td]:border-b-0',
-            th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-            td: 'border-b border-default',
-            separator: 'h-0'
-          }"
-        />
+        <UContextMenu :items="contextMenuItems as any">
+          <UTable
+            :data="filteredTasks"
+            :columns="columns"
+            :ui="{
+              base: 'table-fixed border-separate border-spacing-0',
+              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+              tbody: '[&>tr]:last:[&>td]:border-b-0',
+              th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+              td: 'border-b border-default',
+              separator: 'h-0'
+            }"
+            @contextmenu="handleRowContextMenu"
+          />
+        </UContextMenu>
       </div>
 
       <div v-else>
