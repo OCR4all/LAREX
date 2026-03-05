@@ -107,6 +107,11 @@ const { data: tagSets, error: tagSetsError } = await useFetch<TagSetSummary[]>(
 const hasAppliedLabelSetDefault = ref(false)
 const hasAppliedTextIndexDefaults = ref(false)
 const canEditTextIndexDefaults = computed(() => workspace.isCurrentUserOwner)
+const openConfigurationPanels = ref<string[]>([])
+const configurationPanelItems = [
+  { label: 'Presets', value: 'presets', slot: 'presets', icon: 'i-lucide-sliders-horizontal' },
+  { label: 'Text Variants', value: 'text-variants', slot: 'text-variants', icon: 'i-lucide-text' }
+]
 
 watch(selectedWorkspace, () => {
   hasAppliedLabelSetDefault.value = false
@@ -273,78 +278,88 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           <UInputTags v-model="state.tags" icon="i-lucide-tags" placeholder="Categorize your project via tags" />
         </UFormField>
 
-        <UiFormSectionHeader title="Presets" />
-
-        <UFormField label="Tag Set" name="tagSetId" hint="Tag structure to use for this project">
-          <USelect
-            v-model="state.tagSetId"
-            :items="tagSets"
-            placeholder="Select a tag set"
-            :disabled="!!tagSetsError || tagSets.length === 0"
-          />
-        </UFormField>
-
-        <UFormField label="Codec" name="codecId" hint="Codec to use for this project">
-          <USelect
-            v-model="state.codecId"
-            :items="codecs"
-            placeholder="Select a codec"
-            :disabled="!!codecsError || codecs.length === 0"
-          />
-        </UFormField>
-
-        <UFormField label="Label Set" name="labelSetId" hint="Label set to use for this project">
-          <USelect
-            v-model="state.labelSetId"
-            :items="labelSets"
-            placeholder="Select a label set"
-            :disabled="!!labelSetsError || labelSets.length === 0"
-          />
-        </UFormField>
-
-        <UiFormSectionHeader title="Text Variants" />
-
-        <UFormField label="Default GT Index" name="defaultGtIndexInput" hint="Single Ground Truth index used in the text editor.">
-          <div class="flex items-center gap-3">
-            <UInput
-              v-model="state.defaultGtIndexInput"
-              type="number"
-              min="0"
-              step="1"
-              class="flex-1"
-              placeholder="0"
-              :disabled="state.defaultGtIndexUndefined === true || !canEditTextIndexDefaults"
-            />
-            <UCheckbox
-              v-model="state.defaultGtIndexUndefined"
-              label="Undefined"
-              :disabled="!canEditTextIndexDefaults"
-            />
-          </div>
-        </UFormField>
-
-        <UFormField
-          label="Default Recognition Indices"
-          name="defaultRecognitionIndicesInput"
-          hint="Recognition indices used in the text editor (multiple allowed)."
+        <UAccordion
+          v-model="openConfigurationPanels"
+          :items="configurationPanelItems"
+          type="multiple"
         >
-          <div class="space-y-2">
-            <UInputTags
-              v-model="state.defaultRecognitionIndicesInput"
-              placeholder="Add indices (e.g. 1, 2)"
-              :disabled="!canEditTextIndexDefaults"
-            />
-            <UCheckbox
-              v-model="state.defaultRecognitionIndicesUndefined"
-              label="Include Undefined"
-              :disabled="!canEditTextIndexDefaults"
-            />
-          </div>
-        </UFormField>
+          <template #presets>
+            <div class="space-y-4 p-1">
+              <UFormField label="Tag Set" name="tagSetId" hint="Tag structure to use for this project">
+                <USelect
+                  v-model="state.tagSetId"
+                  :items="tagSets"
+                  placeholder="Select a tag set"
+                  :disabled="!!tagSetsError || tagSets.length === 0"
+                />
+              </UFormField>
 
-        <p v-if="!canEditTextIndexDefaults" class="text-xs text-muted">
-          Only the workspace owner can set project text-index defaults.
-        </p>
+              <UFormField label="Codec" name="codecId" hint="Codec to use for this project">
+                <USelect
+                  v-model="state.codecId"
+                  :items="codecs"
+                  placeholder="Select a codec"
+                  :disabled="!!codecsError || codecs.length === 0"
+                />
+              </UFormField>
+
+              <UFormField label="Label Set" name="labelSetId" hint="Label set to use for this project">
+                <USelect
+                  v-model="state.labelSetId"
+                  :items="labelSets"
+                  placeholder="Select a label set"
+                  :disabled="!!labelSetsError || labelSets.length === 0"
+                />
+              </UFormField>
+            </div>
+          </template>
+
+          <template #text-variants>
+            <div class="space-y-4 p-1">
+              <UFormField label="Default GT Index" name="defaultGtIndexInput" hint="Single Ground Truth index used in the text editor.">
+                <div class="flex items-center gap-3">
+                  <UInput
+                    v-model="state.defaultGtIndexInput"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="flex-1"
+                    placeholder="0"
+                    :disabled="state.defaultGtIndexUndefined === true || !canEditTextIndexDefaults"
+                  />
+                  <UCheckbox
+                    v-model="state.defaultGtIndexUndefined"
+                    label="Undefined"
+                    :disabled="!canEditTextIndexDefaults"
+                  />
+                </div>
+              </UFormField>
+
+              <UFormField
+                label="Default Recognition Indices"
+                name="defaultRecognitionIndicesInput"
+                hint="Recognition indices used in the text editor (multiple allowed)."
+              >
+                <div class="flex items-center gap-3">
+                  <UInputTags
+                    v-model="state.defaultRecognitionIndicesInput"
+                    placeholder="Add indices (e.g. 1, 2)"
+                    :disabled="!canEditTextIndexDefaults"
+                  />
+                  <UCheckbox
+                    v-model="state.defaultRecognitionIndicesUndefined"
+                    label="Undefined"
+                    :disabled="!canEditTextIndexDefaults"
+                  />
+                </div>
+              </UFormField>
+
+              <p v-if="!canEditTextIndexDefaults" class="text-xs text-muted">
+                Only the workspace owner can set project text-index defaults.
+              </p>
+            </div>
+          </template>
+        </UAccordion>
       </UForm>
     </template>
     <template #footer>
