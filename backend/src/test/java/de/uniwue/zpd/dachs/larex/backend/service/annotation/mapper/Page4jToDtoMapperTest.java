@@ -1,4 +1,4 @@
-package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping;
+package de.uniwue.zpd.dachs.larex.backend.service.annotation.mapper;
 
 import com.maxnth.page4j.basic.variable.VariableValue;
 import com.maxnth.page4j.dla.page.Page;
@@ -10,7 +10,9 @@ import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextLine;
 import com.maxnth.page4j.dla.page.layout.physical.text.impl.TextRegion;
 import com.maxnth.page4j.maths.geometry.Polygon;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.Page4jToDtoMapper;
 import org.junit.jupiter.api.Test;
+
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;

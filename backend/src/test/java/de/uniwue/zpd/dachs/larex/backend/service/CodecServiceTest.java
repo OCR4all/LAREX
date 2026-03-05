@@ -6,17 +6,19 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageTextContent;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
-import de.uniwue.zpd.dachs.larex.backend.repository.CodecRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.LibraryRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageTextContentRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 
 import java.lang.reflect.Field;
 import java.util.List;

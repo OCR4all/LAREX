@@ -1,7 +1,9 @@
-package de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser;
+package de.uniwue.zpd.dachs.larex.backend.service.annotation.parser;
 
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlPresenceIndex;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
 
 import java.nio.file.Files;
 import java.nio.file.Path;

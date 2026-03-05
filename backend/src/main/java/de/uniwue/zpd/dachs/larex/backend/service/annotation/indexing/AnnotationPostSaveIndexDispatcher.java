@@ -1,8 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.indexing;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageRepository;
-import de.uniwue.zpd.dachs.larex.backend.service.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.events.AnnotationSavedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

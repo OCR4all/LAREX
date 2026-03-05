@@ -1,13 +1,19 @@
 package de.uniwue.zpd.dachs.larex.backend;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
-import de.uniwue.zpd.dachs.larex.backend.repository.*;
-import de.uniwue.zpd.dachs.larex.backend.service.WorkspaceStorageQuotaService;
+import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceStorageQuotaRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

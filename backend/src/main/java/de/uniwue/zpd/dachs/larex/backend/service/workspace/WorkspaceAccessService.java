@@ -3,7 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
-import de.uniwue.zpd.dachs.larex.backend.repository.WorkspaceMemberRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import org.springframework.stereotype.Service;
 

@@ -4,11 +4,11 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageImageRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageXmlRepository;
-import de.uniwue.zpd.dachs.larex.backend.service.HierarchicalFileStorageService;
-import de.uniwue.zpd.dachs.larex.backend.service.PageXmlVersionService;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

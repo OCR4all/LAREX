@@ -1,6 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.version.dispatch;
 
-import de.uniwue.zpd.dachs.larex.backend.service.PageXmlVersionPruneWorker;
+import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionPruneWorker;
 import de.uniwue.zpd.dachs.larex.backend.service.version.events.PageXmlVersionCreatedEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;

@@ -3,12 +3,15 @@ package de.uniwue.zpd.dachs.larex.backend.service;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageConfidenceIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 
 import java.util.HashSet;
 import java.util.List;

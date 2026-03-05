@@ -1,10 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.service;
 
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
@@ -13,18 +13,20 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageConfidenceIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageLabelIndex;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageTextContent;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageConfidenceIndexRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageLabelIndexRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageTextContentRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 
 import java.util.ArrayList;
 import java.util.Collections;

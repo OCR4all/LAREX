@@ -2,9 +2,9 @@ package de.uniwue.zpd.dachs.larex.backend.scheduler;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Task;
 import de.uniwue.zpd.dachs.larex.backend.entity.TaskReminder;
-import de.uniwue.zpd.dachs.larex.backend.repository.TaskReminderRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.TaskRepository;
-import de.uniwue.zpd.dachs.larex.backend.service.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskReminderRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
