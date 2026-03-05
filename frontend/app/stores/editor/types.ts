@@ -19,6 +19,7 @@ export interface ConfidenceHeatmapSettings {
 export interface ImageVariant {
   id: string
   url: string
+  fileName?: string
   type?: string
   label: string
 }

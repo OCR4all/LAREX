@@ -81,6 +81,7 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
     const imageVariants: ImageVariant[] = images.map(img => ({
       id: img.id,
       url: `/api/projects/${projectId}/pages/images/${img.id}/blob`,
+      fileName: img.fileName,
       type: img.variant || undefined,
       label: img.variant || img.fileName
     }))

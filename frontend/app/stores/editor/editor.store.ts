@@ -28,6 +28,14 @@ function pointsToTuples(points: { x: number, y: number }[]): [number, number][] 
   return points.map(p => [p.x, p.y])
 }
 
+function resolveMetadataImageFilename(variant: ImageVariant): string {
+  const fileName = variant.fileName?.trim()
+  if (fileName) return fileName
+  const label = variant.label?.trim()
+  if (label) return label
+  return variant.url
+}
+
 function createEmptyPcGts(params: { imageFilename: string, imageWidth: number, imageHeight: number, pcGtsId?: string }): PcGts {
   const now = nowIso()
   const metadata = new Metadata({ creator: 'umbra', created: now, lastChange: now })
@@ -321,6 +329,11 @@ export const useEditorStore = defineStore('editor', () => {
 
     canvas.imageVariantId = nextVariant.id
     canvas.imageSrc = nextVariant.url
+    const session = getEditorSession(canvasId)
+    if (session?.document.value?.page) {
+      session.document.value.page.imageFilename = resolveMetadataImageFilename(nextVariant)
+      triggerRef(session.document)
+    }
 
     if (activeCanvasId.value === canvasId) {
       currentImageVariantId.value = nextVariant.id
@@ -835,6 +848,7 @@ export const useEditorStore = defineStore('editor', () => {
       log.error(`No image variant found for page ${pageId}`)
       return null
     }
+    const metadataImageFilename = resolveMetadataImageFilename(variant)
 
     if (!documentStore.preferredImageVariantKey) {
       documentStore.updatePreferredImageVariantKey(documentStore.getVariantPreferenceKey(variant))
@@ -852,7 +866,7 @@ export const useEditorStore = defineStore('editor', () => {
     }
 
     const emptyPcGts = createEmptyPcGts({
-      imageFilename: variant.url,
+      imageFilename: metadataImageFilename,
       imageWidth: canvas.imageSize?.width ?? 1000,
       imageHeight: canvas.imageSize?.height ?? 1000,
       pcGtsId: `pcgts-${pageId}`
@@ -863,7 +877,7 @@ export const useEditorStore = defineStore('editor', () => {
     canvas.selectedBaselineId = null
 
     if (page.xmlFiles && page.xmlFiles.length > 0) {
-      loadAnnotationsForCanvas(canvasId, projectId, pageId, page.xmlFiles, variant.url)
+      loadAnnotationsForCanvas(canvasId, projectId, pageId, page.xmlFiles, metadataImageFilename)
     } else {
       log.info(`No XML files available for page ${pageId}, using empty document`)
     }
@@ -881,7 +895,7 @@ export const useEditorStore = defineStore('editor', () => {
     projectId: string,
     pageId: string,
     xmlFiles: { id: string, fileName: string, schema: string }[],
-    imageFilename: string
+    imageFilename?: string
   ): Promise<void> {
     const pageXmlFile = xmlFiles.find(xml => xml.schema === 'PAGE_XML')
     if (!pageXmlFile) {
@@ -916,7 +930,7 @@ export const useEditorStore = defineStore('editor', () => {
 
       const pcGts = convertPageDtoToPcGts(pageDto)
       
-      if (pcGts.page) {
+      if (pcGts.page && imageFilename) {
         pcGts.page.imageFilename = imageFilename
       }
 
@@ -1119,6 +1133,11 @@ export const useEditorStore = defineStore('editor', () => {
 
     canvas.imageVariantId = variantId
     canvas.imageSrc = variant.url
+    const session = getEditorSession(canvasId)
+    if (session?.document.value?.page) {
+      session.document.value.page.imageFilename = resolveMetadataImageFilename(variant)
+      triggerRef(session.document)
+    }
 
     if (activeCanvasId.value === canvasId) {
       currentImageVariantId.value = variantId
