@@ -222,6 +222,7 @@ const currentProjectIdForFilter = computed<string | undefined>(() => currentProj
 const EDITOR_INDEX_STATUS_POLL_MS = 5000
 const editorIndexStatusPollTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 const editorIndexStatusPollInFlight = new Set<string>()
+const canPollEditorIndexStatuses = ref(false)
 
 function clearEditorIndexStatusPoll(projectId?: string) {
   if (projectId) {
@@ -244,6 +245,7 @@ function hasIndexingPagesInProject(projectId: string): boolean {
 }
 
 function scheduleEditorIndexStatusPoll(projectId: string, delayMs = EDITOR_INDEX_STATUS_POLL_MS) {
+  if (import.meta.server || !canPollEditorIndexStatuses.value) return
   if (!projectId || editorIndexStatusPollTimeouts.has(projectId) || editorIndexStatusPollInFlight.has(projectId)) {
     return
   }
@@ -255,6 +257,7 @@ function scheduleEditorIndexStatusPoll(projectId: string, delayMs = EDITOR_INDEX
 }
 
 async function pollEditorProjectIndexStatuses(projectId: string) {
+  if (import.meta.server || !canPollEditorIndexStatuses.value) return
   if (!projectId || editorIndexStatusPollInFlight.has(projectId)) return
   if (!hasIndexingPagesInProject(projectId)) {
     clearEditorIndexStatusPoll(projectId)
@@ -262,14 +265,24 @@ async function pollEditorProjectIndexStatuses(projectId: string) {
   }
 
   editorIndexStatusPollInFlight.add(projectId)
+  let shouldContinuePolling = true
   try {
     const statuses = await $fetch<Record<string, PageIndexingStatus>>(`/api/projects/${projectId}/pages/index-statuses`)
     editorStore.patchPageIndexingStatuses(projectId, statuses)
   } catch (error) {
+    const statusCode = Number(
+      (error as { statusCode?: number, response?: { status?: number } })?.statusCode
+      ?? (error as { response?: { status?: number } })?.response?.status
+      ?? 0
+    )
+    if (statusCode === 401 || statusCode === 403) {
+      shouldContinuePolling = false
+      return
+    }
     console.warn(`[Editor] Failed to poll page index statuses for project ${projectId}:`, error)
   } finally {
     editorIndexStatusPollInFlight.delete(projectId)
-    if (hasIndexingPagesInProject(projectId)) {
+    if (shouldContinuePolling && hasIndexingPagesInProject(projectId)) {
       scheduleEditorIndexStatusPoll(projectId)
     } else {
       clearEditorIndexStatusPoll(projectId)
@@ -278,6 +291,7 @@ async function pollEditorProjectIndexStatuses(projectId: string) {
 }
 
 function reconcileEditorIndexStatusPolling() {
+  if (import.meta.server || !canPollEditorIndexStatuses.value) return
   const openProjectIds = new Set(sessionStore.openedProjectIds)
 
   for (const projectId of Array.from(editorIndexStatusPollTimeouts.keys())) {
@@ -300,6 +314,11 @@ watch(() => sessionStore.openedProjectIds.slice(), () => {
 watch(() => editorStore.pagesByProjectId, () => {
   reconcileEditorIndexStatusPolling()
 }, { deep: true })
+
+onMounted(() => {
+  canPollEditorIndexStatuses.value = true
+  reconcileEditorIndexStatusPolling()
+})
 
 const {
   hasActiveFilters: hasAdvancedFilters,
@@ -2721,6 +2740,7 @@ function startResize(side: ResizeSide, event: PointerEvent) {
 }
 
 onBeforeUnmount(() => {
+  canPollEditorIndexStatuses.value = false
   stopResize()
   clearEditorIndexStatusPoll()
   if (rafLayoutId != null) {

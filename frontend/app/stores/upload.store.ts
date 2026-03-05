@@ -16,6 +16,10 @@ export interface ActiveUpload {
   error?: string
 }
 
+function isTerminalStatus(status: ActiveUpload['status']): boolean {
+  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+}
+
 export const useUploadStore = defineStore('upload', () => {
   const activeUploads = ref<Map<string, ActiveUpload>>(new Map())
   const showProgressPanel = ref(false)
@@ -76,6 +80,9 @@ export const useUploadStore = defineStore('upload', () => {
     const upload = activeUploads.value.get(sessionId)
     if (upload) {
       const mergedUpdates = { ...updates }
+      if (mergedUpdates.status && isTerminalStatus(upload.status) && mergedUpdates.status !== upload.status) {
+        delete mergedUpdates.status
+      }
       if (typeof mergedUpdates.processedFiles === 'number') {
         mergedUpdates.processedFiles = Math.max(upload.processedFiles, mergedUpdates.processedFiles)
       }
@@ -123,6 +130,9 @@ export const useUploadStore = defineStore('upload', () => {
   function completeUpload(sessionId: string, status: 'COMPLETED' | 'FAILED' | 'CANCELLED', error?: string) {
     const upload = activeUploads.value.get(sessionId)
     if (upload) {
+      if (isTerminalStatus(upload.status) && upload.status !== status) {
+        return
+      }
       const updatedUpload = {
         ...upload,
         status,

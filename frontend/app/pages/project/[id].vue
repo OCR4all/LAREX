@@ -110,6 +110,7 @@ watch(pagesPending, (pending) => {
 
 const pageIndexStatusPollTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 const pageIndexStatusPollInFlight = ref(false)
+const canPollPageIndexStatuses = ref(false)
 const PAGE_INDEX_STATUS_POLL_MS = 3000
 
 function hasIndexingPages(list: Page[] | null | undefined): boolean {
@@ -124,6 +125,7 @@ function stopPageIndexStatusPolling() {
 }
 
 function schedulePageIndexStatusPoll(delayMs = PAGE_INDEX_STATUS_POLL_MS) {
+  if (import.meta.server || !canPollPageIndexStatuses.value) return
   if (pageIndexStatusPollTimeout.value || pageIndexStatusPollInFlight.value) return
   pageIndexStatusPollTimeout.value = setTimeout(() => {
     pageIndexStatusPollTimeout.value = null
@@ -132,6 +134,7 @@ function schedulePageIndexStatusPoll(delayMs = PAGE_INDEX_STATUS_POLL_MS) {
 }
 
 async function pollPageIndexStatuses() {
+  if (import.meta.server || !canPollPageIndexStatuses.value) return
   if (pageIndexStatusPollInFlight.value) return
   if (!hasIndexingPages(pages.value)) {
     stopPageIndexStatusPolling()
@@ -139,6 +142,7 @@ async function pollPageIndexStatuses() {
   }
 
   pageIndexStatusPollInFlight.value = true
+  let shouldContinuePolling = true
   try {
     const statuses = await $fetch<Record<string, PageIndexingStatus>>(`/api/projects/${projectId}/pages/index-statuses`)
     if (pages.value) {
@@ -149,10 +153,19 @@ async function pollPageIndexStatuses() {
       })
     }
   } catch (error) {
+    const statusCode = Number(
+      (error as { statusCode?: number, response?: { status?: number } })?.statusCode
+      ?? (error as { response?: { status?: number } })?.response?.status
+      ?? 0
+    )
+    if (statusCode === 401 || statusCode === 403) {
+      shouldContinuePolling = false
+      return
+    }
     console.warn('[Project] Failed to poll page index statuses:', error)
   } finally {
     pageIndexStatusPollInFlight.value = false
-    if (hasIndexingPages(pages.value)) {
+    if (shouldContinuePolling && hasIndexingPages(pages.value)) {
       schedulePageIndexStatusPoll()
     } else {
       stopPageIndexStatusPolling()
@@ -480,11 +493,16 @@ const {
   onSessionComplete: async (session) => {
     const sessionId = currentUploadSessionId.value
     if (session && sessionId) {
-      if (!uploadEventsConnected.value) {
+      const existingUpload = uploadStore.activeUploads.get(sessionId)
+      if (existingUpload?.status !== 'FAILED' && existingUpload?.status !== 'CANCELLED') {
         uploadStore.updateUploadProgress(sessionId, {
-          status: 'PROCESSING',
+          processedFiles: existingUpload?.totalFiles ?? session.totalFiles,
           progressPercent: 100
         })
+        uploadStore.completeUpload(sessionId, 'COMPLETED')
+      }
+
+      if (!uploadEventsConnected.value) {
         pollBackendProcessing(sessionId)
       }
     }
@@ -527,6 +545,7 @@ watch(() => uploadSession.value?.id, (newSessionId) => {
 })
 
 watch(() => hasIndexingPages(pages.value), (hasIndexing) => {
+  if (import.meta.server || !canPollPageIndexStatuses.value) return
   if (hasIndexing) {
     schedulePageIndexStatusPoll(0)
   } else {
@@ -534,7 +553,15 @@ watch(() => hasIndexingPages(pages.value), (hasIndexing) => {
   }
 }, { immediate: true })
 
+onMounted(() => {
+  canPollPageIndexStatuses.value = true
+  if (hasIndexingPages(pages.value)) {
+    schedulePageIndexStatusPoll(0)
+  }
+})
+
 onBeforeUnmount(() => {
+  canPollPageIndexStatuses.value = false
   stopPageIndexStatusPolling()
   closeUploadEventSource()
   if (pageRefreshDebounceTimer) {
