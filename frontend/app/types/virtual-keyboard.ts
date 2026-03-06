@@ -1,3 +1,5 @@
+import type { ResourceCapabilities } from './capabilities'
+
 export interface KeyboardItem {
   id: number
   x: number
@@ -20,6 +22,7 @@ export interface KeyboardLayout {
   rows: number
   themeId?: string
   items: KeyboardItem[]
+  capabilities?: ResourceCapabilities
 }
 
 export interface BoardTheme {

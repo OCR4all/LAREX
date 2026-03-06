@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TagSet, TagSetCreateOrUpdateRequest } from '@/types/tag-set'
+import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import { wsKey } from '@/utils/fetch-keys'
 import {
   LazyTagSetBuilderSlideoverMetadata,
@@ -11,6 +12,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
+const { allow } = useActionVisibility()
 
 const metadataSlideover = overlay.create(LazyTagSetBuilderSlideoverMetadata)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
@@ -29,6 +31,7 @@ const isNew = id === 'new'
 
 const tagSetsKey = computed(() => wsKey(selectedWorkspace.value, 'tag-sets', 'list'))
 const tagSetKey = computed(() => wsKey(selectedWorkspace.value, 'tag-sets', id))
+const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const breadcrumbItems = computed(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
@@ -63,6 +66,7 @@ const resetToDefaults = () => {
 const loadTagSet = async () => {
   if (isNew) {
     resetToDefaults()
+    loadedCapabilities.value = null
     return
   }
 
@@ -73,6 +77,7 @@ const loadTagSet = async () => {
   if (data.value) {
     Object.assign(meta, data.value.meta)
     tags.value = data.value.tags ?? []
+    loadedCapabilities.value = data.value.capabilities ?? null
     activeTag.value = null
     return
   }
@@ -84,6 +89,12 @@ const loadTagSet = async () => {
 }
 
 await loadTagSet()
+const tagSetCapabilities = computed(() => ({
+  ...DEFAULT_RESOURCE_CAPABILITIES,
+  ...(loadedCapabilities.value ?? {})
+}))
+const canEditTagSet = computed(() => isNew || allow(tagSetCapabilities.value.canEdit))
+const canDeleteTagSet = computed(() => !isNew && allow(tagSetCapabilities.value.canDelete))
 
 const stripUiFields = (tagList: typeof tags.value): TagSetCreateOrUpdateRequest['tags'] => {
   return tagList.map(tag => ({
@@ -107,6 +118,7 @@ const toStrictPayload = (): TagSetCreateOrUpdateRequest => {
 }
 
 const handleSave = async () => {
+  if (!canEditTagSet.value) return
   if (totalErrors.value > 0) {
     toast.add({ title: 'Fix tag configuration errors before saving', color: 'warning' })
     return
@@ -139,6 +151,7 @@ const handleSave = async () => {
 }
 
 const handleDeleteTagSet = async () => {
+  if (!canDeleteTagSet.value) return
   if (isNew) return
 
   const instance = deleteSlideover.open({
@@ -159,7 +172,10 @@ const handleDeleteTagSet = async () => {
   }
 }
 
-const triggerImport = () => fileInput.value?.click()
+const triggerImport = () => {
+  if (!canEditTagSet.value) return
+  fileInput.value?.click()
+}
 
 const handleImportFile = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -262,6 +278,7 @@ const exportTagSetLocal = async () => {
 }
 
 const handleOptimize = async () => {
+  if (!canEditTagSet.value) return
   const instance = confirmSlideover.open({
     title: 'Auto-Assign Colors?',
     message: 'This will overwrite all tag colors with optimized values for visual distinction.',
@@ -276,6 +293,7 @@ const handleOptimize = async () => {
 }
 
 const handleDeleteTag = async (tagId: string) => {
+  if (!canEditTagSet.value) return
   const tag = tags.value.find(t => t.id === tagId)
     || tags.value.flatMap(function findDeep(t): typeof tags.value { return [t, ...(t.children?.flatMap(findDeep) || [])] }).find(t => t.id === tagId)
 
@@ -294,6 +312,7 @@ const handleDeleteTag = async (tagId: string) => {
 }
 
 const openSettings = () => {
+  if (!canEditTagSet.value) return
   metadataSlideover.open({ onSave: handleSave })
 }
 </script>
@@ -303,6 +322,7 @@ const openSettings = () => {
     <template #header>
       <TagSetBuilderHeader
         :is-new="isNew"
+        :is-read-only="!canEditTagSet"
         :breadcrumb-items="breadcrumbItems"
         @import="triggerImport"
         @export="exportTagSet"
@@ -315,10 +335,10 @@ const openSettings = () => {
     <template #body>
       <div class="h-full flex overflow-hidden">
         <TagSetBuilderSidebar
-          @create="createTag"
+          @create="() => { if (canEditTagSet) createTag() }"
           @select="selectTag"
-          @delete="handleDeleteTag"
-          @duplicate="duplicateTag"
+          @delete="(tagId) => { if (canEditTagSet) handleDeleteTag(tagId) }"
+          @duplicate="(tagId) => { if (canEditTagSet) duplicateTag(tagId) }"
         />
 
         <section class="flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
@@ -338,6 +358,7 @@ const openSettings = () => {
               Select a tag from the sidebar or create a new one.
             </p>
             <UButton
+              v-if="canEditTagSet"
               variant="solid"
               size="lg"
               class="mt-4"
@@ -346,7 +367,7 @@ const openSettings = () => {
               Create Tag
             </UButton>
 
-            <div v-if="!isNew" class="mt-8 space-y-2 flex flex-col">
+            <div v-if="canDeleteTagSet" class="mt-8 space-y-2 flex flex-col">
               <UButton
                 label="Delete Tag Set"
                 color="error"

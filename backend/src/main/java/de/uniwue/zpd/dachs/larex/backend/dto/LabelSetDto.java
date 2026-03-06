@@ -177,7 +177,8 @@ public class LabelSetDto {
                         Meta meta,
                         List<Label> labels,
             LocalDateTime created,
-            LocalDateTime updated
+            LocalDateTime updated,
+            AuthorizationCapabilitiesDto.ResourceCapabilities capabilities
     ) {}
 
     public record SummaryResponse(
@@ -185,6 +186,7 @@ public class LabelSetDto {
                         Meta meta,
             int labelCount,
             LocalDateTime created,
-            LocalDateTime updated
+            LocalDateTime updated,
+            AuthorizationCapabilitiesDto.ResourceCapabilities capabilities
     ) {}
 }

@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.VirtualKeyboardDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.KeyboardItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
@@ -20,11 +21,14 @@ public class VirtualKeyboardService {
 
     private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final WorkspaceAccessService workspaceAccessService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public VirtualKeyboardService(VirtualKeyboardRepository virtualKeyboardRepository,
-                                  WorkspaceAccessService workspaceAccessService) {
+                                  WorkspaceAccessService workspaceAccessService,
+                                  AuthorizationPolicyService authorizationPolicyService) {
         this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.workspaceAccessService = workspaceAccessService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     @Transactional(readOnly = true)
@@ -32,7 +36,7 @@ public class VirtualKeyboardService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
 
         return virtualKeyboardRepository.findByWorkspaceId(workspaceId).stream()
-                .map(VirtualKeyboardDto::new)
+                .map(keyboard -> toDto(keyboard, userId))
                 .collect(Collectors.toList());
     }
 
@@ -43,7 +47,7 @@ public class VirtualKeyboardService {
         Objects.requireNonNull(id, "id");
         VirtualKeyboard keyboard = virtualKeyboardRepository.findByIdAndWorkspaceId(id, workspaceId)
                 .orElseThrow(() -> new EntityNotFoundException("Virtual keyboard not found with id: " + id));
-        return new VirtualKeyboardDto(keyboard);
+        return toDto(keyboard, userId);
     }
 
     @Transactional
@@ -59,7 +63,7 @@ public class VirtualKeyboardService {
         keyboard.setWorkspaceId(workspaceId);
         updateKeyboardFromDto(keyboard, dto);
         VirtualKeyboard saved = virtualKeyboardRepository.save(keyboard);
-        return new VirtualKeyboardDto(saved);
+        return toDto(saved, userId);
     }
 
     @Transactional
@@ -79,7 +83,7 @@ public class VirtualKeyboardService {
         
         updateKeyboardFromDto(keyboard, dto);
         VirtualKeyboard saved = virtualKeyboardRepository.save(keyboard);
-        return new VirtualKeyboardDto(saved);
+        return toDto(saved, userId);
     }
 
     @Transactional
@@ -90,6 +94,12 @@ public class VirtualKeyboardService {
         VirtualKeyboard keyboard = virtualKeyboardRepository.findByIdAndWorkspaceId(id, workspaceId)
                 .orElseThrow(() -> new EntityNotFoundException("Virtual keyboard not found with id: " + id));
         virtualKeyboardRepository.delete(keyboard);
+    }
+
+    private VirtualKeyboardDto toDto(VirtualKeyboard keyboard, String userId) {
+        VirtualKeyboardDto dto = new VirtualKeyboardDto(keyboard);
+        dto.setCapabilities(authorizationPolicyService.resolveWorkspaceResourceCapabilities(keyboard.getWorkspaceId(), userId));
+        return dto;
     }
 
     private void updateKeyboardFromDto(VirtualKeyboard keyboard, VirtualKeyboardDto dto) {

@@ -1,9 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.service.label;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,15 +29,18 @@ public class LabelSetService {
     private final WorkspaceAccessService workspaceAccessService;
     private final ObjectMapper objectMapper;
     private final LabelSetDefinitionValidator labelSetDefinitionValidator;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public LabelSetService(LabelSetRepository labelSetRepository,
                           WorkspaceAccessService workspaceAccessService,
                           ObjectMapper objectMapper,
-                          LabelSetDefinitionValidator labelSetDefinitionValidator) {
+                          LabelSetDefinitionValidator labelSetDefinitionValidator,
+                          AuthorizationPolicyService authorizationPolicyService) {
         this.labelSetRepository = labelSetRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.objectMapper = objectMapper;
         this.labelSetDefinitionValidator = labelSetDefinitionValidator;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     @CacheEvict(value = "labelSets", allEntries = true)
@@ -55,7 +60,7 @@ public class LabelSetService {
         LabelSet labelSet = new LabelSet(workspaceId, name, description, objectMapper.valueToTree(request));
         labelSet.setTags(tags);
         labelSet = labelSetRepository.save(labelSet);
-        return convertToLabelSetResponse(labelSet);
+        return convertToLabelSetResponse(labelSet, userId);
     }
 
     @CacheEvict(value = "labelSets", allEntries = true)
@@ -86,7 +91,7 @@ public class LabelSetService {
         labelSet.setDefinition(objectMapper.valueToTree(request));
 
         labelSet = labelSetRepository.save(labelSet);
-        return convertToLabelSetResponse(labelSet);
+        return convertToLabelSetResponse(labelSet, userId);
     }
 
     private LabelSetDto.CreateOrUpdateRequest parseAndValidateRequest(JsonNode requestJson) {
@@ -177,7 +182,7 @@ public class LabelSetService {
 
         List<LabelSet> labelSets = labelSetRepository.findByWorkspaceId(workspaceId);
         return labelSets.stream()
-                .map(this::convertToLabelSetSummaryResponse)
+                .map(labelSet -> convertToLabelSetSummaryResponse(labelSet, userId))
                 .collect(Collectors.toList());
     }
 
@@ -189,7 +194,7 @@ public class LabelSetService {
         LabelSet labelSet = labelSetRepository.findByIdAndWorkspaceId(labelSetId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Label set not found: " + labelSetId));
 
-        return convertToLabelSetResponse(labelSet);
+        return convertToLabelSetResponse(labelSet, userId);
     }
 
     @Cacheable(value = "labelSets", key = "#workspaceId + ':search:' + #query")
@@ -199,7 +204,7 @@ public class LabelSetService {
 
         List<LabelSet> labelSets = labelSetRepository.findLabelSetsInWorkspaceBySearch(workspaceId, query);
         return labelSets.stream()
-                .map(this::convertToLabelSetSummaryResponse)
+                .map(labelSet -> convertToLabelSetSummaryResponse(labelSet, userId))
                 .collect(Collectors.toList());
     }
 
@@ -208,7 +213,7 @@ public class LabelSetService {
         return objectMapper.convertValue(sanitized, LabelSetDto.CreateOrUpdateRequest.class);
     }
 
-    private LabelSetDto.Response convertToLabelSetResponse(LabelSet labelSet) {
+    private LabelSetDto.Response convertToLabelSetResponse(LabelSet labelSet, String userId) {
         LabelSetDto.CreateOrUpdateRequest definition = readDefinition(labelSet);
 
         List<String> tags = labelSet.getTags() != null ? labelSet.getTags() : new ArrayList<>();
@@ -219,17 +224,24 @@ public class LabelSetService {
             definition.meta().altoEnabled(),
             labelSet.isSystem()
         );
+
+        AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService
+                .resolveWorkspaceResourceCapabilities(labelSet.getWorkspaceId(), userId);
+        if (labelSet.isSystem()) {
+            capabilities = new AuthorizationCapabilitiesDto.ResourceCapabilities(false, false);
+        }
 
         return new LabelSetDto.Response(
                 labelSet.getId(),
             metaWithTags,
             definition.labels(),
                 labelSet.getCreated(),
-                labelSet.getUpdated()
+                labelSet.getUpdated(),
+                capabilities
         );
     }
 
-    private LabelSetDto.SummaryResponse convertToLabelSetSummaryResponse(LabelSet labelSet) {
+    private LabelSetDto.SummaryResponse convertToLabelSetSummaryResponse(LabelSet labelSet, String userId) {
         LabelSetDto.CreateOrUpdateRequest definition = readDefinition(labelSet);
 
         List<String> tags = labelSet.getTags() != null ? labelSet.getTags() : new ArrayList<>();
@@ -241,12 +253,19 @@ public class LabelSetService {
             labelSet.isSystem()
         );
 
+        AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService
+                .resolveWorkspaceResourceCapabilities(labelSet.getWorkspaceId(), userId);
+        if (labelSet.isSystem()) {
+            capabilities = new AuthorizationCapabilitiesDto.ResourceCapabilities(false, false);
+        }
+
         return new LabelSetDto.SummaryResponse(
                 labelSet.getId(),
             metaWithTags,
             definition.labels() == null ? 0 : definition.labels().size(),
                 labelSet.getCreated(),
-                labelSet.getUpdated()
+                labelSet.getUpdated(),
+                capabilities
         );
     }
 }

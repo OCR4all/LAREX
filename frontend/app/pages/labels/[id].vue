@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
+import type { LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
+import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 
@@ -7,6 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
+const { allow } = useActionVisibility()
 const shareSlideover = overlay.create(LazyShareSlideover)
 const metadataSlideover = overlay.create(LazyLabelBuilderSlideoverMetadata)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
@@ -25,6 +27,7 @@ const isNew = id === 'new'
 
 const labelSetsKey = computed(() => wsKey(selectedWorkspace.value, 'label-sets', 'list'))
 const labelSetKey = computed(() => wsKey(selectedWorkspace.value, 'label-sets', id))
+const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const breadcrumbItems = computed(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
@@ -60,14 +63,16 @@ const getString = (value: unknown, fallback = ''): string => {
 
 const stripUiFields = (labelList: typeof labels.value): LabelSetCreateOrUpdateRequest['labels'] => {
   const groupNameById = new Map<string, string>()
-  for (const label of labelList) {
+  for (const item of labelList) {
+    const label = item as any
     if (label?.isGroup && label.id) {
       groupNameById.set(label.id, label.name || label.id)
     }
   }
   return labelList
+    .map(item => item as any)
     .filter(label => !label.isGroup)
-    .map((label) => {
+    .map((label: any) => {
       const mappedGroup = label.group && groupNameById.has(label.group)
         ? groupNameById.get(label.group)
         : label.group
@@ -118,13 +123,15 @@ const ensureGroupMetas = () => {
   const groupIds = new Set<string>()
   const groupNameById = new Map<string, string>()
 
-  for (const label of labels.value) {
+  for (const item of labels.value) {
+    const label = item as any
     if (label?.isGroup && label.id) {
       groupNameById.set(label.id, label.name || label.id)
     }
   }
 
-  for (const label of labels.value) {
+  for (const item of labels.value) {
+    const label = item as any
     if (label?.isGroup) continue
     if (label?.group && groupNameById.has(label.group)) {
       label.group = groupNameById.get(label.group)
@@ -134,7 +141,7 @@ const ensureGroupMetas = () => {
     }
   }
 
-  labels.value = labels.value.filter(label => !label?.isGroup)
+  labels.value = labels.value.filter(label => !(label as any)?.isGroup)
 
   for (const groupId of groupIds) {
     labels.value.push({ id: groupId, name: groupId, isGroup: true })
@@ -144,6 +151,7 @@ const ensureGroupMetas = () => {
 const loadLabelSet = async () => {
   if (isNew) {
     resetToDefaults()
+    loadedCapabilities.value = null
     return
   }
 
@@ -153,6 +161,7 @@ const loadLabelSet = async () => {
   if (data.value) {
     Object.assign(meta, data.value.meta)
     labels.value = (data.value.labels ?? []) as unknown as typeof labels.value
+    loadedCapabilities.value = data.value.capabilities ?? null
     activeLabel.value = null
     ensureGroupMetas()
     return
@@ -167,8 +176,16 @@ const loadLabelSet = async () => {
 await loadLabelSet()
 
 const isSystemLabelSet = computed(() => meta?.isSystem ?? false)
+const labelSetCapabilities = computed(() => ({
+  ...DEFAULT_RESOURCE_CAPABILITIES,
+  ...(loadedCapabilities.value ?? {})
+}))
+const canEditLabelSet = computed(() => isNew || allow(labelSetCapabilities.value.canEdit))
+const canDeleteLabelSet = computed(() => !isNew && allow(labelSetCapabilities.value.canDelete))
+const isReadOnlyLabelSet = computed(() => isSystemLabelSet.value || !canEditLabelSet.value)
 
 const handleSave = async () => {
+  if (!canEditLabelSet.value) return
   if (totalErrors.value > 0) {
     toast.add({ title: 'Fix label configuration errors before saving', color: 'warning' })
     return
@@ -201,6 +218,7 @@ const handleSave = async () => {
 }
 
 const handleDeleteSet = async () => {
+  if (!canDeleteLabelSet.value) return
   if (isNew) return
 
   const instance = deleteSlideover.open({
@@ -221,7 +239,10 @@ const handleDeleteSet = async () => {
   }
 }
 
-const triggerImport = () => fileInput.value?.click()
+const triggerImport = () => {
+  if (!canEditLabelSet.value) return
+  fileInput.value?.click()
+}
 
 const handleImportFile = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -311,7 +332,7 @@ const exportSetLocal = async () => {
   if (totalErrors.value > 0) {
     const instance = confirmModal.open({
       title: 'Export with Errors?',
-      message: 'There are validation errors in the label set. Export anyway?',
+      description: 'There are validation errors in the label set. Export anyway?',
       confirmLabel: 'Export Anyway',
       confirmColor: 'warning'
     })
@@ -323,9 +344,10 @@ const exportSetLocal = async () => {
 }
 
 const handleOptimize = async () => {
+  if (isReadOnlyLabelSet.value) return
   const instance = confirmModal.open({
     title: 'Auto-Assign Colors?',
-    message: 'This will overwrite all label colors with optimized values for visual distinction.',
+    description: 'This will overwrite all label colors with optimized values for visual distinction.',
     confirmLabel: 'Optimize Colors'
   })
   const confirmed = await instance.result
@@ -337,10 +359,11 @@ const handleOptimize = async () => {
 }
 
 const handleDelete = async (labelId: string) => {
+  if (isReadOnlyLabelSet.value) return
   const label = labels.value.find(l => l.id === labelId)
   const instance = confirmModal.open({
     title: 'Delete Label?',
-    message: `Are you sure you want to delete "${label?.name || 'this label'}"?`,
+    description: `Are you sure you want to delete "${label?.name || 'this label'}"?`,
     confirmLabel: 'Delete',
     confirmColor: 'error'
   })
@@ -352,13 +375,13 @@ const handleDelete = async (labelId: string) => {
   }
 }
 
-const handleScopeSwitch = async (targetScope: string) => {
-  if (isSystemLabelSet.value) return
+const handleScopeSwitch = async (targetScope: LabelScope) => {
+  if (isReadOnlyLabelSet.value) return
   if (!activeLabel.value) return
 
   const instance = confirmModal.open({
     title: 'Change Scope?',
-    message: 'This will reset the label mapping configurations. Continue?',
+    description: 'This will reset the label mapping configurations. Continue?',
     confirmLabel: 'Change Scope',
     confirmColor: 'warning'
   })
@@ -373,6 +396,7 @@ const handleScopeSwitch = async (targetScope: string) => {
 }
 
 const openSettings = () => {
+  if (isReadOnlyLabelSet.value) return
   metadataSlideover.open({ onSave: handleSave })
 }
 </script>
@@ -382,7 +406,7 @@ const openSettings = () => {
     <template #header>
       <LabelBuilderHeader
         :is-new="isNew"
-        :is-system="isSystemLabelSet"
+        :is-system="isReadOnlyLabelSet"
         :breadcrumb-items="breadcrumbItems"
         @import="triggerImport"
         @export="exportSet"
@@ -394,7 +418,7 @@ const openSettings = () => {
     <template #body>
       <div class="h-full flex overflow-hidden">
         <LabelBuilderSidebar
-          :is-system="isSystemLabelSet"
+          :is-system="isReadOnlyLabelSet"
           @create="createLabel"
           @select="selectLabel"
           @delete="handleDelete"
@@ -403,7 +427,7 @@ const openSettings = () => {
 
         <section class="flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
           <div v-if="activeLabel" class="flex-1 flex flex-col lg:flex-row h-full">
-            <LabelBuilderEditor :is-system="isSystemLabelSet" @change-scope="handleScopeSwitch" />
+            <LabelBuilderEditor :is-system="isReadOnlyLabelSet" @change-scope="handleScopeSwitch" />
             <LabelBuilderPreview />
           </div>
 
@@ -418,7 +442,7 @@ const openSettings = () => {
               Select a label from the sidebar or create a new one.
             </p>
             <UButton
-              v-if="!isSystemLabelSet"
+              v-if="!isReadOnlyLabelSet"
               icon="i-mdi-tag-plus-outline"
               variant="solid"
               size="lg"
@@ -440,7 +464,7 @@ const openSettings = () => {
               icon="i-lucide-lock"
             />
 
-            <div v-if="!isNew && !isSystemLabelSet" class="mt-8 space-y-2 flex flex-col">
+            <div v-if="!isNew && canEditLabelSet" class="mt-8 space-y-2 flex flex-col">
               <UButton
                 label="Share Label Set"
                 color="neutral"
@@ -449,6 +473,7 @@ const openSettings = () => {
                 @click="shareSlideover.open({ resourceId: id, resourceName: meta.name, resourceType: 'LABEL_SET', currentWorkspaceId: selectedWorkspace })"
               />
               <UButton
+                v-if="canDeleteLabelSet"
                 label="Delete Label Set"
                 color="error"
                 variant="subtle"

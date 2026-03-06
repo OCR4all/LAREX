@@ -40,6 +40,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
     private final LabelSetInitializationService labelSetInitializationService;
+    private final WorkspaceAccessService workspaceAccessService;
 
     public TeamWorkspaceService(TeamWorkspaceRepository teamWorkspaceRepository,
                                LibraryRepository libraryRepository,
@@ -50,7 +51,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                CodecRepository codecRepository,
                                LabelSetRepository labelSetRepository,
                                TagSetRepository tagSetRepository,
-                               LabelSetInitializationService labelSetInitializationService) {
+                               LabelSetInitializationService labelSetInitializationService,
+                               WorkspaceAccessService workspaceAccessService) {
         super(workspaceQueryService);
         this.teamWorkspaceRepository = teamWorkspaceRepository;
         this.libraryRepository = libraryRepository;
@@ -61,6 +63,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
         this.labelSetInitializationService = labelSetInitializationService;
+        this.workspaceAccessService = workspaceAccessService;
     }
 
     /**
@@ -106,7 +109,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         if (workspaceOpt.isPresent()) {
             TeamWorkspace workspace = workspaceOpt.get();
 
-            if (!isUserAdministrator(workspaceId, userId)) {
+            if (!workspaceAccessService.isUserAdministrator(workspaceId, userId)) {
                 return Optional.empty();
             }
 
@@ -171,7 +174,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         if (workspaceOpt.isPresent()) {
             TeamWorkspace workspace = workspaceOpt.get();
             
-            if (!isUserAdministrator(workspaceId, userId)) {
+            if (!workspaceAccessService.isUserAdministrator(workspaceId, userId)) {
                 return false; // No access
             }
             
@@ -190,7 +193,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
             return false;
         }
         
-        if (!isUserAdministrator(workspaceId, inviterId)) {
+        if (!workspaceAccessService.isUserAdministrator(workspaceId, inviterId)) {
             return false;
         }
         
@@ -244,7 +247,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
      * Get team workspace members with enriched user data
      */
     public List<WorkspaceMemberDto> getTeamWorkspaceMembers(String workspaceId, String userId) {
-        if (!hasAccessToWorkspace(workspaceId, userId)) {
+        if (!workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
             return List.of();
         }
 
@@ -261,7 +264,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
      * Useful for task assignment where only active members should be assignable.
      */
     public List<WorkspaceMemberDto> getAcceptedTeamWorkspaceMembers(String workspaceId, String userId) {
-        if (!hasAccessToWorkspace(workspaceId, userId)) {
+        if (!workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
             return List.of();
         }
 
@@ -305,7 +308,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
      * Remove user from team workspace
      */
     public boolean removeUserFromTeamWorkspace(String workspaceId, String adminUserId, String targetUserId) {
-        if (!isUserAdministrator(workspaceId, adminUserId)) {
+        if (!workspaceAccessService.isUserAdministrator(workspaceId, adminUserId)) {
             return false;
         }
         
@@ -316,18 +319,6 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         }
         
         return false;
-    }
-
-    private boolean hasAccessToWorkspace(String workspaceId, String userId) {
-        Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
-        return memberOpt.isPresent() && memberOpt.get().getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED;
-    }
-
-    private boolean isUserAdministrator(String workspaceId, String userId) {
-        Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
-        return memberOpt.isPresent() &&
-                memberOpt.get().getRole() == WorkspaceMember.Role.ADMINISTRATOR &&
-                memberOpt.get().getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED;
     }
 
     /**
@@ -367,7 +358,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
      */
     public boolean updateMemberRole(String workspaceId, String memberId, String adminUserId, WorkspaceMember.Role newRole) {
         // Check if the requesting user is an administrator
-        if (!isUserAdministrator(workspaceId, adminUserId)) {
+        if (!workspaceAccessService.isUserAdministrator(workspaceId, adminUserId)) {
             return false;
         }
         
@@ -395,6 +386,6 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
 
     @Override
     protected boolean hasTeamWorkspaceMembership(String workspaceId, String userId) {
-        return hasAccessToWorkspace(workspaceId, userId);
+        return workspaceAccessService.hasWorkspaceAccess(workspaceId, userId);
     }
 }

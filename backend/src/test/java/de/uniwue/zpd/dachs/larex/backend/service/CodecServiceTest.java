@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
@@ -12,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +55,9 @@ class CodecServiceTest {
     @Mock
     private PageTextContentRepository pageTextContentRepository;
 
+    @Mock
+    private AuthorizationPolicyService authorizationPolicyService;
+
     private CodecService service;
 
     @BeforeEach
@@ -63,8 +68,11 @@ class CodecServiceTest {
                 workspaceAccessService,
                 projectRepository,
                 pageRepository,
-                pageTextContentRepository
+                pageTextContentRepository,
+                authorizationPolicyService
         );
+        org.mockito.Mockito.lenient().when(authorizationPolicyService.resolveWorkspaceResourceCapabilities(any(), any()))
+                .thenReturn(new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true));
     }
 
     @Test
@@ -140,6 +148,7 @@ class CodecServiceTest {
         setId(existing, "codec-1");
         existing.setName("Existing");
         existing.setCharacters(new java.util.HashSet<>(Set.of("a", "b")));
+        existing.setLibrary(new Library(workspaceId, "lib"));
 
         when(projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
         when(pageRepository.findByProjectId(projectId)).thenReturn(List.of(page));
@@ -186,6 +195,7 @@ class CodecServiceTest {
         Codec codec = new Codec();
         setId(codec, "codec-1");
         codec.setCharacters(new java.util.HashSet<>(Set.of("a", "b")));
+        codec.setLibrary(new Library(workspaceId, "lib"));
 
         when(codecRepository.findByIdAndLibraryWorkspaceId("codec-1", workspaceId)).thenReturn(Optional.of(codec));
         when(projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
@@ -226,6 +236,7 @@ class CodecServiceTest {
         Codec codec = new Codec();
         setId(codec, "codec-1");
         codec.setCharacters(new java.util.HashSet<>(Set.of("x", "y")));
+        codec.setLibrary(new Library(workspaceId, "lib"));
 
         when(codecRepository.findByIdAndLibraryWorkspaceId("codec-1", workspaceId)).thenReturn(Optional.of(codec));
         when(projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
@@ -265,6 +276,7 @@ class CodecServiceTest {
         Codec codec = new Codec();
         setId(codec, "codec-1");
         codec.setCharacters(new java.util.HashSet<>(Set.of("a", "b")));
+        codec.setLibrary(new Library(workspaceId, "lib"));
 
         when(codecRepository.findByIdAndLibraryWorkspaceId("codec-1", workspaceId)).thenReturn(Optional.of(codec));
         when(projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
@@ -303,6 +315,7 @@ class CodecServiceTest {
         Codec codec = new Codec();
         setId(codec, "codec-1");
         codec.setCharacters(new java.util.HashSet<>(Set.of("a", "b")));
+        codec.setLibrary(new Library(workspaceId, "lib"));
 
         when(codecRepository.findByIdAndLibraryWorkspaceId("codec-1", workspaceId)).thenReturn(Optional.of(codec));
         when(projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
@@ -350,6 +363,7 @@ class CodecServiceTest {
         Codec codec = new Codec();
         setId(codec, "codec-1");
         codec.setCharacters(new java.util.HashSet<>(Set.of("a")));
+        codec.setLibrary(new Library(workspaceId, "lib"));
 
         when(codecRepository.findByIdAndLibraryWorkspaceId("codec-1", workspaceId)).thenReturn(Optional.of(codec));
         when(projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));
@@ -402,6 +416,7 @@ class CodecServiceTest {
         Codec codec = new Codec();
         setId(codec, "codec-1");
         codec.setCharacters(new java.util.HashSet<>(Set.of("a", "b")));
+        codec.setLibrary(new Library(workspaceId, "lib"));
 
         when(codecRepository.findByIdAndLibraryWorkspaceId("codec-1", workspaceId)).thenReturn(Optional.of(codec));
         when(projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)).thenReturn(Optional.of(project));

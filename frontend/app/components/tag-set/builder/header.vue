@@ -7,6 +7,7 @@ interface BreadcrumbItem {
 
 defineProps<{
   isNew: boolean
+  isReadOnly?: boolean
   breadcrumbItems: BreadcrumbItem[]
 }>()
 
@@ -38,6 +39,7 @@ const { meta, totalErrors } = useTagSetBuilder()
               icon="i-lucide-settings"
               color="neutral"
               variant="outline"
+              :disabled="isReadOnly"
               @click="emit('openSettings')"
             />
 
@@ -46,10 +48,12 @@ const { meta, totalErrors } = useTagSetBuilder()
               color="neutral"
               variant="outline"
               icon="i-lucide-save"
+              :disabled="isReadOnly"
               @click="emit('save')"
             />
 
             <UDropdownMenu
+              v-if="!isReadOnly"
               :items="[[
                 { label: 'Import', icon: 'i-lucide-upload', onSelect: () => emit('import') },
                 { label: 'Export', icon: 'i-lucide-download', onSelect: () => emit('export') },

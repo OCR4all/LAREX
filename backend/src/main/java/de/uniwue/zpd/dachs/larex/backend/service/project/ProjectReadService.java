@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,17 +28,20 @@ public class ProjectReadService {
     private final PageImageRepository pageImageRepository;
     private final PageXmlRepository pageXmlRepository;
     private final TagLookupService tagLookupService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public ProjectReadService(ProjectStarService projectStarService,
                               PageRepository pageRepository,
                               PageImageRepository pageImageRepository,
                               PageXmlRepository pageXmlRepository,
-                              TagLookupService tagLookupService) {
+                              TagLookupService tagLookupService,
+                              AuthorizationPolicyService authorizationPolicyService) {
         this.projectStarService = projectStarService;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.tagLookupService = tagLookupService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     public ProjectDto.Response toResponse(Project project, String userId) {
@@ -83,7 +87,8 @@ public class ProjectReadService {
                     project.getLabelSet() != null ? project.getLabelSet().getId() : null,
                     project.getTagSet() != null ? project.getTagSet().getId() : null,
                     project.getEffectiveDefaultGtIndex(),
-                    project.getDefaultRecognitionIndicesList()
+                    project.getDefaultRecognitionIndicesList(),
+                    authorizationPolicyService.resolveProjectCapabilities(project, userId)
             ));
         }
         return responses;

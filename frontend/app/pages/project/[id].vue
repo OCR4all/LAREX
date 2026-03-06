@@ -11,7 +11,7 @@ import {
   LazyUiDeleteSlideover,
   LazyEditorVersionHistorySlideover,
   LazyShareSlideover } from '#components'
-import type { DropdownMenuItem, TableColumn, BreadcrumbItem } from '@nuxt/ui'
+import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import type { Subtask } from '~/types/index'
 import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
@@ -40,6 +40,7 @@ if (!workspace.hasFetched) {
   await workspace.fetchWorkspaces()
 }
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+const { allow } = useActionVisibility()
 
 const projectId = route.params.id as string
 
@@ -49,7 +50,7 @@ const projectStatusKey = computed(() => wsKey(selectedWorkspace.value as string,
 const starredProjectsKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'starred'))
 const libraryProjectsKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'list'))
 
-type Project = {
+type ProjectData = {
   id: string
   name: string
   description: string
@@ -64,6 +65,14 @@ type Project = {
   lockedReason: string | null
   codecId?: string | null
   labelSetId?: string | null
+  capabilities?: {
+    canEdit: boolean
+    canShare: boolean
+    canDelete: boolean
+    canDeletePages: boolean
+    canUpload: boolean
+    canExportPackage: boolean
+  }
 }
 
 type ResolvedTag = {
@@ -90,10 +99,11 @@ type Page = {
   indexingStatus?: PageIndexingStatus
 }
 
-const { data: project, error: projectError, pending: projectPending, refresh: refreshProject } = await useFetch<Project>(() => `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`, {
+const { data: project, error: projectError, pending: projectPending, refresh: refreshProject } = await useFetch<ProjectData>(() => `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`, {
   key: projectKey,
   watch: [selectedWorkspace]
 })
+const projectCapabilities = useResourceCapabilities(project, 'project')
 
 const { data: pages, error: pagesError, pending: pagesPending } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
   key: projectPagesKey
@@ -734,7 +744,7 @@ async function pollBackendProcessing(sessionId: string) {
 
 async function viewConflicts() {
   try {
-    const conflicts = await $fetch<unknown[]>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/conflicts`)
+    const conflicts = await $fetch<Array<Record<string, unknown>>>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/conflicts`)
 
     if (conflicts.length === 0) {
       toast.add({
@@ -748,7 +758,7 @@ async function viewConflicts() {
 
     conflictResolutionModal.open({
       projectId,
-      conflicts,
+      conflicts: conflicts as any,
       uploadResult: {
         totalPagesCreated: 0,
         totalPagesUpdated: 0,
@@ -863,17 +873,17 @@ const conflictResolutionModal = overlay.create(LazyProjectModalConflictResolutio
 const pdfPrefixSlideover = overlay.create(LazyProjectSlideoverPdfPrefix)
 
 const projectEditSlideover = overlay.create(LazyProjectSlideoverEdit, {
-  async onUpdated(updatedProject: Project) {
+  async onUpdated(updatedProject: ProjectData) {
     project.value = updatedProject
     await refreshProject()
   }
-})
+} as any)
 const projectDeleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const projectShareSlideover = overlay.create(LazyShareSlideover, {
   async onTransferred() {
     await refreshProject()
   }
-})
+} as any)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePages)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
@@ -883,6 +893,7 @@ const router = useRouter()
 const isDeletingProject = ref(false)
 
 async function handleDeleteProject() {
+  if (!allow(projectCapabilities.value.canDelete)) return
   if (!project.value || isDeletingProject.value) return
 
   const instance = projectDeleteSlideover.open({
@@ -919,7 +930,7 @@ async function handleDeleteProject() {
     progress: false,
     duration: 0
   })
-  const { data: libraryProjects } = useNuxtData<Project[]>(libraryProjectsKey.value)
+  const { data: libraryProjects } = useNuxtData<ProjectData[]>(libraryProjectsKey.value)
   const previousLibraryProjects = libraryProjects.value ? [...libraryProjects.value] : null
 
   if (libraryProjects.value) {
@@ -1046,8 +1057,9 @@ async function exportPageXml(page: Page) {
   }
 }
 
-const actionItems = computed<DropdownMenuItem[]>(() => [
-  {
+const actionItems = computed<DropdownMenuItem[]>(() => {
+  const items: DropdownMenuItem[] = [
+    {
     label: hasSelection.value ? 'Generate codec (selected pages)' : 'Generate codec (all pages)',
     icon: 'i-lucide-wand-sparkles',
     disabled: (pages.value?.length ?? 0) === 0,
@@ -1055,7 +1067,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => [
       void openCodecGenerateSlideover()
     }
   },
-  {
+    {
     label: hasSelection.value ? 'Validate codec (selected pages)' : 'Validate codec (all pages)',
     icon: 'i-lucide-badge-check',
     disabled: (pages.value?.length ?? 0) === 0,
@@ -1063,18 +1075,51 @@ const actionItems = computed<DropdownMenuItem[]>(() => [
       void openCodecValidateSlideover()
     }
   },
-  {
+    {
     label: hasSelection.value ? 'Export package (selected pages)' : 'Export package (full project)',
     icon: 'i-lucide-file-archive',
-    disabled: (pages.value?.length ?? 0) === 0,
+    disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
     onSelect: () => {
       void exportProjectPackage()
     }
-  },
-  { label: 'Edit project', icon: 'i-lucide-edit', disabled: project.value?.locked, onSelect: () => project.value && projectEditSlideover.open({ project: project.value }) },
-  { label: 'Share project', icon: 'i-lucide-share-2', disabled: project.value?.locked, onSelect: () => project.value && projectShareSlideover.open({ resourceId: project.value.id, resourceName: project.value.name, resourceType: 'PROJECT', currentWorkspaceId: selectedWorkspace.value }) },
-  { label: 'Delete project', icon: 'i-lucide-trash', color: 'error' as const, disabled: project.value?.locked || isDeletingProject.value, onSelect: handleDeleteProject }
-])
+    }
+  ]
+
+  if (allow(projectCapabilities.value.canEdit)) {
+    items.push({
+      label: 'Edit project',
+      icon: 'i-lucide-edit',
+      disabled: project.value?.locked,
+      onSelect: () => project.value && projectEditSlideover.open({ project: project.value as any })
+    })
+  }
+
+  if (allow(projectCapabilities.value.canShare)) {
+    items.push({
+      label: 'Share project',
+      icon: 'i-lucide-share-2',
+      disabled: project.value?.locked,
+      onSelect: () => project.value && projectShareSlideover.open({
+        resourceId: project.value.id,
+        resourceName: project.value.name,
+        resourceType: 'PROJECT',
+        currentWorkspaceId: selectedWorkspace.value ?? ''
+      })
+    })
+  }
+
+  if (allow(projectCapabilities.value.canDelete)) {
+    items.push({
+      label: 'Delete project',
+      icon: 'i-lucide-trash',
+      color: 'error' as const,
+      disabled: project.value?.locked || isDeletingProject.value,
+      onSelect: handleDeleteProject
+    })
+  }
+
+  return items
+})
 
 const autoCreatedDescription = 'Auto-created from bulk upload'
 
@@ -1135,6 +1180,7 @@ const paginatedPages = computed(() => {
 })
 
 async function openBulkDeleteSlideover() {
+  if (!allow(projectCapabilities.value.canDeletePages)) return
   if (!hasSelection.value) return
 
   const selectedPages = Array.from(selectedPageIds.value).map((pageId) => {
@@ -1277,7 +1323,7 @@ function renderIndexingStatusBadge(status?: PageIndexingStatus) {
   return h(UBadge, { color: 'neutral', variant: 'soft', size: 'sm' }, () => 'Empty')
 }
 
-const pageColumns: TableColumn<Page>[] = [
+const pageColumns = [
   {
     id: 'select',
     header: () => h('input', {
@@ -1418,7 +1464,7 @@ const pageColumns: TableColumn<Page>[] = [
                 h('li', { key: subtask.id, class: 'text-sm' }, [
                   h('div', { class: 'font-medium truncate' }, subtask.title),
                   (subtask.description || subtask.taskDescription)
-                    ? h('p', { class: 'text-xs text-muted mt-0.5 line-clamp-2' }, subtask.description || subtask.taskDescription)
+                    ? h('p', { class: 'text-xs text-muted mt-0.5 line-clamp-2' }, String(subtask.description || subtask.taskDescription))
                     : null
                 ])
               ))
@@ -1459,15 +1505,20 @@ const pageColumns: TableColumn<Page>[] = [
 ]
 
 function getPageRowItems(page: Page) {
-  return [
-    { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked, onSelect: () => openEditModal(page) },
+  const items: any[] = [
+    { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked || !allow(projectCapabilities.value.canEdit), onSelect: () => openEditModal(page) },
     { label: 'View Images', icon: 'i-lucide-images', disabled: page.imageCount === 0, onSelect: () => openImageModal(page) },
     { label: 'View/Edit XML', icon: 'i-lucide-file-pen-line', disabled: page.xmlFileCount === 0, onSelect: () => openXmlEditor(page) },
     { label: 'Export XML', icon: 'i-lucide-file-code-2', disabled: page.xmlFileCount === 0, onSelect: () => exportPageXml(page) },
-    { label: 'Version History', icon: 'i-lucide-history', disabled: page.xmlFileCount === 0, onSelect: () => openVersionHistory(page) },
-    { type: 'separator' },
-    { label: 'Delete', icon: 'i-lucide-trash', color: 'error', disabled: project.value?.locked, onSelect: () => openDeleteModal(page) }
+    { label: 'Version History', icon: 'i-lucide-history', disabled: page.xmlFileCount === 0, onSelect: () => openVersionHistory(page) }
   ]
+
+  if (allow(projectCapabilities.value.canDeletePages)) {
+    items.push({ type: 'separator' })
+    items.push({ label: 'Delete', icon: 'i-lucide-trash', color: 'error', disabled: project.value?.locked, onSelect: () => openDeleteModal(page) })
+  }
+
+  return items
 }
 
 const contextMenuPage = ref<Page | null>(null)
@@ -1488,6 +1539,7 @@ function openEditModal(page: Page) {
 }
 
 async function openDeleteModal(page: Page) {
+  if (!allow(projectCapabilities.value.canDeletePages)) return
   const instance = pageDeleteSlideover.open({
     name: page.name,
     entityType: 'Page',
@@ -1533,7 +1585,8 @@ function openImageModal(page: Page) {
 async function openVersionHistory(page: Page) {
   try {
     const xmlFiles = await $fetch<{ id: string }[]>(`/api/projects/${projectId}/pages/${page.id}/xml`)
-    if (!xmlFiles?.length) {
+    const firstXml = xmlFiles.at(0)
+    if (!firstXml) {
       toast.add({
         title: 'No XML files',
         description: 'This page has no XML annotation files.',
@@ -1544,7 +1597,7 @@ async function openVersionHistory(page: Page) {
     versionHistorySlideover.open({
       projectId,
       pageId: page.id,
-      xmlId: xmlFiles[0].id
+      xmlId: firstXml.id
     })
   } catch {
     toast.add({
@@ -1648,6 +1701,7 @@ useHead({
               </UButton>
 
               <UButton
+                v-if="allow(projectCapabilities.canUpload)"
                 icon="i-lucide-upload"
                 color="neutral"
                 variant="outline"
@@ -1710,11 +1764,11 @@ useHead({
             <template #leading>
               <UIcon name="i-lucide-tag" />
             </template>
-            <template #item="{ item, selected }">
+            <template #item="{ item }">
               <div class="flex items-center justify-between w-full gap-2">
                 <div class="flex items-center gap-2">
                   <UIcon
-                    v-if="selected"
+                    v-if="selectedTags.includes(item.value)"
                     name="i-lucide-check"
                     class="text-primary w-4 h-4"
                   />
@@ -1847,6 +1901,7 @@ useHead({
                 {{ selectedPageIds.size }} selected
               </UBadge>
               <UButton
+                v-if="allow(projectCapabilities.canDeletePages)"
                 icon="i-lucide-trash-2"
                 color="error"
                 variant="soft"
@@ -1967,11 +2022,7 @@ useHead({
                 :items="[10, 25, 50, 100]"
                 class="w-32"
                 size="sm"
-              >
-                <template #label>
-                  {{ itemsPerPage }} per page
-                </template>
-              </USelect>
+              />
 
               <UPagination
                 v-model:page="page"

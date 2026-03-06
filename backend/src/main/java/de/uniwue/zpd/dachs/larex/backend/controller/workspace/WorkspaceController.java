@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.PersonalWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -26,9 +27,12 @@ import java.util.Optional;
 public class WorkspaceController {
 
     private final WorkspaceService workspaceService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
-    public WorkspaceController(WorkspaceService workspaceService) {
+    public WorkspaceController(WorkspaceService workspaceService,
+                               AuthorizationPolicyService authorizationPolicyService) {
         this.workspaceService = workspaceService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     /**
@@ -41,7 +45,7 @@ public class WorkspaceController {
         List<AbstractWorkspace> workspaces = workspaceService.getUserWorkspaces(userId);
 
         List<WorkspaceDto.Response> response = workspaces.stream()
-                .map(this::mapToResponse)
+                .map(workspace -> mapToResponse(workspace, userId))
                 .toList();
 
         return ResponseEntity.ok(response);
@@ -57,9 +61,19 @@ public class WorkspaceController {
 
         Optional<AbstractWorkspace> workspaceOpt = workspaceService.getWorkspaceById(workspaceId, userId);
 
-        return workspaceOpt.map(this::mapToResponse)
+        return workspaceOpt.map(workspace -> mapToResponse(workspace, userId))
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{workspaceId}/capabilities")
+    public ResponseEntity<de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto.WorkspaceCapabilities> getWorkspaceCapabilities(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        if (!authorizationPolicyService.canAccessWorkspace(workspaceId, userId)) {
+            throw new SecurityException("Access denied to workspace: " + workspaceId);
+        }
+        return ResponseEntity.ok(authorizationPolicyService.resolveWorkspaceCapabilities(workspaceId, userId));
     }
 
     /**
@@ -105,7 +119,8 @@ public class WorkspaceController {
                 teamWorkspace.getLabelSet() != null ? teamWorkspace.getLabelSet().getId() : null,
                 teamWorkspace.getTagSet() != null ? teamWorkspace.getTagSet().getId() : null,
                 teamWorkspace.getEffectiveDefaultGtIndex(),
-                teamWorkspace.getDefaultRecognitionIndicesList()
+                teamWorkspace.getDefaultRecognitionIndicesList(),
+                authorizationPolicyService.resolveWorkspaceCapabilities(teamWorkspace.getId(), userId)
         );
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -133,7 +148,7 @@ public class WorkspaceController {
                 userId
         );
 
-        return workspaceOpt.map(this::mapToResponse)
+        return workspaceOpt.map(workspace -> mapToResponse(workspace, userId))
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
     }
@@ -345,12 +360,13 @@ public class WorkspaceController {
     /**
      * Map workspace entity to appropriate DTO response
      */
-    private WorkspaceDto.Response mapToResponse(AbstractWorkspace workspace) {
+    private WorkspaceDto.Response mapToResponse(AbstractWorkspace workspace, String userId) {
         String codecId = workspace.getCodec() != null ? workspace.getCodec().getId() : null;
         String labelSetId = workspace.getLabelSet() != null ? workspace.getLabelSet().getId() : null;
         String tagSetId = workspace.getTagSet() != null ? workspace.getTagSet().getId() : null;
         Integer defaultGtIndex = workspace.getEffectiveDefaultGtIndex();
         List<Integer> defaultRecognitionIndices = workspace.getDefaultRecognitionIndicesList();
+        var capabilities = authorizationPolicyService.resolveWorkspaceCapabilities(workspace.getId(), userId);
 
         if (workspace instanceof PersonalWorkspace personalWorkspace) {
             return new WorkspaceDto.PersonalWorkspaceResponse(
@@ -364,7 +380,8 @@ public class WorkspaceController {
                     labelSetId,
                     tagSetId,
                     defaultGtIndex,
-                    defaultRecognitionIndices
+                    defaultRecognitionIndices,
+                    capabilities
             );
         } else if (workspace instanceof TeamWorkspace teamWorkspace) {
             return new WorkspaceDto.TeamWorkspaceResponse(
@@ -379,7 +396,8 @@ public class WorkspaceController {
                     labelSetId,
                     tagSetId,
                     defaultGtIndex,
-                    defaultRecognitionIndices
+                    defaultRecognitionIndices,
+                    capabilities
             );
         } else {
             throw new IllegalArgumentException("Unknown workspace type: " + workspace.getClass());

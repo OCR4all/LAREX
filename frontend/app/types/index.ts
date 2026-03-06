@@ -1,4 +1,7 @@
 export * from './editor/rendering'
+export * from './capabilities'
+
+import type { TaskCapabilities } from './capabilities'
 
 export interface WorkspaceMember {
   id: string
@@ -167,6 +170,7 @@ export interface Task {
   completedAt: string | null
   completedByUserId: string | null
   workspaceId: string
+  capabilities?: TaskCapabilities
 }
 
 export type TaskActivityType =

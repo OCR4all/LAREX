@@ -2,6 +2,7 @@
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { Task, TaskStatus, TaskPriority, WorkspaceMember } from '~/types/index'
+import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
 import { wsKey, globalKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
 
@@ -18,6 +19,8 @@ const { refreshTaskOverview } = useTaskOverviewRefresh()
 
 const workspace = useWorkspaceStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const { allow } = useActionVisibility()
 
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
@@ -80,10 +83,34 @@ const { data: members } = await useFetch<WorkspaceMember[]>(
 const currentUserMember = computed(() => members.value.find(m => m.userId === currentUserId.value))
 const isAdmin = computed(() => currentUserMember.value?.role === 'ADMINISTRATOR' && currentUserMember.value?.invitationStatus === 'ACCEPTED')
 const acceptedMembers = computed(() => members.value.filter(m => m.invitationStatus === 'ACCEPTED'))
+const canCreateTasks = computed(() => allow(workspaceCapabilities.value.canManageTasks))
 
 const selectedTaskIds = ref<Set<string>>(new Set())
 const selectedTasks = computed(() =>
   filteredTasks.value.filter(t => selectedTaskIds.value.has(t.id))
+)
+
+function getTaskCapabilities(task: Task) {
+  return {
+    ...DEFAULT_TASK_CAPABILITIES,
+    ...(task.capabilities ?? {})
+  }
+}
+
+const canBulkDeleteSelected = computed(() =>
+  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canDelete))
+)
+
+const canBulkStatusSelected = computed(() =>
+  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canUpdateStatus))
+)
+
+const canBulkPrioritySelected = computed(() =>
+  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canEdit))
+)
+
+const canBulkAssignSelected = computed(() =>
+  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canAssignOthers))
 )
 
 const allSelected = computed(() =>
@@ -118,9 +145,8 @@ function isTaskSelected(taskId: string) {
   return selectedTaskIds.value.has(taskId)
 }
 
-const { isLoading: bulkLoading, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateAssignees, bulkDelete } = useTaskBulkOperations(
-  () => selectedWorkspace.value!
-)
+const bulkWorkspaceId = computed(() => selectedWorkspace.value ?? undefined)
+const { isLoading: bulkLoading, bulkUpdateStatus, bulkUpdatePriority, bulkUpdateAssignees, bulkDelete } = useTaskBulkOperations(bulkWorkspaceId)
 
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const createTaskSlideover = overlay.create(LazyTaskSlideoverEdit)
@@ -153,6 +179,7 @@ const priorityOptions: { label: string; value: TaskPriority }[] = [
 ]
 
 async function handleBulkStatusChange(status: TaskStatus) {
+  if (!canBulkStatusSelected.value) return
   const ids = selectedTasks.value.map(t => t.id)
   const result = await bulkUpdateStatus(ids, status)
   if (result) {
@@ -162,6 +189,7 @@ async function handleBulkStatusChange(status: TaskStatus) {
 }
 
 async function handleBulkPriorityChange(priority: TaskPriority) {
+  if (!canBulkPrioritySelected.value) return
   const ids = selectedTasks.value.map(t => t.id)
   const result = await bulkUpdatePriority(ids, priority)
   if (result) {
@@ -171,6 +199,7 @@ async function handleBulkPriorityChange(priority: TaskPriority) {
 }
 
 async function handleBulkAddAssignee(userId: string) {
+  if (!canBulkAssignSelected.value) return
   const ids = selectedTasks.value.map(t => t.id)
   const result = await bulkUpdateAssignees(ids, [userId], [])
   if (result) {
@@ -180,6 +209,7 @@ async function handleBulkAddAssignee(userId: string) {
 }
 
 async function handleBulkDelete() {
+  if (!canBulkDeleteSelected.value) return
   const count = selectedTasks.value.length
   const instance = deleteSlideover.open({
     name: `${count} task${count > 1 ? 's' : ''}`,
@@ -198,6 +228,8 @@ async function handleBulkDelete() {
 }
 
 async function handleDeleteTask(task: Task) {
+  if (!allow(getTaskCapabilities(task).canDelete)) return
+
   const instance = deleteSlideover.open({
     name: task.title,
     entityType: 'Task',
@@ -245,6 +277,7 @@ const priorityColor = (priority: Task['priority']) => {
 }
 
 function getRowActions(task: Task) {
+  const capabilities = getTaskCapabilities(task)
   const actions: any[][] = [
     [
       {
@@ -253,15 +286,17 @@ function getRowActions(task: Task) {
         onSelect: () => navigateTo(`/tasks/${task.id}`)
       }
     ],
-    [
+  ]
+  if (allow(capabilities.canDelete)) {
+    actions.push([
       {
         label: 'Delete',
         icon: 'i-lucide-trash',
         color: 'error',
         onSelect: () => handleDeleteTask(task)
       }
-    ]
-  ]
+    ])
+  }
   return actions
 }
 
@@ -343,6 +378,7 @@ const columns: TableColumn<Task>[] = [
 ]
 
 function openCreate() {
+  if (!canCreateTasks.value) return
   if (!selectedWorkspace.value) return
   createTaskSlideover.open({
     workspaceId: selectedWorkspace.value,
@@ -380,7 +416,7 @@ const viewModeItems = [
             color="neutral"
             variant="outline"
             icon="i-lucide-clipboard-plus"
-            :disabled="!selectedWorkspace"
+            :disabled="!selectedWorkspace || !canCreateTasks"
             @click="openCreate"
           />
         </template>
@@ -401,6 +437,7 @@ const viewModeItems = [
             </div>
 
             <UDropdownMenu
+              v-if="canBulkStatusSelected"
               :items="statusOptions.map(opt => ({
                 label: opt.label,
                 icon: opt.icon,
@@ -419,6 +456,7 @@ const viewModeItems = [
             </UDropdownMenu>
 
             <UDropdownMenu
+              v-if="canBulkPrioritySelected"
               :items="priorityOptions.map(opt => ({
                 label: opt.label,
                 onSelect: () => handleBulkPriorityChange(opt.value)
@@ -436,7 +474,7 @@ const viewModeItems = [
             </UDropdownMenu>
 
             <UDropdownMenu
-              v-if="acceptedMembers.length > 0"
+              v-if="acceptedMembers.length > 0 && canBulkAssignSelected"
               :items="acceptedMembers.map(m => ({
                 label: m.displayName || m.username || m.userId,
                 onSelect: () => handleBulkAddAssignee(m.userId)
@@ -454,7 +492,7 @@ const viewModeItems = [
             </UDropdownMenu>
 
             <UButton
-              v-if="isAdmin"
+              v-if="canBulkDeleteSelected"
               icon="i-lucide-trash-2"
               color="error"
               variant="soft"
@@ -495,11 +533,7 @@ const viewModeItems = [
             color="primary"
             :content="false"
             :items="viewModeItems"
-          >
-            <template #item="{ item }">
-              <UIcon :name="item.icon" class="size-4" />
-            </template>
-          </UTabs>
+          />
         </template>
       </UDashboardToolbar>
     </template>
@@ -523,7 +557,7 @@ const viewModeItems = [
             icon: 'i-lucide-clipboard-plus',
             label: 'Create Task',
             variant: 'solid',
-            disabled: !selectedWorkspace,
+            disabled: !selectedWorkspace || !canCreateTasks,
             onClick: openCreate
           }
         ]"

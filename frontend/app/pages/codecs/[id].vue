@@ -2,12 +2,14 @@
 import { LazyCodecSlideoverAction, LazyVirtualKeyboardSlideoverGlyphPicker, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 import { resolveComponent } from 'vue'
 import type { Codec, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
+import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { wsKey } from '@/utils/fetch-keys'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const { allow } = useActionVisibility()
 
 const workspace = useWorkspaceStore()
 
@@ -22,6 +24,7 @@ const id = route.params.id as string
 const isNew = id === 'new'
 
 const codecKey = computed(() => wsKey(selectedWorkspace.value, 'codecs', id))
+const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const defaultCodec: Codec = {
   id: '',
@@ -42,11 +45,18 @@ if (!isNew) {
   })
   if (data.value) {
     initial = data.value
+    loadedCapabilities.value = data.value.capabilities ?? null
   } else if (error.value) {
     toast.add({ title: 'Error loading codec', color: 'error' })
     router.push('/codecs')
   }
 }
+const codecCapabilities = computed(() => ({
+  ...DEFAULT_RESOURCE_CAPABILITIES,
+  ...(loadedCapabilities.value ?? {})
+}))
+const canEditCodec = computed(() => isNew || allow(codecCapabilities.value.canEdit))
+const canDeleteCodec = computed(() => !isNew && allow(codecCapabilities.value.canDelete))
 
 const name = ref(initial.name)
 const description = ref(initial.description ?? '')
@@ -120,14 +130,13 @@ type CharacterRow = {
 }
 
 function getCharacterRowActions(row: CharacterRow) {
-  return [
-    {
-      label: 'Remove',
-      icon: 'i-lucide-trash',
-      color: 'error' as const,
-      onSelect: () => removeChar(row.character)
-    }
-  ]
+  if (!canEditCodec.value) return []
+  return [{
+    label: 'Remove',
+    icon: 'i-lucide-trash',
+    color: 'error' as const,
+    onSelect: () => removeChar(row.character)
+  }]
 }
 
 const columns: TableColumn<CharacterRow>[] = [
@@ -222,18 +231,21 @@ const addCharactersFromString = (value: string) => {
 
 const newChar = ref('')
 const addManual = () => {
+  if (!canEditCodec.value) return
   if (!newChar.value) return
   addCharactersFromString(newChar.value)
   newChar.value = ''
 }
 
 const removeChar = (ch: string) => {
+  if (!canEditCodec.value) return
   codec.value = codec.value.filter(c => c !== ch)
   selectedCharacters.value.delete(ch)
   selectAll.value = false
 }
 
 const removeSelectedCharacters = async () => {
+  if (!canEditCodec.value) return
   if (selectedCharacters.value.size === 0) return
 
   const instance = confirmModal.open({
@@ -252,6 +264,7 @@ const removeSelectedCharacters = async () => {
 }
 
 const onGlyphSelect = async () => {
+  if (!canEditCodec.value) return
   const instance = glyphPickerSlideover.open({ title: 'Glyph Picker' })
   const glyph = await instance.result as { utf8?: string } | string | null
   if (typeof glyph === 'string') {
@@ -264,10 +277,12 @@ const onGlyphSelect = async () => {
 const characterCount = computed(() => codec.value.length)
 
 const openCodecImportDialog = () => {
+  if (!canEditCodec.value) return
   importCodecInput.value?.click()
 }
 
 const handleCodecImport = async (event: Event) => {
+  if (!canEditCodec.value) return
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
@@ -357,6 +372,7 @@ const handleCodecExport = () => {
 }
 
 const handleSave = async () => {
+  if (!canEditCodec.value) return
   try {
     const payload = {
       name: name.value,
@@ -388,6 +404,7 @@ const handleSave = async () => {
 }
 
 const handleDelete = async () => {
+  if (!canDeleteCodec.value) return
   if (isNew) return
 
   const instance = deleteSlideover.open({
@@ -409,6 +426,7 @@ const handleDelete = async () => {
 }
 
 const handleGenerateFromSources = async () => {
+  if (!canEditCodec.value) return
   const instance = codecActionSlideover.open({
     mode: 'generate',
     workspaceId: selectedWorkspace.value,
@@ -446,21 +464,11 @@ const handleValidateAgainstSources = async () => {
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = [
     {
-      label: 'Import codec package',
-      icon: 'i-lucide-upload',
-      onSelect: openCodecImportDialog
-    },
-    {
       label: 'Export codec package',
       icon: 'i-lucide-download',
       onSelect: handleCodecExport
     },
     { type: 'separator' },
-    {
-      label: 'Generate codec from sources',
-      icon: 'i-lucide-wand-sparkles',
-      onSelect: handleGenerateFromSources
-    },
     {
       label: 'Validate codec against sources',
       icon: 'i-lucide-badge-check',
@@ -468,18 +476,35 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
     }
   ]
 
+  if (canEditCodec.value) {
+    items.unshift({
+      label: 'Import codec package',
+      icon: 'i-lucide-upload',
+      onSelect: openCodecImportDialog
+    })
+    items.splice(3, 0, {
+      label: 'Generate codec from sources',
+      icon: 'i-lucide-wand-sparkles',
+      onSelect: handleGenerateFromSources
+    })
+  }
+
   if (!isNew) {
-    items.push({
+    if (canEditCodec.value) {
+      items.push({
       label: 'Share codec',
       icon: 'i-lucide-share-2',
       onSelect: () => shareSlideover.open({ resourceId: id, resourceName: name.value, resourceType: 'CODEC', currentWorkspaceId: selectedWorkspace.value })
-    })
-    items.push({
+      })
+    }
+    if (canDeleteCodec.value) {
+      items.push({
       label: 'Delete codec',
       icon: 'i-lucide-trash',
       color: 'error' as const,
       onSelect: handleDelete
-    })
+      })
+    }
   }
 
   return items
@@ -507,6 +532,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
               color="neutral"
               variant="subtle"
               icon="i-lucide-save"
+              :disabled="!canEditCodec"
               @click="handleSave"
             />
 
@@ -571,7 +597,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
               </h2>
               <div class="flex items-center gap-2 ml-auto">
                 <UButton
-                  v-if="selectedCharacters.size > 0"
+                  v-if="selectedCharacters.size > 0 && canEditCodec"
                   label="Remove Selected"
                   color="error"
                   variant="solid"
@@ -583,6 +609,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
                   color="neutral"
                   variant="subtle"
                   icon="i-lucide-scan-search"
+                  :disabled="!canEditCodec"
                   @click="onGlyphSelect"
                 />
               </div>
@@ -593,6 +620,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
                 v-model="newChar"
                 placeholder="Type or paste characters…"
                 class="flex-1"
+                :disabled="!canEditCodec"
                 @keydown.enter.prevent="addManual"
               />
               <UButton
@@ -600,6 +628,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
                 color="primary"
                 icon="i-lucide-plus"
                 variant="solid"
+                :disabled="!canEditCodec"
                 @click="addManual"
               />
             </div>

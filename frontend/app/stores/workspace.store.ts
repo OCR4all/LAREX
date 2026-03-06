@@ -5,6 +5,9 @@
  * The selectedWorkspaceId is stored in a cookie for SSR compatibility,
  * while workspace data is fetched fresh from the API.
  */
+import type { WorkspaceCapabilities } from '@/types/capabilities'
+import { DEFAULT_WORKSPACE_CAPABILITIES } from '@/types/capabilities'
+
 export const useWorkspaceStore = defineStore('workspace', () => {
   const selectedWorkspaceIdCookie = useCookie<string | null>('selectedWorkspaceId', {
     default: () => null,
@@ -35,6 +38,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     ownerUserId: string
     isPersonal: boolean
     type?: 'personal' | 'team'
+    capabilities?: WorkspaceCapabilities
   }
 
   const workspaces = ref<Workspace[]>([])
@@ -96,8 +100,19 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const canManageMembers = computed(() => {
     const workspace = currentWorkspace.value
     if (!workspace) return false
-    if (workspace.isPersonal) return false
-    return isCurrentUserOwner.value
+    return workspace.capabilities?.canManageMembers ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageMembers
+  })
+
+  const canManageProjects = computed(() => {
+    const workspace = currentWorkspace.value
+    if (!workspace) return false
+    return workspace.capabilities?.canManageProjects ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageProjects
+  })
+
+  const canManageTasks = computed(() => {
+    const workspace = currentWorkspace.value
+    if (!workspace) return false
+    return workspace.capabilities?.canManageTasks ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageTasks
   })
 
   /**
@@ -193,6 +208,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     currentWorkspace,
     isCurrentUserOwner,
     canManageMembers,
+    canManageProjects,
+    canManageTasks,
     selectWorkspace,
     selectWorkspaceAsAdmin,
     exitAdminMode,

@@ -24,13 +24,16 @@ public class WorkspaceService {
     private final PersonalWorkspaceService personalWorkspaceService;
     private final TeamWorkspaceService teamWorkspaceService;
     private final WorkspaceQueryService workspaceQueryService;
+    private final WorkspaceAccessService workspaceAccessService;
 
     public WorkspaceService(PersonalWorkspaceService personalWorkspaceService,
                            TeamWorkspaceService teamWorkspaceService,
-                           WorkspaceQueryService workspaceQueryService) {
+                           WorkspaceQueryService workspaceQueryService,
+                           WorkspaceAccessService workspaceAccessService) {
         this.personalWorkspaceService = personalWorkspaceService;
         this.teamWorkspaceService = teamWorkspaceService;
         this.workspaceQueryService = workspaceQueryService;
+        this.workspaceAccessService = workspaceAccessService;
     }
 
     /**
@@ -184,15 +187,6 @@ public class WorkspaceService {
      * Check if user has access to workspace
      */
     private boolean hasAccessToWorkspace(AbstractWorkspace workspace, String userId) {
-        if (workspace.getOwnerUserId().equals(userId)) {
-            return true;
-        }
-        
-        // For team workspaces, check membership
-        if (!workspace.isPersonal()) {
-            return teamWorkspaceService.hasTeamWorkspaceMembership(workspace.getId(), userId);
-        }
-        
-        return false;
+        return workspaceAccessService.hasWorkspaceAccess(workspace.getId(), userId);
     }
 }

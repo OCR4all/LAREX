@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
@@ -120,7 +121,8 @@ class UtilityPackageServiceTest {
                 List.of("x", "y"),
                 2,
                 null,
-                null
+                null,
+                new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true)
         ));
 
         UtilityPackageDto.ImportResult result = service.importUtilityPackageFromContent(workspaceId, userId, legacyCodec);

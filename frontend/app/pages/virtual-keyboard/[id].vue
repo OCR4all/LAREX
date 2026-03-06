@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { KeyboardLayout, BoardTheme } from '@/types/virtual-keyboard'
 import { useVirtualKeyboardBuilder } from '@/composables/use-virtual-keyboard-builder'
+import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
@@ -10,6 +11,7 @@ const router = useRouter()
 const toast = useToast()
 const overlay = useOverlay()
 const shareSlideover = overlay.create(LazyShareSlideover)
+const { allow } = useActionVisibility()
 
 const workspace = useWorkspaceStore()
 
@@ -25,6 +27,7 @@ const isNew = id === 'new'
 const keyboardsKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', 'list'))
 const keyboardKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', id))
 const themesKey = computed(() => wsKey(selectedWorkspace.value, 'board-themes', 'list'))
+const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const breadcrumbItems = computed(() => [
   {
@@ -60,11 +63,18 @@ if (!isNew) {
   })
   if (data.value) {
     initialLayout = data.value
+    loadedCapabilities.value = data.value.capabilities ?? null
   } else if (error.value) {
     toast.add({ title: 'Error loading keyboard', color: 'error' })
     router.push('/virtual-keyboard')
   }
 }
+const keyboardCapabilities = computed(() => ({
+  ...DEFAULT_RESOURCE_CAPABILITIES,
+  ...(loadedCapabilities.value ?? {})
+}))
+const canEditKeyboard = computed(() => isNew || allow(keyboardCapabilities.value.canEdit))
+const canDeleteKeyboard = computed(() => !isNew && allow(keyboardCapabilities.value.canDelete))
 
 const builderState = useVirtualKeyboardBuilder(initialLayout)
 
@@ -118,6 +128,7 @@ const tabs = [
 const availableLayouts = computed(() => [builderState.currentLayout.value])
 
 const handleSave = async () => {
+  if (!canEditKeyboard.value) return
   try {
     const layout = builderState.currentLayout.value
     if (isNew) {
@@ -199,10 +210,12 @@ const handleExportLayout = () => {
 const importFileInput = ref<HTMLInputElement | null>(null)
 
 const openImportDialog = () => {
+  if (!canEditKeyboard.value) return
   importFileInput.value?.click()
 }
 
 const handleImportLayout = async (event: Event) => {
+  if (!canEditKeyboard.value) return
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
@@ -238,6 +251,7 @@ const handleImportLayout = async (event: Event) => {
 const deleteConfirmSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const handleDelete = async () => {
+  if (!canDeleteKeyboard.value) return
   if (isNew) return
 
   const instance = deleteConfirmSlideover.open({
@@ -262,29 +276,36 @@ const handleDelete = async () => {
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = [
     {
-      label: 'Import layout package',
-      icon: 'i-lucide-upload',
-      onSelect: openImportDialog
-    },
-    {
       label: 'Export layout package',
       icon: 'i-lucide-download',
       onSelect: handleExportLayout
     }
   ]
 
+  if (canEditKeyboard.value) {
+    items.unshift({
+      label: 'Import layout package',
+      icon: 'i-lucide-upload',
+      onSelect: openImportDialog
+    })
+  }
+
   if (!isNew) {
-    items.push({
+    if (canEditKeyboard.value) {
+      items.push({
       label: 'Share keyboard',
       icon: 'i-lucide-share-2',
       onSelect: () => shareSlideover.open({ resourceId: id, resourceName: builderState.layoutName.value, resourceType: 'VIRTUAL_KEYBOARD', currentWorkspaceId: selectedWorkspace.value })
-    })
-    items.push({
+      })
+    }
+    if (canDeleteKeyboard.value) {
+      items.push({
       label: 'Delete keyboard',
       icon: 'i-lucide-trash',
       color: 'error' as const,
       onSelect: handleDelete
-    })
+      })
+    }
   }
 
   return items
@@ -312,6 +333,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
               color="neutral"
               variant="outline"
               icon="i-lucide-save"
+              :disabled="!canEditKeyboard"
               @click="handleSave"
             />
 

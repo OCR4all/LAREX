@@ -3,12 +3,14 @@ package de.uniwue.zpd.dachs.larex.backend.service.tag;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.TagSetDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.JsonNodeUtils;
 import org.springframework.cache.annotation.CacheEvict;
@@ -28,17 +30,20 @@ public class TagSetService {
     private final WorkspaceAccessService workspaceAccessService;
     private final ObjectMapper objectMapper;
     private final TagSetDefinitionValidator tagSetDefinitionValidator;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public TagSetService(TagSetRepository tagSetRepository,
                           ProjectRepository projectRepository,
                           WorkspaceAccessService workspaceAccessService,
                           ObjectMapper objectMapper,
-                          TagSetDefinitionValidator tagSetDefinitionValidator) {
+                          TagSetDefinitionValidator tagSetDefinitionValidator,
+                          AuthorizationPolicyService authorizationPolicyService) {
         this.tagSetRepository = tagSetRepository;
         this.projectRepository = projectRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.objectMapper = objectMapper;
         this.tagSetDefinitionValidator = tagSetDefinitionValidator;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     @CacheEvict(value = "tagSets", allEntries = true)
@@ -58,7 +63,7 @@ public class TagSetService {
         TagSet tagSet = new TagSet(workspaceId, name, description, objectMapper.valueToTree(request));
         tagSet.setTags(tags);
         tagSet = tagSetRepository.save(tagSet);
-        return convertToTagSetResponse(tagSet);
+        return convertToTagSetResponse(tagSet, userId);
     }
 
     @CacheEvict(value = "tagSets", allEntries = true)
@@ -85,7 +90,7 @@ public class TagSetService {
         tagSet.setDefinition(objectMapper.valueToTree(request));
 
         tagSet = tagSetRepository.save(tagSet);
-        return convertToTagSetResponse(tagSet);
+        return convertToTagSetResponse(tagSet, userId);
     }
 
     private TagSetDto.CreateOrUpdateRequest parseAndValidateRequest(JsonNode requestJson) {
@@ -127,7 +132,7 @@ public class TagSetService {
 
         List<TagSet> tagSets = tagSetRepository.findByWorkspaceId(workspaceId);
         return tagSets.stream()
-                .map(this::convertToTagSetSummaryResponse)
+                .map(tagSet -> convertToTagSetSummaryResponse(tagSet, userId))
                 .collect(Collectors.toList());
     }
 
@@ -139,7 +144,7 @@ public class TagSetService {
         TagSet tagSet = tagSetRepository.findByIdAndWorkspaceId(tagSetId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Tag set not found: " + tagSetId));
 
-        return convertToTagSetResponse(tagSet);
+        return convertToTagSetResponse(tagSet, userId);
     }
 
     @Cacheable(value = "tagSets", key = "#workspaceId + ':search:' + #query")
@@ -149,7 +154,7 @@ public class TagSetService {
 
         List<TagSet> tagSets = tagSetRepository.findTagSetsInWorkspaceBySearch(workspaceId, query);
         return tagSets.stream()
-                .map(this::convertToTagSetSummaryResponse)
+                .map(tagSet -> convertToTagSetSummaryResponse(tagSet, userId))
                 .collect(Collectors.toList());
     }
 
@@ -224,7 +229,7 @@ public class TagSetService {
         return objectMapper.convertValue(sanitized, TagSetDto.CreateOrUpdateRequest.class);
     }
 
-    private TagSetDto.Response convertToTagSetResponse(TagSet tagSet) {
+    private TagSetDto.Response convertToTagSetResponse(TagSet tagSet, String userId) {
         TagSetDto.CreateOrUpdateRequest definition = readDefinition(tagSet);
 
         List<String> tags = tagSet.getTags() != null ? tagSet.getTags() : new ArrayList<>();
@@ -236,17 +241,21 @@ public class TagSetService {
 
         int totalTagCount = tagSetDefinitionValidator.countTags(definition.tags());
 
+        AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService
+                .resolveWorkspaceResourceCapabilities(tagSet.getWorkspaceId(), userId);
+
         return new TagSetDto.Response(
                 tagSet.getId(),
             metaWithTags,
             definition.tags(),
             totalTagCount,
                 tagSet.getCreated(),
-                tagSet.getUpdated()
+                tagSet.getUpdated(),
+                capabilities
         );
     }
 
-    private TagSetDto.SummaryResponse convertToTagSetSummaryResponse(TagSet tagSet) {
+    private TagSetDto.SummaryResponse convertToTagSetSummaryResponse(TagSet tagSet, String userId) {
         TagSetDto.CreateOrUpdateRequest definition = readDefinition(tagSet);
 
         List<String> tags = tagSet.getTags() != null ? tagSet.getTags() : new ArrayList<>();
@@ -258,12 +267,16 @@ public class TagSetService {
 
         int tagCount = tagSetDefinitionValidator.countTags(definition.tags());
 
+        AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService
+                .resolveWorkspaceResourceCapabilities(tagSet.getWorkspaceId(), userId);
+
         return new TagSetDto.SummaryResponse(
                 tagSet.getId(),
             metaWithTags,
             tagCount,
                 tagSet.getCreated(),
-                tagSet.getUpdated()
+                tagSet.getUpdated(),
+                capabilities
         );
     }
 

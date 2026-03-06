@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Task, TaskStatus, TaskComment, TaskActivityLog, WorkspaceMember, TaskLinks, Subtask, SubtaskProgress, TaskReminder } from '~/types/index'
+import type { Task, TaskStatus, TaskComment, TaskActivityLog, TaskLinks, Subtask, SubtaskProgress, TaskReminder } from '~/types/index'
 import { formatDistanceToNow, isPast, parseISO, format, addHours, addDays, set } from 'date-fns'
-import { wsKey, globalKey } from '@/utils/fetch-keys'
+import { globalKey } from '@/utils/fetch-keys'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks } from '#components'
 
@@ -11,18 +11,20 @@ const toast = useToast()
 const overlay = useOverlay()
 const { refreshTaskOverview } = useTaskOverviewRefresh()
 const { refreshTaskCaches } = useDataRefresh()
+const { allow } = useActionVisibility()
 
 const taskId = computed(() => route.params.id as string)
 
-const { data: task, pending: taskPending } = await useFetch<Task>(
+const { data: task, pending: taskPending } = await useFetch<Task | null>(
   () => `/api/tasks/${taskId.value}`,
   {
     key: globalKey('tasks', taskId.value, 'detail'),
-    default: () => null as Task | null
+    default: () => null
   }
 )
 
 const workspaceId = computed(() => task.value?.workspaceId)
+const taskCapabilities = useResourceCapabilities(task, 'task')
 
 const { data: comments, refresh: refreshComments } = await useFetch<TaskComment[]>(
   () => `/api/tasks/${taskId.value}/comments`,
@@ -123,27 +125,10 @@ async function refreshAllSubtaskData() {
   await refreshTaskCaches(taskId.value, workspaceId.value)
 }
 
-const membersKey = computed(() => {
-  if (!workspaceId.value) return globalKey('pending', 'members', 'list')
-  return wsKey(workspaceId.value, 'members', 'list')
-})
-
-const { data: members } = await useFetch<WorkspaceMember[]>(
-  () => workspaceId.value ? `/api/workspaces/${workspaceId.value}/members` : '',
-  {
-    key: membersKey,
-    watch: [workspaceId],
-    default: () => [],
-    immediate: !!workspaceId.value
-  }
-)
-
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
 
-const currentUserMember = computed(() => members.value.find(m => m.userId === currentUserId.value))
-const isAdmin = computed(() => currentUserMember.value?.role === 'ADMINISTRATOR' && currentUserMember.value?.invitationStatus === 'ACCEPTED')
-const canEdit = computed(() => isAdmin.value || task.value?.createdByUserId === currentUserId.value)
+const canEdit = computed(() => allow(taskCapabilities.value.canEdit))
 
 const statusColor = (status: TaskStatus) => {
   switch (status) {
@@ -191,6 +176,7 @@ function setReminderPreset(date: Date) {
 }
 
 async function createReminder() {
+  if (!canEdit.value) return
   if (!reminderTimeInput.value) return
   isCreatingReminder.value = true
   try {
@@ -210,6 +196,7 @@ async function createReminder() {
 }
 
 async function deleteReminder(reminderId: string) {
+  if (!canEdit.value) return
   try {
     await $fetch(`/api/tasks/${taskId.value}/reminders/${reminderId}`, { method: 'DELETE' })
     await refreshTaskCaches(taskId.value, workspaceId.value)
@@ -224,6 +211,7 @@ const sortedReminders = computed(() => {
 })
 
 async function updateStatus(newStatus: TaskStatus) {
+  if (!allow(taskCapabilities.value.canUpdateStatus)) return
   if (!task.value || task.value.status === newStatus) return
 
   try {
@@ -270,7 +258,7 @@ async function openEditSlideover() {
   const instance = editSlideover.open({
     workspaceId: workspaceId.value,
     taskId: taskId.value,
-    isAdmin: isAdmin.value,
+    isAdmin: allow(taskCapabilities.value.canAssignOthers),
     currentUserId: currentUserId.value,
     onUpdated: async () => {
       await refreshTaskCaches(taskId.value, workspaceId.value)
@@ -304,6 +292,7 @@ const pagesByProject = computed(() => {
 })
 
 async function openLinkItemsSlideover() {
+  if (!canEdit.value) return
   if (!workspaceId.value) return
 
   const instance = linkItemsSlideover.open({
@@ -329,6 +318,7 @@ async function openLinkItemsSlideover() {
 }
 
 async function handleDelete() {
+  if (!allow(taskCapabilities.value.canDelete)) return
   if (!task.value || !workspaceId.value) return
 
   const instance = deleteConfirmSlideover.open({
@@ -354,7 +344,7 @@ async function handleDelete() {
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = []
 
-  if (canEdit.value) {
+  if (allow(taskCapabilities.value.canDelete)) {
     items.push({
       label: 'Delete task',
       icon: 'i-lucide-trash',
@@ -442,7 +432,7 @@ const tabItems = [
 
           <div class="flex flex-wrap gap-2">
             <UButton
-              v-if="task.status !== 'IN_PROGRESS'"
+              v-if="allow(taskCapabilities.canUpdateStatus) && task.status !== 'IN_PROGRESS'"
               color="info"
               variant="soft"
               icon="i-lucide-play"
@@ -451,7 +441,7 @@ const tabItems = [
               Start Progress
             </UButton>
             <UButton
-              v-if="task.status !== 'COMPLETED'"
+              v-if="allow(taskCapabilities.canUpdateStatus) && task.status !== 'COMPLETED'"
               color="success"
               variant="soft"
               icon="i-lucide-check"
@@ -460,7 +450,7 @@ const tabItems = [
               Mark Complete
             </UButton>
             <UButton
-              v-if="task.status === 'COMPLETED' || task.status === 'IN_PROGRESS'"
+              v-if="allow(taskCapabilities.canUpdateStatus) && (task.status === 'COMPLETED' || task.status === 'IN_PROGRESS')"
               color="neutral"
               variant="soft"
               icon="i-lucide-rotate-ccw"
@@ -470,14 +460,7 @@ const tabItems = [
             </UButton>
           </div>
 
-          <UTabs v-model="activeTab" :items="tabItems" class="w-full">
-            <template #item="{ item }">
-              <div class="flex items-center gap-2">
-                <UIcon :name="item.icon" class="size-4" />
-                <span>{{ item.label }}</span>
-              </div>
-            </template>
-          </UTabs>
+          <UTabs v-model="activeTab" :items="tabItems" class="w-full" />
 
           <div v-if="activeTab === 'subtasks'">
             <TaskDetailSubtasks
@@ -539,6 +522,7 @@ const tabItems = [
                 </UBadge>
               </h3>
               <UButton
+                v-if="canEdit"
                 icon="i-lucide-plus"
                 size="xs"
                 color="neutral"
@@ -636,7 +620,7 @@ const tabItems = [
               <UiDateTimePicker
                 v-model="reminderTimeInput"
                 size="sm"
-                :disabled="isCreatingReminder"
+                :disabled="isCreatingReminder || !canEdit"
                 placeholder="Pick reminder date and time"
               />
               <div class="flex flex-wrap gap-2">
@@ -670,7 +654,7 @@ const tabItems = [
                 size="xs"
                 color="primary"
                 :loading="isCreatingReminder"
-                :disabled="!reminderTimeInput"
+                :disabled="!reminderTimeInput || !canEdit"
                 @click="createReminder"
               >
                 Add reminder
@@ -690,6 +674,7 @@ const tabItems = [
                   {{ format(parseISO(reminder.reminderTime), 'PPp') }}
                 </div>
                 <UButton
+                  v-if="canEdit"
                   size="xs"
                   color="neutral"
                   variant="ghost"

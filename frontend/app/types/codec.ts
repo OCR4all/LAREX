@@ -1,3 +1,5 @@
+import type { ResourceCapabilities } from './capabilities'
+
 export interface CodecSummary {
   id: string
   name: string
@@ -6,6 +8,7 @@ export interface CodecSummary {
   characterCount: number
   created: string
   updated: string
+  capabilities?: ResourceCapabilities
 }
 
 export interface Codec {
@@ -17,6 +20,7 @@ export interface Codec {
   characterCount: number
   created: string
   updated: string
+  capabilities?: ResourceCapabilities
 }
 
 export interface CodecCreateOrUpdateRequest {

@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -37,19 +38,22 @@ public class CodecService {
     private final ProjectRepository projectRepository;
     private final PageRepository pageRepository;
     private final PageTextContentRepository pageTextContentRepository;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public CodecService(CodecRepository codecRepository,
                         LibraryRepository libraryRepository,
                         WorkspaceAccessService workspaceAccessService,
                         ProjectRepository projectRepository,
                         PageRepository pageRepository,
-                        PageTextContentRepository pageTextContentRepository) {
+                        PageTextContentRepository pageTextContentRepository,
+                        AuthorizationPolicyService authorizationPolicyService) {
         this.codecRepository = codecRepository;
         this.libraryRepository = libraryRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageTextContentRepository = pageTextContentRepository;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     @CacheEvict(value = "codecs", allEntries = true)
@@ -76,7 +80,7 @@ public class CodecService {
         }
 
         codec = codecRepository.save(codec);
-        return convertToCodecResponse(codec);
+        return convertToCodecResponse(codec, userId);
     }
 
     @CacheEvict(value = "codecs", allEntries = true)
@@ -105,7 +109,7 @@ public class CodecService {
         }
 
         codec = codecRepository.save(codec);
-        return convertToCodecResponse(codec);
+        return convertToCodecResponse(codec, userId);
     }
 
     @CacheEvict(value = "codecs", allEntries = true)
@@ -125,7 +129,7 @@ public class CodecService {
 
         List<Codec> codecs = codecRepository.findByLibraryWorkspaceId(workspaceId);
         return codecs.stream()
-                .map(this::convertToCodecSummaryResponse)
+                .map(codec -> convertToCodecSummaryResponse(codec, userId))
                 .collect(Collectors.toList());
     }
 
@@ -137,7 +141,7 @@ public class CodecService {
         Codec codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
 
-        return convertToCodecResponse(codec);
+        return convertToCodecResponse(codec, userId);
     }
 
     @Cacheable(value = "codecs", key = "#workspaceId + ':search:' + #query")
@@ -147,7 +151,7 @@ public class CodecService {
 
         List<Codec> codecs = codecRepository.findCodecsInWorkspaceBySearch(workspaceId, query);
         return codecs.stream()
-                .map(this::convertToCodecSummaryResponse)
+                .map(codec -> convertToCodecSummaryResponse(codec, userId))
                 .collect(Collectors.toList());
     }
 
@@ -164,7 +168,7 @@ public class CodecService {
 
         codec.addCharacter(character);
         codec = codecRepository.save(codec);
-        return convertToCodecResponse(codec);
+        return convertToCodecResponse(codec, userId);
     }
 
     @CacheEvict(value = "codecs", allEntries = true)
@@ -180,7 +184,7 @@ public class CodecService {
 
         codec.removeCharacter(character);
         codec = codecRepository.save(codec);
-        return convertToCodecResponse(codec);
+        return convertToCodecResponse(codec, userId);
     }
 
     @Transactional(readOnly = true)
@@ -270,7 +274,7 @@ public class CodecService {
                 : "Added extracted characters to existing codec";
 
         return new CodecDto.GenerateFromSourcesResponse(
-                convertToCodecResponse(codec),
+                convertToCodecResponse(codec, userId),
                 createdNewCodec,
                 analyses.size(),
                 analyzedPageCount,
@@ -659,7 +663,7 @@ public class CodecService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private CodecDto.Response convertToCodecResponse(Codec codec) {
+    private CodecDto.Response convertToCodecResponse(Codec codec, String userId) {
         List<String> tags = codec.getTags() == null
                 ? List.of()
                 : codec.getTags().stream().filter(s -> s != null && !s.isBlank()).sorted().toList();
@@ -676,11 +680,12 @@ public class CodecService {
                 codecCharacters,
                 codec.getCharacterCount(),
                 codec.getCreated(),
-                codec.getUpdated()
+                codec.getUpdated(),
+                authorizationPolicyService.resolveWorkspaceResourceCapabilities(codec.getLibrary().getWorkspaceId(), userId)
         );
     }
 
-    private CodecDto.SummaryResponse convertToCodecSummaryResponse(Codec codec) {
+    private CodecDto.SummaryResponse convertToCodecSummaryResponse(Codec codec, String userId) {
         List<String> tags = codec.getTags() == null
                 ? List.of()
                 : codec.getTags().stream().filter(s -> s != null && !s.isBlank()).sorted().toList();
@@ -692,7 +697,8 @@ public class CodecService {
                 tags,
                 codec.getCharacterCount(),
                 codec.getCreated(),
-                codec.getUpdated()
+                codec.getUpdated(),
+                authorizationPolicyService.resolveWorkspaceResourceCapabilities(codec.getLibrary().getWorkspaceId(), userId)
         );
     }
 

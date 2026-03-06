@@ -25,7 +25,8 @@ public class TaskDto {
             LocalDateTime updated,
             LocalDateTime completedAt,
             String completedByUserId,
-            String workspaceId
+            String workspaceId,
+            AuthorizationCapabilitiesDto.TaskCapabilities capabilities
     ) {}
 
     public record CreateRequest(

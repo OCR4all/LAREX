@@ -1,3 +1,5 @@
+import type { ResourceCapabilities } from './capabilities'
+
 export type LabelScope = 'region' | 'line'
 export type AltoRole = 'TAGREFS' | 'STYLEREFS'
 
@@ -91,6 +93,7 @@ export interface LabelSet {
   labels: LabelDefinition[]
   created: string
   updated: string
+  capabilities?: ResourceCapabilities
 }
 
 export interface LabelSetSummary {
@@ -99,4 +102,5 @@ export interface LabelSetSummary {
   labelCount: number
   created: string
   updated: string
+  capabilities?: ResourceCapabilities
 }

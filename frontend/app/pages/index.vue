@@ -4,6 +4,7 @@ import type { TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import { LazyCodecSlideoverAction, LazyLibrarySlideoverCreate, LazyShareSlideover, LazyProjectSlideoverEdit, LazyUiDeleteSlideover } from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
+import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
 import { globalKey, wsKey } from '@/utils/fetch-keys'
 import UiColorTag from '@/components/ui/color-tag.vue'
 
@@ -16,6 +17,9 @@ const NuxtLink = resolveComponent('NuxtLink')
 
 const workspace = useWorkspaceStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const { allow, compactGroups } = useActionVisibility()
+const canCreateProjects = computed(() => allow(workspaceCapabilities.value.canManageProjects))
 
 const { maybeAutoStartDashboardTour } = useOnboarding()
 onMounted(() => {
@@ -33,21 +37,25 @@ const toast = useToast()
 const librarySlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 
-const emptyActions = [
-  {
-    icon: 'i-lucide-package-plus',
-    label: 'Create new',
-    variant: 'solid',
-    onClick: () => librarySlideoverCreate.open()
-  },
-  {
+const emptyActions = computed(() => {
+  const actions: Array<{ icon: string, label: string, color?: string, variant: 'solid' | 'subtle', onClick: () => void }> = []
+  if (canCreateProjects.value) {
+    actions.push({
+      icon: 'i-lucide-package-plus',
+      label: 'Create new',
+      variant: 'solid',
+      onClick: () => librarySlideoverCreate.open()
+    })
+  }
+  actions.push({
     icon: 'i-lucide-refresh-cw',
     label: 'Refresh',
     color: 'neutral',
     variant: 'subtle',
     onClick: () => refresh()
-  }
-]
+  })
+  return actions
+})
 
 const editSlideover = overlay.create(LazyProjectSlideoverEdit)
 
@@ -64,7 +72,7 @@ type ResolvedTag = {
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
 
-type Project = {
+type LibraryProject = {
   id: string
   name: string
   description: string
@@ -79,6 +87,14 @@ type Project = {
   locked: boolean
   lockedReason: string | null
   tagSetId?: string | null
+  capabilities?: {
+    canEdit: boolean
+    canShare: boolean
+    canDelete: boolean
+    canDeletePages: boolean
+    canUpload: boolean
+    canExportPackage: boolean
+  }
 }
 
 const {
@@ -86,7 +102,7 @@ const {
   error,
   status,
   refresh
-} = await useFetch(() => `/api/workspaces/${selectedWorkspace.value}/projects`,
+} = await useFetch<LibraryProject[]>(() => `/api/workspaces/${selectedWorkspace.value}/projects`,
   {
     key: libraryKey,
     watch: [selectedWorkspace],
@@ -227,7 +243,7 @@ const tagOperatorOptions = [
   { label: 'Match all (AND)', value: 'and' }
 ]
 
-const columns: TableColumn<Project>[] = [
+const columns: TableColumn<any>[] = [
   {
     id: 'select',
     header: () => h('input', {
@@ -315,8 +331,8 @@ const columns: TableColumn<Project>[] = [
         return null
       }
 
-      const displayTags = resolvedTags && resolvedTags.length > 0
-        ? resolvedTags.map(rt => ({ label: rt.label || rt.id, color: rt.color || DEFAULT_CUSTOM_TAG_COLOR }))
+      const displayTags: Array<{ label: string, color: string }> = resolvedTags && resolvedTags.length > 0
+        ? resolvedTags.map((rt: ResolvedTag) => ({ label: rt.label || rt.id, color: rt.color || DEFAULT_CUSTOM_TAG_COLOR }))
         : rawTags.map(tagId => ({ label: tagId, color: DEFAULT_CUSTOM_TAG_COLOR }))
 
       const renderTagBadge = (tag: { label: string, color: string }, index: number) => h(
@@ -332,7 +348,7 @@ const columns: TableColumn<Project>[] = [
 
       if (displayTags.length <= 3) {
         return h('div', { class: 'flex flex-wrap gap-1' },
-          displayTags.map((tag, index) => renderTagBadge(tag, index))
+          displayTags.map((tag: { label: string, color: string }, index: number) => renderTagBadge(tag, index))
         )
       }
 
@@ -340,7 +356,7 @@ const columns: TableColumn<Project>[] = [
       const hiddenTags = displayTags.slice(2)
 
       return h('div', { class: 'flex flex-wrap items-center gap-1' }, [
-        ...visibleTags.map((tag, index) => renderTagBadge(tag, index)),
+        ...visibleTags.map((tag: { label: string, color: string }, index: number) => renderTagBadge(tag, index)),
         h(UPopover, { mode: 'hover' }, {
           default: () => h(UButton, {
             variant: 'soft',
@@ -350,7 +366,7 @@ const columns: TableColumn<Project>[] = [
           }, () => `+${hiddenTags.length}`),
 
           content: () => h('div', { class: 'p-2 flex flex-col gap-1' },
-            hiddenTags.map((tag, index) => renderTagBadge(tag, index))
+            hiddenTags.map((tag: { label: string, color: string }, index: number) => renderTagBadge(tag, index))
           )
         })
       ])
@@ -481,11 +497,20 @@ const columns: TableColumn<Project>[] = [
   }
 ]
 
-function handleRowClick(row: Row<Project>) {
+function handleRowClick(row: Row<LibraryProject>) {
   navigateTo(`/project/${row.original.id}`)
 }
 
-async function handleDeleteProject(project: Project) {
+function getProjectCapabilities(project: LibraryProject) {
+  return {
+    ...DEFAULT_PROJECT_CAPABILITIES,
+    ...(project.capabilities ?? {})
+  }
+}
+
+async function handleDeleteProject(project: LibraryProject) {
+  const capabilities = getProjectCapabilities(project)
+  if (!allow(capabilities.canDelete)) return
   if (deletingProjectIds.value.has(project.id)) return
 
   const instance = deleteSlideover.open({
@@ -516,6 +541,7 @@ async function handleDeleteProject(project: Project) {
   })
 
   const removedProject = projects[removedIndex]
+  if (!removedProject) return
   data.value = [
     ...projects.slice(0, removedIndex),
     ...projects.slice(removedIndex + 1)
@@ -570,8 +596,11 @@ async function handleDeleteProject(project: Project) {
   }
 }
 
-async function openEditProjectSlideover(project: Project) {
-  const instance = editSlideover.open({ project })
+async function openEditProjectSlideover(project: LibraryProject) {
+  const capabilities = getProjectCapabilities(project)
+  if (!allow(capabilities.canEdit)) return
+
+  const instance = editSlideover.open({ project: project as any })
   const result = await instance.result
   if (result === false) return
 
@@ -583,20 +612,24 @@ async function openEditProjectSlideover(project: Project) {
   })
 }
 
-async function openShareSlideover(project: Project) {
+async function openShareSlideover(project: LibraryProject) {
+  const capabilities = getProjectCapabilities(project)
+  if (!allow(capabilities.canShare)) return
+
   const instance = shareSlideover.open({
     resourceId: project.id,
     resourceName: project.name,
     resourceType: 'PROJECT',
-    currentWorkspaceId: selectedWorkspace.value
+    currentWorkspaceId: selectedWorkspace.value ?? ''
   })
 
   await instance.result
   await refreshNuxtData(libraryKey.value)
 }
 
-function getRowItems(row: Row<Project>) {
-  return [
+function getRowItems(row: Row<LibraryProject>) {
+  const capabilities = getProjectCapabilities(row.original)
+  const groups: any[][] = [[
     {
       type: 'label',
       label: 'Actions'
@@ -607,28 +640,32 @@ function getRowItems(row: Row<Project>) {
       onSelect() {
         navigateTo(`/project/${row.original.id}`)
       }
-    },
-    {
-      type: 'separator'
-    },
-    {
+    }
+  ]]
+
+  const mutationActions: any[] = []
+  if (allow(capabilities.canEdit) && !row.original.locked) {
+    mutationActions.push({
       label: 'Edit',
       icon: 'i-lucide-edit',
       onSelect() {
         void openEditProjectSlideover(row.original)
       }
-    },
-    {
+    })
+  }
+
+  if (allow(capabilities.canShare) && !row.original.locked) {
+    mutationActions.push({
       label: 'Share',
       icon: 'i-lucide-share',
       onSelect() {
         void openShareSlideover(row.original)
       }
-    },
-    {
-      type: 'separator'
-    },
-    {
+    })
+  }
+
+  if (allow(capabilities.canDelete) && !row.original.locked) {
+    mutationActions.push({
       label: 'Delete',
       icon: 'i-lucide-trash',
       color: 'error',
@@ -636,18 +673,24 @@ function getRowItems(row: Row<Project>) {
       onSelect() {
         void handleDeleteProject(row.original)
       }
-    }
-  ]
+    })
+  }
+
+  if (mutationActions.length > 0) {
+    groups.push([{ type: 'separator' }, ...mutationActions])
+  }
+
+  return compactGroups(groups)
 }
 
-const contextMenuRow = ref<Row<Project> | null>(null)
+const contextMenuRow = ref<Row<LibraryProject> | null>(null)
 const contextMenuItems = computed(() => {
   if (!contextMenuRow.value) return []
   return getRowItems(contextMenuRow.value)
 })
 
 function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
-  contextMenuRow.value = row as Row<Project>
+  contextMenuRow.value = row as Row<LibraryProject>
 }
 
 const selectedSources = computed<CodecProjectScope[]>(() => {
@@ -773,6 +816,7 @@ const libraryCodecActionItems = computed(() => [[
           >
           <UFieldGroup>
             <UButton
+              v-if="canCreateProjects"
               label="New Project"
               color="neutral"
               variant="outline"
@@ -820,11 +864,11 @@ const libraryCodecActionItems = computed(() => [[
             searchable-placeholder="Search tags..."
             class="w-48"
           >
-            <template #item="{ item, selected }">
+            <template #item="{ item }">
               <div class="flex items-center justify-between w-full gap-2">
                 <div class="flex items-center gap-2">
                   <UIcon
-                    v-if="selected"
+                    v-if="selectedTags.includes(item.value)"
                     name="i-lucide-check"
                     class="text-primary w-4 h-4"
                   />
@@ -941,7 +985,7 @@ const libraryCodecActionItems = computed(() => [[
         icon="i-lucide-book"
         title="No projects found"
         description="It looks like you haven't added any projects. Create one to get started."
-        :actions="emptyActions"
+        :actions="emptyActions as any"
       />
 
       <UEmpty
@@ -989,11 +1033,7 @@ const libraryCodecActionItems = computed(() => [[
               :items="[5, 10, 15, 20, 50, 100]"
               class="w-32"
               size="sm"
-            >
-              <template #label>
-                {{ itemsPerPage }} per page
-              </template>
-            </USelect>
+            />
 
             <UPagination
               v-model:page="page"

@@ -43,7 +43,8 @@ public class ProjectDto {
             String labelSetId,
             String tagSetId,
             Integer defaultGtIndex,
-            List<Integer> defaultRecognitionIndices
+            List<Integer> defaultRecognitionIndices,
+            AuthorizationCapabilitiesDto.ProjectCapabilities capabilities
     ) {
         private static String formatBytes(Long bytes) {
             if (bytes == null || bytes == 0) return "0 B";
@@ -62,10 +63,11 @@ public class ProjectDto {
                                   LocalDateTime created, LocalDateTime updated, int pageCount,
                                   boolean isStarred, Long storageUsedBytes, boolean locked, String lockedReason,
                                   String codecId, String labelSetId, String tagSetId,
-                                  Integer defaultGtIndex, List<Integer> defaultRecognitionIndices) {
+                                  Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
+                                  AuthorizationCapabilitiesDto.ProjectCapabilities capabilities) {
             return new Response(id, name, description, tags, resolvedTags, created, updated, pageCount, isStarred,
                     storageUsedBytes, formatBytes(storageUsedBytes), locked, lockedReason, codecId, labelSetId, tagSetId,
-                    defaultGtIndex, defaultRecognitionIndices);
+                    defaultGtIndex, defaultRecognitionIndices, capabilities);
         }
     }
 }

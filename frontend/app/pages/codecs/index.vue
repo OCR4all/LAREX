@@ -14,6 +14,7 @@ const NuxtLink = resolveComponent('NuxtLink')
 const toast = useToast()
 const overlay = useOverlay()
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const { allow, compactGroups } = useActionVisibility()
 
 const workspace = useWorkspaceStore()
 
@@ -100,7 +101,7 @@ watch([globalFilter, columnFilters], () => {
   page.value = 1
 }, { deep: true })
 
-const columns: TableColumn<CodecSummary>[] = [
+const columns: TableColumn<any>[] = [
   {
     accessorKey: 'name',
     header: () => {
@@ -239,6 +240,8 @@ const columns: TableColumn<CodecSummary>[] = [
   {
     id: 'actions',
     cell: ({ row }) => {
+      const rowItems = items(row.original)
+      if (!rowItems.length) return null
       return h(
         'div',
         { class: 'text-right' },
@@ -246,7 +249,7 @@ const columns: TableColumn<CodecSummary>[] = [
           UDropdownMenu,
           {
             'content': { align: 'end' },
-            'items': items(row.original),
+            'items': rowItems,
             'aria-label': 'Actions dropdown'
           },
           () => h(UButton, {
@@ -263,6 +266,7 @@ const columns: TableColumn<CodecSummary>[] = [
 ]
 
 const handleDelete = async (row: CodecSummary) => {
+  if (!allow(row.capabilities?.canDelete)) return
   const instance = deleteSlideover.open({
     name: row.name,
     entityType: 'Codec',
@@ -280,21 +284,28 @@ const handleDelete = async (row: CodecSummary) => {
   }
 }
 
-const items = (row: CodecSummary) => [
-  [
-    {
+const items = (row: CodecSummary) => {
+  const actions: any[] = []
+
+  if (allow(row.capabilities?.canEdit)) {
+    actions.push({
       label: 'Edit',
       icon: 'i-lucide-edit',
       onSelect: () => navigateTo(`/codecs/${row.id}`)
-    },
-    {
+    })
+  }
+
+  if (allow(row.capabilities?.canDelete)) {
+    actions.push({
       label: 'Delete',
       icon: 'i-lucide-trash',
       color: 'error',
       onSelect: () => handleDelete(row)
-    }
-  ]
-]
+    })
+  }
+
+  return compactGroups([actions])
+}
 
 const contextMenuCodec = ref<CodecSummary | null>(null)
 const contextMenuItems = computed(() => {
@@ -358,11 +369,11 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
             searchable-placeholder="Search tags..."
             class="w-48"
           >
-            <template #item="{ item, selected }">
+            <template #item="{ item }">
               <div class="flex items-center justify-between w-full gap-2">
                 <div class="flex items-center gap-2">
                   <UIcon
-                    v-if="selected"
+                    v-if="selectedTags.includes(item.value)"
                     name="i-lucide-check"
                     class="text-primary w-4 h-4"
                   />

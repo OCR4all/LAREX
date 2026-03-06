@@ -6,7 +6,8 @@ import { LazyWorkspaceSlideoverInviteMember } from '#components'
 const workspace = useWorkspaceStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
 const { refreshWorkspaceMembership } = useDataRefresh()
-
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const { allow } = useActionVisibility()
 const { user } = useUserSession()
 const currentUserId = computed(() => user.value?.id || '')
 
@@ -33,16 +34,7 @@ const { data: currentWorkspace } = await useFetch<{ isPersonal: boolean }>(
   }
 )
 
-const currentUserMember = computed(() => {
-  return members.value.find(m => m.userId === currentUserId.value)
-})
-
-const isCurrentUserAdmin = computed(() => {
-  if (!currentWorkspace.value) return false
-  if (currentWorkspace.value.isPersonal) return true
-  return currentUserMember.value?.role === 'ADMINISTRATOR'
-    && currentUserMember.value?.invitationStatus === 'ACCEPTED'
-})
+const canManageMembers = computed(() => allow(workspaceCapabilities.value.canManageMembers))
 
 const q = ref('')
 
@@ -81,7 +73,7 @@ async function openInviteModal() {
     >
       <UButton
         data-tour="workspace-members-invite"
-        v-if="isCurrentUserAdmin && !currentWorkspace.isPersonal"
+        v-if="canManageMembers && !currentWorkspace.isPersonal"
         label="Invite people"
         color="primary"
         variant="solid"
@@ -123,7 +115,7 @@ async function openInviteModal() {
       <SettingsMembersList
         :members="filteredMembers"
         :workspace-id="selectedWorkspace || ''"
-        :is-current-user-admin="isCurrentUserAdmin"
+        :is-current-user-admin="canManageMembers"
         :current-user-id="currentUserId"
       />
     </UPageCard>

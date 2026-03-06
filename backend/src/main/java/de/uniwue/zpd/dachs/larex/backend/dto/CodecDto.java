@@ -38,7 +38,8 @@ public class CodecDto {
             List<String> codec,
             int characterCount,
             LocalDateTime created,
-            LocalDateTime updated
+            LocalDateTime updated,
+            AuthorizationCapabilitiesDto.ResourceCapabilities capabilities
     ) {}
 
     public record SummaryResponse(
@@ -48,7 +49,8 @@ public class CodecDto {
             List<String> tags,
             int characterCount,
             LocalDateTime created,
-            LocalDateTime updated
+            LocalDateTime updated,
+            AuthorizationCapabilitiesDto.ResourceCapabilities capabilities
     ) {}
 
     public record AddCharacterRequest(

@@ -2,9 +2,24 @@
  * Reusable composable for table sorting, filtering, and searching
  */
 export type TagFilterOperator = 'and' | 'or'
+type ActiveFilter =
+  | {
+    type: 'global'
+    label: string
+    value: string
+    clear: () => void
+    column?: undefined
+  }
+  | {
+    type: 'column'
+    column: string
+    label: string
+    value: string | string[] | boolean
+    clear: () => void
+  }
 
-export const useTableFilters = <T extends Record<string, unknown>>(
-  data: Ref<T[]>,
+export const useTableFilters = <T extends object>(
+  data: Ref<T[]> | ComputedRef<T[]>,
   defaultSort: { column: string, direction: 'asc' | 'desc' } = { column: 'created', direction: 'desc' }
 ) => {
   const sort = ref(defaultSort)
@@ -13,7 +28,7 @@ export const useTableFilters = <T extends Record<string, unknown>>(
   const tagFilterOperator = ref<TagFilterOperator>('or')
   const globalSearchFields = ['name', 'description'] as const
 
-  const getValueByPath = (obj: Record<string, unknown> | null | undefined, path: string): unknown => {
+  const getValueByPath = (obj: unknown, path: string): unknown => {
     return path.split('.').reduce<unknown>((current, key) => {
       if (current && typeof current === 'object') {
         return (current as Record<string, unknown>)[key]
@@ -134,8 +149,8 @@ export const useTableFilters = <T extends Record<string, unknown>>(
     tagFilterOperator.value = 'or'
   }
 
-  const activeFilters = computed(() => {
-    const filters = []
+  const activeFilters = computed<ActiveFilter[]>(() => {
+    const filters: ActiveFilter[] = []
 
     if (globalFilter.value) {
       filters.push({

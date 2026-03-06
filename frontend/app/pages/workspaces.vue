@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
+import type { WorkspaceCapabilities } from '@/types/capabilities'
 import { globalKey } from '~/utils/fetch-keys'
 import { LazyWorkspaceSlideoverCreate, LazyUiDeleteSlideover } from '#components'
 
@@ -11,6 +12,7 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
 const toast = useToast()
 const overlay = useOverlay()
 const workspaceStore = useWorkspaceStore()
+const { allow, compactGroups } = useActionVisibility()
 const { refreshWorkspaceList } = useDataRefresh()
 const { user } = useUserSession()
 
@@ -24,6 +26,7 @@ interface Workspace {
   isPersonal: boolean
   ownerUserId: string
   type: 'personal' | 'team'
+  capabilities?: WorkspaceCapabilities
 }
 
 const { data: workspaces } = await useFetch<Workspace[]>('/api/workspaces', {
@@ -38,7 +41,9 @@ type WorkspaceRow = Workspace & { role: 'OWNER' | 'ADMINISTRATOR' | 'MEMBER' }
 const rows = computed<WorkspaceRow[]>(() => {
   return workspacesSafe.value.map(ws => ({
     ...ws,
-    role: ws.isPersonal || ws.ownerUserId === user.value?.id ? 'OWNER' : 'MEMBER'
+    role: ws.isPersonal || ws.ownerUserId === user.value?.id
+      ? 'OWNER'
+      : (ws.capabilities?.canAdminWorkspace ? 'ADMINISTRATOR' : 'MEMBER')
   }))
 })
 
@@ -62,7 +67,7 @@ const paginatedData = computed(() => {
 
 watch(globalFilter, () => { page.value = 1 })
 
-const columns: TableColumn<WorkspaceRow>[] = [
+const columns: TableColumn<any>[] = [
   {
     accessorKey: 'name',
     header: () => h('div', { class: 'flex items-center gap-2' }, [
@@ -143,20 +148,23 @@ function getActions(ws: WorkspaceRow) {
     }
   ]]
 
-  if (!ws.isPersonal) {
-    if (ws.role === 'OWNER') {
-      actions.push([
-        { label: 'Settings', icon: 'i-lucide-settings', onSelect: () => navigateTo(`/workspace/settings?workspaceId=${ws.id}`) },
-        { label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => openDeleteSlideover(ws) }
-      ])
-    } else {
-      actions.push([
-        { label: 'Leave', icon: 'i-lucide-log-out', color: 'warning', onSelect: () => leaveWorkspace(ws) }
-      ])
-    }
+  if (!ws.isPersonal && allow(ws.capabilities?.canEditWorkspace)) {
+    actions.push([
+      { label: 'Settings', icon: 'i-lucide-settings', onSelect: () => navigateTo(`/workspace/settings?workspaceId=${ws.id}`) }
+    ])
   }
 
-  return actions
+  if (!ws.isPersonal && allow(ws.capabilities?.canAdminWorkspace)) {
+    actions.push([
+      { label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => openDeleteSlideover(ws) }
+    ])
+  } else if (!ws.isPersonal && ws.role !== 'OWNER') {
+    actions.push([
+      { label: 'Leave', icon: 'i-lucide-log-out', color: 'warning', onSelect: () => leaveWorkspace(ws) }
+    ])
+  }
+
+  return compactGroups(actions)
 }
 
 const contextMenuWorkspace = ref<WorkspaceRow | null>(null)
@@ -304,7 +312,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
         <p class="text-gray-500 mb-6">
           Create your first workspace to get started
         </p>
-        <UButton icon="i-lucide-plus" label="Create Workspace" @click="createWorkspaceModal.open()" />
+        <UButton icon="i-lucide-plus" label="Create Workspace" @click="createWorkspaceSlideover.open()" />
       </div>
     </template>
   </UDashboardPanel>

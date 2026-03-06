@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { wsKey, globalKey } from '@/utils/fetch-keys'
-import type { WorkspaceMember } from '~/types/index'
 import { LazyUiDeleteSlideover } from '#components'
 
 interface Workspace {
@@ -30,13 +29,12 @@ const workspaceStore = useWorkspaceStore()
 const toast = useToast()
 const overlay = useOverlay()
 const { refreshWorkspaceDetails, refreshWorkspaceList } = useDataRefresh()
+const { allow } = useActionVisibility()
 
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
-
-const { user } = useUserSession()
-const currentUserId = computed(() => user.value?.id || '')
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 
 const { data: workspace } = await useFetch<Workspace>(
   `/api/workspaces/${selectedWorkspace.value}`,
@@ -68,29 +66,9 @@ const storageColor = computed(() => {
   return 'primary'
 })
 
-const { data: members } = await useFetch<WorkspaceMember[]>(
-  `/api/workspaces/${selectedWorkspace.value}/members`,
-  {
-    key: computed(() => selectedWorkspace.value
-      ? wsKey(selectedWorkspace.value, 'members', 'list')
-      : globalKey('pending', 'members', 'list')),
-    watch: [selectedWorkspace],
-    default: () => [],
-    immediate: !!selectedWorkspace.value
-  }
-)
-
-const currentUserMember = computed(() => {
-  if (!members.value) return undefined
-  return members.value.find((m: WorkspaceMember) => m.userId === currentUserId.value)
-})
-
-const isCurrentUserAdmin = computed(() => {
-  if (!workspace.value) return false
-  if (workspace.value.isPersonal) return true
-  return currentUserMember.value?.role === 'ADMINISTRATOR'
-    && currentUserMember.value?.invitationStatus === 'ACCEPTED'
-})
+const isCurrentUserAdmin = computed(() => allow(workspaceCapabilities.value.canEditWorkspace))
+const canDeleteWorkspace = computed(() => allow(workspaceCapabilities.value.canAdminWorkspace))
+const canEditWorkspaceTextIndexDefaults = computed(() => allow(workspaceCapabilities.value.canEditWorkspaceTextIndexDefaults))
 
 const isEditing = ref(false)
 const isSaving = ref(false)
@@ -190,6 +168,7 @@ watchEffect(() => {
 })
 
 const startEditing = () => {
+  if (!isCurrentUserAdmin.value) return
   isEditing.value = true
 }
 
@@ -207,6 +186,7 @@ const cancelEditing = () => {
 }
 
 const saveWorkspace = async () => {
+  if (!isCurrentUserAdmin.value) return
   if (!selectedWorkspace.value) return
 
   isSaving.value = true
@@ -250,6 +230,7 @@ const saveWorkspace = async () => {
 }
 
 const leaveWorkspace = async () => {
+  if (canDeleteWorkspace.value) return
   if (!selectedWorkspace.value || workspace.value?.isPersonal) return
 
   try {
@@ -276,6 +257,7 @@ const leaveWorkspace = async () => {
 }
 
 async function openDeleteSlideover() {
+  if (!canDeleteWorkspace.value) return
   if (!workspace.value) return
   const instance = deleteSlideover.open({
     name: workspace.value.name,
@@ -489,19 +471,19 @@ async function openDeleteSlideover() {
           <UFormField v-if="isCurrentUserAdmin" label="Default GT Index" hint="Single Ground Truth index for new projects">
             <UInput
               v-model="form.defaultGtIndexInput"
-              :disabled="!isEditing || !workspaceStore.isCurrentUserOwner"
+              :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
               placeholder="0"
             />
           </UFormField>
           <UFormField v-if="isCurrentUserAdmin" label="Default Recognition Indices" hint="Comma-separated recognition indices for new projects">
             <UInput
               v-model="form.defaultRecognitionIndicesInput"
-              :disabled="!isEditing || !workspaceStore.isCurrentUserOwner"
+              :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
               placeholder="1"
             />
           </UFormField>
-          <p v-if="isCurrentUserAdmin && !workspaceStore.isCurrentUserOwner" class="text-xs text-muted">
-            Only the workspace owner can change default text-index settings.
+          <p v-if="isCurrentUserAdmin && !canEditWorkspaceTextIndexDefaults" class="text-xs text-muted">
+            You do not have permission to change default text-index settings.
           </p>
 
           <div class="flex gap-2">
@@ -545,7 +527,7 @@ async function openDeleteSlideover() {
       >
         <template #footer>
           <div class="flex flex-col gap-4">
-            <div v-if="!isCurrentUserAdmin" class="flex items-center justify-between">
+            <div v-if="!canDeleteWorkspace" class="flex items-center justify-between">
               <div>
                 <h4 class="font-medium">
                   Leave workspace
@@ -563,7 +545,7 @@ async function openDeleteSlideover() {
               />
             </div>
 
-            <div v-if="isCurrentUserAdmin" class="flex flex-col gap-y-2 items-start justify-between">
+            <div v-if="canDeleteWorkspace" class="flex flex-col gap-y-2 items-start justify-between">
               <div>
                 <h4 class="font-medium">
                   Delete workspace

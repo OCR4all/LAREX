@@ -1,3 +1,5 @@
+import type { ResourceCapabilities } from './capabilities'
+
 export interface TagNode {
   id: string
   title: string
@@ -19,6 +21,7 @@ export interface TagSet {
   totalTagCount: number
   created: string
   updated: string
+  capabilities?: ResourceCapabilities
 }
 
 export interface TagSetSummary {
@@ -27,6 +30,7 @@ export interface TagSetSummary {
   tagCount: number
   created: string
   updated: string
+  capabilities?: ResourceCapabilities
 }
 
 export interface FlattenedTag {

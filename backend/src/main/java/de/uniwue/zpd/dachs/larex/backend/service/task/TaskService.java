@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ public class TaskService {
     private final NotificationService notificationService;
     private final UserService userService;
     private final TaskActivityService activityService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public TaskService(
             TaskRepository taskRepository,
@@ -39,6 +41,7 @@ public class TaskService {
             WorkspaceQueryService workspaceQueryService,
             NotificationService notificationService,
             UserService userService,
+            AuthorizationPolicyService authorizationPolicyService,
             @org.springframework.context.annotation.Lazy TaskActivityService activityService
     ) {
         this.taskRepository = taskRepository;
@@ -47,6 +50,7 @@ public class TaskService {
         this.workspaceQueryService = workspaceQueryService;
         this.notificationService = notificationService;
         this.userService = userService;
+        this.authorizationPolicyService = authorizationPolicyService;
         this.activityService = activityService;
     }
 
@@ -67,7 +71,7 @@ public class TaskService {
         }
 
         tasks.sort(Comparator.comparing(Task::getUpdated).reversed());
-        return mapTasks(tasks);
+        return mapTasks(tasks, userId);
     }
 
     public PaginatedResponse<TaskDto.Response> listWorkspaceTasksPaginated(String workspaceId, String userId, Task.TaskStatus status, boolean assignedToMe, Pageable pageable) {
@@ -86,7 +90,7 @@ public class TaskService {
                     : taskRepository.findByWorkspaceId(workspaceId, pageable);
         }
 
-        List<TaskDto.Response> content = mapTasks(taskPage.getContent());
+        List<TaskDto.Response> content = mapTasks(taskPage.getContent(), userId);
         return new PaginatedResponse<>(content, taskPage.getNumber(), taskPage.getSize(), taskPage.getTotalElements(), taskPage.getTotalPages());
     }
 
@@ -95,7 +99,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
         requireWorkspaceAccess(task.getWorkspaceId(), userId);
-        return mapTask(task);
+        return mapTask(task, userId);
     }
 
     public TaskDto.Response createTask(String workspaceId, String userId, TaskDto.CreateRequest request) {
@@ -143,7 +147,7 @@ public class TaskService {
             }
         }
 
-        return mapTask(saved);
+        return mapTask(saved, userId);
     }
 
     public TaskDto.Response updateTask(String taskId, String userId, TaskDto.UpdateRequest request) {
@@ -193,7 +197,7 @@ public class TaskService {
             activityService.logDueDateChanged(taskId, userId, oldDueDate, newDueDate);
         }
 
-        return mapTask(saved);
+        return mapTask(saved, userId);
     }
 
     public TaskDto.Response updateTaskStatus(String taskId, String userId, TaskDto.UpdateStatusRequest request) {
@@ -212,7 +216,7 @@ public class TaskService {
         Task.TaskStatus oldStatus = task.getStatus();
         Task.TaskStatus newStatus = request.status();
         if (oldStatus == newStatus) {
-            return mapTask(task);
+            return mapTask(task, userId);
         }
 
         task.setStatus(newStatus);
@@ -242,7 +246,7 @@ public class TaskService {
             }
         }
 
-        return mapTask(saved);
+        return mapTask(saved, userId);
     }
 
     public TaskDto.Response updateAssignees(String taskId, String userId, TaskDto.UpdateAssigneesRequest request) {
@@ -296,7 +300,19 @@ public class TaskService {
             }
         }
 
-        return mapTask(saved);
+        return mapTask(saved, userId);
+    }
+
+    public void deleteTask(String taskId, String userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
+
+        boolean isAdmin = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
+        if (!isAdmin && !task.getCreatedByUserId().equals(userId)) {
+            throw new SecurityException("Only the task creator or a workspace administrator can delete this task.");
+        }
+
+        taskRepository.delete(task);
     }
 
     private AbstractWorkspace requireWorkspaceAccess(String workspaceId, String userId) {
@@ -326,7 +342,7 @@ public class TaskService {
         }
     }
 
-    private List<TaskDto.Response> mapTasks(List<Task> tasks) {
+    private List<TaskDto.Response> mapTasks(List<Task> tasks, String userId) {
         if (tasks.isEmpty()) return List.of();
 
         Set<String> userIds = new LinkedHashSet<>();
@@ -341,19 +357,19 @@ public class TaskService {
         }
 
         Map<String, UserDto> users = userService.getUsersByIds(new ArrayList<>(userIds));
-        return tasks.stream().map(task -> mapTask(task, users)).toList();
+        return tasks.stream().map(task -> mapTask(task, users, userId)).toList();
     }
 
-    private TaskDto.Response mapTask(Task task) {
+    private TaskDto.Response mapTask(Task task, String userId) {
         Set<String> userIds = new LinkedHashSet<>();
         userIds.add(task.getCreatedByUserId());
         if (task.getAssignedUserIds() != null) userIds.addAll(task.getAssignedUserIds());
         if (task.getCompletedByUserId() != null) userIds.add(task.getCompletedByUserId());
         Map<String, UserDto> users = userService.getUsersByIds(new ArrayList<>(userIds));
-        return mapTask(task, users);
+        return mapTask(task, users, userId);
     }
 
-    private TaskDto.Response mapTask(Task task, Map<String, UserDto> users) {
+    private TaskDto.Response mapTask(Task task, Map<String, UserDto> users, String userId) {
         List<String> assignedUserIds = task.getAssignedUserIds() == null ? List.of() : List.copyOf(task.getAssignedUserIds());
         List<UserDto> assignedUsers = assignedUserIds.stream()
                 .map(users::get)
@@ -375,7 +391,8 @@ public class TaskService {
                 task.getUpdated(),
                 task.getCompletedAt(),
                 task.getCompletedByUserId(),
-                task.getWorkspaceId()
+                task.getWorkspaceId(),
+                authorizationPolicyService.resolveTaskCapabilities(task, userId)
         );
     }
 }

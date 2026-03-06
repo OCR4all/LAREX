@@ -61,7 +61,8 @@ public class TagSetDto {
             List<TagNode> tags,
             int totalTagCount,
             LocalDateTime created,
-            LocalDateTime updated
+            LocalDateTime updated,
+            AuthorizationCapabilitiesDto.ResourceCapabilities capabilities
     ) {}
 
     public record SummaryResponse(
@@ -69,7 +70,8 @@ public class TagSetDto {
             Meta meta,
             int tagCount,
             LocalDateTime created,
-            LocalDateTime updated
+            LocalDateTime updated,
+            AuthorizationCapabilitiesDto.ResourceCapabilities capabilities
     ) {}
 
     public record FlattenedTag(

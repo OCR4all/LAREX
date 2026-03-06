@@ -14,6 +14,7 @@ const NuxtLink = resolveComponent('NuxtLink')
 const toast = useToast()
 const overlay = useOverlay()
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const { allow, compactGroups } = useActionVisibility()
 
 const workspace = useWorkspaceStore()
 
@@ -115,7 +116,7 @@ watch([globalFilter, columnFilters], () => {
   page.value = 1
 }, { deep: true })
 
-const columns: TableColumn<LabelSetRow>[] = [
+const columns: TableColumn<any>[] = [
   {
     accessorKey: 'name',
     header: () => {
@@ -244,6 +245,8 @@ const columns: TableColumn<LabelSetRow>[] = [
   {
     id: 'actions',
     cell: ({ row }) => {
+      const rowItems = items(row.original)
+      if (!rowItems.length) return null
       return h(
         'div',
         { class: 'text-right' },
@@ -251,7 +254,7 @@ const columns: TableColumn<LabelSetRow>[] = [
           UDropdownMenu,
           {
             'content': { align: 'end' },
-            'items': items(row.original),
+            'items': rowItems,
             'aria-label': 'Actions dropdown'
           },
           () => h(UButton, {
@@ -268,6 +271,7 @@ const columns: TableColumn<LabelSetRow>[] = [
 ]
 
 const handleDelete = async (row: LabelSetRow) => {
+  if (!allow(row.capabilities?.canDelete)) return
   const instance = deleteSlideover.open({
     name: row.name,
     entityType: 'Label Set',
@@ -298,6 +302,7 @@ const getDuplicateName = (baseName: string) => {
 }
 
 const handleDuplicate = async (row: LabelSetRow) => {
+  if (!allow(row.capabilities?.canEdit)) return
   try {
     const source = await $fetch<LabelSet>(`/api/workspaces/${selectedWorkspace.value}/label-sets/${row.id}`)
     const name = getDuplicateName(source.meta?.name ?? row.name)
@@ -322,33 +327,33 @@ const handleDuplicate = async (row: LabelSetRow) => {
 }
 
 const items = (row: LabelSetRow) => {
-  const isSystem = row.meta?.isSystem ?? false
+  const canEdit = allow(row.capabilities?.canEdit)
+  const canDelete = allow(row.capabilities?.canDelete)
+  const actions: any[] = []
 
-  const actions = []
-
-  if (!isSystem) {
+  if (canEdit) {
     actions.push({
       label: 'Edit',
       icon: 'i-lucide-edit',
       onSelect: () => navigateTo(`/labels/${row.id}`)
     })
+    actions.push({
+      label: 'Duplicate',
+      icon: 'i-lucide-copy-plus',
+      onSelect: () => handleDuplicate(row)
+    })
   }
 
-  actions.push({
-    label: 'Duplicate',
-    icon: 'i-lucide-copy-plus',
-    onSelect: () => handleDuplicate(row)
-  })
+  if (canDelete) {
+    actions.push({
+      label: 'Delete',
+      icon: 'i-lucide-trash',
+      color: 'error',
+      onSelect: () => handleDelete(row)
+    })
+  }
 
-  actions.push({
-    label: isSystem ? 'System Label Set' : 'Delete',
-    icon: isSystem ? 'i-lucide-lock' : 'i-lucide-trash',
-    color: isSystem ? 'neutral' : 'error',
-    disabled: isSystem,
-    onSelect: isSystem ? undefined : () => handleDelete(row)
-  })
-
-  return [actions]
+  return compactGroups([actions])
 }
 
 const contextMenuLabelSet = ref<LabelSetRow | null>(null)
@@ -413,11 +418,11 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
             searchable-placeholder="Search tags..."
             class="w-48"
           >
-            <template #item="{ item, selected }">
+            <template #item="{ item }">
               <div class="flex items-center justify-between w-full gap-2">
                 <div class="flex items-center gap-2">
                   <UIcon
-                    v-if="selected"
+                    v-if="selectedTags.includes(item.value)"
                     name="i-lucide-check"
                     class="text-primary w-4 h-4"
                   />

@@ -96,6 +96,15 @@ public class TaskController {
         return ResponseEntity.ok(updated);
     }
 
+    @DeleteMapping("/tasks/{taskId}")
+    public ResponseEntity<Void> deleteTask(
+            @PathVariable String taskId,
+            @AuthenticationPrincipal(expression = "subject") String userId
+    ) {
+        taskService.deleteTask(taskId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     // ==================== BULK OPERATIONS ====================
 
     @PutMapping("/workspaces/{workspaceId}/tasks/bulk/status")
