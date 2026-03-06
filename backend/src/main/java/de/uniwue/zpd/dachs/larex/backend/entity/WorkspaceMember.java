@@ -41,8 +41,43 @@ public class WorkspaceMember {
     private String workspaceId;
 
     public enum Role {
+        CURATOR,
+        EDITOR,
+        /**
+         * Legacy role name kept for backward compatibility with existing rows.
+         */
         ADMINISTRATOR,
-        MEMBER
+        /**
+         * Legacy role name kept for backward compatibility with existing rows.
+         */
+        MEMBER;
+
+        public Role toCanonicalRole() {
+            return switch (this) {
+                case CURATOR, ADMINISTRATOR -> CURATOR;
+                case EDITOR, MEMBER -> EDITOR;
+            };
+        }
+
+        public boolean isCuratorLike() {
+            return toCanonicalRole() == CURATOR;
+        }
+
+        public boolean isEditorLike() {
+            return toCanonicalRole() == EDITOR;
+        }
+
+        public static Role fromApiValue(String rawRole) {
+            if (rawRole == null || rawRole.isBlank()) {
+                throw new IllegalArgumentException("Role must not be blank");
+            }
+
+            return switch (rawRole.trim().toUpperCase()) {
+                case "CURATOR", "ADMINISTRATOR" -> CURATOR;
+                case "EDITOR", "MEMBER" -> EDITOR;
+                default -> throw new IllegalArgumentException("Invalid role: " + rawRole + ". Valid roles are: CURATOR, EDITOR");
+            };
+        }
     }
 
     public enum InvitationStatus {

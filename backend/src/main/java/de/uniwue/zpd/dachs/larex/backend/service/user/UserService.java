@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.user;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.UserProvisioningMode;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditAction;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditOutcome;
@@ -32,6 +33,7 @@ import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +46,8 @@ public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private static final List<String> SETUP_ACTIONS = List.of("VERIFY_EMAIL", "UPDATE_PASSWORD");
     private static final String SERVICE_ACCOUNT_USERNAME_PREFIX = "service-account-";
+    private static final String GLOBAL_ADMIN_ROLE = "GLOBAL_ADMIN";
+    private static final String GLOBAL_CURATOR_ROLE = "GLOBAL_CURATOR";
 
     private final Keycloak keycloakAdmin;
     private final String realm;
@@ -120,6 +124,19 @@ public class UserService {
     public List<AdminUserAuditEventDto> getUserAuditEventsForAdmin(String targetUserId, int limit) {
         getRequiredUserRepresentation(targetUserId);
         return adminUserAuditService.getAuditEvents(targetUserId, limit);
+    }
+
+    public AdminGlobalRolesDto getGlobalRolesForAdmin(String targetUserId) {
+        UserRepresentation user = getRequiredUserRepresentation(targetUserId);
+        return readGlobalRoles(user);
+    }
+
+    public AdminGlobalRolesDto grantGlobalCuratorForAdmin(String actorUserId, String actorUsername, String targetUserId, String reason) {
+        return mutateGlobalCuratorRole(actorUserId, actorUsername, targetUserId, reason, true);
+    }
+
+    public AdminGlobalRolesDto revokeGlobalCuratorForAdmin(String actorUserId, String actorUsername, String targetUserId, String reason) {
+        return mutateGlobalCuratorRole(actorUserId, actorUsername, targetUserId, reason, false);
     }
 
     public AdminUserDto createUserForAdmin(String actorUserId, String actorUsername, AdminCreateUserRequest request) {
@@ -598,6 +615,161 @@ public class UserService {
                     "A user with this email already exists."
             );
         }
+    }
+
+    private AdminGlobalRolesDto mutateGlobalCuratorRole(
+            String actorUserId,
+            String actorUsername,
+            String targetUserId,
+            String reason,
+            boolean grant) {
+        String normalizedReason = normalizeOptional(reason);
+        if (normalizedReason == null) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Reason is required."
+            );
+        }
+
+        AdminUserAuditAction action = grant
+                ? AdminUserAuditAction.GLOBAL_CURATOR_GRANT
+                : AdminUserAuditAction.GLOBAL_CURATOR_REVOKE;
+
+        UserRepresentation user;
+        try {
+            user = getRequiredUserRepresentation(targetUserId);
+            assertNotServiceAccount(user);
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    null,
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    Map.of(
+                            "errorCode", ex.getCode().name(),
+                            "reason", normalizedReason
+                    )
+            );
+            throw ex;
+        }
+
+        AdminGlobalRolesDto previousRoles = readGlobalRoles(user);
+        boolean needsMutation = grant ? !previousRoles.globalCurator() : previousRoles.globalCurator();
+
+        try {
+            UserResource userResource = keycloakAdmin.realm(realm).users().get(targetUserId);
+            if (needsMutation) {
+                RoleRepresentation curatorRole = resolveGlobalCuratorRealmRole();
+
+                if (grant) {
+                    userResource.roles().realmLevel().add(List.of(curatorRole));
+                } else {
+                    userResource.roles().realmLevel().remove(List.of(curatorRole));
+                }
+            }
+
+            AdminGlobalRolesDto updatedRoles = readGlobalRoles(userResource.toRepresentation());
+
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.SUCCESS,
+                    Map.of(
+                            "reason", normalizedReason,
+                            "idempotent", !needsMutation,
+                            "previousGlobalAdmin", previousRoles.globalAdmin(),
+                            "previousGlobalCurator", previousRoles.globalCurator(),
+                            "newGlobalAdmin", updatedRoles.globalAdmin(),
+                            "newGlobalCurator", updatedRoles.globalCurator()
+                    )
+            );
+
+            return updatedRoles;
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    Map.of(
+                            "reason", normalizedReason,
+                            "errorCode", ex.getCode().name(),
+                            "previousGlobalAdmin", previousRoles.globalAdmin(),
+                            "previousGlobalCurator", previousRoles.globalCurator()
+                    )
+            );
+            logger.warn("Global curator role update rejected (admin exception): actor={}, target={}, grant={}, reason={}",
+                    actorUsername, user.getUsername(), grant, normalizedReason, ex);
+            throw ex;
+        } catch (Exception ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    Map.of(
+                            "reason", normalizedReason,
+                            "errorCode", AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED.name(),
+                            "previousGlobalAdmin", previousRoles.globalAdmin(),
+                            "previousGlobalCurator", previousRoles.globalCurator()
+                    )
+            );
+            logger.error("Global curator role update failed: actor={}, target={}, grant={}, reason={}",
+                    actorUsername, user.getUsername(), grant, normalizedReason, ex);
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Failed to update global curator role mapping.",
+                    ex
+            );
+        }
+    }
+
+    private RoleRepresentation resolveGlobalCuratorRealmRole() {
+        try {
+            return keycloakAdmin.realm(realm)
+                    .roles()
+                    .get(GLOBAL_CURATOR_ROLE)
+                    .toRepresentation();
+        } catch (NotFoundException ex) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Keycloak realm role 'GLOBAL_CURATOR' is missing. Create it before granting or revoking global curator access.",
+                    ex
+            );
+        } catch (Exception ex) {
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Failed to resolve Keycloak realm role 'GLOBAL_CURATOR'. Check admin client permissions for role mappings.",
+                    ex
+            );
+        }
+    }
+
+    private AdminGlobalRolesDto readGlobalRoles(UserRepresentation user) {
+        List<RoleRepresentation> realmRoles = keycloakAdmin.realm(realm)
+                .users()
+                .get(user.getId())
+                .roles()
+                .realmLevel()
+                .listEffective();
+
+        java.util.Set<String> roleNames = realmRoles.stream()
+                .map(RoleRepresentation::getName)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return new AdminGlobalRolesDto(
+                roleNames.contains(GLOBAL_ADMIN_ROLE),
+                roleNames.contains(GLOBAL_CURATOR_ROLE)
+        );
     }
 
     private UserRepresentation getRequiredUserRepresentation(String userId) {

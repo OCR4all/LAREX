@@ -19,4 +19,8 @@ public class WorkspaceSecurityService {
     public boolean isAdmin(String workspaceId, String userId) {
         return workspaceAccessService.isUserAdministrator(workspaceId, userId);
     }
+
+    public boolean isOwner(String workspaceId, String userId) {
+        return workspaceAccessService.isWorkspaceOwner(workspaceId, userId);
+    }
 }

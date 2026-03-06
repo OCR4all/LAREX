@@ -64,9 +64,7 @@ public class TaskCommentService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
-            throw new SecurityException("Access denied.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         TaskComment comment = new TaskComment(taskId, userId, request.content().trim());
 
@@ -109,9 +107,7 @@ public class TaskCommentService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
-            throw new SecurityException("Access denied.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         TaskComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
@@ -152,9 +148,7 @@ public class TaskCommentService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
-            throw new SecurityException("Access denied.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         TaskComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment", commentId));
@@ -163,9 +157,9 @@ public class TaskCommentService {
             throw new IllegalArgumentException("Comment does not belong to this task.");
         }
 
-        // Only the comment author or admin can delete
-        boolean isAdmin = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
-        if (!comment.getUserId().equals(userId) && !isAdmin) {
+        // Preserve author ownership for non-admin users.
+        boolean isManager = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
+        if (!comment.getUserId().equals(userId) && !isManager) {
             throw new SecurityException("You can only delete your own comments.");
         }
 

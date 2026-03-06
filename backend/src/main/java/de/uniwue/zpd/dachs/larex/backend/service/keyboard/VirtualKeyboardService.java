@@ -52,7 +52,7 @@ public class VirtualKeyboardService {
 
     @Transactional
     public VirtualKeyboardDto createKeyboard(String userId, String workspaceId, VirtualKeyboardDto dto) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         if (virtualKeyboardRepository.existsByNameAndWorkspaceId(dto.getName(), workspaceId)) {
             throw new IllegalArgumentException("Virtual keyboard with name '" + dto.getName() + "' already exists in this workspace");
@@ -68,7 +68,7 @@ public class VirtualKeyboardService {
 
     @Transactional
     public VirtualKeyboardDto updateKeyboard(String userId, String workspaceId, String id, VirtualKeyboardDto dto) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Objects.requireNonNull(id, "id");
         VirtualKeyboard keyboard = virtualKeyboardRepository.findByIdAndWorkspaceId(id, workspaceId)
@@ -88,7 +88,7 @@ public class VirtualKeyboardService {
 
     @Transactional
     public void deleteKeyboard(String userId, String workspaceId, String id) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Objects.requireNonNull(id, "id");
         VirtualKeyboard keyboard = virtualKeyboardRepository.findByIdAndWorkspaceId(id, workspaceId)

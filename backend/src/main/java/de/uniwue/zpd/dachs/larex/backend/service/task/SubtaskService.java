@@ -9,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Task;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.SubtaskRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -33,19 +34,22 @@ public class SubtaskService {
     private final PageRepository pageRepository;
     private final TaskActivityService activityService;
     private final UserService userService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public SubtaskService(
             SubtaskRepository subtaskRepository,
             TaskRepository taskRepository,
             PageRepository pageRepository,
             TaskActivityService activityService,
-            UserService userService
+            UserService userService,
+            AuthorizationPolicyService authorizationPolicyService
     ) {
         this.subtaskRepository = subtaskRepository;
         this.taskRepository = taskRepository;
         this.pageRepository = pageRepository;
         this.activityService = activityService;
         this.userService = userService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     public List<SubtaskDto.Response> getSubtasks(String taskId, String userId) {
@@ -56,7 +60,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.Response createSubtask(String taskId, String userId, SubtaskDto.CreateRequest request) {
-        Task task = verifyTaskAccessAndGet(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         int sortOrder = subtaskRepository.getNextSortOrder(taskId);
 
@@ -70,7 +74,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.Response updateSubtask(String taskId, String subtaskId, String userId, SubtaskDto.UpdateRequest request) {
-        Task task = verifyTaskAccessAndGet(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
@@ -92,7 +96,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.Response toggleSubtask(String taskId, String subtaskId, String userId) {
-        Task task = verifyTaskAccessAndGet(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
@@ -118,7 +122,7 @@ public class SubtaskService {
     }
 
     public void reorderSubtasks(String taskId, String userId, SubtaskDto.ReorderRequest request) {
-        verifyTaskAccess(taskId, userId);
+        verifyTaskMutationAccess(taskId, userId);
 
         List<String> subtaskIds = request.subtaskIds();
 
@@ -146,7 +150,7 @@ public class SubtaskService {
     }
 
     public void deleteSubtask(String taskId, String subtaskId, String userId) {
-        verifyTaskAccess(taskId, userId);
+        verifyTaskMutationAccess(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
@@ -162,7 +166,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.BulkResponse bulkComplete(String taskId, String userId, SubtaskDto.BulkRequest request) {
-        verifyTaskAccess(taskId, userId);
+        verifyTaskMutationAccess(taskId, userId);
 
         List<Subtask> subtasks = subtaskRepository.findAllById(request.subtaskIds());
         int affected = 0;
@@ -185,7 +189,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.BulkResponse bulkDelete(String taskId, String userId, SubtaskDto.BulkRequest request) {
-        verifyTaskAccess(taskId, userId);
+        verifyTaskMutationAccess(taskId, userId);
 
         List<Subtask> subtasks = subtaskRepository.findAllById(request.subtaskIds());
         int affected = 0;
@@ -226,7 +230,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.Response createSubtaskWithPage(String taskId, String userId, SubtaskDto.CreateWithPageRequest request) {
-        Task task = verifyTaskAccessAndGet(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         // Validate assignee is a task assignee
         if (request.assignedUserId() != null && !request.assignedUserId().isBlank()) {
@@ -247,7 +251,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.Response assignSubtask(String taskId, String subtaskId, String userId, SubtaskDto.AssignRequest request) {
-        Task task = verifyTaskAccessAndGet(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         Subtask subtask = subtaskRepository.findById(subtaskId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subtask not found"));
@@ -269,7 +273,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.BulkResponse bulkUpdateDescription(String taskId, String userId, SubtaskDto.BulkDescriptionRequest request) {
-        verifyTaskAccess(taskId, userId);
+        verifyTaskMutationAccess(taskId, userId);
 
         List<Subtask> subtasks = subtaskRepository.findAllById(request.subtaskIds());
         int affected = 0;
@@ -287,7 +291,7 @@ public class SubtaskService {
     }
 
     public SubtaskDto.BulkResponse bulkAssign(String taskId, String userId, SubtaskDto.BulkAssignRequest request) {
-        Task task = verifyTaskAccessAndGet(taskId, userId);
+        Task task = verifyTaskMutationAccessAndGet(taskId, userId);
 
         // Validate assignee is a task assignee (null means unassign)
         if (request.assignedUserId() != null && !request.assignedUserId().isBlank()) {
@@ -379,6 +383,21 @@ public class SubtaskService {
 
         if (!hasAccess) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this task");
+        }
+
+        return task;
+    }
+
+    private void verifyTaskMutationAccess(String taskId, String userId) {
+        verifyTaskMutationAccessAndGet(taskId, userId);
+    }
+
+    private Task verifyTaskMutationAccessAndGet(String taskId, String userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+
+        if (!authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required");
         }
 
         return task;

@@ -58,7 +58,7 @@ public class CodecService {
 
     @CacheEvict(value = "codecs", allEntries = true)
     public CodecDto.Response createCodec(String userId, String workspaceId, CodecDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Library library = libraryRepository.findByWorkspaceId(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Library not found for workspace: " + workspaceId));
@@ -85,7 +85,7 @@ public class CodecService {
 
     @CacheEvict(value = "codecs", allEntries = true)
     public CodecDto.Response updateCodec(String userId, String workspaceId, String codecId, CodecDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Codec codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
@@ -114,7 +114,7 @@ public class CodecService {
 
     @CacheEvict(value = "codecs", allEntries = true)
     public void deleteCodec(String userId, String workspaceId, String codecId) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Codec codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
@@ -157,7 +157,7 @@ public class CodecService {
 
     @CacheEvict(value = "codecs", allEntries = true)
     public CodecDto.Response addCharacter(String userId, String workspaceId, String codecId, String character) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Codec codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
@@ -173,7 +173,7 @@ public class CodecService {
 
     @CacheEvict(value = "codecs", allEntries = true)
     public CodecDto.Response removeCharacter(String userId, String workspaceId, String codecId, String character) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Codec codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
@@ -214,7 +214,7 @@ public class CodecService {
             String userId,
             String workspaceId,
             CodecDto.GenerateFromSourcesRequest request) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         List<ProjectCharacterAnalysis> analyses = analyzeSources(
                 workspaceId,

@@ -28,7 +28,7 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
     @Query("SELECT wm FROM WorkspaceMember wm WHERE wm.workspaceId = :workspaceId AND wm.role = :role AND wm.invitationStatus = 'ACCEPTED'")
     List<WorkspaceMember> findByWorkspaceIdAndRoleAndAccepted(@Param("workspaceId") String workspaceId, @Param("role") WorkspaceMember.Role role);
     
-    @Query("SELECT COUNT(wm) FROM WorkspaceMember wm WHERE wm.workspaceId = :workspaceId AND wm.role = 'ADMINISTRATOR' AND wm.invitationStatus = 'ACCEPTED'")
+    @Query("SELECT COUNT(wm) FROM WorkspaceMember wm WHERE wm.workspaceId = :workspaceId AND wm.role IN ('CURATOR', 'ADMINISTRATOR') AND wm.invitationStatus = 'ACCEPTED'")
     long countAdministratorsByWorkspaceId(@Param("workspaceId") String workspaceId);
 
     @Query("SELECT wm.workspaceId, COUNT(wm) FROM WorkspaceMember wm WHERE wm.workspaceId IN :workspaceIds AND wm.invitationStatus = 'ACCEPTED' GROUP BY wm.workspaceId")

@@ -134,7 +134,7 @@ public class PageService {
             Project project = projectOpt.get();
             String workspaceId = project.getLibrary().getWorkspaceId();
 
-            if (workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
+            if (workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 if (pageRepository.existsByNameAndProjectId(name, projectId)) {
                     throw new IllegalArgumentException("Page name '" + name + "' already exists in this project");
                 }
@@ -163,6 +163,10 @@ public class PageService {
 
         if (pageOpt.isPresent()) {
             Page page = pageOpt.get();
+            String workspaceId = page.getProject().getLibrary().getWorkspaceId();
+            if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
+                return Optional.empty();
+            }
             if (!page.getName().equals(name) && pageRepository.existsByNameAndProjectId(name, page.getProject().getId())) {
                 throw new IllegalArgumentException("Page name '" + name + "' already exists in this project");
             }
@@ -264,12 +268,15 @@ public class PageService {
 
         if (pageOpt.isPresent() && xmlFile != null && !xmlFile.isEmpty()) {
             Page page = pageOpt.get();
+            String workspaceId = page.getProject().getLibrary().getWorkspaceId();
+            if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
+                return false;
+            }
 
             if (!isValidXmlFile(xmlFile)) {
                 return false;
             }
 
-            String workspaceId = page.getProject().getLibrary().getWorkspaceId();
             String projectId = page.getProject().getId();
             var storedFile = hierarchicalFileStorageService.storeMultipartFile(
                     xmlFile,
@@ -305,6 +312,9 @@ public class PageService {
         if (pageOpt.isPresent() && images != null && !images.isEmpty()) {
             Page page = pageOpt.get();
             String workspaceId = page.getProject().getLibrary().getWorkspaceId();
+            if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
+                return false;
+            }
             String projectId = page.getProject().getId();
 
             for (int i = 0; i < images.size(); i++) {

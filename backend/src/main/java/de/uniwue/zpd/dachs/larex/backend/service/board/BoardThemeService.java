@@ -43,7 +43,7 @@ public class BoardThemeService {
 
     @Transactional
     public BoardThemeDto createTheme(String userId, String workspaceId, BoardThemeDto dto) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         if (boardThemeRepository.existsByNameAndWorkspaceId(dto.getName(), workspaceId)) {
             throw new IllegalArgumentException("Board theme with name '" + dto.getName() + "' already exists in this workspace");
@@ -58,7 +58,7 @@ public class BoardThemeService {
 
     @Transactional
     public BoardThemeDto updateTheme(String userId, String workspaceId, String id, BoardThemeDto dto) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         BoardTheme theme = boardThemeRepository.findByIdAndWorkspaceId(id, workspaceId)
                 .orElseThrow(() -> new EntityNotFoundException("Board theme not found with id: " + id));
@@ -75,7 +75,7 @@ public class BoardThemeService {
 
     @Transactional
     public void deleteTheme(String userId, String workspaceId, String id) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         BoardTheme theme = boardThemeRepository.findByIdAndWorkspaceId(id, workspaceId)
                 .orElseThrow(() -> new EntityNotFoundException("Board theme not found with id: " + id));

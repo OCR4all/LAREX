@@ -3,10 +3,12 @@ export * from './capabilities'
 
 import type { TaskCapabilities } from './capabilities'
 
+export type WorkspaceMemberRole = 'CURATOR' | 'EDITOR' | 'ADMINISTRATOR' | 'MEMBER'
+
 export interface WorkspaceMember {
   id: string
   userId: string
-  role: 'ADMINISTRATOR' | 'MEMBER'
+  role: WorkspaceMemberRole
   invitationStatus: 'PENDING' | 'ACCEPTED' | 'DECLINED'
   created: string
   updated: string
@@ -25,22 +27,24 @@ export interface WorkspaceInvitation {
   id: string
   workspaceId: string
   workspaceName: string
-  role: 'ADMINISTRATOR' | 'MEMBER'
+  role: WorkspaceMemberRole
   invitedAt: string
 }
 
-export const ROLE_LABELS: Record<'ADMINISTRATOR' | 'MEMBER', string> = {
-  ADMINISTRATOR: 'Administrator',
-  MEMBER: 'Member'
+export const ROLE_LABELS: Record<WorkspaceMemberRole, string> = {
+  CURATOR: 'Curator',
+  EDITOR: 'Editor',
+  ADMINISTRATOR: 'Curator',
+  MEMBER: 'Editor'
 }
 
 export interface InviteUserRequest {
   userId: string
-  role: 'ADMINISTRATOR' | 'MEMBER'
+  role: 'CURATOR' | 'EDITOR'
 }
 
 export interface UpdateMemberRoleRequest {
-  role: 'ADMINISTRATOR' | 'MEMBER'
+  role: 'CURATOR' | 'EDITOR'
 }
 
 export interface UserProfile {

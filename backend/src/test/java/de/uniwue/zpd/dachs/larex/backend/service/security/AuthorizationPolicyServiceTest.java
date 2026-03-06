@@ -6,7 +6,6 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.Task;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
-import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.PersonalWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
@@ -17,12 +16,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,7 +45,9 @@ class AuthorizationPolicyServiceTest {
                 workspaceMemberRepository,
                 globalAdminService
         );
-        when(globalAdminService.isGlobalAdmin()).thenReturn(false);
+        lenient().when(globalAdminService.isGlobalAdmin()).thenReturn(false);
+        lenient().when(globalAdminService.isGlobalCurator()).thenReturn(false);
+        lenient().when(globalAdminService.canCreateWorkspaces()).thenReturn(false);
     }
 
     @Test
@@ -61,169 +62,209 @@ class AuthorizationPolicyServiceTest {
         assertTrue(caps.canEditWorkspaceTextIndexDefaults());
         assertTrue(caps.canManageProjects());
         assertTrue(caps.canManageTasks());
+        assertTrue(caps.canManageUtilities());
+        assertTrue(caps.canSetPresets());
     }
 
     @Test
-    void workspaceRoleMatrix_teamWorkspace_adminMemberPendingNonMember_areConsistent() {
+    void workspaceRoleMatrix_teamWorkspace_ownerCuratorEditorPendingNonMember_areConsistent() {
         String workspaceId = "ws-1";
-        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner-1");
+        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
         when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
 
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "admin"))
-                .thenReturn(Optional.of(member("admin", WorkspaceMember.Role.ADMINISTRATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "member"))
-                .thenReturn(Optional.of(member("member", WorkspaceMember.Role.MEMBER, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "curator"))
+                .thenReturn(Optional.of(member("curator", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "editor"))
+                .thenReturn(Optional.of(member("editor", WorkspaceMember.Role.EDITOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "pending"))
-                .thenReturn(Optional.of(member("pending", WorkspaceMember.Role.ADMINISTRATOR, WorkspaceMember.InvitationStatus.PENDING, workspaceId)));
+                .thenReturn(Optional.of(member("pending", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.PENDING, workspaceId)));
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "outsider"))
                 .thenReturn(Optional.empty());
 
-        AuthorizationCapabilitiesDto.WorkspaceCapabilities adminCaps = service.resolveWorkspaceCapabilities(workspaceId, "admin");
-        assertTrue(adminCaps.canManageMembers());
-        assertTrue(adminCaps.canManageProjects());
-        assertTrue(adminCaps.canManageTasks());
-        assertTrue(adminCaps.canEditWorkspace());
+        AuthorizationCapabilitiesDto.WorkspaceCapabilities ownerCaps = service.resolveWorkspaceCapabilities(workspaceId, "owner");
+        assertTrue(ownerCaps.canAdminWorkspace());
+        assertTrue(ownerCaps.canManageMembers());
+        assertTrue(ownerCaps.canEditWorkspace());
+        assertTrue(ownerCaps.canManageProjects());
+        assertTrue(ownerCaps.canManageTasks());
+        assertTrue(ownerCaps.canManageUtilities());
+        assertTrue(ownerCaps.canSetPresets());
 
-        AuthorizationCapabilitiesDto.WorkspaceCapabilities memberCaps = service.resolveWorkspaceCapabilities(workspaceId, "member");
-        assertFalse(memberCaps.canManageMembers());
-        assertTrue(memberCaps.canManageProjects());
-        assertTrue(memberCaps.canManageTasks());
-        assertFalse(memberCaps.canEditWorkspace());
+        AuthorizationCapabilitiesDto.WorkspaceCapabilities curatorCaps = service.resolveWorkspaceCapabilities(workspaceId, "curator");
+        assertFalse(curatorCaps.canAdminWorkspace());
+        assertTrue(curatorCaps.canManageMembers());
+        assertFalse(curatorCaps.canEditWorkspace());
+        assertTrue(curatorCaps.canEditWorkspaceTextIndexDefaults());
+        assertTrue(curatorCaps.canManageProjects());
+        assertTrue(curatorCaps.canManageTasks());
+        assertTrue(curatorCaps.canManageUtilities());
+        assertTrue(curatorCaps.canSetPresets());
+
+        AuthorizationCapabilitiesDto.WorkspaceCapabilities editorCaps = service.resolveWorkspaceCapabilities(workspaceId, "editor");
+        assertFalse(editorCaps.canAdminWorkspace());
+        assertFalse(editorCaps.canManageMembers());
+        assertFalse(editorCaps.canEditWorkspace());
+        assertFalse(editorCaps.canEditWorkspaceTextIndexDefaults());
+        assertFalse(editorCaps.canManageProjects());
+        assertFalse(editorCaps.canManageTasks());
+        assertFalse(editorCaps.canManageUtilities());
+        assertFalse(editorCaps.canSetPresets());
 
         AuthorizationCapabilitiesDto.WorkspaceCapabilities pendingCaps = service.resolveWorkspaceCapabilities(workspaceId, "pending");
+        assertFalse(pendingCaps.canAdminWorkspace());
         assertFalse(pendingCaps.canManageMembers());
+        assertFalse(pendingCaps.canEditWorkspace());
         assertFalse(pendingCaps.canManageProjects());
         assertFalse(pendingCaps.canManageTasks());
-        assertFalse(pendingCaps.canEditWorkspace());
+        assertFalse(pendingCaps.canManageUtilities());
+        assertFalse(pendingCaps.canSetPresets());
 
         AuthorizationCapabilitiesDto.WorkspaceCapabilities outsiderCaps = service.resolveWorkspaceCapabilities(workspaceId, "outsider");
+        assertFalse(outsiderCaps.canAdminWorkspace());
         assertFalse(outsiderCaps.canManageMembers());
+        assertFalse(outsiderCaps.canEditWorkspace());
         assertFalse(outsiderCaps.canManageProjects());
         assertFalse(outsiderCaps.canManageTasks());
-        assertFalse(outsiderCaps.canEditWorkspace());
+        assertFalse(outsiderCaps.canManageUtilities());
+        assertFalse(outsiderCaps.canSetPresets());
     }
 
     @Test
     void workspaceRoleMatrix_personalWorkspace_ownerVsOther() {
         String workspaceId = "personal-owner-1";
-        PersonalWorkspace workspace = new PersonalWorkspace("owner-1");
+        PersonalWorkspace workspace = new PersonalWorkspace("owner");
         workspace.setId(workspaceId);
         when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
 
-        AuthorizationCapabilitiesDto.WorkspaceCapabilities ownerCaps = service.resolveWorkspaceCapabilities(workspaceId, "owner-1");
+        AuthorizationCapabilitiesDto.WorkspaceCapabilities ownerCaps = service.resolveWorkspaceCapabilities(workspaceId, "owner");
         assertTrue(ownerCaps.canAdminWorkspace());
         assertTrue(ownerCaps.canManageMembers());
         assertTrue(ownerCaps.canEditWorkspace());
         assertTrue(ownerCaps.canEditWorkspaceTextIndexDefaults());
         assertTrue(ownerCaps.canManageProjects());
         assertTrue(ownerCaps.canManageTasks());
+        assertTrue(ownerCaps.canManageUtilities());
+        assertTrue(ownerCaps.canSetPresets());
 
-        AuthorizationCapabilitiesDto.WorkspaceCapabilities otherCaps = service.resolveWorkspaceCapabilities(workspaceId, "user-2");
+        AuthorizationCapabilitiesDto.WorkspaceCapabilities otherCaps = service.resolveWorkspaceCapabilities(workspaceId, "other");
         assertFalse(otherCaps.canAdminWorkspace());
         assertFalse(otherCaps.canManageMembers());
         assertFalse(otherCaps.canEditWorkspace());
         assertFalse(otherCaps.canEditWorkspaceTextIndexDefaults());
         assertFalse(otherCaps.canManageProjects());
         assertFalse(otherCaps.canManageTasks());
+        assertFalse(otherCaps.canManageUtilities());
+        assertFalse(otherCaps.canSetPresets());
     }
 
     @Test
     void workspaceCapabilities_parity_withCoreChecks() {
         String workspaceId = "ws-2";
-        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner-2");
+        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
         when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "member"))
-                .thenReturn(Optional.of(member("member", WorkspaceMember.Role.MEMBER, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "curator"))
+                .thenReturn(Optional.of(member("curator", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
 
-        AuthorizationCapabilitiesDto.WorkspaceCapabilities caps = service.resolveWorkspaceCapabilities(workspaceId, "member");
+        AuthorizationCapabilitiesDto.WorkspaceCapabilities caps = service.resolveWorkspaceCapabilities(workspaceId, "curator");
 
-        assertEquals(service.canAdminWorkspace(workspaceId, "member"), caps.canAdminWorkspace());
-        assertEquals(service.canAdminWorkspace(workspaceId, "member"), caps.canManageMembers());
-        assertEquals(service.canAdminWorkspace(workspaceId, "member"), caps.canEditWorkspace());
-        assertEquals(service.canAccessWorkspace(workspaceId, "member"), caps.canManageProjects());
-        assertEquals(service.canAccessWorkspace(workspaceId, "member"), caps.canManageTasks());
+        assertEquals(service.canAdminWorkspace(workspaceId, "curator"), caps.canAdminWorkspace());
+        assertEquals(service.canManageMembers(workspaceId, "curator"), caps.canManageMembers());
+        assertEquals(service.canEditWorkspace(workspaceId, "curator"), caps.canEditWorkspace());
+        assertEquals(service.canEditWorkspaceTextIndexDefaults(workspaceId, "curator"), caps.canEditWorkspaceTextIndexDefaults());
+        assertEquals(service.canManageProjects(workspaceId, "curator"), caps.canManageProjects());
+        assertEquals(service.canManageTasks(workspaceId, "curator"), caps.canManageTasks());
+        assertEquals(service.canManageUtilities(workspaceId, "curator"), caps.canManageUtilities());
+        assertEquals(service.canSetPresets(workspaceId, "curator"), caps.canSetPresets());
     }
 
     @Test
-    void projectCapabilities_parity_withAuthorizationOutcomes_andLockedRules() {
+    void projectCapabilities_followOwnerCuratorEditorRules_andLockedRules() {
         String workspaceId = "ws-3";
         Project unlockedProject = project(workspaceId, false);
         Project lockedProject = project(workspaceId, true);
 
-        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner-3");
+        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
         when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "admin"))
-                .thenReturn(Optional.of(member("admin", WorkspaceMember.Role.ADMINISTRATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "member"))
-                .thenReturn(Optional.of(member("member", WorkspaceMember.Role.MEMBER, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "curator"))
+                .thenReturn(Optional.of(member("curator", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "editor"))
+                .thenReturn(Optional.of(member("editor", WorkspaceMember.Role.EDITOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "pending"))
-                .thenReturn(Optional.of(member("pending", WorkspaceMember.Role.ADMINISTRATOR, WorkspaceMember.InvitationStatus.PENDING, workspaceId)));
+                .thenReturn(Optional.of(member("pending", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.PENDING, workspaceId)));
 
-        AuthorizationCapabilitiesDto.ProjectCapabilities memberCaps = service.resolveProjectCapabilities(unlockedProject, "member");
-        assertTrue(memberCaps.canEdit());
-        assertTrue(memberCaps.canShare());
-        assertTrue(memberCaps.canUpload());
-        assertFalse(memberCaps.canDelete());
-        assertFalse(memberCaps.canDeletePages());
-        assertTrue(memberCaps.canExportPackage());
+        AuthorizationCapabilitiesDto.ProjectCapabilities curatorCaps = service.resolveProjectCapabilities(unlockedProject, "curator");
+        assertTrue(curatorCaps.canEdit());
+        assertTrue(curatorCaps.canShare());
+        assertTrue(curatorCaps.canDelete());
+        assertTrue(curatorCaps.canDeletePages());
+        assertTrue(curatorCaps.canUpload());
+        assertTrue(curatorCaps.canExportPackage());
 
-        AuthorizationCapabilitiesDto.ProjectCapabilities adminLockedCaps = service.resolveProjectCapabilities(lockedProject, "admin");
-        assertFalse(adminLockedCaps.canEdit());
-        assertFalse(adminLockedCaps.canShare());
-        assertFalse(adminLockedCaps.canUpload());
-        assertFalse(adminLockedCaps.canDelete());
-        assertFalse(adminLockedCaps.canDeletePages());
-        assertTrue(adminLockedCaps.canExportPackage());
+        AuthorizationCapabilitiesDto.ProjectCapabilities editorCaps = service.resolveProjectCapabilities(unlockedProject, "editor");
+        assertFalse(editorCaps.canEdit());
+        assertFalse(editorCaps.canShare());
+        assertFalse(editorCaps.canDelete());
+        assertFalse(editorCaps.canDeletePages());
+        assertFalse(editorCaps.canUpload());
+        assertTrue(editorCaps.canExportPackage());
 
         AuthorizationCapabilitiesDto.ProjectCapabilities pendingCaps = service.resolveProjectCapabilities(unlockedProject, "pending");
         assertFalse(pendingCaps.canEdit());
         assertFalse(pendingCaps.canShare());
-        assertFalse(pendingCaps.canUpload());
         assertFalse(pendingCaps.canDelete());
         assertFalse(pendingCaps.canDeletePages());
+        assertFalse(pendingCaps.canUpload());
         assertFalse(pendingCaps.canExportPackage());
+
+        AuthorizationCapabilitiesDto.ProjectCapabilities curatorLockedCaps = service.resolveProjectCapabilities(lockedProject, "curator");
+        assertFalse(curatorLockedCaps.canEdit());
+        assertFalse(curatorLockedCaps.canShare());
+        assertFalse(curatorLockedCaps.canDelete());
+        assertFalse(curatorLockedCaps.canDeletePages());
+        assertFalse(curatorLockedCaps.canUpload());
+        assertTrue(curatorLockedCaps.canExportPackage());
     }
 
     @Test
-    void taskCapabilities_parity_withAuthorizationOutcomes() {
+    void taskCapabilities_followManagerVsEditorRules() {
         String workspaceId = "ws-4";
-        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner-4");
+        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
         when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "admin"))
-                .thenReturn(Optional.of(member("admin", WorkspaceMember.Role.ADMINISTRATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "creator"))
-                .thenReturn(Optional.of(member("creator", WorkspaceMember.Role.MEMBER, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
-        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "assignee"))
-                .thenReturn(Optional.of(member("assignee", WorkspaceMember.Role.MEMBER, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "curator"))
+                .thenReturn(Optional.of(member("curator", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "editor"))
+                .thenReturn(Optional.of(member("editor", WorkspaceMember.Role.EDITOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
         when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "outsider"))
                 .thenReturn(Optional.empty());
 
-        Task task = new Task("Review", "desc", "creator", Task.TaskPriority.MEDIUM, workspaceId);
-        task.setAssignedUserIds(List.of("assignee"));
+        Task task = new Task("Review", "desc", "editor", Task.TaskPriority.MEDIUM, workspaceId);
 
-        AuthorizationCapabilitiesDto.TaskCapabilities adminCaps = service.resolveTaskCapabilities(task, "admin");
-        assertTrue(adminCaps.canEdit());
-        assertTrue(adminCaps.canDelete());
-        assertTrue(adminCaps.canAssignOthers());
-        assertTrue(adminCaps.canUpdateStatus());
+        AuthorizationCapabilitiesDto.TaskCapabilities curatorCaps = service.resolveTaskCapabilities(task, "curator");
+        assertTrue(curatorCaps.canEdit());
+        assertTrue(curatorCaps.canDelete());
+        assertTrue(curatorCaps.canAssignOthers());
+        assertTrue(curatorCaps.canUpdateStatus());
 
-        AuthorizationCapabilitiesDto.TaskCapabilities creatorCaps = service.resolveTaskCapabilities(task, "creator");
-        assertTrue(creatorCaps.canEdit());
-        assertTrue(creatorCaps.canDelete());
-        assertFalse(creatorCaps.canAssignOthers());
-        assertTrue(creatorCaps.canUpdateStatus());
-
-        AuthorizationCapabilitiesDto.TaskCapabilities assigneeCaps = service.resolveTaskCapabilities(task, "assignee");
-        assertFalse(assigneeCaps.canEdit());
-        assertFalse(assigneeCaps.canDelete());
-        assertFalse(assigneeCaps.canAssignOthers());
-        assertTrue(assigneeCaps.canUpdateStatus());
+        AuthorizationCapabilitiesDto.TaskCapabilities editorCaps = service.resolveTaskCapabilities(task, "editor");
+        assertFalse(editorCaps.canEdit());
+        assertFalse(editorCaps.canDelete());
+        assertFalse(editorCaps.canAssignOthers());
+        assertFalse(editorCaps.canUpdateStatus());
 
         AuthorizationCapabilitiesDto.TaskCapabilities outsiderCaps = service.resolveTaskCapabilities(task, "outsider");
         assertFalse(outsiderCaps.canEdit());
         assertFalse(outsiderCaps.canDelete());
         assertFalse(outsiderCaps.canAssignOthers());
         assertFalse(outsiderCaps.canUpdateStatus());
+    }
+
+    @Test
+    void canCreateTeamWorkspace_usesGlobalRoleDecision() {
+        when(globalAdminService.canCreateWorkspaces()).thenReturn(true);
+        assertTrue(service.canCreateTeamWorkspace());
+
+        when(globalAdminService.canCreateWorkspaces()).thenReturn(false);
+        assertFalse(service.canCreateTeamWorkspace());
     }
 
     private TeamWorkspace teamWorkspace(String workspaceId, String ownerUserId) {

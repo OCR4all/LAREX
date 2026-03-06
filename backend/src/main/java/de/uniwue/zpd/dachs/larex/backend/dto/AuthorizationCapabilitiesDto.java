@@ -8,7 +8,9 @@ public class AuthorizationCapabilitiesDto {
             boolean canEditWorkspace,
             boolean canEditWorkspaceTextIndexDefaults,
             boolean canManageProjects,
-            boolean canManageTasks
+            boolean canManageTasks,
+            boolean canManageUtilities,
+            boolean canSetPresets
     ) {}
 
     public record ProjectCapabilities(

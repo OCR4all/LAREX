@@ -82,7 +82,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
 
         WorkspaceMember member = new WorkspaceMember(
                 ownerUserId,
-                WorkspaceMember.Role.ADMINISTRATOR,
+                WorkspaceMember.Role.CURATOR,
                 WorkspaceMember.InvitationStatus.ACCEPTED,
                 teamWorkspace.getId()
         );
@@ -113,13 +113,25 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                 return Optional.empty();
             }
 
-            if (!workspace.getName().equals(name) && teamWorkspaceRepository.existsByName(name)) {
+            boolean isOwner = workspace.getOwnerUserId().equals(userId);
+
+            if (!workspace.getName().equals(name) && teamWorkspaceRepository.existsByName(name) && isOwner) {
                 throw new IllegalArgumentException("Team workspace name '" + name + "' already exists");
             }
 
-            workspace.setName(name);
-            workspace.setDescription(description);
-            workspace.setAvatar(avatar);
+            if (!isOwner) {
+                boolean metadataChangeRequested =
+                        !workspace.getName().equals(name)
+                                || !java.util.Objects.equals(workspace.getDescription(), description)
+                                || !java.util.Objects.equals(workspace.getAvatar(), avatar);
+                if (metadataChangeRequested) {
+                    throw new SecurityException("Only the workspace owner can edit workspace metadata.");
+                }
+            } else {
+                workspace.setName(name);
+                workspace.setDescription(description);
+                workspace.setAvatar(avatar);
+            }
 
             Codec codec = null;
             if (codecId != null && !codecId.trim().isEmpty()) {
@@ -152,8 +164,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                         resolved.gtIndex(),
                         resolved.recognitionIndices()
                 );
-                if (changedDefaults && !workspace.getOwnerUserId().equals(userId)) {
-                    throw new SecurityException("Only the workspace owner can change default text indices.");
+                if (changedDefaults && !workspaceAccessService.canSetPresets(workspaceId, userId)) {
+                    throw new SecurityException("You do not have permission to change workspace text index defaults.");
                 }
                 workspace.setDefaultGtIndex(resolved.gtIndex());
                 workspace.setDefaultRecognitionIndicesList(resolved.recognitionIndices());
@@ -174,7 +186,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         if (workspaceOpt.isPresent()) {
             TeamWorkspace workspace = workspaceOpt.get();
             
-            if (!workspaceAccessService.isUserAdministrator(workspaceId, userId)) {
+            if (!workspace.getOwnerUserId().equals(userId) && !workspaceAccessService.isWorkspaceOwner(workspaceId, userId)) {
                 return false; // No access
             }
             
@@ -204,7 +216,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         
         WorkspaceMember member = new WorkspaceMember(
                 userId,
-                role,
+                role.toCanonicalRole(),
                 WorkspaceMember.InvitationStatus.PENDING,
                 workspaceId
         );
@@ -311,6 +323,17 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         if (!workspaceAccessService.isUserAdministrator(workspaceId, adminUserId)) {
             return false;
         }
+
+        TeamWorkspace workspace = teamWorkspaceRepository.findById(workspaceId).orElse(null);
+        if (workspace == null) {
+            return false;
+        }
+
+        boolean actorIsOwner = workspace.getOwnerUserId().equals(adminUserId);
+        boolean targetIsOwner = workspace.getOwnerUserId().equals(targetUserId);
+        if (targetIsOwner && !actorIsOwner) {
+            return false;
+        }
         
         Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, targetUserId);
         if (memberOpt.isPresent()) {
@@ -332,24 +355,18 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
      * Leave workspace (user removes themselves)
      */
     public boolean leaveTeamWorkspace(String workspaceId, String userId) {
+        TeamWorkspace workspace = teamWorkspaceRepository.findById(workspaceId).orElse(null);
+        if (workspace != null && workspace.getOwnerUserId().equals(userId)) {
+            return false;
+        }
+
         Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
         
         if (memberOpt.isEmpty()) {
             return false;
         }
         
-        WorkspaceMember member = memberOpt.get();
-        
-        // Check if user is the last administrator
-        if (member.getRole() == WorkspaceMember.Role.ADMINISTRATOR) {
-            long adminCount = workspaceMemberRepository.countAdministratorsByWorkspaceId(workspaceId);
-            if (adminCount <= 1) {
-                // Cannot leave if you're the last administrator
-                return false;
-            }
-        }
-        
-        workspaceMemberRepository.delete(member);
+        workspaceMemberRepository.delete(memberOpt.get());
         return true;
     }
 
@@ -361,6 +378,12 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         if (!workspaceAccessService.isUserAdministrator(workspaceId, adminUserId)) {
             return false;
         }
+
+        TeamWorkspace workspace = teamWorkspaceRepository.findById(workspaceId).orElse(null);
+        if (workspace == null) {
+            return false;
+        }
+        boolean actorIsOwner = workspace.getOwnerUserId().equals(adminUserId);
         
         // Find the member to update
         Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findById(memberId);
@@ -369,17 +392,16 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         }
         
         WorkspaceMember member = memberOpt.get();
-        
-        // Prevent demoting the last administrator
-        if (member.getRole() == WorkspaceMember.Role.ADMINISTRATOR && 
-            newRole == WorkspaceMember.Role.MEMBER) {
-            long adminCount = workspaceMemberRepository.countAdministratorsByWorkspaceId(workspaceId);
-            if (adminCount <= 1) {
-                return false;
-            }
+
+        boolean targetIsOwner = workspace.getOwnerUserId().equals(member.getUserId());
+        if (targetIsOwner && !actorIsOwner) {
+            return false;
         }
-        
-        member.setRole(newRole);
+        if (targetIsOwner && actorIsOwner) {
+            return false;
+        }
+
+        member.setRole(newRole.toCanonicalRole());
         workspaceMemberRepository.save(member);
         return true;
     }

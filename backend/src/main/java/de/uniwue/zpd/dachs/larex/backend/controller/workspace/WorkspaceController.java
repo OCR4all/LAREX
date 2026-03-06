@@ -79,6 +79,7 @@ public class WorkspaceController {
     /**
      * Create team workspace
      */
+    @PreAuthorize("hasAnyRole('GLOBAL_ADMIN', 'GLOBAL_CURATOR')")
     @PostMapping
     public ResponseEntity<WorkspaceDto.Response> createWorkspace(
             @Valid @RequestBody WorkspaceDto.CreateTeamWorkspaceRequest request,
@@ -92,12 +93,7 @@ public class WorkspaceController {
 
         if (request.initialInvites() != null && !request.initialInvites().isEmpty()) {
             for (WorkspaceDto.InviteRequest invite : request.initialInvites()) {
-                WorkspaceMember.Role role;
-                try {
-                    role = WorkspaceMember.Role.valueOf(invite.role().toUpperCase());
-                } catch (IllegalArgumentException e) {
-                    throw new IllegalArgumentException("Invalid role: " + invite.role() + ". Valid roles are: ADMINISTRATOR, MEMBER");
-                }
+                WorkspaceMember.Role role = parseWorkspaceRole(invite.role());
                 workspaceService.inviteUserToWorkspace(
                         teamWorkspace.getId(),
                         userId,
@@ -156,7 +152,7 @@ public class WorkspaceController {
     /**
      * Delete workspace (only team workspaces can be deleted)
      */
-    @PreAuthorize("@workspaceSecurity.isAdmin(#workspaceId, authentication.name)")
+    @PreAuthorize("@workspaceSecurity.isOwner(#workspaceId, authentication.name)")
     @DeleteMapping("/{workspaceId}")
     public ResponseEntity<Void> deleteWorkspace(
             @PathVariable String workspaceId,
@@ -203,12 +199,7 @@ public class WorkspaceController {
             throw new IllegalArgumentException("Cannot invite users to personal workspaces");
         }
 
-        WorkspaceMember.Role role;
-        try {
-            role = WorkspaceMember.Role.valueOf(request.role().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid role: " + request.role() + ". Valid roles are: ADMINISTRATOR, MEMBER");
-        }
+        WorkspaceMember.Role role = parseWorkspaceRole(request.role());
 
         boolean invited = workspaceService.inviteUserToWorkspace(
                 workspaceId,
@@ -315,12 +306,7 @@ public class WorkspaceController {
             @Valid @RequestBody WorkspaceDto.UpdateMemberRoleRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        WorkspaceMember.Role role;
-        try {
-            role = WorkspaceMember.Role.valueOf(request.role().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid role: " + request.role() + ". Valid roles are: ADMINISTRATOR, MEMBER");
-        }
+        WorkspaceMember.Role role = parseWorkspaceRole(request.role());
 
         boolean updated = workspaceService.updateMemberRole(workspaceId, memberId, userId, role);
 
@@ -402,5 +388,9 @@ public class WorkspaceController {
         } else {
             throw new IllegalArgumentException("Unknown workspace type: " + workspace.getClass());
         }
+    }
+
+    private WorkspaceMember.Role parseWorkspaceRole(String rawRole) {
+        return WorkspaceMember.Role.fromApiValue(rawRole);
     }
 }

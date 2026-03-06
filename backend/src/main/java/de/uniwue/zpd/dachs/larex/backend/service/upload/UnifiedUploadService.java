@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -37,6 +38,7 @@ public class UnifiedUploadService {
     private final UploadConflictService uploadConflictService;
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final WorkspaceAccessService workspaceAccessService;
 
     public UnifiedUploadService(ProjectRepository projectRepository,
                                PageRepository pageRepository,
@@ -44,7 +46,8 @@ public class UnifiedUploadService {
                                PageXmlRepository pageXmlRepository,
                                UploadConflictService uploadConflictService,
                                PageFilterIndexService pageFilterIndexService,
-                               HierarchicalFileStorageService hierarchicalFileStorageService) {
+                               HierarchicalFileStorageService hierarchicalFileStorageService,
+                               WorkspaceAccessService workspaceAccessService) {
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -52,6 +55,7 @@ public class UnifiedUploadService {
         this.uploadConflictService = uploadConflictService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.workspaceAccessService = workspaceAccessService;
     }
 
     public UploadConflictDto.UploadResponse processUpload(String projectId, List<MultipartFile> filesList, String userId) {
@@ -62,6 +66,7 @@ public class UnifiedUploadService {
     private UploadConflictDto.UploadResponse processUploadInternal(String projectId, MultipartFile[] files, String userId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Project not found"));
+        workspaceAccessService.requireManageProjectsAccess(project.getLibrary().getWorkspaceId(), userId);
 
         // Group files by basename
         Map<String, List<MultipartFile>> filesByBasename = Arrays.stream(files)
@@ -233,6 +238,7 @@ public class UnifiedUploadService {
     public Map<String, Object> bulkUploadImages(String projectId, List<MultipartFile> files, String userId) throws IOException {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        workspaceAccessService.requireManageProjectsAccess(project.getLibrary().getWorkspaceId(), userId);
 
         if (files.isEmpty()) {
             throw new IllegalArgumentException("No files provided");
@@ -325,6 +331,7 @@ public class UnifiedUploadService {
     public Map<String, Object> importDataset(String projectId, List<MultipartFile> files, String userId) throws IOException {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+        workspaceAccessService.requireManageProjectsAccess(project.getLibrary().getWorkspaceId(), userId);
 
         if (files.isEmpty()) {
             throw new IllegalArgumentException("No files provided");

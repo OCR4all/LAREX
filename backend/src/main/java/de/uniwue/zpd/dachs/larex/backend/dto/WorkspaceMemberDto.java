@@ -32,7 +32,7 @@ public record WorkspaceMemberDto(
         return new WorkspaceMemberDto(
                 member.getId(),
                 member.getUserId(),
-                member.getRole(),
+                member.getRole().toCanonicalRole(),
                 member.getInvitationStatus(),
                 member.getCreated(),
                 member.getUpdated(),
@@ -53,7 +53,7 @@ public record WorkspaceMemberDto(
         return new WorkspaceMemberDto(
                 member.getId(),
                 member.getUserId(),
-                member.getRole(),
+                member.getRole().toCanonicalRole(),
                 member.getInvitationStatus(),
                 member.getCreated(),
                 member.getUpdated(),

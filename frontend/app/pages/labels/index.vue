@@ -23,6 +23,8 @@ if (!workspace.hasFetched) {
 }
 
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
 const labelSetsKey = computed(() => wsKey(selectedWorkspace.value, 'label-sets', 'list'))
 
 const { data: labelSets } = await useFetch<LabelSetSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/label-sets`, {
@@ -365,6 +367,29 @@ const contextMenuItems = computed(() => {
 function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
   contextMenuLabelSet.value = row.original as unknown as LabelSetRow
 }
+
+const emptyStateActions = computed(() => {
+  const actions: Array<Record<string, any>> = [
+    {
+      icon: 'i-lucide-refresh-cw',
+      label: 'Refresh',
+      color: 'neutral',
+      variant: 'subtle',
+      onClick: () => refreshNuxtData(labelSetsKey.value)
+    }
+  ]
+
+  if (canManageUtilities.value) {
+    actions.unshift({
+      icon: 'i-lucide-plus',
+      label: 'Create new',
+      variant: 'solid',
+      to: '/labels/new'
+    })
+  }
+
+  return actions
+})
 </script>
 
 <template>
@@ -376,6 +401,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         </template>
         <template #right>
           <UButton
+            v-if="canManageUtilities"
             data-tour="labels-new"
             label="New Label Set"
             color="neutral"
@@ -494,10 +520,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         icon="i-lucide-tags"
         title="No label sets found"
         description="Label sets define categories for annotating document regions. Create one to get started."
-        :actions="[
-          { icon: 'i-lucide-plus', label: 'Create new', variant: 'solid', to: '/labels/new' },
-          { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refreshNuxtData(labelSetsKey) }
-        ]"
+        :actions="emptyStateActions"
       />
       <div v-else-if="labelSets">
         <UContextMenu :items="contextMenuItems as any">

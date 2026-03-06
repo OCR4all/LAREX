@@ -9,7 +9,7 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 type AdminUserOnboardingState = 'ACTIVE' | 'PENDING_SETUP' | 'DISABLED' | 'SERVICE_ACCOUNT'
 type AdminUserStatusFilter = 'ALL' | 'ACTIVE' | 'PENDING_SETUP' | 'DISABLED'
-type AdminUserAuditAction = 'CREATE' | 'ENABLE' | 'DISABLE' | 'RESEND_SETUP_EMAIL'
+type AdminUserAuditAction = 'CREATE' | 'ENABLE' | 'DISABLE' | 'RESEND_SETUP_EMAIL' | 'GLOBAL_CURATOR_GRANT' | 'GLOBAL_CURATOR_REVOKE'
 type AdminUserAuditOutcome = 'SUCCESS' | 'FAILURE'
 type AdminUserIdentitySource = 'LOCAL' | 'LDAP' | 'SERVICE_ACCOUNT'
 
@@ -47,6 +47,11 @@ interface AdminUserAuditEvent {
   actorUsername: string
   created?: string | null
   details?: string | null
+}
+
+interface AdminGlobalRoles {
+  globalAdmin: boolean
+  globalCurator: boolean
 }
 
 interface ErrorResponseData {
@@ -117,9 +122,14 @@ const selectedUserId = ref<string | null>(null)
 const isDetailsOpen = ref(false)
 const detailUser = ref<AdminUser | null>(null)
 const detailAuditEvents = ref<AdminUserAuditEvent[]>([])
+const detailGlobalRoles = ref<AdminGlobalRoles | null>(null)
 const detailPending = ref(false)
 const detailError = ref<string | null>(null)
 const activeActionKey = ref<string | null>(null)
+const isGlobalRoleModalOpen = ref(false)
+const globalRoleAction = ref<'grant' | 'revoke' | null>(null)
+const globalRoleReason = ref('')
+const isSubmittingGlobalRole = ref(false)
 
 const createUserState = reactive<Partial<CreateUserSchema>>({
   username: '',
@@ -501,15 +511,17 @@ async function loadUserDetails(userId: string) {
   detailError.value = null
 
   try {
-    const [user, events] = await Promise.all([
+    const [user, events, globalRoles] = await Promise.all([
       $fetch<AdminUser>(`/api/admin/users/${userId}`),
       $fetch<AdminUserAuditEvent[]>(`/api/admin/users/${userId}/audit-events`, {
         query: { limit: 50 }
-      })
+      }),
+      $fetch<AdminGlobalRoles>(`/api/admin/users/${userId}/global-roles`)
     ])
 
     detailUser.value = user
     detailAuditEvents.value = events
+    detailGlobalRoles.value = globalRoles
   } catch (error: unknown) {
     detailError.value = getErrorMessage(error, 'Failed to load user details.')
   } finally {
@@ -528,7 +540,9 @@ function closeUserDetails() {
   selectedUserId.value = null
   detailUser.value = null
   detailAuditEvents.value = []
+  detailGlobalRoles.value = null
   detailError.value = null
+  closeGlobalRoleModal()
 }
 
 async function onCreateUserSubmit(event: FormSubmitEvent<CreateUserSchema>) {
@@ -624,6 +638,63 @@ async function resendSetupEmail(user: AdminUser) {
     })
   } finally {
     activeActionKey.value = null
+  }
+}
+
+function openGlobalRoleModal(action: 'grant' | 'revoke') {
+  if (!detailUser.value || detailUser.value.serviceAccount) {
+    return
+  }
+  globalRoleAction.value = action
+  globalRoleReason.value = ''
+  isGlobalRoleModalOpen.value = true
+}
+
+function closeGlobalRoleModal() {
+  isGlobalRoleModalOpen.value = false
+  globalRoleAction.value = null
+  globalRoleReason.value = ''
+}
+
+async function submitGlobalRoleAction() {
+  if (!detailUser.value || !globalRoleAction.value) {
+    return
+  }
+
+  const reason = globalRoleReason.value.trim()
+  if (!reason) {
+    return
+  }
+
+  const isGrant = globalRoleAction.value === 'grant'
+  const endpoint = isGrant ? 'grant' : 'revoke'
+
+  isSubmittingGlobalRole.value = true
+  try {
+    const updatedRoles = await $fetch<AdminGlobalRoles>(`/api/admin/users/${detailUser.value.id}/global-curator/${endpoint}`, {
+      method: 'POST',
+      body: { reason }
+    })
+
+    detailGlobalRoles.value = updatedRoles
+    toast.add({
+      title: isGrant ? 'Global curator granted' : 'Global curator revoked',
+      color: 'success'
+    })
+
+    closeGlobalRoleModal()
+    if (selectedUserId.value) {
+      await loadUserDetails(selectedUserId.value)
+    }
+    await refresh()
+  } catch (error: unknown) {
+    toast.add({
+      title: isGrant ? 'Grant failed' : 'Revoke failed',
+      description: getErrorMessage(error, 'Failed to update global curator role.'),
+      color: 'error'
+    })
+  } finally {
+    isSubmittingGlobalRole.value = false
   }
 }
 </script>
@@ -932,6 +1003,52 @@ async function resendSetupEmail(user: AdminUser) {
             </UCard>
           </div>
 
+          <UCard>
+            <div class="flex flex-col gap-4">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-muted mb-1">
+                  Global Permissions
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <UBadge :color="detailGlobalRoles?.globalAdmin ? 'success' : 'neutral'" variant="soft">
+                    GLOBAL_ADMIN: {{ detailGlobalRoles?.globalAdmin ? 'Yes' : 'No' }}
+                  </UBadge>
+                  <UBadge :color="detailGlobalRoles?.globalCurator ? 'info' : 'neutral'" variant="soft">
+                    GLOBAL_CURATOR: {{ detailGlobalRoles?.globalCurator ? 'Yes' : 'No' }}
+                  </UBadge>
+                </div>
+                <p class="mt-2 text-xs text-muted">
+                  Changes take effect after token refresh or re-login.
+                </p>
+              </div>
+
+              <div v-if="!detailUser.serviceAccount" class="flex flex-wrap gap-2">
+                <UButton
+                  color="primary"
+                  variant="outline"
+                  icon="i-lucide-user-plus"
+                  :disabled="!!detailGlobalRoles?.globalCurator"
+                  @click="openGlobalRoleModal('grant')"
+                >
+                  Grant Global Curator
+                </UButton>
+                <UButton
+                  color="error"
+                  variant="outline"
+                  icon="i-lucide-user-minus"
+                  :disabled="!detailGlobalRoles?.globalCurator"
+                  @click="openGlobalRoleModal('revoke')"
+                >
+                  Revoke Global Curator
+                </UButton>
+              </div>
+
+              <p v-else class="text-xs text-muted">
+                Service accounts cannot be changed.
+              </p>
+            </div>
+          </UCard>
+
           <div
             v-if="detailUser.identitySource === 'LDAP'"
             class="rounded-lg border border-info/30 bg-info/10 px-4 py-3 text-sm text-info"
@@ -980,4 +1097,47 @@ async function resendSetupEmail(user: AdminUser) {
       </div>
     </template>
   </USlideover>
+
+  <UModal
+    v-model:open="isGlobalRoleModalOpen"
+    :title="globalRoleAction === 'grant' ? 'Grant Global Curator' : globalRoleAction === 'revoke' ? 'Revoke Global Curator' : 'Update Global Curator'"
+    :close="{ onClick: closeGlobalRoleModal }"
+  >
+    <template #body>
+      <div class="space-y-4">
+        <p class="text-sm text-muted">
+          {{ globalRoleAction === 'grant'
+            ? 'Grant GLOBAL_CURATOR to this user. A reason is required for audit logging.'
+            : 'Revoke GLOBAL_CURATOR from this user. A reason is required for audit logging.' }}
+        </p>
+
+        <UFormField label="Reason" required>
+          <UTextarea
+            v-model="globalRoleReason"
+            :rows="4"
+            placeholder="Enter reason"
+          />
+        </UFormField>
+
+        <div class="flex justify-end gap-2 pt-1">
+          <UButton
+            color="neutral"
+            variant="outline"
+            :disabled="isSubmittingGlobalRole"
+            @click="closeGlobalRoleModal"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            :color="globalRoleAction === 'grant' ? 'primary' : 'error'"
+            :loading="isSubmittingGlobalRole"
+            :disabled="!globalRoleReason.trim()"
+            @click="submitGlobalRoleAction"
+          >
+            {{ globalRoleAction === 'grant' ? 'Grant' : 'Revoke' }}
+          </UButton>
+        </div>
+      </div>
+    </template>
+  </UModal>
 </template>

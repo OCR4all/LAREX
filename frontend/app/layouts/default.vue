@@ -7,7 +7,11 @@ const { isNotificationsSlideoverOpen } = useDashboard()
 const { startDashboardTour, startCurrentPageTour } = useOnboarding()
 
 const isInitialized = useState<boolean>('app.isInitialized', () => false)
-const { loggedIn } = useUserSession()
+const { loggedIn, user } = useUserSession()
+const canCreateTeamWorkspace = computed(() => {
+  const roles = user.value?.roles || []
+  return roles.includes('GLOBAL_ADMIN') || roles.includes('GLOBAL_CURATOR')
+})
 
 watch(loggedIn, async (isLoggedIn, wasLoggedIn) => {
   if (!isLoggedIn && wasLoggedIn) {
@@ -41,10 +45,9 @@ onBeforeUnmount(() => {
 })
 
 const groups = computed(() => {
-  const baseGroups = [{
-    id: 'actions',
-    label: 'Actions',
-    items: [{
+  const actionItems = []
+  if (workspace.canManageProjects) {
+    actionItems.push({
       id: 'new-project',
       label: 'New Project',
       icon: 'i-lucide-folder-plus',
@@ -53,7 +56,10 @@ const groups = computed(() => {
         createProjectSlideover.open()
         open.value = false
       }
-    }, {
+    })
+  }
+  if (canCreateTeamWorkspace.value) {
+    actionItems.push({
       id: 'new-workspace',
       label: 'New Team Workspace',
       icon: 'i-lucide-users',
@@ -62,7 +68,10 @@ const groups = computed(() => {
         createWorkspaceSlideover.open()
         open.value = false
       }
-    }, {
+    })
+  }
+  if (workspace.canManageUtilities) {
+    actionItems.push({
       id: 'new-label-set',
       label: 'New Label Set',
       icon: 'i-lucide-tags',
@@ -98,37 +107,44 @@ const groups = computed(() => {
         navigateTo('/codecs/new')
         open.value = false
       }
-    }, {
-      id: 'open-notifications',
-      label: 'Open Notifications',
-      icon: 'i-lucide-bell',
-      suffix: 'View your notifications',
-      kbds: ['N'],
-      onSelect: () => {
-        isNotificationsSlideoverOpen.value = true
-        open.value = false
-      }
-    }, {
-      id: 'start-dashboard-tour',
-      label: 'Start Dashboard Tour',
-      icon: 'i-lucide-route',
-      suffix: 'Interactive walkthrough of the dashboard',
-      onSelect: () => {
-        open.value = false
-        nextTick(() => startDashboardTour())
-      }
-    }, {
-      id: 'start-current-page-tour',
-      label: 'Start Current Page Tour',
-      icon: 'i-lucide-compass',
-      suffix: 'Interactive walkthrough for this page',
-      onSelect: () => {
-        open.value = false
-        nextTick(() => {
-          void startCurrentPageTour()
-        })
-      }
-    }]
+    })
+  }
+  actionItems.push({
+    id: 'open-notifications',
+    label: 'Open Notifications',
+    icon: 'i-lucide-bell',
+    suffix: 'View your notifications',
+    kbds: ['N'],
+    onSelect: () => {
+      isNotificationsSlideoverOpen.value = true
+      open.value = false
+    }
+  }, {
+    id: 'start-dashboard-tour',
+    label: 'Start Dashboard Tour',
+    icon: 'i-lucide-route',
+    suffix: 'Interactive walkthrough of the dashboard',
+    onSelect: () => {
+      open.value = false
+      nextTick(() => startDashboardTour())
+    }
+  }, {
+    id: 'start-current-page-tour',
+    label: 'Start Current Page Tour',
+    icon: 'i-lucide-compass',
+    suffix: 'Interactive walkthrough for this page',
+    onSelect: () => {
+      open.value = false
+      nextTick(() => {
+        void startCurrentPageTour()
+      })
+    }
+  })
+
+  const baseGroups = [{
+    id: 'actions',
+    label: 'Actions',
+    items: actionItems
   }, {
     id: 'navigation',
     label: 'Navigation',

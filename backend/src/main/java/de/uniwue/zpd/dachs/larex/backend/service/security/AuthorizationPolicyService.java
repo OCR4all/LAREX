@@ -31,80 +31,133 @@ public class AuthorizationPolicyService {
         return globalAdminService.isGlobalAdmin();
     }
 
+    public boolean isGlobalCurator() {
+        return globalAdminService.isGlobalCurator();
+    }
+
+    public boolean canCreateTeamWorkspace() {
+        return globalAdminService.canCreateWorkspaces();
+    }
+
     public boolean canAccessWorkspace(String workspaceId, String userId) {
         if (globalAdminService.isGlobalAdmin()) {
             return true;
         }
 
-        Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
+        Optional<AbstractWorkspace> workspaceOpt = resolveWorkspace(workspaceId);
         if (workspaceOpt.isEmpty()) {
             return false;
         }
 
         AbstractWorkspace workspace = workspaceOpt.get();
-        if (workspace.isPersonal()) {
+        if (isWorkspaceOwner(workspace, userId)) {
             return workspace.getOwnerUserId().equals(userId);
         }
 
-        Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
-        return memberOpt.isPresent()
-                && memberOpt.get().getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED;
+        return resolveAcceptedMembership(workspaceId, userId).isPresent();
     }
 
+    /**
+     * Owner-level workspace administration (delete workspace, owner-governed metadata).
+     */
     public boolean canAdminWorkspace(String workspaceId, String userId) {
         if (globalAdminService.isGlobalAdmin()) {
             return true;
         }
 
-        Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
+        Optional<AbstractWorkspace> workspaceOpt = resolveWorkspace(workspaceId);
         if (workspaceOpt.isEmpty()) {
             return false;
         }
 
         AbstractWorkspace workspace = workspaceOpt.get();
-        if (workspace.isPersonal()) {
-            return workspace.getOwnerUserId().equals(userId);
-        }
-
-        Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
-        return memberOpt.isPresent()
-                && memberOpt.get().getRole() == WorkspaceMember.Role.ADMINISTRATOR
-                && memberOpt.get().getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED;
+        return isWorkspaceOwner(workspace, userId);
     }
 
-    public boolean canEditWorkspaceTextIndexDefaults(String workspaceId, String userId) {
+    /**
+     * Owner + Curator operational access for workspace-scoped mutations.
+     */
+    public boolean canManageWorkspaceOperations(String workspaceId, String userId) {
         if (globalAdminService.isGlobalAdmin()) {
             return true;
         }
-        Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
-        return workspaceOpt.filter(workspace -> workspace.getOwnerUserId().equals(userId)).isPresent();
+
+        Optional<AbstractWorkspace> workspaceOpt = resolveWorkspace(workspaceId);
+        if (workspaceOpt.isEmpty()) {
+            return false;
+        }
+
+        AbstractWorkspace workspace = workspaceOpt.get();
+        if (isWorkspaceOwner(workspace, userId)) {
+            return true;
+        }
+
+        return resolveAcceptedMembership(workspaceId, userId)
+                .map(member -> member.getRole().isCuratorLike())
+                .orElse(false);
+    }
+
+    public boolean canManageMembers(String workspaceId, String userId) {
+        return canManageWorkspaceOperations(workspaceId, userId);
+    }
+
+    public boolean canEditWorkspace(String workspaceId, String userId) {
+        return canAdminWorkspace(workspaceId, userId);
+    }
+
+    public boolean canEditWorkspaceTextIndexDefaults(String workspaceId, String userId) {
+        return canSetPresets(workspaceId, userId);
+    }
+
+    public boolean canManageProjects(String workspaceId, String userId) {
+        return canManageWorkspaceOperations(workspaceId, userId);
+    }
+
+    public boolean canManageTasks(String workspaceId, String userId) {
+        return canManageWorkspaceOperations(workspaceId, userId);
+    }
+
+    public boolean canManageUtilities(String workspaceId, String userId) {
+        return canManageWorkspaceOperations(workspaceId, userId);
+    }
+
+    public boolean canSetPresets(String workspaceId, String userId) {
+        return canManageWorkspaceOperations(workspaceId, userId);
     }
 
     public AuthorizationCapabilitiesDto.WorkspaceCapabilities resolveWorkspaceCapabilities(String workspaceId, String userId) {
         boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
         boolean canAdminWorkspace = canAdminWorkspace(workspaceId, userId);
+        boolean canManageMembers = canManageMembers(workspaceId, userId);
+        boolean canEditWorkspace = canEditWorkspace(workspaceId, userId);
         boolean canEditWorkspaceTextIndexDefaults = canEditWorkspaceTextIndexDefaults(workspaceId, userId);
+        boolean canManageProjects = canManageProjects(workspaceId, userId);
+        boolean canManageTasks = canManageTasks(workspaceId, userId);
+        boolean canManageUtilities = canManageUtilities(workspaceId, userId);
+        boolean canSetPresets = canSetPresets(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.WorkspaceCapabilities(
                 canAdminWorkspace,
-                canAdminWorkspace,
-                canAdminWorkspace,
+                canManageMembers,
+                canEditWorkspace,
                 canEditWorkspaceTextIndexDefaults,
-                canAccessWorkspace,
-                canAccessWorkspace
+                canManageProjects,
+                canManageTasks,
+                canManageUtilities,
+                canSetPresets
         );
     }
 
     public AuthorizationCapabilitiesDto.ProjectCapabilities resolveProjectCapabilities(Project project, String userId) {
         String workspaceId = project.getLibrary().getWorkspaceId();
         boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
-        boolean canAdminWorkspace = canAdminWorkspace(workspaceId, userId);
+        boolean canManageProjects = canManageProjects(workspaceId, userId);
 
-        boolean canEdit = canAccessWorkspace && !project.isLocked();
-        boolean canShare = canAccessWorkspace && !project.isLocked();
-        boolean canDelete = canAdminWorkspace && !project.isLocked();
-        boolean canDeletePages = canAdminWorkspace && !project.isLocked();
-        boolean canUpload = canAccessWorkspace && !project.isLocked();
+        boolean canEdit = canManageProjects && !project.isLocked();
+        boolean canShare = canManageProjects && !project.isLocked();
+        boolean canDelete = canManageProjects && !project.isLocked();
+        boolean canDeletePages = canManageProjects && !project.isLocked();
+        boolean canUpload = canManageProjects && !project.isLocked();
         boolean canExportPackage = canAccessWorkspace;
 
         return new AuthorizationCapabilitiesDto.ProjectCapabilities(
@@ -124,26 +177,34 @@ public class AuthorizationPolicyService {
             return new AuthorizationCapabilitiesDto.TaskCapabilities(false, false, false, false);
         }
 
-        boolean canAdminWorkspace = canAdminWorkspace(workspaceId, userId);
-        boolean isCreator = task.getCreatedByUserId() != null && task.getCreatedByUserId().equals(userId);
-        boolean isAssignee = task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId);
-
-        boolean canEdit = canAdminWorkspace || isCreator;
-        boolean canDelete = canAdminWorkspace || isCreator;
-        boolean canAssignOthers = canAdminWorkspace;
-        boolean canUpdateStatus = canAdminWorkspace || isCreator || isAssignee;
+        boolean canManageTasks = canManageTasks(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.TaskCapabilities(
-                canEdit,
-                canDelete,
-                canAssignOthers,
-                canUpdateStatus
+                canManageTasks,
+                canManageTasks,
+                canManageTasks,
+                canManageTasks
         );
     }
 
     public AuthorizationCapabilitiesDto.ResourceCapabilities resolveWorkspaceResourceCapabilities(String workspaceId, String userId) {
-        boolean canEdit = canAccessWorkspace(workspaceId, userId);
+        boolean canEdit = canManageUtilities(workspaceId, userId);
         boolean canDelete = canEdit;
         return new AuthorizationCapabilitiesDto.ResourceCapabilities(canEdit, canDelete);
+    }
+
+    private Optional<AbstractWorkspace> resolveWorkspace(String workspaceId) {
+        return workspaceQueryService.findWorkspaceById(workspaceId);
+    }
+
+    private Optional<WorkspaceMember> resolveAcceptedMembership(String workspaceId, String userId) {
+        return workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .filter(member -> member.getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED);
+    }
+
+    private boolean isWorkspaceOwner(AbstractWorkspace workspace, String userId) {
+        return workspace != null
+                && workspace.getOwnerUserId() != null
+                && workspace.getOwnerUserId().equals(userId);
     }
 }

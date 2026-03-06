@@ -104,8 +104,7 @@ public class TaskService {
 
     public TaskDto.Response createTask(String workspaceId, String userId, TaskDto.CreateRequest request) {
         AbstractWorkspace workspace = requireWorkspaceAccess(workspaceId, userId);
-
-        boolean isAdmin = workspaceAccessService.isUserAdministrator(workspaceId, userId);
+        workspaceAccessService.requireManageTasksAccess(workspaceId, userId);
         List<String> requestedAssignees = request.assignedUserIds() == null ? List.of() : request.assignedUserIds();
 
         Set<String> normalizedAssignees = new LinkedHashSet<>();
@@ -120,8 +119,6 @@ public class TaskService {
 
         if (workspace.isPersonal()) {
             normalizedAssignees = Set.of(userId);
-        } else if (!isAdmin && !(normalizedAssignees.size() == 1 && normalizedAssignees.contains(userId))) {
-            throw new SecurityException("Only workspace administrators can assign tasks to other users.");
         }
 
         requireAcceptedMembers(workspace, normalizedAssignees);
@@ -154,10 +151,7 @@ public class TaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        boolean isAdmin = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
-        if (!isAdmin && !task.getCreatedByUserId().equals(userId)) {
-            throw new SecurityException("Only the task creator or a workspace administrator can update this task.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         // Track changes for activity logging
         String oldTitle = task.getTitle();
@@ -205,13 +199,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
         requireWorkspaceAccess(task.getWorkspaceId(), userId);
-
-        boolean isAdmin = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
-        boolean isCreator = task.getCreatedByUserId().equals(userId);
-        boolean isAssignee = task.getAssignedUserIds() != null && task.getAssignedUserIds().contains(userId);
-        if (!isAdmin && !isCreator && !isAssignee) {
-            throw new SecurityException("You do not have permission to update this task status.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         Task.TaskStatus oldStatus = task.getStatus();
         Task.TaskStatus newStatus = request.status();
@@ -254,9 +242,7 @@ public class TaskService {
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
         AbstractWorkspace workspace = requireWorkspaceAccess(task.getWorkspaceId(), userId);
-
-        boolean isAdmin = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
-        boolean isCreator = task.getCreatedByUserId().equals(userId);
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         Set<String> normalizedAssignees = new LinkedHashSet<>();
         for (String assigneeId : request.assignedUserIds()) {
@@ -271,8 +257,6 @@ public class TaskService {
         if (workspace.isPersonal()) {
             normalizedAssignees.clear();
             normalizedAssignees.add(userId);
-        } else if (!isAdmin && !(isCreator && normalizedAssignees.size() == 1 && normalizedAssignees.contains(userId))) {
-            throw new SecurityException("Only workspace administrators can assign tasks to other users.");
         }
 
         requireAcceptedMembers(workspace, normalizedAssignees);
@@ -307,10 +291,7 @@ public class TaskService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        boolean isAdmin = workspaceAccessService.isUserAdministrator(task.getWorkspaceId(), userId);
-        if (!isAdmin && !task.getCreatedByUserId().equals(userId)) {
-            throw new SecurityException("Only the task creator or a workspace administrator can delete this task.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         taskRepository.delete(task);
     }

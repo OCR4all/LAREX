@@ -14,14 +14,14 @@ const { refreshWorkspaceMembership } = useDataRefresh()
 
 const searchQuery = ref('')
 const selectedUser = ref<UserProfile | null>(null)
-const selectedRole = ref<'ADMINISTRATOR' | 'MEMBER'>('MEMBER')
+const selectedRole = ref<'CURATOR' | 'EDITOR'>('EDITOR')
 const isSearching = ref(false)
 const isSubmitting = ref(false)
 const searchResults = ref<UserProfile[]>([])
 
 const roleOptions = [
-  { label: 'Member', value: 'MEMBER', description: 'Can view and edit projects' },
-  { label: 'Administrator', value: 'ADMINISTRATOR', description: 'Full access including member management' }
+  { label: 'Editor', value: 'EDITOR', description: 'Can edit page annotations only' },
+  { label: 'Curator', value: 'CURATOR', description: 'Can manage projects, tasks, and utilities' }
 ]
 
 const debouncedSearch = useDebounceFn(async (query: string) => {
@@ -83,7 +83,7 @@ async function handleSubmit() {
 
     searchQuery.value = ''
     selectedUser.value = null
-    selectedRole.value = 'MEMBER'
+    selectedRole.value = 'EDITOR'
     emit('close', true)
   } catch (error: any) {
     toast.add({
@@ -99,7 +99,7 @@ async function handleSubmit() {
 function handleClose() {
   searchQuery.value = ''
   selectedUser.value = null
-  selectedRole.value = 'MEMBER'
+  selectedRole.value = 'EDITOR'
   searchResults.value = []
   emit('close', false)
 }

@@ -7,8 +7,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepo
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ResourceTransferRequestRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,8 +28,8 @@ public class ResourceTransferService {
     private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final LabelSetRepository labelSetRepository;
     private final LibraryRepository libraryRepository;
-    private final WorkspaceMemberRepository workspaceMemberRepository;
     private final WorkspaceQueryService workspaceQueryService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public ResourceTransferService(
             ResourceTransferRequestRepository transferRequestRepository,
@@ -37,15 +37,15 @@ public class ResourceTransferService {
             VirtualKeyboardRepository virtualKeyboardRepository,
             LabelSetRepository labelSetRepository,
             LibraryRepository libraryRepository,
-            WorkspaceMemberRepository workspaceMemberRepository,
-            WorkspaceQueryService workspaceQueryService) {
+            WorkspaceQueryService workspaceQueryService,
+            AuthorizationPolicyService authorizationPolicyService) {
         this.transferRequestRepository = transferRequestRepository;
         this.codecRepository = codecRepository;
         this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.labelSetRepository = labelSetRepository;
         this.libraryRepository = libraryRepository;
-        this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceQueryService = workspaceQueryService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     public Optional<ResourceTransferRequest> requestTransfer(
@@ -302,9 +302,6 @@ public class ResourceTransferService {
     }
 
     private boolean isUserAdministratorInWorkspace(String workspaceId, String userId) {
-        return workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
-                .filter(m -> m.getRole() == WorkspaceMember.Role.ADMINISTRATOR)
-                .filter(m -> m.getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED)
-                .isPresent();
+        return authorizationPolicyService.canManageUtilities(workspaceId, userId);
     }
 }

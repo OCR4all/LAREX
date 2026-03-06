@@ -88,7 +88,7 @@ public class ChunkedUploadService {
 
     public UploadSessionDto.SessionResponse createSession(String userId, String workspaceId, String projectId,
                                                           UploadSessionDto.CreateSessionRequest request) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
 
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found: " + projectId));

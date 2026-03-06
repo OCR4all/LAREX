@@ -1,6 +1,8 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.admin;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalCuratorRoleRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminWorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
@@ -61,6 +63,37 @@ public class AdminController {
     @GetMapping("/users/{userId}")
     public ResponseEntity<AdminUserDto> getUser(@PathVariable String userId) {
         return ResponseEntity.ok(adminService.getUserForAdmin(userId));
+    }
+
+    @GetMapping("/users/{userId}/global-roles")
+    public ResponseEntity<AdminGlobalRolesDto> getGlobalRoles(@PathVariable String userId) {
+        return ResponseEntity.ok(adminService.getGlobalRolesForAdmin(userId));
+    }
+
+    @PostMapping("/users/{userId}/global-curator/grant")
+    public ResponseEntity<AdminGlobalRolesDto> grantGlobalCurator(
+            Authentication authentication,
+            @PathVariable String userId,
+            @Valid @RequestBody AdminGlobalCuratorRoleRequest request) {
+        return ResponseEntity.ok(adminService.grantGlobalCuratorForAdmin(
+                resolveActorUserId(authentication),
+                resolveActorUsername(authentication),
+                userId,
+                request.reason()
+        ));
+    }
+
+    @PostMapping("/users/{userId}/global-curator/revoke")
+    public ResponseEntity<AdminGlobalRolesDto> revokeGlobalCurator(
+            Authentication authentication,
+            @PathVariable String userId,
+            @Valid @RequestBody AdminGlobalCuratorRoleRequest request) {
+        return ResponseEntity.ok(adminService.revokeGlobalCuratorForAdmin(
+                resolveActorUserId(authentication),
+                resolveActorUsername(authentication),
+                userId,
+                request.reason()
+        ));
     }
 
     @PostMapping("/users")

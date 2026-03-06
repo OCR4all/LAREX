@@ -23,6 +23,8 @@ if (!workspace.hasFetched) {
 }
 
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
 const codecsKey = computed(() => wsKey(selectedWorkspace.value, 'codecs', 'list'))
 
 const { data: codecs } = await useFetch<CodecSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/codecs`, {
@@ -316,6 +318,29 @@ const contextMenuItems = computed(() => {
 function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
   contextMenuCodec.value = row.original as unknown as CodecSummary
 }
+
+const emptyStateActions = computed(() => {
+  const actions: Array<Record<string, any>> = [
+    {
+      icon: 'i-lucide-refresh-cw',
+      label: 'Refresh',
+      color: 'neutral',
+      variant: 'subtle',
+      onClick: () => refreshNuxtData(codecsKey.value)
+    }
+  ]
+
+  if (canManageUtilities.value) {
+    actions.unshift({
+      icon: 'i-lucide-plus',
+      label: 'Create new',
+      variant: 'solid',
+      to: '/codecs/new'
+    })
+  }
+
+  return actions
+})
 </script>
 
 <template>
@@ -327,6 +352,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         </template>
         <template #right>
           <UButton
+            v-if="canManageUtilities"
             data-tour="codecs-new"
             label="New Codec"
             color="neutral"
@@ -445,10 +471,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         icon="i-lucide-file-code"
         title="No codecs found"
         description="Codecs define character mappings for text normalization. Create one to get started."
-        :actions="[
-          { icon: 'i-lucide-plus', label: 'Create new', variant: 'solid', to: '/codecs/new' },
-          { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refreshNuxtData(codecsKey) }
-        ]"
+        :actions="emptyStateActions"
       />
       <div v-else-if="codecs">
         <UContextMenu :items="contextMenuItems as any">

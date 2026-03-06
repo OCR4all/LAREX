@@ -50,6 +50,7 @@ public class WorkspaceService {
      * Create team workspace
      */
     public TeamWorkspace createTeamWorkspace(String name, String description, String userId) {
+        workspaceAccessService.requireCreateWorkspaceAccess(userId);
         return teamWorkspaceService.createTeamWorkspace(name, description, userId);
     }
 

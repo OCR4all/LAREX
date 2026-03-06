@@ -150,7 +150,8 @@
         "realm-management": [
           "query-users",
           "view-users",
-          "manage-users"
+          "manage-users",
+          "view-realm"
         ]
       }
     }
@@ -160,6 +161,10 @@
       {
         "name": "GLOBAL_ADMIN",
         "description": "Global administrator role with access to all administrative features and all workspaces"
+      },
+      {
+        "name": "GLOBAL_CURATOR",
+        "description": "Global curator role with permission to create and operate team workspaces without global admin access"
       }
     ]
   },
@@ -169,13 +174,15 @@
       "roles": [
         "view-users",
         "manage-users",
-        "query-users"
+        "query-users",
+        "view-realm"
       ]
     },
     {
       "client": "larex-frontend",
       "roles": [
-        "GLOBAL_ADMIN"
+        "GLOBAL_ADMIN",
+        "GLOBAL_CURATOR"
       ]
     }
   ]

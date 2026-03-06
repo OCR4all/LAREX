@@ -66,9 +66,13 @@ const storageColor = computed(() => {
   return 'primary'
 })
 
-const isCurrentUserAdmin = computed(() => allow(workspaceCapabilities.value.canEditWorkspace))
+const canEditWorkspaceMetadata = computed(() => allow(workspaceCapabilities.value.canEditWorkspace))
+const canSetWorkspacePresets = computed(() => allow(workspaceCapabilities.value.canSetPresets))
+const canEditWorkspaceSettings = computed(() => canEditWorkspaceMetadata.value || canSetWorkspacePresets.value)
 const canDeleteWorkspace = computed(() => allow(workspaceCapabilities.value.canAdminWorkspace))
-const canEditWorkspaceTextIndexDefaults = computed(() => allow(workspaceCapabilities.value.canEditWorkspaceTextIndexDefaults))
+const canEditWorkspaceTextIndexDefaults = computed(() =>
+  canSetWorkspacePresets.value && allow(workspaceCapabilities.value.canEditWorkspaceTextIndexDefaults)
+)
 
 const isEditing = ref(false)
 const isSaving = ref(false)
@@ -168,7 +172,7 @@ watchEffect(() => {
 })
 
 const startEditing = () => {
-  if (!isCurrentUserAdmin.value) return
+  if (!canEditWorkspaceSettings.value) return
   isEditing.value = true
 }
 
@@ -186,7 +190,7 @@ const cancelEditing = () => {
 }
 
 const saveWorkspace = async () => {
-  if (!isCurrentUserAdmin.value) return
+  if (!canEditWorkspaceSettings.value) return
   if (!selectedWorkspace.value) return
 
   isSaving.value = true
@@ -423,71 +427,75 @@ async function openDeleteSlideover() {
       <UPageCard
         data-tour="workspace-general-panel"
         title="Workspace Details"
-        :description="isCurrentUserAdmin ? 'Update your workspace name, description and default utilities.' : 'View workspace details.'"
+        :description="canEditWorkspaceSettings ? 'Update workspace settings based on your role permissions.' : 'View workspace details.'"
         variant="subtle"
       >
         <div class="flex flex-col gap-4">
           <UFormField label="Name" :hint="isEditing ? 'Required' : ''">
             <UInput
               v-model="form.name"
-              :disabled="!isEditing"
+              :disabled="!isEditing || !canEditWorkspaceMetadata"
               placeholder="Workspace name"
             />
           </UFormField>
           <UFormField label="Description">
             <UTextarea
               v-model="form.description"
-              :disabled="!isEditing"
+              :disabled="!isEditing || !canEditWorkspaceMetadata"
               placeholder="Optional description"
             />
           </UFormField>
 
+          <p v-if="isEditing && canSetWorkspacePresets && !canEditWorkspaceMetadata" class="text-xs text-muted">
+            Only workspace owners can edit workspace name and description.
+          </p>
+
           <USeparator />
 
-          <UFormField data-tour="workspace-general-presets" v-if="isCurrentUserAdmin" label="Default Codec" hint="Default codec for new projects">
+          <UFormField data-tour="workspace-general-presets" v-if="canSetWorkspacePresets" label="Default Codec" hint="Default codec for new projects">
             <USelect
               v-model="form.codecId"
               :items="codecs"
-              :disabled="!isEditing || !!codecsError || codecs.length === 0"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!codecsError || codecs.length === 0"
               placeholder="Select a codec"
             />
           </UFormField>
-          <UFormField v-if="isCurrentUserAdmin" label="Default Label Set" hint="Default label set for new projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Label Set" hint="Default label set for new projects">
             <USelect
               v-model="form.labelSetId"
               :items="labelSets"
-              :disabled="!isEditing || !!labelSetsError || labelSets.length === 0"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!labelSetsError || labelSets.length === 0"
               placeholder="Select a label set"
             />
           </UFormField>
-          <UFormField v-if="isCurrentUserAdmin" label="Default Tag Set" hint="Default tag set for new projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Tag Set" hint="Default tag set for new projects">
             <USelect
               v-model="form.tagSetId"
               :items="tagSets"
-              :disabled="!isEditing || !!tagSetsError || tagSets.length === 0"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!tagSetsError || tagSets.length === 0"
               placeholder="Select a tag set"
             />
           </UFormField>
-          <UFormField v-if="isCurrentUserAdmin" label="Default GT Index" hint="Single Ground Truth index for new projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default GT Index" hint="Single Ground Truth index for new projects">
             <UInput
               v-model="form.defaultGtIndexInput"
               :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
               placeholder="0"
             />
           </UFormField>
-          <UFormField v-if="isCurrentUserAdmin" label="Default Recognition Indices" hint="Comma-separated recognition indices for new projects">
+          <UFormField v-if="canSetWorkspacePresets" label="Default Recognition Indices" hint="Comma-separated recognition indices for new projects">
             <UInput
               v-model="form.defaultRecognitionIndicesInput"
               :disabled="!isEditing || !canEditWorkspaceTextIndexDefaults"
               placeholder="1"
             />
           </UFormField>
-          <p v-if="isCurrentUserAdmin && !canEditWorkspaceTextIndexDefaults" class="text-xs text-muted">
+          <p v-if="canSetWorkspacePresets && !canEditWorkspaceTextIndexDefaults" class="text-xs text-muted">
             You do not have permission to change default text-index settings.
           </p>
 
           <div class="flex gap-2">
-            <template v-if="isCurrentUserAdmin">
+            <template v-if="canEditWorkspaceSettings">
               <template v-if="isEditing">
                 <UButton
                   label="Save changes"

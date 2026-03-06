@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserIdentitySource;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserOnboardingState;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminService;
@@ -218,6 +219,88 @@ class AdminControllerSecurityTest {
                 .andExpect(jsonPath("$.items[0].identitySource").value("LOCAL"))
                 .andExpect(jsonPath("$.items[0].externallyManaged").value(false))
                 .andExpect(jsonPath("$.items[0].onboardingState").value("PENDING_SETUP"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void globalCuratorEndpoints_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(get("/admin/users/user-1/global-roles"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/admin/users/user-1/global-curator/grant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "Needed for workspace operations"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/admin/users/user-1/global-curator/revoke")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "No longer needed"
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void getGlobalRoles_allowedForAdmin() throws Exception {
+        when(adminService.getGlobalRolesForAdmin("user-1"))
+                .thenReturn(new AdminGlobalRolesDto(true, false));
+
+        mockMvc.perform(get("/admin/users/user-1/global-roles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.globalAdmin").value(true))
+                .andExpect(jsonPath("$.globalCurator").value(false));
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void grantGlobalCurator_validatesReason() throws Exception {
+        when(adminService.grantGlobalCuratorForAdmin(any(), any(), eq("user-1"), eq("Needed for workspace operations")))
+                .thenReturn(new AdminGlobalRolesDto(false, true));
+
+        mockMvc.perform(post("/admin/users/user-1/global-curator/grant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "Needed for workspace operations"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.globalAdmin").value(false))
+                .andExpect(jsonPath("$.globalCurator").value(true));
+
+        mockMvc.perform(post("/admin/users/user-1/global-curator/grant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "   "
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void revokeGlobalCurator_allowedForAdmin() throws Exception {
+        when(adminService.revokeGlobalCuratorForAdmin(any(), any(), eq("user-1"), eq("No longer needed")))
+                .thenReturn(new AdminGlobalRolesDto(false, false));
+
+        mockMvc.perform(post("/admin/users/user-1/global-curator/revoke")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "reason": "No longer needed"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.globalAdmin").value(false))
+                .andExpect(jsonPath("$.globalCurator").value(false));
     }
 
     private AdminUserDto adminUser(

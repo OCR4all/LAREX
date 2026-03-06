@@ -10,6 +10,7 @@ defineProps<{
 const overlay = useOverlay()
 const workspaceCreateModal = overlay.create(LazyWorkspaceSlideoverCreate)
 const workspaceStore = useWorkspaceStore()
+const { user } = useUserSession()
 
 const { data: workspaces } = await useFetch('/api/workspaces', {
   key: globalKey('workspaces', 'list'),
@@ -18,6 +19,10 @@ const { data: workspaces } = await useFetch('/api/workspaces', {
 
 const isAdminMode = computed(() => workspaceStore.isAdminMode)
 const adminWorkspace = computed(() => workspaceStore.adminWorkspace)
+const canCreateTeamWorkspace = computed(() => {
+  const roles = user.value?.roles || []
+  return roles.includes('GLOBAL_ADMIN') || roles.includes('GLOBAL_CURATOR')
+})
 
 const selectedWorkspace = computed(() => {
   if (isAdminMode.value && adminWorkspace.value) {
@@ -38,15 +43,21 @@ const items = computed<DropdownMenuItem[][]>(() => {
     }
   }))
 
-  const menuItems: DropdownMenuItem[][] = [workspaceItems, [{
-    label: 'Create workspace',
-    icon: 'i-bxs-layer-plus',
-    onSelect() { workspaceCreateModal.open() }
-  }, {
+  const secondaryItems: DropdownMenuItem[] = []
+  if (canCreateTeamWorkspace.value) {
+    secondaryItems.push({
+      label: 'Create workspace',
+      icon: 'i-bxs-layer-plus',
+      onSelect() { workspaceCreateModal.open() }
+    })
+  }
+  secondaryItems.push({
     label: 'Manage workspaces',
     icon: 'i-lucide-cog',
     async onSelect() { await navigateTo('/workspaces') }
-  }]]
+  })
+
+  const menuItems: DropdownMenuItem[][] = [workspaceItems, secondaryItems]
 
   if (isAdminMode.value) {
     menuItems.push([{

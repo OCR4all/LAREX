@@ -73,9 +73,7 @@ public class TaskLinkService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
-            throw new SecurityException("Access denied.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         Project project = projectRepository.findById(request.projectId())
                 .orElseThrow(() -> new ResourceNotFoundException("Project", request.projectId()));
@@ -103,9 +101,7 @@ public class TaskLinkService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
-            throw new SecurityException("Access denied.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         TaskProjectLink link = projectLinkRepository.findByTaskIdAndProjectId(taskId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Link", taskId + "-" + projectId));
@@ -118,9 +114,7 @@ public class TaskLinkService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
-            throw new SecurityException("Access denied.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         List<TaskPageLink> savedLinks = new ArrayList<>();
 
@@ -168,9 +162,7 @@ public class TaskLinkService {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", taskId));
 
-        if (!workspaceAccessService.hasWorkspaceAccess(task.getWorkspaceId(), userId)) {
-            throw new SecurityException("Access denied.");
-        }
+        workspaceAccessService.requireManageTasksAccess(task.getWorkspaceId(), userId);
 
         TaskPageLink link = pageLinkRepository.findByTaskIdAndPageId(taskId, pageId)
                 .orElseThrow(() -> new ResourceNotFoundException("Link", taskId + "-" + pageId));

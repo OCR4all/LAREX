@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Task;
 import de.uniwue.zpd.dachs.larex.backend.entity.TaskReminder;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskReminderRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,10 +20,14 @@ public class TaskReminderService {
 
     private final TaskReminderRepository reminderRepository;
     private final TaskRepository taskRepository;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
-    public TaskReminderService(TaskReminderRepository reminderRepository, TaskRepository taskRepository) {
+    public TaskReminderService(TaskReminderRepository reminderRepository,
+                               TaskRepository taskRepository,
+                               AuthorizationPolicyService authorizationPolicyService) {
         this.reminderRepository = reminderRepository;
         this.taskRepository = taskRepository;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     public List<TaskReminderDto.Response> getTaskReminders(String taskId, String userId) {
@@ -34,7 +39,7 @@ public class TaskReminderService {
     }
 
     public TaskReminderDto.Response createReminder(String taskId, String userId, TaskReminderDto.CreateRequest request) {
-        verifyTaskAccess(taskId, userId);
+        verifyTaskMutationAccess(taskId, userId);
 
         if (request.reminderTime().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Reminder time must be in the future");
@@ -47,7 +52,7 @@ public class TaskReminderService {
     }
 
     public void deleteReminder(String taskId, String reminderId, String userId) {
-        verifyTaskAccess(taskId, userId);
+        verifyTaskMutationAccess(taskId, userId);
 
         TaskReminder reminder = reminderRepository.findById(reminderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reminder not found"));
@@ -73,6 +78,15 @@ public class TaskReminderService {
 
         if (!hasAccess) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have access to this task");
+        }
+    }
+
+    private void verifyTaskMutationAccess(String taskId, String userId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+
+        if (!authorizationPolicyService.canManageTasks(task.getWorkspaceId(), userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required");
         }
     }
 

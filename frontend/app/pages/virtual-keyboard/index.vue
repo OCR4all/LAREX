@@ -23,6 +23,8 @@ if (!workspace.hasFetched) {
 }
 
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
 const keyboardsKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', 'list'))
 
 const { data: keyboards } = await useFetch<KeyboardLayout[]>(() => `/api/workspaces/${selectedWorkspace.value}/virtual-keyboards`, {
@@ -293,6 +295,29 @@ const contextMenuItems = computed(() => {
 function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
   contextMenuKeyboard.value = row.original as unknown as KeyboardLayout
 }
+
+const emptyStateActions = computed(() => {
+  const actions: Array<Record<string, any>> = [
+    {
+      icon: 'i-lucide-refresh-cw',
+      label: 'Refresh',
+      color: 'neutral',
+      variant: 'subtle',
+      onClick: () => refreshNuxtData(keyboardsKey.value)
+    }
+  ]
+
+  if (canManageUtilities.value) {
+    actions.unshift({
+      icon: 'i-lucide-plus',
+      label: 'Create new',
+      variant: 'solid',
+      to: '/virtual-keyboard/new'
+    })
+  }
+
+  return actions
+})
 </script>
 
 <template>
@@ -304,6 +329,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         </template>
         <template #right>
           <UButton
+            v-if="canManageUtilities"
             data-tour="vk-new"
             label="New Virtual Keyboard"
             color="neutral"
@@ -420,10 +446,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         icon="i-lucide-keyboard"
         title="No virtual keyboards found"
         description="Virtual keyboards provide custom character input layouts. Create one to get started."
-        :actions="[
-          { icon: 'i-lucide-plus', label: 'Create new', variant: 'solid', to: '/virtual-keyboard/new' },
-          { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refreshNuxtData(keyboardsKey) }
-        ]"
+        :actions="emptyStateActions"
       />
       <div v-else-if="keyboards">
         <UContextMenu :items="contextMenuItems as any">

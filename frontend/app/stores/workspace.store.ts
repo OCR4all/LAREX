@@ -115,6 +115,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return workspace.capabilities?.canManageTasks ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageTasks
   })
 
+  const canManageUtilities = computed(() => {
+    const workspace = currentWorkspace.value
+    if (!workspace) return false
+    return workspace.capabilities?.canManageUtilities ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageUtilities
+  })
+
   /**
    * Fetch workspaces from API
    * This also triggers personal workspace creation on the backend if needed
@@ -210,6 +216,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     canManageMembers,
     canManageProjects,
     canManageTasks,
+    canManageUtilities,
     selectWorkspace,
     selectWorkspaceAsAdmin,
     exitAdminMode,

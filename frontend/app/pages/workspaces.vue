@@ -36,14 +36,18 @@ const { data: workspaces } = await useFetch<Workspace[]>('/api/workspaces', {
 
 const workspacesSafe = computed(() => workspaces.value ?? [])
 
-type WorkspaceRow = Workspace & { role: 'OWNER' | 'ADMINISTRATOR' | 'MEMBER' }
+type WorkspaceRow = Workspace & { role: 'OWNER' | 'CURATOR' | 'EDITOR' }
+const canCreateTeamWorkspace = computed(() => {
+  const roles = user.value?.roles || []
+  return roles.includes('GLOBAL_ADMIN') || roles.includes('GLOBAL_CURATOR')
+})
 
 const rows = computed<WorkspaceRow[]>(() => {
   return workspacesSafe.value.map(ws => ({
     ...ws,
     role: ws.isPersonal || ws.ownerUserId === user.value?.id
       ? 'OWNER'
-      : (ws.capabilities?.canAdminWorkspace ? 'ADMINISTRATOR' : 'MEMBER')
+      : (ws.capabilities?.canManageMembers ? 'CURATOR' : 'EDITOR')
   }))
 })
 
@@ -110,7 +114,7 @@ const columns: TableColumn<any>[] = [
     header: 'Role',
     cell: ({ row }) => {
       const role = row.getValue('role') as string
-      const color = role === 'OWNER' ? 'primary' : role === 'ADMINISTRATOR' ? 'info' : 'neutral'
+      const color = role === 'OWNER' ? 'primary' : role === 'CURATOR' ? 'info' : 'neutral'
       return h(UBadge, { variant: 'subtle', color, size: 'sm' }, () => role)
     }
   },
@@ -223,6 +227,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
         </template>
         <template #right>
           <UButton
+            v-if="canCreateTeamWorkspace"
             label="New Workspace"
             color="primary"
             variant="solid"
@@ -312,7 +317,12 @@ async function leaveWorkspace(ws: WorkspaceRow) {
         <p class="text-gray-500 mb-6">
           Create your first workspace to get started
         </p>
-        <UButton icon="i-lucide-plus" label="Create Workspace" @click="createWorkspaceSlideover.open()" />
+        <UButton
+          v-if="canCreateTeamWorkspace"
+          icon="i-lucide-plus"
+          label="Create Workspace"
+          @click="createWorkspaceSlideover.open()"
+        />
       </div>
     </template>
   </UDashboardPanel>

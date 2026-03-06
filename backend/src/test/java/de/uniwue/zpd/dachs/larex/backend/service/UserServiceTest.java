@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.UserProvisioningMode;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditAction;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditOutcome;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserIdentitySource;
@@ -13,14 +14,20 @@ import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminUserAuditService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.RealmResource;
+import org.keycloak.admin.client.resource.RoleMappingResource;
+import org.keycloak.admin.client.resource.RoleResource;
+import org.keycloak.admin.client.resource.RoleScopeResource;
+import org.keycloak.admin.client.resource.RolesResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -63,6 +70,18 @@ class UserServiceTest {
     private UserResource userResource;
 
     @Mock
+    private RoleMappingResource roleMappingResource;
+
+    @Mock
+    private RoleScopeResource realmRoleScopeResource;
+
+    @Mock
+    private RolesResource rolesResource;
+
+    @Mock
+    private RoleResource roleResource;
+
+    @Mock
     private AdminUserAuditService adminUserAuditService;
 
     private UserService userService;
@@ -72,6 +91,10 @@ class UserServiceTest {
         userService = createUserService(UserProvisioningMode.LOCAL);
         lenient().when(keycloakAdmin.realm("larex-prod")).thenReturn(realmResource);
         lenient().when(realmResource.users()).thenReturn(usersResource);
+        lenient().when(realmResource.roles()).thenReturn(rolesResource);
+        lenient().when(userResource.roles()).thenReturn(roleMappingResource);
+        lenient().when(roleMappingResource.realmLevel()).thenReturn(realmRoleScopeResource);
+        lenient().when(rolesResource.get(anyString())).thenReturn(roleResource);
     }
 
     @Test
@@ -513,6 +536,127 @@ class UserServiceTest {
         verify(userResource, never()).executeActionsEmail(anyString(), anyString(), anyInt(), anyList());
     }
 
+    @Test
+    void getGlobalRolesForAdmin_readsEffectiveRealmRoles() {
+        UserRepresentation user = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(user);
+        when(realmRoleScopeResource.listEffective()).thenReturn(List.of(role("GLOBAL_ADMIN"), role("GLOBAL_CURATOR")));
+
+        AdminGlobalRolesDto globalRoles = userService.getGlobalRolesForAdmin("user-1");
+
+        assertTrue(globalRoles.globalAdmin());
+        assertTrue(globalRoles.globalCurator());
+    }
+
+    @Test
+    void grantGlobalCuratorForAdmin_addsRoleAndReturnsUpdatedState() {
+        UserRepresentation user = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(user, user);
+        when(realmRoleScopeResource.listEffective()).thenReturn(List.of(), List.of(role("GLOBAL_CURATOR")));
+        when(roleResource.toRepresentation()).thenReturn(role("GLOBAL_CURATOR"));
+
+        AdminGlobalRolesDto result = userService.grantGlobalCuratorForAdmin(
+                "admin-1",
+                "admin",
+                "user-1",
+                "Needed for workspace operations"
+        );
+
+        assertFalse(result.globalAdmin());
+        assertTrue(result.globalCurator());
+        verify(realmRoleScopeResource).add(anyList());
+        verify(adminUserAuditService).logEvent(
+                eq("admin-1"),
+                eq("admin"),
+                eq("user-1"),
+                eq("alice"),
+                eq(AdminUserAuditAction.GLOBAL_CURATOR_GRANT),
+                eq(AdminUserAuditOutcome.SUCCESS),
+                anyMap()
+        );
+    }
+
+    @Test
+    void grantGlobalCuratorForAdmin_isIdempotentWhenRoleAlreadyAssigned() {
+        UserRepresentation user = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(user, user);
+        when(realmRoleScopeResource.listEffective()).thenReturn(List.of(role("GLOBAL_CURATOR")), List.of(role("GLOBAL_CURATOR")));
+
+        AdminGlobalRolesDto result = userService.grantGlobalCuratorForAdmin(
+                "admin-1",
+                "admin",
+                "user-1",
+                "No-op validation"
+        );
+
+        assertTrue(result.globalCurator());
+        verify(realmRoleScopeResource, never()).add(anyList());
+    }
+
+    @Test
+    void revokeGlobalCuratorForAdmin_removesRoleAndReturnsUpdatedState() {
+        UserRepresentation user = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(user, user);
+        when(realmRoleScopeResource.listEffective()).thenReturn(List.of(role("GLOBAL_CURATOR")), List.of());
+        when(roleResource.toRepresentation()).thenReturn(role("GLOBAL_CURATOR"));
+
+        AdminGlobalRolesDto result = userService.revokeGlobalCuratorForAdmin(
+                "admin-1",
+                "admin",
+                "user-1",
+                "No longer needed"
+        );
+
+        assertFalse(result.globalCurator());
+        verify(realmRoleScopeResource).remove(anyList());
+        verify(adminUserAuditService).logEvent(
+                eq("admin-1"),
+                eq("admin"),
+                eq("user-1"),
+                eq("alice"),
+                eq(AdminUserAuditAction.GLOBAL_CURATOR_REVOKE),
+                eq(AdminUserAuditOutcome.SUCCESS),
+                anyMap()
+        );
+    }
+
+    @Test
+    void globalCuratorMutation_rejectsServiceAccounts() {
+        UserRepresentation serviceAccount = serviceAccountUser("svc-1", "service-account-foo");
+        when(usersResource.get("svc-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(serviceAccount);
+
+        AdminUserManagementException ex = assertThrows(
+                AdminUserManagementException.class,
+                () -> userService.grantGlobalCuratorForAdmin("admin-1", "admin", "svc-1", "Invalid target")
+        );
+
+        assertEquals(AdminUserErrorCode.ADMIN_USER_SERVICE_ACCOUNT_FORBIDDEN, ex.getCode());
+        verify(realmRoleScopeResource, never()).add(anyList());
+    }
+
+    @Test
+    void grantGlobalCuratorForAdmin_failsWhenRealmRoleIsMissing() {
+        UserRepresentation user = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(user, user);
+        when(realmRoleScopeResource.listEffective()).thenReturn(List.of());
+        when(roleResource.toRepresentation()).thenThrow(new NotFoundException("Role not found"));
+
+        AdminUserManagementException ex = assertThrows(
+                AdminUserManagementException.class,
+                () -> userService.grantGlobalCuratorForAdmin("admin-1", "admin", "user-1", "Needed")
+        );
+
+        assertEquals(AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED, ex.getCode());
+        assertTrue(ex.getMessage().contains("GLOBAL_CURATOR"));
+        verify(realmRoleScopeResource, never()).add(anyList());
+    }
+
     private UserService createUserService(UserProvisioningMode provisioningMode) {
         AuthProvisioningProperties properties = new AuthProvisioningProperties();
         properties.setUserProvisioningMode(provisioningMode);
@@ -555,5 +699,11 @@ class UserServiceTest {
         user.setEmailVerified(emailVerified);
         user.setRequiredActions(requiredActions);
         return user;
+    }
+
+    private RoleRepresentation role(String name) {
+        RoleRepresentation role = new RoleRepresentation();
+        role.setName(name);
+        return role;
     }
 }

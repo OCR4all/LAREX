@@ -5,6 +5,8 @@ export interface WorkspaceCapabilities {
   canEditWorkspaceTextIndexDefaults: boolean
   canManageProjects: boolean
   canManageTasks: boolean
+  canManageUtilities: boolean
+  canSetPresets: boolean
 }
 
 export interface ProjectCapabilities {
@@ -34,7 +36,9 @@ export const DEFAULT_WORKSPACE_CAPABILITIES: WorkspaceCapabilities = {
   canEditWorkspace: false,
   canEditWorkspaceTextIndexDefaults: false,
   canManageProjects: false,
-  canManageTasks: false
+  canManageTasks: false,
+  canManageUtilities: false,
+  canSetPresets: false
 }
 
 export const DEFAULT_PROJECT_CAPABILITIES: ProjectCapabilities = {

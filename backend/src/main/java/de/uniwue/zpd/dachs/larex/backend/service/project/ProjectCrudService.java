@@ -88,9 +88,7 @@ public class ProjectCrudService {
                                            String codecId, String labelSetId, String tagSetId,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                            String userId) {
-        if (!workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
-            throw new SecurityException("Cannot create project in this workspace. You may not have access to the workspace");
-        }
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
 
         Optional<Library> libraryOpt = libraryRepository.findByWorkspaceId(workspaceId);
         if (libraryOpt.isEmpty()) {
@@ -150,8 +148,8 @@ public class ProjectCrudService {
                     resolvedTextIndexDefaults.gtIndex(),
                     resolvedTextIndexDefaults.recognitionIndices()
             );
-            if (changedFromWorkspace && !userId.equals(workspace.getOwnerUserId())) {
-                throw new SecurityException("Only the workspace owner can set custom project default text indices.");
+            if (changedFromWorkspace && !workspaceAccessService.canSetPresets(workspaceId, userId)) {
+                throw new SecurityException("You do not have permission to set custom project default text indices.");
             }
         }
         project.setDefaultGtIndex(resolvedTextIndexDefaults.gtIndex());
@@ -171,6 +169,8 @@ public class ProjectCrudService {
 
         if (projectOpt.isPresent()) {
             Project project = projectOpt.get();
+            String workspaceId = project.getLibrary().getWorkspaceId();
+            workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
             if (!project.getName().equals(name) && projectRepository.existsByNameAndLibraryId(name, project.getLibrary().getId())) {
                 throw new IllegalArgumentException("Project name '" + name + "' already exists in this workspace");
             }
@@ -199,8 +199,6 @@ public class ProjectCrudService {
             project.setTagSet(tagSet);
 
             if (defaultGtIndex != null || defaultRecognitionIndices != null) {
-                String workspaceId = project.getLibrary().getWorkspaceId();
-                AbstractWorkspace workspace = workspaceQueryService.findWorkspaceById(workspaceId).orElse(null);
                 var resolvedTextIndexDefaults = TextIndexDefaultsUtil.resolve(
                         defaultGtIndex,
                         defaultRecognitionIndices,
@@ -214,8 +212,8 @@ public class ProjectCrudService {
                         resolvedTextIndexDefaults.gtIndex(),
                         resolvedTextIndexDefaults.recognitionIndices()
                 );
-                if (changedDefaults && (workspace == null || !userId.equals(workspace.getOwnerUserId()))) {
-                    throw new SecurityException("Only the workspace owner can change project default text indices.");
+                if (changedDefaults && !workspaceAccessService.canSetPresets(workspaceId, userId)) {
+                    throw new SecurityException("You do not have permission to change project default text indices.");
                 }
 
                 project.setDefaultGtIndex(resolvedTextIndexDefaults.gtIndex());
@@ -234,7 +232,7 @@ public class ProjectCrudService {
             Project project = projectOpt.get();
             String workspaceId = project.getLibrary().getWorkspaceId();
 
-            if (workspaceAccessService.isUserAdministrator(workspaceId, userId)) {
+            if (workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 String projectName = project.getName();
 
                 projectFileService.deleteProjectFiles(project);

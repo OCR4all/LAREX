@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.admin;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
@@ -125,6 +126,20 @@ public class AdminService {
 
     public List<AdminUserAuditEventDto> getUserAuditEventsForAdmin(String targetUserId, int limit) {
         return userService.getUserAuditEventsForAdmin(targetUserId, limit);
+    }
+
+    public AdminGlobalRolesDto getGlobalRolesForAdmin(String targetUserId) {
+        return userService.getGlobalRolesForAdmin(targetUserId);
+    }
+
+    @Transactional
+    public AdminGlobalRolesDto grantGlobalCuratorForAdmin(String actorUserId, String actorUsername, String targetUserId, String reason) {
+        return userService.grantGlobalCuratorForAdmin(actorUserId, actorUsername, targetUserId, reason);
+    }
+
+    @Transactional
+    public AdminGlobalRolesDto revokeGlobalCuratorForAdmin(String actorUserId, String actorUsername, String targetUserId, String reason) {
+        return userService.revokeGlobalCuratorForAdmin(actorUserId, actorUsername, targetUserId, reason);
     }
 
     private Map<String, Long> toLongMap(Collection<Object[]> rows) {

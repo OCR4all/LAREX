@@ -14,7 +14,7 @@ interface UserProfile {
 interface InvitedUser {
   userId: string
   username: string
-  role: 'ADMINISTRATOR' | 'MEMBER'
+  role: 'CURATOR' | 'EDITOR'
 }
 
 const emit = defineEmits<{ close: [boolean] }>()
@@ -44,8 +44,8 @@ const isSearching = ref(false)
 const isCreating = ref(false)
 
 const roleOptions = [
-  { label: 'Member', value: 'MEMBER' },
-  { label: 'Administrator', value: 'ADMINISTRATOR' as const }
+  { label: 'Editor', value: 'EDITOR' as const },
+  { label: 'Curator', value: 'CURATOR' as const }
 ]
 
 const debouncedSearch = useDebounceFn(async (query: string) => {
@@ -80,7 +80,7 @@ function selectUser(user: UserProfile) {
   invitedUsers.value.push({
     userId: user.id,
     username: user.username,
-    role: 'MEMBER'
+    role: 'EDITOR'
   })
 }
 
@@ -92,7 +92,7 @@ function removeUser(userId: string) {
   }
 }
 
-function updateUserRole(userId: string, role: 'ADMINISTRATOR' | 'MEMBER') {
+function updateUserRole(userId: string, role: 'CURATOR' | 'EDITOR') {
   const user = invitedUsers.value.find(u => u.userId === userId)
   if (user) {
     user.role = role
@@ -228,7 +228,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 value-key="value"
                 class="w-32"
                 size="sm"
-                @update:model-value="(val: 'ADMINISTRATOR' | 'MEMBER') => updateUserRole(user.userId, val)"
+                @update:model-value="(val: 'CURATOR' | 'EDITOR') => updateUserRole(user.userId, val)"
               />
               <UButton
                 icon="i-lucide-x"

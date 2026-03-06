@@ -8,8 +8,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectTransferRequestRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceService;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,11 +34,11 @@ public class ProjectTransferService {
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
     private final PageXmlRepository pageXmlRepository;
-    private final WorkspaceMemberRepository workspaceMemberRepository;
     private final LibraryRepository libraryRepository;
     private final WorkspaceQueryService workspaceQueryService;
     private final WorkspaceService workspaceService;
     private final ProjectStarService projectStarService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     public ProjectTransferService(
             ProjectTransferRequestRepository transferRequestRepository,
@@ -46,21 +46,21 @@ public class ProjectTransferService {
             PageRepository pageRepository,
             PageImageRepository pageImageRepository,
             PageXmlRepository pageXmlRepository,
-            WorkspaceMemberRepository workspaceMemberRepository,
             LibraryRepository libraryRepository,
             WorkspaceQueryService workspaceQueryService,
             WorkspaceService workspaceService,
-            ProjectStarService projectStarService) {
+            ProjectStarService projectStarService,
+            AuthorizationPolicyService authorizationPolicyService) {
         this.transferRequestRepository = transferRequestRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
-        this.workspaceMemberRepository = workspaceMemberRepository;
         this.libraryRepository = libraryRepository;
         this.workspaceQueryService = workspaceQueryService;
         this.workspaceService = workspaceService;
         this.projectStarService = projectStarService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     public Optional<ProjectTransferRequest> requestProjectTransfer(String projectId, String targetWorkspaceId,
@@ -374,9 +374,6 @@ public class ProjectTransferService {
     }
 
     private boolean isUserAdministratorInWorkspace(String workspaceId, String userId) {
-        Optional<WorkspaceMember> memberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, userId);
-        return memberOpt.isPresent() &&
-                memberOpt.get().getRole() == WorkspaceMember.Role.ADMINISTRATOR &&
-                memberOpt.get().getInvitationStatus() == WorkspaceMember.InvitationStatus.ACCEPTED;
+        return authorizationPolicyService.canManageProjects(workspaceId, userId);
     }
 }

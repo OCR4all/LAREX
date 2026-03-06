@@ -80,7 +80,7 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
 
         WorkspaceMember member = new WorkspaceMember(
                 userId,
-                WorkspaceMember.Role.ADMINISTRATOR,
+                WorkspaceMember.Role.CURATOR,
                 WorkspaceMember.InvitationStatus.ACCEPTED,
                 personalWorkspace.getId()
         );

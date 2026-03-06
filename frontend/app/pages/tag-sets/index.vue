@@ -23,6 +23,8 @@ if (!workspace.hasFetched) {
 }
 
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
 const tagSetsKey = computed(() => wsKey(selectedWorkspace.value, 'tag-sets', 'list'))
 
 const { data: tagSets, refresh } = await useFetch<TagSetSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/tag-sets`, {
@@ -313,6 +315,29 @@ const contextMenuItems = computed(() => {
 function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
   contextMenuTagSet.value = row.original as unknown as TagSetRow
 }
+
+const emptyStateActions = computed(() => {
+  const actions: Array<Record<string, any>> = [
+    {
+      icon: 'i-lucide-refresh-cw',
+      label: 'Refresh',
+      color: 'neutral',
+      variant: 'subtle',
+      onClick: () => refresh()
+    }
+  ]
+
+  if (canManageUtilities.value) {
+    actions.unshift({
+      icon: 'i-lucide-plus',
+      label: 'Create new',
+      variant: 'solid',
+      to: '/tag-sets/new'
+    })
+  }
+
+  return actions
+})
 </script>
 
 <template>
@@ -324,6 +349,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         </template>
         <template #right>
           <UButton
+            v-if="canManageUtilities"
             data-tour="tag-sets-new"
             label="New Tag Set"
             color="neutral"
@@ -442,10 +468,7 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
         icon="i-lucide-network"
         title="No tag sets found"
         description="Tag sets define hierarchical tag structures for categorizing projects and pages. Create one to get started."
-        :actions="[
-          { icon: 'i-lucide-plus', label: 'Create new', variant: 'solid', to: '/tag-sets/new' },
-          { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refresh() }
-        ]"
+        :actions="emptyStateActions"
       />
       <div v-else-if="tagSets">
         <UContextMenu :items="contextMenuItems as any">

@@ -15,13 +15,13 @@ const overlay = useOverlay()
 const { refreshWorkspaceMembership } = useDataRefresh()
 
 const roleOptions = [
-  { label: 'Administrator', value: 'ADMINISTRATOR' },
-  { label: 'Member', value: 'MEMBER' }
+  { label: 'Curator', value: 'CURATOR' },
+  { label: 'Editor', value: 'EDITOR' }
 ]
 
 const updatingMemberId = ref<string | null>(null)
 
-async function updateMemberRole(member: WorkspaceMember, newRole: 'ADMINISTRATOR' | 'MEMBER') {
+async function updateMemberRole(member: WorkspaceMember, newRole: 'CURATOR' | 'EDITOR') {
   if (member.role === newRole) return
 
   updatingMemberId.value = member.id
@@ -34,7 +34,7 @@ async function updateMemberRole(member: WorkspaceMember, newRole: 'ADMINISTRATOR
 
     toast.add({
       title: 'Role updated',
-      description: `${member.displayName || member.username} is now a${newRole === 'ADMINISTRATOR' ? 'n' : ''} ${ROLE_LABELS[newRole].toLowerCase()}`,
+      description: `${member.displayName || member.username} is now ${ROLE_LABELS[newRole].toLowerCase()}`,
       color: 'success'
     })
   } catch (err: any) {
@@ -163,12 +163,12 @@ function getStatusBadge(status: string) {
           :disabled="updatingMemberId === member.id || member.userId === currentUserId"
           :loading="updatingMemberId === member.id"
           class="w-32"
-          @update:model-value="(val) => updateMemberRole(member, val as 'ADMINISTRATOR' | 'MEMBER')"
+          @update:model-value="(val) => updateMemberRole(member, val as 'CURATOR' | 'EDITOR')"
         />
 
         <UBadge
           v-else-if="member.invitationStatus === 'ACCEPTED'"
-          :color="member.role === 'ADMINISTRATOR' ? 'primary' : 'neutral'"
+          :color="member.role === 'CURATOR' || member.role === 'ADMINISTRATOR' ? 'primary' : 'neutral'"
           variant="solid"
           size="sm"
         >

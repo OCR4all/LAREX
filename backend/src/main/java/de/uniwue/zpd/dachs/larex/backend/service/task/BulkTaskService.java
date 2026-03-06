@@ -221,14 +221,14 @@ public class BulkTaskService {
     }
 
     private void verifyWorkspaceAccess(String workspaceId, String userId) {
-        if (!workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        if (!workspaceAccessService.canManageTasks(workspaceId, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required for this operation");
         }
     }
 
     private void verifyWorkspaceAdmin(String workspaceId, String userId) {
-        if (!workspaceAccessService.isUserAdministrator(workspaceId, userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required for this operation");
+        if (!workspaceAccessService.canManageTasks(workspaceId, userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Task management access required for this operation");
         }
     }
 

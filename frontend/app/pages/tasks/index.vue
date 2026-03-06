@@ -80,10 +80,9 @@ const { data: members } = await useFetch<WorkspaceMember[]>(
   }
 )
 
-const currentUserMember = computed(() => members.value.find(m => m.userId === currentUserId.value))
-const isAdmin = computed(() => currentUserMember.value?.role === 'ADMINISTRATOR' && currentUserMember.value?.invitationStatus === 'ACCEPTED')
+const canManageTasks = computed(() => allow(workspaceCapabilities.value.canManageTasks))
 const acceptedMembers = computed(() => members.value.filter(m => m.invitationStatus === 'ACCEPTED'))
-const canCreateTasks = computed(() => allow(workspaceCapabilities.value.canManageTasks))
+const canCreateTasks = computed(() => canManageTasks.value)
 
 const selectedTaskIds = ref<Set<string>>(new Set())
 const selectedTasks = computed(() =>
@@ -313,16 +312,22 @@ function handleRowContextMenu(_event: Event, row: any) {
 const columns: TableColumn<Task>[] = [
   {
     id: 'select',
-    header: () => h(UCheckbox, {
-      modelValue: allSelected.value,
-      indeterminate: someSelected.value,
-      'onUpdate:modelValue': () => toggleSelectAll()
-    }),
-    cell: ({ row }) => h(UCheckbox, {
-      modelValue: isTaskSelected(row.original.id),
-      'onUpdate:modelValue': () => toggleTaskSelection(row.original.id),
-      onClick: (e: Event) => e.stopPropagation()
-    })
+    header: () => {
+      if (!canManageTasks.value) return null
+      return h(UCheckbox, {
+        'modelValue': allSelected.value,
+        'indeterminate': someSelected.value,
+        'onUpdate:modelValue': () => toggleSelectAll()
+      })
+    },
+    cell: ({ row }) => {
+      if (!canManageTasks.value) return null
+      return h(UCheckbox, {
+        'modelValue': isTaskSelected(row.original.id),
+        'onUpdate:modelValue': () => toggleTaskSelection(row.original.id),
+        'onClick': (e: Event) => e.stopPropagation()
+      })
+    }
   },
   {
     accessorKey: 'title',
@@ -382,7 +387,7 @@ function openCreate() {
   if (!selectedWorkspace.value) return
   createTaskSlideover.open({
     workspaceId: selectedWorkspace.value,
-    isAdmin: isAdmin.value,
+    isAdmin: canManageTasks.value,
     currentUserId: currentUserId.value
   })
 }
@@ -411,12 +416,12 @@ const viewModeItems = [
         </template>
         <template #right>
           <UButton
+            v-if="selectedWorkspace && canCreateTasks"
             data-tour="tasks-new"
             label="New Task"
             color="neutral"
             variant="outline"
             icon="i-lucide-clipboard-plus"
-            :disabled="!selectedWorkspace || !canCreateTasks"
             @click="openCreate"
           />
         </template>
