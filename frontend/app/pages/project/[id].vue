@@ -103,6 +103,61 @@ const { data: project, error: projectError, pending: projectPending, refresh: re
   key: projectKey,
   watch: [selectedWorkspace]
 })
+
+function getErrorStatusCode(error: unknown): number | null {
+  const candidate = error as {
+    statusCode?: number | string
+    status?: number | string
+    data?: { statusCode?: number | string, status?: number | string }
+    response?: { status?: number | string, _data?: { statusCode?: number | string, status?: number | string } }
+  } | null
+
+  const values = [
+    candidate?.statusCode,
+    candidate?.status,
+    candidate?.data?.statusCode,
+    candidate?.data?.status,
+    candidate?.response?.status,
+    candidate?.response?._data?.statusCode,
+    candidate?.response?._data?.status
+  ]
+
+  for (const value of values) {
+    if (value == null) continue
+    const parsed = Number(value)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed
+    }
+  }
+
+  return null
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  const candidate = error as {
+    message?: unknown
+    data?: { message?: unknown }
+    response?: { _data?: { message?: unknown } }
+  } | null
+
+  const values = [
+    candidate?.data?.message,
+    candidate?.response?._data?.message,
+    candidate?.message
+  ]
+
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value
+    }
+  }
+
+  return fallback
+}
+
+const projectErrorStatusCode = computed(() => getErrorStatusCode(projectError.value))
+const isProjectNotFound = computed(() => projectErrorStatusCode.value === 404)
+const projectLoadErrorMessage = computed(() => getErrorMessage(projectError.value, 'Failed to load project.'))
 const projectCapabilities = useResourceCapabilities(project, 'project')
 
 const { data: pages, error: pagesError, pending: pagesPending } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
@@ -891,6 +946,27 @@ const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 
 const router = useRouter()
 const isDeletingProject = ref(false)
+
+async function goToLibrary() {
+  await router.push('/')
+}
+
+const projectNotFoundActions = computed(() => [
+  {
+    icon: 'i-lucide-arrow-left',
+    label: 'Back to library',
+    color: 'neutral' as const,
+    variant: 'solid' as const,
+    onClick: goToLibrary
+  },
+  {
+    icon: 'i-lucide-refresh-cw',
+    label: 'Try again',
+    color: 'neutral' as const,
+    variant: 'ghost' as const,
+    onClick: refreshProject
+  }
+])
 
 async function handleDeleteProject() {
   if (!allow(projectCapabilities.value.canDelete)) return
@@ -1832,14 +1908,24 @@ useHead({
 
     <template #body>
       <div v-if="projectError" class="mb-4">
-        <UCard class="border-red-200 dark:border-red-800">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-alert-circle" class="text-red-500" />
-            <p class="text-sm text-red-600 dark:text-red-400">
-              <strong>Error loading project:</strong> {{ projectError.message || projectError }}
-            </p>
-          </div>
-        </UCard>
+        <UEmpty
+          v-if="isProjectNotFound"
+          variant="naked"
+          class="py-4"
+          :actions="projectNotFoundActions"
+          icon="i-lucide-folder-x"
+          title="Project not found"
+          description="This project may have been deleted before you opened this link, or you no longer have access to it."
+        />
+
+        <UAlert
+          v-else
+          color="error"
+          variant="subtle"
+          icon="i-lucide-alert-circle"
+          title="Error loading project"
+          :description="projectLoadErrorMessage"
+        />
       </div>
 
       <div v-else-if="projectPending" class="flex items-center justify-center py-8">
