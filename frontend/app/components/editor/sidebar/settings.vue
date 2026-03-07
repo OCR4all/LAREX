@@ -18,6 +18,9 @@ const toast = useToast()
 const dialogs = useOverlayDialogs()
 
 const colorPickerOpen = ref(false)
+const BACKGROUND_SAVE_DEBOUNCE_MS = 450
+let backgroundSaveTimer: ReturnType<typeof setTimeout> | null = null
+let backgroundSavePending = false
 
 const lineWidthOptions = [
   { label: 'Thin', value: 'thin' },
@@ -191,13 +194,13 @@ function toggleSetting(toggleFn: () => void) {
 }
 
 function onColorChange(color: string) {
-  editorUiStore.setBackgroundColor(color)
-  showSavedToast()
+  editorUiStore.setBackgroundColor(color, { persist: false })
+  queueBackgroundSave()
 }
 
 function onOpacityChange(opacity: number) {
-  editorUiStore.setBackgroundOpacity(opacity)
-  showSavedToast()
+  editorUiStore.setBackgroundOpacity(opacity, { persist: false })
+  queueBackgroundSave()
 }
 
 function onLineWidthChange(value: string) {
@@ -206,6 +209,39 @@ function onLineWidthChange(value: string) {
   editorUiStore.setDefaultLineWidth(value as LineWidthPreset)
   showSavedToast()
 }
+
+function clearBackgroundSaveTimer() {
+  if (!backgroundSaveTimer) return
+  clearTimeout(backgroundSaveTimer)
+  backgroundSaveTimer = null
+}
+
+async function persistBackgroundSettings() {
+  if (!backgroundSavePending) return
+  backgroundSavePending = false
+  const saved = await editorUiStore.saveBackgroundAppearance()
+  if (saved) showSavedToast()
+}
+
+function queueBackgroundSave() {
+  backgroundSavePending = true
+  clearBackgroundSaveTimer()
+  backgroundSaveTimer = setTimeout(() => {
+    backgroundSaveTimer = null
+    void persistBackgroundSettings()
+  }, BACKGROUND_SAVE_DEBOUNCE_MS)
+}
+
+watch(colorPickerOpen, (isOpen, wasOpen) => {
+  if (!wasOpen || isOpen) return
+  clearBackgroundSaveTimer()
+  void persistBackgroundSettings()
+})
+
+onBeforeUnmount(() => {
+  clearBackgroundSaveTimer()
+  void persistBackgroundSettings()
+})
 </script>
 
 <template>

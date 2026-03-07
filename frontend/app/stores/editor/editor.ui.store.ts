@@ -250,14 +250,27 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     editorPreferences.updatePreference('rightWidthPx', width)
   }
 
-  function setBackgroundColor(color: string) {
+  type BackgroundPreferenceUpdateOptions = {
+    persist?: boolean
+  }
+
+  function setBackgroundColor(color: string, options: BackgroundPreferenceUpdateOptions = {}) {
     backgroundColor.value = color
+    if (options.persist === false) return
     editorPreferences.updatePreference('backgroundColor', color)
   }
 
-  function setBackgroundOpacity(opacity: number) {
+  function setBackgroundOpacity(opacity: number, options: BackgroundPreferenceUpdateOptions = {}) {
     backgroundOpacity.value = opacity
+    if (options.persist === false) return
     editorPreferences.updatePreference('backgroundOpacity', opacity)
+  }
+
+  async function saveBackgroundAppearance() {
+    return editorPreferences.savePreferences({
+      backgroundColor: backgroundColor.value,
+      backgroundOpacity: backgroundOpacity.value
+    })
   }
 
   function setTemporaryHoverPolygonId(id: string | null) {
@@ -435,6 +448,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setRightWidth,
     setBackgroundColor,
     setBackgroundOpacity,
+    saveBackgroundAppearance,
     setTemporaryHoverPolygonId,
     setTemporaryHoverPolylineId,
     setTextViewFontSize,
