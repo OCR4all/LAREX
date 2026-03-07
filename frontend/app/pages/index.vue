@@ -601,15 +601,10 @@ async function openEditProjectSlideover(project: LibraryProject) {
   if (!allow(capabilities.canEdit)) return
 
   const instance = editSlideover.open({ project: project as any })
-  const result = await instance.result
-  if (result === false) return
+  const updated = await instance.result
+  if (!updated) return
 
   await refreshNuxtData(libraryKey.value)
-  toast.add({
-    title: 'Data refreshed',
-    description: 'Project list has been updated',
-    color: 'success'
-  })
 }
 
 async function openShareSlideover(project: LibraryProject) {
@@ -623,7 +618,9 @@ async function openShareSlideover(project: LibraryProject) {
     currentWorkspaceId: selectedWorkspace.value ?? ''
   })
 
-  await instance.result
+  const transferred = await instance.result
+  if (!transferred) return
+
   await refreshNuxtData(libraryKey.value)
 }
 

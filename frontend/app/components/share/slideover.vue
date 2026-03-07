@@ -15,7 +15,7 @@ const props = defineProps<{
   currentWorkspaceId: string
 }>()
 
-const emit = defineEmits<{ close: [], transferred: [] }>()
+const emit = defineEmits<{ close: [transferred: boolean], transferred: [] }>()
 
 const toast = useToast()
 const { refreshUserTransfers, refreshWorkspaceTransfers } = useDataRefresh()
@@ -64,7 +64,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     ])
     toast.add({ title: event.data.transferType === 'MOVE' ? 'Transfer Requested' : 'Copy Requested', color: 'success', icon: 'i-lucide-check' })
     emit('transferred')
-    emit('close')
+    emit('close', true)
   } catch {
     toast.add({ title: 'Request Failed', color: 'error' })
   } finally {
@@ -79,7 +79,10 @@ const transferTypeOptions = [
 </script>
 
 <template>
-  <USlideover :close="{ onClick: () => emit('close') }" :description="`Share ${resourceName}`">
+  <USlideover
+    :description="`Share ${resourceName}`"
+    @close="emit('close', false)"
+  >
     <template #body>
       <UForm
         :schema="schema"

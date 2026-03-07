@@ -73,7 +73,6 @@ async function openEditQuotaSlideover(quota: AdminQuotaRow) {
 
   const instance = editSlideover.open(payload)
   await instance.result
-  await refreshAdminQuotas()
 }
 
 const workspaceNameById = computed<Record<string, string>>(() => {

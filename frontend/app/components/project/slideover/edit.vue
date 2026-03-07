@@ -22,7 +22,7 @@ type WorkspaceDefaults = {
 }
 
 const props = defineProps<{ project: Project }>()
-const emit = defineEmits<{ close: [boolean], updated: [project: Project] }>()
+const emit = defineEmits<{ close: [updated: boolean], updated: [project: Project] }>()
 
 const workspace = useWorkspaceStore()
 const toast = useToast()
@@ -167,7 +167,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     await refreshProjectCaches(workspace.selectedWorkspaceId, props.project.id)
     toast.add({ title: 'Project Updated', color: 'success', icon: 'i-lucide-check' })
     emit('updated', response)
-    emit('close')
+    emit('close', true)
   } catch (error: any) {
     toast.add({ title: 'Update Failed', description: error.data?.message || error.message || 'Failed to update project', color: 'error' })
   } finally {
@@ -179,7 +179,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 <template>
   <USlideover
     title="Edit Project"
-    :close="{ onClick: () => emit('close', false) }"
+    @close="emit('close', false)"
   >
     <template #body>
       <UForm
@@ -275,7 +275,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 </div>
               </UFormField>
               <UFormField label="Default Recognition Indices" name="defaultRecognitionIndicesInput" hint="Recognition indices used in the text editor (multiple allowed).">
-                <div class="space-y-2">
+                <div class="flex items-center gap-3">
                   <UInputTags
                     v-model="state.defaultRecognitionIndicesInput"
                     placeholder="Add indices (e.g. 1, 2)"
@@ -283,7 +283,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                   />
                   <UCheckbox
                     v-model="state.defaultRecognitionIndicesUndefined"
-                    label="Include Undefined"
+                    label="Undefined"
                     :disabled="isSubmitting || !canEditTextIndexDefaults"
                   />
                 </div>

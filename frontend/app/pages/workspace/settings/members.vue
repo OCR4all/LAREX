@@ -5,7 +5,6 @@ import { LazyWorkspaceSlideoverInviteMember } from '#components'
 
 const workspace = useWorkspaceStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
-const { refreshWorkspaceMembership } = useDataRefresh()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const { allow } = useActionVisibility()
 const { user } = useUserSession()
@@ -54,10 +53,7 @@ const inviteSlideover = overlay.create(LazyWorkspaceSlideoverInviteMember)
 async function openInviteModal() {
   if (!selectedWorkspace.value) return
   const instance = inviteSlideover.open({ workspaceId: selectedWorkspace.value })
-  const invited = await instance.result
-  if (invited) {
-    await refreshWorkspaceMembership(selectedWorkspace.value)
-  }
+  await instance.result
 }
 </script>
 
