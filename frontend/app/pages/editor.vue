@@ -1498,11 +1498,52 @@ function collectRegionCounts(regions: Region[] | undefined) {
   return counts
 }
 
+function collectRegionCountsFromPolygons(polygons: RenderablePolygon[] | undefined) {
+  const counts = {
+    totalRegions: 0,
+    textRegions: 0,
+    imageRegions: 0,
+    lineDrawings: 0,
+    tableRegions: 0,
+    otherRegions: 0
+  }
+
+  if (!polygons) return counts
+
+  for (const polygon of polygons) {
+    if (polygon.type !== PolygonType.REGION && polygon.type !== 'region') continue
+    counts.totalRegions += 1
+
+    switch (polygon.regionKind) {
+      case 'TextRegion':
+        counts.textRegions += 1
+        break
+      case 'ImageRegion':
+        counts.imageRegions += 1
+        break
+      case 'LineDrawingRegion':
+        counts.lineDrawings += 1
+        break
+      case 'TableRegion':
+        counts.tableRegions += 1
+        break
+      default:
+        counts.otherRegions += 1
+        break
+    }
+  }
+
+  return counts
+}
+
 const activePageSummary = computed<StatusPageSummary | null>(() => {
   const page = activePage.value
   if (!page) return null
 
-  const counts = collectRegionCounts(page.regions)
+  const hasSyncedPolygons = Array.isArray(activeControls.value?.polygons)
+  const counts = hasSyncedPolygons
+    ? collectRegionCountsFromPolygons(activePolygons.value)
+    : collectRegionCounts(page.regions)
   const pageId = activePageId.value ?? null
   const activeProjectId = currentProjectId.value ?? undefined
   const pageData = pageId ? editorStore.getPage(pageId, activeProjectId) : undefined
