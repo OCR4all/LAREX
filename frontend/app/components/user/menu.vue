@@ -31,11 +31,18 @@ const hasAdminRole = computed(() => {
   return user.value?.roles?.includes('GLOBAL_ADMIN') || false
 })
 
+const hasCuratorRole = computed(() => {
+  return user.value?.roles?.includes('GLOBAL_CURATOR') || false
+})
+
 const displayRole = computed(() => {
   if (hasAdminRole.value) {
     return 'Global Administrator'
   }
-  return null
+  if (hasCuratorRole.value) {
+    return 'Curator'
+  }
+  return 'User'
 })
 
 const items = computed<DropdownMenuItem[][]>(() => {

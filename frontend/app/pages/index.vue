@@ -677,7 +677,7 @@ function getRowItems(row: Row<LibraryProject>) {
   }
 
   if (mutationActions.length > 0) {
-    groups.push([{ type: 'separator' }, ...mutationActions])
+    groups.push(mutationActions)
   }
 
   return compactGroups(groups)
