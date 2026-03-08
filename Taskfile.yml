@@ -7,11 +7,14 @@ vars:
     sh: cat VERSION
   DOCKER_REGISTRY: ghcr.io/your-org/larex
   COMPOSE_FILE: compose.yaml
+  COMPOSE_DEV_DOCS_FILE: compose.dev.docs.yaml
   COMPOSE_PROD_BASE_FILE: compose.prod.base.yaml
   COMPOSE_PROD_AUTH_BUNDLED_FILE: compose.prod.auth.bundled-keycloak.yaml
   COMPOSE_PROD_AUTH_EXTERNAL_FILE: compose.prod.auth.external-keycloak.yaml
   COMPOSE_PROD_PUBLISH_FILE: compose.prod.publish.localhost.yaml
   COMPOSE_PROD_LOCAL_FILE: compose.prod.local.yaml
+  COMPOSE_PROD_LOCAL_DOCS_FILE: compose.prod.local.docs.yaml
+  COMPOSE_PROD_DOCS_FILE: compose.prod.docs.yaml
   COMPOSE_PROD_NGINX_FILE: compose.prod.nginx.yaml
 
 includes:
@@ -74,10 +77,20 @@ tasks:
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} up -d --build
 
+  docker:up:docs:
+    desc: Start local dev stack with self-hosted docs
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} -f {{.COMPOSE_DEV_DOCS_FILE}} up -d
+
   docker:down:
     desc: Stop all services
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} down
+
+  docker:down:docs:
+    desc: Stop local dev stack with docs override
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} -f {{.COMPOSE_DEV_DOCS_FILE}} down
 
   docker:down:clean:
     desc: Stop all services and remove volumes
@@ -104,6 +117,11 @@ tasks:
     cmds:
       - docker compose -f {{.COMPOSE_FILE}} logs -f frontend
 
+  docker:logs:docs:
+    desc: View docs logs in local dev stack
+    cmds:
+      - docker compose -f {{.COMPOSE_FILE}} -f {{.COMPOSE_DEV_DOCS_FILE}} logs -f docs
+
   docker:ps:
     desc: Show running containers
     cmds:
@@ -118,30 +136,60 @@ tasks:
     cmds:
       - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} up -d
 
+  docker:prod:up:docs:
+    desc: Start opinionated production services with self-hosted docs
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} up -d
+
   docker:prod:down:
     desc: Stop opinionated production services
     cmds:
       - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} down
+
+  docker:prod:down:docs:
+    desc: Stop opinionated production services with docs override
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} down
 
   docker:prod:logs:
     desc: View logs for opinionated production services
     cmds:
       - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} logs -f
 
+  docker:prod:logs:docs:
+    desc: View logs for opinionated production services with docs
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} logs -f docs
+
   docker:prod:local:up:
     desc: Start production-like local stack (Traefik + local hostnames + Mailpit)
     cmds:
       - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} up -d
+
+  docker:prod:local:up:docs:
+    desc: Start production-like local stack with self-hosted docs
+    cmds:
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} up -d
 
   docker:prod:local:down:
     desc: Stop production-like local stack
     cmds:
       - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} down
 
+  docker:prod:local:down:docs:
+    desc: Stop production-like local stack with docs override
+    cmds:
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} down
+
   docker:prod:local:logs:
     desc: View logs for production-like local stack
     cmds:
       - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} logs -f
+
+  docker:prod:local:logs:docs:
+    desc: View logs for production-like local stack with docs
+    cmds:
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} logs -f docs
 
   docker:prod:external-keycloak:up:
     desc: Start opinionated production services with external Keycloak

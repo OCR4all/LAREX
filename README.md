@@ -23,6 +23,12 @@ Production supports two small overrides:
 - External Keycloak: replace `compose.prod.auth.bundled-keycloak.yaml` with `compose.prod.auth.external-keycloak.yaml`
 - Bundled Nginx: add `-f compose.prod.nginx.yaml`
 
+Docs self-hosting is also available as optional overrides:
+
+- Local dev: add `-f compose.dev.docs.yaml` (served on `http://docs.localhost`)
+- Local production-like: add `-f compose.prod.local.docs.yaml` (served on `http://docs.localhost`)
+- Opinionated production: add `-f compose.prod.docs.yaml` (published on `127.0.0.1:3001` by default)
+
 ## Quick Start
 
 ### Local dev
@@ -31,6 +37,9 @@ Production supports two small overrides:
 git clone <repository-url>
 cd larex
 docker compose up -d
+
+# with self-hosted docs
+docker compose -f compose.yaml -f compose.dev.docs.yaml up -d
 ```
 
 Local dev routes through Traefik:
@@ -39,6 +48,7 @@ Local dev routes through Traefik:
 - API: `http://api.localhost`
 - Keycloak: `http://keycloak.localhost`
 - Mailpit: `http://mail.localhost`
+- Docs: `http://docs.localhost` (with `compose.dev.docs.yaml`)
 
 ### Local production-like
 
@@ -48,6 +58,14 @@ docker compose --env-file .env.prod.local \
   -f compose.prod.base.yaml \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.local.yaml \
+  up -d
+
+# with self-hosted docs
+docker compose --env-file .env.prod.local \
+  -f compose.prod.base.yaml \
+  -f compose.prod.auth.bundled-keycloak.yaml \
+  -f compose.prod.local.yaml \
+  -f compose.prod.local.docs.yaml \
   up -d
 ```
 
@@ -60,6 +78,14 @@ docker compose --env-file .env.prod \
   -f compose.prod.auth.bundled-keycloak.yaml \
   -f compose.prod.publish.localhost.yaml \
   up -d
+
+# with self-hosted docs
+docker compose --env-file .env.prod \
+  -f compose.prod.base.yaml \
+  -f compose.prod.auth.bundled-keycloak.yaml \
+  -f compose.prod.publish.localhost.yaml \
+  -f compose.prod.docs.yaml \
+  up -d
 ```
 
 The production default binds frontend to `127.0.0.1:3000` and bundled Keycloak to `127.0.0.1:8090`. Put your own Nginx, Caddy, Apache, or similar reverse proxy in front.
@@ -71,8 +97,11 @@ Optional helper commands are available through [Task](https://taskfile.dev):
 ```bash
 task --list
 task docker:up
+task docker:up:docs
 task docker:prod:up
+task docker:prod:up:docs
 task docker:prod:local:up
+task docker:prod:local:up:docs
 ```
 
 ## Documentation

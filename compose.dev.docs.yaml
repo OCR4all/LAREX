@@ -1,0 +1,13 @@
+services:
+  docs:
+    build:
+      context: docs
+      dockerfile: Dockerfile
+    volumes:
+      - ./docs:/app
+      - /app/node_modules
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.docs.rule=Host(`docs.localhost`)"
+      - "traefik.http.routers.docs.entrypoints=web"
+      - "traefik.http.services.docs.loadbalancer.server.port=3000"

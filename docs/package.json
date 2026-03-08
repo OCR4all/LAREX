@@ -3,8 +3,8 @@
   "scripts": {
     "dev": "nuxt dev --extends docus",
     "build": "nuxt build --extends docus",
-    "deploy": "pnpm run build && wrangler deploy",
-    "preview": "pnpm run build && wrangler dev"
+    "start": "node .output/server/index.mjs",
+    "preview": "pnpm run build && pnpm run start"
   },
   "dependencies": {
     "@nuxt/a11y": "1.0.0-alpha.1",
@@ -32,9 +32,5 @@
       "unrs-resolver",
       "vue-demi"
     ]
-  },
-  "devDependencies": {
-    "nitro-cloudflare-dev": "^0.2.2",
-    "wrangler": "^4.69.0"
   }
 }
