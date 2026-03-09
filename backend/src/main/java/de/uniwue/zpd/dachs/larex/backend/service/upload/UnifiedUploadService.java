@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ public class UnifiedUploadService {
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final WorkspaceAccessService workspaceAccessService;
+    private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
 
     public UnifiedUploadService(ProjectRepository projectRepository,
                                PageRepository pageRepository,
@@ -47,7 +49,8 @@ public class UnifiedUploadService {
                                UploadConflictService uploadConflictService,
                                PageFilterIndexService pageFilterIndexService,
                                HierarchicalFileStorageService hierarchicalFileStorageService,
-                               WorkspaceAccessService workspaceAccessService) {
+                               WorkspaceAccessService workspaceAccessService,
+                               PageXmlCanonicalizationService pageXmlCanonicalizationService) {
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -56,6 +59,7 @@ public class UnifiedUploadService {
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.workspaceAccessService = workspaceAccessService;
+        this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
     }
 
     public UploadConflictDto.UploadResponse processUpload(String projectId, List<MultipartFile> filesList, String userId) {
@@ -194,7 +198,8 @@ public class UnifiedUploadService {
                             baseName,
                             XmlSchema.PAGE_XML, null, page
                     );
-                    pageXmlRepository.save(pageXml);
+                    pageXml = pageXmlRepository.save(pageXml);
+                    pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdByUserId, "unified upload");
 
                     // Index the page content for filtering
                     try {
@@ -442,7 +447,8 @@ public class UnifiedUploadService {
                             xmlBaseName,
                             XmlSchema.PAGE_XML, null, page
                     );
-                    pageXmlRepository.save(pageXml);
+                    pageXml = pageXmlRepository.save(pageXml);
+                    pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, userId, "dataset import");
 
                     // Index the page content for filtering
                     try {

@@ -8,16 +8,19 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlRawEditService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -50,19 +53,22 @@ public class PageController {
     private final PageIndexStatusReadService pageIndexStatusReadService;
     private final TagLookupService tagLookupService;
     private final PageXmlRawEditService pageXmlRawEditService;
+    private final PageXmlConversionService pageXmlConversionService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
     public PageController(PageService pageService, SubtaskService subtaskService, PageFilterIndexService pageFilterIndexService,
                           PageIndexStatusReadService pageIndexStatusReadService, TagLookupService tagLookupService,
-                          PageXmlRawEditService pageXmlRawEditService) {
+                          PageXmlRawEditService pageXmlRawEditService,
+                          PageXmlConversionService pageXmlConversionService) {
         this.pageService = pageService;
         this.subtaskService = subtaskService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.pageIndexStatusReadService = pageIndexStatusReadService;
         this.tagLookupService = tagLookupService;
         this.pageXmlRawEditService = pageXmlRawEditService;
+        this.pageXmlConversionService = pageXmlConversionService;
     }
 
     @GetMapping
@@ -645,18 +651,19 @@ public class PageController {
             @PathVariable String projectId,
             @PathVariable String xmlId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return streamXml(xmlId, userId, false);
+        return streamXml(xmlId, userId, false, null);
     }
 
     @GetMapping("/xml/{xmlId}/export")
     public ResponseEntity<Resource> exportXml(
             @PathVariable String projectId,
             @PathVariable String xmlId,
+            @RequestParam(required = false) String targetPageXmlVersion,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return streamXml(xmlId, userId, true);
+        return streamXml(xmlId, userId, true, targetPageXmlVersion);
     }
 
-    private ResponseEntity<Resource> streamXml(String xmlId, String userId, boolean asAttachment) {
+    private ResponseEntity<Resource> streamXml(String xmlId, String userId, boolean asAttachment, String targetPageXmlVersion) {
         try {
             PageXml xml = pageService.getXmlById(xmlId, userId);
             if (xml == null) {
@@ -676,7 +683,6 @@ public class PageController {
             }
 
             headers.setContentType(contentType);
-            headers.setContentLength(resource.contentLength());
             if (asAttachment) {
                 headers.setContentDisposition(ContentDisposition.attachment()
                         .filename(sanitizeFileName(xml.getFileName(), "document.xml"))
@@ -687,9 +693,22 @@ public class PageController {
                         .build());
             }
 
+            if (asAttachment && xml.getSchema() == XmlSchema.PAGE_XML) {
+                String normalizedTarget = pageXmlConversionService.normalizeTargetVersion(targetPageXmlVersion);
+                byte[] convertedBytes = pageXmlConversionService.convertFileToVersion(filePath, normalizedTarget);
+                ByteArrayResource converted = new ByteArrayResource(convertedBytes);
+                headers.setContentLength(convertedBytes.length);
+                return ResponseEntity.ok()
+                        .headers(headers)
+                        .body(converted);
+            }
+
+            headers.setContentLength(resource.contentLength());
             return ResponseEntity.ok()
                     .headers(headers)
                     .body(resource);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

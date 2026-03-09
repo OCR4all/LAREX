@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,6 +40,7 @@ public class UploadConflictService {
     private final UploadSessionFileRepository uploadSessionFileRepository;
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final Map<String, PendingConflict> pendingConflicts = new HashMap<>();
 
     public UploadConflictService(PageRepository pageRepository,
@@ -46,13 +48,15 @@ public class UploadConflictService {
                                   PageXmlRepository pageXmlRepository,
                                   UploadSessionFileRepository uploadSessionFileRepository,
                                   PageFilterIndexService pageFilterIndexService,
-                                  HierarchicalFileStorageService hierarchicalFileStorageService) {
+                                  HierarchicalFileStorageService hierarchicalFileStorageService,
+                                  PageXmlCanonicalizationService pageXmlCanonicalizationService) {
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.uploadSessionFileRepository = uploadSessionFileRepository;
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
     }
 
     public List<UploadConflictDto.ConflictResponse> checkForConflicts(Page existingPage, List<MultipartFile> newFiles) {
@@ -326,7 +330,8 @@ public class UploadConflictService {
                             baseName,
                             XmlSchema.PAGE_XML, null, page
                     );
-                    pageXmlRepository.save(pageXml);
+                    pageXml = pageXmlRepository.save(pageXml);
+                    pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdBy, "upload conflict replacement");
 
                     // Index the page content for filtering
                     try {
@@ -428,7 +433,8 @@ public class UploadConflictService {
                     baseName,
                     XmlSchema.PAGE_XML, null, page
             );
-            pageXmlRepository.save(pageXml);
+            pageXml = pageXmlRepository.save(pageXml);
+            pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, userId, "upload conflict replacement");
 
             // Index the page content for filtering
             try {

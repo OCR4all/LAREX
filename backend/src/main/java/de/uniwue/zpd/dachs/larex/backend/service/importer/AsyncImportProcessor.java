@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationServic
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,6 +42,7 @@ public class AsyncImportProcessor {
     private final StorageTrackingService storageTrackingService;
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
 
     @Value("${larex.import.max-scan-depth:10}")
     private int maxScanDepth;
@@ -56,7 +58,8 @@ public class AsyncImportProcessor {
                                 NotificationService notificationService,
                                 StorageTrackingService storageTrackingService,
                                 PageFilterIndexService pageFilterIndexService,
-                                HierarchicalFileStorageService hierarchicalFileStorageService) {
+                                HierarchicalFileStorageService hierarchicalFileStorageService,
+                                PageXmlCanonicalizationService pageXmlCanonicalizationService) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -66,6 +69,7 @@ public class AsyncImportProcessor {
         this.storageTrackingService = storageTrackingService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
     }
 
     @Async("importTaskExecutor")
@@ -322,7 +326,8 @@ public class AsyncImportProcessor {
                         xmlBaseName,
                         XmlSchema.PAGE_XML, null, page
                 );
-                pageXmlRepository.save(pageXml);
+                pageXml = pageXmlRepository.save(pageXml);
+                pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdByUserId, "server import");
 
                 // Index the page content for filtering
                 try {

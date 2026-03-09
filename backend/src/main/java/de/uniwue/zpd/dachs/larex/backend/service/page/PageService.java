@@ -17,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorage
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,6 +50,7 @@ public class PageService {
     private final ThumbnailService thumbnailService;
     private final PageXmlVersionService pageXmlVersionService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
 
     public PageService(
             PageRepository pageRepository,
@@ -60,7 +62,8 @@ public class PageService {
             WorkspaceAccessService workspaceAccessService,
             ThumbnailService thumbnailService,
             PageXmlVersionService pageXmlVersionService,
-            HierarchicalFileStorageService hierarchicalFileStorageService) {
+            HierarchicalFileStorageService hierarchicalFileStorageService,
+            PageXmlCanonicalizationService pageXmlCanonicalizationService) {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -72,6 +75,7 @@ public class PageService {
         this.thumbnailService = thumbnailService;
         this.pageXmlVersionService = pageXmlVersionService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
     }
 
     public List<Page> getProjectPages(String projectId, String userId) {
@@ -299,7 +303,8 @@ public class PageService {
                     baseName,
                     XmlSchema.PAGE_XML, null, page
             );
-            pageXmlRepository.save(pageXml);
+            pageXml = pageXmlRepository.save(pageXml);
+            pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, userId, "direct XML upload");
 
             return true;
         }

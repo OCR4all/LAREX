@@ -15,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexSe
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
@@ -50,6 +51,7 @@ public class AsyncUploadProcessor {
     private final StorageTrackingService storageTrackingService;
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
 
@@ -69,6 +71,7 @@ public class AsyncUploadProcessor {
                                 StorageTrackingService storageTrackingService,
                                 PageFilterIndexService pageFilterIndexService,
                                 HierarchicalFileStorageService hierarchicalFileStorageService,
+                                PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                 ApplicationEventPublisher applicationEventPublisher,
                                 UploadSessionEventBroadcaster uploadSessionEventBroadcaster) {
         this.sessionRepository = sessionRepository;
@@ -81,6 +84,7 @@ public class AsyncUploadProcessor {
         this.storageTrackingService = storageTrackingService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.applicationEventPublisher = applicationEventPublisher;
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
     }
@@ -397,7 +401,8 @@ public class AsyncUploadProcessor {
                 baseName,
                 XmlSchema.PAGE_XML, null, page
         );
-        pageXmlRepository.save(pageXml);
+        pageXml = pageXmlRepository.save(pageXml);
+        pageXmlCanonicalizationService.canonicalizeAtIngest(pageXml, createdByUserId, "async chunked upload");
 
         // Clear stale filter index rows; background indexing will rebuild after commit.
         pageFilterIndexService.clearPageIndex(page.getId());

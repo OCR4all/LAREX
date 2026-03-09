@@ -12,8 +12,12 @@ public class ProjectPackageDto {
     public static final String DEFAULT_SCHEMA_VERSION = "1.0";
 
     public record ExportRequest(
-            List<String> pageIds
+            List<String> pageIds,
+            String targetPageXmlVersion
     ) {
+        public ExportRequest(List<String> pageIds) {
+            this(pageIds, null);
+        }
     }
 
     public record ImportRequest(

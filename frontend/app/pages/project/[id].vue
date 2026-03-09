@@ -6,8 +6,10 @@ import {
   LazyProjectModalConflictResolution,
   LazyProjectSlideoverPdfPrefix,
   LazyProjectSlideoverEdit,
+  LazyProjectSlideoverExportTarget,
   LazyProjectSlideoverBulkDeletePages,
   LazyProjectSlideoverXmlEditor,
+  LazyUiConfirmSlideover,
   LazyUiDeleteSlideover,
   LazyEditorVersionHistorySlideover,
   LazyShareSlideover } from '#components'
@@ -926,6 +928,8 @@ const pageDeleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const pageImagesModal = overlay.create(LazyPageModalImages)
 const conflictResolutionModal = overlay.create(LazyProjectModalConflictResolution)
 const pdfPrefixSlideover = overlay.create(LazyProjectSlideoverPdfPrefix)
+const exportTargetSlideover = overlay.create(LazyProjectSlideoverExportTarget)
+const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 
 const projectEditSlideover = overlay.create(LazyProjectSlideoverEdit, {
   async onUpdated(updatedProject: ProjectData) {
@@ -1053,7 +1057,12 @@ async function handleDeleteProject() {
 async function exportProjectPackage() {
   if (!selectedWorkspace.value || !project.value) return
 
-  const payload = hasSelection.value ? { pageIds: Array.from(selectedPageIds.value) } : { pageIds: null }
+  const targetPageXmlVersion = await requestPageXmlExportTarget('package')
+  if (!targetPageXmlVersion) return
+
+  const payload = hasSelection.value
+    ? { pageIds: Array.from(selectedPageIds.value), targetPageXmlVersion }
+    : { pageIds: null, targetPageXmlVersion }
   const fallbackName = `${project.value.name.replace(/\\s+/g, '-').toLowerCase()}.larex-project.zip`
 
   try {
@@ -1109,8 +1118,12 @@ async function exportPageXml(page: Page) {
     }
 
     const xmlId = xmlFiles[0]!.id
+    const targetPageXmlVersion = await requestPageXmlExportTarget('page')
+    if (!targetPageXmlVersion) return
+    const query = new URLSearchParams({ targetPageXmlVersion })
+
     const a = document.createElement('a')
-    a.href = `/api/projects/${projectId}/pages/xml/${xmlId}/export`
+    a.href = `/api/projects/${projectId}/pages/xml/${xmlId}/export?${query.toString()}`
     a.download = `${page.name}.xml`
     document.body.appendChild(a)
     a.click()
@@ -1133,31 +1146,64 @@ async function exportPageXml(page: Page) {
   }
 }
 
+const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
+
+async function requestPageXmlExportTarget(exportType: 'page' | 'package'): Promise<string | null> {
+  const selector = exportTargetSlideover.open({
+    title: exportType === 'page' ? 'Export XML' : 'Export Project Package',
+    description: exportType === 'page'
+      ? 'Choose the PAGE XML target schema version for this file export.'
+      : 'Choose the PAGE XML target schema version for XML files included in the package.',
+    initialTargetVersion: PAGE_XML_PRIMARY_VERSION,
+    confirmLabel: exportType === 'page' ? 'Export XML' : 'Export Package'
+  })
+
+  const selectedVersion = await selector.result as string | null
+  if (!selectedVersion) {
+    return null
+  }
+
+  if (selectedVersion === PAGE_XML_PRIMARY_VERSION) {
+    return selectedVersion
+  }
+
+  const confirmation = confirmSlideover.open({
+    title: 'Confirm Legacy PAGE XML Export',
+    message: 'Exporting to an older PAGE XML schema may drop PAGE 2019-only data. Continue anyway?',
+    confirmLabel: 'Export anyway',
+    confirmColor: 'warning',
+    confirmIcon: 'i-lucide-triangle-alert'
+  })
+
+  const confirmed = await confirmation.result as boolean
+  return confirmed ? selectedVersion : null
+}
+
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = [
     {
-    label: hasSelection.value ? 'Generate codec (selected pages)' : 'Generate codec (all pages)',
-    icon: 'i-lucide-wand-sparkles',
-    disabled: (pages.value?.length ?? 0) === 0,
-    onSelect: () => {
-      void openCodecGenerateSlideover()
-    }
-  },
+      label: hasSelection.value ? 'Generate codec (selected pages)' : 'Generate codec (all pages)',
+      icon: 'i-lucide-wand-sparkles',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => {
+        void openCodecGenerateSlideover()
+      }
+    },
     {
-    label: hasSelection.value ? 'Validate codec (selected pages)' : 'Validate codec (all pages)',
-    icon: 'i-lucide-badge-check',
-    disabled: (pages.value?.length ?? 0) === 0,
-    onSelect: () => {
-      void openCodecValidateSlideover()
-    }
-  },
+      label: hasSelection.value ? 'Validate codec (selected pages)' : 'Validate codec (all pages)',
+      icon: 'i-lucide-badge-check',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => {
+        void openCodecValidateSlideover()
+      }
+    },
     {
-    label: hasSelection.value ? 'Export package (selected pages)' : 'Export package (full project)',
-    icon: 'i-lucide-file-archive',
-    disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
-    onSelect: () => {
-      void exportProjectPackage()
-    }
+      label: hasSelection.value ? 'Export package (selected pages)' : 'Export package (full project)',
+      icon: 'i-lucide-file-archive',
+      disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
+      onSelect: () => {
+        void exportProjectPackage()
+      }
     }
   ]
 

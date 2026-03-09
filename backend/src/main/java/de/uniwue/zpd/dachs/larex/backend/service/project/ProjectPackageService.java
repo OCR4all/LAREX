@@ -17,6 +17,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
@@ -26,6 +27,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorage
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
+import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -41,7 +44,6 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -57,6 +59,7 @@ public class ProjectPackageService {
     private final ProjectRepository projectRepository;
     private final LibraryRepository libraryRepository;
     private final PageRepository pageRepository;
+    private final PageXmlRepository pageXmlRepository;
     private final PageXmlVersionRepository pageXmlVersionRepository;
     private final CodecRepository codecRepository;
     private final LabelSetRepository labelSetRepository;
@@ -67,6 +70,8 @@ public class ProjectPackageService {
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageFilterIndexService pageFilterIndexService;
     private final StorageTrackingService storageTrackingService;
+    private final PageXmlConversionService pageXmlConversionService;
+    private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final ObjectMapper objectMapper;
 
     @Value("${file.upload-dir}")
@@ -75,6 +80,7 @@ public class ProjectPackageService {
     public ProjectPackageService(ProjectRepository projectRepository,
                                  LibraryRepository libraryRepository,
                                  PageRepository pageRepository,
+                                 PageXmlRepository pageXmlRepository,
                                  PageXmlVersionRepository pageXmlVersionRepository,
                                  CodecRepository codecRepository,
                                  LabelSetRepository labelSetRepository,
@@ -85,10 +91,13 @@ public class ProjectPackageService {
                                  HierarchicalFileStorageService hierarchicalFileStorageService,
                                  PageFilterIndexService pageFilterIndexService,
                                  StorageTrackingService storageTrackingService,
+                                 PageXmlConversionService pageXmlConversionService,
+                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                  ObjectMapper objectMapper) {
         this.projectRepository = projectRepository;
         this.libraryRepository = libraryRepository;
         this.pageRepository = pageRepository;
+        this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionRepository = pageXmlVersionRepository;
         this.codecRepository = codecRepository;
         this.labelSetRepository = labelSetRepository;
@@ -99,6 +108,8 @@ public class ProjectPackageService {
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.storageTrackingService = storageTrackingService;
+        this.pageXmlConversionService = pageXmlConversionService;
+        this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.objectMapper = objectMapper;
     }
 
@@ -122,15 +133,24 @@ public class ProjectPackageService {
             throw new IllegalArgumentException("Project does not belong to workspace");
         }
 
+        String targetPageXmlVersion = pageXmlConversionService.normalizeTargetVersion(
+                request == null ? null : request.targetPageXmlVersion()
+        );
+        boolean legacyTarget = pageXmlConversionService.isLegacyTargetVersion(targetPageXmlVersion);
         List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
-        ExportBundle exportBundle = buildExportBundle(project, pages);
+        ExportBundle exportBundle = buildExportBundle(project, pages, targetPageXmlVersion, legacyTarget);
 
         return archiveIoService.createZip(zipOut -> {
             archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportBundle.manifest());
 
             for (ProjectPackageDto.FileEntry fileEntry : exportBundle.manifest().files()) {
                 Path source = resolveUploadPath(fileEntry.archivePath(), fileEntry.kind(), fileEntry.sourceId(), exportBundle);
-                archiveIoService.writeFileEntry(zipOut, fileEntry.archivePath(), source);
+                if (fileEntry.kind() == ProjectPackageDto.FileKind.XML && fileEntry.xmlSchema() == XmlSchema.PAGE_XML) {
+                    byte[] convertedBytes = pageXmlConversionService.convertFileToVersion(source, targetPageXmlVersion);
+                    archiveIoService.writeBytesEntry(zipOut, fileEntry.archivePath(), convertedBytes);
+                } else {
+                    archiveIoService.writeFileEntry(zipOut, fileEntry.archivePath(), source);
+                }
 
                 if (fileEntry.thumbnailArchivePath() != null) {
                     Path thumbnailPath = resolveThumbnailUploadPath(fileEntry.sourceId(), exportBundle);
@@ -248,7 +268,10 @@ public class ProjectPackageService {
         }
     }
 
-    private ExportBundle buildExportBundle(Project project, List<Page> pages) throws IOException {
+    private ExportBundle buildExportBundle(Project project,
+                                           List<Page> pages,
+                                           String targetPageXmlVersion,
+                                           boolean legacyTarget) throws IOException {
         List<ProjectPackageDto.PageSnapshot> pageSnapshots = new ArrayList<>();
         List<ProjectPackageDto.FileEntry> fileEntries = new ArrayList<>();
         List<ProjectPackageDto.XmlVersionEntry> versionEntries = new ArrayList<>();
@@ -301,6 +324,9 @@ public class ProjectPackageService {
             xmlFiles.sort(Comparator.comparing(PageXml::getId));
             for (PageXml xml : xmlFiles) {
                 String archivePath = "files/xml/" + xml.getId() + fileExtension(xml.getFileName());
+                String exportSchemaVersion = xml.getSchema() == XmlSchema.PAGE_XML
+                        ? targetPageXmlVersion
+                        : xml.getSchemaVersion();
                 fileEntries.add(new ProjectPackageDto.FileEntry(
                         xml.getId(),
                         page.getId(),
@@ -312,7 +338,7 @@ public class ProjectPackageService {
                         xml.getBaseName(),
                         archivePath,
                         xml.getSchema(),
-                        xml.getSchemaVersion(),
+                        exportSchemaVersion,
                         null,
                         xml.getCreated(),
                         xml.getUpdated()
@@ -387,10 +413,22 @@ public class ProjectPackageService {
                 utilityReferences,
                 fileEntries,
                 versionEntries,
-                List.of()
+                buildManifestWarnings(legacyTarget, targetPageXmlVersion)
         );
 
         return new ExportBundle(manifest, fileSourcePathByArchivePath, versionPathByArchivePath, utilityResourcesByPath, imageBySourceId);
+    }
+
+    private List<String> buildManifestWarnings(boolean legacyTarget,
+                                               String targetPageXmlVersion) {
+        List<String> warnings = new ArrayList<>();
+        if (legacyTarget) {
+            warnings.add("Export target PAGE XML " + targetPageXmlVersion
+                    + " may lose data because older PAGE schemas do not support all PAGE 2019 features.");
+            warnings.add("Version history snapshots in files/xml-versions are preserved as-is and are not downconverted; "
+                    + "snapshot versions may differ from the selected export target.");
+        }
+        return warnings;
     }
 
     private List<Page> resolvePagesForExport(String projectId, List<String> selectedPageIds) {
@@ -612,7 +650,10 @@ public class ProjectPackageService {
                         entry.xmlSchemaVersion(),
                         page
                 );
-                page.getXmlFiles().add(xml);
+                xml = pageXmlRepository.save(xml);
+                if (xml.getSchema() == XmlSchema.PAGE_XML) {
+                    pageXmlCanonicalizationService.canonicalizeAtIngest(xml, userId, "project package import");
+                }
                 xmlBySourceId.put(entry.sourceId(), xml);
             }
         }
