@@ -312,9 +312,15 @@ watch(() => sessionStore.openedProjectIds.slice(), () => {
   reconcileEditorIndexStatusPolling()
 }, { immediate: true })
 
-watch(() => editorStore.pagesByProjectId, () => {
+const editorIndexingProjectSignature = computed(() => {
+  return sessionStore.openedProjectIds
+    .map(projectId => `${projectId}:${hasIndexingPagesInProject(projectId) ? 1 : 0}`)
+    .join('|')
+})
+
+watch(editorIndexingProjectSignature, () => {
   reconcileEditorIndexStatusPolling()
-}, { deep: true })
+})
 
 onMounted(() => {
   canPollEditorIndexStatuses.value = true
@@ -1060,8 +1066,7 @@ const openedProjectById = computed(() => {
 const projectAccordionPanels = ref<string[]>([])
 const collapsedProjectPanels = ref<string[]>([])
 
-watch(openedProjectsForSidebar, (projects) => {
-  const ids = projects.map(project => project.id)
+watch(() => openedProjectsForSidebar.value.map(project => project.id), (ids) => {
   projectAccordionPanels.value = projectAccordionPanels.value.filter(id => ids.includes(id))
   if (projectAccordionPanels.value.length === 0 && ids.length > 0) {
     projectAccordionPanels.value = [...ids]
@@ -1074,7 +1079,7 @@ watch(openedProjectsForSidebar, (projects) => {
       : ids[0]
     collapsedProjectPanels.value = preferredProjectId ? [preferredProjectId] : []
   }
-}, { immediate: true, deep: true })
+}, { immediate: true })
 
 function isCollapsedProjectOpen(projectId: string): boolean {
   return collapsedProjectPanels.value.includes(projectId)
@@ -2625,24 +2630,6 @@ function handleSelectPage(pageId: string, variantId?: string, projectId?: string
   void openEditorForPage(targetProjectId, pageId, variantId)
 }
 
-type SidebarPageEntry = (typeof editorStore.pages)[number]
-
-function handlePageSelect(page: SidebarPageEntry) {
-  const variant = editorStore.getDisplayedVariantForPage(page)
-  handleSelectPage(page.id, variant?.id ?? undefined, page.projectId)
-}
-
-function handleVariantChange(page: SidebarPageEntry, variantId: string) {
-  editorStore.setSelectedVariantOverride(page.id, variantId, page.projectId)
-  sessionStore.setSelectedVariant(page.projectId, page.id, variantId)
-
-  if (page.id === editorStore.currentPageId) {
-    const canvasId = editorStore.activeCanvasId
-    if (!canvasId) return
-    editorStore.switchImageVariantForCanvas(canvasId, variantId)
-  }
-}
-
 function removeProjectFromLoadedState(projectId: string) {
   const canvasesToRemove = Object.entries(editorStore.canvases)
     .filter(([, canvas]) => canvas.projectId === projectId)
@@ -3161,18 +3148,15 @@ const onReady = (event: DockviewReadyEvent) => {
               </UContextMenu>
 
               <div v-if="isCollapsedProjectOpen(project.id)" class="space-y-2">
-                <EditorSidebarImageItem
-                  v-for="page in project.pages"
-                  :key="page.id"
-                  :page="page"
-                  :current-page-id="editorStore.currentPageId"
-                  :preview-url="editorStore.getPreviewUrlForPage(page)"
-                  :variant-items="(page.imageVariants ?? []).map((variant) => ({ label: variant.label, value: variant.id }))"
-                  :selected-variant="editorStore.getDisplayedVariantForPage(page)?.id ?? null"
-                  :open-subtask-count="project.openSubtaskCountByPage[page.id] ?? 0"
-                  @select-page="handlePageSelect"
-                  @variant-change="(id) => handleVariantChange(page, id)"
-                  @unload-page="() => handleUnloadPage(page.id, page.projectId)"
+                <EditorSidebarImageList
+                  :project-id="project.id"
+                  :pages="project.pages"
+                  :filter="pageNameFilter"
+                  :only-with-open-subtasks="onlyWithOpenSubtasks"
+                  :open-subtask-count-by-page="project.openSubtaskCountByPage"
+                  :filtered-page-ids="hasBackendFilters ? (backendFilteredPageIdsByProjectId[project.id] ?? null) : null"
+                  @select-page="handleSelectPage"
+                  @unload-page="handleUnloadPage"
                 />
               </div>
             </div>
