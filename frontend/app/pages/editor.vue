@@ -2705,6 +2705,21 @@ function removeProjectFromLoadedState(projectId: string) {
   backendFilteredPageIdsByProjectId.value = remainingFilters
 }
 
+function clearProjectTabState(projectId: string) {
+  const openedPageIds = [...sessionStore.getOpenedPageIds(projectId)]
+  for (const pageId of openedPageIds) {
+    sessionStore.removeOpenedPage(projectId, pageId)
+  }
+
+  const canvasesToRemove = Object.entries(editorStore.canvases)
+    .filter(([, canvas]) => canvas.projectId === projectId)
+    .map(([canvasId]) => canvasId)
+
+  for (const canvasId of canvasesToRemove) {
+    editorStore.unregisterCanvas(canvasId)
+  }
+}
+
 function removePageFromLoadedState(projectId: string, pageId: string) {
   const nextPages = editorStore.getProjectPages(projectId).filter(page => page.id !== pageId)
   sessionStore.removeOpenedPage(projectId, pageId)
@@ -2980,20 +2995,9 @@ const onReady = (event: DockviewReadyEvent) => {
 
       const projectId = parseProjectPanelId(panelId)
       if (projectId) {
-        if (projectTabCloseState.consumeAutoClosed(projectId)) {
-          projectTabCloseState.consumeExplicitClose(projectId)
-          return
-        }
-
+        projectTabCloseState.consumeAutoClosed(projectId)
         projectTabCloseState.consumeExplicitClose(projectId)
-        const canvasesToRemove = Object.entries(editorStore.canvases)
-          .filter(([, canvas]) => canvas.projectId === projectId)
-          .map(([canvasId]) => canvasId)
-        for (const canvasId of canvasesToRemove) {
-          editorStore.unregisterCanvas(canvasId)
-        }
-        sessionStore.removeOpenedProject(projectId)
-        editorStore.removeProject(projectId)
+        clearProjectTabState(projectId)
       }
     }, 100)
   })
