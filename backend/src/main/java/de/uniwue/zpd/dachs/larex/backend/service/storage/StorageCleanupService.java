@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -175,21 +176,44 @@ public class StorageCleanupService {
      * Delete specified orphaned files.
      */
     public StorageCleanupDto.CleanupResponse deleteOrphanedFiles(List<String> paths) {
+        if (paths == null || paths.isEmpty()) {
+            return new StorageCleanupDto.CleanupResponse(
+                    0,
+                    0,
+                    0,
+                    formatBytes(0),
+                    List.of()
+            );
+        }
+
         // Get all referenced paths to ensure we don't delete active files
         Set<String> referencedPaths = new HashSet<>();
         referencedPaths.addAll(pageImageRepository.findAllFilePaths());
         referencedPaths.addAll(pageImageRepository.findAllThumbnailPaths());
         referencedPaths.addAll(pageXmlRepository.findAllFilePaths());
+        referencedPaths.addAll(pageXmlVersionRepository.findAllFilePaths());
 
         int deletedCount = 0;
         int failedCount = 0;
         long freedBytes = 0;
         List<String> errors = new ArrayList<>();
+        List<DeleteCandidate> deleteCandidates = new ArrayList<>();
+        Set<String> uniquePaths = new LinkedHashSet<>(paths);
+        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
 
-        for (String relativePath : paths) {
+        for (String path : uniquePaths) {
+            String relativePath = path != null ? path.trim() : null;
+            if (relativePath == null || relativePath.isBlank()) {
+                errors.add("Invalid path: " + path);
+                failedCount++;
+                continue;
+            }
+
+            relativePath = relativePath.replace('\\', '/');
+
             // Security check: ensure the path is within upload directory
-            Path fullPath = Paths.get(uploadDir, relativePath).normalize();
-            if (!fullPath.startsWith(Paths.get(uploadDir).normalize())) {
+            Path fullPath = uploadRoot.resolve(relativePath).normalize();
+            if (!fullPath.startsWith(uploadRoot)) {
                 errors.add("Invalid path (outside upload directory): " + relativePath);
                 failedCount++;
                 continue;
@@ -205,14 +229,7 @@ public class StorageCleanupService {
             try {
                 if (Files.exists(fullPath)) {
                     long fileSize = Files.size(fullPath);
-                    if (hierarchicalFileStorageService.deleteStoredFile(relativePath)) {
-                        freedBytes += fileSize;
-                        deletedCount++;
-                        log.info("Deleted orphaned file: {}", fullPath);
-                    } else {
-                        errors.add("Failed to delete: " + relativePath);
-                        failedCount++;
-                    }
+                    deleteCandidates.add(new DeleteCandidate(relativePath, fullPath, fileSize));
                 } else {
                     errors.add("File not found: " + relativePath);
                     failedCount++;
@@ -221,6 +238,25 @@ public class StorageCleanupService {
                 errors.add("Failed to delete " + relativePath + ": " + e.getMessage());
                 failedCount++;
                 log.error("Failed to delete orphaned file: {}", fullPath, e);
+            }
+        }
+
+        if (!deleteCandidates.isEmpty()) {
+            List<String> candidatePaths = deleteCandidates.stream()
+                    .map(DeleteCandidate::relativePath)
+                    .toList();
+            hierarchicalFileStorageService.deleteStoredFiles(candidatePaths);
+
+            for (DeleteCandidate candidate : deleteCandidates) {
+                if (Files.exists(candidate.fullPath())) {
+                    errors.add("Failed to delete: " + candidate.relativePath());
+                    failedCount++;
+                    continue;
+                }
+
+                deletedCount++;
+                freedBytes += candidate.sizeBytes();
+                log.info("Deleted orphaned file: {}", candidate.fullPath());
             }
         }
 
@@ -416,4 +452,6 @@ public class StorageCleanupService {
     private boolean isPathInTypeFolder(String relativePath, String typeFolder) {
         return relativePath.contains("/" + typeFolder + "/");
     }
+
+    private record DeleteCandidate(String relativePath, Path fullPath, long sizeBytes) {}
 }
