@@ -50,6 +50,7 @@ import { baselineIdForTextLineId } from '@/utils/editor/pcgts-editor-primitives'
 import EditorEmpty from '@/components/editor/empty.vue'
 import EditorPageFilterPopover from '@/components/editor/page-filter-popover.vue'
 import { buildPageFilterRequestBody, usePageFilter } from '@/composables/use-page-filter'
+import { naturalSortBy } from '@/utils/natural-sort'
 
 definePageMeta({ layout: 'editor' })
 
@@ -447,6 +448,7 @@ async function openSelectionsInEditor(
     const selectedPages = selection.pageIds
       ? allPages.filter(page => selection.pageIds?.includes(page.id))
       : allPages
+    const selectedPagesByName = naturalSortBy(selectedPages, 'name')
 
     const skeletonPages = createSkeletonPageData(selectedPages, {
       projectId,
@@ -462,7 +464,7 @@ async function openSelectionsInEditor(
       }
     }
     if (source === 'project-search' && selection.pageIds === null) {
-      const firstPageId = selectedPages[0]?.id
+      const firstPageId = selectedPagesByName[0]?.id
       if (firstPageId) {
         pageIdsToOpen.add(firstPageId)
       }
@@ -480,7 +482,7 @@ async function openSelectionsInEditor(
     const firstSelection = selections[0]
     if (!firstSelection) return
     const projectId = firstSelection.projectId
-    const firstPage = editorStore.getProjectPages(projectId)[0]
+    const firstPage = naturalSortBy(editorStore.getProjectPages(projectId), 'label')[0]
     if (!firstPage) return
     const variant = editorStore.getDisplayedVariantForPage(firstPage)
     await openEditorForPage(projectId, firstPage.id, variant?.id ?? undefined)
@@ -2632,7 +2634,7 @@ async function applyProjectDeepLinkFromQuery(): Promise<void> {
       return
     }
 
-    const pages = editorStore.getProjectPages(projectId)
+    const pages = naturalSortBy(editorStore.getProjectPages(projectId), 'label')
     if (pages.length === 0) {
       toast.add({
         title: 'Unable to open linked project',
