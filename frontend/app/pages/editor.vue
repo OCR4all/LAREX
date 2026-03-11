@@ -1063,6 +1063,53 @@ const openedProjectById = computed(() => {
   return Object.fromEntries(openedProjectsForSidebar.value.map(project => [project.id, project]))
 })
 
+const isPageListFilteringActive = computed(() => {
+  return pageNameFilter.value.trim().length > 0
+    || onlyWithOpenSubtasks.value
+    || hasBackendFilters.value
+})
+
+const prefetchScopeSignature = computed(() => {
+  const mode = isPageListFilteringActive.value ? 'filtered' : 'all'
+  const scopes = sessionStore.openedProjectIds.map((projectId) => {
+    const visiblePageIds = openedProjectById.value[projectId]?.pages.map(page => page.id) ?? []
+    return `${projectId}:${visiblePageIds.join(',')}`
+  })
+  return `${mode}|${scopes.join('|')}`
+})
+
+let previousPrefetchScopeProjectIds: string[] = []
+
+function syncAdjacentPrefetchScopes() {
+  const openedProjectIds = [...sessionStore.openedProjectIds]
+  const openedProjectIdSet = new Set(openedProjectIds)
+
+  for (const previousProjectId of previousPrefetchScopeProjectIds) {
+    if (!openedProjectIdSet.has(previousProjectId)) {
+      editorStore.setAdjacentPrefetchPageScope(previousProjectId, null)
+    }
+  }
+
+  if (!isPageListFilteringActive.value) {
+    for (const projectId of openedProjectIds) {
+      editorStore.setAdjacentPrefetchPageScope(projectId, null)
+    }
+    previousPrefetchScopeProjectIds = openedProjectIds
+    return
+  }
+
+  for (const projectId of openedProjectIds) {
+    const visiblePageIds = openedProjectById.value[projectId]?.pages.map(page => page.id) ?? []
+    editorStore.setAdjacentPrefetchPageScope(projectId, visiblePageIds)
+  }
+
+  previousPrefetchScopeProjectIds = openedProjectIds
+}
+
+watch(prefetchScopeSignature, () => {
+  syncAdjacentPrefetchScopes()
+}, { immediate: true })
+
 const projectAccordionPanels = ref<string[]>([])
 const collapsedProjectPanels = ref<string[]>([])
 
@@ -1225,6 +1272,11 @@ onBeforeUnmount(() => {
   window.removeEventListener('larex:onboarding:prepare-editor-right-sidebar', handlePrepareRightSidebarForOnboarding)
   window.removeEventListener('larex:onboarding:open-editor-filter-popover', handleOpenEditorFilterPopover)
   window.removeEventListener('larex:onboarding:close-editor-filter-popover', handleCloseEditorFilterPopover)
+
+  for (const projectId of previousPrefetchScopeProjectIds) {
+    editorStore.setAdjacentPrefetchPageScope(projectId, null)
+  }
+  previousPrefetchScopeProjectIds = []
 })
 
 function navigateImage(direction: 'next' | 'prev') {

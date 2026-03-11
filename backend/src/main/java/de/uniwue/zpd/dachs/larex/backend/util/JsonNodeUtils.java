@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.util.Iterator;
 import java.util.Map;
 
 public final class JsonNodeUtils {
@@ -32,9 +31,7 @@ public final class JsonNodeUtils {
                 changed = true;
             }
 
-            Iterator<Map.Entry<String, JsonNode>> fields = objectNode.fields();
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> entry = fields.next();
+            for (Map.Entry<String, JsonNode> entry : objectNode.properties()) {
                 changed |= removeFieldRecursivelyInPlace(entry.getValue(), fieldName);
             }
         } else if (node instanceof ArrayNode arrayNode) {
@@ -46,4 +43,3 @@ public final class JsonNodeUtils {
         return changed;
     }
 }
-

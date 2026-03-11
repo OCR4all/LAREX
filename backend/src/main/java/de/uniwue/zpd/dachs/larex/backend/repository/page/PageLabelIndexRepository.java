@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -23,6 +24,10 @@ public interface PageLabelIndexRepository extends JpaRepository<PageLabelIndex, 
     @Modifying
     @Query("DELETE FROM PageLabelIndex p WHERE p.page.id = :pageId")
     void deleteByPageId(@Param("pageId") String pageId);
+
+    @Modifying
+    @Query("DELETE FROM PageLabelIndex p WHERE p.page.id IN :pageIds")
+    int deleteByPageIdIn(@Param("pageIds") Collection<String> pageIds);
 
     /**
      * Find page IDs that have ANY of the given labels (OR mode).

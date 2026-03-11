@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -85,4 +86,12 @@ public interface PageRepository extends JpaRepository<Page, String> {
     @Query("SELECT p FROM Page p WHERE p.project.id = :projectId AND LOWER(p.name) IN :lowerNames")
     List<Page> findByProjectIdAndLowerNameIn(@Param("projectId") String projectId,
                                              @Param("lowerNames") Collection<String> lowerNames);
+
+    @Modifying
+    @Query("DELETE FROM Page p WHERE p.id IN :pageIds")
+    int deleteByIdIn(@Param("pageIds") Collection<String> pageIds);
+
+    @Modifying
+    @Query(value = "DELETE FROM page_tags WHERE page_id IN (:pageIds)", nativeQuery = true)
+    int deleteTagsByPageIds(@Param("pageIds") Collection<String> pageIds);
 }

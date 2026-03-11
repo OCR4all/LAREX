@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.repository.page;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,10 @@ public interface PageXmlRepository extends JpaRepository<PageXml, String> {
     List<PageXml> findByBaseName(String baseName);
 
     List<PageXml> findByPage_IdIn(Collection<String> pageIds);
+
+    @Modifying
+    @Query("DELETE FROM PageXml px WHERE px.page.id IN :pageIds")
+    int deleteByPageIdIn(@Param("pageIds") Collection<String> pageIds);
     
     @Query("SELECT px.filePath FROM PageXml px")
     List<String> findAllFilePaths();

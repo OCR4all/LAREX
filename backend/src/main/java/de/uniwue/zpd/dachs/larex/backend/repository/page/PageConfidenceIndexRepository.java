@@ -19,6 +19,10 @@ public interface PageConfidenceIndexRepository extends JpaRepository<PageConfide
     @Query("DELETE FROM PageConfidenceIndex p WHERE p.page.id = :pageId")
     void deleteByPageId(@Param("pageId") String pageId);
 
+    @Modifying
+    @Query("DELETE FROM PageConfidenceIndex p WHERE p.page.id IN :pageIds")
+    int deleteByPageIdIn(@Param("pageIds") Collection<String> pageIds);
+
     @Query("""
         SELECT DISTINCT p.page.id
         FROM PageConfidenceIndex p

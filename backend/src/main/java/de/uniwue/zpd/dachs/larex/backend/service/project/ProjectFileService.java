@@ -11,7 +11,9 @@ import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorage
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ProjectFileService {
@@ -46,17 +48,29 @@ public class ProjectFileService {
 
     public void deletePageFiles(Page page) {
         List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(page.getId());
+        List<String> storagePaths = new ArrayList<>(xmlFiles.size() * 3);
+        List<String> xmlIds = xmlFiles.stream()
+                .map(PageXml::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        pageXmlVersionService.deleteVersionDirectories(xmlIds);
+
         for (PageXml xml : xmlFiles) {
-            pageXmlVersionService.deleteVersionDirectory(xml.getId());
-            hierarchicalFileStorageService.deleteStoredFile(xml.getFilePath());
+            if (xml.getFilePath() != null) {
+                storagePaths.add(xml.getFilePath());
+            }
         }
 
         List<PageImage> images = pageImageRepository.findByPageId(page.getId());
         for (PageImage image : images) {
-            hierarchicalFileStorageService.deleteStoredFile(image.getFilePath());
+            if (image.getFilePath() != null) {
+                storagePaths.add(image.getFilePath());
+            }
             if (image.getThumbnailPath() != null) {
-                hierarchicalFileStorageService.deleteStoredFile(image.getThumbnailPath());
+                storagePaths.add(image.getThumbnailPath());
             }
         }
+
+        hierarchicalFileStorageService.deleteStoredFiles(storagePaths);
     }
 }

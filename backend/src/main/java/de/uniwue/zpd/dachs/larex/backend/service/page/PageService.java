@@ -7,10 +7,14 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.task.TaskPageLinkRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
@@ -23,6 +27,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -43,6 +48,10 @@ public class PageService {
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
     private final PageXmlRepository pageXmlRepository;
+    private final PageTextContentRepository pageTextContentRepository;
+    private final PageLabelIndexRepository pageLabelIndexRepository;
+    private final PageConfidenceIndexRepository pageConfidenceIndexRepository;
+    private final TaskPageLinkRepository taskPageLinkRepository;
     private final ProjectRepository projectRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final NotificationService notificationService;
@@ -56,6 +65,10 @@ public class PageService {
             PageRepository pageRepository,
             PageImageRepository pageImageRepository,
             PageXmlRepository pageXmlRepository,
+            PageTextContentRepository pageTextContentRepository,
+            PageLabelIndexRepository pageLabelIndexRepository,
+            PageConfidenceIndexRepository pageConfidenceIndexRepository,
+            TaskPageLinkRepository taskPageLinkRepository,
             ProjectRepository projectRepository,
             WorkspaceMemberRepository workspaceMemberRepository,
             NotificationService notificationService,
@@ -68,6 +81,10 @@ public class PageService {
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
+        this.pageTextContentRepository = pageTextContentRepository;
+        this.pageLabelIndexRepository = pageLabelIndexRepository;
+        this.pageConfidenceIndexRepository = pageConfidenceIndexRepository;
+        this.taskPageLinkRepository = taskPageLinkRepository;
         this.projectRepository = projectRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.notificationService = notificationService;
@@ -218,30 +235,67 @@ public class PageService {
     }
 
     public int deletePages(List<String> pageIds, String userId) {
-        List<String> deletedPageNames = new ArrayList<>();
-        String projectId = null;
-        String projectName = null;
-
-        for (String pageId : pageIds) {
-            Optional<Page> pageOpt = getPageById(pageId, userId);
-            if (pageOpt.isPresent()) {
-                Page page = pageOpt.get();
-                if (projectId == null) {
-                    projectId = page.getProject().getId();
-                    projectName = page.getProject().getName();
-                }
-                String pageName = page.getName();
-                if (deletePage(pageId, userId, false)) {
-                    deletedPageNames.add(pageName);
-                }
-            }
+        if (pageIds == null || pageIds.isEmpty()) {
+            return 0;
         }
 
-        if (!deletedPageNames.isEmpty() && projectId != null) {
-            notificationService.createBatchPageDeletedNotification(userId, deletedPageNames, projectId, projectName);
+        List<String> normalizedIds = pageIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
+        if (normalizedIds.isEmpty()) {
+            return 0;
         }
 
-        return deletedPageNames.size();
+        List<Page> candidatePages = pageRepository.findAllByIdIn(normalizedIds);
+        if (candidatePages.isEmpty()) {
+            return 0;
+        }
+
+        Map<String, Page> candidatePagesById = candidatePages.stream()
+                .collect(Collectors.toMap(Page::getId, page -> page));
+
+        List<Page> pagesToDelete = normalizedIds.stream()
+                .map(candidatePagesById::get)
+                .filter(Objects::nonNull)
+                .filter(page -> workspaceAccessService.isUserAdministrator(
+                        page.getProject().getLibrary().getWorkspaceId(),
+                        userId
+                ))
+                .toList();
+        if (pagesToDelete.isEmpty()) {
+            return 0;
+        }
+
+        String projectId = pagesToDelete.get(0).getProject().getId();
+        String projectName = pagesToDelete.get(0).getProject().getName();
+        List<String> deletedPageNames = pagesToDelete.stream().map(Page::getName).toList();
+        List<String> pageIdsToDelete = pagesToDelete.stream().map(Page::getId).toList();
+
+        List<PageXml> xmlFiles = pageXmlRepository.findByPage_IdIn(pageIdsToDelete);
+        List<PageImage> images = pageImageRepository.findByPageIdIn(pageIdsToDelete);
+        deletePageFiles(pageIdsToDelete, xmlFiles, images);
+
+        taskPageLinkRepository.deleteByPageIdIn(pageIdsToDelete);
+        pageTextContentRepository.deleteByPageIdIn(pageIdsToDelete);
+        pageLabelIndexRepository.deleteByPageIdIn(pageIdsToDelete);
+        pageConfidenceIndexRepository.deleteByPageIdIn(pageIdsToDelete);
+        pageImageRepository.deleteByPageIdIn(pageIdsToDelete);
+        pageXmlRepository.deleteByPageIdIn(pageIdsToDelete);
+        pageRepository.deleteTagsByPageIds(pageIdsToDelete);
+        int deletedCount = pageRepository.deleteByIdIn(pageIdsToDelete);
+
+        if (deletedCount > 0) {
+            int notificationCount = Math.min(deletedCount, deletedPageNames.size());
+            notificationService.createBatchPageDeletedNotification(
+                    userId,
+                    deletedPageNames.subList(0, notificationCount),
+                    projectId,
+                    projectName
+            );
+        }
+
+        return deletedCount;
     }
 
     public List<Page> searchPages(String projectId, String searchTerm, String userId) {
@@ -464,25 +518,39 @@ public class PageService {
     private void deletePageFiles(Page page) {
         // Delete XML files (PageXml entities) and their version directories
         List<PageXml> xmlFiles = pageXmlRepository.findByPage_Id(page.getId());
-        for (PageXml xml : xmlFiles) {
-            // Delete version directory first
-            pageXmlVersionService.deleteVersionDirectory(xml.getId());
-            hierarchicalFileStorageService.deleteStoredFile(xml.getFilePath());
-        }
-
-        // Delete images and their thumbnails
         List<PageImage> images = pageImageRepository.findByPageId(page.getId());
-        for (PageImage image : images) {
-            hierarchicalFileStorageService.deleteStoredFile(image.getFilePath());
+        deletePageFiles(List.of(page.getId()), xmlFiles, images);
+    }
 
-            // Delete the thumbnail if it exists
-            if (image.getThumbnailPath() != null) {
-                hierarchicalFileStorageService.deleteStoredFile(image.getThumbnailPath());
+    private void deletePageFiles(List<String> pageIds, List<PageXml> xmlFiles, List<PageImage> images) {
+        List<String> storagePaths = new ArrayList<>(xmlFiles.size() + (images.size() * 2));
+        List<String> xmlIds = xmlFiles.stream()
+                .map(PageXml::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        int deletedVersionDirectories = pageXmlVersionService.deleteVersionDirectories(xmlIds);
+
+        for (PageXml xml : xmlFiles) {
+            if (xml.getFilePath() != null) {
+                storagePaths.add(xml.getFilePath());
             }
         }
 
-        log.info("Deleted files for page {}: {} images, {} xml files",
-                page.getId(), images.size(), xmlFiles.size());
+        for (PageImage image : images) {
+            if (image.getFilePath() != null) {
+                storagePaths.add(image.getFilePath());
+            }
+            if (image.getThumbnailPath() != null) {
+                storagePaths.add(image.getThumbnailPath());
+            }
+        }
+
+        int deletedStoredFiles = hierarchicalFileStorageService.deleteStoredFiles(storagePaths);
+
+        log.info("Deleted files for {} page(s): {} images, {} xml files",
+                pageIds.size(), images.size(), xmlFiles.size());
+        log.debug("Deleted {} XML version directory(ies) for page batch", deletedVersionDirectories);
+        log.debug("Deleted {} stored file(s) for page batch", deletedStoredFiles);
     }
 
     public PageImage getImageById(String imageId, String userId) {

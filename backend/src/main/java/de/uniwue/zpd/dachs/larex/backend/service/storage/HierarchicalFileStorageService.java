@@ -15,13 +15,17 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 import org.slf4j.Logger;
@@ -39,6 +43,7 @@ public class HierarchicalFileStorageService {
     private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}]");
     private static final Pattern FILENAME_SAFE_CHARS = Pattern.compile("[^A-Za-z0-9._ -]");
     private static final Pattern SEGMENT_SAFE_CHARS = Pattern.compile("[^A-Za-z0-9._-]");
+    private static final int STORAGE_PATH_STATUS_UPDATE_BATCH_SIZE = 500;
 
     private static final Map<String, String> IMAGE_MIME_TO_EXT = Map.of(
             "image/png", "png",
@@ -214,32 +219,67 @@ public class HierarchicalFileStorageService {
 
     @Transactional
     public boolean deleteStoredFile(String storagePath) {
-        if (storagePath == null || storagePath.isBlank()) {
-            return false;
+        return deleteStoredFiles(List.of(storagePath)) > 0;
+    }
+
+    /**
+     * Delete multiple stored files in one operation and mark all matching storage records as DELETED
+     * with batched UPDATE statements.
+     */
+    @Transactional
+    public int deleteStoredFiles(Collection<String> storagePaths) {
+        if (storagePaths == null || storagePaths.isEmpty()) {
+            return 0;
         }
 
-        Path absolutePath;
-        try {
-            absolutePath = resolveUploadPath(storagePath);
-        } catch (IllegalArgumentException e) {
-            log.warn("Skipping delete for invalid storage path {}: {}", storagePath, e.getMessage());
-            return false;
+        Set<String> normalizedPaths = storagePaths.stream()
+                .filter(path -> path != null && !path.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (normalizedPaths.isEmpty()) {
+            return 0;
         }
 
-        boolean deleted = false;
-        try {
-            deleted = Files.deleteIfExists(absolutePath);
-        } catch (IOException e) {
-            log.warn("Failed deleting storage file {}", absolutePath, e);
+        List<String> validStoragePaths = new ArrayList<>(normalizedPaths.size());
+        List<Path> absolutePaths = new ArrayList<>(normalizedPaths.size());
+        Set<Path> parentDirs = new LinkedHashSet<>();
+
+        for (String storagePath : normalizedPaths) {
+            try {
+                Path absolutePath = resolveUploadPath(storagePath);
+                validStoragePaths.add(storagePath);
+                absolutePaths.add(absolutePath);
+                if (absolutePath.getParent() != null) {
+                    parentDirs.add(absolutePath.getParent());
+                }
+            } catch (IllegalArgumentException e) {
+                log.warn("Skipping delete for invalid storage path {}: {}", storagePath, e.getMessage());
+            }
         }
 
-        markDeletedByStoragePath(storagePath);
-
-        if (deleted) {
-            cleanupEmptyAncestorDirectories(absolutePath.getParent());
+        if (validStoragePaths.isEmpty()) {
+            return 0;
         }
 
-        return deleted;
+        int deletedCount = 0;
+        for (Path absolutePath : absolutePaths) {
+            try {
+                if (Files.deleteIfExists(absolutePath)) {
+                    deletedCount++;
+                }
+            } catch (IOException e) {
+                log.warn("Failed deleting storage file {}", absolutePath, e);
+            }
+        }
+
+        markDeletedByStoragePaths(validStoragePaths);
+
+        if (deletedCount > 0) {
+            parentDirs.stream()
+                    .sorted((a, b) -> Integer.compare(b.getNameCount(), a.getNameCount()))
+                    .forEach(this::cleanupEmptyAncestorDirectories);
+        }
+
+        return deletedCount;
     }
 
     @Transactional
@@ -546,14 +586,19 @@ public class HierarchicalFileStorageService {
         return hex.toString();
     }
 
-    private void markDeletedByStoragePath(String storagePath) {
-        Optional<StoredFile> storedFileOpt = storedFileRepository.findByStoragePath(storagePath);
-        storedFileOpt.ifPresent(storedFile -> {
-            if (storedFile.getStatus() != StoredFileStatus.DELETED) {
-                storedFile.setStatus(StoredFileStatus.DELETED);
-                storedFileRepository.save(storedFile);
-            }
-        });
+    private void markDeletedByStoragePaths(Collection<String> storagePaths) {
+        if (storagePaths == null || storagePaths.isEmpty()) {
+            return;
+        }
+
+        List<String> pathList = new ArrayList<>(storagePaths);
+        for (int start = 0; start < pathList.size(); start += STORAGE_PATH_STATUS_UPDATE_BATCH_SIZE) {
+            int end = Math.min(start + STORAGE_PATH_STATUS_UPDATE_BATCH_SIZE, pathList.size());
+            storedFileRepository.markStatusByStoragePaths(
+                    pathList.subList(start, end),
+                    StoredFileStatus.DELETED
+            );
+        }
     }
 
     private void cleanupEmptyAncestorDirectories(Path startDir) {

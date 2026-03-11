@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,13 @@ public interface StoredFileRepository extends JpaRepository<StoredFile, String> 
     int markStatusByWorkspaceAndProject(
             @Param("workspaceId") String workspaceId,
             @Param("projectId") String projectId,
+            @Param("status") StoredFileStatus status
+    );
+
+    @Modifying
+    @Query("UPDATE StoredFile sf SET sf.status = :status WHERE sf.storagePath IN :storagePaths AND sf.status <> :status")
+    int markStatusByStoragePaths(
+            @Param("storagePaths") Collection<String> storagePaths,
             @Param("status") StoredFileStatus status
     );
 }

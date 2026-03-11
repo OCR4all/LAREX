@@ -148,8 +148,17 @@ export const useEditorStore = defineStore('editor', () => {
   })
 
   const annotationCache = new LRUCache<string, PageDto>(50)
-  
+
   const pendingPrefetches = ref<Set<string>>(new Set())
+  const prefetchTimeoutByProjectId = new Map<string, ReturnType<typeof setTimeout>>()
+  const prefetchGenerationByProjectId = new Map<string, number>()
+  const prefetchBatchByProjectId = new Map<string, { generation: number, controller: AbortController }>()
+  const pageXmlPrefetchCache = new Map<string, string | null>()
+  const pageXmlLookupByKey = new Map<string, Promise<string | null>>()
+  const adjacentPrefetchPageScopeByProjectId = new Map<string, string[]>()
+
+  const ADJACENT_PREFETCH_DELAY_MS = 300
+  const ADJACENT_PREFETCH_CONCURRENCY = 2
 
   /**
    * Get the currently active canvas state
@@ -408,6 +417,9 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   function resetEditorState(): void {
+    clearAnnotationCache()
+    adjacentPrefetchPageScopeByProjectId.clear()
+
     for (const canvasId of Object.keys(canvases.value)) {
       uiStore.removeCanvasUiMode(canvasId)
     }
@@ -904,6 +916,7 @@ export const useEditorStore = defineStore('editor', () => {
     }
 
     const cacheKey = `${projectId}:${pageId}:${pageXmlFile.id}`
+    pageXmlPrefetchCache.set(`${projectId}:${pageId}`, pageXmlFile.id)
     const canvas = canvases.value[canvasId]
 
     if (canvas) {
@@ -912,38 +925,38 @@ export const useEditorStore = defineStore('editor', () => {
 
     try {
       let pageDto: PageDto
-      
+
       if (annotationCache.has(cacheKey)) {
         log.info(`Using cached annotations for page ${pageId}`)
         pageDto = annotationCache.get(cacheKey)!
       } else {
         log.info(`Fetching annotations from ${pageXmlFile.fileName} (id: ${pageXmlFile.id}) for page ${pageId}`)
-        
+
         pageDto = await $fetch<PageDto>(
           `/api/projects/${projectId}/pages/${pageId}/annotations/${pageXmlFile.id}`
         )
 
         annotationCache.set(cacheKey, pageDto)
-        
+
         log.info(`Cached annotations for page ${pageId}`)
       }
 
       const pcGts = convertPageDtoToPcGts(pageDto)
-      
+
       if (pcGts.page && imageFilename) {
         pcGts.page.imageFilename = imageFilename
       }
 
       const regionCount = pcGts.page?.regions?.length ?? 0
       log.info(`Successfully loaded annotations for page ${pageId}: ${regionCount} regions`)
-      
+
       setCanvasDocument(canvasId, pcGts)
-      
+
       if (canvas) {
         canvas.xmlFileId = pageXmlFile.id
       }
-      
-      prefetchAdjacentAnnotations(projectId, pageId)
+
+      scheduleAdjacentAnnotationPrefetch(projectId, pageId)
     } catch (error) {
       log.error(`Failed to load annotations for page ${pageId}:`, error)
     } finally {
@@ -953,15 +966,146 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
+  function isAbortError(error: unknown): boolean {
+    return typeof error === 'object'
+      && error !== null
+      && 'name' in error
+      && (error as { name?: unknown }).name === 'AbortError'
+  }
+
+  function getNextPrefetchGeneration(projectId: string): number {
+    const nextGeneration = (prefetchGenerationByProjectId.get(projectId) ?? 0) + 1
+    prefetchGenerationByProjectId.set(projectId, nextGeneration)
+    return nextGeneration
+  }
+
+  function isPrefetchGenerationCurrent(projectId: string, generation: number): boolean {
+    return prefetchGenerationByProjectId.get(projectId) === generation
+  }
+
+  function clearPrefetchTimeout(projectId: string): void {
+    const timeout = prefetchTimeoutByProjectId.get(projectId)
+    if (timeout) {
+      clearTimeout(timeout)
+      prefetchTimeoutByProjectId.delete(projectId)
+    }
+  }
+
+  function cancelPrefetchBatch(projectId: string): void {
+    const batch = prefetchBatchByProjectId.get(projectId)
+    if (!batch) return
+    batch.controller.abort()
+    prefetchBatchByProjectId.delete(projectId)
+  }
+
+  function setAdjacentPrefetchPageScope(projectId: string, pageIds: string[] | null): void {
+    if (pageIds === null) {
+      if (!adjacentPrefetchPageScopeByProjectId.has(projectId)) return
+      adjacentPrefetchPageScopeByProjectId.delete(projectId)
+      clearPrefetchTimeout(projectId)
+      cancelPrefetchBatch(projectId)
+      getNextPrefetchGeneration(projectId)
+      return
+    }
+
+    const nextScope = [...pageIds]
+    const currentScope = adjacentPrefetchPageScopeByProjectId.get(projectId)
+    const isUnchanged = !!currentScope
+      && currentScope.length === nextScope.length
+      && currentScope.every((pageId, index) => pageId === nextScope[index])
+    if (isUnchanged) return
+
+    adjacentPrefetchPageScopeByProjectId.set(projectId, nextScope)
+    clearPrefetchTimeout(projectId)
+    cancelPrefetchBatch(projectId)
+    getNextPrefetchGeneration(projectId)
+  }
+
+  function scheduleAdjacentAnnotationPrefetch(projectId: string, currentPageId: string): void {
+    clearPrefetchTimeout(projectId)
+    cancelPrefetchBatch(projectId)
+
+    const generation = getNextPrefetchGeneration(projectId)
+    const timeout = setTimeout(() => {
+      prefetchTimeoutByProjectId.delete(projectId)
+      void prefetchAdjacentAnnotations(projectId, currentPageId, generation).catch((error) => {
+        if (!isAbortError(error)) {
+          log.warn(`Adjacent annotation prefetch failed for project ${projectId}:`, error)
+        }
+      })
+    }, ADJACENT_PREFETCH_DELAY_MS)
+
+    prefetchTimeoutByProjectId.set(projectId, timeout)
+  }
+
+  async function resolvePageXmlIdForPrefetch(
+    projectId: string,
+    page: { id: string, xmlFiles?: { id: string, schema: string }[], xmlFileCount?: number },
+    signal: AbortSignal
+  ): Promise<string | null> {
+    const pageKey = `${projectId}:${page.id}`
+
+    const pageXmlInPageData = page.xmlFiles?.find(xml => xml.schema === 'PAGE_XML')?.id ?? null
+    if (pageXmlInPageData) {
+      pageXmlPrefetchCache.set(pageKey, pageXmlInPageData)
+      return pageXmlInPageData
+    }
+
+    if (pageXmlPrefetchCache.has(pageKey)) {
+      return pageXmlPrefetchCache.get(pageKey) ?? null
+    }
+
+    if (page.xmlFileCount === 0) {
+      pageXmlPrefetchCache.set(pageKey, null)
+      return null
+    }
+
+    const pendingLookup = pageXmlLookupByKey.get(pageKey)
+    if (pendingLookup) return pendingLookup
+
+    const lookupPromise = (async () => {
+      try {
+        const xmlFiles = await $fetch<Array<{ id: string, schema: string }>>(
+          `/api/projects/${projectId}/pages/${page.id}/xml`,
+          { signal }
+        )
+        const pageXmlId = xmlFiles.find(xml => xml.schema === 'PAGE_XML')?.id ?? null
+        pageXmlPrefetchCache.set(pageKey, pageXmlId)
+        return pageXmlId
+      } catch (error) {
+        if (!isAbortError(error)) {
+          log.warn(`Failed to resolve PAGE XML file for prefetch on page ${page.id}:`, error)
+        }
+        return null
+      } finally {
+        pageXmlLookupByKey.delete(pageKey)
+      }
+    })()
+
+    pageXmlLookupByKey.set(pageKey, lookupPromise)
+    return lookupPromise
+  }
+
   /**
    * Prefetch annotations for adjacent pages with bidirectional priority.
    * Prefetches next 5 pages and previous 5 pages around the current page.
-   * Enriches skeleton pages on-the-fly if they haven't been loaded yet.
-   * This improves perceived performance when navigating through pages.
+   * Runs as a delayed idle task and is canceled when navigation changes.
+   * Uses low concurrency and lightweight XML-id resolution for skeleton pages.
    */
-  async function prefetchAdjacentAnnotations(projectId: string, currentPageId: string): Promise<void> {
+  async function prefetchAdjacentAnnotations(projectId: string, currentPageId: string, generation: number): Promise<void> {
+    if (!isPrefetchGenerationCurrent(projectId, generation)) return
+
     const allPagesList = getProjectPages(projectId)
-    const currentIndex = allPagesList.findIndex(p => p.id === currentPageId)
+    const scopedPageIds = adjacentPrefetchPageScopeByProjectId.get(projectId)
+    const pagesById = scopedPageIds ? new Map(allPagesList.map(page => [page.id, page])) : null
+    const scopedPageList = scopedPageIds
+      ? scopedPageIds.map(pageId => pagesById?.get(pageId)).filter((page): page is NonNullable<typeof page> => !!page)
+      : null
+    const pagesList = scopedPageList ?? allPagesList
+
+    if (pagesList.length === 0) return
+
+    const currentIndex = pagesList.findIndex(p => p.id === currentPageId)
     if (currentIndex === -1) return
 
     const indicesToPrefetch = [
@@ -975,46 +1119,63 @@ export const useEditorStore = defineStore('editor', () => {
       currentIndex - 3,
       currentIndex - 4,
       currentIndex - 5
-    ].filter(i => i >= 0 && i < allPagesList.length)
+    ].filter(i => i >= 0 && i < pagesList.length)
 
-    for (const idx of indicesToPrefetch) {
-      let page = allPagesList[idx]
-      if (!page) continue
+    const pagesToPrefetch = indicesToPrefetch
+      .map(index => pagesList[index])
+      .filter((page): page is NonNullable<typeof page> => !!page)
 
-      if (!documentStore.isPageLoaded(page.id, projectId)) {
-        try {
-          const enrichedData = await loadSinglePageData(projectId, { id: page.id, name: page.label } as PageResponse)
-          documentStore.enrichPage(page.id, { ...enrichedData, projectId, projectName: page.projectName }, projectId)
-          page = documentStore.getPage(page.id, projectId)!
-        } catch (err) {
-          log.warn(`Failed to enrich page ${page.id} during prefetch:`, err)
-          continue
+    if (pagesToPrefetch.length === 0) return
+
+    const controller = new AbortController()
+    prefetchBatchByProjectId.set(projectId, { generation, controller })
+
+    try {
+      let cursor = 0
+      const workerCount = Math.min(ADJACENT_PREFETCH_CONCURRENCY, pagesToPrefetch.length)
+
+      const prefetchNext = async (): Promise<void> => {
+        while (cursor < pagesToPrefetch.length) {
+          if (!isPrefetchGenerationCurrent(projectId, generation) || controller.signal.aborted) return
+
+          const page = pagesToPrefetch[cursor]
+          cursor += 1
+          if (!page) continue
+
+          const pageXmlId = await resolvePageXmlIdForPrefetch(projectId, page, controller.signal)
+          if (!pageXmlId) continue
+
+          if (!isPrefetchGenerationCurrent(projectId, generation) || controller.signal.aborted) return
+
+          const cacheKey = `${projectId}:${page.id}:${pageXmlId}`
+          if (annotationCache.has(cacheKey) || pendingPrefetches.value.has(cacheKey)) {
+            continue
+          }
+
+          pendingPrefetches.value.add(cacheKey)
+          try {
+            const pageDto = await $fetch<PageDto>(
+              `/api/projects/${projectId}/pages/${page.id}/annotations/${pageXmlId}`,
+              { signal: controller.signal }
+            )
+            annotationCache.set(cacheKey, pageDto)
+            log.info(`Prefetched annotations for page ${page.id}`)
+          } catch (error) {
+            if (!isAbortError(error)) {
+              log.warn(`Failed to prefetch annotations for page ${page.id}:`, error)
+            }
+          } finally {
+            pendingPrefetches.value.delete(cacheKey)
+          }
         }
       }
 
-      if (!page.xmlFiles || page.xmlFiles.length === 0) continue
-
-      const pageXmlFile = page.xmlFiles.find(xml => xml.schema === 'PAGE_XML')
-      if (!pageXmlFile) continue
-
-      const cacheKey = `${projectId}:${page.id}:${pageXmlFile.id}`
-      
-      if (annotationCache.has(cacheKey) || pendingPrefetches.value.has(cacheKey)) {
-        continue
+      await Promise.all(Array.from({ length: workerCount }, () => prefetchNext()))
+    } finally {
+      const batch = prefetchBatchByProjectId.get(projectId)
+      if (batch?.generation === generation) {
+        prefetchBatchByProjectId.delete(projectId)
       }
-
-      pendingPrefetches.value.add(cacheKey)
-
-      $fetch<PageDto>(
-        `/api/projects/${projectId}/pages/${page.id}/annotations/${pageXmlFile.id}`
-      ).then(pageDto => {
-        annotationCache.set(cacheKey, pageDto)
-        log.info(`Prefetched annotations for page ${page.id}`)
-      }).catch(error => {
-        log.warn(`Failed to prefetch annotations for page ${page.id}:`, error)
-      }).finally(() => {
-        pendingPrefetches.value.delete(cacheKey)
-      })
     }
   }
 
@@ -1022,8 +1183,21 @@ export const useEditorStore = defineStore('editor', () => {
    * Clear the annotation cache (e.g., when project changes or on explicit refresh)
    */
   function clearAnnotationCache(): void {
+    for (const timeout of prefetchTimeoutByProjectId.values()) {
+      clearTimeout(timeout)
+    }
+    prefetchTimeoutByProjectId.clear()
+
+    for (const batch of prefetchBatchByProjectId.values()) {
+      batch.controller.abort()
+    }
+    prefetchBatchByProjectId.clear()
+    prefetchGenerationByProjectId.clear()
+
     annotationCache.clear()
     pendingPrefetches.value.clear()
+    pageXmlPrefetchCache.clear()
+    pageXmlLookupByKey.clear()
     log.info('Annotation cache cleared')
   }
 
@@ -1032,7 +1206,7 @@ export const useEditorStore = defineStore('editor', () => {
    */
   function invalidateAnnotationCache(pageId: string, projectId?: string): void {
     const prefix = projectId ? `${projectId}:${pageId}:` : `:${pageId}:`
-    const deleted = annotationCache.deleteWhere(key => {
+    const deleted = annotationCache.deleteWhere((key) => {
       if (projectId) return key.startsWith(prefix)
       return key.includes(prefix)
     })
@@ -1081,7 +1255,7 @@ export const useEditorStore = defineStore('editor', () => {
 
     try {
       const pageDto = convertPcGtsToPageDto(pcGts)
-      
+
       log.info(`Saving annotations for page ${pageId} to XML file ${xmlFileId}`)
 
       await $fetch(`/api/projects/${projectId}/pages/${pageId}/annotations/${xmlFileId}`, {
@@ -1253,10 +1427,11 @@ export const useEditorStore = defineStore('editor', () => {
     toggleConstrainToParent,
     toggleAutoSelect,
     setToolbarLayout,
-    
+    setAdjacentPrefetchPageScope,
+
     clearAnnotationCache,
     invalidateAnnotationCache,
-    
+
     saveAnnotations
   }
 })

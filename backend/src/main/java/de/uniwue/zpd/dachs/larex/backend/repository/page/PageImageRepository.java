@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.repository.page;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,10 @@ public interface PageImageRepository extends JpaRepository<PageImage, String> {
     List<PageImage> findByBaseName(String baseName);
 
     List<PageImage> findByPageIdIn(Collection<String> pageIds);
+
+    @Modifying
+    @Query("DELETE FROM PageImage pi WHERE pi.page.id IN :pageIds")
+    int deleteByPageIdIn(@Param("pageIds") Collection<String> pageIds);
     
     @Query("SELECT COALESCE(SUM(pi.fileSize), 0) FROM PageImage pi WHERE pi.page.project.id = :projectId")
     Long sumFileSizeByProjectId(@Param("projectId") String projectId);

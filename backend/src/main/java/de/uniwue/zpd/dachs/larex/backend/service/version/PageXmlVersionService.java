@@ -19,7 +19,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -154,9 +156,37 @@ public class PageXmlVersionService {
     }
 
     public void deleteVersionDirectory(String pageXmlId) {
+        deleteVersionDirectoryInternal(pageXmlId);
+    }
+
+    public int deleteVersionDirectories(Collection<String> pageXmlIds) {
+        if (pageXmlIds == null || pageXmlIds.isEmpty()) {
+            return 0;
+        }
+
+        List<String> normalizedIds = pageXmlIds.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .toList();
+        if (normalizedIds.isEmpty()) {
+            return 0;
+        }
+
+        if (normalizedIds.size() == 1) {
+            return deleteVersionDirectoryInternal(normalizedIds.get(0)) ? 1 : 0;
+        }
+
+        return (int) normalizedIds.parallelStream()
+                .map(this::deleteVersionDirectoryInternal)
+                .filter(Boolean::booleanValue)
+                .count();
+    }
+
+    private Boolean deleteVersionDirectoryInternal(String pageXmlId) {
         Path versionDir = Paths.get(uploadDir, "xml/versions/" + pageXmlId);
         if (!Files.exists(versionDir)) {
-            return;
+            return false;
         }
 
         try (Stream<Path> paths = Files.walk(versionDir)) {
@@ -169,8 +199,10 @@ public class PageXmlVersionService {
                         }
                     });
             log.debug("Deleted version directory for XML {}", pageXmlId);
+            return true;
         } catch (IOException e) {
             log.warn("Failed to walk version directory for XML {}: {}", pageXmlId, e.getMessage());
+            return false;
         }
     }
 }
