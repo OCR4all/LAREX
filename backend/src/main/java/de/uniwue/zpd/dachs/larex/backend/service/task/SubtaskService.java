@@ -145,8 +145,8 @@ public class SubtaskService {
         IntStream.range(0, subtaskIds.size()).forEach(i -> {
             Subtask subtask = subtaskMap.get(subtaskIds.get(i));
             subtask.setSortOrder(i);
-            subtaskRepository.save(subtask);
         });
+        subtaskRepository.saveAll(subtasks);
     }
 
     public void deleteSubtask(String taskId, String subtaskId, String userId) {
@@ -168,21 +168,28 @@ public class SubtaskService {
     public SubtaskDto.BulkResponse bulkComplete(String taskId, String userId, SubtaskDto.BulkRequest request) {
         verifyTaskMutationAccess(taskId, userId);
 
-        List<Subtask> subtasks = subtaskRepository.findAllById(request.subtaskIds());
-        int affected = 0;
+        List<String> subtaskIds = normalizeIds(request.subtaskIds());
+        if (subtaskIds.isEmpty()) {
+            return new SubtaskDto.BulkResponse(0);
+        }
 
-        for (Subtask subtask : subtasks) {
-            if (!subtask.getTaskId().equals(taskId)) {
-                continue;
-            }
-            if (!subtask.isCompleted()) {
-                subtask.setCompleted(true);
-                subtask.setCompletedAt(LocalDateTime.now());
-                subtask.setCompletedByUserId(userId);
-                subtaskRepository.save(subtask);
-                activityService.logSubtaskCompleted(taskId, userId, subtask.getTitle());
-                affected++;
-            }
+        List<Subtask> subtasks = subtaskRepository.findByTaskIdAndIdIn(taskId, subtaskIds);
+        List<Subtask> toComplete = subtasks.stream()
+                .filter(subtask -> !subtask.isCompleted())
+                .toList();
+        if (toComplete.isEmpty()) {
+            return new SubtaskDto.BulkResponse(0);
+        }
+
+        LocalDateTime completedAt = LocalDateTime.now();
+        int affected = subtaskRepository.markCompletedByTaskIdAndIdIn(
+                taskId,
+                toComplete.stream().map(Subtask::getId).toList(),
+                completedAt,
+                userId
+        );
+        for (Subtask subtask : toComplete) {
+            activityService.logSubtaskCompleted(taskId, userId, subtask.getTitle());
         }
 
         return new SubtaskDto.BulkResponse(affected);
@@ -191,17 +198,22 @@ public class SubtaskService {
     public SubtaskDto.BulkResponse bulkDelete(String taskId, String userId, SubtaskDto.BulkRequest request) {
         verifyTaskMutationAccess(taskId, userId);
 
-        List<Subtask> subtasks = subtaskRepository.findAllById(request.subtaskIds());
-        int affected = 0;
+        List<String> subtaskIds = normalizeIds(request.subtaskIds());
+        if (subtaskIds.isEmpty()) {
+            return new SubtaskDto.BulkResponse(0);
+        }
 
+        List<Subtask> subtasks = subtaskRepository.findByTaskIdAndIdIn(taskId, subtaskIds);
+        if (subtasks.isEmpty()) {
+            return new SubtaskDto.BulkResponse(0);
+        }
+
+        int affected = subtaskRepository.deleteByTaskIdAndIdIn(
+                taskId,
+                subtasks.stream().map(Subtask::getId).toList()
+        );
         for (Subtask subtask : subtasks) {
-            if (!subtask.getTaskId().equals(taskId)) {
-                continue;
-            }
-            String title = subtask.getTitle();
-            subtaskRepository.delete(subtask);
-            activityService.logSubtaskDeleted(taskId, userId, title);
-            affected++;
+            activityService.logSubtaskDeleted(taskId, userId, subtask.getTitle());
         }
 
         return new SubtaskDto.BulkResponse(affected);
@@ -275,18 +287,12 @@ public class SubtaskService {
     public SubtaskDto.BulkResponse bulkUpdateDescription(String taskId, String userId, SubtaskDto.BulkDescriptionRequest request) {
         verifyTaskMutationAccess(taskId, userId);
 
-        List<Subtask> subtasks = subtaskRepository.findAllById(request.subtaskIds());
-        int affected = 0;
-
-        for (Subtask subtask : subtasks) {
-            if (!subtask.getTaskId().equals(taskId)) {
-                continue;
-            }
-            subtask.setDescription(request.description());
-            subtaskRepository.save(subtask);
-            affected++;
+        List<String> subtaskIds = normalizeIds(request.subtaskIds());
+        if (subtaskIds.isEmpty()) {
+            return new SubtaskDto.BulkResponse(0);
         }
 
+        int affected = subtaskRepository.updateDescriptionByTaskIdAndIdIn(taskId, subtaskIds, request.description());
         return new SubtaskDto.BulkResponse(affected);
     }
 
@@ -298,21 +304,15 @@ public class SubtaskService {
             validateAssignee(task, request.assignedUserId());
         }
 
-        List<Subtask> subtasks = subtaskRepository.findAllById(request.subtaskIds());
-        int affected = 0;
-
-        for (Subtask subtask : subtasks) {
-            if (!subtask.getTaskId().equals(taskId)) {
-                continue;
-            }
-            if (request.assignedUserId() != null && !request.assignedUserId().isBlank()) {
-                subtask.setAssignedUserId(request.assignedUserId());
-            } else {
-                subtask.setAssignedUserId(null);
-            }
-            subtaskRepository.save(subtask);
-            affected++;
+        List<String> subtaskIds = normalizeIds(request.subtaskIds());
+        if (subtaskIds.isEmpty()) {
+            return new SubtaskDto.BulkResponse(0);
         }
+
+        String assignedUserId = (request.assignedUserId() != null && !request.assignedUserId().isBlank())
+                ? request.assignedUserId()
+                : null;
+        int affected = subtaskRepository.updateAssignedUserByTaskIdAndIdIn(taskId, subtaskIds, assignedUserId);
 
         return new SubtaskDto.BulkResponse(affected);
     }
@@ -487,5 +487,15 @@ public class SubtaskService {
             ));
         }
         return profiles;
+    }
+
+    private List<String> normalizeIds(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
     }
 }

@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @Transactional
@@ -39,26 +38,11 @@ public class NotificationService {
     }
 
     public boolean markAsRead(String notificationId, String userId) {
-        Optional<Notification> notificationOpt = notificationRepository.findById(notificationId);
-        if (notificationOpt.isPresent() && notificationOpt.get().getUserId().equals(userId)) {
-            Notification notification = notificationOpt.get();
-            notification.setRead(true);
-            notification.setReadAt(LocalDateTime.now());
-            notificationRepository.save(notification);
-            return true;
-        }
-        return false;
+        return notificationRepository.markAsReadByIdAndUserId(notificationId, userId, LocalDateTime.now()) > 0;
     }
 
     public void markAllAsRead(String userId) {
-        List<Notification> unreadNotifications = getUnreadNotifications(userId);
-        LocalDateTime now = LocalDateTime.now();
-
-        for (Notification notification : unreadNotifications) {
-            notification.setRead(true);
-            notification.setReadAt(now);
-        }
-        notificationRepository.saveAll(unreadNotifications);
+        notificationRepository.markAllAsReadByUserId(userId, LocalDateTime.now());
     }
 
     public Notification createNotification(String userId, String title, String message, Notification.NotificationType type) {
