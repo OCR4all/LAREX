@@ -41,7 +41,7 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
   const { msg, msgStr, currentLanguage, enabledLanguages } = i18n;
 
   const { realm, auth, url, message, isAppInitiatedAction } = kcContext;
-  const currentVersion = `v.${themePackage.version}`;
+  const currentVersion = `v${themePackage.version}`;
 
   // Apply dark mode from URL parameters and get state
   const isDark = useDarkMode();
