@@ -34,11 +34,13 @@ public class UploadPageIndexDispatcher {
         }
 
         for (String pageId : event.pageIds()) {
-            if (!pageIndexStatusTracker.markIndexingIfAbsent(pageId)) {
-                log.debug("Skipping duplicate background indexing queue for page {}", pageId);
-                continue;
+            boolean marked = pageIndexStatusTracker.markIndexingIfAbsent(pageId);
+            if (marked) {
+                uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "queued");
+            } else {
+                // Recovery path: do not drop work just because a stale in-memory flag exists.
+                log.debug("Page {} was already marked indexing; dispatching worker anyway to avoid stale lock", pageId);
             }
-            uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "queued");
             try {
                 uploadPageIndexWorker.indexPageAsync(event.sessionId(), event.projectId(), pageId);
             } catch (Exception e) {

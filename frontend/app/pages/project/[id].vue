@@ -778,6 +778,10 @@ const {
     clearFiles()
   },
   onError: (error, file) => {
+    if (uploadStore.cancellingSessionIds.size > 0) {
+      return
+    }
+
     const sessionId = currentUploadSessionId.value
     const existingUpload = sessionId ? uploadStore.activeUploads.get(sessionId) : null
     const message = error.message.toLowerCase()
