@@ -20,6 +20,7 @@ import { createSkeletonPageData, type PageResponse } from '@/services/editor/pro
 import { createPageXmlLabelSet } from '@/models/editor'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
+import type { ActiveUpload } from '@/stores/upload.store'
 import { useChunkedUpload } from '@/composables/use-chunked-upload'
 import { usePagePrefetch } from '@/composables/use-page-prefetch'
 import type { Ref } from 'vue'
@@ -162,16 +163,16 @@ const isProjectNotFound = computed(() => projectErrorStatusCode.value === 404)
 const projectLoadErrorMessage = computed(() => getErrorMessage(projectError.value, 'Failed to load project.'))
 const projectCapabilities = useResourceCapabilities(project, 'project')
 
-const { data: pages, error: pagesError, pending: pagesPending } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
+const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshPagesFetch } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
   key: projectPagesKey
 })
 
 const isManualPagesRefresh = ref(false)
 const hasLoadedPagesOnce = ref(false)
-const showPagesLoadingSpinner = computed(() => pagesPending.value && (!hasLoadedPagesOnce.value || isManualPagesRefresh.value))
+const showPagesLoadingSpinner = computed(() => isManualPagesRefresh.value || (!hasLoadedPagesOnce.value && pagesPending.value))
 
-watch(pagesPending, (pending) => {
-  if (!pending) {
+watch([pages, pagesError], ([nextPages, nextError]) => {
+  if (nextPages !== null || nextError) {
     hasLoadedPagesOnce.value = true
   }
 }, { immediate: true })
@@ -230,7 +231,6 @@ async function pollPageIndexStatuses() {
       shouldContinuePolling = false
       return
     }
-    console.warn('[Project] Failed to poll page index statuses:', error)
   } finally {
     pageIndexStatusPollInFlight.value = false
     if (shouldContinuePolling && hasIndexingPages(pages.value)) {
@@ -311,14 +311,13 @@ const fileInput = ref<HTMLInputElement>()
 
 const currentUploadSessionId = ref<string | null>(null)
 const tempUploadSessionId = ref<string | null>(null)
-const uploadEventsSource = ref<EventSource | null>(null)
-const uploadEventsConnected = ref(false)
-const processingPollSessionId = ref<string | null>(null)
 let pageRefreshDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+type UploadSessionStatus = 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
 type UploadSessionSseEvent = {
   sessionId: string
-  status?: 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+  status?: UploadSessionStatus
   processedFiles?: number
   failedFiles?: number
   totalFiles?: number
@@ -345,6 +344,38 @@ type UploadFileSseEvent = {
 
 type UploadFileUiStatus = 'pending' | 'uploading' | 'uploaded' | 'processing' | 'completed' | 'failed' | 'conflict' | 'skipped'
 
+type UploadSessionFileResponse = {
+  id: string
+  originalFileName: string
+  fileSize: number
+  mimeType?: string | null
+  status?: string
+  chunkCount?: number
+  chunksReceived?: number
+  errorMessage?: string | null
+  createdPageId?: string | null
+  createdPageImageId?: string | null
+  conflictType?: string | null
+}
+
+type UploadSessionDetailResponse = {
+  id: string
+  projectId: string
+  workspaceId: string
+  status: UploadSessionStatus
+  totalFiles: number
+  processedFiles: number
+  failedFiles: number
+  progressPercent: number
+  files: UploadSessionFileResponse[]
+}
+
+type UploadSessionSummaryResponse = {
+  id: string
+  projectId: string
+  status: UploadSessionStatus
+}
+
 type PageCreatedOrUpdatedSseEvent = {
   projectId: string
   pageId: string
@@ -352,40 +383,104 @@ type PageCreatedOrUpdatedSseEvent = {
   reason?: string
 }
 
-function closeUploadEventSource() {
-  if (uploadEventsSource.value) {
-    uploadEventsSource.value.close()
-    uploadEventsSource.value = null
+type UploadSessionRuntime = {
+  eventSource: EventSource | null
+  eventsConnected: boolean
+  pollTimer: ReturnType<typeof setTimeout> | null
+  pollInFlight: boolean
+  pollCount: number
+}
+
+const uploadSessionRuntimes = ref<Map<string, UploadSessionRuntime>>(new Map())
+const UPLOAD_PROCESSING_POLL_MS = 2000
+const UPLOAD_PROCESSING_MAX_POLLS = 300
+
+function isActiveUploadStatus(status?: UploadSessionStatus): boolean {
+  return status === 'PENDING' || status === 'UPLOADING' || status === 'PROCESSING'
+}
+
+function isTerminalUploadStatus(status?: UploadSessionStatus): status is Extract<UploadSessionStatus, 'COMPLETED' | 'FAILED' | 'CANCELLED'> {
+  return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+}
+
+function ensureUploadSessionRuntime(sessionId: string): UploadSessionRuntime {
+  const existing = uploadSessionRuntimes.value.get(sessionId)
+  if (existing) return existing
+  const runtime: UploadSessionRuntime = {
+    eventSource: null,
+    eventsConnected: false,
+    pollTimer: null,
+    pollInFlight: false,
+    pollCount: 0
   }
-  uploadEventsConnected.value = false
+  uploadSessionRuntimes.value.set(sessionId, runtime)
+  return runtime
 }
 
-function scheduleUploadPageRefresh() {
-  if (pageRefreshDebounceTimer) return
-  pageRefreshDebounceTimer = setTimeout(() => {
-    pageRefreshDebounceTimer = null
-    void (async () => {
-      try {
-        await $fetch(`/api/projects/${projectId}/pages/invalidate-cache`, { method: 'POST' })
-      } catch {
-        // Best-effort cache busting; continue with refresh even if unavailable.
-      }
-      await Promise.allSettled([
-        refreshPagesData(),
-        refreshProject(),
-        refreshProjectStatus()
-      ])
-    })()
-  }, 800)
+function clearUploadSessionPollTimer(sessionId: string) {
+  const runtime = uploadSessionRuntimes.value.get(sessionId)
+  if (!runtime?.pollTimer) return
+  clearTimeout(runtime.pollTimer)
+  runtime.pollTimer = null
 }
 
-async function refreshPagesData(options: { manual?: boolean } = {}) {
+function closeUploadEventSource(sessionId: string) {
+  const runtime = uploadSessionRuntimes.value.get(sessionId)
+  if (!runtime) return
+  if (runtime.eventSource) {
+    runtime.eventSource.close()
+    runtime.eventSource = null
+  }
+  runtime.eventsConnected = false
+}
+
+function stopMonitoringUploadSession(sessionId: string, options: { removeRuntime?: boolean } = {}) {
+  clearUploadSessionPollTimer(sessionId)
+  closeUploadEventSource(sessionId)
+  const runtime = uploadSessionRuntimes.value.get(sessionId)
+  if (runtime) {
+    runtime.pollInFlight = false
+    runtime.pollCount = 0
+  }
+  if (options.removeRuntime !== false) {
+    uploadSessionRuntimes.value.delete(sessionId)
+  }
+}
+
+function stopAllUploadSessionMonitoring() {
+  for (const sessionId of uploadSessionRuntimes.value.keys()) {
+    stopMonitoringUploadSession(sessionId)
+  }
+}
+
+async function invalidateProjectPagesCache() {
+  try {
+    await $fetch(`/api/projects/${projectId}/pages/invalidate-cache`, { method: 'POST' })
+  } catch {
+    // Best-effort cache busting; continue with refresh even if unavailable.
+  }
+}
+
+async function refreshPagesData(options: { manual?: boolean, invalidateCache?: boolean } = {}) {
   const manual = options.manual === true
+  const invalidateCache = options.invalidateCache === true
+
   if (manual) {
     isManualPagesRefresh.value = true
   }
+
   try {
-    await refreshNuxtData(projectPagesKey.value)
+    if (invalidateCache) {
+      await invalidateProjectPagesCache()
+    }
+
+    if (manual) {
+      await refreshPagesFetch()
+      return
+    }
+
+    const refreshedPages = await $fetch<Page[]>(`/api/projects/${projectId}/pages`)
+    pages.value = refreshedPages
   } finally {
     if (manual) {
       isManualPagesRefresh.value = false
@@ -393,12 +488,138 @@ async function refreshPagesData(options: { manual?: boolean } = {}) {
   }
 }
 
+async function syncProjectDataAfterUploadTerminal() {
+  await Promise.allSettled([
+    refreshPagesData({ invalidateCache: true }),
+    refreshProject(),
+    refreshProjectStatus(),
+    refreshNuxtData(wsKey(selectedWorkspace.value as string, 'storage', 'quota'))
+  ])
+
+  if (hasIndexingPages(pages.value)) {
+    schedulePageIndexStatusPoll(0)
+  }
+}
+
+function scheduleUploadPageRefresh() {
+  if (pageRefreshDebounceTimer) return
+  pageRefreshDebounceTimer = setTimeout(() => {
+    pageRefreshDebounceTimer = null
+    void Promise.allSettled([
+      refreshPagesData({ invalidateCache: true }),
+      refreshProject(),
+      refreshProjectStatus()
+    ])
+  }, 800)
+}
+
+function scheduleUploadSessionPoll(sessionId: string, delayMs = UPLOAD_PROCESSING_POLL_MS, options: { force?: boolean } = {}) {
+  if (import.meta.server) return
+  if (!sessionId) return
+  const runtime = ensureUploadSessionRuntime(sessionId)
+  const force = options.force === true
+  if (!force && runtime.eventSource && runtime.eventsConnected) return
+  if (runtime.pollTimer || runtime.pollInFlight) return
+  runtime.pollTimer = setTimeout(() => {
+    runtime.pollTimer = null
+    void pollBackendProcessing(sessionId)
+  }, delayMs)
+}
+
+function toUploadFileUiStatus(status?: string | null): UploadFileUiStatus {
+  const normalized = (status ?? '').toLowerCase()
+  if (normalized === 'pending' || normalized === 'uploading' || normalized === 'uploaded' || normalized === 'processing' || normalized === 'completed' || normalized === 'failed' || normalized === 'conflict' || normalized === 'skipped') {
+    return normalized
+  }
+  return 'pending'
+}
+
+function mapServerFileToUploadFile(file: UploadSessionFileResponse) {
+  const totalChunks = Math.max(1, Number(file.chunkCount || 1))
+  const chunksReceived = Math.max(0, Number(file.chunksReceived || 0))
+  const mimeType = file.mimeType || 'application/octet-stream'
+  const fileName = file.originalFileName || 'upload-file'
+  return {
+    id: file.id,
+    file: new File([], fileName, { type: mimeType }),
+    fileName,
+    fileSize: Number(file.fileSize || 0),
+    mimeType,
+    baseName: fileName.includes('.') ? fileName.substring(0, fileName.indexOf('.')) : fileName,
+    variant: fileName.includes('.') ? fileName.substring(fileName.indexOf('.') + 1) : '',
+    status: toUploadFileUiStatus(file.status),
+    progress: totalChunks > 0 ? Math.round((chunksReceived / totalChunks) * 100) : 0,
+    chunksReceived,
+    totalChunks,
+    error: file.errorMessage || undefined,
+    createdPageId: file.createdPageId || undefined,
+    createdPageImageId: file.createdPageImageId || undefined,
+    conflictType: file.conflictType || undefined
+  }
+}
+
+function upsertUploadStoreSession(detail: UploadSessionDetailResponse) {
+  const mappedFiles = (detail.files ?? []).map(file => mapServerFileToUploadFile(file))
+  const existingUpload = uploadStore.activeUploads.get(detail.id)
+  if (!existingUpload) {
+    uploadStore.registerUpload(
+      detail.id,
+      detail.projectId,
+      project.value?.name || 'Project Upload',
+      detail.workspaceId || (selectedWorkspace.value as string),
+      mappedFiles
+    )
+  }
+
+  uploadStore.updateUploadProgress(detail.id, {
+    status: detail.status,
+    totalFiles: detail.totalFiles,
+    processedFiles: detail.processedFiles,
+    failedFiles: detail.failedFiles,
+    progressPercent: detail.totalFiles > 0
+      ? Math.round(((detail.processedFiles + detail.failedFiles) / detail.totalFiles) * 100)
+      : Math.max(detail.progressPercent, 100),
+    files: mappedFiles
+  })
+}
+
+async function handleTerminalUploadStatus(
+  sessionId: string,
+  status: Extract<UploadSessionStatus, 'COMPLETED' | 'FAILED' | 'CANCELLED'>
+) {
+  if (status === 'FAILED') {
+    uploadStore.completeUpload(sessionId, 'FAILED', 'Processing failed')
+  } else if (status === 'CANCELLED') {
+    uploadStore.completeUpload(sessionId, 'CANCELLED')
+  } else {
+    uploadStore.completeUpload(sessionId, 'COMPLETED')
+  }
+
+  if (currentUploadSessionId.value === sessionId) {
+    currentUploadSessionId.value = null
+  }
+
+  stopMonitoringUploadSession(sessionId)
+  await syncProjectDataAfterUploadTerminal()
+
+  if (status === 'FAILED') {
+    toast.add({
+      title: 'Processing failed',
+      description: 'Some files could not be processed',
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  }
+}
+
 function applyUploadSessionSseEvent(event: UploadSessionSseEvent) {
   if (!event?.sessionId) return
+
   const shouldUpdateProgressFromServer
     = event.status === 'PROCESSING'
       || event.status === 'COMPLETED'
       || event.status === 'FAILED'
+      || event.status === 'CANCELLED'
 
   uploadStore.updateUploadProgress(event.sessionId, {
     ...(event.status ? { status: event.status } : {}),
@@ -416,30 +637,8 @@ function applyUploadSessionSseEvent(event: UploadSessionSseEvent) {
       : {})
   })
 
-  if (event.status === 'COMPLETED') {
-    uploadStore.completeUpload(event.sessionId, 'COMPLETED')
-    processingPollSessionId.value = null
-    currentUploadSessionId.value = null
-    closeUploadEventSource()
-    void $fetch(`/api/projects/${projectId}/pages/invalidate-cache`, { method: 'POST' }).catch(() => {})
-    void Promise.all([
-      refreshPagesData(),
-      refreshProject(),
-      refreshProjectStatus(),
-      refreshNuxtData(wsKey(selectedWorkspace.value as string, 'storage', 'quota'))
-    ])
-  } else if (event.status === 'FAILED') {
-    uploadStore.completeUpload(event.sessionId, 'FAILED', 'Processing failed')
-    processingPollSessionId.value = null
-    currentUploadSessionId.value = null
-    closeUploadEventSource()
-    toast.add({
-      title: 'Processing failed',
-      description: 'Some files could not be processed',
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
-    })
-    void refreshPagesData()
+  if (event.status && isTerminalUploadStatus(event.status)) {
+    void handleTerminalUploadStatus(event.sessionId, event.status)
   }
 }
 
@@ -460,26 +659,29 @@ function applyUploadFileSseEvent(event: UploadFileSseEvent) {
 
 function connectUploadEventSource(sessionId: string) {
   if (import.meta.server) return
-  if (!sessionId || currentUploadSessionId.value !== sessionId) return
-  if (uploadEventsSource.value) return
+  if (!sessionId || !selectedWorkspace.value) return
+  const runtime = ensureUploadSessionRuntime(sessionId)
+  if (runtime.eventSource) return
 
   const es = new EventSource(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/upload-sessions/${sessionId}/events`)
-  uploadEventsSource.value = es
+  runtime.eventSource = es
 
   es.addEventListener('upload-session-state', (raw) => {
-    uploadEventsConnected.value = true
+    runtime.eventsConnected = true
+    runtime.pollCount = 0
+    clearUploadSessionPollTimer(sessionId)
     try {
       applyUploadSessionSseEvent(JSON.parse((raw as MessageEvent).data))
-    } catch (error) {
-      console.warn('[Upload SSE] Failed to parse upload-session-state event:', error)
+    } catch {
+      // Ignore malformed SSE payloads.
     }
   })
 
   es.addEventListener('upload-file-state', (raw) => {
     try {
       applyUploadFileSseEvent(JSON.parse((raw as MessageEvent).data))
-    } catch (error) {
-      console.warn('[Upload SSE] Failed to parse upload-file-state event:', error)
+    } catch {
+      // Ignore malformed SSE payloads.
     }
   })
 
@@ -489,8 +691,8 @@ function connectUploadEventSource(sessionId: string) {
       if (payload.projectId === projectId) {
         scheduleUploadPageRefresh()
       }
-    } catch (error) {
-      console.warn('[Upload SSE] Failed to parse page-created-or-updated event:', error)
+    } catch {
+      // Ignore malformed SSE payloads.
     }
   })
 
@@ -499,10 +701,10 @@ function connectUploadEventSource(sessionId: string) {
   })
 
   es.onerror = () => {
-    uploadEventsConnected.value = false
-    closeUploadEventSource()
-    if (currentUploadSessionId.value === sessionId) {
-      pollBackendProcessing(sessionId)
+    closeUploadEventSource(sessionId)
+    const upload = uploadStore.activeUploads.get(sessionId)
+    if (upload && isActiveUploadStatus(upload.status)) {
+      scheduleUploadSessionPoll(sessionId, 0, { force: true })
     }
   }
 }
@@ -514,6 +716,7 @@ const {
   error: _uploadError,
   addFiles,
   startUpload,
+  cancelUpload,
   clearFiles,
   overallProgress: _overallProgress
 } = useChunkedUpload({
@@ -540,8 +743,6 @@ const {
       const completedChunks = localFiles.reduce((sum, f) => sum + f.chunksReceived, 0)
       const calculatedProgress = totalChunks > 0 ? Math.round((completedChunks / totalChunks) * 100) : 0
 
-      console.debug(`[Upload] Progress: ${calculatedProgress}% (${completedChunks}/${totalChunks} chunks)`)
-
       uploadStore.updateUploadProgress(sessionId, {
         status: 'UPLOADING',
         progressPercent: calculatedProgress
@@ -564,21 +765,31 @@ const {
       const existingUpload = uploadStore.activeUploads.get(sessionId)
       if (existingUpload?.status !== 'FAILED' && existingUpload?.status !== 'CANCELLED') {
         uploadStore.updateUploadProgress(sessionId, {
+          status: 'PROCESSING',
           processedFiles: existingUpload?.totalFiles ?? session.totalFiles,
           progressPercent: 100
         })
-        uploadStore.completeUpload(sessionId, 'COMPLETED')
       }
 
-      if (!uploadEventsConnected.value) {
-        pollBackendProcessing(sessionId)
-      }
+      connectUploadEventSource(sessionId)
+      scheduleUploadSessionPoll(sessionId, UPLOAD_PROCESSING_POLL_MS)
     }
 
     clearFiles()
   },
   onError: (error, file) => {
     const sessionId = currentUploadSessionId.value
+    const existingUpload = sessionId ? uploadStore.activeUploads.get(sessionId) : null
+    const message = error.message.toLowerCase()
+    const cancelLikeError = message.includes('aborted') || message.includes('abort') || message.includes('session is not active')
+    if (cancelLikeError) {
+      return
+    }
+
+    if (sessionId && (uploadStore.isCancelling(sessionId) || existingUpload?.status === 'CANCELLED')) {
+      return
+    }
+
     if (sessionId) {
       uploadStore.completeUpload(sessionId, 'FAILED', error.message)
     }
@@ -609,8 +820,65 @@ watch(() => uploadSession.value?.id, (newSessionId) => {
     currentUploadSessionId.value = newSessionId
     tempUploadSessionId.value = null
     connectUploadEventSource(newSessionId)
+    scheduleUploadSessionPoll(newSessionId, UPLOAD_PROCESSING_POLL_MS)
   }
 })
+
+async function handleProjectUploadCancellation(sessionId: string, upload: ActiveUpload): Promise<boolean> {
+  if (upload.projectId !== projectId) {
+    return false
+  }
+
+  if (uploadSession.value?.id === sessionId || currentUploadSessionId.value === sessionId) {
+    void cancelUpload().catch(() => {})
+    clearFiles()
+  } else {
+    await $fetch(`/api/workspaces/${upload.workspaceId}/projects/${upload.projectId}/upload-sessions/${sessionId}`, {
+      method: 'DELETE'
+    })
+  }
+
+  stopMonitoringUploadSession(sessionId)
+  if (currentUploadSessionId.value === sessionId) {
+    currentUploadSessionId.value = null
+    tempUploadSessionId.value = null
+  }
+  void syncProjectDataAfterUploadTerminal()
+  return true
+}
+
+async function restoreProjectUploadSessions() {
+  if (import.meta.server || !selectedWorkspace.value) return
+
+  try {
+    const sessions = await $fetch<UploadSessionSummaryResponse[]>('/api/upload-sessions')
+    const relevantSessions = sessions.filter(session =>
+      session.projectId === projectId
+      && isActiveUploadStatus(session.status)
+    )
+
+    await Promise.all(relevantSessions.map(async (sessionSummary) => {
+      try {
+        const detail = await $fetch<UploadSessionDetailResponse>(
+          `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/upload-sessions/${sessionSummary.id}`
+        )
+
+        upsertUploadStoreSession(detail)
+
+        if (isActiveUploadStatus(detail.status)) {
+          connectUploadEventSource(detail.id)
+          scheduleUploadSessionPoll(detail.id, UPLOAD_PROCESSING_POLL_MS)
+        } else if (isTerminalUploadStatus(detail.status)) {
+          await handleTerminalUploadStatus(detail.id, detail.status)
+        }
+      } catch {
+        // Ignore sessions that disappear during recovery.
+      }
+    }))
+  } catch {
+    // Recovery is best-effort.
+  }
+}
 
 watch(() => hasIndexingPages(pages.value), (hasIndexing) => {
   if (import.meta.server || !canPollPageIndexStatuses.value) return
@@ -623,15 +891,20 @@ watch(() => hasIndexingPages(pages.value), (hasIndexing) => {
 
 onMounted(() => {
   canPollPageIndexStatuses.value = true
+  uploadStore.setCancelUploadHandler(handleProjectUploadCancellation)
+
   if (hasIndexingPages(pages.value)) {
     schedulePageIndexStatusPoll(0)
   }
+
+  void restoreProjectUploadSessions()
 })
 
 onBeforeUnmount(() => {
   canPollPageIndexStatuses.value = false
   stopPageIndexStatusPolling()
-  closeUploadEventSource()
+  uploadStore.clearCancelUploadHandler(handleProjectUploadCancellation)
+  stopAllUploadSessionMonitoring()
   if (pageRefreshDebounceTimer) {
     clearTimeout(pageRefreshDebounceTimer)
     pageRefreshDebounceTimer = null
@@ -712,91 +985,73 @@ async function handleFileUpload(files: FileList | null) {
 }
 
 async function pollBackendProcessing(sessionId: string) {
-  if (processingPollSessionId.value === sessionId) return
-  processingPollSessionId.value = sessionId
-  const pollInterval = 2000 // Poll every 2 seconds
-  const maxPolls = 300 // Max 10 minutes of polling (300 * 2s)
-  let pollCount = 0
+  if (!selectedWorkspace.value) return
 
-  const poll = async () => {
-    try {
-      const status = await $fetch<{
-        status: 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
-        processedFiles: number
-        failedFiles: number
-        totalFiles: number
-      }>(
-        `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/upload-sessions/${sessionId}`
-      )
+  const runtime = ensureUploadSessionRuntime(sessionId)
+  if (runtime.pollInFlight) return
+  runtime.pollInFlight = true
 
-      uploadStore.updateUploadProgress(sessionId, {
-        status: status.status,
-        processedFiles: status.processedFiles,
-        failedFiles: status.failedFiles,
-        progressPercent: status.totalFiles > 0
-          ? Math.round(((status.processedFiles + status.failedFiles) / status.totalFiles) * 100)
-          : 100
-      })
+  try {
+    const status = await $fetch<{
+      status: UploadSessionStatus
+      processedFiles: number
+      failedFiles: number
+      totalFiles: number
+    }>(
+      `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/upload-sessions/${sessionId}`
+    )
 
-      if (status.status === 'COMPLETED') {
-        uploadStore.completeUpload(sessionId, 'COMPLETED')
-        currentUploadSessionId.value = null
-        processingPollSessionId.value = null
-        closeUploadEventSource()
+    uploadStore.updateUploadProgress(sessionId, {
+      status: status.status,
+      processedFiles: status.processedFiles,
+      failedFiles: status.failedFiles,
+      progressPercent: status.totalFiles > 0
+        ? Math.round(((status.processedFiles + status.failedFiles) / status.totalFiles) * 100)
+        : 100
+    })
 
-        await $fetch(`/api/projects/${projectId}/pages/invalidate-cache`, { method: 'POST' })
-
-        await Promise.all([
-          refreshPagesData(),
-          refreshProject(),
-          refreshProjectStatus(),
-          refreshNuxtData(wsKey(selectedWorkspace.value as string, 'storage', 'quota'))
-        ])
-
-        return
-      }
-
-      if (status.status === 'FAILED') {
-        uploadStore.completeUpload(sessionId, 'FAILED', 'Processing failed')
-        currentUploadSessionId.value = null
-        processingPollSessionId.value = null
-        closeUploadEventSource()
-
-        toast.add({
-          title: 'Processing failed',
-          description: 'Some files could not be processed',
-          color: 'error',
-          icon: 'i-lucide-alert-circle'
-        })
-
-        await refreshPagesData()
-        return
-      }
-
-      pollCount++
-      if (pollCount < maxPolls && (status.status === 'PROCESSING' || status.status === 'UPLOADING')) {
-        if (pollCount % 5 === 0) { // Every 10 seconds (5 * 2s)
-          await refreshPagesData()
-        }
-        setTimeout(poll, pollInterval)
-      } else if (pollCount >= maxPolls) {
-        console.warn('[Upload] Polling timeout reached')
-        uploadStore.completeUpload(sessionId, 'FAILED', 'Processing timeout')
-        currentUploadSessionId.value = null
-        processingPollSessionId.value = null
-      }
-    } catch (error) {
-      console.error('[Upload] Failed to poll session status:', error)
-      pollCount++
-      if (pollCount < maxPolls) {
-        setTimeout(poll, pollInterval)
-      } else if (processingPollSessionId.value === sessionId) {
-        processingPollSessionId.value = null
-      }
+    if (isTerminalUploadStatus(status.status)) {
+      await handleTerminalUploadStatus(sessionId, status.status)
+      return
     }
-  }
 
-  poll()
+    if (runtime.eventSource && runtime.eventsConnected) {
+      return
+    }
+
+    runtime.pollCount += 1
+    if (runtime.pollCount % 5 === 0) {
+      await refreshPagesData({ invalidateCache: true })
+    }
+
+    if (runtime.pollCount >= UPLOAD_PROCESSING_MAX_POLLS) {
+      uploadStore.completeUpload(sessionId, 'FAILED', 'Processing timeout')
+      stopMonitoringUploadSession(sessionId)
+      return
+    }
+
+    scheduleUploadSessionPoll(sessionId, UPLOAD_PROCESSING_POLL_MS)
+  } catch {
+    const upload = uploadStore.activeUploads.get(sessionId)
+    if (uploadStore.isCancelling(sessionId) || upload?.status === 'CANCELLED') {
+      stopMonitoringUploadSession(sessionId)
+      return
+    }
+
+    if (runtime.eventSource && runtime.eventsConnected) {
+      return
+    }
+
+    runtime.pollCount += 1
+    if (runtime.pollCount >= UPLOAD_PROCESSING_MAX_POLLS) {
+      stopMonitoringUploadSession(sessionId)
+      return
+    }
+
+    scheduleUploadSessionPoll(sessionId, UPLOAD_PROCESSING_POLL_MS)
+  } finally {
+    runtime.pollInFlight = false
+  }
 }
 
 async function viewConflicts() {

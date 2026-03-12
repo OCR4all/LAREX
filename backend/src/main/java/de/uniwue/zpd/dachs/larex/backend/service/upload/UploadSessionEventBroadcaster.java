@@ -125,7 +125,8 @@ public class UploadSessionEventBroadcaster {
                 || session.getStatus() == UploadSessionStatus.UPLOADING;
         boolean finalized = session.getStatus() == UploadSessionStatus.PROCESSING
                 || session.getStatus() == UploadSessionStatus.COMPLETED
-                || session.getStatus() == UploadSessionStatus.FAILED;
+                || session.getStatus() == UploadSessionStatus.FAILED
+                || session.getStatus() == UploadSessionStatus.CANCELLED;
         boolean processingActive = session.getStatus() == UploadSessionStatus.PROCESSING;
 
         return new SessionStatePayload(

@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -291,11 +292,38 @@ public class ChunkedUploadService {
         UploadSession session = sessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Upload session not found: " + sessionId));
 
+        if (session.getStatus() == UploadSessionStatus.CANCELLED) {
+            return;
+        }
+
         if (session.getStatus() == UploadSessionStatus.COMPLETED) {
             throw new IllegalArgumentException("Cannot cancel a completed session");
         }
 
+        List<UploadSessionFile> files = fileRepository.findBySessionId(sessionId);
+        List<UploadSessionFile> unfinishedFiles = new ArrayList<>();
+        for (UploadSessionFile file : files) {
+            UploadFileStatus status = file.getStatus();
+            if (status == UploadFileStatus.PENDING
+                    || status == UploadFileStatus.UPLOADING
+                    || status == UploadFileStatus.UPLOADED
+                    || status == UploadFileStatus.PROCESSING) {
+                file.setStatus(UploadFileStatus.SKIPPED);
+                if (file.getErrorMessage() == null || file.getErrorMessage().isBlank()) {
+                    file.setErrorMessage("Upload cancelled by user");
+                }
+                unfinishedFiles.add(file);
+            }
+        }
+        if (!unfinishedFiles.isEmpty()) {
+            fileRepository.saveAll(unfinishedFiles);
+            for (UploadSessionFile unfinishedFile : unfinishedFiles) {
+                uploadSessionEventBroadcaster.broadcastFileState(sessionId, unfinishedFile);
+            }
+        }
+
         session.setStatus(UploadSessionStatus.CANCELLED);
+        session.setCompletedAt(LocalDateTime.now());
         sessionRepository.save(session);
         uploadSessionEventBroadcaster.broadcastSessionState(sessionId, "cancelled");
 

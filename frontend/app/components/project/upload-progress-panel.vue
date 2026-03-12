@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const uploadStore = useUploadStore()
+const toast = useToast()
 
 const statusLabels: Record<string, string> = {
   PENDING: 'Pending',
@@ -50,6 +51,27 @@ function isFinalizing(upload: { status: string, progressPercent: number }): bool
 function getStatusLabel(upload: { status: string, progressPercent: number }): string {
   if (isFinalizing(upload)) return 'Finalizing'
   return statusLabels[upload.status] || upload.status
+}
+
+function canCancelUpload(upload: { status: string }): boolean {
+  return upload.status === 'PENDING' || upload.status === 'UPLOADING' || upload.status === 'PROCESSING'
+}
+
+async function handleCancelUpload(upload: { sessionId: string, status: string }) {
+  if (!canCancelUpload(upload)) return
+  if (uploadStore.isCancelling(upload.sessionId)) return
+
+  try {
+    await uploadStore.cancelUpload(upload.sessionId)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to cancel upload'
+    toast.add({
+      title: 'Cancel failed',
+      description: message,
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  }
 }
 
 function handleClose() {
@@ -143,6 +165,18 @@ function handleClose() {
 
               <div v-if="upload.error" class="text-xs text-error mt-1">
                 {{ upload.error }}
+              </div>
+
+              <div v-if="canCancelUpload(upload)" class="mt-2">
+                <UButton
+                  variant="ghost"
+                  size="xs"
+                  icon="i-lucide-ban"
+                  :loading="uploadStore.isCancelling(upload.sessionId)"
+                  @click="handleCancelUpload(upload)"
+                >
+                  Cancel upload
+                </UButton>
               </div>
 
               <UCollapsible class="mt-2">

@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 import java.awt.image.BufferedImage;
@@ -99,15 +98,22 @@ public class AsyncUploadProcessor {
         try {
             doProcessUploadSession(sessionId);
         } catch (Exception e) {
+            if (isSessionCancelled(sessionId)) {
+                log.info("Upload session {} cancelled while processing. Stopping worker loop.", sessionId);
+                return;
+            }
             log.error("Failed to process upload session: {}", sessionId, e);
             handleSessionError(sessionId, e.getMessage());
         }
     }
 
-    @Transactional
     public void doProcessUploadSession(String sessionId) {
         UploadSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found: " + sessionId));
+
+        if (isSessionCancelled(sessionId)) {
+            return;
+        }
 
         if (session.getStatus() != UploadSessionStatus.UPLOADING && session.getStatus() != UploadSessionStatus.PROCESSING) {
             log.debug("Session {} is not in upload-processing state, current state: {}", sessionId, session.getStatus());
@@ -140,12 +146,18 @@ public class AsyncUploadProcessor {
         Set<String> pagesNeedingIndex = new LinkedHashSet<>();
 
         for (UploadSessionFile pdfFile : pdfFiles) {
+            if (stopProcessingIfCancelled(sessionId, session)) {
+                return;
+            }
             try {
                 pdfFile.setStatus(UploadFileStatus.PROCESSING);
                 fileRepository.save(pdfFile);
                 emitFileState(sessionId, pdfFile);
 
-                processPdfFile(sessionId, project, session.getWorkspaceId(), session.getUserId(), pdfFile, existingPageNames);
+                boolean processed = processPdfFile(sessionId, project, session.getWorkspaceId(), session.getUserId(), pdfFile, existingPageNames);
+                if (!processed || stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
 
                 if (pdfFile.getStatus() == UploadFileStatus.COMPLETED) {
                     processedCount++;
@@ -156,17 +168,30 @@ public class AsyncUploadProcessor {
                     session.incrementFailedFiles();
                 }
 
-                sessionRepository.save(session);
+                if (stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
+                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                    return;
+                }
                 emitFileState(sessionId, pdfFile);
                 emitSessionState(sessionId, "file-processed");
             } catch (Exception e) {
+                if (stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
                 log.error("Failed to process PDF file: {}", pdfFile.getOriginalFileName(), e);
                 pdfFile.setStatus(UploadFileStatus.FAILED);
                 pdfFile.setErrorMessage(e.getMessage());
                 fileRepository.save(pdfFile);
                 failedCount++;
                 session.incrementFailedFiles();
-                sessionRepository.save(session);
+                if (stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
+                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                    return;
+                }
                 emitFileState(sessionId, pdfFile);
                 emitSessionState(sessionId, "file-failed");
             }
@@ -177,7 +202,13 @@ public class AsyncUploadProcessor {
             List<UploadSessionFile> groupFiles = entry.getValue();
 
             try {
-                processFileGroup(sessionId, project, session.getWorkspaceId(), baseName, groupFiles, session.getUserId(), pagesByName, existingPageNames, pagesNeedingIndex);
+                if (stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
+                boolean processed = processFileGroup(sessionId, project, session.getWorkspaceId(), baseName, groupFiles, session.getUserId(), pagesByName, existingPageNames, pagesNeedingIndex);
+                if (!processed || stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
 
                 for (UploadSessionFile file : groupFiles) {
                     if (file.getStatus() == UploadFileStatus.COMPLETED) {
@@ -191,10 +222,18 @@ public class AsyncUploadProcessor {
                 }
 
                 // Update session progress
-                sessionRepository.save(session);
+                if (stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
+                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                    return;
+                }
                 emitSessionState(sessionId, "group-processed");
 
             } catch (Exception e) {
+                if (stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
                 log.error("Failed to process file group for basename: {}", baseName, e);
                 for (UploadSessionFile file : groupFiles) {
                     file.setStatus(UploadFileStatus.FAILED);
@@ -204,35 +243,37 @@ public class AsyncUploadProcessor {
                     failedCount++;
                     session.incrementFailedFiles();
                 }
-                sessionRepository.save(session);
+                if (stopProcessingIfCancelled(sessionId, session)) {
+                    return;
+                }
+                if (!persistSessionProgressIfNotCancelled(sessionId, session)) {
+                    return;
+                }
                 emitSessionState(sessionId, "group-failed");
             }
         }
 
-        if (!pagesNeedingIndex.isEmpty()) {
-            try {
-                applicationEventPublisher.publishEvent(new UploadPageIndexingRequestedEvent(sessionId, project.getId(), Set.copyOf(pagesNeedingIndex)));
-            } catch (Exception e) {
-                // Indexing is best-effort and should not fail an otherwise successful upload.
-                log.warn("Failed to queue background page indexing for upload session {} (project {}): {}",
-                        sessionId, project.getId(), e.getMessage(), e);
-            }
+        if (!isSessionCancelled(sessionId)) {
+            finalizeSessionIfReady(sessionId);
         }
-        finalizeSessionIfReady(sessionId);
 
         log.info("Processed upload session work cycle {}: {} processed, {} failed",
                 sessionId, processedCount, failedCount);
     }
 
-    private void processFileGroup(String sessionId,
-                                  Project project,
-                                  String workspaceId,
-                                  String baseName,
-                                  List<UploadSessionFile> files,
-                                  String createdByUserId,
-                                  Map<String, Page> pagesByName,
-                                  Set<String> existingPageNames,
-                                  Set<String> pagesNeedingIndex) throws IOException {
+    private boolean processFileGroup(String sessionId,
+                                     Project project,
+                                     String workspaceId,
+                                     String baseName,
+                                     List<UploadSessionFile> files,
+                                     String createdByUserId,
+                                     Map<String, Page> pagesByName,
+                                     Set<String> existingPageNames,
+                                     Set<String> pagesNeedingIndex) throws IOException {
+        if (isSessionCancelled(sessionId)) {
+            return false;
+        }
+
         // Find or create page
         Page page = pagesByName.get(baseName);
         if (page == null) {
@@ -242,6 +283,10 @@ public class AsyncUploadProcessor {
         }
 
         for (UploadSessionFile sessionFile : files) {
+            if (isSessionCancelled(sessionId)) {
+                return false;
+            }
+
             sessionFile.setStatus(UploadFileStatus.PROCESSING);
             fileRepository.save(sessionFile);
             emitFileState(sessionId, sessionFile);
@@ -258,17 +303,23 @@ public class AsyncUploadProcessor {
                         uploadSessionEventBroadcaster.broadcastPageCreatedOrUpdated(sessionId, project.getId(), page.getId(), page.getName(), "xml");
                     }
                     if (queuedForIndex) {
-                        pagesNeedingIndex.add(page.getId());
+                        queuePageIndexing(sessionId, project.getId(), page.getId(), pagesNeedingIndex);
                     }
                 } else {
                     sessionFile.setStatus(UploadFileStatus.SKIPPED);
                     sessionFile.setErrorMessage("Unsupported file type");
                 }
 
+                if (isSessionCancelled(sessionId)) {
+                    return false;
+                }
                 fileRepository.save(sessionFile);
                 emitFileState(sessionId, sessionFile);
 
             } catch (Exception e) {
+                if (isSessionCancelled(sessionId)) {
+                    return false;
+                }
                 sessionFile.setStatus(UploadFileStatus.FAILED);
                 sessionFile.setErrorMessage(e.getMessage());
                 fileRepository.save(sessionFile);
@@ -276,6 +327,8 @@ public class AsyncUploadProcessor {
                 throw e;
             }
         }
+
+        return true;
     }
 
     private void processImageFile(Page page,
@@ -412,12 +465,16 @@ public class AsyncUploadProcessor {
         return true;
     }
 
-    private void processPdfFile(String sessionId,
-                                Project project,
-                                String workspaceId,
-                                String createdByUserId,
-                                UploadSessionFile sessionFile,
-                                Set<String> existingPageNames) throws IOException {
+    private boolean processPdfFile(String sessionId,
+                                   Project project,
+                                   String workspaceId,
+                                   String createdByUserId,
+                                   UploadSessionFile sessionFile,
+                                   Set<String> existingPageNames) throws IOException {
+        if (isSessionCancelled(sessionId)) {
+            return false;
+        }
+
         Path tempFilePath = Paths.get(sessionFile.getTempFilePath());
         if (!Files.exists(tempFilePath)) {
             throw new IOException("Temp file not found: " + tempFilePath);
@@ -438,6 +495,9 @@ public class AsyncUploadProcessor {
 
             String firstCreatedPageId = null;
             for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+                if (isSessionCancelled(sessionId)) {
+                    return false;
+                }
                 String pageNumber = String.format("%0" + padWidth + "d", pageIndex + 1);
                 String basePageName = prefix + "_" + pageNumber;
                 String pageName = resolveUniquePageName(existingPageNames, basePageName);
@@ -477,10 +537,15 @@ public class AsyncUploadProcessor {
 
             sessionFile.setStatus(UploadFileStatus.COMPLETED);
             Files.deleteIfExists(tempFilePath);
+            return true;
         }
     }
 
     private void finalizeSessionIfReady(String sessionId) {
+        if (isSessionCancelled(sessionId)) {
+            return;
+        }
+
         UploadSession session = sessionRepository.findById(sessionId).orElse(null);
         if (session == null || session.getStatus() != UploadSessionStatus.PROCESSING) {
             return;
@@ -508,9 +573,23 @@ public class AsyncUploadProcessor {
         List<UploadSessionFile> conflictFiles = fileRepository.findBySessionIdAndStatus(sessionId, UploadFileStatus.CONFLICT);
         int conflictCount = conflictFiles.size();
 
+        if (isSessionCancelled(sessionId)) {
+            return;
+        }
+        LocalDateTime completedAt = LocalDateTime.now();
+        int completedRows = sessionRepository.updateStatusAndCompletedAtIfStatusNot(
+                sessionId,
+                UploadSessionStatus.COMPLETED,
+                completedAt,
+                completedAt,
+                UploadSessionStatus.CANCELLED
+        );
+        if (completedRows == 0) {
+            emitSessionState(sessionId, "cancelled");
+            return;
+        }
         session.setStatus(UploadSessionStatus.COMPLETED);
-        session.setCompletedAt(LocalDateTime.now());
-        sessionRepository.save(session);
+        session.setCompletedAt(completedAt);
         emitSessionState(sessionId, "completed");
 
         cleanupTempFilesExceptConflicts(sessionId, conflictFiles);
@@ -590,6 +669,20 @@ public class AsyncUploadProcessor {
         return fileName.endsWith(".pdf");
     }
 
+    private void queuePageIndexing(String sessionId, String projectId, String pageId, Set<String> pagesNeedingIndex) {
+        if (!pagesNeedingIndex.add(pageId)) {
+            return;
+        }
+        try {
+            applicationEventPublisher.publishEvent(new UploadPageIndexingRequestedEvent(sessionId, projectId, Set.of(pageId)));
+        } catch (Exception e) {
+            pagesNeedingIndex.remove(pageId);
+            // Indexing is best-effort and should not fail upload processing/cancellation.
+            log.warn("Failed to queue background page indexing for upload session {} (project {}, page {}): {}",
+                    sessionId, projectId, pageId, e.getMessage(), e);
+        }
+    }
+
     private void emitFileState(String sessionId, UploadSessionFile file) {
         try {
             uploadSessionEventBroadcaster.broadcastFileState(sessionId, file);
@@ -610,10 +703,28 @@ public class AsyncUploadProcessor {
         try {
             UploadSession session = sessionRepository.findById(sessionId).orElse(null);
             if (session != null) {
+                if (isSessionCancelled(sessionId) || session.getStatus() == UploadSessionStatus.CANCELLED) {
+                    emitSessionState(sessionId, "cancelled");
+                    return;
+                }
+
+                LocalDateTime completedAt = LocalDateTime.now();
+                int failedRows = sessionRepository.updateStatusErrorAndCompletedAtIfStatusNot(
+                        sessionId,
+                        UploadSessionStatus.FAILED,
+                        errorMessage,
+                        completedAt,
+                        completedAt,
+                        UploadSessionStatus.CANCELLED
+                );
+                if (failedRows == 0 || isSessionCancelled(sessionId)) {
+                    emitSessionState(sessionId, "cancelled");
+                    return;
+                }
+
                 session.setStatus(UploadSessionStatus.FAILED);
                 session.setErrorMessage(errorMessage);
-                session.setCompletedAt(LocalDateTime.now());
-                sessionRepository.save(session);
+                session.setCompletedAt(completedAt);
                 emitSessionState(sessionId, "failed");
 
                 Project project = projectRepository.findById(session.getProjectId()).orElse(null);
@@ -631,6 +742,42 @@ public class AsyncUploadProcessor {
         } catch (Exception e) {
             log.error("Failed to handle session error for session: {}", sessionId, e);
         }
+    }
+
+    private boolean isSessionCancelled(String sessionId) {
+        return sessionRepository.findStatusById(sessionId)
+                .map(status -> status == UploadSessionStatus.CANCELLED)
+                .orElse(false);
+    }
+
+    private boolean persistSessionProgressIfNotCancelled(String sessionId, UploadSession session) {
+        int updatedRows = sessionRepository.updateProgressIfStatusNot(
+                sessionId,
+                session.getProcessedFiles(),
+                session.getFailedFiles(),
+                session.getProcessedBytes(),
+                LocalDateTime.now(),
+                UploadSessionStatus.CANCELLED
+        );
+        if (updatedRows > 0) {
+            return true;
+        }
+        stopProcessingIfCancelled(sessionId, session);
+        return false;
+    }
+
+    private boolean stopProcessingIfCancelled(String sessionId, UploadSession session) {
+        if (!isSessionCancelled(sessionId)) {
+            return false;
+        }
+        if (session != null) {
+            session.setStatus(UploadSessionStatus.CANCELLED);
+            if (session.getCompletedAt() == null) {
+                session.setCompletedAt(LocalDateTime.now());
+            }
+        }
+        emitSessionState(sessionId, "cancelled");
+        return true;
     }
 
     private void cleanupTempFiles(String sessionId) {

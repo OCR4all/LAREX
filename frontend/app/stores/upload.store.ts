@@ -16,30 +16,38 @@ export interface ActiveUpload {
   error?: string
 }
 
+type CancelUploadHandler = (sessionId: string, upload: ActiveUpload) => Promise<boolean> | boolean
+
 function isTerminalStatus(status: ActiveUpload['status']): boolean {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
+}
+
+function isActiveStatus(status: ActiveUpload['status']): boolean {
+  return status === 'PENDING' || status === 'UPLOADING' || status === 'PROCESSING'
 }
 
 export const useUploadStore = defineStore('upload', () => {
   const activeUploads = ref<Map<string, ActiveUpload>>(new Map())
   const showProgressPanel = ref(false)
   const minimized = ref(false)
+  const cancellingSessionIds = ref<Set<string>>(new Set())
+  const cancelUploadHandler = ref<CancelUploadHandler | null>(null)
 
   const hasActiveUploads = computed(() => {
     return Array.from(activeUploads.value.values()).some(
-      u => u.status === 'PENDING' || u.status === 'UPLOADING' || u.status === 'PROCESSING'
+      u => isActiveStatus(u.status)
     )
   })
 
   const totalActiveUploads = computed(() => {
     return Array.from(activeUploads.value.values()).filter(
-      u => u.status === 'PENDING' || u.status === 'UPLOADING' || u.status === 'PROCESSING'
+      u => isActiveStatus(u.status)
     ).length
   })
 
   const overallProgress = computed(() => {
     const active = Array.from(activeUploads.value.values()).filter(
-      u => u.status === 'PENDING' || u.status === 'UPLOADING' || u.status === 'PROCESSING'
+      u => isActiveStatus(u.status)
     )
     if (active.length === 0) return 0
 
@@ -100,7 +108,13 @@ export const useUploadStore = defineStore('upload', () => {
       const fileIndex = upload.files.findIndex(f => f.id === fileId || f.fileName === updates.fileName)
       if (fileIndex !== -1) {
         const updatedFiles = [...upload.files]
-        updatedFiles[fileIndex] = { ...updatedFiles[fileIndex], ...updates }
+        const currentFile = updatedFiles[fileIndex]
+        updatedFiles[fileIndex] = {
+          ...currentFile,
+          ...updates,
+          // Keep a valid File instance even when updates are partial.
+          file: currentFile.file
+        }
 
         const totalChunks = updatedFiles.reduce((sum, f) => sum + f.totalChunks, 0)
         const completedChunks = updatedFiles.reduce((sum, f) => sum + f.chunksReceived, 0)
@@ -141,10 +155,12 @@ export const useUploadStore = defineStore('upload', () => {
       }
       activeUploads.value.set(sessionId, updatedUpload)
     }
+    setCancelling(sessionId, false)
   }
 
   function removeUpload(sessionId: string) {
     activeUploads.value.delete(sessionId)
+    setCancelling(sessionId, false)
     if (activeUploads.value.size === 0) {
       showProgressPanel.value = false
     }
@@ -159,6 +175,7 @@ export const useUploadStore = defineStore('upload', () => {
     }
     for (const id of toRemove) {
       activeUploads.value.delete(id)
+      setCancelling(id, false)
     }
     if (activeUploads.value.size === 0) {
       showProgressPanel.value = false
@@ -178,12 +195,63 @@ export const useUploadStore = defineStore('upload', () => {
     minimized.value = false
   }
 
+  function isCancelling(sessionId: string): boolean {
+    return cancellingSessionIds.value.has(sessionId)
+  }
+
+  function setCancelling(sessionId: string, value: boolean) {
+    const next = new Set(cancellingSessionIds.value)
+    if (value) {
+      next.add(sessionId)
+    } else {
+      next.delete(sessionId)
+    }
+    cancellingSessionIds.value = next
+  }
+
+  function setCancelUploadHandler(handler: CancelUploadHandler) {
+    cancelUploadHandler.value = handler
+  }
+
+  function clearCancelUploadHandler(handler?: CancelUploadHandler) {
+    if (!handler || cancelUploadHandler.value === handler) {
+      cancelUploadHandler.value = null
+    }
+  }
+
+  async function cancelUpload(sessionId: string): Promise<void> {
+    const upload = activeUploads.value.get(sessionId)
+    if (!upload) return
+    if (!isActiveStatus(upload.status)) return
+    if (isCancelling(sessionId)) return
+
+    setCancelling(sessionId, true)
+    try {
+      let handled = false
+      if (cancelUploadHandler.value) {
+        handled = await cancelUploadHandler.value(sessionId, upload)
+      }
+
+      if (!handled) {
+        await $fetch(`/api/workspaces/${upload.workspaceId}/projects/${upload.projectId}/upload-sessions/${sessionId}`, {
+          method: 'DELETE'
+        })
+      }
+
+      completeUpload(sessionId, 'CANCELLED')
+    } catch (error) {
+      setCancelling(sessionId, false)
+      throw error
+    }
+  }
+
   const uploadsArray = computed(() => Array.from(activeUploads.value.values()))
 
   return {
     activeUploads,
     showProgressPanel,
     minimized,
+    cancellingSessionIds,
 
     hasActiveUploads,
     totalActiveUploads,
@@ -198,6 +266,10 @@ export const useUploadStore = defineStore('upload', () => {
     clearCompletedUploads,
     toggleMinimized,
     hidePanel,
-    showPanel
+    showPanel,
+    isCancelling,
+    cancelUpload,
+    setCancelUploadHandler,
+    clearCancelUploadHandler
   }
 })

@@ -39,7 +39,14 @@ public class UploadPageIndexDispatcher {
                 continue;
             }
             uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "queued");
-            uploadPageIndexWorker.indexPageAsync(event.sessionId(), event.projectId(), pageId);
+            try {
+                uploadPageIndexWorker.indexPageAsync(event.sessionId(), event.projectId(), pageId);
+            } catch (Exception e) {
+                pageIndexStatusTracker.clearIndexing(pageId);
+                uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "failed");
+                log.warn("Failed to schedule background indexing for page {} in project {}: {}",
+                        pageId, event.projectId(), e.getMessage(), e);
+            }
         }
     }
 }

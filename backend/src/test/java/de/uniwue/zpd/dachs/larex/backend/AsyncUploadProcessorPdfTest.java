@@ -11,7 +11,9 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.AsyncUploadProcessor;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.ChunkedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -20,16 +22,23 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.reset;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -61,6 +70,12 @@ class AsyncUploadProcessorPdfTest {
 
   @Autowired
   private AsyncUploadProcessor asyncUploadProcessor;
+
+  @Autowired
+  private ChunkedUploadService chunkedUploadService;
+
+  @SpyBean
+  private HierarchicalFileStorageService hierarchicalFileStorageService;
 
   @Autowired
   private LibraryRepository libraryRepository;
@@ -125,5 +140,64 @@ class AsyncUploadProcessorPdfTest {
 
     UploadSessionFile updated = uploadSessionFileRepository.findById(file.getId()).orElseThrow();
     assertThat(updated.getStatus()).isEqualTo(UploadSessionFile.UploadFileStatus.COMPLETED);
+  }
+
+  @Test
+  void stopsPdfProcessingWhenSessionIsCancelled() throws Exception {
+    Library library = libraryRepository.save(new Library("ws-cancel", "Cancel Library"));
+    Project project = projectRepository.save(new Project("Cancel Project", "desc", library));
+
+    UploadSession session = new UploadSession(project.getId(), library.getWorkspaceId(), "user-cancel", 1, 1);
+    session.setStatus(UploadSession.UploadSessionStatus.PROCESSING);
+    session = uploadSessionRepository.save(session);
+
+    Path sessionDir = tempDir.resolve(session.getId());
+    Files.createDirectories(sessionDir);
+    Path pdfPath = sessionDir.resolve("cancel-sample.pdf");
+    final int totalPages = 8;
+
+    try (PDDocument doc = new PDDocument()) {
+      for (int i = 0; i < totalPages; i++) {
+        doc.addPage(new PDPage());
+      }
+      doc.save(pdfPath.toFile());
+    }
+
+    long pdfSize = Files.size(pdfPath);
+
+    UploadSessionFile file = new UploadSessionFile("cancel-sample.pdf", pdfSize, "application/pdf", "cancelprefix", "pdf", 1);
+    file.setSession(session);
+    file.setTempFilePath(pdfPath.toString());
+    file.setStatus(UploadSessionFile.UploadFileStatus.UPLOADED);
+    uploadSessionFileRepository.save(file);
+
+    AtomicBoolean cancelTriggered = new AtomicBoolean(false);
+    doAnswer(invocation -> {
+      Object result = invocation.callRealMethod();
+      if (cancelTriggered.compareAndSet(false, true)) {
+        chunkedUploadService.cancelSession("user-cancel", session.getId());
+      }
+      return result;
+    }).when(hierarchicalFileStorageService).storeBufferedImage(
+      any(BufferedImage.class),
+      anyString(),
+      anyString(),
+      anyString(),
+      anyString(),
+      anyString()
+    );
+
+    try {
+      asyncUploadProcessor.doProcessUploadSession(session.getId());
+    } finally {
+      reset(hierarchicalFileStorageService);
+    }
+
+    UploadSession updatedSession = uploadSessionRepository.findById(session.getId()).orElseThrow();
+    assertThat(updatedSession.getStatus()).isEqualTo(UploadSession.UploadSessionStatus.CANCELLED);
+
+    List<de.uniwue.zpd.dachs.larex.backend.entity.Page> pages = pageRepository.findByProjectId(project.getId());
+    assertThat(pages.size()).isGreaterThan(0);
+    assertThat(pages.size()).isLessThan(totalPages);
   }
 }

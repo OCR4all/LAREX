@@ -154,18 +154,8 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
         if (localFile) {
           localFile.id = serverFile.id
           localFile.totalChunks = serverFile.chunkCount || serverFile.totalChunks
-          console.debug(`[ChunkedUpload] Assigned ID ${localFile.id} to file ${localFile.fileName}`)
-        } else {
-          console.warn(`[ChunkedUpload] Could not find local file matching: ${serverFileName}`)
         }
       }
-    } else {
-      console.warn('[ChunkedUpload] No files in session response:', response)
-    }
-
-    const filesWithoutIds = files.value.filter(f => !f.id)
-    if (filesWithoutIds.length > 0) {
-      console.error('[ChunkedUpload] Files missing IDs:', filesWithoutIds.map(f => f.fileName))
     }
 
     return response
@@ -210,7 +200,6 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
   async function uploadFile(uploadFile: UploadFile): Promise<void> {
     if (!session.value) {
       const err = new Error(`Session not initialized for file: ${uploadFile.fileName}`)
-      console.error('[ChunkedUpload]', err.message)
       uploadFile.status = 'failed'
       uploadFile.error = err.message
       throw err
@@ -218,13 +207,10 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
 
     if (!uploadFile.id) {
       const err = new Error(`File ID missing for: ${uploadFile.fileName}`)
-      console.error('[ChunkedUpload]', err.message)
       uploadFile.status = 'failed'
       uploadFile.error = err.message
       throw err
     }
-
-    console.debug(`[ChunkedUpload] Starting upload for file: ${uploadFile.fileName} (ID: ${uploadFile.id}, ${uploadFile.totalChunks} chunks)`)
     uploadFile.status = 'uploading'
 
     const file = uploadFile.file
@@ -266,7 +252,6 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
 
   async function uploadFilesWithConcurrency(): Promise<void> {
     const pendingFiles = files.value.filter(f => f.status === 'pending' || f.status === 'uploading')
-    console.debug(`[ChunkedUpload] Starting concurrent upload of ${pendingFiles.length} files`)
 
     const uploadPromises: Promise<void>[] = []
     let activeUploads = 0
@@ -287,16 +272,7 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
       uploadPromises.push(promise)
     }
 
-    const results = await Promise.allSettled(uploadPromises)
-
-    const failures = results.filter(r => r.status === 'rejected')
-    if (failures.length > 0) {
-      console.error(`[ChunkedUpload] ${failures.length} file(s) failed to upload:`,
-        failures.map(f => (f as PromiseRejectedResult).reason?.message || 'Unknown error'))
-    }
-
-    const successes = results.filter(r => r.status === 'fulfilled')
-    console.debug(`[ChunkedUpload] Upload complete: ${successes.length} succeeded, ${failures.length} failed`)
+    await Promise.allSettled(uploadPromises)
   }
 
   function updateSessionProgress() {
@@ -399,8 +375,8 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
           `/api/workspaces/${workspaceId.value}/projects/${projectId.value}/upload-sessions/${session.value.id}`,
           { method: 'DELETE' }
         )
-      } catch (err) {
-        console.error('Failed to cancel upload session:', err)
+      } catch {
+        // Ignore cancellation transport errors.
       }
     }
 

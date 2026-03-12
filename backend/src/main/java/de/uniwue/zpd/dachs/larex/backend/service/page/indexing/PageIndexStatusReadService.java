@@ -59,13 +59,16 @@ public class PageIndexStatusReadService {
             return PageDto.PageIndexingStatus.NOT_APPLICABLE;
         }
 
+        if (pageConfidenceIndexRepository.existsByPageId(page.getId())) {
+            pageIndexStatusTracker.clearIndexing(page.getId());
+            return PageDto.PageIndexingStatus.INDEXED;
+        }
+
         if (pageIndexStatusTracker.isIndexing(page.getId())) {
             return PageDto.PageIndexingStatus.INDEXING;
         }
 
-        return pageConfidenceIndexRepository.existsByPageId(page.getId())
-                ? PageDto.PageIndexingStatus.INDEXED
-                : PageDto.PageIndexingStatus.UNINDEXED;
+        return PageDto.PageIndexingStatus.UNINDEXED;
     }
 
     private PageDto.PageIndexingStatus resolveStatus(Page page,
@@ -74,11 +77,12 @@ public class PageIndexStatusReadService {
         if (page.getXmlFiles() == null || page.getXmlFiles().isEmpty()) {
             return PageDto.PageIndexingStatus.NOT_APPLICABLE;
         }
+        if (indexedPageIds.contains(page.getId())) {
+            pageIndexStatusTracker.clearIndexing(page.getId());
+            return PageDto.PageIndexingStatus.INDEXED;
+        }
         if (indexingPageIds.contains(page.getId())) {
             return PageDto.PageIndexingStatus.INDEXING;
-        }
-        if (indexedPageIds.contains(page.getId())) {
-            return PageDto.PageIndexingStatus.INDEXED;
         }
         return PageDto.PageIndexingStatus.UNINDEXED;
     }
