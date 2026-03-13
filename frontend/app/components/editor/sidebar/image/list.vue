@@ -32,6 +32,8 @@ const sessionStore = useEditorSessionStore()
 const ESTIMATED_ROW_HEIGHT = 400
 
 const currentPageId = computed(() => editorStore.currentPageId)
+const scrollMargin = ref(0)
+const measuredHeightByPageId = new Map<string, number>()
 
 const filteredPages = computed<PageData[]>(() => {
   const q = props.filter.trim().toLowerCase()
@@ -56,6 +58,22 @@ const filteredPages = computed<PageData[]>(() => {
 const listRootRef = ref<HTMLElement | null>(null)
 const scrollElement = ref<HTMLElement | null>(null)
 let resizeObserver: ResizeObserver | null = null
+let syncLayoutFrameId: number | null = null
+
+function attachScrollElement(nextScrollElement: HTMLElement | null) {
+  const previousScrollElement = scrollElement.value
+  if (previousScrollElement === nextScrollElement) return
+
+  if (previousScrollElement) {
+    resizeObserver?.unobserve(previousScrollElement)
+  }
+
+  scrollElement.value = nextScrollElement
+
+  if (nextScrollElement) {
+    resizeObserver?.observe(nextScrollElement)
+  }
+}
 
 function resolveScrollElement(): HTMLElement | null {
   const nearest = listRootRef.value?.closest('.editor-sidebar-image-scroll')
@@ -69,8 +87,26 @@ function resolveScrollElement(): HTMLElement | null {
 const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => ({
   count: filteredPages.value.length,
   getScrollElement: () => scrollElement.value,
+  getItemKey: (index) => filteredPages.value[index]?.id ?? index,
   estimateSize: () => ESTIMATED_ROW_HEIGHT,
-  overscan: 6
+  overscan: 6,
+  scrollMargin: scrollMargin.value,
+  measureElement: (element, entry, instance) => {
+    const pageId = element.getAttribute('data-page-id')
+    const measuredHeight = entry?.contentRect.height ?? element.getBoundingClientRect().height
+
+    if (!pageId) {
+      return measuredHeight
+    }
+
+    const cachedHeight = measuredHeightByPageId.get(pageId)
+    if (instance.scrollDirection === 'backward' && typeof cachedHeight === 'number') {
+      return cachedHeight
+    }
+
+    measuredHeightByPageId.set(pageId, measuredHeight)
+    return measuredHeight
+  }
 })))
 
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
@@ -90,28 +126,64 @@ function measureVirtualRow(el: Element | null) {
   }
 }
 
+function calculateScrollMargin(): number {
+  const root = listRootRef.value
+  const scroller = scrollElement.value
+  if (!root || !scroller) return 0
+
+  const rootRect = root.getBoundingClientRect()
+  const scrollerRect = scroller.getBoundingClientRect()
+  return Math.max(0, rootRect.top - scrollerRect.top + scroller.scrollTop)
+}
+
+function syncVirtualizerLayout(forceMeasure: boolean = false) {
+  if (syncLayoutFrameId !== null) {
+    cancelAnimationFrame(syncLayoutFrameId)
+  }
+
+  syncLayoutFrameId = requestAnimationFrame(() => {
+    syncLayoutFrameId = null
+    attachScrollElement(resolveScrollElement())
+
+    const nextScrollMargin = calculateScrollMargin()
+    const didScrollMarginChange = scrollMargin.value !== nextScrollMargin
+    if (scrollMargin.value !== nextScrollMargin) {
+      scrollMargin.value = nextScrollMargin
+    }
+
+    if (forceMeasure || didScrollMarginChange) {
+      rowVirtualizer.value.measure()
+    }
+  })
+}
+
 onMounted(() => {
-  scrollElement.value = resolveScrollElement()
   if (import.meta.client && typeof ResizeObserver !== 'undefined' && listRootRef.value) {
     resizeObserver = new ResizeObserver(() => {
-      rowVirtualizer.value.measure()
+      syncVirtualizerLayout()
     })
     resizeObserver.observe(listRootRef.value)
   }
+  syncVirtualizerLayout(true)
 })
 
 onBeforeUnmount(() => {
+  attachScrollElement(null)
+  if (syncLayoutFrameId !== null) {
+    cancelAnimationFrame(syncLayoutFrameId)
+    syncLayoutFrameId = null
+  }
   resizeObserver?.disconnect()
   resizeObserver = null
 })
 
 watch(() => props.projectId, () => {
-  scrollElement.value = resolveScrollElement()
+  syncVirtualizerLayout(true)
 })
 
 watch(() => filteredPages.value.length, () => {
   nextTick(() => {
-    rowVirtualizer.value.measure()
+    syncVirtualizerLayout(true)
   })
 })
 
@@ -165,9 +237,10 @@ function handlePageUnload(page: PageData) {
         :key="row.item.key"
         :ref="measureVirtualRow"
         :data-index="row.item.index"
+        :data-page-id="row.page.id"
         class="absolute left-0 top-0 w-full"
         :class="editorUiStore.leftCollapsed ? 'pb-1' : 'pb-3'"
-        :style="{ transform: `translateY(${row.item.start}px)` }"
+        :style="{ transform: `translateY(${row.item.start - scrollMargin}px)` }"
       >
         <ImageItem
           :page="row.page"
