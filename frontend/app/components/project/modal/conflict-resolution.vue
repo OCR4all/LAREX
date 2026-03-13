@@ -199,17 +199,17 @@ const successfulUploads = computed(() => {
           <div
             v-for="conflict in conflicts"
             :key="conflict.conflictId"
-            class="border border-gray-200 dark:border-gray-700 rounded-sm p-4"
+            class="border border-neutral-200 dark:border-neutral-700 rounded-sm p-4"
           >
             <div class="flex items-start justify-between mb-3">
               <div>
-                <h5 class="font-medium text-gray-900 dark:text-gray-100">
+                <h5 class="font-medium text-neutral-900 dark:text-neutral-100">
                   {{ conflict.newFileName }}
                 </h5>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
+                <p class="text-sm text-neutral-600 dark:text-neutral-400">
                   {{ getConflictTypeLabel(conflict.conflictType) }}
                 </p>
-                <p class="text-xs text-gray-500 dark:text-gray-500">
+                <p class="text-xs text-neutral-500 dark:text-neutral-500">
                   {{ conflict.details?.newFileSize ? formatFileSize(Number(conflict.details.newFileSize)) : '' }}
                 </p>
               </div>
@@ -225,10 +225,10 @@ const successfulUploads = computed(() => {
                   type="radio"
                   :name="`resolution-${conflict.conflictId}`"
                   :checked="resolutions[conflict.conflictId]?.action === 'KEEP_EXISTING'"
-                  class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                  class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300"
                   @change="updateResolution(conflict.conflictId, 'KEEP_EXISTING')"
                 >
-                <label :for="`${conflict.conflictId}-keep`" class="text-sm text-gray-700 dark:text-gray-300">
+                <label :for="`${conflict.conflictId}-keep`" class="text-sm text-neutral-700 dark:text-neutral-300">
                   Keep existing file (discard uploaded file)
                 </label>
               </div>
@@ -239,10 +239,10 @@ const successfulUploads = computed(() => {
                   type="radio"
                   :name="`resolution-${conflict.conflictId}`"
                   :checked="resolutions[conflict.conflictId]?.action === 'REPLACE'"
-                  class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                  class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300"
                   @change="updateResolution(conflict.conflictId, 'REPLACE')"
                 >
-                <label :for="`${conflict.conflictId}-replace`" class="text-sm text-gray-700 dark:text-gray-300">
+                <label :for="`${conflict.conflictId}-replace`" class="text-sm text-neutral-700 dark:text-neutral-300">
                   Replace existing file with uploaded file
                 </label>
               </div>
@@ -254,10 +254,10 @@ const successfulUploads = computed(() => {
                     type="radio"
                     :name="`resolution-${conflict.conflictId}`"
                     :checked="resolutions[conflict.conflictId]?.action === 'RENAME'"
-                    class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                    class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300"
                     @change="updateResolution(conflict.conflictId, 'RENAME')"
                   >
-                  <label :for="`${conflict.conflictId}-rename`" class="text-sm text-gray-700 dark:text-gray-300">
+                  <label :for="`${conflict.conflictId}-rename`" class="text-sm text-neutral-700 dark:text-neutral-300">
                     Rename uploaded file and keep both
                   </label>
                 </div>

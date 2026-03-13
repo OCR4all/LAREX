@@ -367,7 +367,7 @@ const removeImage = async () => {
               v-model="form.firstName"
               placeholder="Enter your first name"
             />
-            <p v-else class="p-2 bg-gray-50 rounded-sm border text-sm">
+            <p v-else class="p-2 bg-neutral-50 rounded-sm border text-sm">
               {{ profile.firstName || 'Not set' }}
             </p>
           </div>
@@ -379,21 +379,21 @@ const removeImage = async () => {
               v-model="form.lastName"
               placeholder="Enter your last name"
             />
-            <p v-else class="p-2 bg-gray-50 rounded-sm border text-sm">
+            <p v-else class="p-2 bg-neutral-50 rounded-sm border text-sm">
               {{ profile.lastName || 'Not set' }}
             </p>
           </div>
 
           <div>
             <label class="block text-sm font-medium mb-1">Username</label>
-            <p class="p-2 bg-gray-100 rounded-sm border text-sm text-muted">
+            <p class="p-2 bg-neutral-100 rounded-sm border text-sm text-muted">
               {{ profile.username }} (read-only)
             </p>
           </div>
 
           <div>
             <label class="block text-sm font-medium mb-1">Email</label>
-            <p class="p-2 bg-gray-100 rounded-sm border text-sm text-muted">
+            <p class="p-2 bg-neutral-100 rounded-sm border text-sm text-muted">
               {{ profile.email || 'Not set' }} (read-only)
             </p>
           </div>

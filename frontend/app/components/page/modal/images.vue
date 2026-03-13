@@ -342,10 +342,10 @@ onUnmounted(() => {
         <UTabs v-model="activeTab" :items="tabItems" class="shrink-0" />
 
         <div v-if="isLoading" class="flex-1 overflow-auto p-4">
-          <div class="border border-gray-200 dark:border-gray-700 rounded-sm p-4">
+          <div class="border border-neutral-200 dark:border-neutral-700 rounded-sm p-4">
             <USkeleton class="h-6 w-32 mb-3" />
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              <div v-for="i in 6" :key="i" class="border border-gray-200 dark:border-gray-700 rounded-sm overflow-hidden">
+              <div v-for="i in 6" :key="i" class="border border-neutral-200 dark:border-neutral-700 rounded-sm overflow-hidden">
                 <USkeleton class="aspect-square w-full" />
                 <div class="p-3 space-y-2">
                   <div class="flex items-center justify-between">
@@ -361,7 +361,7 @@ onUnmounted(() => {
 
         <div v-else-if="activeTab === 'overview' && pageImages.length > 0" class="flex-1 overflow-auto p-4 space-y-6">
           <template v-for="(images, baseName) in groupedImages" :key="baseName">
-            <div class="border border-gray-200 dark:border-gray-700 rounded-sm p-4">
+            <div class="border border-neutral-200 dark:border-neutral-700 rounded-sm p-4">
               <h4 class="font-medium text-lg mb-3">
                 {{ baseName }}
               </h4>
@@ -369,19 +369,19 @@ onUnmounted(() => {
                 <div
                   v-for="image in images"
                   :key="image.id"
-                  class="border border-gray-200 dark:border-gray-700 rounded-sm overflow-hidden cursor-pointer hover:border-primary transition-colors"
+                  class="border border-neutral-200 dark:border-neutral-700 rounded-sm overflow-hidden cursor-pointer hover:border-primary transition-colors"
                   @click="openLightbox(image)"
                 >
-                  <div class="aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center relative">
+                  <div class="aspect-square bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center relative">
                     <div
                       v-if="imageStates[image.id] === 'loading'"
-                      class="absolute flex items-center justify-center text-gray-400"
+                      class="absolute flex items-center justify-center text-neutral-400"
                     >
                       <UIcon name="i-lucide-loader" class="animate-spin" />
                     </div>
                     <div
                       v-if="imageStates[image.id] === 'error'"
-                      class="flex flex-col items-center justify-center text-gray-400"
+                      class="flex flex-col items-center justify-center text-neutral-400"
                     >
                       <UIcon name="i-lucide-image-off" class="text-2xl mb-1" />
                       <span class="text-xs">Failed to load</span>
@@ -405,7 +405,7 @@ onUnmounted(() => {
                         {{ formatFileSize(image.fileSize) }}
                       </UBadge>
                     </div>
-                    <p class="text-xs text-gray-600 dark:text-gray-400 truncate">
+                    <p class="text-xs text-neutral-600 dark:text-neutral-400 truncate">
                       {{ image.fileName }}
                     </p>
                     <div class="flex justify-end">
@@ -449,8 +449,8 @@ onUnmounted(() => {
 
         <div v-else-if="activeTab === 'compare' && pageImages.length < 2" class="flex-1 flex items-center justify-center">
           <div class="text-center">
-            <UIcon name="i-lucide-images" class="mx-auto text-4xl text-gray-400 mb-4" />
-            <p class="text-gray-600 dark:text-gray-400">
+            <UIcon name="i-lucide-images" class="mx-auto text-4xl text-neutral-400 mb-4" />
+            <p class="text-neutral-600 dark:text-neutral-400">
               At least 2 images are required for comparison.
             </p>
           </div>
@@ -458,8 +458,8 @@ onUnmounted(() => {
 
         <div v-else-if="!isLoading && pageImages.length === 0" class="flex-1 flex items-center justify-center">
           <div class="text-center">
-            <UIcon name="i-lucide-image-off" class="mx-auto text-4xl text-gray-400 mb-4" />
-            <p class="text-gray-600 dark:text-gray-400">
+            <UIcon name="i-lucide-image-off" class="mx-auto text-4xl text-neutral-400 mb-4" />
+            <p class="text-neutral-600 dark:text-neutral-400">
               No images found for this page.
             </p>
           </div>

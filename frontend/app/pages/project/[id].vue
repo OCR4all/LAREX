@@ -1027,13 +1027,13 @@ const pageColumns = [
       checked: selectedPageIds.value.size === filteredPages.value.length && filteredPages.value.length > 0,
       indeterminate: selectedPageIds.value.size > 0 && selectedPageIds.value.size < filteredPages.value.length,
       onChange: toggleAllPages,
-      class: 'rounded-sm border-gray-300 text-primary-600 focus:ring-primary-500'
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
     }),
     cell: ({ row }: { row: { original: Page } }) => h('input', {
       type: 'checkbox',
       checked: selectedPageIds.value.has(row.original.id),
       onChange: () => togglePageSelection(row.original.id),
-      class: 'rounded-sm border-gray-300 text-primary-600 focus:ring-primary-500'
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
     })
   },
   {
@@ -1549,8 +1549,8 @@ useHead({
       </div>
 
       <div v-else-if="projectPending" class="flex items-center justify-center py-8">
-        <UIcon name="i-lucide-loader" class="animate-spin text-gray-500" />
-        <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading project...</span>
+        <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
+        <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading project...</span>
       </div>
 
       <div v-else-if="project" class="space-y-6">
@@ -1583,6 +1583,8 @@ useHead({
             </div>
             <UButton
               color="warning"
+              class="self-center"
+              icon="i-lucide-git-merge"
               variant="solid"
               size="sm"
               @click="viewConflicts"
@@ -1620,7 +1622,7 @@ useHead({
           </div>
 
           <div v-if="globalFilter || selectedTags.length > 0 || xmlStatusFilter !== 'all'" class="flex items-center gap-2 flex-wrap">
-            <span class="text-xs text-gray-500">Active filters:</span>
+            <span class="text-xs text-neutral-500">Active filters:</span>
             <UBadge
               v-if="globalFilter"
               color="neutral"
@@ -1666,25 +1668,25 @@ useHead({
 
         <div v-else-if="showPagesLoadingSpinner" class="py-8 text-center">
           <div class="flex items-center justify-center">
-            <UIcon name="i-lucide-loader" class="animate-spin text-gray-500" />
-            <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading pages...</span>
+            <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
+            <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading pages...</span>
           </div>
         </div>
 
         <div v-else-if="pages && pages.length === 0" class="py-12 text-center">
-          <UIcon name="i-lucide-file-text" class="mx-auto text-4xl text-gray-400 mb-4" />
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
+          <UIcon name="i-lucide-file-text" class="mx-auto text-4xl text-neutral-400 mb-4" />
+          <p class="text-neutral-600 dark:text-neutral-400 mb-4">
             No pages found in this project.
           </p>
-          <div class="text-sm text-gray-500 dark:text-gray-500 space-y-2 max-w-md mx-auto">
+          <div class="text-sm text-neutral-500 dark:text-neutral-500 space-y-2 max-w-md mx-auto">
             <p><strong>Upload Files:</strong> Upload images and XML files to create pages automatically.</p>
             <p>Files are grouped by basename (everything before the first dot) to create organized pages.</p>
           </div>
         </div>
 
         <div v-else-if="pages && filteredPages.length === 0" class="py-12 text-center">
-          <UIcon name="i-lucide-filter-x" class="mx-auto text-4xl text-gray-400 mb-4" />
-          <p class="text-gray-600 dark:text-gray-400 mb-4">
+          <UIcon name="i-lucide-filter-x" class="mx-auto text-4xl text-neutral-400 mb-4" />
+          <p class="text-neutral-600 dark:text-neutral-400 mb-4">
             No pages match your filters.
           </p>
           <UButton
@@ -1717,8 +1719,8 @@ useHead({
             />
           </UContextMenu>
 
-          <div v-if="totalPagesCount > 1" class="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
-            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <div v-if="totalPagesCount > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+            <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
               <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} pages</span>
             </div>
 

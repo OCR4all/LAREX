@@ -54,8 +54,8 @@ const statusColor = computed(() => {
 <template>
   <div class="min-w-32">
     <div v-if="pending" class="animate-pulse">
-      <div class="h-2 bg-gray-200 rounded-sm mb-1" />
-      <div class="h-3 bg-gray-200 rounded-sm w-16" />
+      <div class="h-2 bg-neutral-200 rounded-sm mb-1" />
+      <div class="h-3 bg-neutral-200 rounded-sm w-16" />
     </div>
 
     <div v-else-if="error" class="text-xs text-red-600">
@@ -72,7 +72,7 @@ const statusColor = computed(() => {
       />
 
       <div class="flex justify-between items-center text-xs">
-        <span class="text-gray-600">{{ quota.currentUsageFormatted }}</span>
+        <span class="text-neutral-600">{{ quota.currentUsageFormatted }}</span>
         <UBadge
           :color="statusColor"
           variant="soft"
@@ -83,7 +83,7 @@ const statusColor = computed(() => {
       </div>
     </div>
 
-    <div v-else class="text-xs text-gray-400">
+    <div v-else class="text-xs text-neutral-400">
       No data
     </div>
   </div>

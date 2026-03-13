@@ -149,13 +149,13 @@ const columns: TableColumn<CharacterRow>[] = [
         selectAll.value = (e.target as HTMLInputElement).checked
         toggleSelectAll()
       },
-      class: 'rounded-sm border-gray-300'
+      class: 'rounded-sm border-neutral-300'
     }),
     cell: ({ row }) => h('input', {
       type: 'checkbox',
       checked: row.original.selected,
       onInput: () => toggleCharacterSelection(row.original.character),
-      class: 'rounded-sm border-gray-300'
+      class: 'rounded-sm border-neutral-300'
     }),
     size: 40,
     enableSorting: false

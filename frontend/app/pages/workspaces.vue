@@ -287,8 +287,8 @@ async function leaveWorkspace(ws: WorkspaceRow) {
           />
         </UContextMenu>
 
-        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
-          <span class="text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+          <span class="text-sm text-neutral-600 dark:text-neutral-400">
             Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} workspaces
           </span>
           <div class="flex items-center gap-4">
@@ -310,11 +310,11 @@ async function leaveWorkspace(ws: WorkspaceRow) {
       </div>
 
       <div v-else class="text-center py-12">
-        <UIcon name="i-lucide-folder" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
+        <UIcon name="i-lucide-folder" class="w-12 h-12 text-neutral-400 mx-auto mb-4" />
         <h3 class="text-lg font-semibold mb-2">
           No workspaces found
         </h3>
-        <p class="text-gray-500 mb-6">
+        <p class="text-neutral-500 mb-6">
           Create your first workspace to get started
         </p>
         <UButton

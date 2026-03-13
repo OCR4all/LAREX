@@ -414,7 +414,7 @@ const emptyStateActions = computed(() => {
 
         <template #right>
           <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
-            <span class="text-xs text-gray-500">Active filters:</span>
+            <span class="text-xs text-neutral-500">Active filters:</span>
             <component
               :is="UBadge"
               v-for="filter in activeFilters"
@@ -466,8 +466,8 @@ const emptyStateActions = computed(() => {
           />
         </UContextMenu>
 
-        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
-          <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+          <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
             <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} keyboards</span>
           </div>
 

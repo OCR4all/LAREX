@@ -60,7 +60,7 @@ function getDepthColor(depth: number): string {
 function getBadgeClasses(item: OrderNumber): string {
   const base = 'inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 text-xs font-bold rounded-sm shadow-md'
   if (item.isHidden) {
-    return `${base} bg-gray-400/60 text-white border-2 border-dashed border-gray-500`
+    return `${base} bg-neutral-400/60 text-white border-2 border-dashed border-neutral-500`
   }
   const depthColor = getDepthColor(item.depth)
   return `${base} ${depthColor} text-white border border-white/30`

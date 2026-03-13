@@ -251,14 +251,14 @@ const columns: TableColumn<any>[] = [
       checked: allFilteredSelected.value,
       indeterminate: hasSelection.value && !allFilteredSelected.value,
       onChange: toggleAllFilteredSelection,
-      class: 'rounded-sm border-gray-300 text-primary-600 focus:ring-primary-500'
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
     }),
     cell: ({ row }) => h('input', {
       type: 'checkbox',
       checked: selectedProjectIds.value.has(row.original.id),
       onChange: () => toggleProjectSelection(row.original.id),
       onClick: (e: Event) => e.stopPropagation(),
-      class: 'rounded-sm border-gray-300 text-primary-600 focus:ring-primary-500'
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
     })
   },
   {
@@ -934,7 +934,7 @@ const libraryCodecActionItems = computed(() => [[
               {{ selectedProjectIds.size }} selected
             </UBadge>
             <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
-              <span class="text-xs text-gray-500">Active filters:</span>
+              <span class="text-xs text-neutral-500">Active filters:</span>
               <UBadge
                 v-for="filter in activeFilters"
                 :key="`${filter.type}-${filter.column || 'global'}`"
@@ -971,8 +971,8 @@ const libraryCodecActionItems = computed(() => [[
 
       <div v-else-if="status === 'pending'" class="py-8 text-center">
         <div class="flex items-center justify-center">
-          <UIcon name="i-lucide-loader" class="animate-spin text-gray-500" />
-          <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading projects...</span>
+          <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
+          <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading projects...</span>
         </div>
       </div>
 
@@ -1019,8 +1019,8 @@ const libraryCodecActionItems = computed(() => [[
           />
         </UContextMenu>
 
-        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-gray-200 dark:border-gray-800">
-          <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+          <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
             <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} projects</span>
           </div>
 

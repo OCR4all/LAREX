@@ -84,7 +84,7 @@ async function confirmBulkDelete() {
           </div>
         </div>
 
-        <div class="h-full shadow-inner overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-sm divide-y divide-gray-200 dark:divide-gray-700">
+        <div class="h-full shadow-inner overflow-y-auto border border-neutral-200 dark:border-neutral-700 rounded-sm divide-y divide-neutral-200 dark:divide-neutral-700">
           <div
             v-for="p in orderedPages"
             :key="p.id"

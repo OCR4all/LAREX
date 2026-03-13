@@ -613,23 +613,23 @@ watch(() => props.src, (newSrc) => {
         Render Performance (Ctrl+Shift+R)
       </div>
       <div class="flex justify-between mb-1">
-        <span class="text-gray-400">FPS:</span>
+        <span class="text-neutral-400">FPS:</span>
         <span class="font-bold">{{ editorRenderer.renderStats.rendersPerSecond }}</span>
       </div>
       <div class="flex justify-between mb-1">
-        <span class="text-gray-400">Avg Frame:</span>
+        <span class="text-neutral-400">Avg Frame:</span>
         <span class="font-bold">{{ editorRenderer.renderStats.averageFrameTime.toFixed(2) }}ms</span>
       </div>
       <div class="flex justify-between mb-1">
-        <span class="text-gray-400">Max Frame:</span>
+        <span class="text-neutral-400">Max Frame:</span>
         <span class="font-bold">{{ editorRenderer.renderStats.maxFrameTime.toFixed(2) }}ms</span>
       </div>
       <div class="flex justify-between mb-1">
-        <span class="text-gray-400">Total Renders:</span>
+        <span class="text-neutral-400">Total Renders:</span>
         <span class="font-bold">{{ editorRenderer.renderStats.totalRenders }}</span>
       </div>
       <div class="flex justify-between mb-1">
-        <span class="text-gray-400">Batched:</span>
+        <span class="text-neutral-400">Batched:</span>
         <span class="font-bold">{{ editorRenderer.renderStats.batchedRenders }}</span>
       </div>
     </div>

@@ -96,7 +96,7 @@ async function rebuildGlobalIndex() {
               <div
                 class="w-3 h-3 rounded-full"
                 :class="{
-                  'bg-gray-400': rebuildStatus === 'idle',
+                  'bg-neutral-400': rebuildStatus === 'idle',
                   'bg-yellow-500 animate-pulse': rebuildStatus === 'running',
                   'bg-green-500': rebuildStatus === 'success',
                   'bg-red-500': rebuildStatus === 'error'

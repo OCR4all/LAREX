@@ -147,7 +147,7 @@ function handleRowContextMenu(_event: Event, row: any) {
     <template #body>
       <div class="space-y-6 p-4">
         <div v-if="allTransfers.length === 0" class="text-center py-12">
-          <UIcon name="i-lucide-send" class="mx-auto text-4xl text-gray-400 mb-4" />
+          <UIcon name="i-lucide-send" class="mx-auto text-4xl text-neutral-400 mb-4" />
           <p class="text-muted">
             No transfer requests yet
           </p>

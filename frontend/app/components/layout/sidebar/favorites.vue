@@ -77,24 +77,24 @@ function navigateToProject(projectId: string) {
               <button
                 v-for="project in starredProjects"
                 :key="project.projectId"
-                class="flex items-center gap-3 px-2 py-2 rounded-sm text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors w-full text-left"
+                class="flex items-center gap-3 px-2 py-2 rounded-sm text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors w-full text-left"
                 @click="navigateToProject(project.projectId)"
               >
                 <UAvatar
                   :text="project.projectName.substring(0, 2).toUpperCase()"
                   size="xs"
-                  class="ring-1 ring-gray-200 dark:ring-gray-700 flex-shrink-0"
+                  class="ring-1 ring-neutral-200 dark:ring-neutral-700 flex-shrink-0"
                 />
                 <span class="flex-1 min-w-0 truncate font-medium">{{ project.projectName }}</span>
               </button>
             </div>
 
-            <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div class="mt-3 pt-3 border-t border-neutral-200 dark:border-neutral-700">
               <button
-                class="flex items-center gap-2 px-2 py-1 rounded-sm text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-300 transition-colors w-full text-left"
+                class="flex items-center gap-2 px-2 py-1 rounded-sm text-sm text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors w-full text-left"
                 @click="showAllStarred"
               >
-                <UIcon name="i-lucide-external-link" class="w-4 h-4 flex-shrink-0" />
+                <UIcon name="i-lucide-external-link" class="w-4 h-4 shrink-0" />
                 <span class="font-medium">View all in Library</span>
               </button>
             </div>
@@ -115,7 +115,7 @@ function navigateToProject(projectId: string) {
           v-for="project in displayedProjects"
           :key="project.projectId"
           :to="`/project/${project.projectId}`"
-          class="flex items-center gap-3 px-2 py-2 rounded-sm text-xs transition-colors group"
+          class="flex items-center gap-3 px-2 py-2 rounded-sm text-xs transition-colors group hover:bg-neutral-100 dark:hover:bg-neutral-800"
           active-class="bg-neutral-100 dark:bg-neutral-800 text-primary-900 dark:text-primary-100"
         >
           <div class="shrink-0">

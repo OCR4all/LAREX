@@ -336,14 +336,14 @@ const columns: TableColumn<OrphanedFile>[] = [
         checked: allSelected,
         indeterminate: someSelected,
         onChange: toggleAllOnPage,
-        class: 'rounded-sm border-gray-300 text-primary-600 focus:ring-primary-500'
+        class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
       })
     },
     cell: ({ row }: { row: OrphanedFileTableRow }) => h('input', {
       type: 'checkbox',
       checked: selectedFiles.value.has(row.original.path),
       onChange: () => toggleFileSelection(row.original.path),
-      class: 'rounded-sm border-gray-300 text-primary-600 focus:ring-primary-500'
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
     })
   },
   {

@@ -546,8 +546,8 @@ const viewModeItems = [
     <template #body>
       <div v-if="tasksStatus === 'pending' && tasksSafe.length === 0" class="py-8 text-center">
         <div class="flex items-center justify-center">
-          <UIcon name="i-lucide-loader" class="animate-spin text-gray-500" />
-          <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading tasks...</span>
+          <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
+          <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading tasks...</span>
         </div>
       </div>
 

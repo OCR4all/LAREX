@@ -87,7 +87,7 @@ const sliderLeft = computed(() => `${sliderPosition.value}%`)
 <template>
   <div
     ref="containerRef"
-    class="group relative w-full h-full overflow-hidden rounded-sm cursor-ew-resize select-none touch-pan-y shadow-lg focus:outline-2 focus:outline-blue-500 focus:outline-offset-2 bg-gray-100 dark:bg-gray-900"
+    class="group relative w-full h-full overflow-hidden rounded-sm cursor-ew-resize select-none touch-pan-y shadow-lg focus:outline-2 focus:outline-primary-500 focus:outline-offset-2 bg-neutral-100 dark:bg-neutral-800"
     role="slider"
     :aria-valuenow="Math.round(sliderPosition)"
     aria-valuemin="0"
@@ -131,7 +131,7 @@ const sliderLeft = computed(() => `${sliderPosition.value}%`)
         :class="{ 'scale-110': isDragging }"
         style="background: linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%); box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(255, 255, 255, 0.9), inset 0 1px 2px rgba(255, 255, 255, 1);"
       >
-        <div class="flex items-center justify-center gap-0.5 text-gray-700" />
+        <div class="flex items-center justify-center gap-0.5 text-neutral-700" />
       </div>
     </div>
 
