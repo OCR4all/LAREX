@@ -1,22 +1,52 @@
 import { defineStore } from 'pinia'
-import type { UploadSession, UploadFile } from '~/composables/use-chunked-upload'
+
+export type UploadSessionStatus = 'PENDING' | 'UPLOADING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+export type UploadUiFileStatus = 'pending' | 'uploading' | 'uploaded' | 'processing' | 'completed' | 'failed' | 'conflict' | 'skipped'
+
+interface UploadUiFileBase {
+  id?: string
+  fileName: string
+  fileSize: number
+  mimeType: string
+  baseName: string
+  variant: string
+  status: UploadUiFileStatus
+  progress: number
+  chunksReceived: number
+  totalChunks: number
+  error?: string
+  createdPageId?: string
+  createdPageImageId?: string
+  conflictType?: string
+  conflictResolution?: string
+}
+
+export interface LocalUploadUiFile extends UploadUiFileBase {
+  source: 'local'
+  file: File
+}
+
+export interface RecoveredUploadUiFile extends UploadUiFileBase {
+  source: 'recovered'
+  file?: undefined
+}
+
+export type UploadUiFile = LocalUploadUiFile | RecoveredUploadUiFile
 
 export interface ActiveUpload {
   sessionId: string
   projectId: string
   projectName: string
   workspaceId: string
-  status: UploadSession['status']
+  status: UploadSessionStatus
   totalFiles: number
   processedFiles: number
   failedFiles: number
   progressPercent: number
-  files: UploadFile[]
+  files: UploadUiFile[]
   created: string
   error?: string
 }
-
-type CancelUploadHandler = (sessionId: string, upload: ActiveUpload) => Promise<boolean> | boolean
 
 function isTerminalStatus(status: ActiveUpload['status']): boolean {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
@@ -31,7 +61,6 @@ export const useUploadStore = defineStore('upload', () => {
   const showProgressPanel = ref(false)
   const minimized = ref(false)
   const cancellingSessionIds = ref<Set<string>>(new Set())
-  const cancelUploadHandler = ref<CancelUploadHandler | null>(null)
 
   const hasActiveUploads = computed(() => {
     return Array.from(activeUploads.value.values()).some(
@@ -60,7 +89,7 @@ export const useUploadStore = defineStore('upload', () => {
     projectId: string,
     projectName: string,
     workspaceId: string,
-    files: UploadFile[]
+    files: UploadUiFile[]
   ) {
     const filesCopy = files.map(f => ({ ...f }))
 
@@ -102,19 +131,50 @@ export const useUploadStore = defineStore('upload', () => {
     }
   }
 
-  function updateFileProgress(sessionId: string, fileId: string, updates: Partial<UploadFile>) {
+  function replaceUploadSessionId(previousSessionId: string, nextSessionId: string) {
+    if (!previousSessionId || !nextSessionId || previousSessionId === nextSessionId) return
+    const upload = activeUploads.value.get(previousSessionId)
+    if (!upload || activeUploads.value.has(nextSessionId)) return
+
+    activeUploads.value.delete(previousSessionId)
+    activeUploads.value.set(nextSessionId, {
+      ...upload,
+      sessionId: nextSessionId
+    })
+
+    if (isCancelling(previousSessionId)) {
+      setCancelling(previousSessionId, false)
+      setCancelling(nextSessionId, true)
+    }
+  }
+
+  function updateFileProgress(sessionId: string, fileId: string, updates: Partial<UploadUiFile>) {
     const upload = activeUploads.value.get(sessionId)
     if (upload) {
       const fileIndex = upload.files.findIndex(f => f.id === fileId || f.fileName === updates.fileName)
       if (fileIndex !== -1) {
         const updatedFiles = [...upload.files]
         const currentFile = updatedFiles[fileIndex]
-        updatedFiles[fileIndex] = {
-          ...currentFile,
-          ...updates,
-          // Keep a valid File instance even when updates are partial.
-          file: currentFile.file
+        if (!currentFile) return
+
+        let mergedFile: UploadUiFile
+        if (currentFile.source === 'local') {
+          mergedFile = {
+            ...currentFile,
+            ...updates,
+            source: 'local',
+            file: currentFile.file
+          }
+        } else {
+          const updatesWithoutFile = { ...updates }
+          delete updatesWithoutFile.file
+          mergedFile = {
+            ...currentFile,
+            ...updatesWithoutFile,
+            source: 'recovered'
+          }
         }
+        updatedFiles[fileIndex] = mergedFile
 
         const totalChunks = updatedFiles.reduce((sum, f) => sum + f.totalChunks, 0)
         const completedChunks = updatedFiles.reduce((sum, f) => sum + f.chunksReceived, 0)
@@ -209,42 +269,6 @@ export const useUploadStore = defineStore('upload', () => {
     cancellingSessionIds.value = next
   }
 
-  function setCancelUploadHandler(handler: CancelUploadHandler) {
-    cancelUploadHandler.value = handler
-  }
-
-  function clearCancelUploadHandler(handler?: CancelUploadHandler) {
-    if (!handler || cancelUploadHandler.value === handler) {
-      cancelUploadHandler.value = null
-    }
-  }
-
-  async function cancelUpload(sessionId: string): Promise<void> {
-    const upload = activeUploads.value.get(sessionId)
-    if (!upload) return
-    if (!isActiveStatus(upload.status)) return
-    if (isCancelling(sessionId)) return
-
-    setCancelling(sessionId, true)
-    try {
-      let handled = false
-      if (cancelUploadHandler.value) {
-        handled = await cancelUploadHandler.value(sessionId, upload)
-      }
-
-      if (!handled) {
-        await $fetch(`/api/workspaces/${upload.workspaceId}/projects/${upload.projectId}/upload-sessions/${sessionId}`, {
-          method: 'DELETE'
-        })
-      }
-
-      completeUpload(sessionId, 'CANCELLED')
-    } catch (error) {
-      setCancelling(sessionId, false)
-      throw error
-    }
-  }
-
   const uploadsArray = computed(() => Array.from(activeUploads.value.values()))
 
   return {
@@ -259,6 +283,7 @@ export const useUploadStore = defineStore('upload', () => {
     uploadsArray,
 
     registerUpload,
+    replaceUploadSessionId,
     updateUploadProgress,
     updateFileProgress,
     completeUpload,
@@ -268,8 +293,6 @@ export const useUploadStore = defineStore('upload', () => {
     hidePanel,
     showPanel,
     isCancelling,
-    cancelUpload,
-    setCancelUploadHandler,
-    clearCancelUploadHandler
+    setCancelling
   }
 })

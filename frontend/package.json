@@ -17,10 +17,10 @@
     "@codemirror/language": "^6.12.2",
     "@codemirror/lint": "^6.9.5",
     "@codemirror/search": "^6.6.0",
-    "@codemirror/state": "^6.5.4",
-    "@codemirror/view": "^6.39.16",
-    "@iconify-json/lucide": "^1.2.95",
-    "@iconify-json/simple-icons": "^1.2.72",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.40.0",
+    "@iconify-json/lucide": "^1.2.97",
+    "@iconify-json/simple-icons": "^1.2.73",
     "@lezer/highlight": "^1.2.3",
     "@nuxt/a11y": "1.0.0-alpha.1",
     "@nuxt/fonts": "0.11.4",
@@ -29,7 +29,7 @@
     "@nuxtjs/tailwindcss": "7.0.0-beta.1",
     "@pinia/nuxt": "0.11.2",
     "@tailwindcss/vite": "^4.2.1",
-    "@tanstack/vue-virtual": "^3.13.19",
+    "@tanstack/vue-virtual": "^3.13.22",
     "@types/diff-match-patch": "^1.0.36",
     "@types/sortablejs": "^1.15.9",
     "@unovis/ts": "^1.6.4",
@@ -44,7 +44,7 @@
     "earcut": "^3.0.2",
     "jwt-decode": "^4.0.0",
     "martinez-polygon-clipping": "^0.8.1",
-    "nuxt": "^4.3.1",
+    "nuxt": "^4.4.2",
     "nuxt-auth-utils": "0.5.23",
     "ogl": "^1.0.11",
     "photoswipe": "^5.4.4",
@@ -60,10 +60,10 @@
     "@nuxt/eslint": "^1.15.2",
     "@types/earcut": "^3.0.0",
     "@types/rbush": "^4.0.0",
-    "eslint": "^10.0.2",
-    "happy-dom": "^20.8.3",
+    "eslint": "^10.0.3",
+    "happy-dom": "^20.8.4",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.18",
+    "vitest": "^4.1.0",
     "vue-tsc": "^3.2.5"
   },
   "resolutions": {
@@ -77,5 +77,5 @@
       "vue-demi"
     ]
   },
-  "packageManager": "pnpm@10.30.3"
+  "packageManager": "pnpm@10.32.1"
 }

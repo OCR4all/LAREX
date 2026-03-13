@@ -369,17 +369,6 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
     isPaused.value = true
     abortController?.abort()
 
-    if (session.value && workspaceId.value && projectId.value) {
-      try {
-        await $fetch(
-          `/api/workspaces/${workspaceId.value}/projects/${projectId.value}/upload-sessions/${session.value.id}`,
-          { method: 'DELETE' }
-        )
-      } catch {
-        // Ignore cancellation transport errors.
-      }
-    }
-
     session.value = null
     isUploading.value = false
   }

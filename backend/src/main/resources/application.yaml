@@ -120,6 +120,8 @@ larex:
       core-pool-size: ${LAREX_UPLOAD_INDEX_ASYNC_CORE_POOL:1}
       max-pool-size: ${LAREX_UPLOAD_INDEX_ASYNC_MAX_POOL:2}
       queue-capacity: ${LAREX_UPLOAD_INDEX_ASYNC_QUEUE:200}
+    indexing:
+      stale-threshold-ms: ${LAREX_UPLOAD_INDEXING_STALE_THRESHOLD_MS:60000}
   # Server-side import configuration
   import:
     # Enable server-side import feature (default: true)

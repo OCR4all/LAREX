@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionEventBroadc
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -18,13 +19,16 @@ public class UploadPageIndexDispatcher {
     private final PageIndexStatusTracker pageIndexStatusTracker;
     private final UploadPageIndexWorker uploadPageIndexWorker;
     private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
+    private final long staleThresholdMs;
 
     public UploadPageIndexDispatcher(PageIndexStatusTracker pageIndexStatusTracker,
                                      UploadPageIndexWorker uploadPageIndexWorker,
-                                     UploadSessionEventBroadcaster uploadSessionEventBroadcaster) {
+                                     UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
+                                     @Value("${larex.upload.indexing.stale-threshold-ms:60000}") long staleThresholdMs) {
         this.pageIndexStatusTracker = pageIndexStatusTracker;
         this.uploadPageIndexWorker = uploadPageIndexWorker;
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
+        this.staleThresholdMs = staleThresholdMs;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -34,13 +38,20 @@ public class UploadPageIndexDispatcher {
         }
 
         for (String pageId : event.pageIds()) {
-            boolean marked = pageIndexStatusTracker.markIndexingIfAbsent(pageId);
-            if (marked) {
-                uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "queued");
-            } else {
-                // Recovery path: do not drop work just because a stale in-memory flag exists.
-                log.debug("Page {} was already marked indexing; dispatching worker anyway to avoid stale lock", pageId);
+            PageIndexStatusTracker.AcquireResult acquireResult = pageIndexStatusTracker.acquireIndexingSlot(pageId, staleThresholdMs);
+            if (acquireResult == PageIndexStatusTracker.AcquireResult.INVALID_PAGE_ID) {
+                continue;
             }
+            if (acquireResult == PageIndexStatusTracker.AcquireResult.ALREADY_ACTIVE) {
+                log.debug("Skipping duplicate indexing dispatch for page {} in project {}", pageId, event.projectId());
+                continue;
+            }
+            if (acquireResult == PageIndexStatusTracker.AcquireResult.ACQUIRED_STALE_RECOVERY) {
+                log.warn("Recovered stale indexing lock for page {} in project {} (threshold {} ms)",
+                        pageId, event.projectId(), staleThresholdMs);
+            }
+
+            uploadSessionEventBroadcaster.broadcastPageIndexState(event.sessionId(), event.projectId(), pageId, "queued");
             try {
                 uploadPageIndexWorker.indexPageAsync(event.sessionId(), event.projectId(), pageId);
             } catch (Exception e) {

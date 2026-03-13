@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const uploadStore = useUploadStore()
+const uploadSessionActions = useUploadSessionActions()
 const toast = useToast()
 
 const statusLabels: Record<string, string> = {
@@ -62,7 +63,7 @@ async function handleCancelUpload(upload: { sessionId: string, status: string })
   if (uploadStore.isCancelling(upload.sessionId)) return
 
   try {
-    await uploadStore.cancelUpload(upload.sessionId)
+    await uploadSessionActions.cancelUploadBySessionId(upload.sessionId)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to cancel upload'
     toast.add({

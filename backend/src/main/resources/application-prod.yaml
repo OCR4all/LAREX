@@ -48,6 +48,8 @@ larex:
     user-provisioning-mode: ${LAREX_USER_PROVISIONING_MODE:LOCAL}
   upload:
     temp-directory: ${LAREX_UPLOAD_TEMP_DIR:${file.upload-dir}/temp}
+    indexing:
+      stale-threshold-ms: ${LAREX_UPLOAD_INDEXING_STALE_THRESHOLD_MS:60000}
     directories:
       root-directory: ${file.upload-dir}
       temp-directory: ${larex.upload.temp-directory}

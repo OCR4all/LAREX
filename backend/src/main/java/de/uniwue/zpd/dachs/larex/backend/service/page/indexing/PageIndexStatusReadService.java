@@ -60,7 +60,6 @@ public class PageIndexStatusReadService {
         }
 
         if (pageConfidenceIndexRepository.existsByPageId(page.getId())) {
-            pageIndexStatusTracker.clearIndexing(page.getId());
             return PageDto.PageIndexingStatus.INDEXED;
         }
 
@@ -78,7 +77,6 @@ public class PageIndexStatusReadService {
             return PageDto.PageIndexingStatus.NOT_APPLICABLE;
         }
         if (indexedPageIds.contains(page.getId())) {
-            pageIndexStatusTracker.clearIndexing(page.getId());
             return PageDto.PageIndexingStatus.INDEXED;
         }
         if (indexingPageIds.contains(page.getId())) {
