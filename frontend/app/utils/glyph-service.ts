@@ -17,10 +17,17 @@ type BackendCharacterSearchResponse = {
   }>
 }
 
-const fetcher: typeof ofetch = ((globalThis as any).$fetch ?? ofetch) as typeof ofetch
+const globalFetch = (globalThis as typeof globalThis & { $fetch?: typeof ofetch }).$fetch
+const fetcher: typeof ofetch = globalFetch ?? ofetch
 
 export const GlyphService = {
-  async search(query: string, sources = { mufi: true, unicode: false }, page = 0, pageSize  = 50) {
+  async search(
+    query: string,
+    sources = { mufi: true, unicode: false },
+    page = 0,
+    pageSize = 50,
+    options?: { isPua?: boolean }
+  ) {
     const offset = Math.max(0, page) * pageSize
     const source: Array<'mufi' | 'unicode'> = []
     if (sources.mufi) source.push('mufi')
@@ -35,7 +42,8 @@ export const GlyphService = {
         q: query,
         offset,
         limit: pageSize,
-        source
+        source,
+        isPua: options?.isPua
       }
     })) as BackendCharacterSearchResponse
 
