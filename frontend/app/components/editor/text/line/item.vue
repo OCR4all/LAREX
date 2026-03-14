@@ -881,7 +881,7 @@ onBeforeUnmount(() => {
                     :data-textline-id="props.textline.id"
                     :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
                     :data-textequiv-pos="String(textEquiv.pos)"
-                    class="textline-textarea flex-1 min-w-0 min-h-[44px] h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
+                    class="textline-textarea flex-1 min-w-0 min-h-11 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                     :class="[
                       variantRole(textEquiv.index) === 'gt' && 'textline-textarea--gt border-emerald-300 bg-emerald-100/95 dark:bg-emerald-900/90',
                       variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
