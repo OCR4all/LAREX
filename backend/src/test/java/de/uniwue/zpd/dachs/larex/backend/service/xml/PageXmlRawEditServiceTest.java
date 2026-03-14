@@ -5,10 +5,12 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +50,8 @@ class PageXmlRawEditServiceTest {
     private PageFilterIndexService pageFilterIndexService;
     @Mock
     private PageXmlValidationService pageXmlValidationService;
+    @Mock
+    private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     @Test
     void saveXmlText_blocksInvalidXmlWithoutPersistence() throws Exception {
@@ -125,6 +129,7 @@ class PageXmlRawEditServiceTest {
         verify(pageXmlRepository).save(pageXml);
         verify(annotationReadCache).evict("xml-1");
         verify(pageFilterIndexService).indexPageFromXml(eq(pageXml.getPage()));
+        verify(workspaceQuotaRefreshService).scheduleUsageRefresh("ws-1");
     }
 
     private PageXmlRawEditService service() {
@@ -134,7 +139,8 @@ class PageXmlRawEditServiceTest {
                 pageXmlVersionService,
                 annotationReadCache,
                 pageFilterIndexService,
-                pageXmlValidationService
+                pageXmlValidationService,
+                workspaceQuotaRefreshService
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         return service;
@@ -150,6 +156,9 @@ class PageXmlRawEditServiceTest {
     private PageXml pageXml(String relativePath) {
         Project project = new Project();
         project.setId("project-1");
+        Library library = new Library();
+        library.setWorkspaceId("ws-1");
+        project.setLibrary(library);
 
         Page page = new Page();
         page.setId("page-1");

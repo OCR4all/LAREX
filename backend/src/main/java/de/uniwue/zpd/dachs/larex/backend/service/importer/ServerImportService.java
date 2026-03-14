@@ -8,6 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.importing.ImportJobRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
@@ -33,6 +34,7 @@ public class ServerImportService {
     private final PageRepository pageRepository;
     private final WorkspaceStorageQuotaService quotaService;
     private final AsyncImportProcessor asyncImportProcessor;
+    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     @Value("${larex.import.enabled:true}")
     private boolean importEnabled;
@@ -52,12 +54,14 @@ public class ServerImportService {
                                ProjectRepository projectRepository,
                                PageRepository pageRepository,
                                WorkspaceStorageQuotaService quotaService,
-                               AsyncImportProcessor asyncImportProcessor) {
+                               AsyncImportProcessor asyncImportProcessor,
+                               WorkspaceQuotaGuardService workspaceQuotaGuardService) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.quotaService = quotaService;
         this.asyncImportProcessor = asyncImportProcessor;
+        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
     }
 
     @jakarta.annotation.PostConstruct
@@ -134,65 +138,7 @@ public class ServerImportService {
 
         Path path = Paths.get(validation.normalizedPath());
 
-        List<ImportJobDto.ScanFileInfo> files = new ArrayList<>();
-        List<String> conflicts = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-        long totalSizeBytes = 0;
-        int imageCount = 0;
-        int xmlCount = 0;
-
-        // Walk directory and collect files
-        try (Stream<Path> stream = Files.walk(path, maxScanDepth)) {
-            List<Path> filePaths = stream
-                    .filter(Files::isRegularFile)
-                    .filter(p -> isImageFile(p) || isXmlFile(p))
-                    .limit(maxFilesPerJob + 1)
-                    .toList();
-
-            if (filePaths.size() > maxFilesPerJob) {
-                warnings.add("Directory contains more than " + maxFilesPerJob + " files. Only the first " + maxFilesPerJob + " will be imported.");
-                filePaths = filePaths.subList(0, maxFilesPerJob);
-            }
-
-            Set<String> existingPageNames = new HashSet<>();
-            if (projectId != null) {
-                pageRepository.findByProjectId(projectId).forEach(p -> existingPageNames.add(p.getName()));
-            }
-
-            for (Path filePath : filePaths) {
-                String fileName = filePath.getFileName().toString();
-                String relativePath = path.relativize(filePath).toString();
-                long fileSize = Files.size(filePath);
-                String fileType = isImageFile(filePath) ? "image" : "xml";
-
-                ImageFileUtils.ImageNameInfo nameInfo = ImageFileUtils.parseImageName(fileName);
-
-                boolean hasConflict = existingPageNames.contains(nameInfo.baseName());
-                String conflictType = hasConflict ? "PAGE_EXISTS" : null;
-
-                if (hasConflict) {
-                    conflicts.add("Page already exists: " + nameInfo.baseName());
-                }
-
-                files.add(new ImportJobDto.ScanFileInfo(
-                        fileName,
-                        relativePath,
-                        fileSize,
-                        fileType,
-                        nameInfo.baseName(),
-                        nameInfo.variant(),
-                        hasConflict,
-                        conflictType
-                ));
-
-                totalSizeBytes += fileSize;
-                if ("image".equals(fileType)) {
-                    imageCount++;
-                } else {
-                    xmlCount++;
-                }
-            }
-        }
+        ImportScanSummary scanSummary = scanImportSource(path, projectId);
 
         // Check quota
         boolean quotaExceeded = false;
@@ -201,9 +147,9 @@ public class ServerImportService {
             try {
                 var quotaInfo = quotaService.getQuotaInfo(workspaceId);
                 availableQuotaBytes = quotaInfo.remainingBytes();
-                quotaExceeded = totalSizeBytes > availableQuotaBytes;
+                quotaExceeded = scanSummary.totalSizeBytes() > availableQuotaBytes;
                 if (quotaExceeded) {
-                    warnings.add("Import size (" + formatBytes(totalSizeBytes) +
+                    scanSummary.warnings().add("Import size (" + formatBytes(scanSummary.totalSizeBytes()) +
                             ") exceeds available quota (" + formatBytes(availableQuotaBytes) + ")");
                 }
             } catch (Exception e) {
@@ -213,12 +159,12 @@ public class ServerImportService {
 
         return new ImportJobDto.ScanResponse(
                 path.toString(),
-                imageCount,
-                xmlCount,
-                totalSizeBytes,
-                files,
-                conflicts,
-                warnings,
+                scanSummary.imageCount(),
+                scanSummary.xmlCount(),
+                scanSummary.totalSizeBytes(),
+                scanSummary.files(),
+                scanSummary.conflicts(),
+                scanSummary.warnings(),
                 quotaExceeded,
                 availableQuotaBytes
         );
@@ -254,27 +200,49 @@ public class ServerImportService {
             throw new IllegalArgumentException("An import is already in progress for this project");
         }
 
-        ImportJob job = new ImportJob(
-                request.projectId(),
-                workspaceId,
-                userId,
-                validation.normalizedPath()
-        );
-
-        job.setOverwriteExisting(request.overwriteExisting());
-        if (request.copyMode() != null) {
-            job.setCopyMode(request.copyMode());
+        Path normalizedPath = Paths.get(validation.normalizedPath());
+        ImportScanSummary scanSummary;
+        try {
+            scanSummary = scanImportSource(normalizedPath, request.projectId());
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to scan import source: " + e.getMessage(), e);
         }
 
-        job = importJobRepository.save(job);
+        long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                workspaceId,
+                scanSummary.totalSizeBytes(),
+                "server-import-job"
+        );
 
-        log.info("Created import job {} for project {} from path: {}",
-                job.getId(), request.projectId(), validation.normalizedPath());
+        try {
+            ImportJob job = new ImportJob(
+                    request.projectId(),
+                    workspaceId,
+                    userId,
+                    validation.normalizedPath()
+            );
 
-        // Start async processing
-        asyncImportProcessor.processImportJob(job.getId());
+            job.setOverwriteExisting(request.overwriteExisting());
+            if (request.copyMode() != null) {
+                job.setCopyMode(request.copyMode());
+            }
+            job.setTotalFiles(scanSummary.files().size());
+            job.setTotalBytes(scanSummary.totalSizeBytes());
+            job.setReservedBytes(reservedBytes);
+            job.setQuotaReservationReleased(false);
 
-        return convertToJobResponse(job);
+            job = importJobRepository.save(job);
+
+            log.info("Created import job {} for project {} from path: {}",
+                    job.getId(), request.projectId(), validation.normalizedPath());
+
+            asyncImportProcessor.processImportJob(job.getId());
+
+            return convertToJobResponse(job);
+        } catch (RuntimeException e) {
+            workspaceQuotaGuardService.releaseReservation(workspaceId, reservedBytes);
+            throw e;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -302,6 +270,7 @@ public class ServerImportService {
         }
 
         job.setStatus(ImportJobStatus.CANCELLED);
+        settleCancelledJobReservation(job);
         importJobRepository.save(job);
 
         log.info("Cancelled import job: {}", jobId);
@@ -364,4 +333,86 @@ public class ServerImportService {
                 job.getCompletedAt()
         );
     }
+
+    private ImportScanSummary scanImportSource(Path path, String projectId) throws IOException {
+        List<ImportJobDto.ScanFileInfo> files = new ArrayList<>();
+        List<String> conflicts = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        long totalSizeBytes = 0;
+        int imageCount = 0;
+        int xmlCount = 0;
+
+        try (Stream<Path> stream = Files.walk(path, maxScanDepth)) {
+            List<Path> filePaths = stream
+                    .filter(Files::isRegularFile)
+                    .filter(p -> isImageFile(p) || isXmlFile(p))
+                    .limit(maxFilesPerJob + 1L)
+                    .toList();
+
+            if (filePaths.size() > maxFilesPerJob) {
+                warnings.add("Directory contains more than " + maxFilesPerJob + " files. Only the first " + maxFilesPerJob + " will be imported.");
+                filePaths = filePaths.subList(0, maxFilesPerJob);
+            }
+
+            Set<String> existingPageNames = new HashSet<>();
+            if (projectId != null) {
+                pageRepository.findByProjectId(projectId).forEach(p -> existingPageNames.add(p.getName()));
+            }
+
+            for (Path filePath : filePaths) {
+                String fileName = filePath.getFileName().toString();
+                String relativePath = path.relativize(filePath).toString();
+                long fileSize = Files.size(filePath);
+                String fileType = isImageFile(filePath) ? "image" : "xml";
+
+                ImageFileUtils.ImageNameInfo nameInfo = ImageFileUtils.parseImageName(fileName);
+
+                boolean hasConflict = existingPageNames.contains(nameInfo.baseName());
+                String conflictType = hasConflict ? "PAGE_EXISTS" : null;
+
+                if (hasConflict) {
+                    conflicts.add("Page already exists: " + nameInfo.baseName());
+                }
+
+                files.add(new ImportJobDto.ScanFileInfo(
+                        fileName,
+                        relativePath,
+                        fileSize,
+                        fileType,
+                        nameInfo.baseName(),
+                        nameInfo.variant(),
+                        hasConflict,
+                        conflictType
+                ));
+
+                totalSizeBytes += fileSize;
+                if ("image".equals(fileType)) {
+                    imageCount++;
+                } else {
+                    xmlCount++;
+                }
+            }
+        }
+
+        return new ImportScanSummary(files, conflicts, warnings, totalSizeBytes, imageCount, xmlCount);
+    }
+
+    private void settleCancelledJobReservation(ImportJob job) {
+        if (job == null || job.isQuotaReservationReleased() || job.getReservedBytes() <= 0) {
+            return;
+        }
+
+        workspaceQuotaGuardService.syncUsageAndReleaseReservation(job.getWorkspaceId(), job.getReservedBytes());
+        job.setQuotaReservationReleased(true);
+        job.setReservedBytes(0L);
+    }
+
+    private record ImportScanSummary(
+            List<ImportJobDto.ScanFileInfo> files,
+            List<String> conflicts,
+            List<String> warnings,
+            long totalSizeBytes,
+            int imageCount,
+            int xmlCount
+    ) {}
 }

@@ -14,8 +14,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -100,5 +101,45 @@ class WorkspaceStorageQuotaServiceTest {
         WorkspaceStorageQuota quota = quotaService.getOrCreateQuota(workspaceId);
         assertEquals(123L, quota.getCurrentUsageBytes());
     }
-}
 
+    @Test
+    void reserveBytesUsesEffectiveAvailableCapacity() {
+        String workspaceId = "ws-reserve-capacity";
+
+        quotaRepository.save(new WorkspaceStorageQuota(workspaceId, 1_000L));
+
+        assertTrue(quotaService.reserveBytes(workspaceId, 600L));
+        assertFalse(quotaService.reserveBytes(workspaceId, 500L));
+
+        WorkspaceStorageQuota quota = quotaService.getOrCreateQuota(workspaceId);
+        assertEquals(600L, quota.getReservedBytes());
+        assertEquals(400L, quota.getAvailableBytes());
+    }
+
+    @Test
+    void syncUsageAndReleaseReservationReleasesReservedBytes() {
+        String workspaceId = "ws-sync-release";
+
+        Library library = libraryRepository.save(new Library(workspaceId, "Library"));
+        Project project = projectRepository.save(new Project("Project", null, library));
+        Page page = pageRepository.save(new Page("Page", null, project));
+
+        pageImageRepository.save(new PageImage(
+                "image.png",
+                "/tmp/image.png",
+                "image/png",
+                250L,
+                "original",
+                "image",
+                page
+        ));
+
+        quotaRepository.save(new WorkspaceStorageQuota(workspaceId, 1_000L));
+        assertTrue(quotaService.reserveBytes(workspaceId, 300L));
+
+        WorkspaceStorageQuota updated = quotaService.syncUsageAndReleaseReservation(workspaceId, 300L);
+        assertEquals(250L, updated.getCurrentUsageBytes());
+        assertEquals(0L, updated.getReservedBytes());
+        assertEquals(750L, updated.getAvailableBytes());
+    }
+}

@@ -20,7 +20,7 @@ const hasProgress = computed(() => (progress.value?.total ?? 0) > 0)
 
 <template>
   <div v-if="hasProgress" class="space-y-1">
-    <UProgress :model-value="progress!.percentage" size="xs" />
+    <UProgress v-model="progress!.percentage" size="xs" />
     <div class="text-xs text-muted">
       {{ progress!.completed }}/{{ progress!.total }}
     </div>

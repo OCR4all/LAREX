@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationServic
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import java.io.IOException;
@@ -43,6 +44,7 @@ public class AsyncImportProcessor {
     private final PageFilterIndexService pageFilterIndexService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     @Value("${larex.import.max-scan-depth:10}")
     private int maxScanDepth;
@@ -59,7 +61,8 @@ public class AsyncImportProcessor {
                                 StorageTrackingService storageTrackingService,
                                 PageFilterIndexService pageFilterIndexService,
                                 HierarchicalFileStorageService hierarchicalFileStorageService,
-                                PageXmlCanonicalizationService pageXmlCanonicalizationService) {
+                                PageXmlCanonicalizationService pageXmlCanonicalizationService,
+                                WorkspaceQuotaGuardService workspaceQuotaGuardService) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -70,6 +73,7 @@ public class AsyncImportProcessor {
         this.pageFilterIndexService = pageFilterIndexService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
     }
 
     @Async("importTaskExecutor")
@@ -91,6 +95,7 @@ public class AsyncImportProcessor {
 
         if (job.getStatus() == ImportJobStatus.CANCELLED) {
             log.info("Import job {} was cancelled, skipping processing", jobId);
+            releaseJobReservationIfNeeded(job, true);
             return;
         }
 
@@ -140,6 +145,7 @@ public class AsyncImportProcessor {
         // Check for cancellation
         job = refreshJobStatus(job);
         if (job.getStatus() == ImportJobStatus.CANCELLED) {
+            releaseJobReservationIfNeeded(job, true);
             return;
         }
 
@@ -161,6 +167,7 @@ public class AsyncImportProcessor {
         // Check for cancellation
         job = refreshJobStatus(job);
         if (job.getStatus() == ImportJobStatus.CANCELLED) {
+            releaseJobReservationIfNeeded(job, true);
             return;
         }
 
@@ -178,6 +185,7 @@ public class AsyncImportProcessor {
                 job = refreshJobStatus(job);
                 if (job.getStatus() == ImportJobStatus.CANCELLED) {
                     job.appendToLog("Import cancelled at " + processedCount + " files");
+                    releaseJobReservationIfNeeded(job, true);
                     importJobRepository.save(job);
                     return;
                 }
@@ -211,11 +219,11 @@ public class AsyncImportProcessor {
                 skippedCount + " skipped, " + failedCount + " failed");
         importJobRepository.save(job);
 
-        // Update storage tracking
         try {
-            storageTrackingService.syncWorkspaceUsage(job.getWorkspaceId());
+            releaseJobReservationIfNeeded(job, true);
+            importJobRepository.save(job);
         } catch (Exception e) {
-            log.warn("Failed to update storage tracking for workspace: {}", job.getWorkspaceId(), e);
+            log.warn("Failed to settle storage quota reservation for workspace: {}", job.getWorkspaceId(), e);
         }
 
         // Send notification
@@ -388,6 +396,7 @@ public class AsyncImportProcessor {
                 job.setErrorMessage(errorMessage);
                 job.setCompletedAt(LocalDateTime.now());
                 job.appendToLog("Import failed: " + errorMessage);
+                releaseJobReservationIfNeeded(job, true);
                 importJobRepository.save(job);
 
                 Project project = projectRepository.findById(job.getProjectId()).orElse(null);
@@ -403,5 +412,20 @@ public class AsyncImportProcessor {
         } catch (Exception e) {
             log.error("Failed to handle job error for job: {}", jobId, e);
         }
+    }
+
+    private void releaseJobReservationIfNeeded(ImportJob job, boolean syncUsage) {
+        if (job == null || job.isQuotaReservationReleased() || job.getReservedBytes() <= 0) {
+            return;
+        }
+
+        if (syncUsage) {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(job.getWorkspaceId(), job.getReservedBytes());
+        } else {
+            workspaceQuotaGuardService.releaseReservation(job.getWorkspaceId(), job.getReservedBytes());
+        }
+
+        job.setQuotaReservationReleased(true);
+        job.setReservedBytes(0L);
     }
 }

@@ -240,7 +240,7 @@ function handleClose() {
             <span class="text-muted">{{ uploadStore.totalActiveUploads }} upload(s) in progress</span>
             <span class="font-medium">{{ uploadStore.overallProgress }}%</span>
           </div>
-          <UProgress :value="uploadStore.overallProgress" size="xs" class="mt-1" />
+          <UProgress v-model="uploadStore.overallProgress" size="xs" class="mt-1" />
         </div>
       </Transition>
 

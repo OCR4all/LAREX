@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
@@ -17,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.Annotati
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
@@ -65,6 +67,8 @@ class AnnotationProcessingServiceTest {
     private AnnotationReadCache annotationReadCache;
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
+    @Mock
+    private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     @Test
     void parseXmlToAnnotation_returnsCachedDtoWhenFingerprintMatches() throws Exception {
@@ -121,6 +125,7 @@ class AnnotationProcessingServiceTest {
         verify(annotationReadCache).put(eq("xml-1"), eq(xmlPath), any(PageDto.class));
         verify(pageXmlRepository).save(pageXml);
         verify(applicationEventPublisher).publishEvent(any(AnnotationSavedEvent.class));
+        verify(workspaceQuotaRefreshService).scheduleUsageRefresh("ws-1");
     }
 
     private AnnotationProcessingService service() {
@@ -133,7 +138,8 @@ class AnnotationProcessingServiceTest {
                 pageXmlVersionService,
                 userService,
                 annotationReadCache,
-                applicationEventPublisher
+                applicationEventPublisher,
+                workspaceQuotaRefreshService
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         return service;
@@ -149,6 +155,9 @@ class AnnotationProcessingServiceTest {
     private PageXml pageXml(String relativePath) {
         Project project = new Project();
         project.setId("project-1");
+        Library library = new Library();
+        library.setWorkspaceId("ws-1");
+        project.setLibrary(library);
 
         Page page = new Page();
         page.setId("page-1");

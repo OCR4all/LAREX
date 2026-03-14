@@ -63,6 +63,11 @@ public class WorkspaceStorageQuotaService {
         if (existingQuota.isPresent()) {
             WorkspaceStorageQuota quota = existingQuota.get();
             Long currentUsageBytes = quota.getCurrentUsageBytes();
+            boolean quotaChanged = false;
+            if (quota.getReservedBytes() == null) {
+                quota.setReservedBytes(0L);
+                quotaChanged = true;
+            }
             if (currentUsageBytes == null || currentUsageBytes == 0L) {
                 Long actualUsageBytes = calculateWorkspaceUsage(workspaceId);
                 if (actualUsageBytes > 0) {
@@ -73,6 +78,9 @@ public class WorkspaceStorageQuotaService {
                     return saved;
                 }
             }
+            if (quotaChanged) {
+                return quotaRepository.save(quota);
+            }
             return quota;
         }
 
@@ -82,6 +90,7 @@ public class WorkspaceStorageQuotaService {
         // Calculate current usage for existing workspace
         Long currentUsage = calculateWorkspaceUsage(workspaceId);
         newQuota.setCurrentUsageBytes(currentUsage);
+        newQuota.setReservedBytes(0L);
         
         WorkspaceStorageQuota saved = quotaRepository.save(newQuota);
         logger.info("Created new storage quota for workspace {}: limit={}MB, current={}MB", 
@@ -142,6 +151,26 @@ public class WorkspaceStorageQuotaService {
     public boolean hasAvailableSpace(String workspaceId, Long requiredBytes) {
         WorkspaceStorageQuota quota = getOrCreateQuota(workspaceId);
         return quota.hasAvailableSpace(requiredBytes);
+    }
+
+    @Transactional
+    public boolean reserveBytes(String workspaceId, Long bytes) {
+        if (bytes == null || bytes <= 0) {
+            return true;
+        }
+
+        getOrCreateQuota(workspaceId);
+        return quotaRepository.reserveBytesIfAvailable(workspaceId, bytes) > 0;
+    }
+
+    @Transactional
+    public void releaseReservedBytes(String workspaceId, Long bytes) {
+        if (bytes == null || bytes <= 0) {
+            return;
+        }
+
+        getOrCreateQuota(workspaceId);
+        quotaRepository.releaseReservedBytes(workspaceId, bytes);
     }
 
     /**
@@ -217,6 +246,27 @@ public class WorkspaceStorageQuotaService {
         return saved;
     }
 
+    @Transactional
+    public WorkspaceStorageQuota syncUsageAndReleaseReservation(String workspaceId, Long reservedBytes) {
+        WorkspaceStorageQuota quota = getOrCreateQuota(workspaceId);
+        Long actualUsage = calculateWorkspaceUsage(workspaceId);
+
+        quota.setCurrentUsageBytes(actualUsage);
+        if (reservedBytes != null && reservedBytes > 0) {
+            quota.releaseReservedBytes(reservedBytes);
+        }
+
+        WorkspaceStorageQuota saved = quotaRepository.save(quota);
+
+        logger.info("Synced usage and released {}MB reservation for workspace {}: usage={}MB reserved={}MB",
+                bytesToMB(reservedBytes == null ? 0L : reservedBytes),
+                workspaceId,
+                bytesToMB(actualUsage),
+                bytesToMB(saved.getReservedBytes()));
+
+        return saved;
+    }
+
     /**
      * Reset all quotas to default values (except custom ones)
      */
@@ -284,12 +334,12 @@ public class WorkspaceStorageQuotaService {
      */
     public QuotaInfo getQuotaInfo(String workspaceId) {
         WorkspaceStorageQuota quota = getOrCreateQuota(workspaceId);
-        long remainingBytes = quota.getQuotaLimitBytes() - quota.getCurrentUsageBytes();
-        if (remainingBytes < 0) remainingBytes = 0;
+        long remainingBytes = quota.getAvailableBytes();
 
         return new QuotaInfo(
                 quota.getQuotaLimitBytes(),
                 quota.getCurrentUsageBytes(),
+                quota.getReservedBytes(),
                 remainingBytes,
                 quota.getUsagePercentage()
         );
@@ -301,6 +351,7 @@ public class WorkspaceStorageQuotaService {
     public record QuotaInfo(
             long limitBytes,
             long usedBytes,
+            long reservedBytes,
             long remainingBytes,
             double usagePercentage
     ) {}

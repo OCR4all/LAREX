@@ -21,12 +21,16 @@ public class StorageTrackingService {
     private static final Logger logger = LoggerFactory.getLogger(StorageTrackingService.class);
 
     private final WorkspaceStorageQuotaService quotaService;
+    private final WorkspaceQuotaRefreshService quotaRefreshService;
 
     @Value("${larex.storage.quota-enforcement-enabled:true}")
     private boolean quotaEnforcementEnabled;
 
-    public StorageTrackingService(WorkspaceStorageQuotaService quotaService) {
+    public StorageTrackingService(
+            WorkspaceStorageQuotaService quotaService,
+            WorkspaceQuotaRefreshService quotaRefreshService) {
         this.quotaService = quotaService;
+        this.quotaRefreshService = quotaRefreshService;
     }
 
     /**
@@ -72,9 +76,8 @@ public class StorageTrackingService {
     @Transactional
     public void trackFileAdded(String workspaceId, MultipartFile file) {
         if (quotaEnforcementEnabled && file.getSize() > 0) {
-            quotaService.addUsage(workspaceId, file.getSize());
-            logger.debug("Tracked file addition: {} bytes added to workspace {}", 
-                        file.getSize(), workspaceId);
+            quotaRefreshService.scheduleUsageRefresh(workspaceId);
+            logger.debug("Scheduled quota refresh after file addition in workspace {}", workspaceId);
         }
     }
 
@@ -84,9 +87,8 @@ public class StorageTrackingService {
     @Transactional
     public void trackFileAdded(String workspaceId, long fileSize) {
         if (quotaEnforcementEnabled && fileSize > 0) {
-            quotaService.addUsage(workspaceId, fileSize);
-            logger.debug("Tracked file addition: {} bytes added to workspace {}", 
-                        fileSize, workspaceId);
+            quotaRefreshService.scheduleUsageRefresh(workspaceId);
+            logger.debug("Scheduled quota refresh after file addition in workspace {}", workspaceId);
         }
     }
 
@@ -96,9 +98,8 @@ public class StorageTrackingService {
     @Transactional
     public void trackFileRemoved(String workspaceId, long fileSize) {
         if (quotaEnforcementEnabled && fileSize > 0) {
-            quotaService.subtractUsage(workspaceId, fileSize);
-            logger.debug("Tracked file removal: {} bytes removed from workspace {}", 
-                        fileSize, workspaceId);
+            quotaRefreshService.scheduleUsageRefresh(workspaceId);
+            logger.debug("Scheduled quota refresh after file removal in workspace {}", workspaceId);
         }
     }
 
@@ -122,9 +123,8 @@ public class StorageTrackingService {
                 .sum();
         
         if (quotaEnforcementEnabled && totalSize > 0) {
-            quotaService.addUsage(workspaceId, totalSize);
-            logger.debug("Tracked {} files addition: {} bytes added to workspace {}", 
-                        files.size(), totalSize, workspaceId);
+            quotaRefreshService.scheduleUsageRefresh(workspaceId);
+            logger.debug("Scheduled quota refresh after {} added file(s) in workspace {}", files.size(), workspaceId);
         }
     }
 
@@ -139,9 +139,8 @@ public class StorageTrackingService {
                 .sum();
         
         if (quotaEnforcementEnabled && totalSize > 0) {
-            quotaService.subtractUsage(workspaceId, totalSize);
-            logger.debug("Tracked {} files removal: {} bytes removed from workspace {}", 
-                        pageImages.size(), totalSize, workspaceId);
+            quotaRefreshService.scheduleUsageRefresh(workspaceId);
+            logger.debug("Scheduled quota refresh after {} removed file(s) in workspace {}", pageImages.size(), workspaceId);
         }
     }
 
@@ -182,7 +181,7 @@ public class StorageTrackingService {
      */
     @Transactional
     public void syncWorkspaceUsage(String workspaceId) {
-        quotaService.recalculateUsage(workspaceId);
-        logger.info("Synchronized storage usage for workspace {}", workspaceId);
+        quotaRefreshService.scheduleUsageRefresh(workspaceId);
+        logger.info("Scheduled storage usage synchronization for workspace {}", workspaceId);
     }
 }

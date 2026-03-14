@@ -47,6 +47,12 @@ public class ImportJob {
     @Column(nullable = false, name = "total_bytes")
     private long totalBytes = 0;
 
+    @Column(nullable = false, name = "reserved_bytes")
+    private long reservedBytes = 0;
+
+    @Column(nullable = false, name = "quota_reservation_released")
+    private boolean quotaReservationReleased = false;
+
     @Column(columnDefinition = "TEXT", name = "scan_results")
     private String scanResults;
 
@@ -186,6 +192,22 @@ public class ImportJob {
 
     public void setTotalBytes(long totalBytes) {
         this.totalBytes = totalBytes;
+    }
+
+    public long getReservedBytes() {
+        return reservedBytes;
+    }
+
+    public void setReservedBytes(long reservedBytes) {
+        this.reservedBytes = reservedBytes;
+    }
+
+    public boolean isQuotaReservationReleased() {
+        return quotaReservationReleased;
+    }
+
+    public void setQuotaReservationReleased(boolean quotaReservationReleased) {
+        this.quotaReservationReleased = quotaReservationReleased;
     }
 
     public String getScanResults() {

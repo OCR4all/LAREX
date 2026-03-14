@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { wsKey, globalKey } from '@/utils/fetch-keys'
+import { getStorageQuotaAlertState, getStorageQuotaProgressValue } from '@/utils/storage-quota'
 import { LazyUiDeleteSlideover } from '#components'
 
 interface Workspace {
@@ -20,9 +21,13 @@ interface Workspace {
 }
 
 interface StorageQuota {
+  availableBytesFormatted: string
   usagePercentage: number
+  isQuotaExceeded: boolean
   currentUsageFormatted: string
   quotaLimitFormatted: string
+  reservedBytes: number
+  reservedBytesFormatted: string
 }
 
 const workspaceStore = useWorkspaceStore()
@@ -60,11 +65,14 @@ const { data: storageQuota } = await useFetch<StorageQuota>(
 
 const storageColor = computed(() => {
   if (!storageQuota.value) return 'primary'
-  const pct = storageQuota.value.usagePercentage
-  if (pct >= 90) return 'error'
-  if (pct >= 80) return 'warning'
+  const state = getStorageQuotaAlertState(storageQuota.value)
+  if (state === 'exceeded') return 'error'
+  if (state === 'warning') return 'warning'
   return 'primary'
 })
+
+const storageProgressValue = computed(() => getStorageQuotaProgressValue(storageQuota.value?.usagePercentage ?? 0))
+const storageAlertState = computed(() => getStorageQuotaAlertState(storageQuota.value))
 
 const canEditWorkspaceMetadata = computed(() => allow(workspaceCapabilities.value.canEditWorkspace))
 const canSetWorkspacePresets = computed(() => allow(workspaceCapabilities.value.canSetPresets))
@@ -296,8 +304,16 @@ async function openDeleteSlideover() {
           <span class="text-muted">Used</span>
           <span>{{ storageQuota.currentUsageFormatted }} / {{ storageQuota.quotaLimitFormatted }}</span>
         </div>
+        <div v-if="storageQuota.reservedBytes > 0" class="flex items-center justify-between text-sm">
+          <span class="text-muted">Reserved</span>
+          <span>{{ storageQuota.reservedBytesFormatted }}</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-muted">Available for uploads/imports</span>
+          <span>{{ storageQuota.availableBytesFormatted }}</span>
+        </div>
         <UProgress
-          v-model="storageQuota.usagePercentage"
+          v-model="storageProgressValue"
           :max="100"
           :color="storageColor"
           size="sm"
@@ -306,16 +322,16 @@ async function openDeleteSlideover() {
           {{ storageQuota.usagePercentage.toFixed(1) }}% of quota used
         </p>
         <UAlert
-          v-if="storageQuota.usagePercentage >= 90"
+          v-if="storageAlertState === 'exceeded'"
           color="error"
           variant="subtle"
           icon="i-lucide-alert-triangle"
-          title="Storage almost full"
-          :description="`You're using ${storageQuota.usagePercentage.toFixed(0)}% of your storage quota. Consider removing unused projects or files.`"
+          title="Storage quota exceeded"
+          :description="`You're using ${storageQuota.usagePercentage.toFixed(0)}% of your storage quota. Uploads and imports are blocked until you remove data or an admin increases the quota.`"
           class="mt-2"
         />
         <UAlert
-          v-else-if="storageQuota.usagePercentage >= 80"
+          v-else-if="storageAlertState === 'warning'"
           color="warning"
           variant="subtle"
           icon="i-lucide-alert-triangle"

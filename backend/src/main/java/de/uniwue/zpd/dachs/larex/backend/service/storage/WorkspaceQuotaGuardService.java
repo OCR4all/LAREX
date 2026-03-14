@@ -1,0 +1,77 @@
+package de.uniwue.zpd.dachs.larex.backend.service.storage;
+
+import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceStorageQuota;
+import de.uniwue.zpd.dachs.larex.backend.exception.StorageQuotaExceededException;
+import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
+
+@Service
+public class WorkspaceQuotaGuardService {
+
+    private final WorkspaceStorageQuotaService quotaService;
+
+    @Value("${larex.storage.quota-enforcement-enabled:true}")
+    private boolean quotaEnforcementEnabled;
+
+    public WorkspaceQuotaGuardService(WorkspaceStorageQuotaService quotaService) {
+        this.quotaService = quotaService;
+    }
+
+    public long reserveBytesOrThrow(String workspaceId, long requiredBytes, String blockedOperation) {
+        if (!quotaEnforcementEnabled || requiredBytes <= 0) {
+            return 0L;
+        }
+
+        boolean reserved = quotaService.reserveBytes(workspaceId, requiredBytes);
+        if (reserved) {
+            return requiredBytes;
+        }
+
+        throwQuotaExceeded(workspaceId, blockedOperation, requiredBytes);
+        return 0L;
+    }
+
+    public void releaseReservation(String workspaceId, long reservedBytes) {
+        if (!quotaEnforcementEnabled || reservedBytes <= 0) {
+            return;
+        }
+        quotaService.releaseReservedBytes(workspaceId, reservedBytes);
+    }
+
+    public void syncUsageAndReleaseReservation(String workspaceId, long reservedBytes) {
+        if (!quotaEnforcementEnabled || reservedBytes <= 0) {
+            return;
+        }
+
+        quotaService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
+    }
+
+    public long totalMultipartBytes(List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            return 0L;
+        }
+
+        return files.stream()
+                .filter(file -> file != null && !file.isEmpty())
+                .mapToLong(MultipartFile::getSize)
+                .sum();
+    }
+
+    public void throwQuotaExceeded(String workspaceId, String blockedOperation, long requiredBytes) {
+        WorkspaceStorageQuota quota = quotaService.getOrCreateQuota(workspaceId);
+        throw new StorageQuotaExceededException(
+                workspaceId,
+                blockedOperation,
+                requiredBytes,
+                quota.getAvailableBytes(),
+                quota.getQuotaLimitBytes(),
+                quota.getCurrentUsageBytes(),
+                quota.getReservedBytes(),
+                quota.getUsagePercentage()
+        );
+    }
+}

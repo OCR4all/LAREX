@@ -14,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationServic
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import org.apache.pdfbox.Loader;
@@ -53,6 +54,7 @@ public class AsyncUploadProcessor {
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
+    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     @Value("${larex.upload.temp-directory:/uploads/temp}")
     private String tempDirectory;
@@ -72,7 +74,8 @@ public class AsyncUploadProcessor {
                                 HierarchicalFileStorageService hierarchicalFileStorageService,
                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                 ApplicationEventPublisher applicationEventPublisher,
-                                UploadSessionEventBroadcaster uploadSessionEventBroadcaster) {
+                                UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
+                                WorkspaceQuotaGuardService workspaceQuotaGuardService) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -86,6 +89,7 @@ public class AsyncUploadProcessor {
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.applicationEventPublisher = applicationEventPublisher;
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
+        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
     }
 
     public void processUploadSession(String sessionId) {
@@ -117,6 +121,9 @@ public class AsyncUploadProcessor {
 
         if (session.getStatus() != UploadSessionStatus.UPLOADING && session.getStatus() != UploadSessionStatus.PROCESSING) {
             log.debug("Session {} is not in upload-processing state, current state: {}", sessionId, session.getStatus());
+            if (session.getStatus() == UploadSessionStatus.CANCELLED || session.getStatus() == UploadSessionStatus.FAILED) {
+                releaseSessionReservationIfNeeded(session, true);
+            }
             return;
         }
 
@@ -595,9 +602,9 @@ public class AsyncUploadProcessor {
         cleanupTempFilesExceptConflicts(sessionId, conflictFiles);
 
         try {
-            storageTrackingService.syncWorkspaceUsage(session.getWorkspaceId());
+            releaseSessionReservationIfNeeded(session, true);
         } catch (Exception e) {
-            log.warn("Failed to update storage tracking for workspace: {}", session.getWorkspaceId(), e);
+            log.warn("Failed to settle quota reservation for workspace: {}", session.getWorkspaceId(), e);
         }
 
         if (conflictCount > 0) {
@@ -725,6 +732,8 @@ public class AsyncUploadProcessor {
                 session.setStatus(UploadSessionStatus.FAILED);
                 session.setErrorMessage(errorMessage);
                 session.setCompletedAt(completedAt);
+                releaseSessionReservationIfNeeded(session, true);
+                sessionRepository.save(session);
                 emitSessionState(sessionId, "failed");
 
                 Project project = projectRepository.findById(session.getProjectId()).orElse(null);
@@ -775,9 +784,26 @@ public class AsyncUploadProcessor {
             if (session.getCompletedAt() == null) {
                 session.setCompletedAt(LocalDateTime.now());
             }
+            releaseSessionReservationIfNeeded(session, true);
+            sessionRepository.save(session);
         }
         emitSessionState(sessionId, "cancelled");
         return true;
+    }
+
+    private void releaseSessionReservationIfNeeded(UploadSession session, boolean syncUsage) {
+        if (session == null || session.isQuotaReservationReleased() || session.getReservedBytes() <= 0) {
+            return;
+        }
+
+        if (syncUsage) {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(session.getWorkspaceId(), session.getReservedBytes());
+        } else {
+            workspaceQuotaGuardService.releaseReservation(session.getWorkspaceId(), session.getReservedBytes());
+        }
+
+        session.setQuotaReservationReleased(true);
+        session.setReservedBytes(0L);
     }
 
     private void cleanupTempFiles(String sessionId) {

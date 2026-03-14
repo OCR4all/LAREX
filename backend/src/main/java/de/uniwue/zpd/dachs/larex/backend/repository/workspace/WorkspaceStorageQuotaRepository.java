@@ -39,10 +39,32 @@ public interface WorkspaceStorageQuotaRepository extends JpaRepository<Workspace
     /**
      * Update usage for a workspace (atomic operation)
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE WorkspaceStorageQuota q SET q.currentUsageBytes = q.currentUsageBytes + :deltaBytes WHERE q.workspaceId = :workspaceId")
     int updateUsage(@Param("workspaceId") String workspaceId, @Param("deltaBytes") Long deltaBytes);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Transactional
+    @Query("""
+            UPDATE WorkspaceStorageQuota q
+            SET q.reservedBytes = q.reservedBytes + :reservedBytes
+            WHERE q.workspaceId = :workspaceId
+              AND (q.currentUsageBytes + q.reservedBytes + :reservedBytes) <= q.quotaLimitBytes
+            """)
+    int reserveBytesIfAvailable(@Param("workspaceId") String workspaceId, @Param("reservedBytes") Long reservedBytes);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            UPDATE WorkspaceStorageQuota q
+            SET q.reservedBytes = CASE
+                WHEN q.reservedBytes >= :reservedBytes THEN q.reservedBytes - :reservedBytes
+                ELSE 0
+            END
+            WHERE q.workspaceId = :workspaceId
+            """)
+    int releaseReservedBytes(@Param("workspaceId") String workspaceId, @Param("reservedBytes") Long reservedBytes);
 
     /**
      * Reset usage for a workspace to a specific value

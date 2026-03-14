@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionFileRepo
 import de.uniwue.zpd.dachs.larex.backend.repository.upload.UploadSessionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadFileReassembledEvent;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadSessionFinalizedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import jakarta.annotation.PostConstruct;
@@ -48,6 +49,7 @@ public class ChunkedUploadService {
     private final UploadDirectoryPreflightService uploadDirectoryPreflightService;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
+    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     @Value("${larex.upload.chunk-size-bytes:5242880}")
     private long chunkSizeBytes;
@@ -77,7 +79,8 @@ public class ChunkedUploadService {
                                 WorkspaceAccessService workspaceAccessService,
                                 UploadDirectoryPreflightService uploadDirectoryPreflightService,
                                 ApplicationEventPublisher applicationEventPublisher,
-                                UploadSessionEventBroadcaster uploadSessionEventBroadcaster) {
+                                UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
+                                WorkspaceQuotaGuardService workspaceQuotaGuardService) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -85,6 +88,7 @@ public class ChunkedUploadService {
         this.uploadDirectoryPreflightService = uploadDirectoryPreflightService;
         this.applicationEventPublisher = applicationEventPublisher;
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
+        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
     }
 
     public UploadSessionDto.SessionResponse createSession(String userId, String workspaceId, String projectId,
@@ -113,48 +117,58 @@ public class ChunkedUploadService {
         long totalBytes = request.files().stream()
                 .mapToLong(UploadSessionDto.FileMetadata::fileSize)
                 .sum();
-
-        UploadSession session = new UploadSession(
-                projectId,
+        long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
                 workspaceId,
-                userId,
-                request.files().size(),
-                totalBytes
+                totalBytes,
+                "chunked-upload-session"
         );
 
-        session = sessionRepository.save(session);
-
-        // Create session file entries
-        for (UploadSessionDto.FileMetadata fileMeta : request.files()) {
-            int chunkCount = calculateChunkCount(fileMeta.fileSize());
-
-            ImageFileUtils.ImageNameInfo nameInfo = ImageFileUtils.parseImageName(fileMeta.fileName());
-
-            UploadSessionFile sessionFile = new UploadSessionFile(
-                    fileMeta.fileName(),
-                    fileMeta.fileSize(),
-                    fileMeta.mimeType(),
-                    nameInfo.baseName(),
-                    nameInfo.variant(),
-                    chunkCount
-            );
-            session.addFile(sessionFile);
-            fileRepository.save(sessionFile);
-        }
-
-        // Create temp directory for this session
         try {
+            UploadSession session = new UploadSession(
+                    projectId,
+                    workspaceId,
+                    userId,
+                    request.files().size(),
+                    totalBytes
+            );
+            session.setReservedBytes(reservedBytes);
+            session.setQuotaReservationReleased(false);
+
+            session = sessionRepository.save(session);
+
+            // Create session file entries
+            for (UploadSessionDto.FileMetadata fileMeta : request.files()) {
+                int chunkCount = calculateChunkCount(fileMeta.fileSize());
+
+                ImageFileUtils.ImageNameInfo nameInfo = ImageFileUtils.parseImageName(fileMeta.fileName());
+
+                UploadSessionFile sessionFile = new UploadSessionFile(
+                        fileMeta.fileName(),
+                        fileMeta.fileSize(),
+                        fileMeta.mimeType(),
+                        nameInfo.baseName(),
+                        nameInfo.variant(),
+                        chunkCount
+                );
+                session.addFile(sessionFile);
+                fileRepository.save(sessionFile);
+            }
+
+            // Create temp directory for this session
             Path sessionTempDir = Paths.get(tempDirectory, session.getId());
             Files.createDirectories(sessionTempDir);
+
+            log.info("Created upload session {} for project {} with {} files",
+                    session.getId(), projectId, request.files().size());
+
+            return convertToSessionResponse(session);
         } catch (IOException e) {
-            log.error("Failed to create temp directory for session: {}", session.getId(), e);
+            workspaceQuotaGuardService.releaseReservation(workspaceId, reservedBytes);
             throw new RuntimeException("Failed to initialize upload session", e);
+        } catch (RuntimeException e) {
+            workspaceQuotaGuardService.releaseReservation(workspaceId, reservedBytes);
+            throw e;
         }
-
-        log.info("Created upload session {} for project {} with {} files",
-                session.getId(), projectId, request.files().size());
-
-        return convertToSessionResponse(session);
     }
 
     public UploadSessionDto.UploadChunkResponse uploadChunk(String userId, String sessionId, String fileId,
@@ -255,6 +269,34 @@ public class ChunkedUploadService {
             throw new IllegalArgumentException("Not all files have been uploaded. Pending: " + pendingFiles.size());
         }
 
+        List<UploadSessionFile> uploadedFiles = fileRepository.findBySessionIdAndStatus(sessionId, UploadFileStatus.UPLOADED);
+        for (UploadSessionFile uploadedFile : uploadedFiles) {
+            if (uploadedFile.getTempFilePath() == null || uploadedFile.getTempFilePath().isBlank()) {
+                continue;
+            }
+            Path tempFilePath = Paths.get(uploadedFile.getTempFilePath());
+            if (!Files.exists(tempFilePath)) {
+                continue;
+            }
+
+            long actualSize;
+            try {
+                actualSize = Files.size(tempFilePath);
+            } catch (IOException e) {
+                failSessionAndReleaseReservation(session, "Failed to validate uploaded file size: " + uploadedFile.getOriginalFileName(), true);
+                throw new IllegalArgumentException("Failed to validate uploaded file size");
+            }
+
+            if (actualSize > uploadedFile.getFileSize()) {
+                failSessionAndReleaseReservation(
+                        session,
+                        "Uploaded file exceeds declared size: " + uploadedFile.getOriginalFileName(),
+                        true
+                );
+                throw new IllegalArgumentException("Uploaded file exceeds declared size");
+            }
+        }
+
         // Apply conflict resolutions
         if (request != null && request.conflictResolutions() != null) {
             Map<String, UploadSessionFile> filesById = fileRepository.findAllById(
@@ -324,6 +366,7 @@ public class ChunkedUploadService {
 
         session.setStatus(UploadSessionStatus.CANCELLED);
         session.setCompletedAt(LocalDateTime.now());
+        releaseSessionReservationIfNeeded(session, true);
         sessionRepository.save(session);
         uploadSessionEventBroadcaster.broadcastSessionState(sessionId, "cancelled");
 
@@ -379,6 +422,34 @@ public class ChunkedUploadService {
         } catch (IOException e) {
             log.error("Failed to cleanup temp files for session: {}", sessionId, e);
         }
+    }
+
+    private void failSessionAndReleaseReservation(UploadSession session, String errorMessage, boolean cleanupTempFiles) {
+        LocalDateTime completedAt = LocalDateTime.now();
+        session.setStatus(UploadSessionStatus.FAILED);
+        session.setErrorMessage(errorMessage);
+        session.setCompletedAt(completedAt);
+        releaseSessionReservationIfNeeded(session, true);
+        sessionRepository.save(session);
+        uploadSessionEventBroadcaster.broadcastSessionState(session.getId(), "failed");
+        if (cleanupTempFiles) {
+            cleanupSessionTempFiles(session.getId());
+        }
+    }
+
+    private void releaseSessionReservationIfNeeded(UploadSession session, boolean syncUsage) {
+        if (session == null || session.isQuotaReservationReleased() || session.getReservedBytes() <= 0) {
+            return;
+        }
+
+        if (syncUsage) {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(session.getWorkspaceId(), session.getReservedBytes());
+        } else {
+            workspaceQuotaGuardService.releaseReservation(session.getWorkspaceId(), session.getReservedBytes());
+        }
+
+        session.setQuotaReservationReleased(true);
+        session.setReservedBytes(0L);
     }
 
     private UploadSessionDto.SessionResponse convertToSessionResponse(UploadSession session) {

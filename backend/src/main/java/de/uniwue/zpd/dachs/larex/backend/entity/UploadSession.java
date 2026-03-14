@@ -46,6 +46,12 @@ public class UploadSession {
     @Column(nullable = false, name = "processed_bytes")
     private long processedBytes = 0;
 
+    @Column(nullable = false, name = "reserved_bytes")
+    private long reservedBytes = 0;
+
+    @Column(nullable = false, name = "quota_reservation_released")
+    private boolean quotaReservationReleased = false;
+
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<UploadSessionFile> files = new ArrayList<>();
 
@@ -160,6 +166,22 @@ public class UploadSession {
 
     public void setProcessedBytes(long processedBytes) {
         this.processedBytes = processedBytes;
+    }
+
+    public long getReservedBytes() {
+        return reservedBytes;
+    }
+
+    public void setReservedBytes(long reservedBytes) {
+        this.reservedBytes = reservedBytes;
+    }
+
+    public boolean isQuotaReservationReleased() {
+        return quotaReservationReleased;
+    }
+
+    public void setQuotaReservationReleased(boolean quotaReservationReleased) {
+        this.quotaReservationReleased = quotaReservationReleased;
     }
 
     public List<UploadSessionFile> getFiles() {

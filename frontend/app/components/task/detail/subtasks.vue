@@ -302,7 +302,7 @@ async function onDragEnd() {
         <span class="text-muted">Progress</span>
         <span class="font-medium">{{ progress.completed }}/{{ progress.total }} ({{ progress.percentage }}%)</span>
       </div>
-      <UProgress :model-value="progress.percentage" color="primary" size="sm" />
+      <UProgress v-model="progress.percentage" color="primary" size="sm" />
     </div>
 
     <div v-if="localSubtasks.length > 0" class="flex items-center justify-between gap-2 py-2 border-b border-default">

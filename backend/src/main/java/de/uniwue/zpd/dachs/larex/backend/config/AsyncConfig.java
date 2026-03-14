@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.ThreadPoolExecutor;
@@ -51,6 +52,9 @@ public class AsyncConfig {
 
     @Value("${larex.annotation.post-save.queue-capacity:200}")
     private int annotationPostSaveQueueCapacity;
+
+    @Value("${larex.storage.quota-refresh.pool-size:1}")
+    private int quotaRefreshPoolSize;
 
     @Bean(name = "taskExecutor")
     public ThreadPoolTaskExecutor taskExecutor() {
@@ -131,5 +135,18 @@ public class AsyncConfig {
         executor.setAwaitTerminationSeconds(120);
         executor.initialize();
         return executor;
+    }
+
+    @Bean(name = "quotaRefreshTaskScheduler")
+    public ThreadPoolTaskScheduler quotaRefreshTaskScheduler() {
+        logger.info("Initializing quota refresh task scheduler with pool size: {}", quotaRefreshPoolSize);
+
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(quotaRefreshPoolSize);
+        scheduler.setThreadNamePrefix("quota-refresh-");
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(60);
+        scheduler.initialize();
+        return scheduler;
     }
 }

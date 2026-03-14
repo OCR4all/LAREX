@@ -25,6 +25,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
@@ -70,6 +71,7 @@ public class ProjectPackageService {
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageFilterIndexService pageFilterIndexService;
     private final StorageTrackingService storageTrackingService;
+    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final PageXmlConversionService pageXmlConversionService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final ObjectMapper objectMapper;
@@ -91,6 +93,7 @@ public class ProjectPackageService {
                                  HierarchicalFileStorageService hierarchicalFileStorageService,
                                  PageFilterIndexService pageFilterIndexService,
                                  StorageTrackingService storageTrackingService,
+                                 WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                  PageXmlConversionService pageXmlConversionService,
                                  PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                  ObjectMapper objectMapper) {
@@ -108,6 +111,7 @@ public class ProjectPackageService {
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.storageTrackingService = storageTrackingService;
+        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.pageXmlConversionService = pageXmlConversionService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.objectMapper = objectMapper;
@@ -210,62 +214,101 @@ public class ProjectPackageService {
                     ProjectPackageDto.PackageManifest.class
             );
 
-            UtilityPackageDto.ImportResult utilityImportResult = importUtilityReferencesFromPackage(
+            long reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
                     workspaceId,
-                    userId,
-                    tempDir,
-                    manifest.utilityReferences(),
-                    manifest.sourceWorkspaceName()
+                    estimatePersistentImportBytes(tempDir, manifest),
+                    "project-package-import"
             );
 
-            Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                    .orElseThrow(() -> new IllegalArgumentException("Library not found for workspace: " + workspaceId));
+            try {
+                UtilityPackageDto.ImportResult utilityImportResult = importUtilityReferencesFromPackage(
+                        workspaceId,
+                        userId,
+                        tempDir,
+                        manifest.utilityReferences(),
+                        manifest.sourceWorkspaceName()
+                );
 
-            String projectName = uniqueProjectName(
-                    manifest.project().name(),
-                    library.getId()
-            );
+                Library library = libraryRepository.findByWorkspaceId(workspaceId)
+                        .orElseThrow(() -> new IllegalArgumentException("Library not found for workspace: " + workspaceId));
 
-            Project project = new Project();
-            project.setLibrary(library);
-            project.setName(projectName);
-            project.setDescription(manifest.project().description());
-            project.setTags(new ArrayList<>(manifest.project().tags() == null ? List.of() : manifest.project().tags()));
-            project.setLocked(manifest.project().locked());
-            project.setLockedReason(manifest.project().lockedReason());
-            applyUtilityReferences(project, utilityImportResult.sourceToTargetIds(), manifest.utilityReferences());
-            project = projectRepository.save(project);
+                String projectName = uniqueProjectName(
+                        manifest.project().name(),
+                        library.getId()
+                );
 
-            Map<String, Page> pageBySourceId = importPages(project, manifest.pages());
-            Map<String, PageXml> xmlBySourceId = importProjectFiles(tempDir, project, manifest.files(), pageBySourceId, userId);
-            int xmlVersionCount = importXmlVersions(tempDir, manifest.xmlVersions(), xmlBySourceId);
+                Project project = new Project();
+                project.setLibrary(library);
+                project.setName(projectName);
+                project.setDescription(manifest.project().description());
+                project.setTags(new ArrayList<>(manifest.project().tags() == null ? List.of() : manifest.project().tags()));
+                project.setLocked(manifest.project().locked());
+                project.setLockedReason(manifest.project().lockedReason());
+                applyUtilityReferences(project, utilityImportResult.sourceToTargetIds(), manifest.utilityReferences());
+                project = projectRepository.save(project);
 
-            pageFilterIndexService.rebuildProjectIndex(project.getId());
-            storageTrackingService.syncWorkspaceUsage(workspaceId);
+                Map<String, Page> pageBySourceId = importPages(project, manifest.pages());
+                Map<String, PageXml> xmlBySourceId = importProjectFiles(tempDir, project, manifest.files(), pageBySourceId, userId);
+                int xmlVersionCount = importXmlVersions(tempDir, manifest.xmlVersions(), xmlBySourceId);
 
-            int imageCount = (int) manifest.files().stream().filter(f -> f.kind() == ProjectPackageDto.FileKind.IMAGE).count();
-            int xmlCount = (int) manifest.files().stream().filter(f -> f.kind() == ProjectPackageDto.FileKind.XML).count();
+                pageFilterIndexService.rebuildProjectIndex(project.getId());
 
-            List<String> warnings = new ArrayList<>();
-            if (manifest.warnings() != null) {
-                warnings.addAll(manifest.warnings());
+                int imageCount = (int) manifest.files().stream().filter(f -> f.kind() == ProjectPackageDto.FileKind.IMAGE).count();
+                int xmlCount = (int) manifest.files().stream().filter(f -> f.kind() == ProjectPackageDto.FileKind.XML).count();
+
+                List<String> warnings = new ArrayList<>();
+                if (manifest.warnings() != null) {
+                    warnings.addAll(manifest.warnings());
+                }
+                warnings.addAll(utilityImportResult.warnings());
+
+                return new ProjectPackageDto.ImportResult(
+                        workspaceId,
+                        project.getId(),
+                        project.getName(),
+                        pageBySourceId.size(),
+                        imageCount,
+                        xmlCount,
+                        xmlVersionCount,
+                        warnings,
+                        utilityImportResult.sourceToTargetIds()
+                );
+            } finally {
+                workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
             }
-            warnings.addAll(utilityImportResult.warnings());
-
-            return new ProjectPackageDto.ImportResult(
-                    workspaceId,
-                    project.getId(),
-                    project.getName(),
-                    pageBySourceId.size(),
-                    imageCount,
-                    xmlCount,
-                    xmlVersionCount,
-                    warnings,
-                    utilityImportResult.sourceToTargetIds()
-            );
         } finally {
             deleteDirectoryQuietly(tempDir);
         }
+    }
+
+    private long estimatePersistentImportBytes(Path tempDir, ProjectPackageDto.PackageManifest manifest) throws IOException {
+        long totalBytes = 0L;
+
+        if (manifest.files() != null) {
+            for (ProjectPackageDto.FileEntry entry : manifest.files()) {
+                totalBytes += resolveExistingImportFileSize(tempDir, entry.archivePath());
+                if (entry.thumbnailArchivePath() != null && !entry.thumbnailArchivePath().isBlank()) {
+                    totalBytes += resolveExistingImportFileSize(tempDir, entry.thumbnailArchivePath());
+                }
+            }
+        }
+
+        if (manifest.xmlVersions() != null) {
+            for (ProjectPackageDto.XmlVersionEntry versionEntry : manifest.xmlVersions()) {
+                totalBytes += resolveExistingImportFileSize(tempDir, versionEntry.archivePath());
+            }
+        }
+
+        return totalBytes;
+    }
+
+    private long resolveExistingImportFileSize(Path tempDir, String relativePath) throws IOException {
+        if (relativePath == null || relativePath.isBlank()) {
+            return 0L;
+        }
+
+        Path sourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(relativePath));
+        return Files.exists(sourcePath) ? Files.size(sourcePath) : 0L;
     }
 
     private ExportBundle buildExportBundle(Project project,

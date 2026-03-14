@@ -10,6 +10,7 @@ public record StorageQuotaDto(
     String workspaceId,
     Long quotaLimitBytes,
     Long currentUsageBytes,
+    Long reservedBytes,
     Boolean isCustom,
     LocalDateTime created,
     LocalDateTime updated,
@@ -20,6 +21,7 @@ public record StorageQuotaDto(
     Boolean isQuotaExceeded,
     String quotaLimitFormatted,
     String currentUsageFormatted,
+    String reservedBytesFormatted,
     String availableBytesFormatted
 ) {
     
@@ -32,6 +34,7 @@ public record StorageQuotaDto(
             entity.getWorkspaceId(),
             entity.getQuotaLimitBytes(),
             entity.getCurrentUsageBytes(),
+            entity.getReservedBytes(),
             entity.getIsCustom(),
             entity.getCreated(),
             entity.getUpdated(),
@@ -40,6 +43,7 @@ public record StorageQuotaDto(
             entity.isQuotaExceeded(),
             formatBytes(entity.getQuotaLimitBytes()),
             formatBytes(entity.getCurrentUsageBytes()),
+            formatBytes(entity.getReservedBytes()),
             formatBytes(entity.getAvailableBytes())
         );
     }

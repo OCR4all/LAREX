@@ -19,6 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRep
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
@@ -60,6 +61,7 @@ public class PageService {
     private final PageXmlVersionService pageXmlVersionService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     public PageService(
             PageRepository pageRepository,
@@ -76,7 +78,8 @@ public class PageService {
             ThumbnailService thumbnailService,
             PageXmlVersionService pageXmlVersionService,
             HierarchicalFileStorageService hierarchicalFileStorageService,
-            PageXmlCanonicalizationService pageXmlCanonicalizationService) {
+            PageXmlCanonicalizationService pageXmlCanonicalizationService,
+            WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
 
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
@@ -93,6 +96,7 @@ public class PageService {
         this.pageXmlVersionService = pageXmlVersionService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
     }
 
     public List<Page> getProjectPages(String projectId, String userId) {
@@ -228,6 +232,8 @@ public class PageService {
                     );
                 }
 
+                workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
+
                 return true;
             }
         }
@@ -293,6 +299,11 @@ public class PageService {
                     projectId,
                     projectName
             );
+            pagesToDelete.stream()
+                    .map(page -> page.getProject().getLibrary().getWorkspaceId())
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .forEach(workspaceQuotaRefreshService::scheduleUsageRefresh);
         }
 
         return deletedCount;

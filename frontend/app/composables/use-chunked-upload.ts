@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import { extractApiErrorMessage } from '@/utils/api-error'
 
 export interface UploadFile {
   id?: string
@@ -240,8 +241,9 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
         updateSessionProgress()
       } catch (err) {
         uploadFile.status = 'failed'
-        uploadFile.error = err instanceof Error ? err.message : 'Upload failed'
-        onError?.(err instanceof Error ? err : new Error('Upload failed'), uploadFile)
+        const message = extractApiErrorMessage(err, 'Upload failed')
+        uploadFile.error = message
+        onError?.(new Error(message), uploadFile)
         throw err
       }
     }
@@ -348,8 +350,9 @@ export function useChunkedUpload(options: UseChunkedUploadOptions) {
         onSessionComplete?.(session.value!)
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Upload failed'
-      onError?.(err instanceof Error ? err : new Error('Upload failed'))
+      const message = extractApiErrorMessage(err, 'Upload failed')
+      error.value = message
+      onError?.(new Error(message))
     } finally {
       isUploading.value = false
     }

@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.exception;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.ErrorResponseDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.StorageQuotaErrorResponseDto;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -220,6 +221,29 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+    }
+
+    @ExceptionHandler(StorageQuotaExceededException.class)
+    public ResponseEntity<StorageQuotaErrorResponseDto> handleStorageQuotaExceededException(
+            StorageQuotaExceededException ex, HttpServletRequest request) {
+
+        StorageQuotaErrorResponseDto errorResponse = new StorageQuotaErrorResponseDto(
+                HttpStatus.INSUFFICIENT_STORAGE.value(),
+                HttpStatus.INSUFFICIENT_STORAGE.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                StorageQuotaExceededException.ERROR_CODE,
+                ex.getBlockedOperation(),
+                ex.getWorkspaceId(),
+                ex.getRequiredBytes(),
+                ex.getQuotaLimitBytes(),
+                ex.getCurrentUsageBytes(),
+                ex.getReservedBytes(),
+                ex.getAvailableBytes(),
+                ex.getUsagePercentage()
+        );
+
+        return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE).body(errorResponse);
     }
 
     /**

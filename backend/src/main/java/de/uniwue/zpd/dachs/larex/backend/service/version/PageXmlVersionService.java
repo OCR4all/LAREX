@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.events.PageXmlVersionCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ public class PageXmlVersionService {
     private final PageXmlVersionRepository versionRepository;
     private final PageXmlRepository pageXmlRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -43,10 +45,12 @@ public class PageXmlVersionService {
 
     public PageXmlVersionService(PageXmlVersionRepository versionRepository,
                                  PageXmlRepository pageXmlRepository,
-                                 ApplicationEventPublisher applicationEventPublisher) {
+                                 ApplicationEventPublisher applicationEventPublisher,
+                                 WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
         this.versionRepository = versionRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
     }
 
     @Transactional
@@ -128,6 +132,7 @@ public class PageXmlVersionService {
         long newSize = Files.size(canonicalPath);
         xml.setFileSize(newSize);
         pageXmlRepository.save(xml);
+        scheduleWorkspaceUsageRefresh(xml);
 
         log.info("Restored XML {} to version {} by user {}", pageXmlId, version.getVersionNumber(), userId);
     }
@@ -151,6 +156,11 @@ public class PageXmlVersionService {
             }
             versionRepository.delete(version);
         }
+
+        oldest.stream()
+                .map(PageXmlVersion::getPageXml)
+                .findFirst()
+                .ifPresent(this::scheduleWorkspaceUsageRefresh);
 
         log.info("Pruned {} old versions for XML {}", toDelete, pageXmlId);
     }
@@ -204,5 +214,14 @@ public class PageXmlVersionService {
             log.warn("Failed to walk version directory for XML {}: {}", pageXmlId, e.getMessage());
             return false;
         }
+    }
+
+    private void scheduleWorkspaceUsageRefresh(PageXml pageXml) {
+        if (pageXml == null || pageXml.getPage() == null || pageXml.getPage().getProject() == null
+                || pageXml.getPage().getProject().getLibrary() == null) {
+            return;
+        }
+
+        workspaceQuotaRefreshService.scheduleUsageRefresh(pageXml.getPage().getProject().getLibrary().getWorkspaceId());
     }
 }

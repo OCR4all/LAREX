@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.Annotati
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -52,6 +53,7 @@ public class AnnotationProcessingService {
     private final UserService userService;
     private final AnnotationReadCache annotationReadCache;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -65,7 +67,8 @@ public class AnnotationProcessingService {
             PageXmlVersionService pageXmlVersionService,
             UserService userService,
             AnnotationReadCache annotationReadCache,
-            ApplicationEventPublisher applicationEventPublisher) {
+            ApplicationEventPublisher applicationEventPublisher,
+            WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
 
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlParser = pageXmlParser;
@@ -76,6 +79,7 @@ public class AnnotationProcessingService {
         this.userService = userService;
         this.annotationReadCache = annotationReadCache;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
     }
 
     /**
@@ -213,6 +217,9 @@ public class AnnotationProcessingService {
                             xml.getPage().getProject() != null ? xml.getPage().getProject().getId() : null,
                             saveReadyPageDto
                     ));
+                    if (xml.getPage().getProject() != null && xml.getPage().getProject().getLibrary() != null) {
+                        workspaceQuotaRefreshService.scheduleUsageRefresh(xml.getPage().getProject().getLibrary().getWorkspaceId());
+                    }
                 }
 
                 if (log.isDebugEnabled()) {

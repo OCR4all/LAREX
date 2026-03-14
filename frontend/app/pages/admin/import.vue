@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
+import { extractApiErrorMessage } from '@/utils/api-error'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -133,7 +134,7 @@ async function scanDirectory() {
 
     scanResults.value = result
   } catch (err) {
-    scanError.value = err instanceof Error ? err.message : 'Scan failed'
+    scanError.value = extractApiErrorMessage(err, 'Scan failed')
     toast.add({
       title: 'Scan Failed',
       description: scanError.value,
@@ -186,7 +187,7 @@ async function startImport() {
   } catch (err) {
     toast.add({
       title: 'Import Failed',
-      description: err instanceof Error ? err.message : 'Failed to start import',
+      description: extractApiErrorMessage(err, 'Failed to start import'),
       color: 'error'
     })
   } finally {
@@ -356,10 +357,10 @@ function getStatusColor(status: string): string {
             <div v-if="scanResults.quotaExceeded" class="mb-4 p-3 rounded-sm bg-(--ui-error)/10 border border-(--ui-error)/20">
               <div class="flex items-center gap-2 font-medium text-(--ui-error)">
                 <UIcon name="i-lucide-alert-circle" />
-                Storage quota will be exceeded
+                Storage quota exceeded
               </div>
               <p class="text-sm mt-1">
-                Available: {{ formatBytes(scanResults.availableQuotaBytes) }}
+                Uploads and imports are blocked for this workspace until storage is freed or the quota is increased. Available now: {{ formatBytes(scanResults.availableQuotaBytes) }}
               </p>
             </div>
 
@@ -422,7 +423,7 @@ function getStatusColor(status: string): string {
                   <span>{{ job.processedFiles }} / {{ job.totalFiles }} files</span>
                   <span>{{ job.progressPercent }}%</span>
                 </div>
-                <UProgress :value="job.progressPercent" size="sm" />
+                <UProgress v-model="job.progressPercent" size="sm" />
               </div>
 
               <div v-if="job.errorMessage" class="text-sm text-(--ui-error) mb-2">

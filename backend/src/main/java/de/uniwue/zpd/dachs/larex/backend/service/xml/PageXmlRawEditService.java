@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class PageXmlRawEditService {
     private final AnnotationReadCache annotationReadCache;
     private final PageFilterIndexService pageFilterIndexService;
     private final PageXmlValidationService pageXmlValidationService;
+    private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -39,13 +41,15 @@ public class PageXmlRawEditService {
             PageXmlVersionService pageXmlVersionService,
             AnnotationReadCache annotationReadCache,
             PageFilterIndexService pageFilterIndexService,
-            PageXmlValidationService pageXmlValidationService) {
+            PageXmlValidationService pageXmlValidationService,
+            WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
         this.pageService = pageService;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionService = pageXmlVersionService;
         this.annotationReadCache = annotationReadCache;
         this.pageFilterIndexService = pageFilterIndexService;
         this.pageXmlValidationService = pageXmlValidationService;
+        this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
     }
 
     public PageXmlTextDto.XmlTextResponse getXmlText(String projectId, String pageId, String xmlId, String userId) throws IOException {
@@ -115,6 +119,9 @@ public class PageXmlRawEditService {
         annotationReadCache.evict(xmlId);
         if (pageXml.getPage() != null) {
             pageFilterIndexService.indexPageFromXml(pageXml.getPage());
+            if (pageXml.getPage().getProject() != null && pageXml.getPage().getProject().getLibrary() != null) {
+                workspaceQuotaRefreshService.scheduleUsageRefresh(pageXml.getPage().getProject().getLibrary().getWorkspaceId());
+            }
         }
         return validation;
     }

@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
@@ -54,6 +55,7 @@ public class PageController {
     private final TagLookupService tagLookupService;
     private final PageXmlRawEditService pageXmlRawEditService;
     private final PageXmlConversionService pageXmlConversionService;
+    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -61,7 +63,8 @@ public class PageController {
     public PageController(PageService pageService, SubtaskService subtaskService, PageFilterIndexService pageFilterIndexService,
                           PageIndexStatusReadService pageIndexStatusReadService, TagLookupService tagLookupService,
                           PageXmlRawEditService pageXmlRawEditService,
-                          PageXmlConversionService pageXmlConversionService) {
+                          PageXmlConversionService pageXmlConversionService,
+                          WorkspaceQuotaGuardService workspaceQuotaGuardService) {
         this.pageService = pageService;
         this.subtaskService = subtaskService;
         this.pageFilterIndexService = pageFilterIndexService;
@@ -69,6 +72,7 @@ public class PageController {
         this.tagLookupService = tagLookupService;
         this.pageXmlRawEditService = pageXmlRawEditService;
         this.pageXmlConversionService = pageXmlConversionService;
+        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
     }
 
     @GetMapping
@@ -430,11 +434,24 @@ public class PageController {
             @RequestParam("file") MultipartFile xmlFile,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        Optional<Page> pageOpt = pageService.getPageById(pageId, userId);
+        if (pageOpt.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        String workspaceId = pageOpt.get().getProject().getLibrary().getWorkspaceId();
+        long reservedBytes = 0L;
         try {
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    workspaceId,
+                    xmlFile == null ? 0L : xmlFile.getSize(),
+                    "page-xml-upload"
+            );
             boolean uploaded = pageService.uploadXmlFile(pageId, xmlFile, userId);
             return uploaded ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
         }
     }
 
@@ -446,11 +463,24 @@ public class PageController {
             @RequestParam(value = "variants", required = false) List<String> variants,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        Optional<Page> pageOpt = pageService.getPageById(pageId, userId);
+        if (pageOpt.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        String workspaceId = pageOpt.get().getProject().getLibrary().getWorkspaceId();
+        long reservedBytes = 0L;
         try {
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    workspaceId,
+                    workspaceQuotaGuardService.totalMultipartBytes(images),
+                    "page-image-upload"
+            );
             boolean uploaded = pageService.uploadImages(pageId, images, variants, userId);
             return uploaded ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
         }
     }
 

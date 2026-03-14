@@ -11,8 +11,8 @@ import de.uniwue.zpd.dachs.larex.backend.exception.StorageQuotaExceededException
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
-import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UnifiedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
 import jakarta.validation.Valid;
@@ -43,23 +43,24 @@ public class ProjectController {
     private final ProjectService projectService;
     private final ProjectTransferService projectTransferService;
     private final ProjectReadService projectReadService;
-    private final StorageTrackingService storageTrackingService;
     private final ProjectPackageService projectPackageService;
     private final UnifiedUploadService unifiedUploadService;
     private final UploadConflictService uploadConflictService;
+    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     public ProjectController(ProjectService projectService, ProjectTransferService projectTransferService,
-                           ProjectReadService projectReadService, StorageTrackingService storageTrackingService,
+                           ProjectReadService projectReadService,
                            ProjectPackageService projectPackageService,
                            UnifiedUploadService unifiedUploadService,
-                           UploadConflictService uploadConflictService) {
+                           UploadConflictService uploadConflictService,
+                           WorkspaceQuotaGuardService workspaceQuotaGuardService) {
         this.projectService = projectService;
         this.projectTransferService = projectTransferService;
         this.projectReadService = projectReadService;
-        this.storageTrackingService = storageTrackingService;
         this.projectPackageService = projectPackageService;
         this.unifiedUploadService = unifiedUploadService;
         this.uploadConflictService = uploadConflictService;
+        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
     }
 
     @GetMapping
@@ -167,26 +168,21 @@ public class ProjectController {
             @RequestParam("files") List<MultipartFile> files,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        long reservedBytes = 0L;
         try {
-            // Check storage quota before upload
-            if (!storageTrackingService.canUploadFiles(workspaceId, files)) {
-                return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
-                        .body(Map.of("error", "Storage quota would be exceeded"));
-            }
-
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    workspaceId,
+                    workspaceQuotaGuardService.totalMultipartBytes(files),
+                    "bulk-upload"
+            );
             Map<String, Object> result = projectService.bulkUploadImages(projectId, files, userId);
-
-            // Track storage usage after successful upload
-            storageTrackingService.trackFilesAdded(workspaceId, files);
-
             return ResponseEntity.ok(result);
-        } catch (StorageQuotaExceededException e) {
-            return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
-                    .body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
         }
     }
 
@@ -199,26 +195,18 @@ public class ProjectController {
 
         logger.debug("Dataset import endpoint called - workspaceId={}, projectId={}, userId={}, fileCount={}", workspaceId, projectId, userId, files.size());
 
+        long reservedBytes = 0L;
         try {
-            // Check storage quota before upload
-            if (!storageTrackingService.canUploadFiles(workspaceId, files)) {
-                logger.warn("Storage quota would be exceeded for workspace {}", workspaceId);
-                return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
-                        .body(Map.of("error", "Storage quota would be exceeded"));
-            }
-
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    workspaceId,
+                    workspaceQuotaGuardService.totalMultipartBytes(files),
+                    "dataset-import"
+            );
             logger.debug("Storage quota check passed, calling service");
             Map<String, Object> result = projectService.importDataset(projectId, files, userId);
 
-            // Track storage usage after successful upload
-            storageTrackingService.trackFilesAdded(workspaceId, files);
-
             logger.debug("Dataset import completed successfully for project {}", projectId);
             return ResponseEntity.ok(result);
-        } catch (StorageQuotaExceededException e) {
-            logger.warn("Storage quota exceeded: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
-                    .body(Map.of("error", e.getMessage()));
         } catch (IOException e) {
             logger.error("IOException in dataset import for project {}: {}", projectId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -227,10 +215,14 @@ public class ProjectController {
             logger.warn("IllegalArgumentException in dataset import: {}", e.getMessage());
             return ResponseEntity.badRequest()
                     .body(Map.of("error", e.getMessage()));
+        } catch (StorageQuotaExceededException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Unexpected exception in dataset import for project {}: {} - {}", projectId, e.getClass().getSimpleName(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Unexpected error: " + e.getMessage()));
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
         }
     }
 
@@ -241,30 +233,21 @@ public class ProjectController {
             @RequestParam("files") List<MultipartFile> files,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
+        long reservedBytes = 0L;
         try {
-            // Check storage quota before upload
-            if (!storageTrackingService.canUploadFiles(workspaceId, files)) {
-                return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
-                        .header("Content-Type", "application/json")
-                        .body(new UploadConflictDto.UploadResponse(false, List.of(),
-                            new UploadConflictDto.UploadResultDto(0, 0, 0, 0, List.of())));
-            }
-
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    workspaceId,
+                    workspaceQuotaGuardService.totalMultipartBytes(files),
+                    "unified-upload"
+            );
             UploadConflictDto.UploadResponse result = unifiedUploadService.processUpload(projectId, files, userId);
-
-            // Track storage usage for successfully uploaded files only
-            if (!result.hasConflicts()) {
-                storageTrackingService.trackFilesAdded(workspaceId, files);
-            }
-
             return ResponseEntity.ok(result);
         } catch (StorageQuotaExceededException e) {
-            return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
-                    .header("Content-Type", "application/json")
-                    .body(new UploadConflictDto.UploadResponse(false, List.of(),
-                        new UploadConflictDto.UploadResultDto(0, 0, 0, 0, List.of())));
+            throw e;
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } finally {
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
         }
     }
 

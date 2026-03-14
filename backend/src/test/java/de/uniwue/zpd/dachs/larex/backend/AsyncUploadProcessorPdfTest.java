@@ -150,8 +150,9 @@ class AsyncUploadProcessorPdfTest {
     UploadSession session = new UploadSession(project.getId(), library.getWorkspaceId(), "user-cancel", 1, 1);
     session.setStatus(UploadSession.UploadSessionStatus.PROCESSING);
     session = uploadSessionRepository.save(session);
+    final String sessionId = session.getId();
 
-    Path sessionDir = tempDir.resolve(session.getId());
+    Path sessionDir = tempDir.resolve(sessionId);
     Files.createDirectories(sessionDir);
     Path pdfPath = sessionDir.resolve("cancel-sample.pdf");
     final int totalPages = 8;
@@ -175,7 +176,7 @@ class AsyncUploadProcessorPdfTest {
     doAnswer(invocation -> {
       Object result = invocation.callRealMethod();
       if (cancelTriggered.compareAndSet(false, true)) {
-        chunkedUploadService.cancelSession("user-cancel", session.getId());
+        chunkedUploadService.cancelSession("user-cancel", sessionId);
       }
       return result;
     }).when(hierarchicalFileStorageService).storeBufferedImage(

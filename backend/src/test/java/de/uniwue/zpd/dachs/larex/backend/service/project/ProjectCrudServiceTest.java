@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRep
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectStarService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +73,8 @@ class ProjectCrudServiceTest {
 
     @Mock
     private ProjectFileService projectFileService;
+    @Mock
+    private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     private ProjectCrudService service;
 
@@ -88,7 +91,8 @@ class ProjectCrudServiceTest {
                 workspaceAccessService,
                 notificationService,
                 projectStarService,
-                projectFileService
+                projectFileService,
+                workspaceQuotaRefreshService
         );
     }
 
@@ -189,11 +193,30 @@ class ProjectCrudServiceTest {
         verify(labelSetRepository, never()).findByNameAndWorkspaceId(anyString(), anyString());
     }
 
+    @Test
+    void deleteProject_schedulesQuotaRefresh() {
+        Library library = new Library(WORKSPACE_ID, "Library");
+        library.setId(LIBRARY_ID);
+
+        Project project = new Project(PROJECT_NAME, "desc", library);
+        project.setId("project-1");
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, USER_ID)).thenReturn(true);
+        when(workspaceAccessService.canManageProjects(WORKSPACE_ID, USER_ID)).thenReturn(true);
+        when(workspaceMemberRepository.findByWorkspaceId(WORKSPACE_ID)).thenReturn(List.of());
+
+        assertTrue(service.deleteProject("project-1", USER_ID));
+
+        verify(projectFileService).deleteProjectFiles(project);
+        verify(projectRepository).delete(project);
+        verify(workspaceQuotaRefreshService).scheduleUsageRefresh(WORKSPACE_ID);
+    }
+
     private void prepareCreateProjectBase(TeamWorkspace workspace) {
         Library library = new Library(WORKSPACE_ID, "Library");
         library.setId(LIBRARY_ID);
 
-        when(workspaceAccessService.hasWorkspaceAccess(WORKSPACE_ID, USER_ID)).thenReturn(true);
         when(libraryRepository.findByWorkspaceId(WORKSPACE_ID)).thenReturn(Optional.of(library));
         when(projectRepository.existsByNameAndLibraryId(eq(PROJECT_NAME), eq(LIBRARY_ID))).thenReturn(false);
         when(workspaceQueryService.findWorkspaceById(WORKSPACE_ID)).thenReturn(Optional.of(workspace));

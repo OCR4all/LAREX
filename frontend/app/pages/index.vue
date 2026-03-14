@@ -5,6 +5,7 @@ import type { Row } from '@tanstack/vue-table'
 import { LazyCodecSlideoverAction, LazyLibrarySlideoverCreate, LazyShareSlideover, LazyProjectSlideoverEdit, LazyUiDeleteSlideover } from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
+import { extractApiErrorMessage, extractApiMessageFromPayload } from '@/utils/api-error'
 import { globalKey, wsKey } from '@/utils/fetch-keys'
 import UiColorTag from '@/components/ui/color-tag.vue'
 
@@ -744,7 +745,13 @@ async function handleProjectPackageImport(event: Event) {
     })
 
     if (!response.ok) {
-      throw new Error(`Import failed (${response.status})`)
+      let payload: unknown = null
+      try {
+        payload = await response.json()
+      } catch {
+        payload = null
+      }
+      throw new Error(extractApiMessageFromPayload(payload, `Import failed (${response.status})`))
     }
 
     const result = await response.json() as { projectName?: string }
@@ -757,7 +764,7 @@ async function handleProjectPackageImport(event: Event) {
 
     await refresh()
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Failed to import project package'
+    const message = extractApiErrorMessage(error, 'Failed to import project package')
     toast.add({
       title: 'Import failed',
       description: message,

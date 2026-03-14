@@ -324,7 +324,7 @@ function statusColor(status: BackupJobSummary['status']) {
                   <p class="text-xs text-muted mt-1 truncate">
                     {{ job.currentStep || 'No step message' }}
                   </p>
-                  <UProgress :model-value="job.progressPercent" class="mt-2" />
+                  <UProgress v-model="job.progressPercent" class="mt-2" />
                 </div>
 
                 <UButton

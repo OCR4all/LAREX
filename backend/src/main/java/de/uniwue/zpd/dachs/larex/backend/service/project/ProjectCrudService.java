@@ -16,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRep
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectStarService;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class ProjectCrudService {
     private final NotificationService notificationService;
     private final ProjectStarService projectStarService;
     private final ProjectFileService projectFileService;
+    private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
 
     public ProjectCrudService(ProjectRepository projectRepository,
                               LibraryRepository libraryRepository,
@@ -51,7 +53,8 @@ public class ProjectCrudService {
                               WorkspaceAccessService workspaceAccessService,
                               NotificationService notificationService,
                               ProjectStarService projectStarService,
-                              ProjectFileService projectFileService) {
+                              ProjectFileService projectFileService,
+                              WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
         this.projectRepository = projectRepository;
         this.libraryRepository = libraryRepository;
         this.codecRepository = codecRepository;
@@ -63,6 +66,7 @@ public class ProjectCrudService {
         this.notificationService = notificationService;
         this.projectStarService = projectStarService;
         this.projectFileService = projectFileService;
+        this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
     }
 
     public List<Project> getWorkspaceProjects(String workspaceId, String userId) {
@@ -240,6 +244,7 @@ public class ProjectCrudService {
                 projectRepository.delete(project);
 
                 notifyWorkspaceMembers(workspaceId, userId, "Project deleted: " + projectName, projectId);
+                workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
                 return true;
             }
         }

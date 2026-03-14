@@ -39,6 +39,12 @@ public class WorkspaceStorageQuota {
     private Long currentUsageBytes = 0L;
 
     /**
+     * Bytes reserved for in-flight ingest operations.
+     */
+    @Column(nullable = false)
+    private Long reservedBytes = 0L;
+
+    /**
      * Whether this quota is using the system default or has been customized
      */
     @Column(nullable = false)
@@ -75,11 +81,11 @@ public class WorkspaceStorageQuota {
     }
 
     public boolean hasAvailableSpace(Long requiredBytes) {
-        return (currentUsageBytes + requiredBytes) <= quotaLimitBytes;
+        return (currentUsageBytes + reservedBytes + requiredBytes) <= quotaLimitBytes;
     }
 
     public Long getAvailableBytes() {
-        return Math.max(0L, quotaLimitBytes - currentUsageBytes);
+        return Math.max(0L, quotaLimitBytes - currentUsageBytes - reservedBytes);
     }
 
     public Double getUsagePercentage() {
@@ -93,6 +99,14 @@ public class WorkspaceStorageQuota {
 
     public void subtractUsage(Long bytes) {
         this.currentUsageBytes = Math.max(0L, this.currentUsageBytes - bytes);
+    }
+
+    public void addReservedBytes(Long bytes) {
+        this.reservedBytes += bytes;
+    }
+
+    public void releaseReservedBytes(Long bytes) {
+        this.reservedBytes = Math.max(0L, this.reservedBytes - bytes);
     }
 
     public String getId() {
@@ -125,6 +139,14 @@ public class WorkspaceStorageQuota {
 
     public void setCurrentUsageBytes(Long currentUsageBytes) {
         this.currentUsageBytes = currentUsageBytes;
+    }
+
+    public Long getReservedBytes() {
+        return reservedBytes;
+    }
+
+    public void setReservedBytes(Long reservedBytes) {
+        this.reservedBytes = reservedBytes;
     }
 
     public Boolean getIsCustom() {
@@ -171,6 +193,7 @@ public class WorkspaceStorageQuota {
                 ", workspaceId='" + workspaceId + '\'' +
                 ", quotaLimitBytes=" + quotaLimitBytes +
                 ", currentUsageBytes=" + currentUsageBytes +
+                ", reservedBytes=" + reservedBytes +
                 ", isCustom=" + isCustom +
                 '}';
     }
