@@ -5,6 +5,7 @@ import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
+import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,13 +14,7 @@ const overlay = useOverlay()
 const shareSlideover = overlay.create(LazyShareSlideover)
 const { allow } = useActionVisibility()
 
-const workspace = useWorkspaceStore()
-
-if (!workspace.hasFetched) {
-  await workspace.fetchWorkspaces()
-}
-
-const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { selectedWorkspace } = await useWorkspaceBootstrap()
 
 const id = route.params.id as string
 const isNew = id === 'new'

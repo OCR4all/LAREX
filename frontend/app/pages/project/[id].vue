@@ -23,6 +23,8 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { usePagePrefetch } from '@/composables/use-page-prefetch'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
+import { useIndexStatusPolling } from '@/composables/use-index-status-polling'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -32,13 +34,9 @@ const UPopover = resolveComponent('UPopover')
 
 const route = useRoute()
 const toast = useToast()
-const workspace = useWorkspaceStore()
 const editorStore = useEditorStore()
 const pagePrefetch = usePagePrefetch()
-if (!workspace.hasFetched) {
-  await workspace.fetchWorkspaces()
-}
-const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { allow } = useActionVisibility()
 
 const projectId = route.params.id as string
@@ -163,69 +161,39 @@ const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshP
   key: projectPagesKey
 })
 
-const pageIndexStatusPollTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
-const pageIndexStatusPollInFlight = ref(false)
-const canPollPageIndexStatuses = ref(false)
 const PAGE_INDEX_STATUS_POLL_MS = 3000
 
 function hasIndexingPages(list: Page[] | null | undefined): boolean {
   return (list ?? []).some(page => page.indexingStatus === 'INDEXING')
 }
 
-function stopPageIndexStatusPolling() {
-  if (pageIndexStatusPollTimeout.value) {
-    clearTimeout(pageIndexStatusPollTimeout.value)
-    pageIndexStatusPollTimeout.value = null
-  }
-}
-
-function schedulePageIndexStatusPoll(delayMs = PAGE_INDEX_STATUS_POLL_MS) {
-  if (import.meta.server || !canPollPageIndexStatuses.value) return
-  if (pageIndexStatusPollTimeout.value || pageIndexStatusPollInFlight.value) return
-  pageIndexStatusPollTimeout.value = setTimeout(() => {
-    pageIndexStatusPollTimeout.value = null
-    void pollPageIndexStatuses()
-  }, delayMs)
-}
-
-async function pollPageIndexStatuses() {
-  if (import.meta.server || !canPollPageIndexStatuses.value) return
-  if (pageIndexStatusPollInFlight.value) return
-  if (!hasIndexingPages(pages.value)) {
-    stopPageIndexStatusPolling()
-    return
-  }
-
-  pageIndexStatusPollInFlight.value = true
-  let shouldContinuePolling = true
-  try {
-    const statuses = await $fetch<Record<string, PageIndexingStatus>>(`/api/projects/${projectId}/pages/index-statuses`)
-    if (pages.value) {
-      pages.value = pages.value.map((page) => {
-        const nextStatus = statuses[page.id]
-        if (!nextStatus || nextStatus === page.indexingStatus) return page
-        return { ...page, indexingStatus: nextStatus }
-      })
-    }
-  } catch (error) {
-    const statusCode = Number(
-      (error as { statusCode?: number, response?: { status?: number } })?.statusCode
-      ?? (error as { response?: { status?: number } })?.response?.status
-      ?? 0
-    )
-    if (statusCode === 401 || statusCode === 403) {
-      shouldContinuePolling = false
-      return
-    }
-  } finally {
-    pageIndexStatusPollInFlight.value = false
-    if (shouldContinuePolling && hasIndexingPages(pages.value)) {
-      schedulePageIndexStatusPoll()
-    } else {
-      stopPageIndexStatusPolling()
+const pageIndexStatusPolling = useIndexStatusPolling({
+  ids: computed(() => [projectId]),
+  intervalMs: PAGE_INDEX_STATUS_POLL_MS,
+  signature: computed(() => `${projectId}:${hasIndexingPages(pages.value) ? 1 : 0}`),
+  hasPending: () => hasIndexingPages(pages.value),
+  poll: async () => {
+    try {
+      const statuses = await $fetch<Record<string, PageIndexingStatus>>(`/api/projects/${projectId}/pages/index-statuses`)
+      if (pages.value) {
+        pages.value = pages.value.map((page) => {
+          const nextStatus = statuses[page.id]
+          if (!nextStatus || nextStatus === page.indexingStatus) return page
+          return { ...page, indexingStatus: nextStatus }
+        })
+      }
+    } catch (error) {
+      const statusCode = Number(
+        (error as { statusCode?: number, response?: { status?: number } })?.statusCode
+        ?? (error as { response?: { status?: number } })?.response?.status
+        ?? 0
+      )
+      if (statusCode === 401 || statusCode === 403) {
+        return false
+      }
     }
   }
-}
+})
 
 const subtaskSummaryKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'subtask-summary'))
 const { data: subtaskSummary, refresh: _refreshSubtaskSummary } = await useFetch<Record<string, number>>(
@@ -276,7 +244,7 @@ const {
   refreshPagesFetch,
   refreshProject,
   refreshProjectStatus,
-  onIndexingPagesDetected: () => schedulePageIndexStatusPoll(0)
+  onIndexingPagesDetected: () => pageIndexStatusPolling.schedule(projectId, 0)
 })
 
 const isStarring = ref(false)
@@ -351,27 +319,6 @@ async function handleFileUpload(files: FileList | null) {
     fileInput.value.value = ''
   }
 }
-
-watch(() => hasIndexingPages(pages.value), (hasIndexing) => {
-  if (import.meta.server || !canPollPageIndexStatuses.value) return
-  if (hasIndexing) {
-    schedulePageIndexStatusPoll(0)
-  } else {
-    stopPageIndexStatusPolling()
-  }
-}, { immediate: true })
-
-onMounted(() => {
-  canPollPageIndexStatuses.value = true
-  if (hasIndexingPages(pages.value)) {
-    schedulePageIndexStatusPoll(0)
-  }
-})
-
-onBeforeUnmount(() => {
-  canPollPageIndexStatuses.value = false
-  stopPageIndexStatusPolling()
-})
 
 async function viewConflicts() {
   try {

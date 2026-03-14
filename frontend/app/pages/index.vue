@@ -8,6 +8,9 @@ import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
 import { extractApiErrorMessage, extractApiMessageFromPayload } from '@/utils/api-error'
 import { globalKey, wsKey } from '@/utils/fetch-keys'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
+import { useResourceListPage } from '@/composables/use-resource-list-page'
+import { createSortableHeader, renderDropdownActionsCell, renderTruncatedText } from '@/utils/resource-list-columns'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
@@ -16,8 +19,7 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
 const NuxtTime = resolveComponent('NuxtTime')
 const NuxtLink = resolveComponent('NuxtLink')
 
-const workspace = useWorkspaceStore()
-const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
+const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const { allow, compactGroups } = useActionVisibility()
 const canCreateProjects = computed(() => allow(workspaceCapabilities.value.canManageProjects))
@@ -130,23 +132,29 @@ const {
   globalFilter,
   columnFilters,
   tagFilterOperator,
-  filteredAndSortedData,
   activeFilters,
   setColumnFilter,
-  clearColumnFilter,
-  resetAllFilters
-} = useTableFilters(data, { column: 'created', direction: 'desc' })
-
-const page = ref(1)
-const itemsPerPage = ref(10)
-
-const totalItems = computed(() => filteredAndSortedData.value.length)
-const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value))
-
-const paginatedData = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return filteredAndSortedData.value.slice(start, end)
+  resetAllFilters,
+  filteredAndSortedData,
+  uniqueTags,
+  selectedTags,
+  tagOperatorOptions,
+  page,
+  itemsPerPage,
+  totalItems,
+  totalPages,
+  paginatedData
+} = useResourceListPage({
+  data,
+  defaultSort: { column: 'created', direction: 'desc' },
+  getTags: (project) => {
+    const rawTags = project.tags ?? []
+    const resolvedTags = project.resolvedTags ?? []
+    return rawTags.map(tagId => ({
+      value: tagId,
+      label: resolvedTags.find(tag => tag.id === tagId)?.label || tagId
+    }))
+  }
 })
 
 const selectedProjectIds = ref<Set<string>>(new Set())
@@ -183,68 +191,13 @@ watch(data, (projects) => {
   selectedProjectIds.value = new Set(filtered)
 }, { deep: true })
 
-watch([globalFilter, columnFilters], () => {
-  page.value = 1
-}, { deep: true })
-
 onMounted(() => {
   if (isStarredFilter.value) {
     setColumnFilter('isStarred', true)
   }
 })
 
-const uniqueTags = computed(() => {
-  const tagCounts = new Map<string, { label: string, count: number }>()
-
-  data.value.forEach((project) => {
-    const rawTags = project.tags || []
-    const resolvedTags = project.resolvedTags || []
-
-    rawTags.forEach((tagId) => {
-      if (tagId && typeof tagId === 'string') {
-        const resolvedTag = resolvedTags.find(rt => rt.id === tagId)
-        const label = resolvedTag?.label || tagId
-
-        const existing = tagCounts.get(tagId)
-        if (existing) {
-          existing.count++
-        } else {
-          tagCounts.set(tagId, { label, count: 1 })
-        }
-      }
-    })
-  })
-
-  return Array.from(tagCounts.entries())
-    .sort((a, b) => a[1].label.localeCompare(b[1].label))
-    .map(([value, { label, count }]) => ({
-      label,
-      value,
-      count
-    }))
-})
-
-const selectedTags = computed({
-  get: () => {
-    const tags = columnFilters.value['tags']
-    if (Array.isArray(tags)) return tags
-    return []
-  },
-  set: (value: string[]) => {
-    if (value.length === 0) {
-      clearColumnFilter('tags')
-    } else {
-      setColumnFilter('tags', value)
-    }
-  }
-})
-
-const tagOperatorOptions = [
-  { label: 'Match any (OR)', value: 'or' },
-  { label: 'Match all (AND)', value: 'and' }
-]
-
-const columns: TableColumn<any>[] = [
+const columns: TableColumn<LibraryProject>[] = [
   {
     id: 'select',
     header: () => h('input', {
@@ -264,26 +217,7 @@ const columns: TableColumn<any>[] = [
   },
   {
     accessorKey: 'name',
-    header: () => {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h('span', 'Name'),
-        h(UButton, {
-          icon: sort.value.column === 'name'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'name' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'name') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'name', direction: 'asc' }
-            }
-          }
-        })
-      ])
-    },
+    header: createSortableHeader('Name', 'name', sort, UButton),
     cell: ({ row }) => h('div', { class: 'flex items-center gap-2' }, [
       row.original.locked ? h('span', { class: 'text-amber-500', title: row.original.lockedReason || 'Locked' }, h(resolveComponent('UIcon'), { name: 'i-lucide-lock', class: 'w-4 h-4' })) : null,
       h(NuxtLink, { to: `/project/${row.original.id}`, class: 'font-medium hover:underline text-primary' }, () => row.getValue('name'))
@@ -291,35 +225,8 @@ const columns: TableColumn<any>[] = [
   },
   {
     accessorKey: 'description',
-    header: () => {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h('span', 'Description'),
-        h(UButton, {
-          icon: sort.value.column === 'description'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'description' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'description') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'description', direction: 'asc' }
-            }
-          }
-        })
-      ])
-    },
-    cell: ({ row }) => {
-      const description = row.getValue('description') as string
-      if (!description) return h('div', { class: 'text-neutral-400 dark:text-neutral-500 text-sm' }, '—')
-
-      return h('div', {
-        class: 'text-neutral-700 dark:text-neutral-400 max-w-32 sm:max-w-48 lg:max-w-64 xl:max-w-80 truncate',
-        title: description
-      }, description)
-    }
+    header: createSortableHeader('Description', 'description', sort, UButton),
+    cell: ({ row }) => renderTruncatedText(row.getValue('description') as string)
   },
   {
     accessorKey: 'tags',
@@ -375,126 +282,27 @@ const columns: TableColumn<any>[] = [
   },
   {
     accessorKey: 'pageCount',
-    header: () => {
-      return h('div', { class: 'flex items-center justify-end gap-2' }, [
-        h('span', 'Pages'),
-        h(UButton, {
-          icon: sort.value.column === 'pageCount'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'pageCount' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'pageCount') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'pageCount', direction: 'asc' }
-            }
-          }
-        })
-      ])
-    },
+    header: createSortableHeader('Pages', 'pageCount', sort, UButton, { align: 'end' }),
     cell: ({ row }) => h('div', { class: 'text-right font-medium' }, row.getValue('pageCount'))
   },
   {
     accessorKey: 'storageUsedBytes',
-    header: () => {
-      return h('div', { class: 'flex items-center justify-end gap-2' }, [
-        h('span', 'Storage'),
-        h(UButton, {
-          icon: sort.value.column === 'storageUsedBytes'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'storageUsedBytes' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'storageUsedBytes') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'storageUsedBytes', direction: 'desc' }
-            }
-          }
-        })
-      ])
-    },
+    header: createSortableHeader('Storage', 'storageUsedBytes', sort, UButton, { align: 'end' }),
     cell: ({ row }) => h('div', { class: 'text-right text-sm text-muted' }, row.original.storageUsedFormatted || '0 B')
   },
   {
     accessorKey: 'created',
-    header: () => {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h('span', 'Created'),
-        h(UButton, {
-          icon: sort.value.column === 'created'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'created' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'created') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'created', direction: 'asc' }
-            }
-          }
-        })
-      ])
-    },
+    header: createSortableHeader('Created', 'created', sort, UButton),
     cell: ({ row }) => h(NuxtTime, { datetime: row.getValue('created') })
   },
   {
     accessorKey: 'updated',
-    header: () => {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h('span', 'Updated'),
-        h(UButton, {
-          icon: sort.value.column === 'updated'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'updated' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'updated') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'updated', direction: 'asc' }
-            }
-          }
-        })
-      ])
-    },
+    header: createSortableHeader('Updated', 'updated', sort, UButton),
     cell: ({ row }) => h(NuxtTime, { datetime: row.getValue('updated') })
   },
   {
     id: 'actions',
-    cell: ({ row }) => {
-      return h(
-        'div',
-        { class: 'text-right' },
-        h(
-          UDropdownMenu,
-          {
-            'content': {
-              align: 'end'
-            },
-            'items': getRowItems(row),
-            'aria-label': 'Actions dropdown'
-          },
-          () =>
-            h(UButton, {
-              'icon': 'i-lucide-ellipsis-vertical',
-              'color': 'neutral',
-              'variant': 'ghost',
-              'class': 'ml-auto',
-              'aria-label': 'Actions dropdown'
-            })
-        )
-      )
-    }
+    cell: ({ row }) => renderDropdownActionsCell(getRowItems(row), { UButton, UDropdownMenu })
   }
 ]
 

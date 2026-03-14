@@ -3,6 +3,7 @@ import type { LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/type
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
+import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,13 +15,7 @@ const metadataSlideover = overlay.create(LazyLabelBuilderSlideoverMetadata)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const confirmModal = overlay.create(LazyUiConfirmModal)
 
-const workspace = useWorkspaceStore()
-
-if (!workspace.hasFetched) {
-  await workspace.fetchWorkspaces()
-}
-
-const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { selectedWorkspace } = await useWorkspaceBootstrap()
 
 const id = route.params.id as string
 const isNew = id === 'new'

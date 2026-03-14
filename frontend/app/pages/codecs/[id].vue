@@ -5,19 +5,14 @@ import type { Codec, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourc
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { wsKey } from '@/utils/fetch-keys'
+import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { allow } = useActionVisibility()
 
-const workspace = useWorkspaceStore()
-
-if (!workspace.hasFetched) {
-  await workspace.fetchWorkspaces()
-}
-
-const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { selectedWorkspace } = await useWorkspaceBootstrap()
 const codecListKey = computed(() => wsKey(selectedWorkspace.value, 'codecs', 'list'))
 
 const id = route.params.id as string

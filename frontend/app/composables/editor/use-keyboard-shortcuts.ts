@@ -2,6 +2,7 @@
  * Composable for defining keyboard shortcuts throughout the editor.
  * Uses Nuxt UI's defineShortcuts for cross-platform modifier key handling.
  */
+import type { ComputedRef, Ref } from 'vue'
 import type { Commander } from '@/commands'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { DeleteSelectedElementsCommand } from '@/commands/editor/delete-selected-elements-command'
@@ -27,10 +28,10 @@ export interface KeyboardShortcutsOptions {
   selectedPolylineIds: Ref<string[]>
 
   /** Polygon array for navigation */
-  polygons: { id: string }[]
+  polygons: Ref<{ id: string }[]> | ComputedRef<{ id: string }[]>
 
   /** Polyline array for navigation */
-  polylines: { id: string }[]
+  polylines: Ref<{ id: string }[]> | ComputedRef<{ id: string }[]>
 
   /** Current selected polygon index */
   selectedPolygonIndex: Ref<number>
@@ -150,7 +151,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     if (isPolygonSelected) {
       const currentIndex = selectedPolygonIndex.value
       const newIndex = direction === 'next'
-        ? Math.min(currentIndex + 1, polygons.length - 1)
+        ? Math.min(currentIndex + 1, polygons.value.length - 1)
         : Math.max(currentIndex - 1, 0)
 
       if (newIndex !== currentIndex) {
@@ -159,14 +160,14 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     } else if (isPolylineSelected) {
       const currentIndex = selectedPolylineIndex.value
       const newIndex = direction === 'next'
-        ? Math.min(currentIndex + 1, polylines.length - 1)
+        ? Math.min(currentIndex + 1, polylines.value.length - 1)
         : Math.max(currentIndex - 1, 0)
 
       if (newIndex !== currentIndex) {
         callbacks.selectPolylineByIndex(newIndex)
       }
-    } else if (polygons.length > 0) {
-      callbacks.selectPolygonByIndex(direction === 'next' ? 0 : polygons.length - 1)
+    } else if (polygons.value.length > 0) {
+      callbacks.selectPolygonByIndex(direction === 'next' ? 0 : polygons.value.length - 1)
     }
   }
 

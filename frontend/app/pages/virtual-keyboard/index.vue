@@ -4,6 +4,9 @@ import type { TableColumn } from '@nuxt/ui'
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover } from '#components'
+import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
+import { useResourceListPage } from '@/composables/use-resource-list-page'
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
@@ -16,13 +19,7 @@ const overlay = useOverlay()
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
-const workspace = useWorkspaceStore()
-
-if (!workspace.hasFetched) {
-  await workspace.fetchWorkspaces()
-}
-
-const selectedWorkspace = computed(() => workspace.selectedWorkspaceId as string)
+const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
 const keyboardsKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', 'list'))
@@ -39,206 +36,42 @@ const {
   globalFilter,
   columnFilters,
   tagFilterOperator,
-  filteredAndSortedData,
   activeFilters,
-  setColumnFilter,
-  clearColumnFilter,
-  resetAllFilters
-} = useTableFilters(keyboardsSafe, { column: 'name', direction: 'asc' })
-
-const uniqueTags = computed(() => {
-  const tagCounts = new Map<string, number>()
-  keyboardsSafe.value.forEach((keyboard) => {
-    const tags = keyboard.tags ?? []
-    if (Array.isArray(tags)) {
-      tags.forEach((tag) => {
-        if (tag && typeof tag === 'string') {
-          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
-        }
-      })
-    }
-  })
-
-  return Array.from(tagCounts.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([tag, count]) => ({
-      label: tag,
-      value: tag,
-      count
-    }))
+  resetAllFilters,
+  uniqueTags,
+  selectedTags,
+  tagOperatorOptions,
+  page,
+  itemsPerPage,
+  totalItems,
+  totalPages,
+  paginatedData
+} = useResourceListPage({
+  data: keyboardsSafe,
+  defaultSort: { column: 'name', direction: 'asc' }
 })
 
-const selectedTags = computed({
-  get: () => {
-    const tags = columnFilters.value['tags']
-    if (Array.isArray(tags)) return tags
-    return []
-  },
-  set: (value: string[]) => {
-    if (value.length === 0) {
-      clearColumnFilter('tags')
-    } else {
-      setColumnFilter('tags', value)
-    }
-  }
-})
-
-const tagOperatorOptions = [
-  { label: 'Match any (OR)', value: 'or' },
-  { label: 'Match all (AND)', value: 'and' }
-]
-
-const page = ref(1)
-const itemsPerPage = ref(10)
-
-const totalItems = computed(() => filteredAndSortedData.value.length)
-const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value))
-const paginatedData = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return filteredAndSortedData.value.slice(start, end)
-})
-
-watch([globalFilter, columnFilters], () => {
-  page.value = 1
-}, { deep: true })
-
-const columns: TableColumn<any>[] = [
+const columns: TableColumn<KeyboardLayout>[] = [
   {
     accessorKey: 'name',
-    header: () => {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h('span', 'Name'),
-        h(UButton, {
-          icon: sort.value.column === 'name'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'name' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'name') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'name', direction: 'asc' }
-            }
-          }
-        })
-      ])
-    },
+    header: createSortableHeader('Name', 'name', sort, UButton),
     cell: ({ row }) => h(NuxtLink, { to: `/virtual-keyboard/${row.original.id}`, class: 'font-medium hover:underline text-primary' }, () => row.getValue('name'))
   },
   {
     accessorKey: 'description',
-    header: () => {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h('span', 'Description'),
-        h(UButton, {
-          icon: sort.value.column === 'description'
-            ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down')
-            : 'i-lucide-arrow-up-down',
-          size: 'xs',
-          variant: 'ghost',
-          color: sort.value.column === 'description' ? 'primary' : 'neutral',
-          onClick: () => {
-            if (sort.value.column === 'description') {
-              sort.value.direction = sort.value.direction === 'asc' ? 'desc' : 'asc'
-            } else {
-              sort.value = { column: 'description', direction: 'asc' }
-            }
-          }
-        })
-      ])
-    },
-    cell: ({ row }) => {
-      const description = row.getValue('description') as string
-      if (!description) return h('div', { class: 'text-neutral-400 dark:text-neutral-500 text-sm' }, '—')
-
-      return h('div', {
-        class: 'text-neutral-700 dark:text-neutral-400 max-w-32 sm:max-w-48 lg:max-w-64 xl:max-w-80 truncate',
-        title: description
-      }, description)
-    }
+    header: createSortableHeader('Description', 'description', sort, UButton),
+    cell: ({ row }) => renderTruncatedText(row.getValue('description') as string)
   },
   {
     accessorKey: 'tags',
     header: 'Tags',
-    cell: ({ row }) => {
-      const tags = row.getValue('tags') as string[] | undefined
-
-      if (!tags || tags.length === 0) return null
-
-      if (tags.length <= 3) {
-        return h('div', { class: 'flex flex-wrap gap-1' },
-          tags.map(tag =>
-            h(UBadge, {
-              variant: 'subtle',
-              color: 'primary',
-              size: 'md',
-              key: tag
-            }, () => tag)
-          )
-        )
-      }
-
-      const visibleTags = tags.slice(0, 2)
-      const hiddenTags = tags.slice(2)
-      const hiddenTagsCount = hiddenTags.length
-
-      return h('div', { class: 'flex flex-wrap items-center gap-1' }, [
-        ...visibleTags.map(tag =>
-          h(UBadge, {
-            variant: 'soft',
-            color: 'neutral',
-            size: 'sm',
-            key: tag
-          }, () => tag)
-        ),
-        h(UPopover, { mode: 'hover' }, {
-          default: () => h(UButton, {
-            variant: 'soft',
-            color: 'primary',
-            size: 'sm',
-            class: 'h-[22px]'
-          }, () => `+${hiddenTagsCount}`),
-          content: () => h('div', { class: 'p-2 flex flex-col gap-1' },
-            hiddenTags.map(tag =>
-              h(UBadge, {
-                variant: 'soft',
-                color: 'neutral',
-                size: 'sm',
-                key: tag
-              }, () => tag)
-            )
-          )
-        })
-      ])
-    }
+    cell: ({ row }) => renderSimpleTagCell(row.getValue('tags') as string[] | undefined, { UBadge, UButton, UPopover })
   },
   {
     id: 'actions',
     cell: ({ row }) => {
       const rowItems = items(row.original)
-      if (!rowItems.length) return null
-      return h(
-        'div',
-        { class: 'text-right' },
-        h(
-          UDropdownMenu,
-          {
-            'content': { align: 'end' },
-            'items': rowItems,
-            'aria-label': 'Actions dropdown'
-          },
-          () => h(UButton, {
-            'icon': 'i-lucide-ellipsis-vertical',
-            'color': 'neutral',
-            'variant': 'ghost',
-            'class': 'ml-auto',
-            'aria-label': 'Actions dropdown'
-          })
-        )
-      )
+      return renderDropdownActionsCell(rowItems, { UButton, UDropdownMenu })
     }
   }
 ]
