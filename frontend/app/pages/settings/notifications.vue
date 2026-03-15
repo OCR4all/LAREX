@@ -10,6 +10,7 @@ const {
   desktopPermission,
   isDesktopSupported,
   fetchPreferences,
+  initDesktopPermission,
   toggleEmail,
   toggleDesktop,
   toggleInApp,
@@ -17,8 +18,10 @@ const {
   getPreference
 } = useNotificationPreferences()
 
-onMounted(async () => {
-  await fetchPreferences()
+await fetchPreferences()
+
+onMounted(() => {
+  initDesktopPermission()
 })
 
 async function onEmailToggle(type: NotificationType, value: boolean) {

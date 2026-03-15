@@ -8,15 +8,11 @@ export default defineNuxtPlugin(async () => {
 
   if (!import.meta.server || !loggedIn.value) return
 
-  const selectedWorkspaceId = useCookie<string | null>('selectedWorkspaceId')
-
-  if (selectedWorkspaceId.value) return
+  const workspaceStore = useWorkspaceStore()
 
   try {
-    const workspaces = await $fetch<{ id: string }[]>('/api/workspaces')
-    if (workspaces?.length) {
-      selectedWorkspaceId.value = workspaces[0].id
-    }
+    await workspaceStore.fetchWorkspaces()
+    await workspaceStore.validateAndSelectWorkspace()
   } catch {
   }
 })

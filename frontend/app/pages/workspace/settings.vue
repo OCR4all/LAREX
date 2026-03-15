@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
+await useWorkspaceBootstrap()
+
 const workspaceStore = useWorkspaceStore()
 const currentWorkspace = computed(() => workspaceStore.currentWorkspace)
 

@@ -6,6 +6,7 @@ interface NotificationPreferencesState {
   types: NotificationTypeInfo[]
   isLoading: boolean
   isSaving: boolean
+  hasLoaded: boolean
   desktopPermission: NotificationPermission | 'unsupported'
 }
 
@@ -21,6 +22,7 @@ export const useNotificationPreferences = () => {
     types: [],
     isLoading: false,
     isSaving: false,
+    hasLoaded: false,
     desktopPermission: 'default'
   }))
 
@@ -97,20 +99,36 @@ export const useNotificationPreferences = () => {
   /**
    * Fetch all notification preferences
    */
-  const fetchPreferences = async () => {
-    if (import.meta.server) return
+  const fetchPreferences = async (options?: { force?: boolean }) => {
+    if (state.value.hasLoaded && !options?.force) {
+      return {
+        preferences: state.value.preferences,
+        types: state.value.types
+      }
+    }
+
+    const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 
     state.value.isLoading = true
     try {
       const [preferences, types] = await Promise.all([
-        $fetch<NotificationPreference[]>('/api/notifications/preferences'),
-        $fetch<NotificationTypeInfo[]>('/api/notifications/preferences/types')
+        requestFetch<NotificationPreference[]>('/api/notifications/preferences'),
+        requestFetch<NotificationTypeInfo[]>('/api/notifications/preferences/types')
       ])
 
       state.value.preferences = preferences || []
       state.value.types = types || []
+      state.value.hasLoaded = true
+      return {
+        preferences: state.value.preferences,
+        types: state.value.types
+      }
     } catch (error) {
       console.error('Failed to fetch notification preferences:', error)
+      return {
+        preferences: state.value.preferences,
+        types: state.value.types
+      }
     } finally {
       state.value.isLoading = false
     }
@@ -223,10 +241,6 @@ export const useNotificationPreferences = () => {
     return pref?.inAppEnabled ?? true // Default to true for in-app
   }
 
-  if (!import.meta.server) {
-    initDesktopPermission()
-  }
-
   return {
     preferences: computed(() => state.value.preferences),
     types: computed(() => state.value.types),
@@ -237,6 +251,7 @@ export const useNotificationPreferences = () => {
     isDesktopPermissionGranted: permissionGranted,
 
     fetchPreferences,
+    initDesktopPermission,
     getPreference,
     getTypeInfo,
     updatePreference,

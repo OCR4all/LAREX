@@ -1,5 +1,6 @@
 export const useKeycloakUrls = () => {
   const { loggedIn } = useUserSession()
+  const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 
   const getAccountConsoleUrl = async () => {
     if (!loggedIn.value) {
@@ -7,7 +8,7 @@ export const useKeycloakUrls = () => {
     }
 
     try {
-      const config = await $fetch<{ serverUrl: string, realm: string }>('/api/auth/keycloak-config')
+      const config = await requestFetch<{ serverUrl: string, realm: string }>('/api/auth/keycloak-config')
       return `${config.serverUrl}/realms/${config.realm}/account`
     } catch (error) {
       console.error('Failed to get Keycloak configuration:', error)
@@ -21,7 +22,7 @@ export const useKeycloakUrls = () => {
     }
 
     try {
-      const url = await $fetch<string>('/api/auth/keycloak/password-change-url')
+      const url = await requestFetch<string>('/api/auth/keycloak/password-change-url')
       return url
     } catch (error) {
       console.error('Failed to get password change URL:', error)
@@ -35,7 +36,7 @@ export const useKeycloakUrls = () => {
     }
 
     try {
-      const url = await $fetch<string>('/api/auth/keycloak/delete-account-url')
+      const url = await requestFetch<string>('/api/auth/keycloak/delete-account-url')
       return url
     } catch (error) {
       console.error('Failed to get delete account URL:', error)

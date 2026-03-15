@@ -16,20 +16,23 @@ const membersKey = computed(() => {
 })
 
 const { data: members } = await useFetch<WorkspaceMember[]>(
-  `/api/workspaces/${selectedWorkspace.value}/members`,
+  () => `/api/workspaces/${selectedWorkspace.value as string}/members`,
   {
     key: membersKey,
     watch: [selectedWorkspace],
-    default: () => []
+    default: () => [],
+    immediate: !!selectedWorkspace.value
   })
 
-const { data: currentWorkspace } = await useFetch<{ isPersonal: boolean }>(
-  `/api/workspaces/${selectedWorkspace.value}`,
+const { data: currentWorkspace } = await useFetch<{ isPersonal: boolean } | null>(
+  () => `/api/workspaces/${selectedWorkspace.value as string}`,
   {
     key: computed(() => selectedWorkspace.value
       ? wsKey(selectedWorkspace.value, 'details')
       : globalKey('pending', 'workspace', 'details')),
-    watch: [selectedWorkspace]
+    watch: [selectedWorkspace],
+    default: () => null,
+    immediate: !!selectedWorkspace.value
   }
 )
 

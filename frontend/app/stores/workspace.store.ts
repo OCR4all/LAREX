@@ -126,13 +126,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    * This also triggers personal workspace creation on the backend if needed
    */
   const fetchWorkspaces = async (): Promise<Workspace[]> => {
-    if (import.meta.server) return []
+    const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 
     isLoading.value = true
     loadError.value = null
 
     try {
-      const res = await $fetch<Workspace[]>('/api/workspaces')
+      const res = await requestFetch<Workspace[]>('/api/workspaces')
       workspaces.value = Array.isArray(res) ? res : []
       hasFetched.value = true
       return workspaces.value
@@ -153,10 +153,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    * - Falls back to first available workspace if needed
    */
   const validateAndSelectWorkspace = async (): Promise<string | null> => {
-    if (import.meta.server) {
-      return selectedWorkspaceIdCookie.value
-    }
-
     const savedWorkspaceId = selectedWorkspaceIdCookie.value
 
     if (!hasFetched.value || workspaces.value.length === 0) {
@@ -175,7 +171,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
     const first = workspaces.value[0]
     if (first?.id) {
-      selectWorkspace(first.id)
+      selectedWorkspaceIdCookie.value = first.id
+      if (!import.meta.server) {
+        isAdminMode.value = false
+        adminWorkspace.value = null
+      }
       return first.id
     }
 

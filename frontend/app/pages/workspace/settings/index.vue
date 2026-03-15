@@ -42,7 +42,7 @@ const selectedWorkspace = computed(() => workspaceStore.selectedWorkspaceId)
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 
 const { data: workspace } = await useFetch<Workspace>(
-  `/api/workspaces/${selectedWorkspace.value}`,
+  () => `/api/workspaces/${selectedWorkspace.value as string}`,
   {
     key: computed(() => selectedWorkspace.value
       ? wsKey(selectedWorkspace.value, 'details')
@@ -53,7 +53,7 @@ const { data: workspace } = await useFetch<Workspace>(
 )
 
 const { data: storageQuota } = await useFetch<StorageQuota>(
-  `/api/storage/quotas/workspace/${selectedWorkspace.value}`,
+  () => `/api/storage/quotas/workspace/${selectedWorkspace.value as string}`,
   {
     key: computed(() => selectedWorkspace.value
       ? wsKey(selectedWorkspace.value, 'storage', 'quota')
@@ -120,7 +120,7 @@ function parseRecognitionIndices(value: string | undefined, gtIndex: number): nu
 }
 
 const { data: codecs, error: codecsError } = await useFetch<any[]>(
-  `/api/workspaces/${selectedWorkspace.value}/codecs`,
+  () => `/api/workspaces/${selectedWorkspace.value as string}/codecs`,
   {
     key: computed(() => selectedWorkspace.value
       ? wsKey(selectedWorkspace.value, 'codecs', 'list')
@@ -136,7 +136,7 @@ const { data: codecs, error: codecsError } = await useFetch<any[]>(
 )
 
 const { data: labelSets, error: labelSetsError } = await useFetch<any[]>(
-  `/api/workspaces/${selectedWorkspace.value}/label-sets`,
+  () => `/api/workspaces/${selectedWorkspace.value as string}/label-sets`,
   {
     key: computed(() => selectedWorkspace.value
       ? wsKey(selectedWorkspace.value, 'label-sets', 'list')
@@ -152,7 +152,7 @@ const { data: labelSets, error: labelSetsError } = await useFetch<any[]>(
 )
 
 const { data: tagSets, error: tagSetsError } = await useFetch<any[]>(
-  `/api/workspaces/${selectedWorkspace.value}/tag-sets`,
+  () => `/api/workspaces/${selectedWorkspace.value as string}/tag-sets`,
   {
     key: computed(() => selectedWorkspace.value
       ? wsKey(selectedWorkspace.value, 'tag-sets', 'list')

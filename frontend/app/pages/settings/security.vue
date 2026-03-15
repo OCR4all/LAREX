@@ -1,13 +1,14 @@
 <script setup lang="ts">
 const { getPasswordChangeUrl, getDeleteAccountUrl } = useKeycloakUrls()
 
-const passwordChangeUrl = ref<string | null>(null)
-const deleteAccountUrl = ref<string | null>(null)
-
-onMounted(async () => {
-  passwordChangeUrl.value = await getPasswordChangeUrl()
-  deleteAccountUrl.value = await getDeleteAccountUrl()
-})
+const { data: passwordChangeUrl } = await useAsyncData(
+  'settings-password-change-url',
+  () => getPasswordChangeUrl()
+)
+const { data: deleteAccountUrl } = await useAsyncData(
+  'settings-delete-account-url',
+  () => getDeleteAccountUrl()
+)
 
 const openPasswordChange = () => {
   if (passwordChangeUrl.value) {
