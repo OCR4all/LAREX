@@ -20,13 +20,19 @@ const emit = defineEmits<{
   remove: []
 }>()
 
-const colorMode = useColorMode()
-const isDark = computed(() => colorMode.value === 'dark')
-
 const safeColor = computed(() => isValidHex(props.color) ? props.color : '#6b7280')
 const normalizedHex = computed(() => safeColor.value.startsWith('#') ? safeColor.value : `#${safeColor.value}`)
-const tagStyles = computed(() => getTagColors(normalizedHex.value, props.variant, isDark.value))
-const dotColor = computed(() => props.variant === 'solid' ? tagStyles.value.color : normalizedHex.value)
+const lightTagStyles = computed(() => getTagColors(normalizedHex.value, props.variant, false))
+const darkTagStyles = computed(() => getTagColors(normalizedHex.value, props.variant, true))
+const dotColor = computed(() => props.variant === 'solid' ? lightTagStyles.value.color : normalizedHex.value)
+const tagStyleVars = computed(() => ({
+  '--tag-bg-light': lightTagStyles.value.backgroundColor,
+  '--tag-bg-dark': darkTagStyles.value.backgroundColor,
+  '--tag-color-light': lightTagStyles.value.color,
+  '--tag-color-dark': darkTagStyles.value.color,
+  '--tag-border-light': lightTagStyles.value.borderColor,
+  '--tag-border-dark': darkTagStyles.value.borderColor
+}))
 
 function handleRemove(e: MouseEvent) {
   e.stopPropagation()
@@ -37,14 +43,11 @@ function handleRemove(e: MouseEvent) {
 <template>
   <span
     :class="[
+      'ui-color-tag',
       'inline-flex items-center gap-1.5 rounded-sm border font-medium whitespace-nowrap align-middle',
       size === 'sm' ? 'px-1.5 py-0.5 text-[11px]' : size === 'lg' ? 'px-2.5 py-1 text-sm' : 'px-2 py-0.5 text-xs'
     ]"
-    :style="{
-      backgroundColor: tagStyles.backgroundColor,
-      color: tagStyles.color,
-      borderColor: tagStyles.borderColor
-    }"
+    :style="tagStyleVars"
   >
     <span
       v-if="dot"
@@ -74,3 +77,17 @@ function handleRemove(e: MouseEvent) {
     </button>
   </span>
 </template>
+
+<style scoped>
+.ui-color-tag {
+  background-color: var(--tag-bg-light);
+  color: var(--tag-color-light);
+  border-color: var(--tag-border-light);
+}
+
+:global(.dark) .ui-color-tag {
+  background-color: var(--tag-bg-dark);
+  color: var(--tag-color-dark);
+  border-color: var(--tag-border-dark);
+}
+</style>

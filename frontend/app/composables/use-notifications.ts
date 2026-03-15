@@ -50,7 +50,9 @@ export const useNotifications = () => {
   const lifecycleBound = useState<boolean>('notifications.lifecycleBound', () => false)
   const hasFetchedInitialNotifications = useState<boolean>('notifications.hasFetchedInitialNotifications', () => false)
   const hasFetchedInitialInvitations = useState<boolean>('notifications.hasFetchedInitialInvitations', () => false)
+  const hasLoadedInitialData = useState<boolean>('notifications.hasLoadedInitialData', () => false)
   const shownToastKeys = useState<Set<string>>('notifications.shownToastKeys', () => new Set())
+  const requestFetch = import.meta.server ? useRequestFetch() : $fetch
 
   const rememberShownToast = (key: string) => {
     const next = new Set(shownToastKeys.value)
@@ -169,11 +171,9 @@ export const useNotifications = () => {
    * Fetch notifications from API
    */
   const fetchNotifications = async () => {
-    if (import.meta.server) return
-
     try {
       const existingNotificationIds = new Set(state.value.notifications.map(n => n.id))
-      const data = await $fetch<Notification[]>('/api/notifications')
+      const data = await requestFetch<Notification[]>('/api/notifications')
       state.value.notifications = data || []
       updateUnreadCount()
 
@@ -196,11 +196,9 @@ export const useNotifications = () => {
    * Fetch pending invitations from API
    */
   const fetchInvitations = async () => {
-    if (import.meta.server) return
-
     try {
       const existingInvitationIds = new Set(state.value.invitations.map(inv => inv.id))
-      const data = await $fetch<WorkspaceInvitation[]>('/api/workspaces/invitations')
+      const data = await requestFetch<WorkspaceInvitation[]>('/api/workspaces/invitations')
       state.value.invitations = data || []
       updateUnreadCount()
 
@@ -223,16 +221,18 @@ export const useNotifications = () => {
    * Fetch incoming transfer requests for workspaces where user is admin
    */
   const fetchIncomingTransfers = async () => {
-    if (import.meta.server) return
-
     try {
       const workspaceStore = useWorkspaceStore()
       const workspaceId = workspaceStore.selectedWorkspaceId
-      if (!workspaceId) return
+      if (!workspaceId) {
+        state.value.incomingTransfers = []
+        updateUnreadCount()
+        return
+      }
 
       const [projectTransfers, resourceTransfers] = await Promise.all([
-        $fetch<TransferRequest[]>(`/api/project-transfers/workspace/${workspaceId}/incoming`),
-        $fetch<TransferRequest[]>(`/api/resource-transfers/workspace/${workspaceId}/incoming`)
+        requestFetch<TransferRequest[]>(`/api/project-transfers/workspace/${workspaceId}/incoming`),
+        requestFetch<TransferRequest[]>(`/api/resource-transfers/workspace/${workspaceId}/incoming`)
       ])
       state.value.incomingTransfers = [...(projectTransfers || []), ...(resourceTransfers || [])]
       updateUnreadCount()
@@ -251,6 +251,15 @@ export const useNotifications = () => {
     } finally {
       isLoading.value = false
     }
+  }
+
+  const ensureInitialData = async () => {
+    if (hasLoadedInitialData.value) {
+      return
+    }
+
+    await refresh()
+    hasLoadedInitialData.value = true
   }
 
   /**
@@ -440,7 +449,7 @@ export const useNotifications = () => {
   const initialize = async () => {
     const { fetchPreferences } = useNotificationPreferences()
     await fetchPreferences()
-    await refresh()
+    await ensureInitialData()
     connectWebSocket()
 
     startPolling()
@@ -558,6 +567,7 @@ export const useNotifications = () => {
     fetchInvitations,
     fetchIncomingTransfers,
     refresh,
+    ensureInitialData,
     markAsRead,
     markAllAsRead,
     archiveAllRead,

@@ -9,7 +9,9 @@ defineProps<{
 const colorMode = useColorMode()
 const { user } = useUserSession()
 const { isNotificationsSlideoverOpen } = useDashboard()
-const { unreadCount } = useNotifications()
+const { unreadCount, ensureInitialData } = useNotifications()
+
+await ensureInitialData()
 
 const displayName = computed(() => {
   return user.value?.name || user.value?.login || 'User'

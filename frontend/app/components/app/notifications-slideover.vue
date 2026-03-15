@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { formatTimeAgo } from '@vueuse/core'
 import type { Notification, NotificationGroup, WorkspaceInvitation } from '~/types'
 import { ROLE_LABELS } from '~/types'
 import { getNotificationLink } from '~/utils/notifications'
@@ -19,6 +18,7 @@ const {
   groupedNotifications,
   invitations,
   incomingTransfers,
+  ensureInitialData,
   refresh,
   markAsRead: markNotificationAsRead,
   markAllAsRead,
@@ -26,6 +26,8 @@ const {
   hasReadNotifications,
   toggleGroupExpanded
 } = useNotifications()
+
+await ensureInitialData()
 
 type TransferRequest = {
   id: string
@@ -296,7 +298,7 @@ async function handleArchiveAllRead() {
                 <div class="text-sm flex-1 min-w-0">
                   <p class="flex items-center justify-between gap-2">
                     <span class="text-highlighted font-medium truncate">{{ group.items[0].title }}</span>
-                    <time :datetime="group.items[0].created" class="text-muted text-xs shrink-0" v-text="formatTimeAgo(new Date(group.items[0].created))" />
+                    <NuxtTime :datetime="group.items[0].created" relative class="text-muted text-xs shrink-0" />
                   </p>
                   <p class="text-dimmed truncate">
                     {{ group.items[0].message }}
@@ -317,7 +319,7 @@ async function handleArchiveAllRead() {
                   <div class="text-sm flex-1 min-w-0">
                     <p class="flex items-center justify-between gap-2">
                       <span class="text-highlighted font-medium truncate">{{ getGroupTitle(group) }}</span>
-                      <time :datetime="group.latestCreated" class="text-muted text-xs shrink-0" v-text="formatTimeAgo(new Date(group.latestCreated))" />
+                      <NuxtTime :datetime="group.latestCreated" relative class="text-muted text-xs shrink-0" />
                     </p>
                     <p class="text-dimmed text-xs flex items-center gap-1">
                       <UIcon :name="group.isExpanded ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="w-3 h-3" />

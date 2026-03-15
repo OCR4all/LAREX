@@ -17,6 +17,8 @@ const toast = useToast()
 const overlay = useOverlay()
 const { refreshTaskOverview } = useTaskOverviewRefresh()
 
+await useWorkspaceBootstrap()
+
 const workspace = useWorkspaceStore()
 const selectedWorkspace = computed(() => workspace.selectedWorkspaceId)
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)

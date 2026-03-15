@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import { wsKey } from '@/utils/fetch-keys'
+import { globalKey, wsKey } from '@/utils/fetch-keys'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const NuxtTime = resolveComponent('NuxtTime')
+
+await useWorkspaceBootstrap()
 
 const toast = useToast()
 const workspace = useWorkspaceStore()
@@ -29,35 +31,47 @@ type TransferRequest = {
 }
 
 const { data: incomingProjects } = await useFetch<TransferRequest[]>(
-  () => `/api/project-transfers/workspace/${selectedWorkspace.value}/incoming`,
+  () => `/api/project-transfers/workspace/${selectedWorkspace.value as string}/incoming`,
   {
-    key: computed(() => wsKey(selectedWorkspace.value as string, 'project-transfers', 'incoming')),
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'project-transfers', 'incoming')
+      : globalKey('pending', 'project-transfers', 'incoming')),
     watch: [selectedWorkspace],
-    default: () => []
+    default: () => [],
+    immediate: !!selectedWorkspace.value
   }
 )
 const { data: incomingResources } = await useFetch<TransferRequest[]>(
-  () => `/api/resource-transfers/workspace/${selectedWorkspace.value}/incoming`,
+  () => `/api/resource-transfers/workspace/${selectedWorkspace.value as string}/incoming`,
   {
-    key: computed(() => wsKey(selectedWorkspace.value as string, 'resource-transfers', 'incoming')),
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'resource-transfers', 'incoming')
+      : globalKey('pending', 'resource-transfers', 'incoming')),
     watch: [selectedWorkspace],
-    default: () => []
+    default: () => [],
+    immediate: !!selectedWorkspace.value
   }
 )
 const { data: outgoingProjects } = await useFetch<TransferRequest[]>(
-  () => `/api/project-transfers/workspace/${selectedWorkspace.value}/outgoing`,
+  () => `/api/project-transfers/workspace/${selectedWorkspace.value as string}/outgoing`,
   {
-    key: computed(() => wsKey(selectedWorkspace.value as string, 'project-transfers', 'outgoing')),
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'project-transfers', 'outgoing')
+      : globalKey('pending', 'project-transfers', 'outgoing')),
     watch: [selectedWorkspace],
-    default: () => []
+    default: () => [],
+    immediate: !!selectedWorkspace.value
   }
 )
 const { data: outgoingResources } = await useFetch<TransferRequest[]>(
-  () => `/api/resource-transfers/workspace/${selectedWorkspace.value}/outgoing`,
+  () => `/api/resource-transfers/workspace/${selectedWorkspace.value as string}/outgoing`,
   {
-    key: computed(() => wsKey(selectedWorkspace.value as string, 'resource-transfers', 'outgoing')),
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'resource-transfers', 'outgoing')
+      : globalKey('pending', 'resource-transfers', 'outgoing')),
     watch: [selectedWorkspace],
-    default: () => []
+    default: () => [],
+    immediate: !!selectedWorkspace.value
   }
 )
 
