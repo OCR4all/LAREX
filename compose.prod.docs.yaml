@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.prod
     restart: unless-stopped
     ports:
-      - "${LAREX_BIND_IP:-127.0.0.1}:3001:3000"
+      - "${LAREX_BIND_IP:-127.0.0.1}:${LAREX_DOCS_PORT:-3001}:3000"
     networks:
       - backend
 

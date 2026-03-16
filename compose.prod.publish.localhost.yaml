@@ -3,4 +3,4 @@ name: larex-prod
 services:
   frontend:
     ports:
-      - "${LAREX_BIND_IP:-127.0.0.1}:3000:3000"
+      - "${LAREX_BIND_IP:-127.0.0.1}:${LAREX_FRONTEND_PORT:-3000}:3000"

@@ -4,7 +4,7 @@ services:
     restart: unless-stopped
     command: start --import-realm
     ports:
-      - "${LAREX_BIND_IP:-127.0.0.1}:8090:8080"
+      - "${LAREX_BIND_IP:-127.0.0.1}:${KEYCLOAK_PUBLISHED_PORT:-8090}:8080"
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/larexdb
