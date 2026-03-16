@@ -44,6 +44,10 @@
       "secret": "PLEASE_CHANGE_IN_PRODUCTION",
       "serviceAccountsEnabled": true,
       "directAccessGrantsEnabled": true,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "roles"
+      ],
       "protocol": "openid-connect",
       "clientAuthenticatorType": "client-secret",
       "publicClient": false

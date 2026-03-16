@@ -28,6 +28,17 @@
       "config": {}
     }
   ],
+  "smtpServer": {
+    "host": "${MAIL_HOST:smtp.example.com}",
+    "port": "${MAIL_PORT:587}",
+    "from": "${MAIL_FROM:noreply@example.com}",
+    "fromDisplayName": "${KEYCLOAK_SMTP_FROM_DISPLAY_NAME:LAREX}",
+    "auth": "${MAIL_SMTP_AUTH:true}",
+    "user": "${MAIL_USERNAME:}",
+    "password": "${MAIL_PASSWORD:}",
+    "ssl": "${MAIL_SMTP_SSL_ENABLE:false}",
+    "starttls": "${MAIL_SMTP_STARTTLS:true}"
+  },
   "clients": [
     {
       "clientId": "larex-backend-service",
@@ -37,7 +48,10 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
-      "fullScopeAllowed": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "roles"
+      ],
       "protocol": "openid-connect",
       "clientAuthenticatorType": "client-secret",
       "publicClient": false
