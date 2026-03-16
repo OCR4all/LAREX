@@ -56,9 +56,21 @@ services:
       KEYCLOAK_ADMIN_REALM: ${KEYCLOAK_REALM:-larex-local}
       NUXT_OAUTH_KEYCLOAK_REDIRECT_URL: ${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL:-http://larex.localhost/auth/keycloak}
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://larex.localhost}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@larex.localhost}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_SSL_ENABLE: ${MAIL_SMTP_SSL_ENABLE:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
+      KEYCLOAK_SMTP_FROM_DISPLAY_NAME: ${KEYCLOAK_SMTP_FROM_DISPLAY_NAME:-LAREX Dev}
     networks:
       - backend
       - default
+    depends_on:
+      mailpit:
+        condition: service_started
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.keycloak.rule=Host(`keycloak.localhost`)"
