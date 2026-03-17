@@ -816,8 +816,10 @@ watch([selectedTextlineIdFromSharedSelection, textlines], ([selectedId, lines]) 
   selectedTextlineId.value = lines.some(line => line.id === selectedId) ? selectedId : null
 }, { immediate: true })
 
-const completedCount = computed(() => {
-  return textlines.value.filter(tl => tl.hasAnyText).length
+const totalTextlineCount = computed(() => {
+  const runtime = getRuntimeControls()
+  const polygons = runtime?.polygons ?? []
+  return polygons.filter(p => p.type === PolygonType.TEXTLINE).length
 })
 
 const displayTextlines = computed(() => {
@@ -1064,7 +1066,7 @@ const sectionMenuItems = computed(() => [[
             size="sm"
             class="shrink-0 font-mono"
           >
-            {{ completedCount }}/{{ textlines.length }}
+            {{ displayTextlines.length }}/{{ totalTextlineCount }}
           </UBadge>
         </div>
 
