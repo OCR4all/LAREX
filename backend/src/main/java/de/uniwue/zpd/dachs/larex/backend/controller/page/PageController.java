@@ -191,6 +191,21 @@ public class PageController {
     }
 
     /**
+     * Get text region IDs that match the text content filter within a page.
+     * Used to highlight matching text regions in the UI.
+     */
+    @GetMapping("/{pageId}/matching-textregions")
+    public ResponseEntity<PageDto.MatchingTextRegionsResponse> getMatchingTextRegions(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @RequestParam String textContent,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        List<String> regionIds = pageFilterIndexService.getMatchingTextRegionIds(pageId, textContent);
+        return ResponseEntity.ok(new PageDto.MatchingTextRegionsResponse(pageId, regionIds));
+    }
+
+    /**
      * Get index statistics for a project.
      */
     @GetMapping("/index-stats")

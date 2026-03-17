@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LazyUiConfirmModal } from '#components'
 import { VueDraggable } from 'vue-draggable-plus'
-import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
+import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType } from '@/models/editor'
 import type { TextContentVariantData } from '@/models/editor'
 import type { RenderablePolygon } from '@/types/editor/rendering'
@@ -10,8 +10,7 @@ import { worldToImage } from '@/utils/editor/coordinates'
 import { getRegionColor } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 import type { RegionKind } from '@/models/editor/region'
-import type { CommandContext } from '@/commands'
-import { Commander, DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextContentVariantsCommand } from '@/commands'
+import { CompoundCommand, DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextContentVariantsCommand } from '@/commands'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
 import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -27,6 +26,22 @@ import {
   filterTextContentVariants,
   getMinVariantConfidence
 } from './variant-filtering'
+import {
+  buildRegionGtSyncedVariants,
+  composeRegionGtFromTextLines
+} from '../shared/region-gt-sync'
+import {
+  focusNextSameIndex,
+  focusTextContentVariantAtOffset
+} from '../shared/text-field-navigation'
+import {
+  createTextViewCommandContext,
+  getRequestErrorMessage,
+  getTextViewRuntimeControls,
+  lowestFreeIndex,
+  normalizeTextContentVariants,
+  sortByIndex
+} from '../shared/text-view-runtime'
 
 const log = createScopedLogger('TextView')
 
@@ -169,32 +184,18 @@ const showNonAssignedIndicesModel = computed({
   }
 })
 
-const onlyMissingGtLinesModel = computed({
-  get: () => textViewSettings.value.onlyMissingGtLines,
+const onlyMissingGtModel = computed({
+  get: () => textViewSettings.value.onlyMissingGt,
   set: (next: boolean) => {
     sessionStore.updateTextViewSettings(current => ({
       ...current,
-      onlyMissingGtLines: Boolean(next)
+      onlyMissingGt: Boolean(next)
     }))
   }
 })
 
 function normalizeSingleLineText(value: string): string {
   return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
-}
-
-function getRequestErrorMessage(error: unknown): string {
-  if (typeof error === 'object' && error) {
-    const data = 'data' in error ? error.data : undefined
-    if (typeof data === 'object' && data && 'message' in data && typeof data.message === 'string') {
-      return data.message
-    }
-    if ('message' in error && typeof error.message === 'string') {
-      return error.message
-    }
-  }
-
-  return 'Request failed'
 }
 
 function looksLikeWorldCoords(points: Point[]): boolean {
@@ -207,59 +208,6 @@ function toImagePoints(points: Point[]): Point[] {
   if (!imageSize) return points
   if (!looksLikeWorldCoords(points)) return points
   return points.map(p => worldToImage(p, imageSize))
-}
-
-function isVisibleElement(el: HTMLElement): boolean {
-  return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length)
-}
-
-function getVisibleTextContentVariantTextareas(): HTMLTextAreaElement[] {
-  const el = rootEl.value
-  if (!el) return []
-  const textareas = Array.from(el.querySelectorAll<HTMLTextAreaElement>('textarea[data-textequiv-pos]'))
-  return textareas
-    .filter(t => !t.disabled)
-    .filter(t => isVisibleElement(t))
-}
-
-function focusTextContentVariantAtOffset(delta: 1 | -1): void {
-  const all = getVisibleTextContentVariantTextareas()
-  if (all.length === 0) return
-
-  const active = document.activeElement
-  const currentIndex = active instanceof HTMLTextAreaElement ? all.indexOf(active) : -1
-
-  const nextIndexRaw = currentIndex >= 0
-    ? currentIndex + delta
-    : (delta === 1 ? 0 : all.length - 1)
-
-  const nextIndex = (nextIndexRaw + all.length) % all.length
-  const next = all[nextIndex]
-  if (!next) return
-  next.focus()
-}
-
-function focusNextSameIndex(): void {
-  const all = getVisibleTextContentVariantTextareas()
-  if (all.length === 0) return
-
-  const active = document.activeElement
-  if (!(active instanceof HTMLTextAreaElement)) return
-
-  const currentIndex = all.indexOf(active)
-  if (currentIndex < 0) return
-
-  const idx = active.dataset.textequivIndex
-  if (!idx) return
-
-  for (let step = 1; step <= all.length; step++) {
-    const candidate = all[(currentIndex + step) % all.length]
-    if (!candidate) continue
-    if (candidate.dataset.textequivIndex === idx) {
-      candidate.focus()
-      return
-    }
-  }
 }
 
 function triggerCreateGtForSelectedTextline(): boolean {
@@ -288,11 +236,11 @@ useTextViewShortcutScope({
   rootEl,
   handlers: {
     nextTextField: () => {
-      focusTextContentVariantAtOffset(1)
+      focusTextContentVariantAtOffset(rootEl, 1)
       return true
     },
     prevTextField: () => {
-      focusTextContentVariantAtOffset(-1)
+      focusTextContentVariantAtOffset(rootEl, -1)
       return true
     },
     blurTextField: () => {
@@ -302,7 +250,7 @@ useTextViewShortcutScope({
       return true
     },
     nextSameIndexField: () => {
-      focusNextSameIndex()
+      focusNextSameIndex(rootEl)
       return true
     },
     createGtFromRecognition: () => triggerCreateGtForSelectedTextline()
@@ -339,37 +287,6 @@ const activeTextHighlightQuery = computed(() => {
   if (backendQuery) return backendQuery
   return searchQuery.value.trim()
 })
-
-type TextRuntimeControls = {
-  polygons: RenderablePolygon[]
-  commander?: Commander
-  selectedPolygonId?: { value: string | null }
-  selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-  selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-}
-
-function getRuntimeControls(): TextRuntimeControls | null {
-  const canvasId = effectiveCanvasId.value
-  if (!canvasId) return null
-  const session = import.meta.client ? ensureEditorSession(canvasId) : getEditorSession(canvasId)
-  const controls = session?.controls.value as TextRuntimeControls | null
-
-  // In pure text mode, the layout runtime may not be mounted, so controls/commander can be missing.
-  // Provide a session-persistent fallback commander so text actions (add/edit/delete/reorder) still work.
-  if (!controls) {
-    const fallbackControls = { commander: new Commander() }
-    if (session) session.controls.value = fallbackControls
-    const polygons = editorStore.regionsByCanvasId(canvasId)
-    return { polygons, commander: fallbackControls.commander }
-  }
-
-  if (!controls.commander) {
-    controls.commander = new Commander()
-  }
-
-  const polygons = controls.polygons ?? editorStore.regionsByCanvasId(canvasId)
-  return { polygons, commander: controls.commander }
-}
 
 const textLineReadingDirectionById = computed(() => {
   const canvasId = effectiveCanvasId.value
@@ -426,7 +343,7 @@ interface SortableUpdateEvent {
 function handleSelectTextline(textlineId: string): void {
   selectedTextlineId.value = textlineId
 
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   runtime?.selectPolylineById?.(null, { zoomToFit: false })
   runtime?.selectPolygonById?.(textlineId, { zoomToFit: false })
 
@@ -440,21 +357,16 @@ function handleSelectTextline(textlineId: string): void {
 
 function persistRegionOrder(regionId: string, orderedTextLineIds: string[]): void {
   if (regionId === '__unassigned__') return
-  const canvasId = effectiveCanvasId.value
-  if (!canvasId) return
 
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return
-
-  const session = getEditorSession(canvasId)
-  const commandCtx: CommandContext | undefined = session ? { canvasId, session } : undefined
 
   runtime.commander.execute(
     new ReorderTextLinesCommand({
       parentTextRegionId: regionId,
       orderedTextLineIds
     }),
-    commandCtx
+    createTextViewCommandContext(effectiveCanvasId.value)
   )
 }
 
@@ -468,16 +380,10 @@ async function handleDeleteTextline(textlineId: string): Promise<void> {
   const confirmed = await instance.result
   if (!confirmed) return
 
-  const canvasId = effectiveCanvasId.value
-  if (!canvasId) return
-
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return
 
-  const session = getEditorSession(canvasId)
-  const commandCtx: CommandContext | undefined = session ? { canvasId, session } : undefined
-
-  runtime.commander.execute(new DeletePolygonCommand({ polygonId: textlineId }), commandCtx)
+  runtime.commander.execute(new DeletePolygonCommand({ polygonId: textlineId }), createTextViewCommandContext(effectiveCanvasId.value))
   if (selectedTextlineId.value === textlineId) selectedTextlineId.value = null
 }
 
@@ -494,44 +400,19 @@ function handleRegionReorder(regionId: string, event: SortableUpdateEvent): void
   persistRegionOrder(regionId, current)
 }
 
-function lowestFreeIndex(existing: TextContentVariantData[]): number {
-  const used = new Set(existing.map(te => te.index).filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0))
-  let idx = 0
-  while (used.has(idx)) idx++
-  return idx
-}
-
-function sortByIndex(a: TextContentVariantData, b: TextContentVariantData): number {
-  const ai = typeof a.index === 'number' && Number.isFinite(a.index) ? a.index : -1
-  const bi = typeof b.index === 'number' && Number.isFinite(b.index) ? b.index : -1
-  return ai - bi
-}
-
-function normalizeTextContentVariants(textContentVariants: TextContentVariantData[] | undefined): TextContentVariantData[] {
-  const current = (textContentVariants ?? []).map(te => ({ ...te }))
-  current.sort(sortByIndex)
-  return current
-}
-
 function commitTextContentVariants(textlineId: string, nextTextContentVariants: TextContentVariantData[] | undefined): void {
-  const canvasId = effectiveCanvasId.value
-  if (!canvasId) return
-
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return
-
-  const session = getEditorSession(canvasId)
-  const commandCtx: CommandContext | undefined = session ? { canvasId, session } : undefined
 
   const command = new UpdateTextContentVariantsCommand({
     elementId: textlineId,
     nextTextContentVariants
   })
-  runtime.commander.execute(command, commandCtx)
+  runtime.commander.execute(command, createTextViewCommandContext(effectiveCanvasId.value))
 }
 
 function handleAddTextContentVariant(textlineId: string): void {
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
   if (!region) return
@@ -545,7 +426,7 @@ function handleAddTextContentVariant(textlineId: string): void {
 }
 
 function handleRemoveTextContentVariant(textlineId: string, arrayPos: number): void {
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
   if (!region) return
@@ -558,7 +439,7 @@ function handleRemoveTextContentVariant(textlineId: string, arrayPos: number): v
 }
 
 function handleCommitTextContentVariant(textlineId: string, pos: number, text: string): void {
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
   if (!region) return
@@ -573,7 +454,7 @@ function handleCommitTextContentVariant(textlineId: string, pos: number, text: s
 }
 
 function handleCreateGtFromRecognition(textlineId: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }) {
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
   if (!region) return
@@ -698,7 +579,7 @@ function handleOpenKeyboardEditor() {
 function handleCommitTextContentVariantIndex(textlineId: string, pos: number, toIndex: number | undefined): void {
   if (toIndex !== undefined && (!Number.isInteger(toIndex) || toIndex < 0)) return
 
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
   if (!region) return
@@ -725,6 +606,49 @@ function handleCommitTextContentVariantIndex(textlineId: string, pos: number, to
   commitTextContentVariants(textlineId, current)
 }
 
+const topLevelTextRegions = computed(() => {
+  const canvasId = effectiveCanvasId.value
+  if (!canvasId) return []
+  const session = getEditorSession(canvasId)
+  return (session?.document.value?.page?.regions ?? []).filter(isTextRegion)
+})
+
+function findTopLevelTextRegion(regionId: string) {
+  return topLevelTextRegions.value.find(region => region.id === regionId)
+}
+
+function buildRegionSyncCommand(regionId: string): UpdateTextContentVariantsCommand | null {
+  const region = findTopLevelTextRegion(regionId)
+  if (!region) return null
+
+  const nextGtText = composeRegionGtFromTextLines(region.textLines, gtIndexModel.value)
+  const nextVariants = buildRegionGtSyncedVariants(
+    region.textContentVariants as TextContentVariantData[] | undefined,
+    nextGtText,
+    gtIndexModel.value
+  )
+  const currentVariants = normalizeTextContentVariants(region.textContentVariants as TextContentVariantData[] | undefined)
+  const normalizedNext = normalizeTextContentVariants(nextVariants)
+
+  if (JSON.stringify(currentVariants) === JSON.stringify(normalizedNext)) return null
+
+  return new UpdateTextContentVariantsCommand({
+    elementId: regionId,
+    nextTextContentVariants: nextVariants
+  })
+}
+
+function syncRegionGtFromTextLines(regionId: string): boolean {
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  if (!runtime?.commander) return false
+
+  const command = buildRegionSyncCommand(regionId)
+  if (!command) return false
+
+  runtime.commander.execute(command, createTextViewCommandContext(effectiveCanvasId.value))
+  return true
+}
+
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
   if (typeof index === 'number' && index === gtIndexModel.value) return 'gt'
   if (index === undefined && recognitionIndicesModel.value.includes(-1)) return 'recognition'
@@ -736,7 +660,7 @@ const textlines = computed(() => {
   const canvasId = effectiveCanvasId.value
   if (!canvasId) return []
 
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(canvasId, editorStore)
   const regions = runtime?.polygons ?? []
   const variantFilterState = createVariantFilterState({
     selectedIndices: selectedIndicesModel.value,
@@ -797,7 +721,7 @@ const textlines = computed(() => {
 })
 
 const selectedTextlineIdFromSharedSelection = computed(() => {
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygonSelection = runtime?.selectedPolygonId?.value ?? null
   if (typeof polygonSelection === 'string' && polygonSelection.length > 0) {
     return polygonSelection
@@ -816,7 +740,7 @@ watch([selectedTextlineIdFromSharedSelection, textlines], ([selectedId, lines]) 
 }, { immediate: true })
 
 const totalTextlineCount = computed(() => {
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygons = runtime?.polygons ?? []
   return polygons.filter(p => p.type === PolygonType.TEXTLINE).length
 })
@@ -825,7 +749,7 @@ const displayTextlines = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   let items = [...textlines.value]
 
-  if (onlyMissingGtLinesModel.value) {
+  if (onlyMissingGtModel.value) {
     items = items.filter(tl => !tl.hasGtVariant)
   }
 
@@ -859,7 +783,7 @@ const displayTextlines = computed(() => {
 })
 
 const regionMeta = computed(() => {
-  const runtime = getRuntimeControls()
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygons = runtime?.polygons ?? []
   const regionPolygons = polygons.filter(p => p.type === PolygonType.REGION)
   const regionById = new Map(regionPolygons.map(r => [r.id, r]))
@@ -871,12 +795,14 @@ const regionMeta = computed(() => {
 
   const regions = [...parentIds].map((id) => {
     const region = regionById.get(id)
+    const canSyncFromTextlines = Boolean(region?.parentId == null && region?.regionKind === 'TextRegion')
     return {
       id,
       label: region?.label ?? id,
       regionSubtype: region?.regionSubtype,
       regionKind: region?.regionKind,
-      color: regionColor(region?.regionKind, region?.regionSubtype, region?.regionCustom)
+      color: regionColor(region?.regionKind, region?.regionSubtype, region?.regionCustom),
+      canSyncFromTextlines
     }
   }).sort((a, b) => a.label.localeCompare(b.label))
 
@@ -886,7 +812,8 @@ const regionMeta = computed(() => {
       label: 'Unassigned',
       regionSubtype: undefined,
       regionKind: undefined,
-      color: '#666'
+      color: '#666',
+      canSyncFromTextlines: false
     })
   }
 
@@ -983,10 +910,10 @@ const filterMenuItems = computed(() => {
       {
         label: 'Only lines without GT',
         icon: 'i-lucide-leaf',
-        active: onlyMissingGtLinesModel.value,
+        active: onlyMissingGtModel.value,
         activeColor: 'primary',
         activeVariant: 'solid',
-        onSelect: () => { onlyMissingGtLinesModel.value = !onlyMissingGtLinesModel.value }
+        onSelect: () => { onlyMissingGtModel.value = !onlyMissingGtModel.value }
       }
     ]
   ]
@@ -1022,27 +949,61 @@ const hasCollapsedRegions = computed(() => {
 })
 
 const hasActiveLocalFilters = computed(() => {
-  return filterMode.value !== 'all' || onlyMissingGtLinesModel.value
+  return filterMode.value !== 'all' || onlyMissingGtModel.value
 })
 
-const sectionMenuItems = computed(() => [[
-  {
-    label: 'Expand all sections',
-    icon: 'i-lucide-unfold-vertical',
-    active: !hasCollapsedRegions.value,
-    activeColor: 'primary',
-    activeVariant: 'solid',
-    onSelect: () => { expandAll() }
-  },
-  {
-    label: 'Collapse all sections',
-    icon: 'i-lucide-fold-vertical',
-    active: hasCollapsedRegions.value,
-    activeColor: 'primary',
-    activeVariant: 'solid',
-    onSelect: () => { collapseAll(regionMeta.value.map(r => r.id)) }
-  }
-]])
+const visibleSyncableRegionIds = computed(() => {
+  return regionMeta.value
+    .filter(region => region.canSyncFromTextlines && (textlinesByRegion.value.get(region.id)?.length ?? 0) > 0)
+    .map(region => region.id)
+})
+
+const sectionMenuItems = computed(() => {
+  const items = [[
+    {
+      label: 'Sync visible regions from textlines',
+      icon: 'i-lucide-refresh-cw',
+      disabled: visibleSyncableRegionIds.value.length === 0,
+      onSelect: () => {
+        const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+        if (!runtime?.commander) return
+
+        const commands = visibleSyncableRegionIds.value
+          .map(regionId => buildRegionSyncCommand(regionId))
+          .filter((command): command is UpdateTextContentVariantsCommand => Boolean(command))
+
+        if (commands.length === 0) {
+          toast.add({ title: 'Nothing to sync', color: 'neutral' })
+          return
+        }
+
+        runtime.commander.execute(
+          new CompoundCommand(commands, `Sync region GT from textlines (${commands.length})`),
+          createTextViewCommandContext(effectiveCanvasId.value)
+        )
+      }
+    }
+  ], [
+    {
+      label: 'Expand all sections',
+      icon: 'i-lucide-unfold-vertical',
+      active: !hasCollapsedRegions.value,
+      activeColor: 'primary',
+      activeVariant: 'solid',
+      onSelect: () => { expandAll() }
+    },
+    {
+      label: 'Collapse all sections',
+      icon: 'i-lucide-fold-vertical',
+      active: hasCollapsedRegions.value,
+      activeColor: 'primary',
+      activeVariant: 'solid',
+      onSelect: () => { collapseAll(regionMeta.value.map(r => r.id)) }
+    }
+  ]]
+
+  return items
+})
 </script>
 
 <template>
@@ -1111,8 +1072,8 @@ const sectionMenuItems = computed(() => [[
               size="sm"
               icon="i-lucide-ellipsis-vertical"
               class="h-8 w-8"
-              title="Section visibility"
-              aria-label="Section visibility"
+              title="Textline actions"
+              aria-label="Textline actions"
             />
           </UDropdownMenu>
         </div>
@@ -1187,6 +1148,16 @@ const sectionMenuItems = computed(() => [[
                   {{ region.regionSubtype ?? region.regionKind }}
                 </span>
               </div>
+              <UButton
+                v-if="region.canSyncFromTextlines"
+                color="neutral"
+                variant="soft"
+                size="xs"
+                icon="i-lucide-refresh-cw"
+                @click.stop="syncRegionGtFromTextLines(region.id)"
+              >
+                Sync GT From Textlines
+              </UButton>
               <UButton
                 color="neutral"
                 variant="ghost"

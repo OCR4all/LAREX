@@ -345,6 +345,13 @@ public class PageFilterIndexService {
         return textContentRepository.findTextLineIdsByPageIdAndTextContentContaining(pageId, textContent.trim());
     }
 
+    public List<String> getMatchingTextRegionIds(String pageId, String textContent) {
+        if (textContent == null || textContent.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return textContentRepository.findRegionIdsByPageIdAndTextContentContaining(pageId, textContent.trim());
+    }
+
     public Map<String, Object> getIndexStats(String projectId) {
         Map<String, Object> stats = new HashMap<>();
 

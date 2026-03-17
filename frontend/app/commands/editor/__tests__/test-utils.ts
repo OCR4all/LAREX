@@ -74,13 +74,14 @@ export function createMockSession(initialDocument?: PcGts): {
   const spatialIndex = createSpatialIndex()
   const controlsRef = shallowRef<unknown | null>(null)
   const textViewSettingsRef = shallowRef({
+    mode: 'textline' as const,
     gtIndex: 0,
     showDiff: false,
     confidenceRange: [0, 1] as [number, number],
     selectedIndices: [] as number[],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGtLines: false,
+    onlyMissingGt: false,
     padding: 10
   })
 

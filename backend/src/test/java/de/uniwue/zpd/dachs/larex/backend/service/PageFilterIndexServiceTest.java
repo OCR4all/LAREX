@@ -317,6 +317,14 @@ class PageFilterIndexServiceTest {
         verify(textContentRepository, never()).findTextLineIdsByPageIdAndTextContentContaining(eq("page-1"), eq("   "));
     }
 
+    @Test
+    void getMatchingTextRegionIds_skipsBlankQueries() {
+        List<String> result = service.getMatchingTextRegionIds("page-1", "   ");
+
+        assertTrue(result.isEmpty());
+        verify(textContentRepository, never()).findRegionIdsByPageIdAndTextContentContaining(eq("page-1"), eq("   "));
+    }
+
     private static Page page(String pageId, String projectId) {
         Project project = new Project();
         project.setId(projectId);

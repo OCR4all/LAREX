@@ -36,6 +36,7 @@ const workspaceStore = useWorkspaceStore()
 
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const textViewSettings = computed(() => sessionStore.textViewSettings)
+const textElementType = computed(() => textViewSettings.value?.mode === 'region' ? PolygonType.REGION : PolygonType.TEXTLINE)
 
 const paddingModel = computed({
   get: () => uiStore.textViewPadding,
@@ -180,7 +181,7 @@ const availableIndices = computed(() => {
   const indices = new Set<number>()
 
   for (const r of regions) {
-    if (r.type !== PolygonType.TEXTLINE) continue
+    if (r.type !== textElementType.value) continue
     for (const te of r.textContentVariants ?? []) {
       if (typeof te.index === 'number' && Number.isFinite(te.index) && te.index >= 0) {
         indices.add(te.index)
@@ -196,7 +197,7 @@ const hasUnindexed = computed(() => {
   const regions = getRenderablePolygonsForCanvas(canvasId)
 
   for (const r of regions) {
-    if (r.type !== PolygonType.TEXTLINE) continue
+    if (r.type !== textElementType.value) continue
     for (const te of r.textContentVariants ?? []) {
       if (typeof te.index !== 'number' || !Number.isFinite(te.index) || te.index < 0) {
         return true

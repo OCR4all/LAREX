@@ -7,13 +7,14 @@ interface ProjectSessionState {
 }
 
 export interface EditorTextViewSettings {
+  mode: 'textline' | 'region'
   gtIndex: number | undefined
   showDiff: boolean
   confidenceRange: [number, number]
   selectedIndices: number[]
   filterUnindexed: boolean
   showNonAssignedIndices: boolean
-  onlyMissingGtLines: boolean
+  onlyMissingGt: boolean
 }
 
 interface MultiProjectEditorSessionState {
@@ -43,13 +44,14 @@ function createEmptyProjectState(): ProjectSessionState {
 
 function createDefaultTextViewSettings(): EditorTextViewSettings {
   return {
+    mode: 'textline',
     gtIndex: 0,
     showDiff: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGtLines: false
+    onlyMissingGt: false
   }
 }
 
@@ -139,13 +141,14 @@ function normalizeTextViewSettings(value: unknown): EditorTextViewSettings {
     : defaults.selectedIndices
 
   return {
+    mode: candidate.mode === 'region' ? 'region' : defaults.mode,
     gtIndex,
     showDiff: Boolean(candidate.showDiff ?? defaults.showDiff),
     confidenceRange,
     selectedIndices,
     filterUnindexed: Boolean(candidate.filterUnindexed ?? defaults.filterUnindexed),
     showNonAssignedIndices: Boolean(candidate.showNonAssignedIndices ?? defaults.showNonAssignedIndices),
-    onlyMissingGtLines: Boolean(candidate.onlyMissingGtLines ?? defaults.onlyMissingGtLines)
+    onlyMissingGt: Boolean(candidate.onlyMissingGt ?? candidate.onlyMissingGtLines ?? defaults.onlyMissingGt)
   }
 }
 

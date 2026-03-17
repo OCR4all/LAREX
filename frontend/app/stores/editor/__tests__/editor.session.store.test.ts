@@ -123,13 +123,14 @@ describe('editor.session.store', () => {
     expect(store.getActivePageId('legacy-project')).toBe('page-2')
     expect(store.getSelectedVariantIdByPageId('legacy-project')).toEqual({ 'page-2': 'variant-2' })
     expect(store.textViewSettings).toEqual({
+      mode: 'textline',
       gtIndex: 0,
       showDiff: false,
       confidenceRange: [0, 1],
       selectedIndices: [],
       filterUnindexed: false,
       showNonAssignedIndices: false,
-      onlyMissingGtLines: false
+      onlyMissingGt: false
     })
   })
 
@@ -155,13 +156,14 @@ describe('editor.session.store', () => {
 
     expect(loaded).toBe(true)
     expect(reloadedStore.textViewSettings).toEqual({
+      mode: 'textline',
       gtIndex: 3,
       showDiff: true,
       confidenceRange: [0.2, 0.9],
       selectedIndices: [2, 5],
       filterUnindexed: true,
       showNonAssignedIndices: false,
-      onlyMissingGtLines: false
+      onlyMissingGt: false
     })
   })
 
@@ -183,13 +185,76 @@ describe('editor.session.store', () => {
     expect(store.openedProjectIds).toEqual([])
     expect(store.activeProjectId).toBeNull()
     expect(store.textViewSettings).toEqual({
+      mode: 'textline',
       gtIndex: 0,
       showDiff: true,
       confidenceRange: [0.25, 0.75],
       selectedIndices: [7],
       filterUnindexed: true,
       showNonAssignedIndices: false,
-      onlyMissingGtLines: false
+      onlyMissingGt: false
+    })
+  })
+
+  it('migrates legacy onlyMissingGtLines and defaults to textline mode', async () => {
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      workspaceId: 'workspace-1',
+      openedProjectIds: ['project-a'],
+      activeProjectId: 'project-a',
+      projectsById: {
+        'project-a': {
+          openedPageIds: ['page-a1'],
+          activePageId: 'page-a1',
+          selectedVariantIdByPageId: {}
+        }
+      },
+      textViewSettings: {
+        gtIndex: 4,
+        onlyMissingGtLines: true
+      }
+    }))
+
+    const store = await createStore()
+    const loaded = store.loadPersistedSession()
+
+    expect(loaded).toBe(true)
+    expect(store.textViewSettings).toEqual({
+      mode: 'textline',
+      gtIndex: 4,
+      showDiff: false,
+      confidenceRange: [0, 1],
+      selectedIndices: [],
+      filterUnindexed: false,
+      showNonAssignedIndices: false,
+      onlyMissingGt: true
+    })
+  })
+
+  it('persists region text mode', async () => {
+    const store = await createStore()
+
+    store.initWorkspaceSession('workspace-1')
+    store.updateTextViewSettings((current) => ({
+      ...current,
+      mode: 'region',
+      onlyMissingGt: true
+    }))
+
+    const pinia = await getPiniaModule()
+    pinia.setActivePinia(pinia.createPinia())
+    const reloadedStore = await createStore()
+    const loaded = reloadedStore.loadPersistedSession()
+
+    expect(loaded).toBe(false)
+    expect(reloadedStore.textViewSettings).toEqual({
+      mode: 'region',
+      gtIndex: 0,
+      showDiff: false,
+      confidenceRange: [0, 1],
+      selectedIndices: [],
+      filterUnindexed: false,
+      showNonAssignedIndices: false,
+      onlyMissingGt: true
     })
   })
 })

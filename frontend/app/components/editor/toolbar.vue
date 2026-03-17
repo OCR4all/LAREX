@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useEditorStore } from '@/stores/editor/editor.store'
+import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { DRAWING_MODES, VIEW_MODES } from '@/composables/editor/use-canvas-control'
 import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
@@ -9,6 +10,7 @@ import type { TabsItem } from '@nuxt/ui'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
 
 const editorStore = useEditorStore()
+const sessionStore = useEditorSessionStore()
 
 const emit = defineEmits<{
   merge: []
@@ -52,6 +54,27 @@ const viewModeItems = computed<TabsItem[]>(() => [
     tooltip: getTooltipProps('baselineView')
   }
 ])
+
+const textViewModeItems = computed<TabsItem[]>(() =>
+  [
+    {
+      label: 'Textlines',
+      value: 'textline',
+      icon: 'i-lucide-text',
+      tooltip: { text: 'Textline text view' }
+    },
+    {
+      label: 'Regions',
+      value: 'region',
+      icon: 'i-lucide-square-stack',
+      tooltip: { text: 'Region text view' }
+    }
+  ].map(({ label, tooltip, ...rest }) => ({
+    ...rest,
+    tooltip,
+    ...(!isVertical.value && !isCompact.value && { label })
+  }))
+)
 
 const toolbarLayoutItems = ref([
   {
@@ -241,6 +264,16 @@ const editorModeModel = computed({
   get: () => effectiveUiMode.value,
   set: (mode: 'layout' | 'text') => {
     editorStore.setUiMode(mode, currentCanvasId.value)
+  }
+})
+
+const textViewModeModel = computed({
+  get: () => sessionStore.textViewSettings.mode,
+  set: (next: 'textline' | 'region') => {
+    sessionStore.updateTextViewSettings(current => ({
+      ...current,
+      mode: next
+    }))
   }
 })
 
@@ -638,6 +671,30 @@ const moreOptionsDropdownItems = computed(() => [
               class="h-6 mx-1"
             />
           </template>
+
+          <UTabs
+            v-model="textViewModeModel"
+            data-tour="text-view-mode-tabs"
+            :orientation="isVertical ? 'vertical' : 'horizontal'"
+            size="sm"
+            color="neutral"
+            :content="false"
+            :items="textViewModeItems"
+          >
+            <template #item="{ item }">
+              <UTooltip :delay-duration="0" :text="item.tooltip?.text">
+                <div class="flex items-center gap-1.5">
+                  <Icon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
+                  <span v-if="item.label">{{ item.label }}</span>
+                </div>
+              </UTooltip>
+            </template>
+          </UTabs>
+
+          <USeparator
+            :orientation="isVertical ? 'horizontal' : 'vertical'"
+            class="h-6 mx-1"
+          />
 
           <UDropdownMenu :items="toolbarLayoutItems">
             <UButton

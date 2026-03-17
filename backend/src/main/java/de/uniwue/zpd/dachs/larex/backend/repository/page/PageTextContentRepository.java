@@ -52,6 +52,14 @@ public interface PageTextContentRepository extends JpaRepository<PageTextContent
             @Param("searchText") String searchText);
 
     /**
+     * Find text region IDs within a page that contain the given text substring.
+     */
+    @Query("SELECT DISTINCT p.regionId FROM PageTextContent p WHERE p.page.id = :pageId AND p.regionId IS NOT NULL AND LOWER(p.textContent) LIKE LOWER(CONCAT('%', :searchText, '%'))")
+    List<String> findRegionIdsByPageIdAndTextContentContaining(
+            @Param("pageId") String pageId,
+            @Param("searchText") String searchText);
+
+    /**
      * Find all indexed text content rows for a project.
      */
     @Query("SELECT p FROM PageTextContent p JOIN FETCH p.page WHERE p.page.project.id = :projectId")

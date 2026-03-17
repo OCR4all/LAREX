@@ -6,6 +6,17 @@ import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import { GlyphService } from '@/utils/glyph-service'
 import {
+  getHighlightedSegments,
+  getTextHighlightShellClass,
+  hasTextHighlight
+} from '../shared/text-highlighting'
+import {
+  handleSingleLineTextareaBeforeInput,
+  handleSingleLineTextareaDrop,
+  handleSingleLineTextareaKeydownEnter,
+  handleSingleLineTextareaPaste
+} from '../shared/text-input-guards'
+import {
   getReadingDirectionTextAttributes,
   normalizeReadingDirection,
   type ReadingDirection
@@ -43,6 +54,10 @@ interface Props {
   projectCodecId?: string | null
   selectedKeyboardId?: string | number | null
   hasVirtualKeyboard?: boolean
+  allowMultiline?: boolean
+  showDragHandle?: boolean
+  showDeleteButton?: boolean
+  cutoutMaxHeightClass?: string | null
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -55,7 +70,11 @@ const props = withDefaults(defineProps<Props>(), {
   recognitionIndices: () => [],
   projectCodecId: null,
   selectedKeyboardId: null,
-  hasVirtualKeyboard: false
+  hasVirtualKeyboard: false,
+  allowMultiline: false,
+  showDragHandle: true,
+  showDeleteButton: true,
+  cutoutMaxHeightClass: null
 })
 const emit = defineEmits<{
   updateTextContentVariant: [id: string, arrayPos: number, text: string]
@@ -93,6 +112,10 @@ const cutoutLoadFailed = ref(false)
 let cutoutRequestId = 0
 
 const isVertical = computed(() => props.layout === 'vertical')
+const effectiveCutoutMaxHeightClass = computed(() => {
+  if (props.cutoutMaxHeightClass) return props.cutoutMaxHeightClass
+  return isVertical.value ? 'max-h-56' : 'max-h-40'
+})
 const codecCharacterSet = computed(() => new Set(props.codecCharacters ?? []))
 const codecPreviewStyle = computed(() => {
   const nextFontSize = Math.max(10, Number(props.fontSize ?? 18))
@@ -143,54 +166,24 @@ function createGtFromRecognition() {
   emit('createGtFromRecognition', props.textline.id, { gtIndex, sourceRecognitionIndex: source.index })
 }
 
-function normalizeSingleLineText(value: string): string {
-  return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
-}
-
-function insertSanitizedTextAtSelection(target: HTMLTextAreaElement, text: string): void {
-  const sanitized = normalizeSingleLineText(text)
-  const start = target.selectionStart ?? 0
-  const end = target.selectionEnd ?? 0
-  target.value = target.value.slice(0, start) + sanitized + target.value.slice(end)
-  const nextPos = start + sanitized.length
-  target.selectionStart = nextPos
-  target.selectionEnd = nextPos
-  target.dispatchEvent(new Event('input', { bubbles: true }))
-}
-
 function handleTextareaKeydownEnter(event: KeyboardEvent, variantIndex: number | undefined) {
-  if (!isEditableVariant(variantIndex)) return
-  if (event.altKey || event.ctrlKey || event.metaKey) return
-  event.preventDefault()
+  if (props.allowMultiline) return
+  handleSingleLineTextareaKeydownEnter(event, isEditableVariant(variantIndex))
 }
 
 function handleTextareaBeforeInput(event: InputEvent, variantIndex: number | undefined) {
-  if (!isEditableVariant(variantIndex)) return
-  if (event.inputType === 'insertLineBreak' || event.inputType === 'insertParagraph') {
-    event.preventDefault()
-  }
+  if (props.allowMultiline) return
+  handleSingleLineTextareaBeforeInput(event, isEditableVariant(variantIndex))
 }
 
 function handleTextareaPaste(event: ClipboardEvent, variantIndex: number | undefined) {
-  if (!isEditableVariant(variantIndex)) return
-  const target = event.target
-  if (!(target instanceof HTMLTextAreaElement)) return
-  const text = event.clipboardData?.getData('text/plain')
-  if (typeof text !== 'string') return
-  if (!/[\r\n]/.test(text)) return
-  event.preventDefault()
-  insertSanitizedTextAtSelection(target, text)
+  if (props.allowMultiline) return
+  handleSingleLineTextareaPaste(event, isEditableVariant(variantIndex))
 }
 
 function handleTextareaDrop(event: DragEvent, variantIndex: number | undefined) {
-  if (!isEditableVariant(variantIndex)) return
-  const target = event.target
-  if (!(target instanceof HTMLTextAreaElement)) return
-  const text = event.dataTransfer?.getData('text/plain')
-  if (typeof text !== 'string' || text.length === 0) return
-  if (!/[\r\n]/.test(text)) return
-  event.preventDefault()
-  insertSanitizedTextAtSelection(target, text)
+  if (props.allowMultiline) return
+  handleSingleLineTextareaDrop(event, isEditableVariant(variantIndex))
 }
 
 function getConfidencePercent(confidence: number | undefined): number | undefined {
@@ -533,60 +526,16 @@ function renderDiff(diffs: Diff[] | undefined): DiffSegment[] {
   }))
 }
 
-function hasTextHighlight(text: string): boolean {
-  const query = normalizedTextHighlightQuery.value
-  if (!query) return false
-  return text.toLocaleLowerCase().includes(query.toLocaleLowerCase())
+function hasHighlight(text: string): boolean {
+  return hasTextHighlight(text, normalizedTextHighlightQuery.value)
 }
 
-function getTextHighlightShellClass(index: number | undefined, text: string): string {
-  if (!hasTextHighlight(text)) return ''
-
-  switch (variantRole(index)) {
-    case 'gt':
-      return 'rounded-md bg-emerald-100/95 dark:bg-emerald-900/90'
-    case 'recognition':
-      return 'rounded-md bg-slate-400/12'
-    case 'nonAssigned':
-      return 'rounded-md bg-rose-50/90 dark:bg-rose-950/50'
-  }
+function highlightShellClass(index: number | undefined, text: string): string {
+  return getTextHighlightShellClass(index, text, normalizedTextHighlightQuery.value, variantRole)
 }
 
-type HighlightSegment = {
-  text: string
-  matched: boolean
-}
-
-function getHighlightedSegments(text: string): HighlightSegment[] {
-  const query = normalizedTextHighlightQuery.value
-  if (!query) return [{ text, matched: false }]
-
-  const lowerText = text.toLocaleLowerCase()
-  const lowerQuery = query.toLocaleLowerCase()
-  if (!lowerQuery || !lowerText.includes(lowerQuery)) {
-    return [{ text, matched: false }]
-  }
-
-  const result: HighlightSegment[] = []
-  let cursor = 0
-
-  while (cursor < text.length) {
-    const nextIndex = lowerText.indexOf(lowerQuery, cursor)
-    if (nextIndex < 0) {
-      result.push({ text: text.slice(cursor), matched: false })
-      break
-    }
-
-    if (nextIndex > cursor) {
-      result.push({ text: text.slice(cursor, nextIndex), matched: false })
-    }
-
-    const matchEnd = nextIndex + query.length
-    result.push({ text: text.slice(nextIndex, matchEnd), matched: true })
-    cursor = matchEnd
-  }
-
-  return result
+function highlightedSegments(text: string) {
+  return getHighlightedSegments(text, normalizedTextHighlightQuery.value)
 }
 
 type UnknownSegment = {
@@ -795,7 +744,7 @@ onBeforeUnmount(() => {
     </template>
 
     <template v-else>
-      <div class="textline-drag-handle flex items-center px-1.5 border-r border-border/40 bg-muted/30 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity rounded-l-lg">
+      <div v-if="props.showDragHandle" class="textline-drag-handle flex items-center px-1.5 border-r border-border/40 bg-muted/30 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity rounded-l-lg">
         <Icon name="i-lucide-grip-vertical" class="h-4 w-4 text-muted/70" />
       </div>
 
@@ -823,7 +772,7 @@ onBeforeUnmount(() => {
             <canvas
               ref="canvasRef"
               class="w-full h-auto block"
-              :class="[isCutoutLoading ? 'opacity-0' : 'opacity-100', isVertical ? 'max-h-56' : 'max-h-40']"
+              :class="[isCutoutLoading ? 'opacity-0' : 'opacity-100', effectiveCutoutMaxHeightClass]"
               :style="{ objectFit: 'contain' }"
             />
             <div
@@ -932,12 +881,12 @@ onBeforeUnmount(() => {
                   <UTextarea
                     :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
                     :model-value="textEquiv.text"
-                    :rows="1"
+                    :rows="props.allowMultiline ? 3 : 1"
                     autoresize
                     placeholder="Enter transcription..."
                     :dir="textDirectionDir"
                     :style="textDirectionStyle"
-                    :ui="hasTextHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
+                    :ui="hasHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
                     :readonly="variantRole(textEquiv.index) === 'recognition'"
                     :disabled="variantRole(textEquiv.index) === 'nonAssigned'"
                     :data-textline-id="props.textline.id"
@@ -945,12 +894,12 @@ onBeforeUnmount(() => {
                     :data-textequiv-pos="String(textEquiv.pos)"
                     class="textline-textarea flex-1 min-w-0 min-h-9 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                     :class="[
-                      variantRole(textEquiv.index) === 'gt' && (hasTextHighlight(textEquiv.text)
+                      variantRole(textEquiv.index) === 'gt' && (hasHighlight(textEquiv.text)
                         ? 'textline-textarea--gt border-emerald-300'
                         : 'textline-textarea--gt border-emerald-300 bg-emerald-100/95 dark:bg-emerald-900/90'),
                       variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
                       variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200 text-muted',
-                      hasTextHighlight(textEquiv.text) && ['textline-textarea--has-highlight', getTextHighlightShellClass(textEquiv.index, textEquiv.text)]
+                      hasHighlight(textEquiv.text) && ['textline-textarea--has-highlight', highlightShellClass(textEquiv.index, textEquiv.text)]
                     ]"
                     @click.stop
                     @focus="emit('selectTextline', props.textline.id)"
@@ -961,14 +910,14 @@ onBeforeUnmount(() => {
                     @update:model-value="(value) => { if (isEditableVariant(textEquiv.index)) updateText(textEquiv.pos, String(value ?? '')) }"
                   >
                     <div
-                      v-if="hasTextHighlight(textEquiv.text)"
+                      v-if="hasHighlight(textEquiv.text)"
                       class="textline-textarea-highlight-layer pointer-events-none absolute inset-px z-0 overflow-hidden rounded-md px-2.5 py-1.5 font-junicode text-transparent whitespace-pre-wrap break-words"
                       :dir="textDirectionDir"
                       :style="textDirectionStyle"
                       aria-hidden="true"
                     >
                       <template
-                        v-for="(segment, segmentIndex) in getHighlightedSegments(textEquiv.text)"
+                        v-for="(segment, segmentIndex) in highlightedSegments(textEquiv.text)"
                         :key="`${textEquiv.pos}_${segmentIndex}`"
                       >
                         <mark v-if="segment.matched" class="textline-highlight-mark">{{ segment.text }}</mark>
@@ -1097,7 +1046,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="flex flex-col items-center justify-between p-2 border-l border-border/40">
+      <div v-if="props.showDeleteButton" class="flex flex-col items-center justify-between p-2 border-l border-border/40">
         <UButton
           color="neutral"
           variant="ghost"

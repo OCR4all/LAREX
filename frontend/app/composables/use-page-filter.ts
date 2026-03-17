@@ -366,6 +366,25 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     }
   }
 
+  async function getMatchingTextRegionIds(pageId: string): Promise<string[]> {
+    if (!projectId.value || !globalFilterState.value.textContent.trim()) {
+      return []
+    }
+
+    try {
+      const response = await $fetch<{ pageId: string, regionIds: string[] }>(
+        `/api/projects/${projectId.value}/pages/${pageId}/matching-textregions`,
+        {
+          params: { textContent: globalFilterState.value.textContent }
+        }
+      )
+      return response.regionIds
+    } catch (error) {
+      console.error('Failed to get matching text regions:', error)
+      return []
+    }
+  }
+
   const debouncedApplyFilters = useDebounceFn(applyFilters, 300)
 
   watch(
@@ -410,6 +429,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     fetchIndexStats,
     fetchAvailableLabels,
     rebuildIndex,
-    getMatchingTextLineIds
+    getMatchingTextLineIds,
+    getMatchingTextRegionIds
   }
 }

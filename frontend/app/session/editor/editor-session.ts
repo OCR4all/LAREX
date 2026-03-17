@@ -16,13 +16,14 @@ export interface EditorSession {
 }
 
 export type TextViewSettings = {
+  mode: 'textline' | 'region'
   gtIndex: number | undefined
   showDiff: boolean
   confidenceRange: [number, number]
   selectedIndices: number[]
   filterUnindexed: boolean
   showNonAssignedIndices: boolean
-  onlyMissingGtLines: boolean
+  onlyMissingGt: boolean
   padding: number
 }
 
@@ -71,13 +72,14 @@ function createServerPlaceholderSession(canvasId: string): EditorSession {
   const document = shallowRef<PcGts | null>(null)
   const controls = shallowRef<unknown | null>(null)
   const textViewSettings = shallowRef<TextViewSettings>({
+    mode: 'textline',
     gtIndex: 0,
     showDiff: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGtLines: false,
+    onlyMissingGt: false,
     padding: 10
   })
 
@@ -105,13 +107,14 @@ export function ensureEditorSession(canvasId: string, initial?: { document?: PcG
   const document = shallowRef<PcGts | null>(initial?.document ?? null)
   const controls = shallowRef<unknown | null>(null)
   const textViewSettings = shallowRef<TextViewSettings>({
+    mode: 'textline',
     gtIndex: 0,
     showDiff: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,
     showNonAssignedIndices: false,
-    onlyMissingGtLines: false,
+    onlyMissingGt: false,
     padding: 10
   })
 

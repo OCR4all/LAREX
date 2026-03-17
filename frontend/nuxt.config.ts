@@ -52,6 +52,30 @@ export default defineNuxtConfig({
       hmr: {
         port: 3000
       }
+    },
+    optimizeDeps: {
+      include: [
+        '@vue/devtools-core',
+        '@vue/devtools-kit',
+        'driver.js',
+        'dockview-vue',
+        'earcut',
+        'vue-draggable-plus',
+        'rbush',
+        'martinez-polygon-clipping',
+        'diff-match-patch',
+        '@tanstack/vue-virtual',
+        'date-fns',
+        'zod',
+        '@codemirror/state',
+        '@codemirror/view',
+        '@codemirror/lang-xml',
+        'codemirror',
+        '@codemirror/lint',
+        '@codemirror/search',
+        '@codemirror/language',
+        '@lezer/highlight',
+      ]
     }
   },
 

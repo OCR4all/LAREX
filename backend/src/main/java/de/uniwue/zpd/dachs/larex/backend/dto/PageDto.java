@@ -128,4 +128,12 @@ public class PageDto {
             String pageId,
             List<String> textLineIds
     ) {}
+
+    /**
+     * Response for matching text regions within a page.
+     */
+    public record MatchingTextRegionsResponse(
+            String pageId,
+            List<String> regionIds
+    ) {}
 }
