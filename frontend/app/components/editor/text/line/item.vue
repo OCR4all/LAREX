@@ -39,6 +39,7 @@ interface Props {
   recognitionIndices?: number[]
   showDiff?: boolean
   isSelected?: boolean
+  textHighlightQuery?: string | null
   projectCodecId?: string | null
   selectedKeyboardId?: string | number | null
   hasVirtualKeyboard?: boolean
@@ -50,6 +51,7 @@ const props = withDefaults(defineProps<Props>(), {
   codecCharacters: () => [],
   highlightUnknownCodecChars: false,
   includeWhitespaceInCodecHighlight: false,
+  textHighlightQuery: '',
   recognitionIndices: () => [],
   projectCodecId: null,
   selectedKeyboardId: null,
@@ -103,6 +105,7 @@ const textReadingDirection = computed(() => normalizeReadingDirection(props.text
 const textDirectionAttributes = computed(() => getReadingDirectionTextAttributes(textReadingDirection.value))
 const textDirectionStyle = computed(() => textDirectionAttributes.value.style)
 const textDirectionDir = computed(() => textDirectionAttributes.value.dir)
+const normalizedTextHighlightQuery = computed(() => props.textHighlightQuery?.trim() ?? '')
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
   if (typeof index === 'number' && index === props.gtIndex) return 'gt'
@@ -530,6 +533,62 @@ function renderDiff(diffs: Diff[] | undefined): DiffSegment[] {
   }))
 }
 
+function hasTextHighlight(text: string): boolean {
+  const query = normalizedTextHighlightQuery.value
+  if (!query) return false
+  return text.toLocaleLowerCase().includes(query.toLocaleLowerCase())
+}
+
+function getTextHighlightShellClass(index: number | undefined, text: string): string {
+  if (!hasTextHighlight(text)) return ''
+
+  switch (variantRole(index)) {
+    case 'gt':
+      return 'rounded-md bg-emerald-100/95 dark:bg-emerald-900/90'
+    case 'recognition':
+      return 'rounded-md bg-slate-400/12'
+    case 'nonAssigned':
+      return 'rounded-md bg-rose-50/90 dark:bg-rose-950/50'
+  }
+}
+
+type HighlightSegment = {
+  text: string
+  matched: boolean
+}
+
+function getHighlightedSegments(text: string): HighlightSegment[] {
+  const query = normalizedTextHighlightQuery.value
+  if (!query) return [{ text, matched: false }]
+
+  const lowerText = text.toLocaleLowerCase()
+  const lowerQuery = query.toLocaleLowerCase()
+  if (!lowerQuery || !lowerText.includes(lowerQuery)) {
+    return [{ text, matched: false }]
+  }
+
+  const result: HighlightSegment[] = []
+  let cursor = 0
+
+  while (cursor < text.length) {
+    const nextIndex = lowerText.indexOf(lowerQuery, cursor)
+    if (nextIndex < 0) {
+      result.push({ text: text.slice(cursor), matched: false })
+      break
+    }
+
+    if (nextIndex > cursor) {
+      result.push({ text: text.slice(cursor, nextIndex), matched: false })
+    }
+
+    const matchEnd = nextIndex + query.length
+    result.push({ text: text.slice(nextIndex, matchEnd), matched: true })
+    cursor = matchEnd
+  }
+
+  return result
+}
+
 type UnknownSegment = {
   text: string
   unknown: boolean
@@ -876,6 +935,7 @@ onBeforeUnmount(() => {
                     placeholder="Enter transcription..."
                     :dir="textDirectionDir"
                     :style="textDirectionStyle"
+                    :ui="hasTextHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
                     :readonly="variantRole(textEquiv.index) === 'recognition'"
                     :disabled="variantRole(textEquiv.index) === 'nonAssigned'"
                     :data-textline-id="props.textline.id"
@@ -883,9 +943,12 @@ onBeforeUnmount(() => {
                     :data-textequiv-pos="String(textEquiv.pos)"
                     class="textline-textarea flex-1 min-w-0 min-h-11 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                     :class="[
-                      variantRole(textEquiv.index) === 'gt' && 'textline-textarea--gt border-emerald-300 bg-emerald-100/95 dark:bg-emerald-900/90',
+                      variantRole(textEquiv.index) === 'gt' && (hasTextHighlight(textEquiv.text)
+                        ? 'textline-textarea--gt border-emerald-300'
+                        : 'textline-textarea--gt border-emerald-300 bg-emerald-100/95 dark:bg-emerald-900/90'),
                       variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
-                      variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200 text-muted'
+                      variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200 text-muted',
+                      hasTextHighlight(textEquiv.text) && ['textline-textarea--has-highlight', getTextHighlightShellClass(textEquiv.index, textEquiv.text)]
                     ]"
                     @click.stop
                     @focus="emit('selectTextline', props.textline.id)"
@@ -894,7 +957,23 @@ onBeforeUnmount(() => {
                     @paste="(event: ClipboardEvent) => handleTextareaPaste(event, textEquiv.index)"
                     @drop="(event: DragEvent) => handleTextareaDrop(event, textEquiv.index)"
                     @update:model-value="(value) => { if (isEditableVariant(textEquiv.index)) updateText(textEquiv.pos, String(value ?? '')) }"
-                  />
+                  >
+                    <div
+                      v-if="hasTextHighlight(textEquiv.text)"
+                      class="textline-textarea-highlight-layer pointer-events-none absolute inset-px z-0 overflow-hidden rounded-md px-2.5 py-1.5 font-junicode text-transparent whitespace-pre-wrap break-words"
+                      :dir="textDirectionDir"
+                      :style="textDirectionStyle"
+                      aria-hidden="true"
+                    >
+                      <template
+                        v-for="(segment, segmentIndex) in getHighlightedSegments(textEquiv.text)"
+                        :key="`${textEquiv.pos}_${segmentIndex}`"
+                      >
+                        <mark v-if="segment.matched" class="textline-highlight-mark">{{ segment.text }}</mark>
+                        <span v-else>{{ segment.text }}</span>
+                      </template>
+                    </div>
+                  </UTextarea>
                   <UButton
                     color="neutral"
                     variant="ghost"
@@ -1052,6 +1131,14 @@ onBeforeUnmount(() => {
   font-size: var(--text-font-size, 18px);
 }
 
+.textline-textarea.textline-textarea--has-highlight :deep(textarea) {
+  background-color: transparent;
+}
+
+.textline-textarea.textline-textarea--gt.textline-textarea--has-highlight :deep(textarea) {
+  background-color: transparent;
+}
+
 .textline-textarea.textline-textarea--gt :deep(textarea) {
   background-color: rgb(220 252 231 / 0.95);
 }
@@ -1060,11 +1147,33 @@ onBeforeUnmount(() => {
   background-color: rgb(6 78 59 / 0.9);
 }
 
+.dark .textline-textarea.textline-textarea--gt.textline-textarea--has-highlight :deep(textarea) {
+  background-color: transparent;
+}
+
 .textline-textarea.textline-textarea--recognition :deep(textarea) {
   background-color: rgb(148 163 184 / 0.12);
 }
 
 .textline-textarea.textline-textarea--non-assigned :deep(textarea) {
   background-color: rgb(254 242 242 / 0.9);
+}
+
+.textline-textarea-highlight-layer {
+  font-size: var(--text-font-size, 18px);
+  line-height: 1.25rem;
+}
+
+.textline-highlight-mark {
+  color: transparent;
+  background-color: rgb(253 224 71 / 0.45);
+  line-height: inherit;
+  padding: 0;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+:deep(.dark) .textline-highlight-mark {
+  background-color: rgb(250 204 21 / 0.3);
 }
 </style>

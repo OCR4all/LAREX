@@ -340,6 +340,11 @@ watch([filterMode, currentPageId, filterTextContent], async ([mode, pageId, text
 }, { immediate: true })
 
 const hasTextContentFilter = computed(() => Boolean(filterTextContent.value?.trim()))
+const activeTextHighlightQuery = computed(() => {
+  const backendQuery = filterTextContent.value?.trim() ?? ''
+  if (backendQuery) return backendQuery
+  return searchQuery.value.trim()
+})
 
 type TextRuntimeControls = {
   polygons: RenderablePolygon[]
@@ -1243,6 +1248,7 @@ const sectionMenuItems = computed(() => [[
                       :recognition-candidates="textline.recognitionCandidates"
                       :show-diff="showDiffModel"
                       :is-selected="selectedTextlineId === textline.id"
+                      :text-highlight-query="activeTextHighlightQuery"
                       :project-codec-id="editorStore.projectCodecId"
                       :selected-keyboard-id="selectedKeyboardId"
                       :has-virtual-keyboard="Boolean(selectedLayout)"
