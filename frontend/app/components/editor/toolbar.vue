@@ -597,37 +597,64 @@ const moreOptionsDropdownItems = computed(() => [
       ]"
     >
       <div class="flex items-center" :class="[(isVertical ? 'flex-col' : 'flex-row'), (isCompact ? 'gap-0' : 'gap-1')]">
-        <template v-if="isTextUiMode && showVirtualKeyboardControls">
-          <div class="flex items-center">
-            <UFieldGroup>
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('toggleVirtualKeyboard')">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  :icon="vkModeIcon"
-                  :active="virtualKeyboardMode !== 'off'"
-                  color="neutral"
-                  active-color="primary"
-                  active-variant="solid"
-                  :disabled="!hasKeyboards"
-                  @click="cycleVirtualKeyboardMode"
-                />
-              </UTooltip>
-              <UDropdownMenu :items="vkDropdownItems" :popper="{ placement: 'top' }">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-chevron-up"
-                  color="neutral"
-                  :active="virtualKeyboardMode !== 'off'"
-                  active-color="primary"
-                  active-variant="solid"
-                  :disabled="!hasKeyboards"
-                  aria-label="Virtual keyboard mode"
-                />
-              </UDropdownMenu>
-            </UFieldGroup>
-          </div>
+        <template v-if="isTextUiMode">
+          <template v-if="showVirtualKeyboardControls">
+            <div class="flex items-center">
+              <UFieldGroup>
+                <UTooltip :delay-duration="0" v-bind="getTooltipProps('toggleVirtualKeyboard')">
+                  <UButton
+                    variant="ghost"
+                    size="sm"
+                    :icon="vkModeIcon"
+                    :active="virtualKeyboardMode !== 'off'"
+                    color="neutral"
+                    active-color="primary"
+                    active-variant="solid"
+                    :disabled="!hasKeyboards"
+                    @click="cycleVirtualKeyboardMode"
+                  />
+                </UTooltip>
+                <UDropdownMenu :items="vkDropdownItems" :popper="{ placement: 'top' }">
+                  <UButton
+                    variant="ghost"
+                    size="sm"
+                    icon="i-lucide-chevron-up"
+                    color="neutral"
+                    :active="virtualKeyboardMode !== 'off'"
+                    active-color="primary"
+                    active-variant="solid"
+                    :disabled="!hasKeyboards"
+                    aria-label="Virtual keyboard mode"
+                  />
+                </UDropdownMenu>
+              </UFieldGroup>
+            </div>
+
+            <USeparator
+              :orientation="isVertical ? 'horizontal' : 'vertical'"
+              class="h-6 mx-1"
+            />
+          </template>
+
+          <UDropdownMenu :items="toolbarLayoutItems">
+            <UButton
+              :icon="toolbarLayoutIcon"
+              color="neutral"
+              size="sm"
+              variant="ghost"
+              aria-label="Toolbar layout"
+            />
+          </UDropdownMenu>
+
+          <UDropdownMenu v-if="showMoreMenu" :items="moreOptionsDropdownItems">
+            <UButton
+              variant="ghost"
+              icon="i-lucide-more-vertical"
+              color="neutral"
+              size="xs"
+              aria-label="Toolbar settings"
+            />
+          </UDropdownMenu>
         </template>
         <template v-else>
           <template v-if="showSelectAndMove">
