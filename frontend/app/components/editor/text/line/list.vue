@@ -1003,105 +1003,122 @@ const filterMenuItems = computed(() => {
 
   return items
 })
+
+const currentSortLabel = computed(() => {
+  switch (sortOrder.value) {
+    case 'desc':
+      return 'Reading order (desc)'
+    case 'confidence':
+      return 'Confidence (low first)'
+    case 'asc':
+    default:
+      return 'Reading order (asc)'
+  }
+})
+
+const hasCollapsedRegions = computed(() => {
+  return regionMeta.value.some(region => collapsedRegionIds.value.has(region.id))
+})
+
+const hasActiveLocalFilters = computed(() => {
+  return filterMode.value !== 'all' || onlyMissingGtLinesModel.value
+})
+
+const sectionMenuItems = computed(() => [[
+  {
+    label: 'Expand all sections',
+    icon: 'i-lucide-unfold-vertical',
+    active: !hasCollapsedRegions.value,
+    activeColor: 'primary',
+    activeVariant: 'solid',
+    onSelect: () => { expandAll() }
+  },
+  {
+    label: 'Collapse all sections',
+    icon: 'i-lucide-fold-vertical',
+    active: hasCollapsedRegions.value,
+    activeColor: 'primary',
+    activeVariant: 'solid',
+    onSelect: () => { collapseAll(regionMeta.value.map(r => r.id)) }
+  }
+]])
 </script>
 
 <template>
   <div ref="rootEl" class="flex flex-col h-full">
-    <div data-tour="editor-textline-list-toolbar" class="flex flex-col gap-3 p-4 border-b bg-elevated/25 backdrop-blur-sm sticky top-0 z-10">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-3 min-w-0">
-          <div class="flex items-center gap-2">
+    <div
+      data-tour="editor-textline-list-toolbar"
+      class="sticky top-0 z-10 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85"
+    >
+      <div class="flex flex-wrap items-center gap-2 md:flex-nowrap">
+        <div class="flex min-w-0 shrink-0 items-center gap-2.5">
+          <div class="flex items-center gap-2 min-w-0">
             <Icon name="i-lucide-layers" class="h-5 w-5 text-primary" />
-            <h2 class="font-semibold text-lg truncate">
+            <h2 class="truncate text-base font-semibold">
               Textlines
             </h2>
           </div>
-          <UBadge variant="solid" color="neutral" class="font-mono shrink-0">
+          <UBadge
+            variant="solid"
+            color="neutral"
+            size="sm"
+            class="shrink-0 font-mono"
+          >
             {{ completedCount }}/{{ textlines.length }}
           </UBadge>
         </div>
 
-        <div class="flex items-center gap-1 shrink-0">
-          <UButton
-            color="neutral"
-            variant="ghost"
+        <div class="order-3 basis-full md:order-2 md:min-w-[18rem] md:flex-1">
+          <UInput
+            v-model="searchQuery"
+            icon="i-lucide-search"
+            placeholder="Search textlines..."
             size="sm"
-            class="h-8 px-2 text-xs"
-            @click="expandAll"
-          >
-            Expand all
-          </UButton>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="h-8 px-2 text-xs"
-            @click="collapseAll(regionMeta.map(r => r.id))"
-          >
-            Collapse all
-          </UButton>
+            class="w-full"
+          />
+        </div>
 
-          <USeparator orientation="vertical" class="h-4 mx-1" />
-
+        <div class="order-2 ml-auto flex shrink-0 items-center gap-1 md:order-3">
           <UDropdownMenu :items="sortMenuItems" :content="{ align: 'end' }">
             <UButton
               color="neutral"
-              variant="ghost"
+              :variant="sortOrder === 'asc' ? 'ghost' : 'soft'"
               size="sm"
               icon="i-lucide-arrow-up-down"
               class="h-8 w-8"
+              :title="`Sort textlines (${currentSortLabel})`"
+              :aria-label="`Sort textlines (${currentSortLabel})`"
             />
           </UDropdownMenu>
 
           <UDropdownMenu :items="filterMenuItems" :content="{ align: 'end' }">
             <UButton
               color="neutral"
-              variant="ghost"
+              :variant="hasActiveLocalFilters ? 'soft' : 'ghost'"
               size="sm"
               icon="i-lucide-filter"
               class="h-8 w-8"
+              :title="hasActiveLocalFilters ? 'Filters active' : 'Filter textlines'"
+              :aria-label="hasActiveLocalFilters ? 'Filters active' : 'Filter textlines'"
+            />
+          </UDropdownMenu>
+
+          <UDropdownMenu :items="sectionMenuItems" :content="{ align: 'end' }">
+            <UButton
+              color="neutral"
+              :variant="hasCollapsedRegions ? 'soft' : 'ghost'"
+              size="sm"
+              icon="i-lucide-ellipsis-vertical"
+              class="h-8 w-8"
+              title="Section visibility"
+              aria-label="Section visibility"
             />
           </UDropdownMenu>
         </div>
       </div>
-
-      <UInput
-        v-model="searchQuery"
-        icon="i-lucide-search"
-        placeholder="Search textlines..."
-        size="sm"
-      />
-
-      <div class="flex items-center gap-4 text-xs text-muted">
-        <span class="flex items-center gap-1.5">
-          <Icon name="i-lucide-keyboard" class="h-3 w-3" />
-          <UKbd size="sm" value="tab" />
-          Next variant
-        </span>
-        <span class="flex items-center gap-1.5">
-          <UKbd size="sm" value="shift" />
-          <UKbd size="sm" value="tab" />
-          Prev variant
-        </span>
-        <span class="flex items-center gap-1.5">
-          <UKbd size="sm" value="escape" />
-          Deselect
-        </span>
-        <span class="flex items-center gap-1.5">
-          <UKbd size="sm" value="alt" />
-          <UKbd size="sm" value="enter" />
-          Next same index
-        </span>
-        <span class="flex items-center gap-1.5">
-          <UKbd size="sm" value="ctrl/cmd" />
-          <UKbd size="sm" value="alt" />
-          <UKbd size="sm" value="g" />
-          Create GT
-        </span>
-      </div>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto p-4">
+    <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
       <div
         v-if="isLoadingAnnotations && displayTextlines.length === 0"
         class="flex flex-col items-center justify-center py-8 text-muted-foreground"
@@ -1141,7 +1158,7 @@ const filterMenuItems = computed(() => {
           Try adjusting your search
         </p>
       </div>
-      <div v-else class="flex flex-col gap-4">
+      <div v-else class="flex flex-col gap-3">
         <div
           v-for="region in regionMeta"
           :key="region.id"
