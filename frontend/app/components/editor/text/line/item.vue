@@ -1052,6 +1052,14 @@ onBeforeUnmount(() => {
   font-size: var(--text-font-size, 18px);
 }
 
+.textline-textarea.textline-textarea--gt :deep(textarea) {
+  background-color: rgb(220 252 231 / 0.95);
+}
+
+.dark .textline-textarea.textline-textarea--gt :deep(textarea) {
+  background-color: rgb(6 78 59 / 0.9);
+}
+
 .textline-textarea.textline-textarea--recognition :deep(textarea) {
   background-color: rgb(148 163 184 / 0.12);
 }
