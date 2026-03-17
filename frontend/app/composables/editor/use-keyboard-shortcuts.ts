@@ -116,7 +116,8 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     const id = canvasId.value
     if (!id) return undefined
     const session = getEditorSession(id)
-    return (session?.controls.value as any)?.commander
+    const controls = session?.controls.value as { commander?: Commander } | null | undefined
+    return controls?.commander
   }
 
   const deleteSelectedElements = () => {
@@ -426,7 +427,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (isInputFocused()) return
         callbacks.prevImage?.()
       }
-    },
+    }
 
   })
 
@@ -448,67 +449,345 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
   }
 }
 
+export type ShortcutHelpGroupId = 'editing' | 'tools' | 'view' | 'navigation' | 'text' | 'panels' | 'modes'
+
+export interface ShortcutAliasDefinition {
+  key: string
+  kbds: string[]
+}
+
+export interface ShortcutDefinition {
+  key: string
+  kbds: string[]
+  description: string
+  group: ShortcutHelpGroupId
+  aliases?: ShortcutAliasDefinition[]
+  showInHelp?: boolean
+}
+
+export const SHORTCUT_HELP_GROUPS: Array<{
+  id: ShortcutHelpGroupId
+  title: string
+  description: string
+  icon: string
+}> = [
+  {
+    id: 'editing',
+    title: 'Editing',
+    description: 'Selection and document actions.',
+    icon: 'i-lucide-pencil'
+  },
+  {
+    id: 'tools',
+    title: 'Tools',
+    description: 'Drawing and cut tool shortcuts.',
+    icon: 'i-lucide-scan-line'
+  },
+  {
+    id: 'view',
+    title: 'View',
+    description: 'View mode and viewport controls.',
+    icon: 'i-lucide-scan-search'
+  },
+  {
+    id: 'navigation',
+    title: 'Navigation',
+    description: 'Move between elements and images.',
+    icon: 'i-lucide-arrow-up-down'
+  },
+  {
+    id: 'text',
+    title: 'Text View',
+    description: 'Shortcuts specific to the textline list and text inputs.',
+    icon: 'i-lucide-text-cursor-input'
+  },
+  {
+    id: 'panels',
+    title: 'Panels',
+    description: 'Open, close, and inspect editor panels.',
+    icon: 'i-lucide-panels-top-left'
+  },
+  {
+    id: 'modes',
+    title: 'Modes',
+    description: 'Switch editor modes and utility overlays.',
+    icon: 'i-lucide-layout-dashboard'
+  }
+]
+
 /**
- * Keyboard shortcut definitions for display in UI (e.g., tooltips, help dialogs)
- * Each entry has: key (display string), kbds (array for UTooltip), description
+ * Keyboard shortcut definitions for display in UI (e.g., tooltips, help dialogs).
  */
 export const SHORTCUT_DEFINITIONS = {
-  undo: { key: '⌘Z', kbds: ['meta', 'Z'], description: 'Undo' },
-  redo: { key: '⌘⇧Z', kbds: ['meta', 'shift', 'Z'], description: 'Redo' },
+  undo: {
+    key: '⌘Z',
+    kbds: ['meta', 'Z'],
+    description: 'Undo',
+    group: 'editing'
+  },
+  redo: {
+    key: '⌘⇧Z',
+    kbds: ['meta', 'shift', 'Z'],
+    description: 'Redo',
+    group: 'editing',
+    aliases: [{ key: '⌘Y', kbds: ['meta', 'Y'] }]
+  },
 
-  selectMode: { key: 'V', kbds: ['V'], description: 'Select' },
-  moveMode: { key: 'G', kbds: ['G'], description: 'Move' },
+  selectMode: {
+    key: 'V',
+    kbds: ['V'],
+    description: 'Select mode',
+    group: 'tools'
+  },
+  moveMode: {
+    key: 'G',
+    kbds: ['G'],
+    description: 'Move mode',
+    group: 'tools'
+  },
 
-  regionPolygon: { key: 'P', kbds: ['P'], description: 'Region (Polygon)' },
-  regionRectangle: { key: 'R', kbds: ['R'], description: 'Region (Rectangle)' },
+  regionPolygon: {
+    key: 'P',
+    kbds: ['P'],
+    description: 'Region (Polygon)',
+    group: 'tools'
+  },
+  regionRectangle: {
+    key: 'R',
+    kbds: ['R'],
+    description: 'Region (Rectangle)',
+    group: 'tools'
+  },
 
-  textlinePolygon: { key: 'T', kbds: ['T'], description: 'Textline (Polygon)' },
-  textlineRectangle: { key: '⇧T', kbds: ['shift', 'T'], description: 'Textline (Rectangle)' },
+  textlinePolygon: {
+    key: 'T',
+    kbds: ['T'],
+    description: 'Textline (Polygon)',
+    group: 'tools'
+  },
+  textlineRectangle: {
+    key: '⇧T',
+    kbds: ['shift', 'T'],
+    description: 'Textline (Rectangle)',
+    group: 'tools'
+  },
 
-  baseline: { key: 'B', kbds: ['B'], description: 'Baseline' },
+  baseline: {
+    key: 'B',
+    kbds: ['B'],
+    description: 'Baseline',
+    group: 'tools'
+  },
 
-  cutLine: { key: 'C', kbds: ['C'], description: 'Cut Line' },
-  cutPolygon: { key: '⇧C', kbds: ['shift', 'C'], description: 'Cut Polygon' },
-  cutRectangle: { key: '⌥C', kbds: ['alt', 'C'], description: 'Cut Rectangle' },
+  cutLine: {
+    key: 'C',
+    kbds: ['C'],
+    description: 'Cut line',
+    group: 'tools'
+  },
+  cutPolygon: {
+    key: '⇧C',
+    kbds: ['shift', 'C'],
+    description: 'Cut polygon',
+    group: 'tools'
+  },
+  cutRectangle: {
+    key: '⌥C',
+    kbds: ['alt', 'C'],
+    description: 'Cut rectangle',
+    group: 'tools'
+  },
 
-  defaultView: { key: '1', kbds: ['1'], description: 'Default view' },
-  textlineView: { key: '2', kbds: ['2'], description: 'Textline view' },
-  baselineView: { key: '3', kbds: ['3'], description: 'Baseline view' },
+  defaultView: {
+    key: '1',
+    kbds: ['1'],
+    description: 'Default view',
+    group: 'view'
+  },
+  textlineView: {
+    key: '2',
+    kbds: ['2'],
+    description: 'Textline view',
+    group: 'view'
+  },
+  baselineView: {
+    key: '3',
+    kbds: ['3'],
+    description: 'Baseline view',
+    group: 'view'
+  },
 
-  clearSelection: { key: 'Esc', kbds: ['escape'], description: 'Clear selection' },
-  selectAll: { key: '⌘A', kbds: ['meta', 'A'], description: 'Select all' },
-  delete: { key: 'Del', kbds: ['delete'], description: 'Delete selected' },
-  merge: { key: 'M', kbds: ['M'], description: 'Merge' },
+  clearSelection: {
+    key: 'Esc',
+    kbds: ['escape'],
+    description: 'Clear selection',
+    group: 'editing'
+  },
+  selectAll: {
+    key: '⌘A',
+    kbds: ['meta', 'A'],
+    description: 'Select all',
+    group: 'editing'
+  },
+  delete: {
+    key: 'Del',
+    kbds: ['delete'],
+    description: 'Delete selected',
+    group: 'editing',
+    aliases: [{ key: 'Backspace', kbds: ['backspace'] }]
+  },
+  merge: {
+    key: 'M',
+    kbds: ['M'],
+    description: 'Merge selection',
+    group: 'editing'
+  },
 
-  nextElement: { key: '↓', kbds: ['↓'], description: 'Next element' },
-  prevElement: { key: '↑', kbds: ['↑'], description: 'Previous element' },
-  tabNext: { key: 'Tab', kbds: ['tab'], description: 'Cycle next' },
-  tabPrev: { key: '⇧Tab', kbds: ['shift', 'tab'], description: 'Cycle previous' },
+  nextElement: {
+    key: '↓',
+    kbds: ['arrowdown'],
+    description: 'Next element',
+    group: 'navigation'
+  },
+  prevElement: {
+    key: '↑',
+    kbds: ['arrowup'],
+    description: 'Previous element',
+    group: 'navigation'
+  },
+  nextTextField: {
+    key: 'Tab',
+    kbds: ['tab'],
+    description: 'Next text variant field',
+    group: 'text'
+  },
+  prevTextField: {
+    key: '⇧Tab',
+    kbds: ['shift', 'tab'],
+    description: 'Previous text variant field',
+    group: 'text'
+  },
+  blurTextField: {
+    key: 'Esc',
+    kbds: ['escape'],
+    description: 'Blur active text field',
+    group: 'text'
+  },
+  nextSameIndexField: {
+    key: '⌥↵',
+    kbds: ['alt', 'enter'],
+    description: 'Jump to next field with same index',
+    group: 'text'
+  },
+  createGtFromRecognition: {
+    key: '⌘⌥G',
+    kbds: ['meta', 'alt', 'G'],
+    description: 'Create GT from selected textline recognition',
+    group: 'text',
+    aliases: [{ key: 'Ctrl+Alt+G', kbds: ['ctrl', 'alt', 'G'] }]
+  },
 
-  zoomIn: { key: '⌘+', kbds: ['meta', '+'], description: 'Zoom in' },
-  zoomOut: { key: '⌘-', kbds: ['meta', '-'], description: 'Zoom out' },
-  fitToContent: { key: '⌘0', kbds: ['meta', '0'], description: 'Fit to content' },
-  centerOnSelection: { key: 'F', kbds: ['F'], description: 'Center on selection' },
+  zoomIn: {
+    key: '⌘+',
+    kbds: ['meta', '+'],
+    description: 'Zoom in',
+    group: 'view'
+  },
+  zoomOut: {
+    key: '⌘-',
+    kbds: ['meta', '-'],
+    description: 'Zoom out',
+    group: 'view'
+  },
+  fitToContent: {
+    key: '⌘0',
+    kbds: ['meta', '0'],
+    description: 'Fit to content',
+    group: 'view'
+  },
+  centerOnSelection: {
+    key: 'F',
+    kbds: ['F'],
+    description: 'Center on selection',
+    group: 'view',
+    aliases: [{ key: 'Space', kbds: ['space'] }]
+  },
 
-  toggleLeftSidebar: { key: '⌘\\', kbds: ['meta', '\\'], description: 'Toggle left sidebar' },
-  toggleRightSidebar: { key: '⌘⇧\\', kbds: ['meta', 'shift', '\\'], description: 'Toggle right sidebar' },
+  toggleLeftSidebar: {
+    key: '⌘\\',
+    kbds: ['meta', '\\'],
+    description: 'Toggle left sidebar',
+    group: 'panels'
+  },
+  toggleRightSidebar: {
+    key: '⌘⇧\\',
+    kbds: ['meta', 'shift', '\\'],
+    description: 'Toggle right sidebar',
+    group: 'panels'
+  },
 
-  layoutMode: { key: 'L', kbds: ['L'], description: 'Layout mode' },
-  textMode: { key: '⇧L', kbds: ['shift', 'L'], description: 'Text mode' },
+  layoutMode: {
+    key: 'L',
+    kbds: ['L'],
+    description: 'Layout mode',
+    group: 'modes'
+  },
+  textMode: {
+    key: '⇧L',
+    kbds: ['shift', 'L'],
+    description: 'Text mode',
+    group: 'modes'
+  },
 
-  toggleVirtualKeyboard: { key: 'K', kbds: ['K'], description: 'Virtual Keyboard' },
+  toggleVirtualKeyboard: {
+    key: 'K',
+    kbds: ['K'],
+    description: 'Toggle virtual keyboard',
+    group: 'modes'
+  },
 
-  history: { key: 'H', kbds: ['H'], description: 'History' },
+  history: {
+    key: 'H',
+    kbds: ['H'],
+    description: 'History',
+    group: 'panels',
+    showInHelp: false
+  },
 
-  save: { key: '⌘S', kbds: ['meta', 'S'], description: 'Save' },
+  save: {
+    key: '⌘S',
+    kbds: ['meta', 'S'],
+    description: 'Save',
+    group: 'editing'
+  },
 
-  nextImage: { key: '⌘↓', kbds: ['meta', '↓'], description: 'Next image' },
-  prevImage: { key: '⌘↑', kbds: ['meta', '↑'], description: 'Previous image' },
+  nextImage: {
+    key: '⌘↓',
+    kbds: ['meta', 'arrowdown'],
+    description: 'Next image',
+    group: 'navigation'
+  },
+  prevImage: {
+    key: '⌘↑',
+    kbds: ['meta', 'arrowup'],
+    description: 'Previous image',
+    group: 'navigation'
+  },
 
-  closeActiveTab: { key: '⌥W', kbds: ['alt', 'W'], description: 'Close active tab' },
+  closeActiveTab: {
+    key: '⌥W',
+    kbds: ['alt', 'W'],
+    description: 'Close active tab',
+    group: 'panels'
+  },
 
-  showHelp: { key: '?', kbds: ['shift', '/'], description: 'Keyboard shortcuts' }
-} as const
+  showHelp: {
+    key: '?',
+    kbds: ['shift', '/'],
+    description: 'Open keyboard shortcuts',
+    group: 'panels'
+  }
+} as const satisfies Record<string, ShortcutDefinition>
 
 export type ShortcutKey = keyof typeof SHORTCUT_DEFINITIONS
 
