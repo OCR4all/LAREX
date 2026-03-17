@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.editor;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import de.uniwue.zpd.dachs.larex.backend.entity.EditorPreference;
 import de.uniwue.zpd.dachs.larex.backend.service.editor.EditorPreferenceService;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,7 @@ public class EditorPreferenceController {
             Integer textViewPadding,
             String textItemLayout,
             Boolean highlightUnknownCodecChars,
+            JsonNode shortcutBindings,
             Integer onboardingDashboardTourVersion,
             Integer onboardingEditorTourVersion
     ) {
@@ -59,6 +61,7 @@ public class EditorPreferenceController {
                     pref.getTextViewPadding(),
                     pref.getTextItemLayout(),
                     pref.getHighlightUnknownCodecChars(),
+                    pref.getShortcutBindings(),
                     pref.getOnboardingDashboardTourVersion(),
                     pref.getOnboardingEditorTourVersion()
             );

@@ -1,4 +1,5 @@
 import type { ToolbarLayout, VirtualKeyboardMode, TextItemLayout } from '@/stores/editor/types'
+import type { ShortcutPreferences } from '@/composables/editor/shortcut-registry'
 
 export interface EditorPreferences {
   backgroundColor: string | null
@@ -21,6 +22,7 @@ export interface EditorPreferences {
   textViewPadding: number | null
   textItemLayout: TextItemLayout | null
   highlightUnknownCodecChars: boolean | null
+  shortcutBindings: ShortcutPreferences | null
   onboardingDashboardTourVersion: number | null
   onboardingEditorTourVersion: number | null
 }
@@ -52,6 +54,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   textViewPadding: null,
   textItemLayout: null,
   highlightUnknownCodecChars: null,
+  shortcutBindings: null,
   onboardingDashboardTourVersion: null,
   onboardingEditorTourVersion: null
 }

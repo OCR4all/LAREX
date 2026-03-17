@@ -74,6 +74,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const selectedVirtualKeyboardId = ref<string | null>(null)
 
   const shortcutsHelpOpen = ref(false)
+  const shortcutSettingsOpen = ref(false)
 
   const preferencesLoaded = ref(false)
 
@@ -392,6 +393,18 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     shortcutsHelpOpen.value = !shortcutsHelpOpen.value
   }
 
+  function openShortcutSettings() {
+    shortcutSettingsOpen.value = true
+  }
+
+  function closeShortcutSettings() {
+    shortcutSettingsOpen.value = false
+  }
+
+  function toggleShortcutSettings() {
+    shortcutSettingsOpen.value = !shortcutSettingsOpen.value
+  }
+
   return {
     uiMode,
     uiModeScope,
@@ -419,6 +432,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     virtualKeyboardMode,
     selectedVirtualKeyboardId,
     shortcutsHelpOpen,
+    shortcutSettingsOpen,
     preferencesLoaded,
 
     effectiveUiMode,
@@ -468,6 +482,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleConfidenceHeatmap,
     setVirtualKeyboardMode,
     setSelectedVirtualKeyboardId,
-    toggleShortcutsHelp
+    toggleShortcutsHelp,
+    openShortcutSettings,
+    closeShortcutSettings,
+    toggleShortcutSettings
   }
 })

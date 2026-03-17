@@ -18,7 +18,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useEditorImageLoader } from '@/composables/use-editor-image-loader'
-import { Polygon, PolygonType, createPageXmlLabelSet } from '@/models/editor'
+import { PolygonType, createPageXmlLabelSet } from '@/models/editor'
 import type { Region, RegionKind } from '@/models/editor/region'
 import type { TextLine } from '@/models/editor/text'
 import { getEditorSession } from '@/session/editor/editor-session'
@@ -2182,14 +2182,14 @@ const {
   loadPersistedSession: () => sessionStore.loadPersistedSession(),
   hasSession: () => sessionStore.hasSession(),
   workspaceId: computed(() => sessionStore.workspaceId),
-  initWorkspaceSession: (workspaceId) => sessionStore.initWorkspaceSession(workspaceId),
+  initWorkspaceSession: workspaceId => sessionStore.initWorkspaceSession(workspaceId),
   openedProjectIds: computed(() => [...sessionStore.openedProjectIds]),
-  getOpenedPageIds: (projectId) => sessionStore.getOpenedPageIds(projectId),
-  getSelectedVariantIdByPageId: (projectId) => sessionStore.getSelectedVariantIdByPageId(projectId),
+  getOpenedPageIds: projectId => sessionStore.getOpenedPageIds(projectId),
+  getSelectedVariantIdByPageId: projectId => sessionStore.getSelectedVariantIdByPageId(projectId),
   ensureProjectPanelExists,
   openEditorForPage,
   restorePersistedProject,
-  loadProjectMetadata: (projectId) => loadProjectLabelSet(projectId),
+  loadProjectMetadata: projectId => loadProjectLabelSet(projectId),
   applyEditorDeepLink: applyEditorDeepLinkFromQuery,
   maybeAutoStartContextTour,
   getEditorMode: () => editorStore.effectiveUiMode(editorStore.activeCanvasId)
@@ -2311,7 +2311,11 @@ const onReady = (event: DockviewReadyEvent) => {
 
       <EditorEmpty v-if="!activeCanvasId" class="absolute inset-0 z-10" />
 
-      <EditorKeyboardShortcutsHelp v-model:open="editorUiStore.shortcutsHelpOpen" />
+      <EditorKeyboardShortcutsHelp
+        v-model:open="editorUiStore.shortcutsHelpOpen"
+        @customize="editorUiStore.openShortcutSettings()"
+      />
+      <EditorShortcutSettingsModal v-model:open="editorUiStore.shortcutSettingsOpen" />
     </main>
 
     <div

@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import {
-  SHORTCUT_DEFINITIONS,
   SHORTCUT_HELP_GROUPS,
+  getShortcutKbds,
+  type ShortcutCommandId,
   type ShortcutHelpGroupId,
-  type ShortcutKey
-} from '@/composables/editor/use-keyboard-shortcuts'
+  type ResolvedShortcutDefinition
+} from '@/composables/editor/shortcut-registry'
+import { useShortcutBindings } from '@/composables/editor/use-shortcut-bindings'
 
 const props = defineProps<{
   open: boolean
 }>()
 
 const emit = defineEmits<{
-  'update:open': [value: boolean]
+  (e: 'update:open', value: boolean): void
+  (e: 'customize'): void
 }>()
 
 const isOpen = computed({
@@ -20,14 +23,14 @@ const isOpen = computed({
 })
 
 const searchQuery = ref('')
+const { resolvedShortcutDefinitions } = useShortcutBindings()
 
 type ShortcutCombo = {
-  key: string
   kbds: string[]
 }
 
 type ShortcutHelpItem = {
-  id: ShortcutKey
+  id: ShortcutCommandId
   description: string
   group: ShortcutHelpGroupId
   combos: ShortcutCombo[]
@@ -35,13 +38,12 @@ type ShortcutHelpItem = {
 }
 
 const allShortcutItems = computed<ShortcutHelpItem[]>(() => {
-  return (Object.entries(SHORTCUT_DEFINITIONS) as [ShortcutKey, typeof SHORTCUT_DEFINITIONS[ShortcutKey]][])
+  return (Object.entries(resolvedShortcutDefinitions.value) as Array<[ShortcutCommandId, ResolvedShortcutDefinition]>)
     .filter(([, definition]) => definition.showInHelp !== false)
     .map(([id, definition]) => {
-      const combos: ShortcutCombo[] = [
-        { key: definition.key, kbds: [...definition.kbds] },
-        ...(definition.aliases?.map(alias => ({ key: alias.key, kbds: [...alias.kbds] })) ?? [])
-      ]
+      const combos: ShortcutCombo[] = definition.bindings.map(binding => ({
+        kbds: getShortcutKbds(binding)
+      }))
 
       return {
         id,
@@ -51,7 +53,7 @@ const allShortcutItems = computed<ShortcutHelpItem[]>(() => {
         searchText: [
           definition.description,
           definition.group,
-          ...combos.flatMap(combo => [combo.key, combo.kbds.join(' ')])
+          ...combos.flatMap(combo => [combo.kbds.join(' ')])
         ].join(' ').toLocaleLowerCase()
       }
     })
@@ -80,6 +82,11 @@ const totalShortcutCount = computed(() => allShortcutItems.value.length)
 const visibleShortcutCount = computed(() =>
   visibleShortcutGroups.value.reduce((count, group) => count + group.shortcuts.length, 0)
 )
+
+function handleCustomize() {
+  isOpen.value = false
+  emit('customize')
+}
 </script>
 
 <template>
@@ -97,18 +104,29 @@ const visibleShortcutCount = computed(() =>
                   </h2>
                 </div>
                 <p class="text-sm text-muted">
-                  Complete editor shortcut reference. Shortcuts are ignored while typing in inputs and text areas.
+                  Complete editor shortcut reference. Global shortcuts are ignored while typing, while text-view shortcuts stay active inside the textline editor.
                 </p>
               </div>
 
-              <UButton
-                icon="i-lucide-x"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                aria-label="Close"
-                @click="isOpen = false"
-              />
+              <div class="flex items-center gap-2">
+                <UButton
+                  icon="i-lucide-sliders-horizontal"
+                  color="neutral"
+                  variant="soft"
+                  size="sm"
+                  label="Customize"
+                  @click="handleCustomize"
+                />
+
+                <UButton
+                  icon="i-lucide-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Close"
+                  @click="isOpen = false"
+                />
+              </div>
             </div>
 
             <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
@@ -180,11 +198,11 @@ const visibleShortcutCount = computed(() =>
 
                   <div class="flex flex-wrap items-center gap-2 md:max-w-[52%] md:justify-end">
                     <div
-                      v-for="combo in shortcut.combos"
-                      :key="`${shortcut.id}-${combo.key}`"
+                      v-for="(combo, comboIndex) in shortcut.combos"
+                      :key="`${shortcut.id}-${comboIndex}`"
                       class="flex items-center gap-1.5 rounded-md border border-default bg-elevated px-2 py-1"
                     >
-                      <template v-for="(kbd, index) in combo.kbds" :key="`${shortcut.id}-${combo.key}-${kbd}-${index}`">
+                      <template v-for="(kbd, index) in combo.kbds" :key="`${shortcut.id}-${comboIndex}-${kbd}-${index}`">
                         <span v-if="index > 0" class="text-[11px] text-muted">+</span>
                         <UKbd :value="kbd" size="sm" variant="subtle" />
                       </template>
@@ -225,7 +243,16 @@ const visibleShortcutCount = computed(() =>
               </div>
             </div>
 
-            <span>Modifier labels adapt to your platform automatically.</span>
+            <div class="flex items-center gap-2">
+              <span>Modifier labels adapt to your platform automatically.</span>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                label="Customize"
+                @click="handleCustomize"
+              />
+            </div>
           </div>
         </template>
       </UCard>

@@ -14,30 +14,28 @@ const emit = defineEmits<{
   merge: []
 }>()
 
-const baseEditorModeItems = [
-  {
-    label: 'Layout',
-    value: 'layout',
-    icon: 'i-lucide-layout-dashboard',
-    tooltip: getTooltipProps('layoutMode')
-  },
-  {
-    label: 'Text',
-    value: 'text',
-    icon: 'i-lucide-text-initial',
-    tooltip: getTooltipProps('textMode')
-  }
-] as const
-
 const editorModeItems = computed<TabsItem[]>(() =>
-  baseEditorModeItems.map(({ label, tooltip, ...rest }) => ({
+  [
+    {
+      label: 'Layout',
+      value: 'layout',
+      icon: 'i-lucide-layout-dashboard',
+      tooltip: getTooltipProps('layoutMode')
+    },
+    {
+      label: 'Text',
+      value: 'text',
+      icon: 'i-lucide-text-initial',
+      tooltip: getTooltipProps('textMode')
+    }
+  ].map(({ label, tooltip, ...rest }) => ({
     ...rest,
     tooltip,
     ...(!isVertical.value && { label })
   }))
 )
 
-const viewModeItems = ref<TabsItem[]>([
+const viewModeItems = computed<TabsItem[]>(() => [
   {
     value: VIEW_MODES.DEFAULT,
     icon: 'i-lucide-layers',
@@ -561,6 +559,11 @@ const moreOptionsDropdownItems = computed(() => [
     }
   ],
   [
+    {
+      label: 'Shortcut Settings',
+      icon: 'i-lucide-sliders-horizontal',
+      onSelect: () => uiStore.openShortcutSettings()
+    },
     {
       label: 'Keyboard Shortcuts',
       icon: 'i-lucide-circle-help',

@@ -13,10 +13,12 @@ import type { RegionKind } from '@/models/editor/region'
 import type { CommandContext } from '@/commands'
 import { Commander, DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextContentVariantsCommand } from '@/commands'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
+import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { usePageFilter } from '@/composables/use-page-filter'
 import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
+import type { LabelDefinition } from '@/types/label-set'
 import { wsKey } from '@/utils/fetch-keys'
 import { computeTextLineReadingDirectionMap } from './reading-direction'
 import {
@@ -181,6 +183,20 @@ function normalizeSingleLineText(value: string): string {
   return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
 }
 
+function getRequestErrorMessage(error: unknown): string {
+  if (typeof error === 'object' && error) {
+    const data = 'data' in error ? error.data : undefined
+    if (typeof data === 'object' && data && 'message' in data && typeof data.message === 'string') {
+      return data.message
+    }
+    if ('message' in error && typeof error.message === 'string') {
+      return error.message
+    }
+  }
+
+  return 'Request failed'
+}
+
 function looksLikeWorldCoords(points: Point[]): boolean {
   if (points.length === 0) return false
   return points.every(p => Math.abs(p.x) <= 2 && Math.abs(p.y) <= 2)
@@ -267,52 +283,30 @@ function triggerCreateGtForSelectedTextline(): boolean {
   return true
 }
 
-function handleTextViewKeydown(event: KeyboardEvent): void {
-  const el = rootEl.value
-  if (!el) return
-  const target = event.target
-  if (!(target instanceof Node)) return
-  const isTargetInsideTextView = el.contains(target)
-  const isBodyTarget = target === document.body
-  if (!isTargetInsideTextView && !isBodyTarget) return
-
-  if (event.key === 'Tab') {
-    event.preventDefault()
-    focusTextContentVariantAtOffset(event.shiftKey ? -1 : 1)
-    return
+useTextViewShortcutScope({
+  canvasId: effectiveCanvasId,
+  rootEl,
+  handlers: {
+    nextTextField: () => {
+      focusTextContentVariantAtOffset(1)
+      return true
+    },
+    prevTextField: () => {
+      focusTextContentVariantAtOffset(-1)
+      return true
+    },
+    blurTextField: () => {
+      const active = document.activeElement
+      if (!(active instanceof HTMLElement)) return false
+      active.blur()
+      return true
+    },
+    nextSameIndexField: () => {
+      focusNextSameIndex()
+      return true
+    },
+    createGtFromRecognition: () => triggerCreateGtForSelectedTextline()
   }
-
-  if (event.key === 'Escape') {
-    const active = document.activeElement
-    if (active instanceof HTMLElement) active.blur()
-    return
-  }
-
-  if (event.key === 'Enter' && event.altKey) {
-    event.preventDefault()
-    focusNextSameIndex()
-    return
-  }
-
-  if (
-    event.key.toLowerCase() === 'g'
-    && event.altKey
-    && (event.ctrlKey || event.metaKey)
-    && !event.shiftKey
-  ) {
-    if (triggerCreateGtForSelectedTextline()) {
-      event.preventDefault()
-      event.stopPropagation()
-    }
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', handleTextViewKeydown, true)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleTextViewKeydown, true)
 })
 
 const currentPageId = computed(() => {
@@ -389,7 +383,7 @@ function regionColor(regionKind: string | undefined, regionSubtype: string | und
 
   const labelSet = editorStore.labelSet
   if (labelSet) {
-    const match = findRegionLabelDefinitionForRegion(labelSet.labels as any, {
+    const match = findRegionLabelDefinitionForRegion(labelSet.labels as LabelDefinition[], {
       regionKind,
       regionSubtype,
       regionCustom
@@ -631,10 +625,10 @@ async function handleQuickAddCodecCharacter(char: string) {
     await refreshNuxtData(wsKey(workspaceId, 'codecs', codecId))
     await refreshNuxtData(wsKey(workspaceId, 'codecs', 'list'))
     toast.add({ title: 'Added to codec', description: `Character "${char}" appended to the project codec.`, color: 'success' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.add({
       title: 'Could not add to codec',
-      description: error?.data?.message || error?.message || 'Request failed',
+      description: getRequestErrorMessage(error),
       color: 'error'
     })
   }
@@ -676,10 +670,10 @@ async function handleQuickAddKeyboardCharacter(char: string) {
     await refreshNuxtData(wsKey(workspaceId, 'virtual-keyboards', 'list'))
     await refreshNuxtData(wsKey(workspaceId, 'virtual-keyboards', keyboardId))
     toast.add({ title: 'Added to keyboard', description: `Character "${char}" appended to the selected keyboard.`, color: 'success' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     toast.add({
       title: 'Could not add to keyboard',
-      description: error?.data?.message || error?.message || 'Request failed',
+      description: getRequestErrorMessage(error),
       color: 'error'
     })
   }
@@ -1052,7 +1046,7 @@ const sectionMenuItems = computed(() => [[
 </script>
 
 <template>
-  <div ref="rootEl" class="flex flex-col h-full">
+  <div ref="rootEl" data-shortcut-scope="text-view" class="flex flex-col h-full">
     <div
       data-tour="editor-textline-list-toolbar"
       class="sticky top-0 z-10 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85"

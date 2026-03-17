@@ -42,6 +42,7 @@ public class EditorPreferenceService {
         if (dto.textViewPadding() != null) pref.setTextViewPadding(dto.textViewPadding());
         if (dto.textItemLayout() != null) pref.setTextItemLayout(dto.textItemLayout());
         if (dto.highlightUnknownCodecChars() != null) pref.setHighlightUnknownCodecChars(dto.highlightUnknownCodecChars());
+        if (dto.shortcutBindings() != null) pref.setShortcutBindings(dto.shortcutBindings());
         if (dto.onboardingDashboardTourVersion() != null) pref.setOnboardingDashboardTourVersion(dto.onboardingDashboardTourVersion());
         if (dto.onboardingEditorTourVersion() != null) pref.setOnboardingEditorTourVersion(dto.onboardingEditorTourVersion());
 

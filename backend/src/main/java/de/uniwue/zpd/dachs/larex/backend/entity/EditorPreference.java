@@ -1,6 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -76,6 +79,10 @@ public class EditorPreference {
 
     @Column(name = "highlight_unknown_codec_chars")
     private Boolean highlightUnknownCodecChars;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "shortcut_bindings", columnDefinition = "jsonb")
+    private JsonNode shortcutBindings;
 
     @Column(name = "onboarding_dashboard_tour_version")
     private Integer onboardingDashboardTourVersion;
@@ -157,6 +164,9 @@ public class EditorPreference {
 
     public Boolean getHighlightUnknownCodecChars() { return highlightUnknownCodecChars; }
     public void setHighlightUnknownCodecChars(Boolean highlightUnknownCodecChars) { this.highlightUnknownCodecChars = highlightUnknownCodecChars; }
+
+    public JsonNode getShortcutBindings() { return shortcutBindings; }
+    public void setShortcutBindings(JsonNode shortcutBindings) { this.shortcutBindings = shortcutBindings; }
 
     public Integer getOnboardingDashboardTourVersion() { return onboardingDashboardTourVersion; }
     public void setOnboardingDashboardTourVersion(Integer onboardingDashboardTourVersion) { this.onboardingDashboardTourVersion = onboardingDashboardTourVersion; }
