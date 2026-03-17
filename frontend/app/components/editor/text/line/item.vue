@@ -932,6 +932,8 @@ onBeforeUnmount(() => {
                   <UTextarea
                     :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
                     :model-value="textEquiv.text"
+                    :rows="1"
+                    autoresize
                     placeholder="Enter transcription..."
                     :dir="textDirectionDir"
                     :style="textDirectionStyle"
@@ -941,7 +943,7 @@ onBeforeUnmount(() => {
                     :data-textline-id="props.textline.id"
                     :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
                     :data-textequiv-pos="String(textEquiv.pos)"
-                    class="textline-textarea flex-1 min-w-0 min-h-11 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
+                    class="textline-textarea flex-1 min-w-0 min-h-9 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                     :class="[
                       variantRole(textEquiv.index) === 'gt' && (hasTextHighlight(textEquiv.text)
                         ? 'textline-textarea--gt border-emerald-300'
