@@ -20,12 +20,17 @@ function queueKey(workspaceId: string, dictionaryId: string, includeSuggestions:
 export function useDictionaryTokenLookup() {
   const tokenResults = useState<Record<string, Record<string, DictionaryTokenCheckResult>>>('dictionary-token-results', () => ({}))
   const pendingTokens = useState<Record<string, true>>('dictionary-token-pending', () => ({}))
+  const suggestionTokensLoaded = useState<Record<string, true>>('dictionary-token-suggestions-loaded', () => ({}))
 
   function cacheKey(workspaceId: string, dictionaryId: string) {
     return `${workspaceId}:${dictionaryId}`
   }
 
   function pendingKey(workspaceId: string, dictionaryId: string, token: string) {
+    return `${workspaceId}:${dictionaryId}:${token}`
+  }
+
+  function suggestionKey(workspaceId: string, dictionaryId: string, token: string) {
     return `${workspaceId}:${dictionaryId}:${token}`
   }
 
@@ -39,6 +44,12 @@ export function useDictionaryTokenLookup() {
     const normalizedToken = token?.trim()
     if (!normalizedToken) return false
     return Boolean(pendingTokens.value[pendingKey(workspaceId, dictionaryId, normalizedToken)])
+  }
+
+  function hasSuggestionsLoaded(workspaceId: string, dictionaryId: string, token: string): boolean {
+    const normalizedToken = token?.trim()
+    if (!normalizedToken) return false
+    return Boolean(suggestionTokensLoaded.value[suggestionKey(workspaceId, dictionaryId, normalizedToken)])
   }
 
   function storeResults(workspaceId: string, dictionaryId: string, results: DictionaryTokenCheckResult[]) {
@@ -75,6 +86,14 @@ export function useDictionaryTokenLookup() {
     pendingTokens.value = next
   }
 
+  function markSuggestionsLoaded(workspaceId: string, dictionaryId: string, tokens: Iterable<string>) {
+    const next = { ...suggestionTokensLoaded.value }
+    for (const token of tokens) {
+      next[suggestionKey(workspaceId, dictionaryId, token)] = true
+    }
+    suggestionTokensLoaded.value = next
+  }
+
   async function flushQueue(key: string) {
     const entry = pendingQueues.get(key)
     if (!entry) return
@@ -94,6 +113,9 @@ export function useDictionaryTokenLookup() {
       )
       storeResults(entry.workspaceId, entry.dictionaryId, response.results ?? [])
       clearTokensPending(entry.workspaceId, entry.dictionaryId, entry.tokens)
+      if (entry.includeSuggestions) {
+        markSuggestionsLoaded(entry.workspaceId, entry.dictionaryId, entry.tokens)
+      }
       for (const resolve of entry.resolvers) resolve()
     } catch (error) {
       clearTokensPending(entry.workspaceId, entry.dictionaryId, entry.tokens)
@@ -124,7 +146,7 @@ export function useDictionaryTokenLookup() {
     const missingTokens = requestedTokens.filter((token) => {
       const cached = getTokenResult(workspaceId, dictionaryId, token)
       if (!cached) return true
-      return includeSuggestions && (cached.suggestions?.length ?? 0) === 0 && !cached.known
+      return includeSuggestions && !cached.known && !hasSuggestionsLoaded(workspaceId, dictionaryId, token)
     })
 
     if (missingTokens.length === 0) {
@@ -182,6 +204,14 @@ export function useDictionaryTokenLookup() {
       }
     }
     pendingTokens.value = pendingNext
+
+    const suggestionsNext = { ...suggestionTokensLoaded.value }
+    for (const key of Object.keys(suggestionsNext)) {
+      if (key.startsWith(pendingPrefix)) {
+        delete suggestionsNext[key]
+      }
+    }
+    suggestionTokensLoaded.value = suggestionsNext
   }
 
   function invalidateToken(workspaceId: string, dictionaryId: string, token: string) {
@@ -197,12 +227,16 @@ export function useDictionaryTokenLookup() {
     const pendingNext = { ...pendingTokens.value }
     delete pendingNext[pendingKey(workspaceId, dictionaryId, token)]
     pendingTokens.value = pendingNext
+    const suggestionsNext = { ...suggestionTokensLoaded.value }
+    delete suggestionsNext[suggestionKey(workspaceId, dictionaryId, token)]
+    suggestionTokensLoaded.value = suggestionsNext
   }
 
   return {
     ensureTokenResults,
     getTokenResult,
     isTokenPending,
+    hasSuggestionsLoaded,
     invalidateDictionary,
     invalidateToken
   }

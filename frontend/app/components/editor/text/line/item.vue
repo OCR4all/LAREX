@@ -111,6 +111,7 @@ const confirmModal = overlay.create(LazyUiConfirmModal)
 const workspaceStore = useWorkspaceStore()
 const {
   ensureTokenResults,
+  hasSuggestionsLoaded,
   getTokenResult,
   isTokenPending
 } = useDictionaryTokenLookup()
@@ -835,6 +836,18 @@ function handleUnknownDictionaryPopoverUpdate(open: boolean, text: string): void
   })
 }
 
+function isDictionarySuggestionLoading(token: string): boolean {
+  const workspaceId = workspaceStore.selectedWorkspaceId
+  const dictionaryId = props.projectDictionaryId
+  if (!workspaceId || !dictionaryId) return false
+
+  const result = getTokenResult(workspaceId, dictionaryId, token)
+  if (!result) return true
+  if (result.known) return false
+  if (isTokenPending(workspaceId, dictionaryId, token)) return true
+  return !hasSuggestionsLoaded(workspaceId, dictionaryId, token)
+}
+
 function applyDictionarySuggestion(arrayPos: number, segment: UnknownDictionarySegment, replacement: string) {
   replaceTextRange(arrayPos, segment.start, segment.end, replacement)
 }
@@ -1260,6 +1273,10 @@ onBeforeUnmount(() => {
                                 >
                                   {{ suggestion.display }}
                                 </UButton>
+                              </div>
+                              <div v-else-if="isDictionarySuggestionLoading(detail.token)" class="space-y-2">
+                                <USkeleton class="h-7 w-full" />
+                                <USkeleton class="h-7 w-2/3" />
                               </div>
                               <div class="flex flex-wrap gap-1">
                                 <UButton
