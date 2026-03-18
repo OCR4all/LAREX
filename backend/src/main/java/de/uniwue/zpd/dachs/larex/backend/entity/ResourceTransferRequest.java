@@ -58,6 +58,7 @@ public class ResourceTransferRequest {
 
     public enum ResourceType {
         CODEC,
+        DICTIONARY,
         VIRTUAL_KEYBOARD,
         LABEL_SET
     }

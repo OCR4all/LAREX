@@ -34,6 +34,7 @@ public class WorkspaceDto {
         private final String ownerUserId;
         private final String codecId;
         private final String labelSetId;
+        private final String dictionaryId;
         private final String tagSetId;
         private final Integer defaultGtIndex;
         private final List<Integer> defaultRecognitionIndices;
@@ -41,7 +42,7 @@ public class WorkspaceDto {
 
         protected Response(String id, String name, String description, String avatar,
                           LocalDateTime created, LocalDateTime updated, boolean isPersonal,
-                          String ownerUserId, String codecId, String labelSetId, String tagSetId,
+                          String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                           Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                           AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
             this.id = id;
@@ -54,6 +55,7 @@ public class WorkspaceDto {
             this.ownerUserId = ownerUserId;
             this.codecId = codecId;
             this.labelSetId = labelSetId;
+            this.dictionaryId = dictionaryId;
             this.tagSetId = tagSetId;
             this.defaultGtIndex = defaultGtIndex;
             this.defaultRecognitionIndices = defaultRecognitionIndices;
@@ -71,6 +73,7 @@ public class WorkspaceDto {
         public String getOwnerUserId() { return ownerUserId; }
         public String getCodecId() { return codecId; }
         public String getLabelSetId() { return labelSetId; }
+        public String getDictionaryId() { return dictionaryId; }
         public String getTagSetId() { return tagSetId; }
         public Integer getDefaultGtIndex() { return defaultGtIndex; }
         public List<Integer> getDefaultRecognitionIndices() { return defaultRecognitionIndices; }
@@ -80,10 +83,10 @@ public class WorkspaceDto {
     public static class PersonalWorkspaceResponse extends Response {
         public PersonalWorkspaceResponse(String id, String description, String avatar,
                                        LocalDateTime created, LocalDateTime updated,
-                                       String ownerUserId, String codecId, String labelSetId, String tagSetId,
+                                       String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                        AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
-            super(id, "Personal Workspace", description, avatar, created, updated, true, ownerUserId, codecId, labelSetId, tagSetId,
+            super(id, "Personal Workspace", description, avatar, created, updated, true, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     defaultGtIndex, defaultRecognitionIndices, capabilities);
         }
     }
@@ -91,10 +94,10 @@ public class WorkspaceDto {
     public static class TeamWorkspaceResponse extends Response {
         public TeamWorkspaceResponse(String id, String name, String description, String avatar,
                                    LocalDateTime created, LocalDateTime updated,
-                                   String ownerUserId, String codecId, String labelSetId, String tagSetId,
+                                   String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                    Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                    AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
-            super(id, name, description, avatar, created, updated, false, ownerUserId, codecId, labelSetId, tagSetId,
+            super(id, name, description, avatar, created, updated, false, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
                     defaultGtIndex, defaultRecognitionIndices, capabilities);
         }
     }
@@ -127,6 +130,7 @@ public class WorkspaceDto {
             String avatar,
             String codecId,
             String labelSetId,
+            String dictionaryId,
             String tagSetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices
@@ -141,6 +145,7 @@ public class WorkspaceDto {
             String avatar,
             String codecId,
             String labelSetId,
+            String dictionaryId,
             String tagSetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices
@@ -152,6 +157,7 @@ public class WorkspaceDto {
             String avatar,
             String codecId,
             String labelSetId,
+            String dictionaryId,
             String tagSetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices

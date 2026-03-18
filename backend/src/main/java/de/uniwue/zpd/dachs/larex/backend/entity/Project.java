@@ -62,6 +62,10 @@ public class Project {
     private LabelSet labelSet;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dictionary_id")
+    private ControlledDictionary dictionary;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tag_set_id")
     private TagSet tagSet;
 
@@ -173,6 +177,14 @@ public class Project {
 
     public void setLabelSet(LabelSet labelSet) {
         this.labelSet = labelSet;
+    }
+
+    public ControlledDictionary getDictionary() {
+        return dictionary;
+    }
+
+    public void setDictionary(ControlledDictionary dictionary) {
+        this.dictionary = dictionary;
     }
 
     public TagSet getTagSet() {

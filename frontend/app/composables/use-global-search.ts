@@ -51,6 +51,12 @@ type CodecSearchResult = {
   characterCount: number
 }
 
+type DictionarySearchResult = {
+  id: string
+  name: string
+  entryCount: number
+}
+
 type VirtualKeyboardSearchResult = {
   id: string
   name?: string
@@ -62,6 +68,7 @@ type GlobalSearchRawResults = {
   labelSets: LabelSetSearchResult[]
   tagSets: TagSetSearchResult[]
   codecs: CodecSearchResult[]
+  dictionaries: DictionarySearchResult[]
   virtualKeyboards: VirtualKeyboardSearchResult[]
 }
 
@@ -91,6 +98,7 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
     labelSets: [],
     tagSets: [],
     codecs: [],
+    dictionaries: [],
     virtualKeyboards: []
   })
 
@@ -103,6 +111,7 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
       labelSets: [],
       tagSets: [],
       codecs: [],
+      dictionaries: [],
       virtualKeyboards: []
     }
   }
@@ -143,11 +152,12 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
     hasSearched.value = true
 
     try {
-      const [projectRes, labelSetRes, tagSetRes, codecRes, vkRes] = await Promise.all([
+      const [projectRes, labelSetRes, tagSetRes, codecRes, dictionaryRes, vkRes] = await Promise.all([
         $fetch<{ projects: ProjectSearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}&limit=10`, { signal: abortController.signal }).catch(() => null),
         wsId ? $fetch<LabelSetSearchResult[]>(`/api/workspaces/${wsId}/label-sets?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
         wsId ? $fetch<TagSetSearchResult[]>(`/api/workspaces/${wsId}/tag-sets?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
         wsId ? $fetch<CodecSearchResult[]>(`/api/workspaces/${wsId}/codecs?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
+        wsId ? $fetch<DictionarySearchResult[]>(`/api/workspaces/${wsId}/dictionaries?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
         wsId ? getVirtualKeyboards(wsId, abortController.signal) : Promise.resolve([])
       ])
 
@@ -159,6 +169,7 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
         labelSets: labelSetRes || [],
         tagSets: tagSetRes || [],
         codecs: codecRes || [],
+        dictionaries: dictionaryRes || [],
         virtualKeyboards: (vkRes || []).filter(vk =>
           vk.name?.toLowerCase().includes(lowerQ) || vk.description?.toLowerCase().includes(lowerQ)
         )
@@ -234,7 +245,7 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
 
     const labelSets = rawResults.value.labelSets.map(ls => ({
       id: `label-set-${ls.id}`,
-      label: ls.meta?.name || ls.name,
+      label: ls.meta?.name || ls.name || 'Untitled label set',
       suffix: `${ls.labelCount} labels`,
       icon: 'i-lucide-tags',
       to: `/labels/${ls.id}`,
@@ -243,7 +254,7 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
 
     const tagSets = rawResults.value.tagSets.map(ts => ({
       id: `tag-set-${ts.id}`,
-      label: ts.meta?.name || ts.name,
+      label: ts.meta?.name || ts.name || 'Untitled tag set',
       suffix: `${ts.tagCount} tags`,
       icon: 'i-lucide-network',
       to: `/tag-sets/${ts.id}`,
@@ -259,9 +270,18 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
       onSelect: wrapSelect()
     }))
 
+    const dictionaries = rawResults.value.dictionaries.map(dictionary => ({
+      id: `dictionary-${dictionary.id}`,
+      label: dictionary.name,
+      suffix: `${dictionary.entryCount} forms`,
+      icon: 'i-lucide-book-copy',
+      to: `/dictionaries/${dictionary.id}`,
+      onSelect: wrapSelect()
+    }))
+
     const virtualKeyboards = rawResults.value.virtualKeyboards.map(vk => ({
       id: `vk-${vk.id}`,
-      label: vk.name,
+      label: vk.name || 'Untitled keyboard',
       suffix: vk.description || 'Virtual keyboard',
       icon: 'i-lucide-keyboard',
       to: `/virtual-keyboard/${vk.id}`,
@@ -273,6 +293,7 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
     if (labelSets.length > 0) groups.push({ id: 'label-sets', label: `Label Sets (${labelSets.length})`, items: labelSets, ignoreFilter: true })
     if (tagSets.length > 0) groups.push({ id: 'tag-sets', label: `Tag Sets (${tagSets.length})`, items: tagSets, ignoreFilter: true })
     if (codecs.length > 0) groups.push({ id: 'codecs', label: `Codecs (${codecs.length})`, items: codecs, ignoreFilter: true })
+    if (dictionaries.length > 0) groups.push({ id: 'dictionaries', label: `Dictionaries (${dictionaries.length})`, items: dictionaries, ignoreFilter: true })
     if (virtualKeyboards.length > 0) groups.push({ id: 'virtual-keyboards', label: `Virtual Keyboards (${virtualKeyboards.length})`, items: virtualKeyboards, ignoreFilter: true })
 
     if (groups.length === 0 && hasSearched.value && !isSearching.value) {

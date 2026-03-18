@@ -3,6 +3,7 @@ import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import { wsKey } from '@/utils/fetch-keys'
 import type { CodecSummary } from '~/types/codec'
+import type { DictionarySummary } from '~/types/dictionary'
 import type { LabelSetSummary } from '~/types/label-set'
 import type { TagSetSummary } from '~/types/tag-set'
 
@@ -33,6 +34,7 @@ const schema = z.object({
   tags: z.array(z.string()).optional(),
   codecId: z.string().optional(),
   labelSetId: z.string().optional(),
+  dictionaryId: z.string().optional(),
   tagSetId: z.string().optional(),
   defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
@@ -48,6 +50,7 @@ const state = reactive<Partial<Schema>>({
   tags: undefined,
   codecId: undefined,
   labelSetId: undefined,
+  dictionaryId: undefined,
   tagSetId: undefined,
   defaultGtIndexInput: '0',
   defaultGtIndexUndefined: true,
@@ -64,11 +67,7 @@ const { data: codecs, error: codecsError } = await useFetch<CodecSummary[]>(
   () => `/api/workspaces/${selectedWorkspace.value}/codecs`,
   {
     key: codecsKey,
-    default: () => [],
-    transform: (codecs: CodecSummary[]) => codecs.map(codec => ({
-      label: codec.name,
-      value: codec.id
-    }))
+    default: () => []
   }
 )
 
@@ -81,13 +80,21 @@ const { data: workspaceDetails } = await useFetch<WorkspaceDefaults>(
   }
 )
 
+const dictionariesKey = computed(() => wsKey(selectedWorkspace.value, 'dictionaries', 'list'))
+const { data: dictionaries, error: dictionariesError } = await useFetch<DictionarySummary[]>(
+  () => `/api/workspaces/${selectedWorkspace.value}/dictionaries`,
+  {
+    key: dictionariesKey,
+    default: () => []
+  }
+)
+
 const labelSetsKey = computed(() => wsKey(selectedWorkspace.value, 'label-sets', 'list'))
-const { data: labelSets, error: labelSetsError } = await useFetch<SelectOption[]>(
+const { data: labelSets, error: labelSetsError } = await useFetch<LabelSetSummary[]>(
   () => `/api/workspaces/${selectedWorkspace.value}/label-sets`,
   {
     key: labelSetsKey,
-    default: () => [],
-    transform: (sets: LabelSetSummary[]) => sets.map(s => ({ label: s.meta.name, value: s.id }))
+    default: () => []
   }
 )
 
@@ -96,13 +103,26 @@ const { data: tagSets, error: tagSetsError } = await useFetch<TagSetSummary[]>(
   () => `/api/workspaces/${selectedWorkspace.value}/tag-sets`,
   {
     key: tagSetsKey,
-    default: () => [],
-    transform: (tagSets: TagSetSummary[]) => tagSets.map(t => ({
-      label: t.meta.name,
-      value: t.id
-    }))
+    default: () => []
   }
 )
+
+const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({
+  label: codec.name,
+  value: codec.id
+})))
+const dictionariesSafe = computed<SelectOption[]>(() => (dictionaries.value ?? []).map(dictionary => ({
+  label: dictionary.name,
+  value: dictionary.id
+})))
+const labelSetsSafe = computed<SelectOption[]>(() => (labelSets.value ?? []).map(set => ({
+  label: set.meta.name,
+  value: set.id
+})))
+const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tagSet => ({
+  label: tagSet.meta.name,
+  value: tagSet.id
+})))
 
 const hasAppliedLabelSetDefault = ref(false)
 const hasAppliedTextIndexDefaults = ref(false)
@@ -121,7 +141,7 @@ watch(selectedWorkspace, () => {
   state.defaultRecognitionIndicesUndefined = false
 })
 
-watch([workspaceDetails, labelSets], ([workspace, availableLabelSets]) => {
+watch([workspaceDetails, labelSetsSafe], ([workspace, availableLabelSets]) => {
   if (hasAppliedLabelSetDefault.value) return
 
   const workspaceDefaultId = workspace?.labelSetId
@@ -209,6 +229,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       tags: event.data.tags,
       codecId: event.data.codecId,
       labelSetId: event.data.labelSetId,
+      dictionaryId: event.data.dictionaryId,
       tagSetId: event.data.tagSetId,
       ...(parsedGtIndex !== undefined ? { defaultGtIndex: parsedGtIndex } : {}),
       ...(parsedRecognitionIndices.length > 0 ? { defaultRecognitionIndices: parsedRecognitionIndices } : {})
@@ -288,27 +309,36 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               <UFormField label="Tag Set" name="tagSetId" hint="Tag structure to use for this project">
                 <USelect
                   v-model="state.tagSetId"
-                  :items="tagSets"
+                  :items="tagSetsSafe"
                   placeholder="Select a tag set"
-                  :disabled="!!tagSetsError || tagSets.length === 0"
+                  :disabled="!!tagSetsError || tagSetsSafe.length === 0"
                 />
               </UFormField>
 
               <UFormField label="Codec" name="codecId" hint="Codec to use for this project">
                 <USelect
                   v-model="state.codecId"
-                  :items="codecs"
+                  :items="codecsSafe"
                   placeholder="Select a codec"
-                  :disabled="!!codecsError || codecs.length === 0"
+                  :disabled="!!codecsError || codecsSafe.length === 0"
                 />
               </UFormField>
 
               <UFormField label="Label Set" name="labelSetId" hint="Label set to use for this project">
                 <USelect
                   v-model="state.labelSetId"
-                  :items="labelSets"
+                  :items="labelSetsSafe"
                   placeholder="Select a label set"
-                  :disabled="!!labelSetsError || labelSets.length === 0"
+                  :disabled="!!labelSetsError || labelSetsSafe.length === 0"
+                />
+              </UFormField>
+
+              <UFormField label="Dictionary" name="dictionaryId" hint="Dictionary to validate project GT text against">
+                <USelect
+                  v-model="state.dictionaryId"
+                  :items="dictionariesSafe"
+                  placeholder="Select a dictionary"
+                  :disabled="!!dictionariesError || dictionariesSafe.length === 0"
                 />
               </UFormField>
             </div>

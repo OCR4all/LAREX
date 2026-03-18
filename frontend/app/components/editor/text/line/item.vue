@@ -5,10 +5,12 @@ import type { TextItemLayout } from '@/stores/editor/types'
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import { GlyphService } from '@/utils/glyph-service'
+import type { DictionarySuggestion } from '@/types/dictionary'
 import {
   getHighlightedSegments,
   getTextHighlightShellClass,
-  hasTextHighlight
+  hasTextHighlight,
+  tokenizeForDictionary
 } from '../shared/text-highlighting'
 import {
   handleSingleLineTextareaBeforeInput,
@@ -46,12 +48,18 @@ interface Props {
   codecCharacters?: string[]
   highlightUnknownCodecChars?: boolean
   includeWhitespaceInCodecHighlight?: boolean
+  highlightUnknownDictionaryTokens?: boolean
   gtIndex?: number | undefined
   recognitionIndices?: number[]
   showDiff?: boolean
   isSelected?: boolean
   textHighlightQuery?: string | null
   projectCodecId?: string | null
+  projectDictionaryId?: string | null
+  canQuickAddToDictionary?: boolean
+  projectDictionaryLocked?: boolean
+  projectDictionaryCaseSensitive?: boolean
+  projectDictionaryUnicodeNormalization?: string
   selectedKeyboardId?: string | number | null
   hasVirtualKeyboard?: boolean
   allowMultiline?: boolean
@@ -66,9 +74,15 @@ const props = withDefaults(defineProps<Props>(), {
   codecCharacters: () => [],
   highlightUnknownCodecChars: false,
   includeWhitespaceInCodecHighlight: false,
+  highlightUnknownDictionaryTokens: false,
   textHighlightQuery: '',
   recognitionIndices: () => [],
   projectCodecId: null,
+  projectDictionaryId: null,
+  canQuickAddToDictionary: false,
+  projectDictionaryLocked: false,
+  projectDictionaryCaseSensitive: false,
+  projectDictionaryUnicodeNormalization: 'NFC',
   selectedKeyboardId: null,
   hasVirtualKeyboard: false,
   allowMultiline: false,
@@ -85,13 +99,21 @@ const emit = defineEmits<{
   deleteTextline: [id: string]
   createGtFromRecognition: [id: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }]
   quickAddCodecChar: [char: string]
+  quickAddDictionaryToken: [token: string]
   quickAddKeyboardChar: [char: string]
   openCodecEditor: []
+  openDictionaryEditor: []
   openKeyboardEditor: []
 }>()
 
 const overlay = useOverlay()
 const confirmModal = overlay.create(LazyUiConfirmModal)
+const workspaceStore = useWorkspaceStore()
+const {
+  ensureTokenResults,
+  getTokenResult,
+  isTokenPending
+} = useDictionaryTokenLookup()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const lensCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -512,6 +534,13 @@ const updateText = (arrayPos: number, text: string) => {
   emit('updateTextContentVariant', props.textline.id, arrayPos, text)
 }
 
+const replaceTextRange = (arrayPos: number, start: number, end: number, replacement: string) => {
+  const textEquiv = localTextContentVariants.value[arrayPos]
+  if (!textEquiv || !isEditableVariant(textEquiv.index)) return
+  const nextText = `${textEquiv.text.slice(0, start)}${replacement}${textEquiv.text.slice(end)}`
+  updateText(arrayPos, nextText)
+}
+
 interface DiffSegment {
   text: string
   type: 'equal' | 'insert' | 'delete'
@@ -543,6 +572,13 @@ type UnknownSegment = {
   unknown: boolean
 }
 
+type UnknownDictionarySegment = {
+  text: string
+  unknown: boolean
+  start: number
+  end: number
+}
+
 type UnknownCharacterMeta = {
   description: string | null
   source: 'unicode' | 'mufi' | null
@@ -556,6 +592,27 @@ type UnknownCharacterDetail = {
   source: 'unicode' | 'mufi' | null
   loading: boolean
 }
+
+type UnknownDictionaryTokenDetail = {
+  token: string
+  normalized: string
+  suggestions: DictionarySuggestion[]
+}
+
+const canCheckDictionaryTokens = computed(() => {
+  return Boolean(
+    props.highlightUnknownDictionaryTokens
+      && props.projectDictionaryId
+      && workspaceStore.selectedWorkspaceId
+  )
+})
+
+const gtDictionaryTokens = computed(() => {
+  const tokens = localTextContentVariants.value
+    .filter(variant => variantRole(variant.index) === 'gt')
+    .flatMap(variant => tokenizeForDictionary(variant.text))
+  return [...new Set(tokens)]
+})
 
 const unknownCharacterMeta = ref<Record<string, UnknownCharacterMeta>>({})
 
@@ -680,6 +737,123 @@ function handleUnknownPopoverUpdate(open: boolean, text: string): void {
   if (chars.length === 0) return
   void loadUnknownCharacterMeta(chars)
 }
+
+function getUnknownDictionaryTokenCount(text: string): number {
+  const workspaceId = workspaceStore.selectedWorkspaceId
+  const dictionaryId = props.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) return 0
+  return tokenizeForDictionary(text)
+    .map(token => getTokenResult(workspaceId, dictionaryId, token))
+    .filter(result => result && !result.known)
+    .length
+}
+
+function isDictionaryCheckLoading(text: string): boolean {
+  const workspaceId = workspaceStore.selectedWorkspaceId
+  const dictionaryId = props.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) return false
+
+  const tokens = tokenizeForDictionary(text)
+  if (tokens.length === 0) return false
+
+  return tokens.some((token) => {
+    const result = getTokenResult(workspaceId, dictionaryId, token)
+    if (result) return false
+    return isTokenPending(workspaceId, dictionaryId, token) || !result
+  })
+}
+
+function getUnknownDictionaryTokenDetails(text: string): UnknownDictionaryTokenDetail[] {
+  const workspaceId = workspaceStore.selectedWorkspaceId
+  const dictionaryId = props.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) return []
+  const seen = new Set<string>()
+  const tokens = tokenizeForDictionary(text)
+  const details: UnknownDictionaryTokenDetail[] = []
+
+  for (const token of tokens) {
+    const result = getTokenResult(workspaceId, dictionaryId, token)
+    if (!result || result.known || seen.has(result.normalizedToken)) continue
+    seen.add(result.normalizedToken)
+
+    details.push({
+      token,
+      normalized: result.normalizedToken,
+      suggestions: result.suggestions ?? []
+    })
+  }
+
+  return details
+}
+
+function getUnknownDictionaryTokenSegmentsFromLookup(text: string): UnknownDictionarySegment[] {
+  const workspaceId = workspaceStore.selectedWorkspaceId
+  const dictionaryId = props.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) {
+    return [{ text, unknown: false, start: 0, end: text.length }]
+  }
+
+  const segments: UnknownDictionarySegment[] = []
+  let cursor = 0
+
+  for (const token of tokenizeForDictionary(text)) {
+    const index = text.indexOf(token, cursor)
+    if (index < 0) continue
+
+    if (index > cursor) {
+      segments.push({ text: text.slice(cursor, index), unknown: false, start: cursor, end: index })
+    }
+
+    const result = getTokenResult(workspaceId, dictionaryId, token)
+    segments.push({
+      text: token,
+      unknown: Boolean(result && !result.known),
+      start: index,
+      end: index + token.length
+    })
+    cursor = index + token.length
+  }
+
+  if (cursor < text.length) {
+    segments.push({ text: text.slice(cursor), unknown: false, start: cursor, end: text.length })
+  }
+
+  return segments.length > 0 ? segments : [{ text, unknown: false, start: 0, end: text.length }]
+}
+
+function handleUnknownDictionaryPopoverUpdate(open: boolean, text: string): void {
+  if (!open) return
+  const workspaceId = workspaceStore.selectedWorkspaceId
+  const dictionaryId = props.projectDictionaryId
+  if (!workspaceId || !dictionaryId) return
+  void ensureTokenResults({
+    workspaceId,
+    dictionaryId,
+    tokens: [text],
+    includeSuggestions: true,
+    limit: 5
+  })
+}
+
+function applyDictionarySuggestion(arrayPos: number, segment: UnknownDictionarySegment, replacement: string) {
+  replaceTextRange(arrayPos, segment.start, segment.end, replacement)
+}
+
+watch([canCheckDictionaryTokens, gtDictionaryTokens, () => props.projectDictionaryId, () => workspaceStore.selectedWorkspaceId], async ([enabled, tokens, dictionaryId, workspaceId]) => {
+  if (!enabled || !workspaceId || !dictionaryId || !Array.isArray(tokens) || tokens.length === 0) {
+    return
+  }
+  try {
+    await ensureTokenResults({
+      workspaceId,
+      dictionaryId,
+      tokens,
+      includeSuggestions: false
+    })
+  } catch {
+    // Ignore token-check failures in the editor; the text remains editable.
+  }
+}, { immediate: true })
 
 watch(() => props.textline.textContentVariants, (newEquivs) => {
   localTextContentVariants.value = [...newEquivs]
@@ -1020,6 +1194,99 @@ onBeforeUnmount(() => {
                       <span
                         v-else
                       >{{ segment.text }}</span>
+                    </template>
+                  </div>
+                </div>
+
+                <div
+                  v-if="canCheckDictionaryTokens && variantRole(textEquiv.index) === 'gt'"
+                  class="text-xs rounded-sm border border-default p-2 space-y-1"
+                >
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-muted">Dictionary check</span>
+                    <USkeleton
+                      v-if="isDictionaryCheckLoading(textEquiv.text)"
+                      class="h-5 w-20"
+                    />
+                    <UBadge
+                      v-else
+                      :color="getUnknownDictionaryTokenCount(textEquiv.text) > 0 ? 'warning' : 'success'"
+                      variant="soft"
+                      size="xs"
+                    >
+                      {{ getUnknownDictionaryTokenCount(textEquiv.text) }} unknown
+                    </UBadge>
+                  </div>
+                  <div
+                    v-if="isDictionaryCheckLoading(textEquiv.text)"
+                    class="space-y-2"
+                  >
+                    <USkeleton class="h-5 w-full" />
+                    <USkeleton class="h-5 w-3/4" />
+                  </div>
+                  <div v-else class="font-junicode break-words" :dir="textDirectionDir" :style="[codecPreviewStyle, textDirectionStyle]">
+                    <template v-for="(segment, segmentIndex) in getUnknownDictionaryTokenSegmentsFromLookup(textEquiv.text)" :key="`dict_seg_${textEquiv.pos}_${segmentIndex}`">
+                      <UPopover
+                        v-if="segment.unknown"
+                        mode="hover"
+                        :content="{ side: 'top', align: 'start', sideOffset: 8 }"
+                        @update:open="(open: boolean) => handleUnknownDictionaryPopoverUpdate(open, segment.text)"
+                      >
+                        <span class="underline decoration-warning decoration-2 underline-offset-2 text-warning-700 dark:text-warning-300">
+                          {{ segment.text }}
+                        </span>
+                        <template #content>
+                          <div class="p-2 min-w-56 max-w-96 space-y-2">
+                            <div class="text-xs font-medium text-muted">
+                              Dictionary suggestions
+                            </div>
+                            <div
+                              v-for="detail in getUnknownDictionaryTokenDetails(segment.text)"
+                              :key="`dictionary_${textEquiv.pos}_${segmentIndex}_${detail.normalized}`"
+                              class="space-y-2"
+                            >
+                              <div class="text-xs">
+                                <span class="font-medium">{{ detail.token }}</span>
+                                <span class="text-muted"> is not in the dictionary.</span>
+                              </div>
+                              <div v-if="detail.suggestions.length > 0" class="flex flex-wrap gap-1">
+                                <UButton
+                                  v-for="suggestion in detail.suggestions"
+                                  :key="`${detail.normalized}_${suggestion.display}`"
+                                  color="neutral"
+                                  variant="soft"
+                                  size="xs"
+                                  @click.stop="applyDictionarySuggestion(textEquiv.pos, segment, suggestion.display)"
+                                >
+                                  {{ suggestion.display }}
+                                </UButton>
+                              </div>
+                              <div class="flex flex-wrap gap-1">
+                                <UButton
+                                  v-if="!projectDictionaryLocked"
+                                  size="xs"
+                                  color="neutral"
+                                  variant="soft"
+                                  :disabled="!projectDictionaryId || !canQuickAddToDictionary"
+                                  @click.stop="emit('quickAddDictionaryToken', detail.token)"
+                                >
+                                  Add to Dictionary
+                                </UButton>
+                                <UButton
+                                  size="xs"
+                                  color="neutral"
+                                  variant="ghost"
+                                  :disabled="!projectDictionaryId"
+                                  @click.stop="emit('openDictionaryEditor')"
+                                >
+                                  Open Dictionary
+                                </UButton>
+                              </div>
+                            </div>
+                          </div>
+                        </template>
+                      </UPopover>
+                      <span v-else>{{ segment.text }}</span>
                     </template>
                   </div>
                 </div>

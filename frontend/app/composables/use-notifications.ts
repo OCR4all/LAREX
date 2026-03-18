@@ -9,7 +9,7 @@ interface TransferRequest {
   projectName?: string
   resourceId?: string
   resourceName?: string
-  resourceType?: 'CODEC' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET'
+  resourceType?: 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET'
   sourceWorkspaceId: string
   sourceWorkspaceName: string
   targetWorkspaceId: string

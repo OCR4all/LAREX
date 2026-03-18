@@ -26,12 +26,18 @@ interface Props {
   codecCharacters?: string[]
   highlightUnknownCodecChars?: boolean
   includeWhitespaceInCodecHighlight?: boolean
+  highlightUnknownDictionaryTokens?: boolean
   gtIndex?: number | undefined
   recognitionIndices?: number[]
   showDiff?: boolean
   isSelected?: boolean
   textHighlightQuery?: string | null
   projectCodecId?: string | null
+  projectDictionaryId?: string | null
+  canQuickAddToDictionary?: boolean
+  projectDictionaryLocked?: boolean
+  projectDictionaryCaseSensitive?: boolean
+  projectDictionaryUnicodeNormalization?: string
   selectedKeyboardId?: string | number | null
   hasVirtualKeyboard?: boolean
 }
@@ -42,9 +48,15 @@ const props = withDefaults(defineProps<Props>(), {
   codecCharacters: () => [],
   highlightUnknownCodecChars: false,
   includeWhitespaceInCodecHighlight: false,
+  highlightUnknownDictionaryTokens: false,
   textHighlightQuery: '',
   recognitionIndices: () => [],
   projectCodecId: null,
+  projectDictionaryId: null,
+  canQuickAddToDictionary: false,
+  projectDictionaryLocked: false,
+  projectDictionaryCaseSensitive: false,
+  projectDictionaryUnicodeNormalization: 'NFC',
   selectedKeyboardId: null,
   hasVirtualKeyboard: false
 })
@@ -57,8 +69,10 @@ const emit = defineEmits<{
   selectRegion: [id: string]
   createGtFromRecognition: [id: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }]
   quickAddCodecChar: [char: string]
+  quickAddDictionaryToken: [token: string]
   quickAddKeyboardChar: [char: string]
   openCodecEditor: []
+  openDictionaryEditor: []
   openKeyboardEditor: []
 }>()
 
@@ -78,12 +92,18 @@ const lineItemModel = computed(() => ({
     :codec-characters="props.codecCharacters"
     :highlight-unknown-codec-chars="props.highlightUnknownCodecChars"
     :include-whitespace-in-codec-highlight="props.includeWhitespaceInCodecHighlight"
+    :highlight-unknown-dictionary-tokens="props.highlightUnknownDictionaryTokens"
     :gt-index="props.gtIndex"
     :recognition-indices="props.recognitionIndices"
     :show-diff="props.showDiff"
     :is-selected="props.isSelected"
     :text-highlight-query="props.textHighlightQuery"
     :project-codec-id="props.projectCodecId"
+    :project-dictionary-id="props.projectDictionaryId"
+    :can-quick-add-to-dictionary="props.canQuickAddToDictionary"
+    :project-dictionary-locked="props.projectDictionaryLocked"
+    :project-dictionary-case-sensitive="props.projectDictionaryCaseSensitive"
+    :project-dictionary-unicode-normalization="props.projectDictionaryUnicodeNormalization"
     :selected-keyboard-id="props.selectedKeyboardId"
     :has-virtual-keyboard="props.hasVirtualKeyboard"
     :allow-multiline="true"
@@ -97,8 +117,10 @@ const lineItemModel = computed(() => ({
     @update-text-content-variant-index="(id, arrayPos, index) => emit('updateTextContentVariantIndex', id, arrayPos, index)"
     @create-gt-from-recognition="(id, payload) => emit('createGtFromRecognition', id, payload)"
     @quick-add-codec-char="emit('quickAddCodecChar', $event)"
+    @quick-add-dictionary-token="emit('quickAddDictionaryToken', $event)"
     @quick-add-keyboard-char="emit('quickAddKeyboardChar', $event)"
     @open-codec-editor="emit('openCodecEditor')"
+    @open-dictionary-editor="emit('openDictionaryEditor')"
     @open-keyboard-editor="emit('openKeyboardEditor')"
   />
 </template>

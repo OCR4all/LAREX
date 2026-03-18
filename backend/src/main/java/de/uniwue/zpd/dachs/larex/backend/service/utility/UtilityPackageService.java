@@ -6,23 +6,29 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.uniwue.zpd.dachs.larex.backend.dto.BoardThemeDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.DictionaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.KeyboardItemDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.VirtualKeyboardDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.BoardTheme;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionaryEntry;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.board.BoardThemeRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryEntryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.board.BoardThemeService;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
+import de.uniwue.zpd.dachs.larex.backend.service.dictionary.DictionaryService;
 import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagSetService;
@@ -56,11 +62,14 @@ public class UtilityPackageService {
     private final WorkspaceAccessService workspaceAccessService;
     private final WorkspaceQueryService workspaceQueryService;
     private final CodecRepository codecRepository;
+    private final ControlledDictionaryEntryRepository dictionaryEntryRepository;
+    private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
     private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final BoardThemeRepository boardThemeRepository;
     private final CodecService codecService;
+    private final DictionaryService dictionaryService;
     private final LabelSetService labelSetService;
     private final TagSetService tagSetService;
     private final VirtualKeyboardService virtualKeyboardService;
@@ -70,11 +79,14 @@ public class UtilityPackageService {
     public UtilityPackageService(WorkspaceAccessService workspaceAccessService,
                                  WorkspaceQueryService workspaceQueryService,
                                  CodecRepository codecRepository,
+                                 ControlledDictionaryEntryRepository dictionaryEntryRepository,
+                                 ControlledDictionaryRepository dictionaryRepository,
                                  LabelSetRepository labelSetRepository,
                                  TagSetRepository tagSetRepository,
                                  VirtualKeyboardRepository virtualKeyboardRepository,
                                  BoardThemeRepository boardThemeRepository,
                                  CodecService codecService,
+                                 DictionaryService dictionaryService,
                                  LabelSetService labelSetService,
                                  TagSetService tagSetService,
                                  VirtualKeyboardService virtualKeyboardService,
@@ -83,11 +95,14 @@ public class UtilityPackageService {
         this.workspaceAccessService = workspaceAccessService;
         this.workspaceQueryService = workspaceQueryService;
         this.codecRepository = codecRepository;
+        this.dictionaryEntryRepository = dictionaryEntryRepository;
+        this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
         this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.boardThemeRepository = boardThemeRepository;
         this.codecService = codecService;
+        this.dictionaryService = dictionaryService;
         this.labelSetService = labelSetService;
         this.tagSetService = tagSetService;
         this.virtualKeyboardService = virtualKeyboardService;
@@ -124,6 +139,17 @@ public class UtilityPackageService {
                     .toList();
             codecs.stream()
                     .map(this::toCodecResource)
+                    .forEach(resources::add);
+        }
+
+        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.DICTIONARY)) {
+            Collection<ControlledDictionary> dictionaries = includeAll
+                    ? dictionaryRepository.findByLibraryWorkspaceId(workspaceId)
+                    : dictionaryRepository.findByLibraryWorkspaceId(workspaceId).stream()
+                    .filter(d -> selectors.getOrDefault(UtilityPackageDto.UtilityType.DICTIONARY, Set.of()).contains(d.getId()))
+                    .toList();
+            dictionaries.stream()
+                    .map(this::toDictionaryResource)
                     .forEach(resources::add);
         }
 
@@ -190,6 +216,7 @@ public class UtilityPackageService {
     public UtilityPackageDto.UtilityPackage buildProjectUtilitySnapshot(String workspaceId,
                                                                         String codecId,
                                                                         String labelSetId,
+                                                                        String dictionaryId,
                                                                         String tagSetId) {
         List<UtilityPackageDto.ResourceSelector> selectors = new ArrayList<>();
         if (codecId != null && !codecId.isBlank()) {
@@ -197,6 +224,9 @@ public class UtilityPackageService {
         }
         if (labelSetId != null && !labelSetId.isBlank()) {
             selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.LABEL_SET, List.of(labelSetId)));
+        }
+        if (dictionaryId != null && !dictionaryId.isBlank()) {
+            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.DICTIONARY, List.of(dictionaryId)));
         }
         if (tagSetId != null && !tagSetId.isBlank()) {
             selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.TAG_SET, List.of(tagSetId)));
@@ -251,6 +281,7 @@ public class UtilityPackageService {
 
             UtilityPackageDto.ImportedResource imported = switch (resource.type()) {
                 case CODEC -> importCodec(workspaceId, userId, resource);
+                case DICTIONARY -> importDictionary(workspaceId, userId, resource);
                 case LABEL_SET -> importLabelSet(workspaceId, userId, resource);
                 case TAG_SET -> importTagSet(workspaceId, userId, resource);
                 case VIRTUAL_KEYBOARD -> importVirtualKeyboard(workspaceId, userId, resource);
@@ -313,6 +344,42 @@ public class UtilityPackageService {
                 created.id(),
                 sourceName,
                 created.name(),
+                existingOpt.isPresent() ? "RENAMED_IMPORTED" : "IMPORTED",
+                existingOpt.isPresent() ? "Name conflict with different content" : "Created"
+        );
+    }
+
+    private UtilityPackageDto.ImportedResource importDictionary(String workspaceId,
+                                                                String userId,
+                                                                UtilityPackageDto.UtilityResource resource) {
+        DictionaryDto.PackagePayload payload = objectMapper.convertValue(sanitizeDictionaryPayload(resource.payload()), DictionaryDto.PackagePayload.class);
+        String sourceName = normalizeName(payload.name(), resource.name(), "Imported Dictionary");
+
+        Optional<ControlledDictionary> existingOpt = dictionaryRepository.findByNameAndLibraryWorkspaceId(sourceName, workspaceId);
+        if (existingOpt.isPresent() && payloadEquals(dictionaryPayload(existingOpt.get()), dictionaryPayloadFromPayload(payload, sourceName))) {
+            ControlledDictionary existing = existingOpt.get();
+            return new UtilityPackageDto.ImportedResource(
+                    UtilityPackageDto.UtilityType.DICTIONARY,
+                    resource.sourceId(),
+                    existing.getId(),
+                    sourceName,
+                    existing.getName(),
+                    "REUSED",
+                    "Identical dictionary already exists"
+            );
+        }
+
+        String targetName = existingOpt.isPresent()
+                ? uniqueName(sourceName, name -> dictionaryRepository.findByNameAndLibraryWorkspaceId(name, workspaceId).isPresent())
+                : sourceName;
+
+        String createdId = dictionaryService.importDictionaryFromPackage(userId, workspaceId, targetName, payload);
+        return new UtilityPackageDto.ImportedResource(
+                UtilityPackageDto.UtilityType.DICTIONARY,
+                resource.sourceId(),
+                createdId,
+                sourceName,
+                targetName,
                 existingOpt.isPresent() ? "RENAMED_IMPORTED" : "IMPORTED",
                 existingOpt.isPresent() ? "Name conflict with different content" : "Created"
         );
@@ -537,7 +604,7 @@ public class UtilityPackageService {
             return null;
         }
         return switch (type) {
-            case CODEC, VIRTUAL_KEYBOARD, BOARD_THEME -> root.path("name").asText(null);
+            case CODEC, DICTIONARY, VIRTUAL_KEYBOARD, BOARD_THEME -> root.path("name").asText(null);
             case LABEL_SET, TAG_SET -> root.path("meta").path("name").asText(null);
         };
     }
@@ -545,6 +612,7 @@ public class UtilityPackageService {
     private JsonNode normalizeLegacyPayload(UtilityPackageDto.UtilityType type, JsonNode root) {
         return switch (type) {
             case CODEC -> sanitizeCodecPayload(root);
+            case DICTIONARY -> sanitizeDictionaryPayload(root);
             case LABEL_SET -> sanitizeLabelPayload(root);
             case TAG_SET -> sanitizeTagPayload(root);
             case VIRTUAL_KEYBOARD -> sanitizeVirtualKeyboardPayload(root);
@@ -560,6 +628,17 @@ public class UtilityPackageService {
                 codec.getCreated(),
                 codec.getUpdated(),
                 codecPayload(codec)
+        );
+    }
+
+    private UtilityPackageDto.UtilityResource toDictionaryResource(ControlledDictionary dictionary) {
+        return new UtilityPackageDto.UtilityResource(
+                UtilityPackageDto.UtilityType.DICTIONARY,
+                dictionary.getId(),
+                dictionary.getName(),
+                dictionary.getCreated(),
+                dictionary.getUpdated(),
+                dictionaryPayload(dictionary)
         );
     }
 
@@ -674,6 +753,76 @@ public class UtilityPackageService {
         }
         meta.set("tags", tags);
         meta.put("isSystem", labelSet.isSystem());
+        return node;
+    }
+
+    private JsonNode dictionaryPayload(ControlledDictionary dictionary) {
+        List<DictionaryDto.PackageEntry> entries = dictionaryEntryRepository.findByDictionaryIdOrderBySurfaceFormAsc(dictionary.getId()).stream()
+                .map(this::toDictionaryPackageEntry)
+                .toList();
+        DictionaryDto.PackagePayload payload = new DictionaryDto.PackagePayload(
+                dictionary.getName(),
+                dictionary.getDescription(),
+                dictionary.getTags() == null ? List.of() : dictionary.getTags().stream()
+                        .filter(Objects::nonNull)
+                        .filter(v -> !v.isBlank())
+                        .sorted(String.CASE_INSENSITIVE_ORDER)
+                        .toList(),
+                dictionary.isCaseSensitive(),
+                dictionary.getUnicodeNormalization(),
+                dictionary.isLocked(),
+                entries
+        );
+        return dictionaryPayloadFromPayload(payload, dictionary.getName());
+    }
+
+    private DictionaryDto.PackageEntry toDictionaryPackageEntry(ControlledDictionaryEntry entry) {
+        JsonNode metadata = null;
+        if (entry.getMetadataJson() != null && !entry.getMetadataJson().isBlank()) {
+            try {
+                metadata = objectMapper.readTree(entry.getMetadataJson());
+            } catch (IOException ignored) {
+                metadata = null;
+            }
+        }
+        return new DictionaryDto.PackageEntry(entry.getSurfaceForm(), entry.getSourceEntryKey(), metadata);
+    }
+
+    private JsonNode dictionaryPayloadFromPayload(DictionaryDto.PackagePayload payload, String nameOverride) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("name", normalizeName(nameOverride, payload.name(), "Dictionary"));
+        node.put("description", payload.description() == null ? "" : payload.description());
+        node.put("caseSensitive", Boolean.TRUE.equals(payload.caseSensitive()));
+        node.put("unicodeNormalization", payload.unicodeNormalization() == null ? "NFC" : payload.unicodeNormalization());
+
+        ArrayNode tags = objectMapper.createArrayNode();
+        if (payload.tags() != null) {
+            payload.tags().stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(v -> !v.isBlank())
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .forEach(tags::add);
+        }
+        node.set("tags", tags);
+
+        ArrayNode entries = objectMapper.createArrayNode();
+        if (payload.entries() != null) {
+            payload.entries().stream()
+                    .sorted(Comparator.comparing(DictionaryDto.PackageEntry::form, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                    .forEach(entry -> {
+                        ObjectNode entryNode = objectMapper.createObjectNode();
+                        entryNode.put("form", entry.form());
+                        if (entry.sourceEntryKey() != null) {
+                            entryNode.put("sourceEntryKey", entry.sourceEntryKey());
+                        }
+                        if (entry.metadata() != null) {
+                            entryNode.set("metadata", sortNode(entry.metadata()));
+                        }
+                        entries.add(entryNode);
+                    });
+        }
+        node.set("entries", entries);
         return node;
     }
 
@@ -799,6 +948,19 @@ public class UtilityPackageService {
             payload.path("codec").forEach(ch -> chars.add(ch.asText()));
         }
         node.set("codec", chars);
+        return node;
+    }
+
+    private ObjectNode sanitizeDictionaryPayload(JsonNode payload) {
+        ObjectNode root = ensureObject(payload);
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("name", root.path("name").asText(""));
+        node.put("description", root.path("description").asText(""));
+        node.put("caseSensitive", root.path("caseSensitive").asBoolean(false));
+        node.put("unicodeNormalization", root.path("unicodeNormalization").asText("NFC"));
+        node.put("locked", root.path("locked").asBoolean(false));
+        node.set("tags", root.path("tags").isArray() ? root.path("tags").deepCopy() : objectMapper.createArrayNode());
+        node.set("entries", root.path("entries").isArray() ? root.path("entries").deepCopy() : objectMapper.createArrayNode());
         return node;
     }
 

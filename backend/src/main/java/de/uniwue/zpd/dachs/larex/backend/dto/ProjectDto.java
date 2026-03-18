@@ -20,6 +20,7 @@ public class ProjectDto {
             List<String> tags,
             String codecId,
             String labelSetId,
+            String dictionaryId,
             String tagSetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices
@@ -41,6 +42,7 @@ public class ProjectDto {
             String lockedReason,
             String codecId,
             String labelSetId,
+            String dictionaryId,
             String tagSetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices,
@@ -62,11 +64,11 @@ public class ProjectDto {
                                   List<ResolvedTag> resolvedTags,
                                   LocalDateTime created, LocalDateTime updated, int pageCount,
                                   boolean isStarred, Long storageUsedBytes, boolean locked, String lockedReason,
-                                  String codecId, String labelSetId, String tagSetId,
+                                  String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                   Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                   AuthorizationCapabilitiesDto.ProjectCapabilities capabilities) {
             return new Response(id, name, description, tags, resolvedTags, created, updated, pageCount, isStarred,
-                    storageUsedBytes, formatBytes(storageUsedBytes), locked, lockedReason, codecId, labelSetId, tagSetId,
+                    storageUsedBytes, formatBytes(storageUsedBytes), locked, lockedReason, codecId, labelSetId, dictionaryId, tagSetId,
                     defaultGtIndex, defaultRecognitionIndices, capabilities);
         }
     }

@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.entity.workspace;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
@@ -43,6 +44,10 @@ public abstract class AbstractWorkspace {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "label_set_id")
     private LabelSet labelSet;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dictionary_id")
+    private ControlledDictionary dictionary;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tag_set_id")
@@ -119,6 +124,14 @@ public abstract class AbstractWorkspace {
 
     public void setLabelSet(LabelSet labelSet) {
         this.labelSet = labelSet;
+    }
+
+    public ControlledDictionary getDictionary() {
+        return dictionary;
+    }
+
+    public void setDictionary(ControlledDictionary dictionary) {
+        this.dictionary = dictionary;
     }
 
     public TagSet getTagSet() {

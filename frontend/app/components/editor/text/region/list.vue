@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { LazyDictionarySlideoverBrowser } from '#components'
 import type { TextRegion } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType, isTextRegion, type TextContentVariantData } from '@/models/editor'
@@ -15,6 +16,7 @@ import { createScopedLogger } from '@/services/editor/logger-service'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { usePageFilter } from '@/composables/use-page-filter'
 import { wsKey } from '@/utils/fetch-keys'
+import { tokenizeForDictionary } from '../shared/text-highlighting'
 import {
   compareConfidenceLowFirst,
   createVariantFilterState,
@@ -48,6 +50,14 @@ const uiStore = useEditorUiStore()
 const sessionStore = useEditorSessionStore()
 const workspaceStore = useWorkspaceStore()
 const toast = useToast()
+const overlay = useOverlay()
+const dictionaryBrowserSlideover = overlay.create(LazyDictionarySlideoverBrowser)
+const {
+  ensureTokenResults,
+  getTokenResult,
+  invalidateToken: invalidateDictionaryToken,
+  isTokenPending
+} = useDictionaryTokenLookup()
 
 const projectId = computed(() => sessionStore.projectId ?? undefined)
 const {
@@ -58,7 +68,7 @@ const {
 const rootEl = ref<HTMLElement | null>(null)
 const searchQuery = ref('')
 const sortOrder = ref<'asc' | 'desc' | 'confidence'>('asc')
-const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter'>('all')
+const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch'>('all')
 const selectedRegionId = ref<string | null>(null)
 const matchingTextRegionIds = ref<Set<string>>(new Set())
 const isLoadingMatchingTextRegions = ref(false)
@@ -106,6 +116,17 @@ const codecCharacters = computed(() => editorStore.projectCodecCharacters ?? [])
 const hasProjectCodec = computed(() => Boolean(editorStore.projectCodecId) || (codecCharacters.value?.length ?? 0) > 0)
 const highlightUnknownCodecChars = computed(() => uiStore.highlightUnknownCodecChars && hasProjectCodec.value)
 const includeWhitespaceInCodecHighlight = computed(() => uiStore.includeWhitespaceInCodecHighlight)
+const hasProjectDictionary = computed(() => {
+  return Boolean(editorStore.projectDictionaryId)
+})
+const highlightUnknownDictionaryTokens = computed(() => uiStore.highlightUnknownDictionaryTokens && hasProjectDictionary.value)
+const canQuickAddToDictionary = computed(() => Boolean(editorStore.projectDictionaryCanEdit) && !editorStore.projectDictionaryLocked)
+const canCheckDictionaryTokens = computed(() => {
+  return Boolean(
+    selectedWorkspaceId.value
+      && editorStore.projectDictionaryId
+  )
+})
 
 const gtIndexModel = computed(() => editorStore.projectTextDefaultGtIndex ?? 0)
 const recognitionIndicesModel = computed(() => editorStore.projectTextDefaultRecognitionIndices ?? [1])
@@ -338,6 +359,55 @@ const regions = computed(() => {
   }).filter(region => region.matchesVariantFilter && region.matchesAssignedVisibility)
 })
 
+const dictionaryTokensOnPage = computed(() => {
+  const tokens = regions.value.flatMap(region =>
+    region.textContentVariants
+      .filter(variant => variantRole(variant.index) === 'gt')
+      .flatMap(variant => tokenizeForDictionary(variant.text))
+  )
+  return [...new Set(tokens)]
+})
+
+watch([canCheckDictionaryTokens, selectedWorkspaceId, () => editorStore.projectDictionaryId, dictionaryTokensOnPage], async ([enabled, workspaceId, dictionaryId, tokens]) => {
+  if (!enabled || !workspaceId || !dictionaryId || !Array.isArray(tokens) || tokens.length === 0) {
+    return
+  }
+
+  try {
+    await ensureTokenResults({
+      workspaceId,
+      dictionaryId,
+      tokens,
+      includeSuggestions: false
+    })
+  } catch {
+    // Keep the text editable even if dictionary checks fail.
+  }
+}, { immediate: true })
+
+function regionHasDictionaryMismatch(region: { textContentVariants: Array<{ index?: number, text: string }> }): boolean {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) return false
+
+  const tokens = region.textContentVariants
+    .filter(variant => variantRole(variant.index) === 'gt')
+    .flatMap(variant => tokenizeForDictionary(variant.text))
+
+  if (tokens.length === 0) return false
+
+  let hasLoadedResult = false
+  for (const token of tokens) {
+    if (isTokenPending(workspaceId, dictionaryId, token)) continue
+    const result = getTokenResult(workspaceId, dictionaryId, token)
+    if (!result) continue
+    hasLoadedResult = true
+    if (!result.known) return true
+  }
+
+  return hasLoadedResult ? false : false
+}
+
 const selectedRegionIdFromSharedSelection = computed(() => {
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygonSelection = runtime?.selectedPolygonId?.value ?? null
@@ -371,6 +441,8 @@ const displayRegions = computed(() => {
     items = items.filter(region => !region.hasAnyText)
   } else if (filterMode.value === 'lowConfidence') {
     items = items.filter(region => typeof region.regionConfidence === 'number' && region.regionConfidence < 0.8)
+  } else if (filterMode.value === 'dictionaryMismatch') {
+    items = items.filter(regionHasDictionaryMismatch)
   } else if (filterMode.value === 'matchingFilter') {
     if (matchingTextRegionIds.value.size > 0) {
       items = items.filter(region => matchingTextRegionIds.value.has(region.id))
@@ -601,6 +673,29 @@ async function handleQuickAddCodecCharacter(char: string) {
   }
 }
 
+async function handleQuickAddDictionaryToken(token: string) {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!workspaceId || !dictionaryId || !canQuickAddToDictionary.value) return
+
+  try {
+    await $fetch(`/api/workspaces/${workspaceId}/dictionaries/${dictionaryId}/entries`, {
+      method: 'POST',
+      body: { form: token, fromEditor: true }
+    })
+    invalidateDictionaryToken(workspaceId, dictionaryId, token)
+    await refreshNuxtData(wsKey(workspaceId, 'dictionaries', dictionaryId))
+    await refreshNuxtData(wsKey(workspaceId, 'dictionaries', 'list'))
+    toast.add({ title: 'Added to dictionary', description: `Token "${token}" appended to the project dictionary.`, color: 'success' })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Could not add to dictionary',
+      description: getRequestErrorMessage(error),
+      color: 'error'
+    })
+  }
+}
+
 async function handleQuickAddKeyboardCharacter(char: string) {
   const workspaceId = selectedWorkspaceId.value
   const keyboardId = selectedKeyboardId.value
@@ -652,6 +747,19 @@ function handleOpenCodecEditor() {
     return
   }
   navigateTo(`/codecs/${editorStore.projectCodecId}`)
+}
+
+function handleOpenDictionaryEditor() {
+  const dictionaryId = editorStore.projectDictionaryId
+  const workspaceId = selectedWorkspaceId.value
+  if (!dictionaryId || !workspaceId) {
+    toast.add({ title: 'No project dictionary configured', color: 'warning' })
+    return
+  }
+  dictionaryBrowserSlideover.open({
+    workspaceId,
+    dictionaryId
+  })
 }
 
 function handleOpenKeyboardEditor() {
@@ -714,6 +822,15 @@ const filterMenuItems = computed(() => {
       activeColor: 'primary',
       activeVariant: 'solid',
       onSelect: () => { filterMode.value = 'lowConfidence' }
+    },
+    {
+      label: 'Dictionary mismatches',
+      icon: 'i-lucide-book-x',
+      active: filterMode.value === 'dictionaryMismatch',
+      activeColor: 'primary',
+      activeVariant: 'solid',
+      disabled: !hasProjectDictionary.value,
+      onSelect: () => { filterMode.value = 'dictionaryMismatch' }
     },
     {
       label: 'Only regions without GT',
@@ -892,12 +1009,18 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
             :codec-characters="codecCharacters"
             :highlight-unknown-codec-chars="highlightUnknownCodecChars"
             :include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlight"
+            :highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokens"
             :gt-index="gtIndexModel"
             :recognition-indices="recognitionIndicesModel"
             :show-diff="showDiffModel"
             :is-selected="selectedRegionId === region.id"
             :text-highlight-query="activeTextHighlightQuery"
             :project-codec-id="editorStore.projectCodecId"
+            :project-dictionary-id="editorStore.projectDictionaryId"
+            :can-quick-add-to-dictionary="canQuickAddToDictionary"
+            :project-dictionary-locked="editorStore.projectDictionaryLocked"
+            :project-dictionary-case-sensitive="editorStore.projectDictionaryCaseSensitive"
+            :project-dictionary-unicode-normalization="editorStore.projectDictionaryUnicodeNormalization"
             :selected-keyboard-id="selectedKeyboardId"
             :has-virtual-keyboard="Boolean(selectedLayout)"
             @select-region="handleSelectRegion"
@@ -907,8 +1030,10 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
             @update-text-content-variant-index="handleCommitTextContentVariantIndex"
             @create-gt-from-recognition="handleCreateGtFromRecognition"
             @quick-add-codec-char="handleQuickAddCodecCharacter"
+            @quick-add-dictionary-token="handleQuickAddDictionaryToken"
             @quick-add-keyboard-char="handleQuickAddKeyboardCharacter"
             @open-codec-editor="handleOpenCodecEditor"
+            @open-dictionary-editor="handleOpenDictionaryEditor"
             @open-keyboard-editor="handleOpenKeyboardEditor"
           />
         </div>

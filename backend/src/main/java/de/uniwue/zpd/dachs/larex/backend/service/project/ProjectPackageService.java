@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
@@ -14,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -63,6 +65,7 @@ public class ProjectPackageService {
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlVersionRepository pageXmlVersionRepository;
     private final CodecRepository codecRepository;
+    private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
     private final WorkspaceAccessService workspaceAccessService;
@@ -85,6 +88,7 @@ public class ProjectPackageService {
                                  PageXmlRepository pageXmlRepository,
                                  PageXmlVersionRepository pageXmlVersionRepository,
                                  CodecRepository codecRepository,
+                                 ControlledDictionaryRepository dictionaryRepository,
                                  LabelSetRepository labelSetRepository,
                                  TagSetRepository tagSetRepository,
                                  WorkspaceAccessService workspaceAccessService,
@@ -103,6 +107,7 @@ public class ProjectPackageService {
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionRepository = pageXmlVersionRepository;
         this.codecRepository = codecRepository;
+        this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
         this.workspaceAccessService = workspaceAccessService;
@@ -413,6 +418,7 @@ public class ProjectPackageService {
                 project.getLibrary().getWorkspaceId(),
                 project.getCodec() == null ? null : project.getCodec().getId(),
                 project.getLabelSet() == null ? null : project.getLabelSet().getId(),
+                project.getDictionary() == null ? null : project.getDictionary().getId(),
                 project.getTagSet() == null ? null : project.getTagSet().getId()
         );
 
@@ -434,6 +440,7 @@ public class ProjectPackageService {
         ProjectPackageDto.UtilityReferences utilityReferences = new ProjectPackageDto.UtilityReferences(
                 utilityRefByType.get(UtilityPackageDto.UtilityType.CODEC),
                 utilityRefByType.get(UtilityPackageDto.UtilityType.LABEL_SET),
+                utilityRefByType.get(UtilityPackageDto.UtilityType.DICTIONARY),
                 utilityRefByType.get(UtilityPackageDto.UtilityType.TAG_SET)
         );
 
@@ -519,6 +526,7 @@ public class ProjectPackageService {
         List<UtilityPackageDto.UtilityResource> resources = new ArrayList<>();
         loadUtilityResource(tempDir, utilityReferences.codec(), resources);
         loadUtilityResource(tempDir, utilityReferences.labelSet(), resources);
+        loadUtilityResource(tempDir, utilityReferences.dictionary(), resources);
         loadUtilityResource(tempDir, utilityReferences.tagSet(), resources);
 
         if (resources.isEmpty()) {
@@ -564,6 +572,11 @@ public class ProjectPackageService {
         String labelSetId = mapSourceUtilityId(utilityReferences.labelSet(), sourceToTarget);
         if (labelSetId != null) {
             labelSetRepository.findById(labelSetId).ifPresent(project::setLabelSet);
+        }
+
+        String dictionaryId = mapSourceUtilityId(utilityReferences.dictionary(), sourceToTarget);
+        if (dictionaryId != null) {
+            dictionaryRepository.findById(dictionaryId).ifPresent(project::setDictionary);
         }
 
         String tagSetId = mapSourceUtilityId(utilityReferences.tagSet(), sourceToTarget);

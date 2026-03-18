@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LazyUiConfirmModal } from '#components'
+import { LazyDictionarySlideoverBrowser, LazyUiConfirmModal } from '#components'
 import { VueDraggable } from 'vue-draggable-plus'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType } from '@/models/editor'
@@ -19,6 +19,7 @@ import { usePageFilter } from '@/composables/use-page-filter'
 import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
 import type { LabelDefinition } from '@/types/label-set'
 import { wsKey } from '@/utils/fetch-keys'
+import { tokenizeForDictionary } from '../shared/text-highlighting'
 import { computeTextLineReadingDirectionMap } from './reading-direction'
 import {
   compareConfidenceLowFirst,
@@ -27,8 +28,6 @@ import {
   getMinVariantConfidence
 } from './variant-filtering'
 import {
-  buildRegionGtSyncedVariants,
-  composeRegionGtFromTextLines
 } from '../shared/region-gt-sync'
 import {
   focusNextSameIndex,
@@ -61,12 +60,19 @@ const {
 
 const overlay = useOverlay()
 const confirmModal = overlay.create(LazyUiConfirmModal)
+const dictionaryBrowserSlideover = overlay.create(LazyDictionarySlideoverBrowser)
+const {
+  ensureTokenResults,
+  getTokenResult,
+  invalidateToken: invalidateDictionaryToken,
+  isTokenPending
+} = useDictionaryTokenLookup()
 
 const rootEl = ref<HTMLElement | null>(null)
 
 const searchQuery = ref('')
 const sortOrder = ref<'asc' | 'desc' | 'confidence'>('asc')
-const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter'>('all')
+const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch'>('all')
 
 const collapsedRegionIds = ref<Set<string>>(new Set())
 const orderOverrideByRegion = ref<Record<string, string[]>>({})
@@ -132,6 +138,17 @@ const hasProjectCodec = computed(() => {
 })
 const highlightUnknownCodecChars = computed(() => uiStore.highlightUnknownCodecChars && hasProjectCodec.value)
 const includeWhitespaceInCodecHighlight = computed(() => uiStore.includeWhitespaceInCodecHighlight)
+const hasProjectDictionary = computed(() => {
+  return Boolean(editorStore.projectDictionaryId)
+})
+const highlightUnknownDictionaryTokens = computed(() => uiStore.highlightUnknownDictionaryTokens && hasProjectDictionary.value)
+const canQuickAddToDictionary = computed(() => Boolean(editorStore.projectDictionaryCanEdit) && !editorStore.projectDictionaryLocked)
+const canCheckDictionaryTokens = computed(() => {
+  return Boolean(
+    selectedWorkspaceId.value
+      && editorStore.projectDictionaryId
+  )
+})
 
 const gtIndexModel = computed(() => editorStore.projectTextDefaultGtIndex ?? 0)
 const recognitionIndicesModel = computed(() => editorStore.projectTextDefaultRecognitionIndices ?? [1])
@@ -515,6 +532,29 @@ async function handleQuickAddCodecCharacter(char: string) {
   }
 }
 
+async function handleQuickAddDictionaryToken(token: string) {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!workspaceId || !dictionaryId || !canQuickAddToDictionary.value) return
+
+  try {
+    await $fetch(`/api/workspaces/${workspaceId}/dictionaries/${dictionaryId}/entries`, {
+      method: 'POST',
+      body: { form: token, fromEditor: true }
+    })
+    invalidateDictionaryToken(workspaceId, dictionaryId, token)
+    await refreshNuxtData(wsKey(workspaceId, 'dictionaries', dictionaryId))
+    await refreshNuxtData(wsKey(workspaceId, 'dictionaries', 'list'))
+    toast.add({ title: 'Added to dictionary', description: `Token "${token}" appended to the project dictionary.`, color: 'success' })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Could not add to dictionary',
+      description: getRequestErrorMessage(error),
+      color: 'error'
+    })
+  }
+}
+
 async function handleQuickAddKeyboardCharacter(char: string) {
   const workspaceId = selectedWorkspaceId.value
   const keyboardId = selectedKeyboardId.value
@@ -568,6 +608,19 @@ function handleOpenCodecEditor() {
   navigateTo(`/codecs/${editorStore.projectCodecId}`)
 }
 
+function handleOpenDictionaryEditor() {
+  const dictionaryId = editorStore.projectDictionaryId
+  const workspaceId = selectedWorkspaceId.value
+  if (!dictionaryId || !workspaceId) {
+    toast.add({ title: 'No project dictionary configured', color: 'warning' })
+    return
+  }
+  dictionaryBrowserSlideover.open({
+    workspaceId,
+    dictionaryId
+  })
+}
+
 function handleOpenKeyboardEditor() {
   if (!selectedKeyboardId.value) {
     toast.add({ title: 'No virtual keyboard selected', color: 'warning' })
@@ -604,49 +657,6 @@ function handleCommitTextContentVariantIndex(textlineId: string, pos: number, to
   current.sort(sortByIndex)
 
   commitTextContentVariants(textlineId, current)
-}
-
-const topLevelTextRegions = computed(() => {
-  const canvasId = effectiveCanvasId.value
-  if (!canvasId) return []
-  const session = getEditorSession(canvasId)
-  return (session?.document.value?.page?.regions ?? []).filter(isTextRegion)
-})
-
-function findTopLevelTextRegion(regionId: string) {
-  return topLevelTextRegions.value.find(region => region.id === regionId)
-}
-
-function buildRegionSyncCommand(regionId: string): UpdateTextContentVariantsCommand | null {
-  const region = findTopLevelTextRegion(regionId)
-  if (!region) return null
-
-  const nextGtText = composeRegionGtFromTextLines(region.textLines, gtIndexModel.value)
-  const nextVariants = buildRegionGtSyncedVariants(
-    region.textContentVariants as TextContentVariantData[] | undefined,
-    nextGtText,
-    gtIndexModel.value
-  )
-  const currentVariants = normalizeTextContentVariants(region.textContentVariants as TextContentVariantData[] | undefined)
-  const normalizedNext = normalizeTextContentVariants(nextVariants)
-
-  if (JSON.stringify(currentVariants) === JSON.stringify(normalizedNext)) return null
-
-  return new UpdateTextContentVariantsCommand({
-    elementId: regionId,
-    nextTextContentVariants: nextVariants
-  })
-}
-
-function syncRegionGtFromTextLines(regionId: string): boolean {
-  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
-  if (!runtime?.commander) return false
-
-  const command = buildRegionSyncCommand(regionId)
-  if (!command) return false
-
-  runtime.commander.execute(command, createTextViewCommandContext(effectiveCanvasId.value))
-  return true
 }
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
@@ -720,6 +730,55 @@ const textlines = computed(() => {
   return result.filter(tl => tl.matchesVariantFilter && tl.matchesAssignedVisibility)
 })
 
+const dictionaryTokensOnPage = computed(() => {
+  const tokens = textlines.value.flatMap(textline =>
+    textline.textContentVariants
+      .filter(variant => variantRole(variant.index) === 'gt')
+      .flatMap(variant => tokenizeForDictionary(variant.text))
+  )
+  return [...new Set(tokens)]
+})
+
+watch([canCheckDictionaryTokens, selectedWorkspaceId, () => editorStore.projectDictionaryId, dictionaryTokensOnPage], async ([enabled, workspaceId, dictionaryId, tokens]) => {
+  if (!enabled || !workspaceId || !dictionaryId || !Array.isArray(tokens) || tokens.length === 0) {
+    return
+  }
+
+  try {
+    await ensureTokenResults({
+      workspaceId,
+      dictionaryId,
+      tokens,
+      includeSuggestions: false
+    })
+  } catch {
+    // Leave the text visible even if dictionary checks fail.
+  }
+}, { immediate: true })
+
+function textlineHasDictionaryMismatch(textline: { textContentVariants: Array<{ index?: number, text: string }> }): boolean {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) return false
+
+  const tokens = textline.textContentVariants
+    .filter(variant => variantRole(variant.index) === 'gt')
+    .flatMap(variant => tokenizeForDictionary(variant.text))
+
+  if (tokens.length === 0) return false
+
+  let hasLoadedResult = false
+  for (const token of tokens) {
+    if (isTokenPending(workspaceId, dictionaryId, token)) continue
+    const result = getTokenResult(workspaceId, dictionaryId, token)
+    if (!result) continue
+    hasLoadedResult = true
+    if (!result.known) return true
+  }
+
+  return hasLoadedResult ? false : false
+}
+
 const selectedTextlineIdFromSharedSelection = computed(() => {
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygonSelection = runtime?.selectedPolygonId?.value ?? null
@@ -757,6 +816,8 @@ const displayTextlines = computed(() => {
     items = items.filter(tl => !tl.hasAnyText)
   } else if (filterMode.value === 'lowConfidence') {
     items = items.filter(tl => typeof tl.lineConfidence === 'number' && tl.lineConfidence < 0.8)
+  } else if (filterMode.value === 'dictionaryMismatch') {
+    items = items.filter(textlineHasDictionaryMismatch)
   } else if (filterMode.value === 'matchingFilter') {
     if (matchingTextLineIds.value.size > 0) {
       items = items.filter(tl => matchingTextLineIds.value.has(tl.id))
@@ -795,14 +856,12 @@ const regionMeta = computed(() => {
 
   const regions = [...parentIds].map((id) => {
     const region = regionById.get(id)
-    const canSyncFromTextlines = Boolean(region?.parentId == null && region?.regionKind === 'TextRegion')
     return {
       id,
       label: region?.label ?? id,
       regionSubtype: region?.regionSubtype,
       regionKind: region?.regionKind,
-      color: regionColor(region?.regionKind, region?.regionSubtype, region?.regionCustom),
-      canSyncFromTextlines
+      color: regionColor(region?.regionKind, region?.regionSubtype, region?.regionCustom)
     }
   }).sort((a, b) => a.label.localeCompare(b.label))
 
@@ -812,8 +871,7 @@ const regionMeta = computed(() => {
       label: 'Unassigned',
       regionSubtype: undefined,
       regionKind: undefined,
-      color: '#666',
-      canSyncFromTextlines: false
+      color: '#666'
     })
   }
 
@@ -908,6 +966,15 @@ const filterMenuItems = computed(() => {
         onSelect: () => { filterMode.value = 'lowConfidence' }
       },
       {
+        label: 'Dictionary mismatches',
+        icon: 'i-lucide-book-x',
+        active: filterMode.value === 'dictionaryMismatch',
+        activeColor: 'primary',
+        activeVariant: 'solid',
+        disabled: !hasProjectDictionary.value,
+        onSelect: () => { filterMode.value = 'dictionaryMismatch' }
+      },
+      {
         label: 'Only lines without GT',
         icon: 'i-lucide-leaf',
         active: onlyMissingGtModel.value,
@@ -952,38 +1019,8 @@ const hasActiveLocalFilters = computed(() => {
   return filterMode.value !== 'all' || onlyMissingGtModel.value
 })
 
-const visibleSyncableRegionIds = computed(() => {
-  return regionMeta.value
-    .filter(region => region.canSyncFromTextlines && (textlinesByRegion.value.get(region.id)?.length ?? 0) > 0)
-    .map(region => region.id)
-})
-
 const sectionMenuItems = computed(() => {
   const items = [[
-    {
-      label: 'Sync visible regions from textlines',
-      icon: 'i-lucide-refresh-cw',
-      disabled: visibleSyncableRegionIds.value.length === 0,
-      onSelect: () => {
-        const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
-        if (!runtime?.commander) return
-
-        const commands = visibleSyncableRegionIds.value
-          .map(regionId => buildRegionSyncCommand(regionId))
-          .filter((command): command is UpdateTextContentVariantsCommand => Boolean(command))
-
-        if (commands.length === 0) {
-          toast.add({ title: 'Nothing to sync', color: 'neutral' })
-          return
-        }
-
-        runtime.commander.execute(
-          new CompoundCommand(commands, `Sync region GT from textlines (${commands.length})`),
-          createTextViewCommandContext(effectiveCanvasId.value)
-        )
-      }
-    }
-  ], [
     {
       label: 'Expand all sections',
       icon: 'i-lucide-unfold-vertical',
@@ -1149,16 +1186,6 @@ const sectionMenuItems = computed(() => {
                 </span>
               </div>
               <UButton
-                v-if="region.canSyncFromTextlines"
-                color="neutral"
-                variant="soft"
-                size="xs"
-                icon="i-lucide-refresh-cw"
-                @click.stop="syncRegionGtFromTextLines(region.id)"
-              >
-                Sync GT From Textlines
-              </UButton>
-              <UButton
                 color="neutral"
                 variant="ghost"
                 size="sm"
@@ -1207,6 +1234,7 @@ const sectionMenuItems = computed(() => {
                       :codec-characters="codecCharacters"
                       :highlight-unknown-codec-chars="highlightUnknownCodecChars"
                       :include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlight"
+                      :highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokens"
                       :gt-index="gtIndexModel"
                       :recognition-indices="recognitionIndicesModel"
                       :has-gt-variant="textline.hasGtVariant"
@@ -1215,6 +1243,11 @@ const sectionMenuItems = computed(() => {
                       :is-selected="selectedTextlineId === textline.id"
                       :text-highlight-query="activeTextHighlightQuery"
                       :project-codec-id="editorStore.projectCodecId"
+                      :project-dictionary-id="editorStore.projectDictionaryId"
+                      :can-quick-add-to-dictionary="canQuickAddToDictionary"
+                      :project-dictionary-locked="editorStore.projectDictionaryLocked"
+                      :project-dictionary-case-sensitive="editorStore.projectDictionaryCaseSensitive"
+                      :project-dictionary-unicode-normalization="editorStore.projectDictionaryUnicodeNormalization"
                       :selected-keyboard-id="selectedKeyboardId"
                       :has-virtual-keyboard="Boolean(selectedLayout)"
                       @select-textline="handleSelectTextline"
@@ -1225,8 +1258,10 @@ const sectionMenuItems = computed(() => {
                       @update-text-content-variant-index="handleCommitTextContentVariantIndex"
                       @create-gt-from-recognition="handleCreateGtFromRecognition"
                       @quick-add-codec-char="handleQuickAddCodecCharacter"
+                      @quick-add-dictionary-token="handleQuickAddDictionaryToken"
                       @quick-add-keyboard-char="handleQuickAddKeyboardCharacter"
                       @open-codec-editor="handleOpenCodecEditor"
+                      @open-dictionary-editor="handleOpenDictionaryEditor"
                       @open-keyboard-editor="handleOpenKeyboardEditor"
                     />
                   </template>

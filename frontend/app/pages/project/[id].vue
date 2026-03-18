@@ -22,6 +22,7 @@ import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { usePagePrefetch } from '@/composables/use-page-prefetch'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
+import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useIndexStatusPolling } from '@/composables/use-index-status-polling'
@@ -62,6 +63,7 @@ type ProjectData = {
   lockedReason: string | null
   codecId?: string | null
   labelSetId?: string | null
+  dictionaryId?: string | null
   capabilities?: {
     canEdit: boolean
     canShare: boolean
@@ -236,9 +238,9 @@ const {
   startProjectUpload
 } = useProjectUploadOrchestration({
   projectId,
-  workspaceId: selectedWorkspace,
-  projectName: computed(() => project.value?.name),
-  pages,
+  workspaceId: computed(() => selectedWorkspace.value ?? undefined),
+  projectName: computed(() => project.value?.name ?? undefined),
+  pages: computed(() => pages.value ?? null),
   pagesPending,
   pagesError,
   refreshPagesFetch,
@@ -476,7 +478,7 @@ async function goToLibrary() {
   await router.push('/')
 }
 
-const projectNotFoundActions = computed(() => [
+const projectNotFoundActions = computed<any[]>(() => [
   {
     icon: 'i-lucide-arrow-left',
     label: 'Back to library',
@@ -719,6 +721,14 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       }
     },
     {
+      label: hasSelection.value ? 'Validate dictionary (selected pages)' : 'Validate dictionary (all pages)',
+      icon: 'i-lucide-book-check',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => {
+        void openDictionaryValidationModal()
+      }
+    },
+    {
       label: hasSelection.value ? 'Export package (selected pages)' : 'Export package (full project)',
       icon: 'i-lucide-file-archive',
       disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
@@ -853,6 +863,15 @@ const codecSources = computed<CodecProjectScope[]>(() => [{
   pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
 }])
 
+const dictionarySources = computed<DictionaryProjectScope[]>(() => [{
+  projectId,
+  pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
+}])
+
+const dictionaryValidationResult = ref<DictionaryValidateAgainstSourcesResponse | null>(null)
+const isDictionaryValidationModalOpen = ref(false)
+const isDictionaryValidationLoading = ref(false)
+
 async function openCodecGenerateSlideover() {
   if (!selectedWorkspace.value) return
 
@@ -887,6 +906,42 @@ async function openCodecValidateSlideover() {
     defaultCodecId: project.value.codecId
   })
   await instance.result as ValidateCodecAgainstSourcesResponse | null
+}
+
+async function openDictionaryValidationModal() {
+  if (!selectedWorkspace.value || !project.value?.dictionaryId) {
+    toast.add({
+      title: 'No project dictionary configured',
+      description: 'Assign a dictionary to this project first, then run validation.',
+      color: 'warning'
+    })
+    return
+  }
+
+  try {
+    dictionaryValidationResult.value = null
+    isDictionaryValidationModalOpen.value = true
+    isDictionaryValidationLoading.value = true
+    const result = await $fetch<DictionaryValidateAgainstSourcesResponse>(
+      `/api/workspaces/${selectedWorkspace.value}/dictionaries/${project.value.dictionaryId}/validate-against-sources`,
+      {
+        method: 'POST',
+        body: {
+          sources: dictionarySources.value
+        }
+      }
+    )
+    dictionaryValidationResult.value = result
+  } catch (error) {
+    isDictionaryValidationModalOpen.value = false
+    toast.add({
+      title: 'Dictionary validation failed',
+      description: getErrorMessage(error, 'Could not validate project text against the dictionary.'),
+      color: 'error'
+    })
+  } finally {
+    isDictionaryValidationLoading.value = false
+  }
 }
 
 const xmlStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
@@ -1692,4 +1747,76 @@ useHead({
       </div>
     </template>
   </UDashboardPanel>
+
+  <UModal v-model:open="isDictionaryValidationModalOpen" title="Dictionary Validation">
+    <template #body>
+      <div v-if="isDictionaryValidationLoading" class="space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+        </div>
+        <USkeleton class="h-20 w-full rounded-lg" />
+        <div class="space-y-3">
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+        </div>
+      </div>
+      <div v-else-if="dictionaryValidationResult" class="space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <UPageCard title="Pages" :description="String(dictionaryValidationResult.analyzedPageCount)" variant="subtle" />
+          <UPageCard title="Tokens" :description="String(dictionaryValidationResult.analyzedTokenCount)" variant="subtle" />
+          <UPageCard title="Known" :description="String(dictionaryValidationResult.knownTokenCount)" variant="subtle" />
+          <UPageCard title="Unknown" :description="String(dictionaryValidationResult.unknownTokenCount)" variant="subtle" />
+        </div>
+
+        <UAlert
+          :color="dictionaryValidationResult.valid ? 'success' : 'warning'"
+          variant="subtle"
+          :title="dictionaryValidationResult.valid ? 'All checked tokens were found in the dictionary.' : 'Unknown tokens were found in the dictionary check.'"
+          :description="dictionaryValidationResult.message"
+        />
+
+        <div v-if="dictionaryValidationResult.unknownTokenResults.length > 0" class="space-y-3">
+          <h3 class="text-sm font-semibold">
+            Unknown Tokens
+          </h3>
+          <div
+            v-for="tokenResult in dictionaryValidationResult.unknownTokenResults.slice(0, 25)"
+            :key="tokenResult.normalizedToken"
+            class="rounded-lg border border-default p-3 space-y-2"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-medium break-all">{{ tokenResult.token }}</p>
+                <p class="text-xs text-muted">{{ tokenResult.occurrenceCount }} occurrence(s)</p>
+              </div>
+              <UBadge color="warning" variant="soft">
+                {{ tokenResult.pages.length }} page(s)
+              </UBadge>
+            </div>
+
+            <div v-if="tokenResult.suggestions.length > 0" class="flex flex-wrap gap-2">
+              <UBadge
+                v-for="suggestion in tokenResult.suggestions"
+                :key="`${tokenResult.normalizedToken}-${suggestion.normalized}`"
+                color="neutral"
+                variant="subtle"
+              >
+                {{ suggestion.display }}
+              </UBadge>
+            </div>
+          </div>
+        </div>
+      </div>
+      <UAlert
+        v-else
+        color="neutral"
+        variant="subtle"
+        title="No dictionary validation results"
+        description="Run the dictionary check again to load validation details."
+      />
+    </template>
+  </UModal>
 </template>

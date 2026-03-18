@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.PersonalWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
@@ -11,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRep
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.PersonalWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetInitializationService;
@@ -29,6 +31,7 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
     private final LibraryRepository libraryRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final CodecRepository codecRepository;
+    private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
     private final LabelSetInitializationService labelSetInitializationService;
@@ -38,6 +41,7 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
                                    WorkspaceMemberRepository workspaceMemberRepository,
                                    WorkspaceQueryService workspaceQueryService,
                                    CodecRepository codecRepository,
+                                   ControlledDictionaryRepository dictionaryRepository,
                                    LabelSetRepository labelSetRepository,
                                    TagSetRepository tagSetRepository,
                                    LabelSetInitializationService labelSetInitializationService) {
@@ -46,6 +50,7 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
         this.libraryRepository = libraryRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.codecRepository = codecRepository;
+        this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
         this.labelSetInitializationService = labelSetInitializationService;
@@ -99,7 +104,7 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
      * Update personal workspace
      */
     public Optional<PersonalWorkspace> updatePersonalWorkspace(String workspaceId, String description, String avatar,
-                                                               String codecId, String labelSetId, String tagSetId,
+                                                               String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                                                Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                                                String userId) {
         Optional<PersonalWorkspace> workspaceOpt = personalWorkspaceRepository.findById(workspaceId);
@@ -125,6 +130,12 @@ public class PersonalWorkspaceService extends AbstractWorkspaceService {
                 labelSet = labelSetRepository.findById(labelSetId).orElse(null);
             }
             workspace.setLabelSet(labelSet);
+
+            ControlledDictionary dictionary = null;
+            if (dictionaryId != null && !dictionaryId.trim().isEmpty()) {
+                dictionary = dictionaryRepository.findById(dictionaryId).orElse(null);
+            }
+            workspace.setDictionary(dictionary);
 
             TagSet tagSet = null;
             if (tagSetId != null && !tagSetId.trim().isEmpty()) {

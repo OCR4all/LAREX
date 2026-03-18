@@ -6,6 +6,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
@@ -13,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRep
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetInitializationService;
@@ -37,6 +39,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
     private final NotificationService notificationService;
     private final UserService userService;
     private final CodecRepository codecRepository;
+    private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
     private final LabelSetInitializationService labelSetInitializationService;
@@ -49,6 +52,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                UserService userService,
                                WorkspaceQueryService workspaceQueryService,
                                CodecRepository codecRepository,
+                               ControlledDictionaryRepository dictionaryRepository,
                                LabelSetRepository labelSetRepository,
                                TagSetRepository tagSetRepository,
                                LabelSetInitializationService labelSetInitializationService,
@@ -60,6 +64,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         this.notificationService = notificationService;
         this.userService = userService;
         this.codecRepository = codecRepository;
+        this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
         this.labelSetInitializationService = labelSetInitializationService;
@@ -101,7 +106,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
      * Update team workspace
      */
     public Optional<TeamWorkspace> updateTeamWorkspace(String workspaceId, String name, String description, String avatar,
-                                                       String codecId, String labelSetId, String tagSetId,
+                                                       String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                                        String userId) {
         Optional<TeamWorkspace> workspaceOpt = teamWorkspaceRepository.findById(workspaceId);
@@ -144,6 +149,12 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                 labelSet = labelSetRepository.findById(labelSetId).orElse(null);
             }
             workspace.setLabelSet(labelSet);
+
+            ControlledDictionary dictionary = null;
+            if (dictionaryId != null && !dictionaryId.trim().isEmpty()) {
+                dictionary = dictionaryRepository.findById(dictionaryId).orElse(null);
+            }
+            workspace.setDictionary(dictionary);
 
             TagSet tagSet = null;
             if (tagSetId != null && !tagSetId.trim().isEmpty()) {

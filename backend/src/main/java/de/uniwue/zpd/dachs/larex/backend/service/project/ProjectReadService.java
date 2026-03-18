@@ -85,6 +85,7 @@ public class ProjectReadService {
                     project.getLockedReason(),
                     project.getCodec() != null ? project.getCodec().getId() : null,
                     project.getLabelSet() != null ? project.getLabelSet().getId() : null,
+                    project.getDictionary() != null ? project.getDictionary().getId() : null,
                     project.getTagSet() != null ? project.getTagSet().getId() : null,
                     project.getEffectiveDefaultGtIndex(),
                     project.getDefaultRecognitionIndicesList(),

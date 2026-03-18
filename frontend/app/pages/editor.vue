@@ -32,6 +32,7 @@ import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PageIndexingStatus } from '@/stores/editor/types'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import type { ValidateCodecAgainstSourcesResponse } from '@/types/codec'
+import type { Dictionary } from '@/types/dictionary'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { TreeItemData } from '@/components/editor/sidebar/tree-item.vue'
 import { useEditorCloseRequests } from '@/composables/use-editor-close-requests'
@@ -1779,6 +1780,7 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
   if (!projectId || !selectedWorkspace.value) {
     editorStore.setLabelSet(createPageXmlLabelSet())
     editorStore.clearProjectCodec()
+    editorStore.clearProjectDictionary()
     return
   }
   if (!force && loadedProjectMetadata.value.has(projectId)) {
@@ -1789,6 +1791,7 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
     const project = await $fetch<{
       labelSetId?: string | null
       codecId?: string | null
+      dictionaryId?: string | null
       defaultGtIndex?: number | null
       defaultRecognitionIndices?: number[] | null
     }>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`)
@@ -1810,6 +1813,24 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
       editorStore.clearProjectCodec(projectId)
     }
 
+    if (project.dictionaryId) {
+      try {
+        const dictionary = await $fetch<Dictionary>(`/api/workspaces/${selectedWorkspace.value}/dictionaries/${project.dictionaryId}`)
+        editorStore.setProjectDictionary({
+          id: dictionary.id,
+          forms: [],
+          caseSensitive: dictionary.caseSensitive,
+          unicodeNormalization: dictionary.unicodeNormalization,
+          canEdit: Boolean(dictionary.capabilities?.canEdit),
+          locked: Boolean(dictionary.locked)
+        }, projectId)
+      } catch {
+        editorStore.clearProjectDictionary(projectId)
+      }
+    } else {
+      editorStore.clearProjectDictionary(projectId)
+    }
+
     editorStore.setProjectTextIndexDefaults({
       gtIndex: Number.isFinite(Number(project.defaultGtIndex)) ? Number(project.defaultGtIndex) : 0,
       recognitionIndices: Array.isArray(project.defaultRecognitionIndices) ? project.defaultRecognitionIndices : [1]
@@ -1819,6 +1840,7 @@ const loadProjectLabelSet = async (projectId?: string | null, force = false) => 
   } catch {
     editorStore.setLabelSet(createPageXmlLabelSet(), projectId)
     editorStore.clearProjectCodec(projectId)
+    editorStore.clearProjectDictionary(projectId)
     editorStore.clearProjectTextIndexDefaults(projectId)
   }
 }
@@ -2174,7 +2196,7 @@ const {
 } = useEditorSessionRestore({
   route,
   selectedWorkspace,
-  dockviewApi,
+  dockviewApi: dockviewApi as any,
   loadPreferences: () => editorUiStore.loadPreferences(),
   clearSession: () => sessionStore.clearSession({ preserveTextViewSettings: true }),
   resetEditorState: () => editorStore.resetEditorState(),
@@ -2191,7 +2213,11 @@ const {
   restorePersistedProject,
   loadProjectMetadata: projectId => loadProjectLabelSet(projectId),
   applyEditorDeepLink: applyEditorDeepLinkFromQuery,
-  maybeAutoStartContextTour,
+  maybeAutoStartContextTour: async (path, context) => {
+    await maybeAutoStartContextTour(path, {
+      editorMode: context.editorMode === 'text' ? 'text' : 'layout'
+    })
+  },
   getEditorMode: () => editorStore.effectiveUiMode(editorStore.activeCanvasId)
 })
 

@@ -258,6 +258,14 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
         void handleOpenProjectModal()
       }
     }, {
+      id: 'editor-open-dictionaries',
+      label: 'Open Dictionaries',
+      icon: 'i-lucide-book-copy',
+      suffix: 'Manage controlled dictionaries',
+      onSelect: () => {
+        void navigateToDashboard('/dictionaries')
+      }
+    }, {
       id: 'editor-start-current-tour',
       label: 'Start Current Page Tour',
       icon: 'i-lucide-compass',
@@ -320,6 +328,15 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
       to: '/virtual-keyboard',
       onSelect: () => {
         void navigateToDashboard('/virtual-keyboard')
+      }
+    }, {
+      id: 'go-dictionaries',
+      label: 'Go to Dictionaries',
+      icon: 'i-lucide-book-copy',
+      suffix: 'Manage controlled dictionaries',
+      to: '/dictionaries',
+      onSelect: () => {
+        void navigateToDashboard('/dictionaries')
       }
     }, {
       id: 'go-codecs',

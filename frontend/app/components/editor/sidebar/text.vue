@@ -66,6 +66,13 @@ const includeWhitespaceInCodecHighlightModel = computed({
 const hasProjectCodec = computed(() => {
   return Boolean(editorStore.projectCodecId) || (editorStore.projectCodecCharacters?.length ?? 0) > 0
 })
+const highlightUnknownDictionaryTokensModel = computed({
+  get: () => uiStore.highlightUnknownDictionaryTokens,
+  set: next => uiStore.setHighlightUnknownDictionaryTokens(Boolean(next))
+})
+const hasProjectDictionary = computed(() => {
+  return Boolean(editorStore.projectDictionaryId)
+})
 
 const defaultGtIndexModel = computed({
   get: () => editorStore.projectTextDefaultGtIndex ?? 0,
@@ -214,6 +221,7 @@ const accordionItems = [
   { label: 'Tasks', icon: 'i-lucide-check-square', slot: 'tasks' },
   { label: 'Settings', icon: 'i-lucide-settings', slot: 'settings' },
   { label: 'Codec', icon: 'i-lucide-badge-check', slot: 'codec' },
+  { label: 'Dictionary', icon: 'i-lucide-book-copy', slot: 'dictionary' },
   { label: 'Diff', icon: 'i-lucide-git-compare', slot: 'diff' },
   { label: 'Filter', icon: 'i-lucide-filter', slot: 'filter' }
 ]
@@ -297,6 +305,12 @@ onBeforeUnmount(() => {
                 :has-project-codec="hasProjectCodec"
               />
             </template>
+            <template v-else-if="item.slot === 'dictionary'">
+              <EditorSidebarDictionarySettingsPanel
+                v-model:highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokensModel"
+                :has-project-dictionary="hasProjectDictionary"
+              />
+            </template>
             <template v-else-if="item.slot === 'diff'">
               <EditorSidebarTextDiffPanel
                 v-model:default-gt-index="defaultGtIndexModel"
@@ -376,6 +390,13 @@ onBeforeUnmount(() => {
           v-model:highlight-unknown-codec-chars="highlightUnknownCodecCharsModel"
           v-model:include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlightModel"
           :has-project-codec="hasProjectCodec"
+        />
+      </template>
+
+      <template #dictionary>
+        <EditorSidebarDictionarySettingsPanel
+          v-model:highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokensModel"
+          :has-project-dictionary="hasProjectDictionary"
         />
       </template>
 

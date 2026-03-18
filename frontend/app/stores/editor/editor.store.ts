@@ -102,6 +102,12 @@ export const useEditorStore = defineStore('editor', () => {
     labelSet,
     projectCodecId,
     projectCodecCharacters,
+    projectDictionaryId,
+    projectDictionaryForms,
+    projectDictionaryCaseSensitive,
+    projectDictionaryUnicodeNormalization,
+    projectDictionaryCanEdit,
+    projectDictionaryLocked,
     projectTextDefaultGtIndex,
     projectTextDefaultRecognitionIndices
   } = storeToRefs(documentStore)
@@ -126,6 +132,8 @@ export const useEditorStore = defineStore('editor', () => {
     clearLabelSet,
     setProjectCodec,
     clearProjectCodec,
+    setProjectDictionary,
+    clearProjectDictionary,
     setProjectTextIndexDefaults,
     clearProjectTextIndexDefaults
   } = documentStore
@@ -1345,6 +1353,12 @@ export const useEditorStore = defineStore('editor', () => {
     labelSet,
     projectCodecId,
     projectCodecCharacters,
+    projectDictionaryId,
+    projectDictionaryForms,
+    projectDictionaryCaseSensitive,
+    projectDictionaryUnicodeNormalization,
+    projectDictionaryCanEdit,
+    projectDictionaryLocked,
     projectTextDefaultGtIndex,
     projectTextDefaultRecognitionIndices,
 
@@ -1383,6 +1397,8 @@ export const useEditorStore = defineStore('editor', () => {
     clearLabelSet,
     setProjectCodec,
     clearProjectCodec,
+    setProjectDictionary,
+    clearProjectDictionary,
     setProjectTextIndexDefaults,
     clearProjectTextIndexDefaults,
 

@@ -12,6 +12,7 @@ public class UtilityPackageDto {
 
     public enum UtilityType {
         CODEC,
+        DICTIONARY,
         LABEL_SET,
         TAG_SET,
         VIRTUAL_KEYBOARD,

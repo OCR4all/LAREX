@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
@@ -8,6 +9,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
@@ -33,6 +35,7 @@ public class ProjectCrudService {
     private final ProjectRepository projectRepository;
     private final LibraryRepository libraryRepository;
     private final CodecRepository codecRepository;
+    private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
@@ -46,6 +49,7 @@ public class ProjectCrudService {
     public ProjectCrudService(ProjectRepository projectRepository,
                               LibraryRepository libraryRepository,
                               CodecRepository codecRepository,
+                              ControlledDictionaryRepository dictionaryRepository,
                               LabelSetRepository labelSetRepository,
                               TagSetRepository tagSetRepository,
                               WorkspaceMemberRepository workspaceMemberRepository,
@@ -58,6 +62,7 @@ public class ProjectCrudService {
         this.projectRepository = projectRepository;
         this.libraryRepository = libraryRepository;
         this.codecRepository = codecRepository;
+        this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -89,7 +94,7 @@ public class ProjectCrudService {
     }
 
     public Optional<Project> createProject(String workspaceId, String name, String description, List<String> tags,
-                                           String codecId, String labelSetId, String tagSetId,
+                                           String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                            String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
@@ -131,6 +136,14 @@ public class ProjectCrudService {
         }
         project.setLabelSet(labelSet);
 
+        ControlledDictionary dictionary = null;
+        if (dictionaryId != null && !dictionaryId.trim().isEmpty()) {
+            dictionary = dictionaryRepository.findById(dictionaryId).orElse(null);
+        } else if (workspace != null && workspace.getDictionary() != null) {
+            dictionary = workspace.getDictionary();
+        }
+        project.setDictionary(dictionary);
+
         TagSet tagSet = null;
         if (tagSetId != null && !tagSetId.trim().isEmpty()) {
             tagSet = tagSetRepository.findById(tagSetId).orElse(null);
@@ -166,7 +179,7 @@ public class ProjectCrudService {
     }
 
     public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags,
-                                           String codecId, String labelSetId, String tagSetId,
+                                           String codecId, String labelSetId, String dictionaryId, String tagSetId,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                            String userId) {
         Optional<Project> projectOpt = getProjectById(projectId, userId);
@@ -195,6 +208,12 @@ public class ProjectCrudService {
                 labelSet = labelSetRepository.findById(labelSetId).orElse(null);
             }
             project.setLabelSet(labelSet);
+
+            ControlledDictionary dictionary = null;
+            if (dictionaryId != null && !dictionaryId.trim().isEmpty()) {
+                dictionary = dictionaryRepository.findById(dictionaryId).orElse(null);
+            }
+            project.setDictionary(dictionary);
 
             TagSet tagSet = null;
             if (tagSetId != null && !tagSetId.trim().isEmpty()) {

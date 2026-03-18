@@ -1,5 +1,6 @@
 import type { PageData, ImageVariant } from './types'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
+import type { DictionaryFormEntry } from '@/types/dictionary'
 import { LabelSet as LabelSetModel, LabelDefinition as LabelDefinitionModel } from '@/models/editor/labels'
 import { useEditorSessionStore } from './editor.session.store'
 import { naturalSortBy } from '@/utils/natural-sort'
@@ -59,6 +60,20 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
   const projectCodecByProjectId = ref<Record<string, { id: string | null, characters: string[] }>>({})
   const projectCodecId = ref<string | null>(null)
   const projectCodecCharacters = ref<string[]>([])
+  const projectDictionaryByProjectId = ref<Record<string, {
+    id: string | null
+    forms: DictionaryFormEntry[]
+    caseSensitive: boolean
+    unicodeNormalization: string
+    canEdit: boolean
+    locked: boolean
+  }>>({})
+  const projectDictionaryId = ref<string | null>(null)
+  const projectDictionaryForms = ref<DictionaryFormEntry[]>([])
+  const projectDictionaryCaseSensitive = ref<boolean>(false)
+  const projectDictionaryUnicodeNormalization = ref<string>('NFC')
+  const projectDictionaryCanEdit = ref<boolean>(false)
+  const projectDictionaryLocked = ref<boolean>(false)
   const projectTextIndexDefaultsByProjectId = ref<Record<string, ProjectTextIndexDefaults>>({})
   const projectTextDefaultGtIndex = ref<number>(0)
   const projectTextDefaultRecognitionIndices = ref<number[]>([1])
@@ -79,6 +94,14 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     const codec = projectId ? projectCodecByProjectId.value[projectId] : undefined
     projectCodecId.value = codec?.id ?? null
     projectCodecCharacters.value = codec?.characters ? [...codec.characters] : []
+
+    const dictionary = projectId ? projectDictionaryByProjectId.value[projectId] : undefined
+    projectDictionaryId.value = dictionary?.id ?? null
+    projectDictionaryForms.value = dictionary?.forms ? [...dictionary.forms] : []
+    projectDictionaryCaseSensitive.value = dictionary?.caseSensitive ?? false
+    projectDictionaryUnicodeNormalization.value = dictionary?.unicodeNormalization ?? 'NFC'
+    projectDictionaryCanEdit.value = dictionary?.canEdit ?? false
+    projectDictionaryLocked.value = dictionary?.locked ?? false
 
     const textDefaults = projectId ? projectTextIndexDefaultsByProjectId.value[projectId] : undefined
     const normalizedTextDefaults = normalizeProjectTextIndexDefaults(textDefaults)
@@ -191,6 +214,9 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
 
     const { [projectId]: _codec, ...remainingCodecs } = projectCodecByProjectId.value
     projectCodecByProjectId.value = remainingCodecs
+
+    const { [projectId]: _dictionary, ...remainingDictionaries } = projectDictionaryByProjectId.value
+    projectDictionaryByProjectId.value = remainingDictionaries
 
     const { [projectId]: _textDefaults, ...remainingTextDefaults } = projectTextIndexDefaultsByProjectId.value
     projectTextIndexDefaultsByProjectId.value = remainingTextDefaults
@@ -422,6 +448,53 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     setProjectCodec(null, [], projectId)
   }
 
+  function setProjectDictionary(payload: {
+    id: string | null
+    forms: DictionaryFormEntry[]
+    caseSensitive?: boolean
+    unicodeNormalization?: string
+    canEdit?: boolean
+    locked?: boolean
+  }, projectId?: string) {
+    const targetProjectId = projectId ?? activeProjectId.value
+    const normalizedPayload = {
+      id: payload.id,
+      forms: [...(payload.forms ?? [])],
+      caseSensitive: Boolean(payload.caseSensitive),
+      unicodeNormalization: payload.unicodeNormalization || 'NFC',
+      canEdit: Boolean(payload.canEdit),
+      locked: Boolean(payload.locked)
+    }
+
+    if (!targetProjectId) {
+      projectDictionaryId.value = normalizedPayload.id
+      projectDictionaryForms.value = normalizedPayload.forms
+      projectDictionaryCaseSensitive.value = normalizedPayload.caseSensitive
+      projectDictionaryUnicodeNormalization.value = normalizedPayload.unicodeNormalization
+      projectDictionaryCanEdit.value = normalizedPayload.canEdit
+      projectDictionaryLocked.value = normalizedPayload.locked
+      return
+    }
+
+    projectDictionaryByProjectId.value = {
+      ...projectDictionaryByProjectId.value,
+      [targetProjectId]: normalizedPayload
+    }
+
+    if (activeProjectId.value === targetProjectId) {
+      projectDictionaryId.value = normalizedPayload.id
+      projectDictionaryForms.value = normalizedPayload.forms
+      projectDictionaryCaseSensitive.value = normalizedPayload.caseSensitive
+      projectDictionaryUnicodeNormalization.value = normalizedPayload.unicodeNormalization
+      projectDictionaryCanEdit.value = normalizedPayload.canEdit
+      projectDictionaryLocked.value = normalizedPayload.locked
+    }
+  }
+
+  function clearProjectDictionary(projectId?: string) {
+    setProjectDictionary({ id: null, forms: [], caseSensitive: false, unicodeNormalization: 'NFC', canEdit: false, locked: false }, projectId)
+  }
+
   function setProjectTextIndexDefaults(defaults: Partial<ProjectTextIndexDefaults>, projectId?: string) {
     const targetProjectId = projectId ?? activeProjectId.value
     const normalized = normalizeProjectTextIndexDefaults(defaults)
@@ -460,6 +533,13 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     projectCodecId,
     projectCodecCharacters,
     projectCodecByProjectId,
+    projectDictionaryId,
+    projectDictionaryForms,
+    projectDictionaryCaseSensitive,
+    projectDictionaryUnicodeNormalization,
+    projectDictionaryCanEdit,
+    projectDictionaryLocked,
+    projectDictionaryByProjectId,
     projectTextIndexDefaultsByProjectId,
     projectTextDefaultGtIndex,
     projectTextDefaultRecognitionIndices,
@@ -486,6 +566,8 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     clearLabelSet,
     setProjectCodec,
     clearProjectCodec,
+    setProjectDictionary,
+    clearProjectDictionary,
     setProjectTextIndexDefaults,
     clearProjectTextIndexDefaults
   }

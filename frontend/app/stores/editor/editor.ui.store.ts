@@ -60,6 +60,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const textItemLayout = ref<TextItemLayout>('side-by-side')
   const highlightUnknownCodecChars = ref<boolean>(false)
   const includeWhitespaceInCodecHighlight = ref<boolean>(false)
+  const highlightUnknownDictionaryTokens = ref<boolean>(false)
   const lastLayoutViewMode = ref<LayoutViewMode>('default')
   const confidenceHeatmap = ref<ConfidenceHeatmapSettings>({
     enabled: false,
@@ -217,6 +218,10 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function setReadingOrderOverlayVisible(visible: boolean) {
     readingOrderOverlay.value.visible = visible
+  }
+
+  function setHighlightUnknownDictionaryTokens(enabled: boolean) {
+    highlightUnknownDictionaryTokens.value = enabled
   }
 
   function toggleReadingOrderOverlay() {
@@ -427,6 +432,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     textItemLayout,
     highlightUnknownCodecChars,
     includeWhitespaceInCodecHighlight,
+    highlightUnknownDictionaryTokens,
     lastLayoutViewMode,
     confidenceHeatmap,
     virtualKeyboardMode,
@@ -453,6 +459,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleMoveWithChildren,
     setDefaultLineWidth,
     setReadingOrderOverlayVisible,
+    setHighlightUnknownDictionaryTokens,
     toggleReadingOrderOverlay,
     updateReadingOrderOverlaySettings,
     bumpReadingOrderVersion,

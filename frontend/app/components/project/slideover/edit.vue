@@ -2,9 +2,13 @@
 import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
 import { wsKey } from '@/utils/fetch-keys'
+import type { CodecSummary } from '@/types/codec'
+import type { DictionarySummary } from '@/types/dictionary'
 import type { LabelSetSummary } from '~/types/label-set'
+import type { TagSetSummary } from '~/types/tag-set'
 
 const UNDEFINED_RECOGNITION_SENTINEL = -1
+type SelectOption = { label: string, value: string }
 
 interface Project {
   id: string
@@ -13,6 +17,7 @@ interface Project {
   tags: string[]
   codecId?: string
   labelSetId?: string
+  dictionaryId?: string
   tagSetId?: string
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
@@ -34,6 +39,7 @@ const schema = z.object({
   tags: z.array(z.string()).optional(),
   codecId: z.string().optional().or(z.literal('')),
   labelSetId: z.string().optional().or(z.literal('')),
+  dictionaryId: z.string().optional().or(z.literal('')),
   tagSetId: z.string().optional().or(z.literal('')),
   defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
@@ -49,6 +55,7 @@ const state = ref<Schema>({
   tags: props.project.tags || [],
   codecId: props.project.codecId || '',
   labelSetId: props.project.labelSetId || '',
+  dictionaryId: props.project.dictionaryId || '',
   tagSetId: props.project.tagSetId || '',
   defaultGtIndexInput: String(props.project.defaultGtIndex ?? 0),
   defaultGtIndexUndefined: props.project.defaultGtIndex == null,
@@ -60,12 +67,11 @@ const state = ref<Schema>({
     : false
 })
 
-const { data: codecs, error: codecsError } = await useFetch<any[]>(
+const { data: codecs, error: codecsError } = await useFetch<CodecSummary[]>(
   `/api/workspaces/${workspace.selectedWorkspaceId}/codecs`,
   {
     key: wsKey(workspace.selectedWorkspaceId!, 'codecs', 'list'),
-    default: () => [],
-    transform: (codecs: any[]) => codecs.map(codec => ({ label: codec.name, value: codec.id }))
+    default: () => []
   }
 )
 
@@ -73,19 +79,30 @@ const { data: labelSets, error: labelSetsError } = await useFetch<LabelSetSummar
   `/api/workspaces/${workspace.selectedWorkspaceId}/label-sets`,
   {
     key: wsKey(workspace.selectedWorkspaceId!, 'label-sets', 'list'),
-    default: () => [],
-    transform: (sets: LabelSetSummary[]) => sets.map(s => ({ label: s.meta.name, value: s.id }))
+    default: () => []
   }
 )
 
-const { data: tagSets, error: tagSetsError } = await useFetch<any[]>(
+const { data: dictionaries, error: dictionariesError } = await useFetch<DictionarySummary[]>(
+  `/api/workspaces/${workspace.selectedWorkspaceId}/dictionaries`,
+  {
+    key: wsKey(workspace.selectedWorkspaceId!, 'dictionaries', 'list'),
+    default: () => []
+  }
+)
+
+const { data: tagSets, error: tagSetsError } = await useFetch<TagSetSummary[]>(
   `/api/workspaces/${workspace.selectedWorkspaceId}/tag-sets`,
   {
     key: wsKey(workspace.selectedWorkspaceId!, 'tag-sets', 'list'),
-    default: () => [],
-    transform: (tagSets: any[]) => tagSets.map(t => ({ label: t.meta.name, value: t.id }))
+    default: () => []
   }
 )
+
+const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({ label: codec.name, value: codec.id })))
+const labelSetsSafe = computed<SelectOption[]>(() => (labelSets.value ?? []).map(set => ({ label: set.meta.name, value: set.id })))
+const dictionariesSafe = computed<SelectOption[]>(() => (dictionaries.value ?? []).map(dictionary => ({ label: dictionary.name, value: dictionary.id })))
+const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tagSet => ({ label: tagSet.meta.name, value: tagSet.id })))
 
 const { data: workspaceDefaults } = await useFetch<WorkspaceDefaults>(
   `/api/workspaces/${workspace.selectedWorkspaceId}`,
@@ -159,6 +176,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         tags: event.data.tags,
         codecId: event.data.codecId || null,
         labelSetId: event.data.labelSetId || null,
+        dictionaryId: event.data.dictionaryId || null,
         tagSetId: event.data.tagSetId || null,
         ...(defaultGtIndex !== undefined ? { defaultGtIndex } : {}),
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
@@ -218,37 +236,47 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               <UFormField label="Tag Set" name="tagSetId" hint="Tag structure to use for this project">
                 <USelect
                   v-model="state.tagSetId"
-                  :items="tagSets"
+                  :items="tagSetsSafe"
                   placeholder="Select a tag set (or use free-form tags)"
                   class="w-full"
-                  :disabled="isSubmitting || !!tagSetsError || tagSets.length === 0"
+                  :disabled="isSubmitting || !!tagSetsError || tagSetsSafe.length === 0"
                 />
               </UFormField>
               <UFormField label="Tags" name="tags">
                 <TagSetTagSelector
-                  v-model="state.tags"
+                  :model-value="state.tags ?? []"
                   :tag-set-id="effectiveTagSetId"
                   :workspace-id="workspace.selectedWorkspaceId!"
                   :disabled="isSubmitting"
                   class="w-full"
+                  @update:model-value="state.tags = $event"
                 />
               </UFormField>
               <UFormField label="Primary Codec" name="codecId" hint="Codec to use for this project">
                 <USelect
                   v-model="state.codecId"
-                  :items="codecs"
+                  :items="codecsSafe"
                   placeholder="Select a codec"
                   class="w-full"
-                  :disabled="isSubmitting || !!codecsError || codecs.length === 0"
+                  :disabled="isSubmitting || !!codecsError || codecsSafe.length === 0"
                 />
               </UFormField>
               <UFormField label="Label Set" name="labelSetId" hint="Label set to use for this project">
                 <USelect
                   v-model="state.labelSetId"
-                  :items="labelSets"
+                  :items="labelSetsSafe"
                   placeholder="Select a label set"
                   class="w-full"
-                  :disabled="isSubmitting || !!labelSetsError || labelSets.length === 0"
+                  :disabled="isSubmitting || !!labelSetsError || labelSetsSafe.length === 0"
+                />
+              </UFormField>
+              <UFormField label="Dictionary" name="dictionaryId" hint="Dictionary to validate project GT text against">
+                <USelect
+                  v-model="state.dictionaryId"
+                  :items="dictionariesSafe"
+                  placeholder="Select a dictionary"
+                  class="w-full"
+                  :disabled="isSubmitting || !!dictionariesError || dictionariesSafe.length === 0"
                 />
               </UFormField>
             </div>

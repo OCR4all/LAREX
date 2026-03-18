@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.project;
 import de.uniwue.zpd.dachs.larex.backend.dto.ResourceTransferDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
@@ -25,6 +26,7 @@ public class ResourceTransferService {
 
     private final ResourceTransferRequestRepository transferRequestRepository;
     private final CodecRepository codecRepository;
+    private final ControlledDictionaryRepository dictionaryRepository;
     private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final LabelSetRepository labelSetRepository;
     private final LibraryRepository libraryRepository;
@@ -34,6 +36,7 @@ public class ResourceTransferService {
     public ResourceTransferService(
             ResourceTransferRequestRepository transferRequestRepository,
             CodecRepository codecRepository,
+            ControlledDictionaryRepository dictionaryRepository,
             VirtualKeyboardRepository virtualKeyboardRepository,
             LabelSetRepository labelSetRepository,
             LibraryRepository libraryRepository,
@@ -41,6 +44,7 @@ public class ResourceTransferService {
             AuthorizationPolicyService authorizationPolicyService) {
         this.transferRequestRepository = transferRequestRepository;
         this.codecRepository = codecRepository;
+        this.dictionaryRepository = dictionaryRepository;
         this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.labelSetRepository = labelSetRepository;
         this.libraryRepository = libraryRepository;
@@ -146,6 +150,7 @@ public class ResourceTransferService {
 
         Set<String> workspaceIds = new HashSet<>();
         Set<String> codecIds = new HashSet<>();
+        Set<String> dictionaryIds = new HashSet<>();
         Set<String> keyboardIds = new HashSet<>();
         Set<String> labelSetIds = new HashSet<>();
 
@@ -154,6 +159,7 @@ public class ResourceTransferService {
             workspaceIds.add(request.getTargetWorkspaceId());
             switch (request.getResourceType()) {
                 case CODEC -> codecIds.add(request.getResourceId());
+                case DICTIONARY -> dictionaryIds.add(request.getResourceId());
                 case VIRTUAL_KEYBOARD -> keyboardIds.add(request.getResourceId());
                 case LABEL_SET -> labelSetIds.add(request.getResourceId());
             }
@@ -163,6 +169,9 @@ public class ResourceTransferService {
         Map<String, String> resourceNames = new HashMap<>();
         for (Codec codec : codecRepository.findAllById(codecIds)) {
             resourceNames.put(codec.getId(), codec.getName());
+        }
+        for (ControlledDictionary dictionary : dictionaryRepository.findAllById(dictionaryIds)) {
+            resourceNames.put(dictionary.getId(), dictionary.getName());
         }
         for (VirtualKeyboard keyboard : virtualKeyboardRepository.findAllById(keyboardIds)) {
             resourceNames.put(keyboard.getId(), keyboard.getName());
@@ -207,6 +216,7 @@ public class ResourceTransferService {
     private void executeTransfer(ResourceTransferRequest request) {
         switch (request.getResourceType()) {
             case CODEC -> executeCodecTransfer(request);
+            case DICTIONARY -> executeDictionaryTransfer(request);
             case VIRTUAL_KEYBOARD -> executeVirtualKeyboardTransfer(request);
             case LABEL_SET -> executeLabelSetTransfer(request);
         }
@@ -263,6 +273,34 @@ public class ResourceTransferService {
         });
     }
 
+    private void executeDictionaryTransfer(ResourceTransferRequest request) {
+        dictionaryRepository.findById(request.getResourceId()).ifPresent(dictionary -> {
+            Library targetLibrary = getOrCreateTargetLibrary(request.getTargetWorkspaceId());
+            if (request.getTransferType() == ResourceTransferRequest.TransferType.COPY) {
+                ControlledDictionary copy = new ControlledDictionary(dictionary.getName() + " (Copy)", targetLibrary);
+                copy.setDescription(dictionary.getDescription());
+                copy.setTags(new HashSet<>(dictionary.getTags()));
+                copy.setCaseSensitive(dictionary.isCaseSensitive());
+                copy.setUnicodeNormalization(dictionary.getUnicodeNormalization());
+
+                if (dictionary.getEntries() != null) {
+                    for (ControlledDictionaryEntry entry : dictionary.getEntries()) {
+                        ControlledDictionaryEntry clonedEntry = new ControlledDictionaryEntry();
+                        clonedEntry.setSurfaceForm(entry.getSurfaceForm());
+                        clonedEntry.setNormalizedValue(entry.getNormalizedValue());
+                        clonedEntry.setSourceEntryKey(entry.getSourceEntryKey());
+                        clonedEntry.setMetadataJson(entry.getMetadataJson());
+                        copy.addEntry(clonedEntry);
+                    }
+                }
+                dictionaryRepository.save(copy);
+            } else {
+                dictionary.setLibrary(targetLibrary);
+                dictionaryRepository.save(dictionary);
+            }
+        });
+    }
+
     private void executeLabelSetTransfer(ResourceTransferRequest request) {
         labelSetRepository.findById(request.getResourceId()).ifPresent(labelSet -> {
             if (request.getTransferType() == ResourceTransferRequest.TransferType.COPY) {
@@ -285,6 +323,8 @@ public class ResourceTransferService {
         return switch (resourceType) {
             case CODEC -> codecRepository.findById(resourceId)
                     .map(c -> c.getLibrary().getWorkspaceId()).orElse(null);
+            case DICTIONARY -> dictionaryRepository.findById(resourceId)
+                    .map(d -> d.getLibrary().getWorkspaceId()).orElse(null);
             case VIRTUAL_KEYBOARD -> virtualKeyboardRepository.findById(resourceId)
                     .map(VirtualKeyboard::getWorkspaceId).orElse(null);
             case LABEL_SET -> labelSetRepository.findById(resourceId)

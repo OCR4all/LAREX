@@ -111,6 +111,7 @@ public class ProjectPackageDto {
     public record UtilityReferences(
             UtilityReference codec,
             UtilityReference labelSet,
+            UtilityReference dictionary,
             UtilityReference tagSet
     ) {
     }

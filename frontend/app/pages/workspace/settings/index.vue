@@ -2,6 +2,12 @@
 import { wsKey, globalKey } from '@/utils/fetch-keys'
 import { getStorageQuotaAlertState, getStorageQuotaProgressValue } from '@/utils/storage-quota'
 import { LazyUiDeleteSlideover } from '#components'
+import type { CodecSummary } from '@/types/codec'
+import type { DictionarySummary } from '@/types/dictionary'
+import type { LabelSetSummary } from '@/types/label-set'
+import type { TagSetSummary } from '@/types/tag-set'
+
+type SelectOption = { label: string, value: string }
 
 interface Workspace {
   id: string
@@ -13,6 +19,7 @@ interface Workspace {
   type?: 'personal' | 'team'
   codecId?: string
   labelSetId?: string
+  dictionaryId?: string
   tagSetId?: string
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
@@ -90,6 +97,7 @@ const form = reactive({
   description: '',
   codecId: '',
   labelSetId: '',
+  dictionaryId: '',
   tagSetId: '',
   defaultGtIndexInput: '0',
   defaultRecognitionIndicesInput: '1'
@@ -119,7 +127,7 @@ function parseRecognitionIndices(value: string | undefined, gtIndex: number): nu
   return unique
 }
 
-const { data: codecs, error: codecsError } = await useFetch<any[]>(
+const { data: codecs, error: codecsError } = await useFetch<CodecSummary[]>(
   () => `/api/workspaces/${selectedWorkspace.value as string}/codecs`,
   {
     key: computed(() => selectedWorkspace.value
@@ -127,15 +135,11 @@ const { data: codecs, error: codecsError } = await useFetch<any[]>(
       : globalKey('pending', 'codecs', 'list')),
     watch: [selectedWorkspace],
     default: () => [],
-    transform: (codecs: any[]) => codecs.map(codec => ({
-      label: codec.name,
-      value: codec.id
-    })),
     immediate: !!selectedWorkspace.value
   }
 )
 
-const { data: labelSets, error: labelSetsError } = await useFetch<any[]>(
+const { data: labelSets, error: labelSetsError } = await useFetch<LabelSetSummary[]>(
   () => `/api/workspaces/${selectedWorkspace.value as string}/label-sets`,
   {
     key: computed(() => selectedWorkspace.value
@@ -143,15 +147,23 @@ const { data: labelSets, error: labelSetsError } = await useFetch<any[]>(
       : globalKey('pending', 'label-sets', 'list')),
     watch: [selectedWorkspace],
     default: () => [],
-    transform: (labelSets: any[]) => labelSets.map(ls => ({
-      label: ls.meta.name,
-      value: ls.id
-    })),
     immediate: !!selectedWorkspace.value
   }
 )
 
-const { data: tagSets, error: tagSetsError } = await useFetch<any[]>(
+const { data: dictionaries, error: dictionariesError } = await useFetch<DictionarySummary[]>(
+  () => `/api/workspaces/${selectedWorkspace.value as string}/dictionaries`,
+  {
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'dictionaries', 'list')
+      : globalKey('pending', 'dictionaries', 'list')),
+    watch: [selectedWorkspace],
+    default: () => [],
+    immediate: !!selectedWorkspace.value
+  }
+)
+
+const { data: tagSets, error: tagSetsError } = await useFetch<TagSetSummary[]>(
   () => `/api/workspaces/${selectedWorkspace.value as string}/tag-sets`,
   {
     key: computed(() => selectedWorkspace.value
@@ -159,13 +171,26 @@ const { data: tagSets, error: tagSetsError } = await useFetch<any[]>(
       : globalKey('pending', 'tag-sets', 'list')),
     watch: [selectedWorkspace],
     default: () => [],
-    transform: (tagSets: any[]) => tagSets.map(t => ({
-      label: t.meta.name,
-      value: t.id
-    })),
     immediate: !!selectedWorkspace.value
   }
 )
+
+const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({
+  label: codec.name,
+  value: codec.id
+})))
+const labelSetsSafe = computed<SelectOption[]>(() => (labelSets.value ?? []).map(labelSet => ({
+  label: labelSet.meta.name,
+  value: labelSet.id
+})))
+const dictionariesSafe = computed<SelectOption[]>(() => (dictionaries.value ?? []).map(dictionary => ({
+  label: dictionary.name,
+  value: dictionary.id
+})))
+const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tagSet => ({
+  label: tagSet.meta.name,
+  value: tagSet.id
+})))
 
 watchEffect(() => {
   if (workspace.value) {
@@ -173,6 +198,7 @@ watchEffect(() => {
     form.description = workspace.value.description || ''
     form.codecId = workspace.value.codecId || ''
     form.labelSetId = workspace.value.labelSetId || ''
+    form.dictionaryId = workspace.value.dictionaryId || ''
     form.tagSetId = workspace.value.tagSetId || ''
     form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
     form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
@@ -190,6 +216,7 @@ const cancelEditing = () => {
     form.description = workspace.value.description || ''
     form.codecId = workspace.value.codecId || ''
     form.labelSetId = workspace.value.labelSetId || ''
+    form.dictionaryId = workspace.value.dictionaryId || ''
     form.tagSetId = workspace.value.tagSetId || ''
     form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
     form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
@@ -212,6 +239,7 @@ const saveWorkspace = async () => {
         description: form.description.trim() || null,
         codecId: form.codecId || null,
         labelSetId: form.labelSetId || null,
+        dictionaryId: form.dictionaryId || null,
         tagSetId: form.tagSetId || null,
         defaultGtIndex,
         defaultRecognitionIndices
@@ -366,7 +394,7 @@ async function openDeleteSlideover() {
         <UFormField label="Default Codec" hint="Default Codec for all newly created projects in this workspace">
           <USelect
             v-model="form.codecId"
-            :items="codecs"
+            :items="codecsSafe"
             icon="i-lucide-case-lower"
             :disabled="!isEditing || !!codecsError"
             placeholder="Select a codec"
@@ -376,17 +404,27 @@ async function openDeleteSlideover() {
         <UFormField label="Default Label Set" hint="Default Label Set for all newly created projects in this workspace">
           <USelect
             v-model="form.labelSetId"
-            :items="labelSets"
+            :items="labelSetsSafe"
             icon="i-lucide-tags"
             :disabled="!isEditing || !!labelSetsError"
             placeholder="Select a label set"
             class="max-w-md"
           />
         </UFormField>
+        <UFormField label="Default Dictionary" hint="Default Dictionary for all newly created projects in this workspace">
+          <USelect
+            v-model="form.dictionaryId"
+            :items="dictionariesSafe"
+            icon="i-lucide-book-copy"
+            :disabled="!isEditing || !!dictionariesError"
+            placeholder="Select a dictionary"
+            class="max-w-md"
+          />
+        </UFormField>
         <UFormField label="Default Tag Set" hint="Default Tag Set for all newly created projects in this workspace">
           <USelect
             v-model="form.tagSetId"
-            :items="tagSets"
+            :items="tagSetsSafe"
             icon="i-lucide-network"
             :disabled="!isEditing || !!tagSetsError"
             placeholder="Select a tag set"
@@ -471,24 +509,32 @@ async function openDeleteSlideover() {
           <UFormField data-tour="workspace-general-presets" v-if="canSetWorkspacePresets" label="Default Codec" hint="Default codec for new projects">
             <USelect
               v-model="form.codecId"
-              :items="codecs"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!codecsError || codecs.length === 0"
+              :items="codecsSafe"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!codecsError || codecsSafe.length === 0"
               placeholder="Select a codec"
             />
           </UFormField>
           <UFormField v-if="canSetWorkspacePresets" label="Default Label Set" hint="Default label set for new projects">
             <USelect
               v-model="form.labelSetId"
-              :items="labelSets"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!labelSetsError || labelSets.length === 0"
+              :items="labelSetsSafe"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!labelSetsError || labelSetsSafe.length === 0"
               placeholder="Select a label set"
+            />
+          </UFormField>
+          <UFormField v-if="canSetWorkspacePresets" label="Default Dictionary" hint="Default dictionary for new projects">
+            <USelect
+              v-model="form.dictionaryId"
+              :items="dictionariesSafe"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!dictionariesError || dictionariesSafe.length === 0"
+              placeholder="Select a dictionary"
             />
           </UFormField>
           <UFormField v-if="canSetWorkspacePresets" label="Default Tag Set" hint="Default tag set for new projects">
             <USelect
               v-model="form.tagSetId"
-              :items="tagSets"
-              :disabled="!isEditing || !canSetWorkspacePresets || !!tagSetsError || tagSets.length === 0"
+              :items="tagSetsSafe"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!tagSetsError || tagSetsSafe.length === 0"
               placeholder="Select a tag set"
             />
           </UFormField>

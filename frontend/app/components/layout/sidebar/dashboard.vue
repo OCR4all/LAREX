@@ -40,6 +40,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Labels', icon: 'i-lucide-tags', to: '/labels', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Virtual Keyboards', icon: 'i-lucide-keyboard', to: '/virtual-keyboard', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Dictionaries', icon: 'i-lucide-book-copy', to: '/dictionaries', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Codecs', icon: 'i-lucide-case-lower', to: '/codecs', onSelect: () => { sidebarOpen.value = false } }
   ])
   const workspaceChildren = withActive([

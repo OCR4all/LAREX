@@ -35,6 +35,8 @@ public interface ProjectRepository extends JpaRepository<Project, String> {
 
     Optional<Project> findByIdAndLibraryWorkspaceId(String projectId, String workspaceId);
 
+    List<Project> findByLibraryWorkspaceIdAndDictionaryId(String workspaceId, String dictionaryId);
+
     @EntityGraph(attributePaths = {"library", "codec", "labelSet", "tagSet", "tags"})
     @Query("SELECT DISTINCT p FROM Project p JOIN p.tags t WHERE t IN :tags")
     List<Project> findByTagsIn(@Param("tags") List<String> tags);

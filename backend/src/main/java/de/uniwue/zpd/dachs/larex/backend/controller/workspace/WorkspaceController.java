@@ -113,6 +113,7 @@ public class WorkspaceController {
                 teamWorkspace.getOwnerUserId(),
                 teamWorkspace.getCodec() != null ? teamWorkspace.getCodec().getId() : null,
                 teamWorkspace.getLabelSet() != null ? teamWorkspace.getLabelSet().getId() : null,
+                teamWorkspace.getDictionary() != null ? teamWorkspace.getDictionary().getId() : null,
                 teamWorkspace.getTagSet() != null ? teamWorkspace.getTagSet().getId() : null,
                 teamWorkspace.getEffectiveDefaultGtIndex(),
                 teamWorkspace.getDefaultRecognitionIndicesList(),
@@ -138,6 +139,7 @@ public class WorkspaceController {
                 request.avatar(),
                 request.codecId(),
                 request.labelSetId(),
+                request.dictionaryId(),
                 request.tagSetId(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
@@ -349,6 +351,7 @@ public class WorkspaceController {
     private WorkspaceDto.Response mapToResponse(AbstractWorkspace workspace, String userId) {
         String codecId = workspace.getCodec() != null ? workspace.getCodec().getId() : null;
         String labelSetId = workspace.getLabelSet() != null ? workspace.getLabelSet().getId() : null;
+        String dictionaryId = workspace.getDictionary() != null ? workspace.getDictionary().getId() : null;
         String tagSetId = workspace.getTagSet() != null ? workspace.getTagSet().getId() : null;
         Integer defaultGtIndex = workspace.getEffectiveDefaultGtIndex();
         List<Integer> defaultRecognitionIndices = workspace.getDefaultRecognitionIndicesList();
@@ -364,6 +367,7 @@ public class WorkspaceController {
                     personalWorkspace.getOwnerUserId(),
                     codecId,
                     labelSetId,
+                    dictionaryId,
                     tagSetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
@@ -380,6 +384,7 @@ public class WorkspaceController {
                     teamWorkspace.getOwnerUserId(),
                     codecId,
                     labelSetId,
+                    dictionaryId,
                     tagSetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
