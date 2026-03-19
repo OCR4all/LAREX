@@ -65,8 +65,8 @@ const matchColor = computed(() => {
 <template>
   <article
     :class="compact
-      ? 'rounded-xl bg-muted/10 p-3 font-junicode'
-      : 'rounded-2xl bg-muted/10 p-5 font-junicode'"
+      ? 'rounded-xl bg-muted/10 p-3'
+      : 'rounded-2xl bg-muted/10 p-5'"
   >
     <div :class="compact ? 'grid gap-3 md:grid-cols-[320px_minmax(0,1fr)]' : 'grid gap-5 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)]'">
       <div :class="compact ? 'relative overflow-hidden rounded-xl bg-elevated ring-1 ring-inset ring-default/60 min-h-44' : 'relative overflow-hidden rounded-xl bg-elevated ring-1 ring-inset ring-default/60 min-h-60'">
@@ -100,7 +100,7 @@ const matchColor = computed(() => {
         </div>
 
         <div
-          :class="compact ? 'text-sm leading-5.5 text-toned break-words' : 'text-sm leading-6 text-toned break-words'"
+          :class="compact ? 'text-sm leading-5.5 text-toned break-words font-junicode' : 'text-sm leading-6 text-toned break-words font-junicode'"
           v-html="hit.snippetHtml"
         />
 

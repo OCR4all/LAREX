@@ -19,7 +19,7 @@ watch(() => [...openPages.value], async () => {
 </script>
 
 <template>
-  <section class="rounded-2xl bg-muted/10 p-5 font-junicode">
+  <section class="rounded-2xl bg-muted/10 p-5">
     <div class="space-y-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 space-y-1">
