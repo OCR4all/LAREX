@@ -176,6 +176,19 @@ For end users who annotate and analyze documents in LAREX.
     ::::u-page-card
     ---
     class: col-span-2 md:col-span-1
+    to: /user-guide/workspace-search
+    icon: i-lucide-search
+    ---
+    #title
+    Workspace Search
+
+    #description
+    Search persisted transcription text across projects and pages with ranked hits and clustered results.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
     to: /user-guide/annotation-tools
     icon: i-lucide-pen-tool
     ---
@@ -223,6 +236,19 @@ For end users who annotate and analyze documents in LAREX.
 
     #description
     Use the virtual keyboard for special characters and diacritics.
+    ::::
+
+    ::::u-page-card
+    ---
+    class: col-span-2 md:col-span-1
+    to: /user-guide/dictionaries
+    icon: i-lucide-book-copy
+    ---
+    #title
+    Dictionaries
+
+    #description
+    Create controlled dictionaries for token validation, suggestions, and editor review workflows.
     ::::
 
     ::::u-page-card
