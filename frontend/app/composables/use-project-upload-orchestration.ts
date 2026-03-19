@@ -102,6 +102,26 @@ function isTerminalUploadStatus(status?: UploadSessionStatus): status is Extract
   return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
 }
 
+function getSessionProgressPercent(
+  status: UploadSessionStatus | undefined,
+  processedFiles: number,
+  failedFiles: number,
+  totalFiles: number,
+  fallbackProgressPercent = 0
+): number {
+  if (status === 'PROCESSING') {
+    return 100
+  }
+
+  if (totalFiles > 0) {
+    return Math.round(((processedFiles + failedFiles) / totalFiles) * 100)
+  }
+
+  return status && isTerminalUploadStatus(status)
+    ? 100
+    : fallbackProgressPercent
+}
+
 function hasIndexingPages(list: ProjectPageLike[] | null | undefined): boolean {
   return (list ?? []).some(page => page.indexingStatus === 'INDEXING')
 }
@@ -241,7 +261,6 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       if (existingUpload?.status !== 'FAILED' && existingUpload?.status !== 'CANCELLED') {
         uploadStore.updateUploadProgress(sessionId, {
           status: 'PROCESSING',
-          processedFiles: existingUpload?.totalFiles ?? session.totalFiles,
           progressPercent: 100
         })
       }
@@ -392,9 +411,13 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       totalFiles: detail.totalFiles,
       processedFiles: detail.processedFiles,
       failedFiles: detail.failedFiles,
-      progressPercent: detail.totalFiles > 0
-        ? Math.round(((detail.processedFiles + detail.failedFiles) / detail.totalFiles) * 100)
-        : Math.max(detail.progressPercent, 100),
+      progressPercent: getSessionProgressPercent(
+        detail.status,
+        detail.processedFiles,
+        detail.failedFiles,
+        detail.totalFiles,
+        detail.progressPercent
+      ),
       files: mappedFiles
     })
   }
@@ -453,9 +476,12 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         && typeof event.processedFiles === 'number'
         && typeof event.failedFiles === 'number'
         ? {
-            progressPercent: event.totalFiles > 0
-              ? Math.round(((event.processedFiles + event.failedFiles) / event.totalFiles) * 100)
-              : 100
+            progressPercent: getSessionProgressPercent(
+              event.status,
+              event.processedFiles,
+              event.failedFiles,
+              event.totalFiles
+            )
           }
         : {})
     })
@@ -568,9 +594,12 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         status: status.status,
         processedFiles: status.processedFiles,
         failedFiles: status.failedFiles,
-        progressPercent: status.totalFiles > 0
-          ? Math.round(((status.processedFiles + status.failedFiles) / status.totalFiles) * 100)
-          : 100
+        progressPercent: getSessionProgressPercent(
+          status.status,
+          status.processedFiles,
+          status.failedFiles,
+          status.totalFiles
+        )
       })
 
       if (isTerminalUploadStatus(status.status)) {

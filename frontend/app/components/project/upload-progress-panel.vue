@@ -45,8 +45,8 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
 }
 
-function isFinalizing(upload: { status: string, progressPercent: number }): boolean {
-  return upload.status === 'PROCESSING' && upload.progressPercent >= 100
+function isFinalizing(upload: { status: string }): boolean {
+  return upload.status === 'PROCESSING'
 }
 
 function getStatusLabel(upload: { status: string, progressPercent: number }): string {
