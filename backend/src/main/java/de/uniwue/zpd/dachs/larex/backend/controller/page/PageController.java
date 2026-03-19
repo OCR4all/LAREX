@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
@@ -56,6 +57,7 @@ public class PageController {
     private final PageXmlRawEditService pageXmlRawEditService;
     private final PageXmlConversionService pageXmlConversionService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
+    private final SearchPreviewService searchPreviewService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -64,7 +66,8 @@ public class PageController {
                           PageIndexStatusReadService pageIndexStatusReadService, TagLookupService tagLookupService,
                           PageXmlRawEditService pageXmlRawEditService,
                           PageXmlConversionService pageXmlConversionService,
-                          WorkspaceQuotaGuardService workspaceQuotaGuardService) {
+                          WorkspaceQuotaGuardService workspaceQuotaGuardService,
+                          SearchPreviewService searchPreviewService) {
         this.pageService = pageService;
         this.subtaskService = subtaskService;
         this.pageFilterIndexService = pageFilterIndexService;
@@ -73,6 +76,7 @@ public class PageController {
         this.pageXmlRawEditService = pageXmlRawEditService;
         this.pageXmlConversionService = pageXmlConversionService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
+        this.searchPreviewService = searchPreviewService;
     }
 
     @GetMapping
@@ -791,6 +795,33 @@ public class PageController {
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @GetMapping("/{pageId}/text-preview")
+    public ResponseEntity<Resource> getTextPreview(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @RequestParam(required = false) String textLineId,
+            @RequestParam(required = false) String regionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        SearchPreviewService.PreviewImage preview = searchPreviewService.getTextPreview(
+                projectId,
+                pageId,
+                textLineId,
+                regionId,
+                userId
+        );
+        if (preview == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        ByteArrayResource resource = new ByteArrayResource(preview.bytes());
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(preview.mediaType()))
+                .header("Cache-Control", "public, max-age=600")
+                .contentLength(preview.bytes().length)
+                .body(resource);
     }
 
     @GetMapping("/subtask-summary")

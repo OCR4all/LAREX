@@ -1919,6 +1919,9 @@ async function applyPageDeepLinkFromQuery(): Promise<void> {
   const projectId = getSingleQueryValue(route.query.projectId)
   const pageId = getSingleQueryValue(route.query.pageId)
   const variantId = getSingleQueryValue(route.query.variantId) ?? undefined
+  const editorMode = getSingleQueryValue(route.query.editorMode)
+  const textView = getSingleQueryValue(route.query.textView)
+  const textSearch = getSingleQueryValue(route.query.textSearch)
   if (!projectId || !pageId) return
 
   isApplyingPageDeepLink.value = true
@@ -1936,10 +1939,22 @@ async function applyPageDeepLinkFromQuery(): Promise<void> {
       return
     }
 
+    if (editorMode === 'text') {
+      editorStore.setUiMode('text')
+      sessionStore.updateTextViewSettings(current => ({
+        ...current,
+        mode: textView === 'region' ? 'region' : 'textline',
+        searchQuery: textSearch ?? current.searchQuery
+      }))
+    }
+
     const nextQuery = { ...route.query }
     delete nextQuery.projectId
     delete nextQuery.pageId
     delete nextQuery.variantId
+    delete nextQuery.editorMode
+    delete nextQuery.textView
+    delete nextQuery.textSearch
     await router.replace({ path: route.path, query: nextQuery })
   } catch (error) {
     toast.add({

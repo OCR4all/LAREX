@@ -78,6 +78,7 @@ async function rebuildGlobalIndex() {
           <p class="text-muted">
             Manage the search index used for filtering pages by text content and labels.
             The index is automatically updated when annotations are saved, but you can manually rebuild it here if needed.
+            It also powers workspace text search and fuzzy lookup across persisted transcriptions.
           </p>
         </div>
 
@@ -132,14 +133,16 @@ async function rebuildGlobalIndex() {
             </p>
             <ul>
               <li><strong>Text Content</strong>: Search for pages containing specific text in their transcriptions</li>
+              <li><strong>Workspace Search</strong>: Rank text hits across projects and pages for workspace-wide transcription search</li>
               <li><strong>Labels</strong>: Filter pages that have regions or text lines with specific labels assigned</li>
               <li><strong>Tags</strong>: Filter pages by their assigned tags</li>
             </ul>
             <p>
-              The index is stored in two database tables:
+              The index is stored in multiple database tables:
             </p>
             <ul>
-              <li><code>page_text_content</code>: Stores text content from all text lines for full-text search</li>
+              <li><code>page_text_content</code>: Stores indexed text content for filtering and workspace text search</li>
+              <li><code>search_lexicon_entries</code>: Stores normalized tokens for fuzzy search expansion</li>
               <li><code>page_label_index</code>: Stores label assignments for fast label filtering</li>
             </ul>
             <p>

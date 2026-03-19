@@ -90,4 +90,22 @@ public interface PageTextContentRepository extends JpaRepository<PageTextContent
     @Modifying
     @Query("DELETE FROM PageTextContent p WHERE p.page.project.id = :projectId")
     void deleteByPageProjectId(@Param("projectId") String projectId);
+
+    @Modifying
+    @Query(value = """
+            UPDATE page_text_content
+            SET normalized_text = lower(regexp_replace(coalesce(text_content, ''), '\\s+', ' ', 'g')),
+                search_vector = to_tsvector('simple', lower(regexp_replace(coalesce(text_content, ''), '\\s+', ' ', 'g')))
+            WHERE page_id = :pageId
+            """, nativeQuery = true)
+    int refreshSearchFieldsByPageId(@Param("pageId") String pageId);
+
+    @Query("""
+            SELECT p.textContent
+            FROM PageTextContent p
+            WHERE p.page.project.id = :projectId
+              AND COALESCE(p.variantIndex, 0) = COALESCE(p.page.project.defaultGtIndex, 0)
+              AND p.textContent IS NOT NULL
+            """)
+    List<String> findPrimaryTextContentsByProjectId(@Param("projectId") String projectId);
 }

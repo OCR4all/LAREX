@@ -32,4 +32,43 @@ public class SearchResultDto {
             String matchText,
             String matchType
     ) {}
+
+    public record WorkspaceTextResponse(
+            String workspaceId,
+            String query,
+            String matchMode,
+            String view,
+            int limit,
+            int offset,
+            long totalHits,
+            long totalProjectCount,
+            boolean fuzzyExpanded,
+            String suggestedQuery,
+            List<TextHit> hits,
+            List<ProjectHitGroup> projects
+    ) {}
+
+    public record TextHit(
+            String workspaceId,
+            String projectId,
+            String projectName,
+            String pageId,
+            String pageName,
+            String textLineId,
+            String regionId,
+            String snippetHtml,
+            String fullText,
+            double score,
+            String matchKind,
+            String previewUrl
+    ) {}
+
+    public record ProjectHitGroup(
+            String workspaceId,
+            String projectId,
+            String projectName,
+            long hitCount,
+            double topScore,
+            List<TextHit> hits
+    ) {}
 }

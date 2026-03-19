@@ -19,6 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -64,6 +65,7 @@ public class PageFilterIndexService {
     private final PageLabelIndexRepository labelIndexRepository;
     private final PageConfidenceIndexRepository confidenceIndexRepository;
     private final AnnotationProcessingService annotationProcessingService;
+    private final SearchLexiconService searchLexiconService;
 
     public PageFilterIndexService(
             PageRepository pageRepository,
@@ -71,13 +73,15 @@ public class PageFilterIndexService {
             PageTextContentRepository textContentRepository,
             PageLabelIndexRepository labelIndexRepository,
             PageConfidenceIndexRepository confidenceIndexRepository,
-            AnnotationProcessingService annotationProcessingService) {
+            AnnotationProcessingService annotationProcessingService,
+            SearchLexiconService searchLexiconService) {
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.textContentRepository = textContentRepository;
         this.labelIndexRepository = labelIndexRepository;
         this.confidenceIndexRepository = confidenceIndexRepository;
         this.annotationProcessingService = annotationProcessingService;
+        this.searchLexiconService = searchLexiconService;
     }
 
     // ============================================================================
@@ -146,6 +150,7 @@ public class PageFilterIndexService {
 
         if (!textContents.isEmpty()) {
             textContentRepository.saveAll(textContents);
+            textContentRepository.refreshSearchFieldsByPageId(page.getId());
             log.debug("Indexed {} text content records for page {}", textContents.size(), page.getId());
         }
         if (!labelIndices.isEmpty()) {
@@ -223,6 +228,8 @@ public class PageFilterIndexService {
             }
         }
 
+        searchLexiconService.rebuildProjectLexicon(projectId);
+
         log.info("Index rebuild complete for project {}. Success: {}, Failed: {}", projectId, successCount, failCount);
     }
 
@@ -234,14 +241,22 @@ public class PageFilterIndexService {
         int successCount = 0;
         int failCount = 0;
 
+        Set<String> projectIds = new HashSet<>();
         for (Page page : pages) {
             try {
                 indexPageFromXml(page);
+                if (page.getProject() != null) {
+                    projectIds.add(page.getProject().getId());
+                }
                 successCount++;
             } catch (Exception e) {
                 log.error("Failed to index page {}: {}", page.getId(), e.getMessage());
                 failCount++;
             }
+        }
+
+        for (String projectId : projectIds) {
+            searchLexiconService.rebuildProjectLexicon(projectId);
         }
 
         log.info("Global index rebuild complete. Success: {}, Failed: {}", successCount, failCount);

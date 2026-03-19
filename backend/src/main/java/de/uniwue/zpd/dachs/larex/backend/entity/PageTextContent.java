@@ -40,6 +40,9 @@ public class PageTextContent {
     @Column(name = "text_content", columnDefinition = "TEXT")
     private String textContent;
 
+    @Column(name = "normalized_text", columnDefinition = "TEXT")
+    private String normalizedText;
+
     @Column(name = "variant_index")
     private Integer variantIndex;
 
@@ -105,6 +108,14 @@ public class PageTextContent {
 
     public void setVariantIndex(Integer variantIndex) {
         this.variantIndex = variantIndex;
+    }
+
+    public String getNormalizedText() {
+        return normalizedText;
+    }
+
+    public void setNormalizedText(String normalizedText) {
+        this.normalizedText = normalizedText;
     }
 
     public LocalDateTime getCreated() {

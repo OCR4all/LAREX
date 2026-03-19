@@ -1,3 +1,5 @@
+import type { WorkspaceTextSearchHit, WorkspaceTextSearchResponse } from '@/types/search'
+
 type GlobalSearchItem = {
   id: string
   label: string
@@ -70,6 +72,7 @@ type GlobalSearchRawResults = {
   codecs: CodecSearchResult[]
   dictionaries: DictionarySearchResult[]
   virtualKeyboards: VirtualKeyboardSearchResult[]
+  textHits: WorkspaceTextSearchHit[]
 }
 
 const SEARCH_CACHE_TTL_MS = 15_000
@@ -99,7 +102,8 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
     tagSets: [],
     codecs: [],
     dictionaries: [],
-    virtualKeyboards: []
+    virtualKeyboards: [],
+    textHits: []
   })
 
   let activeAbortController: AbortController | null = null
@@ -112,7 +116,8 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
       tagSets: [],
       codecs: [],
       dictionaries: [],
-      virtualKeyboards: []
+      virtualKeyboards: [],
+      textHits: []
     }
   }
 
@@ -152,13 +157,16 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
     hasSearched.value = true
 
     try {
-      const [projectRes, labelSetRes, tagSetRes, codecRes, dictionaryRes, vkRes] = await Promise.all([
+      const [projectRes, labelSetRes, tagSetRes, codecRes, dictionaryRes, vkRes, textSearchRes] = await Promise.all([
         $fetch<{ projects: ProjectSearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}&limit=10`, { signal: abortController.signal }).catch(() => null),
         wsId ? $fetch<LabelSetSearchResult[]>(`/api/workspaces/${wsId}/label-sets?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
         wsId ? $fetch<TagSetSearchResult[]>(`/api/workspaces/${wsId}/tag-sets?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
         wsId ? $fetch<CodecSearchResult[]>(`/api/workspaces/${wsId}/codecs?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
         wsId ? $fetch<DictionarySearchResult[]>(`/api/workspaces/${wsId}/dictionaries?search=${encodeURIComponent(q)}`, { signal: abortController.signal }).catch(() => []) : Promise.resolve([]),
-        wsId ? getVirtualKeyboards(wsId, abortController.signal) : Promise.resolve([])
+        wsId ? getVirtualKeyboards(wsId, abortController.signal) : Promise.resolve([]),
+        wsId
+          ? $fetch<WorkspaceTextSearchResponse>(`/api/search/workspace/${wsId}/text?q=${encodeURIComponent(q)}&limit=5&offset=0&view=hits&match=auto`, { signal: abortController.signal }).catch(() => null)
+          : Promise.resolve(null)
       ])
 
       if (requestId !== activeRequestId) return
@@ -172,7 +180,8 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
         dictionaries: dictionaryRes || [],
         virtualKeyboards: (vkRes || []).filter(vk =>
           vk.name?.toLowerCase().includes(lowerQ) || vk.description?.toLowerCase().includes(lowerQ)
-        )
+        ),
+        textHits: textSearchRes?.hits || []
       }
 
       rawResults.value = normalized
@@ -288,7 +297,40 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
       onSelect: wrapSelect()
     }))
 
+    const wsId = typeof workspace.selectedWorkspaceId === 'string' ? workspace.selectedWorkspaceId : null
+    const textHits = rawResults.value.textHits.map(hit => ({
+      id: `text-hit-${hit.projectId}-${hit.pageId}-${hit.textLineId || hit.regionId || 'page'}`,
+      label: hit.pageName,
+      suffix: hit.projectName,
+      description: stripHtml(hit.snippetHtml),
+      icon: 'i-lucide-search',
+      onSelect: wrapSelect(() => {
+        const params = new URLSearchParams({
+          projectId: hit.projectId,
+          pageId: hit.pageId,
+          editorMode: 'text',
+          textView: 'textline',
+          textSearch: q
+        })
+        void navigateTo(`/editor?${params.toString()}`)
+      })
+    }))
+
+    if (wsId) {
+      textHits.push({
+        id: 'see-all-text-results',
+        label: `See all text results for “${q}”`,
+        suffix: 'Workspace text search',
+        description: 'Open the full workspace text search results page',
+        icon: 'i-lucide-arrow-right',
+        onSelect: wrapSelect(() => {
+          void navigateTo(`/search?q=${encodeURIComponent(q)}&view=hits`)
+        })
+      })
+    }
+
     const groups: GlobalSearchGroup[] = []
+    if (textHits.length > 0) groups.push({ id: 'text-hits', label: `Text Hits (${rawResults.value.textHits.length})`, items: textHits, ignoreFilter: true })
     if (projects.length > 0) groups.push({ id: 'projects', label: `Projects (${projects.length})`, items: projects, ignoreFilter: true })
     if (labelSets.length > 0) groups.push({ id: 'label-sets', label: `Label Sets (${labelSets.length})`, items: labelSets, ignoreFilter: true })
     if (tagSets.length > 0) groups.push({ id: 'tag-sets', label: `Tag Sets (${tagSets.length})`, items: tagSets, ignoreFilter: true })
@@ -318,4 +360,8 @@ export function useGlobalSearch(options?: { onSelectResult?: () => void }) {
     isSearching,
     resultGroups
   }
+}
+
+function stripHtml(value: string) {
+  return value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }

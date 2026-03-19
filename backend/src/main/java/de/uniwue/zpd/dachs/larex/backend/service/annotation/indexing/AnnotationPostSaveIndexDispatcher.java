@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.events.AnnotationSavedEvent;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,15 +25,18 @@ public class AnnotationPostSaveIndexDispatcher {
     private final ThreadPoolTaskExecutor executor;
     private final PageRepository pageRepository;
     private final PageFilterIndexService pageFilterIndexService;
+    private final SearchLexiconService searchLexiconService;
     private final ConcurrentMap<String, PendingIndexState> pendingByPageId = new ConcurrentHashMap<>();
 
     public AnnotationPostSaveIndexDispatcher(
             @Qualifier("annotationPostSaveTaskExecutor") ThreadPoolTaskExecutor executor,
             PageRepository pageRepository,
-            PageFilterIndexService pageFilterIndexService) {
+            PageFilterIndexService pageFilterIndexService,
+            SearchLexiconService searchLexiconService) {
         this.executor = executor;
         this.pageRepository = pageRepository;
         this.pageFilterIndexService = pageFilterIndexService;
+        this.searchLexiconService = searchLexiconService;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
@@ -101,6 +105,9 @@ public class AnnotationPostSaveIndexDispatcher {
                     continue;
                 }
                 pageFilterIndexService.indexPage(page, event.pageDto());
+                if (page.getProject() != null) {
+                    searchLexiconService.rebuildProjectLexicon(page.getProject().getId());
+                }
                 log.debug("Indexed saved annotations for page {} in {} ms",
                         event.pageId(), (System.nanoTime() - startedAt) / 1_000_000);
             } catch (Exception e) {

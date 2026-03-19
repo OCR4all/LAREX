@@ -70,7 +70,15 @@ const {
 
 const rootEl = ref<HTMLElement | null>(null)
 
-const searchQuery = ref('')
+const searchQuery = computed({
+  get: () => textViewSettings.value.searchQuery ?? '',
+  set: (next: string) => {
+    sessionStore.updateTextViewSettings(current => ({
+      ...current,
+      searchQuery: next
+    }))
+  }
+})
 const sortOrder = ref<'asc' | 'desc' | 'confidence'>('asc')
 const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch'>('all')
 

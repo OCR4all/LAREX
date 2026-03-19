@@ -65,4 +65,30 @@ public class SearchController {
                 workspaceId, q.trim(), limit, userId);
         return ResponseEntity.ok(results);
     }
+
+    @GetMapping("/workspace/{workspaceId}/text")
+    public ResponseEntity<SearchResultDto.WorkspaceTextResponse> searchWorkspaceText(
+            @PathVariable String workspaceId,
+            @RequestParam String q,
+            @RequestParam(required = false, defaultValue = "20") int limit,
+            @RequestParam(required = false, defaultValue = "0") int offset,
+            @RequestParam(required = false, defaultValue = "hits") String view,
+            @RequestParam(required = false, defaultValue = "auto") String match,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        if (q == null || q.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        SearchResultDto.WorkspaceTextResponse results = searchService.searchWorkspaceText(
+                workspaceId,
+                q.trim(),
+                limit,
+                offset,
+                view,
+                match,
+                userId
+        );
+        return ResponseEntity.ok(results);
+    }
 }
