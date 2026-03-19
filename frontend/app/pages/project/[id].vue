@@ -240,7 +240,7 @@ const {
   projectId,
   workspaceId: computed(() => selectedWorkspace.value ?? undefined),
   projectName: computed(() => project.value?.name ?? undefined),
-  pages: computed(() => pages.value ?? null),
+  pages,
   pagesPending,
   pagesError,
   refreshPagesFetch,

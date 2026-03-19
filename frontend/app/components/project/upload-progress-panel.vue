@@ -54,6 +54,53 @@ function getStatusLabel(upload: { status: string, progressPercent: number }): st
   return statusLabels[upload.status] || upload.status
 }
 
+function getUploadedFileCount(upload: { files: Array<{ status: string, chunksReceived: number, totalChunks: number }> }): number {
+  return upload.files.filter((file) => {
+    if (file.totalChunks > 0 && file.chunksReceived >= file.totalChunks) {
+      return true
+    }
+
+    return file.status === 'uploaded'
+      || file.status === 'processing'
+      || file.status === 'completed'
+      || file.status === 'failed'
+      || file.status === 'conflict'
+      || file.status === 'skipped'
+  }).length
+}
+
+function getSettledFileCount(upload: { files: Array<{ status: string }>, processedFiles: number, failedFiles: number, totalFiles: number, status: string }): number {
+  const settledByFileState = upload.files.filter(file =>
+    file.status === 'completed'
+    || file.status === 'failed'
+    || file.status === 'conflict'
+    || file.status === 'skipped'
+  ).length
+
+  const settledBySessionState = upload.processedFiles + upload.failedFiles
+  const settledCount = Math.max(settledByFileState, settledBySessionState)
+
+  if (upload.status === 'COMPLETED') {
+    return Math.max(settledCount, upload.totalFiles)
+  }
+
+  return settledCount
+}
+
+function getProgressSummary(upload: {
+  status: string
+  totalFiles: number
+  processedFiles: number
+  failedFiles: number
+  files: Array<{ status: string, chunksReceived: number, totalChunks: number }>
+}): string {
+  if (upload.status === 'PENDING' || upload.status === 'UPLOADING') {
+    return `${getUploadedFileCount(upload)} / ${upload.totalFiles} files uploaded`
+  }
+
+  return `${getSettledFileCount(upload)} / ${upload.totalFiles} files processed`
+}
+
 function canCancelUpload(upload: { status: string }): boolean {
   return upload.status === 'PENDING' || upload.status === 'UPLOADING' || upload.status === 'PROCESSING'
 }
@@ -154,7 +201,7 @@ function handleClose() {
 
               <div class="mb-2">
                 <div class="flex justify-between text-xs text-muted mb-1">
-                  <span>{{ upload.processedFiles }} / {{ upload.totalFiles }} files</span>
+                  <span>{{ getProgressSummary(upload) }}</span>
                   <span>{{ isFinalizing(upload) ? 'Finalizing' : `${upload.progressPercent}%` }}</span>
                 </div>
                 <UProgress

@@ -82,7 +82,7 @@ export interface UseProjectUploadOrchestrationOptions<TPage extends ProjectPageL
   projectId: string
   workspaceId: Ref<string | undefined>
   projectName: Ref<string | undefined>
-  pages: Ref<TPage[] | null>
+  pages: Readonly<Ref<TPage[] | null | undefined>>
   pagesPending: Ref<boolean>
   pagesError: Ref<unknown>
   refreshPagesFetch: () => Promise<unknown>
@@ -340,13 +340,7 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         await invalidateProjectPagesCache()
       }
 
-      if (manual) {
-        await options.refreshPagesFetch()
-        return
-      }
-
-      const refreshedPages = await $fetch<TPage[]>(`/api/projects/${options.projectId}/pages`)
-      options.pages.value = refreshedPages
+      await options.refreshPagesFetch()
     } finally {
       if (manual) {
         isManualPagesRefresh.value = false
