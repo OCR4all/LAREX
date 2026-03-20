@@ -1,10 +1,11 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, TextLine, TextContentVariant } from '@/models/editor'
-import type { Region, RegionKind, Relation } from '@/models/editor'
+import type { Region, RegionKind, Relation, ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
 import { isTextRegion, canContainTextLines } from '@/models/editor/region'
 import { unionPolygons } from '@/utils/editor/polygon-clipping'
 import { visibilityService } from '@/services/editor/visibility-service'
+import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import {
   findRegionRecursive,
   findTextLineRecursive,
@@ -24,6 +25,7 @@ interface UndoData {
   removedTextLines: Array<{ textLine: TextLine, parentRegionId: string, index: number }>
   createdId: string
   relations?: Relation[]
+  readingOrder?: ReadingOrder
 }
 
 export class MergeElementsCommand implements Command {
@@ -104,7 +106,8 @@ export class MergeElementsCommand implements Command {
       removedRegions: regions.map(r => ({ ...r })),
       removedTextLines: [],
       createdId: newId,
-      relations: cloneRelations(pcGts.page.relations)
+      relations: cloneRelations(pcGts.page.relations),
+      readingOrder: cloneReadingOrder(pcGts.page.readingOrder)
     }
 
     const sortedRegions = [...regions].sort((a, b) => b.index - a.index)
@@ -137,10 +140,15 @@ export class MergeElementsCommand implements Command {
       pcGts.page.relations,
       new Set(regions.map(region => region.region.id))
     )
+    removeIdsFromReadingOrder(
+      pcGts.page.readingOrder?.root?.elements,
+      new Set(regions.map(region => region.region.id))
+    )
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
     visibilityService.clearCache()
+    useEditorUiStore().bumpReadingOrderVersion()
     return { id: newId }
   }
 
@@ -175,7 +183,8 @@ export class MergeElementsCommand implements Command {
       removedRegions: [],
       removedTextLines: textLines.map(t => ({ ...t })),
       createdId: newId,
-      relations: cloneRelations(pcGts.page.relations)
+      relations: cloneRelations(pcGts.page.relations),
+      readingOrder: cloneReadingOrder(pcGts.page.readingOrder)
     }
 
     const sortedTextLines = [...textLines].sort((a, b) => b.index - a.index)
@@ -197,6 +206,7 @@ export class MergeElementsCommand implements Command {
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
     visibilityService.clearCache()
+    useEditorUiStore().bumpReadingOrderVersion()
     return { id: newId }
   }
 
@@ -261,10 +271,12 @@ export class MergeElementsCommand implements Command {
     }
 
     pcGts.page.relations = cloneRelations(this.undoData.relations)
+    pcGts.page.readingOrder = cloneReadingOrder(this.undoData.readingOrder)
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
     visibilityService.clearCache()
+    useEditorUiStore().bumpReadingOrderVersion()
   }
 
   private* iterateAllRegions(regions: Region[]): Generator<Region> {
@@ -288,5 +300,30 @@ export class MergeElementsCommand implements Command {
 
   getDescription(): string {
     return `Merge ${this.data.elementIds.length} ${this.data.elementType}s`
+  }
+}
+
+function cloneReadingOrder(readingOrder?: ReadingOrder): ReadingOrder | undefined {
+  if (!readingOrder) return undefined
+  return JSON.parse(JSON.stringify(readingOrder)) as ReadingOrder
+}
+
+function removeIdsFromReadingOrder(elements: ReadingOrderNode[] | undefined, idsToRemove: Set<string>): void {
+  if (!elements) return
+
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const node = elements[i]
+    if (!node) continue
+
+    if (node.kind === 'RegionRef' || node.kind === 'RegionRefIndexed') {
+      const ref = node as RegionRef
+      if (idsToRemove.has(ref.regionRef)) {
+        elements.splice(i, 1)
+      }
+      continue
+    }
+
+    const group = node as ReadingOrderGroup
+    removeIdsFromReadingOrder(group.elements, idsToRemove)
   }
 }

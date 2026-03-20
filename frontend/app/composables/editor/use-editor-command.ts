@@ -1,6 +1,6 @@
 import type { Commander } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'
-import { DeletePolygonCommand, DeletePolylineCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand } from '@/commands'
+import { DeletePolygonCommand, DeletePolylineCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand } from '@/commands'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
@@ -288,11 +288,14 @@ export function useEditorCommand(
     }
 
     const inReadingOrder = isRegionInReadingOrder(page.readingOrder, regionId)
-    page.readingOrder = inReadingOrder
+    const nextReadingOrder = inReadingOrder
       ? removeFromReadingOrder(page.readingOrder, regionId)
       : addToReadingOrder(page.readingOrder, regionId)
 
-    editorUiStore.bumpReadingOrderVersion()
+    const commandCtx: CommandContext = { canvasId, session }
+    commander.execute(new UpdateReadingOrderCommand({
+      readingOrder: nextReadingOrder
+    }), commandCtx)
   }
 
   function duplicatePolygon(polygonId: string): void {
@@ -699,13 +702,10 @@ export function useEditorCommand(
       }
     }
 
-    page.readingOrder = addToReadingOrder(page.readingOrder, polygonId)
-
-    if (session.document.value.metadata?.touch) {
-      session.document.value.metadata.touch()
-    }
-
-    editorUiStore.bumpReadingOrderVersion()
+    const commandCtx: CommandContext = { canvasId, session }
+    commander.execute(new UpdateReadingOrderCommand({
+      readingOrder: addToReadingOrder(page.readingOrder, polygonId)
+    }), commandCtx)
 
     log.debug('Added region to reading order:', polygonId)
   }
@@ -720,13 +720,10 @@ export function useEditorCommand(
     const page = session.document.value.page
     if (!page.readingOrder) return
 
-    page.readingOrder = removeFromReadingOrder(page.readingOrder, polygonId)
-
-    if (session.document.value.metadata?.touch) {
-      session.document.value.metadata.touch()
-    }
-
-    editorUiStore.bumpReadingOrderVersion()
+    const commandCtx: CommandContext = { canvasId, session }
+    commander.execute(new UpdateReadingOrderCommand({
+      readingOrder: removeFromReadingOrder(page.readingOrder, polygonId)
+    }), commandCtx)
 
     log.debug('Removed region from reading order:', polygonId)
   }

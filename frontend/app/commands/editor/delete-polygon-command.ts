@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
-import type { Region, TextLine, TextRegion, ReadingOrderNode, ReadingOrderGroup, RegionRef, Relation } from '@/models/editor'
+import type { Region, TextLine, TextRegion, ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, Relation } from '@/models/editor'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
@@ -22,7 +22,9 @@ export class DeletePolygonCommand implements Command {
   private deletedRegion: { region: Region, parent: Region | null, index: number } | null = null
   private deletedTextLine: { textLine: TextLine, parentTextRegion: TextRegion, index: number } | null = null
   private previousRelations: Relation[] | undefined
+  private previousReadingOrder?: ReadingOrder
   private relationsModified = false
+  private readingOrderModified = false
 
   constructor(data: DeletePolygonCommandData) {
     this.polygonId = data.polygonId
@@ -55,10 +57,11 @@ export class DeletePolygonCommand implements Command {
     }
 
     const idsToRemove = new Set(polygonIdsToInvalidate)
-    let readingOrderModified = false
+    this.readingOrderModified = false
     if (pcGts.page.readingOrder?.root?.elements) {
+      this.previousReadingOrder = cloneReadingOrder(pcGts.page.readingOrder)
       removeIdsFromReadingOrder(pcGts.page.readingOrder.root.elements, idsToRemove)
-      readingOrderModified = true
+      this.readingOrderModified = true
     }
 
     this.relationsModified = false
@@ -73,7 +76,7 @@ export class DeletePolygonCommand implements Command {
     rebuildSpatialIndexFromPcGts(session)
     visibilityService.clearCache()
 
-    if (readingOrderModified) {
+    if (this.readingOrderModified) {
       const editorUiStore = useEditorUiStore()
       editorUiStore.bumpReadingOrderVersion()
     }
@@ -101,10 +104,16 @@ export class DeletePolygonCommand implements Command {
     if (this.relationsModified) {
       pcGts.page.relations = cloneRelations(this.previousRelations)
     }
+    if (this.readingOrderModified) {
+      pcGts.page.readingOrder = cloneReadingOrder(this.previousReadingOrder)
+    }
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
     visibilityService.clearCache()
+    if (this.readingOrderModified) {
+      useEditorUiStore().bumpReadingOrderVersion()
+    }
   }
 
   getDescription(): string {
@@ -138,6 +147,11 @@ function collectDescendantPolygonIds(pcGts: PcGts, rootId: string): string[] {
   }
 
   return Array.from(out)
+}
+
+function cloneReadingOrder(readingOrder?: ReadingOrder): ReadingOrder | undefined {
+  if (!readingOrder) return undefined
+  return JSON.parse(JSON.stringify(readingOrder)) as ReadingOrder
 }
 
 /**

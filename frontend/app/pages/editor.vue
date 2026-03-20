@@ -51,6 +51,8 @@ import { useEditorMetadataApply } from '@/composables/editor/use-editor-metadata
 import { useEditorSidebarState } from '@/composables/editor/use-editor-sidebar-state'
 import { useEditorSessionRestore } from '@/composables/editor/use-editor-session-restore'
 import { useEditorTaskState } from '@/composables/editor/use-editor-task-state'
+import { UpdateReadingOrderCommand } from '@/commands'
+import type { ReadingOrder } from '@/models/editor'
 
 definePageMeta({ layout: 'editor' })
 
@@ -1312,7 +1314,6 @@ const activePage = computed(() => {
 const {
   findRegionById,
   findTextLineById,
-  handleApplyReadingOrder,
   handleApplyMetadata
 } = useEditorMetadataApply({
   activeCanvasId,
@@ -1480,6 +1481,20 @@ const projectAccordionItems = computed(() => {
 const commanderForSidebar = computed<Commander | null>(() => {
   return activeControls.value?.commander ?? null
 })
+
+function handleApplyReadingOrder(readingOrder: ReadingOrder): void {
+  const canvasId = activeCanvasId.value
+  const commander = commanderForSidebar.value
+  if (!canvasId || !commander) return
+
+  const session = getEditorSession(canvasId)
+  if (!session) return
+
+  commander.execute(
+    new UpdateReadingOrderCommand({ readingOrder }),
+    { canvasId, session }
+  )
+}
 
 const activeDrawingMode = computed<DrawingMode>(() => {
   const controls = activeControls.value
