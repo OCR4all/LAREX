@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, TextLine, TextContentVariant } from '@/models/editor'
-import type { Region, RegionKind } from '@/models/editor'
+import type { Region, RegionKind, Relation } from '@/models/editor'
 import { Polygon } from '@/models/editor/geometry'
 import { isTextRegion, canContainTextLines } from '@/models/editor/region'
 import { unionPolygons } from '@/utils/editor/polygon-clipping'
@@ -10,6 +10,7 @@ import {
   findTextLineRecursive,
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
+import { cloneRelations, removeRelationsReferencingIds } from '@/utils/editor/relations'
 
 export interface MergeElementsCommandData {
   elementIds: string[]
@@ -22,6 +23,7 @@ interface UndoData {
   removedRegions: Array<{ region: Region, parentId: string | null, index: number }>
   removedTextLines: Array<{ textLine: TextLine, parentRegionId: string, index: number }>
   createdId: string
+  relations?: Relation[]
 }
 
 export class MergeElementsCommand implements Command {
@@ -101,7 +103,8 @@ export class MergeElementsCommand implements Command {
     this.undoData = {
       removedRegions: regions.map(r => ({ ...r })),
       removedTextLines: [],
-      createdId: newId
+      createdId: newId,
+      relations: cloneRelations(pcGts.page.relations)
     }
 
     const sortedRegions = [...regions].sort((a, b) => b.index - a.index)
@@ -129,6 +132,11 @@ export class MergeElementsCommand implements Command {
     } else {
       pcGts.page.regions.splice(Math.min(firstRegion.index, pcGts.page.regions.length), 0, newRegion)
     }
+
+    pcGts.page.relations = removeRelationsReferencingIds(
+      pcGts.page.relations,
+      new Set(regions.map(region => region.region.id))
+    )
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
@@ -166,7 +174,8 @@ export class MergeElementsCommand implements Command {
     this.undoData = {
       removedRegions: [],
       removedTextLines: textLines.map(t => ({ ...t })),
-      createdId: newId
+      createdId: newId,
+      relations: cloneRelations(pcGts.page.relations)
     }
 
     const sortedTextLines = [...textLines].sort((a, b) => b.index - a.index)
@@ -250,6 +259,8 @@ export class MergeElementsCommand implements Command {
         parentHit.region.textLines.splice(index, 0, textLine)
       }
     }
+
+    pcGts.page.relations = cloneRelations(this.undoData.relations)
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)

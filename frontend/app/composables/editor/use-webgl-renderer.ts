@@ -1547,6 +1547,22 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
       )
     }
 
+    if (renderState.showRelationsOverlay && renderState.relationData && readingOrderRenderer) {
+      const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+      const canvas = gl.canvas as HTMLCanvasElement
+      readingOrderRenderer.draw(
+        {
+          arrows: renderState.relationData.segments,
+          groupBounds: [],
+          orderNumbers: []
+        },
+        scale,
+        view,
+        canvas.width,
+        canvas.height
+      )
+    }
+
     drawBackgroundPolygons(renderState, aspectRatioScale, view)
     drawConfidenceHeatmapPolygons(renderState, aspectRatioScale, view, triangulatePolygon)
 

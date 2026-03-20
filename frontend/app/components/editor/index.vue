@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { LazyEditorReadingOrderNumbersOverlay } from '#components'
+import { LazyEditorRelationsLabelsOverlay } from '#components'
 import { triangulatePolygon } from '@/utils/editor/hit-detection'
 import { pixelsToWorld } from '@/utils/editor/coordinates'
 import { parseCanvasId } from '@/stores/editor/editor.keys'
@@ -7,11 +8,15 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
 import { useReadingOrderVisualization } from '@/composables/editor/use-reading-order-visualization'
+import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useCutDrawing } from '@/composables/editor/use-cut-drawing'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
+import { CreateRelationCommand, UpdateRelationCommand } from '@/commands'
+import type { Relation } from '@/models/editor'
 
 const ReadingOrderNumbersOverlay = LazyEditorReadingOrderNumbersOverlay
+const RelationsLabelsOverlay = LazyEditorRelationsLabelsOverlay
 
 const props = defineProps({
   src: { type: String, required: true },
@@ -302,6 +307,7 @@ function handleBufferClose(result: { distance: number } | null) {
 }
 
 const readingOrderOverlaySettings = computed(() => editorUiStore.readingOrderOverlay)
+const relationsOverlaySettings = computed(() => editorUiStore.relationsOverlay)
 
 const readingOrder = computed(() => {
   void editorUiStore.readingOrderVersion
@@ -324,6 +330,18 @@ const { renderData: readingOrderRenderData } = useReadingOrderVisualization(
 )
 
 const showReadingOrderOverlay = computed(() => readingOrderOverlaySettings.value.visible)
+
+const relations = computed(() => session.document.value?.page?.relations)
+const { renderData: relationRenderData } = useRelationsVisualization(
+  relations,
+  polygonsRef,
+  computed(() => editorUiStore.relationsEditor.selectedRelationId),
+  computed(() => editorUiStore.relationsEditor.draft),
+  computed(() => editorUiStore.relationsEditor.pickerMode)
+)
+const showRelationsOverlay = computed(() =>
+  relationsOverlaySettings.value.visible || editorUiStore.relationsEditor.pickerMode !== 'idle'
+)
 
 const editorInteractions = useEditorInteractions(
   canvas, view, aspectRatioScale, polygons, polylines, selectedPolygonIndex, selectedPolylineIndex,
@@ -351,6 +369,8 @@ const editorRenderer = useEditorRenderer(
   renderEnabled,
   readingOrderRenderData,
   showReadingOrderOverlay,
+  relationRenderData,
+  showRelationsOverlay,
   cutDrawing,
   isCutMode,
   isCutLineMode,
@@ -358,6 +378,88 @@ const editorRenderer = useEditorRenderer(
   isCutRectangleMode,
   moveInteraction,
   bufferPreviewForRenderer
+)
+
+function getCommandContext() {
+  return { canvasId: props.canvasId, session }
+}
+
+function executeCreateRelationFromDraft() {
+  const result = canvasControls.commander.execute(
+    new CreateRelationCommand({
+      relation: editorUiStore.relationsEditor.draft
+    }),
+    getCommandContext()
+  )
+
+  if (!result?.id) return
+
+  editorUiStore.setSelectedRelationId(result.id)
+  editorUiStore.resetRelationDraft()
+  editorUiStore.cancelRelationPicking()
+}
+
+function executeRepickRelationEndpoint(regionId: string, field: 'sourceRegionRef' | 'targetRegionRef') {
+  const selectedRelationId = editorUiStore.relationsEditor.selectedRelationId
+  const currentRelation = session.document.value?.page?.relations?.find(relation => relation.id === selectedRelationId)
+  if (!selectedRelationId || !currentRelation) {
+    editorUiStore.setRelationPickerRegionId(null)
+    editorUiStore.cancelRelationPicking()
+    return
+  }
+
+  const updatedRelation: Relation = {
+    ...currentRelation,
+    [field]: regionId
+  }
+
+  const result = canvasControls.commander.execute(
+    new UpdateRelationCommand({
+      relationId: selectedRelationId,
+      relation: updatedRelation
+    }),
+    getCommandContext()
+  )
+
+  editorUiStore.setRelationPickerRegionId(null)
+  editorUiStore.cancelRelationPicking()
+
+  if (result?.id) {
+    editorUiStore.setSelectedRelationId(result.id)
+  }
+}
+
+watch(
+  () => [
+    editorUiStore.relationsEditor.pickerMode,
+    editorUiStore.relationsEditor.draft.sourceRegionRef,
+    editorUiStore.relationsEditor.draft.targetRegionRef
+  ],
+  ([pickerMode, sourceRegionRef, targetRegionRef]) => {
+    if (pickerMode !== 'pick-target') return
+    if (!sourceRegionRef || !targetRegionRef) return
+
+    executeCreateRelationFromDraft()
+  }
+)
+
+watch(
+  () => [
+    editorUiStore.relationsEditor.pickerMode,
+    editorUiStore.relationsEditor.pickerRegionId
+  ],
+  ([pickerMode, pickedRegionId]) => {
+    if (!pickedRegionId) return
+
+    if (pickerMode === 'repick-source') {
+      executeRepickRelationEndpoint(pickedRegionId, 'sourceRegionRef')
+      return
+    }
+
+    if (pickerMode === 'repick-target') {
+      executeRepickRelationEndpoint(pickedRegionId, 'targetRegionRef')
+    }
+  }
 )
 
 const showRenderStats = ref(false)
@@ -595,6 +697,16 @@ watch(() => props.src, (newSrc) => {
       :canvas-dimensions="canvasDimensions"
       :visible="true"
       :show-labels="readingOrderOverlaySettings.showLabels"
+    />
+
+    <RelationsLabelsOverlay
+      v-if="showRelationsOverlay"
+      :labels="relationRenderData.labels"
+      :view="view"
+      :aspect-ratio-scale="aspectRatioScale"
+      :canvas-dimensions="canvasDimensions"
+      :visible="true"
+      :show-labels="relationsOverlaySettings.showLabels"
     />
 
     <div

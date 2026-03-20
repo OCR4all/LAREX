@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
-import type { Region, TextLine, TextRegion, ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef } from '@/models/editor'
+import type { Region, TextLine, TextRegion, ReadingOrderNode, ReadingOrderGroup, RegionRef, Relation } from '@/models/editor'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
@@ -10,6 +10,7 @@ import {
   rebuildSpatialIndexFromPcGts
 } from '@/utils/editor/pcgts-editor-primitives'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { cloneRelations, removeRelationsReferencingIds } from '@/utils/editor/relations'
 
 export interface DeletePolygonCommandData {
   polygonId: string // Region ID to delete
@@ -20,6 +21,8 @@ export class DeletePolygonCommand implements Command {
 
   private deletedRegion: { region: Region, parent: Region | null, index: number } | null = null
   private deletedTextLine: { textLine: TextLine, parentTextRegion: TextRegion, index: number } | null = null
+  private previousRelations: Relation[] | undefined
+  private relationsModified = false
 
   constructor(data: DeletePolygonCommandData) {
     this.polygonId = data.polygonId
@@ -58,6 +61,14 @@ export class DeletePolygonCommand implements Command {
       readingOrderModified = true
     }
 
+    this.relationsModified = false
+    if (this.deletedRegion) {
+      this.previousRelations = cloneRelations(pcGts.page.relations)
+      const nextRelations = removeRelationsReferencingIds(pcGts.page.relations, idsToRemove)
+      this.relationsModified = JSON.stringify(this.previousRelations ?? []) !== JSON.stringify(nextRelations ?? [])
+      pcGts.page.relations = nextRelations
+    }
+
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
     visibilityService.clearCache()
@@ -85,6 +96,10 @@ export class DeletePolygonCommand implements Command {
       parentTextRegion.textLines.splice(safeIndex, 0, textLine)
     } else {
       return
+    }
+
+    if (this.relationsModified) {
+      pcGts.page.relations = cloneRelations(this.previousRelations)
     }
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
@@ -132,6 +147,7 @@ function collectDescendantPolygonIds(pcGts: PcGts, rootId: string): string[] {
 function removeIdsFromReadingOrder(elements: ReadingOrderNode[], idsToRemove: Set<string>): void {
   for (let i = elements.length - 1; i >= 0; i--) {
     const node = elements[i]
+    if (!node) continue
     if (node.kind === 'RegionRef' || node.kind === 'RegionRefIndexed') {
       const ref = node as RegionRef
       if (idsToRemove.has(ref.regionRef)) {

@@ -2,6 +2,7 @@ import type { Point, TextContentVariantData } from '@/models/editor'
 import type { RegionKind } from '@/models/editor/region'
 import type { ConfidenceHeatmapSettings } from '@/stores/editor/types'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
+import type { ArrowSegment } from '@/webgl/editor/reading-order-renderer'
 
 export interface DraggedNodeInfo {
   isDragging: boolean
@@ -47,6 +48,24 @@ export interface RenderablePolyline {
   type?: string
   /** Element-level confidence (PAGE @conf) */
   confidence?: number
+}
+
+export interface RelationOverlayLabel {
+  id: string
+  relationId?: string
+  sourceRegionRef?: string
+  targetRegionRef?: string
+  sourcePosition?: Point
+  targetPosition?: Point
+  position: Point
+  text: string
+  isSelected: boolean
+  isDraft?: boolean
+}
+
+export interface RelationRenderData {
+  segments: ArrowSegment[]
+  labels: RelationOverlayLabel[]
 }
 
 /**
@@ -101,6 +120,8 @@ export interface WebGLRenderState {
 
   readingOrderData?: ReadingOrderRenderData
   showReadingOrderOverlay?: boolean
+  relationData?: RelationRenderData
+  showRelationsOverlay?: boolean
 
   autoParentPreview?: AutoParentPreview
 

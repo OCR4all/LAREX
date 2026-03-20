@@ -110,6 +110,11 @@ const items = [
     slot: 'reading-order'
   },
   {
+    label: 'Relations',
+    icon: 'i-lucide-link-2',
+    slot: 'relations'
+  },
+  {
     label: 'Metadata',
     icon: 'i-lucide-badge-info',
     slot: 'metadata'
@@ -263,6 +268,15 @@ const allRegionsForReadingOrder = computed<AvailableItem[]>(() => {
       label: polygon.label || polygon.id,
       regionRef: polygon.id,
       parentId: polygon.parentId
+    }))
+})
+
+const allRegionsForRelations = computed(() => {
+  return props.polygons
+    .filter(polygon => polygon.type === PolygonType.REGION)
+    .map(polygon => ({
+      value: polygon.id,
+      label: polygon.label ? `${polygon.label} (${polygon.id})` : polygon.id
     }))
 })
 
@@ -510,7 +524,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
           </UChip>
         </UTooltip>
         <template #content>
-          <div :class="[item.slot === 'reading-order' ? 'w-md' : 'w-80', 'max-h-[70vh] overflow-auto']">
+          <div :class="[item.slot === 'reading-order' || item.slot === 'relations' ? 'w-md' : 'w-80', 'max-h-[70vh] overflow-auto']">
             <div class="px-3 py-2 border-b border-default">
               <span class="text-sm font-semibold">{{ item.label }}</span>
             </div>
@@ -547,6 +561,16 @@ watch(() => props.selectedPolylineIds, (newIds) => {
                   :model-value="localReadingOrder"
                   :all-items="allRegionsForReadingOrder"
                   @update:model-value="handleReadingOrderUpdate"
+                />
+              </div>
+            </template>
+            <template v-else-if="item.slot === 'relations'">
+              <div data-tour="editor-layout-relations-panel">
+                <EditorRelationsPanel
+                  :document="document"
+                  :page="page"
+                  :commander="commander"
+                  :regions="allRegionsForRelations"
                 />
               </div>
             </template>
@@ -635,6 +659,16 @@ watch(() => props.selectedPolylineIds, (newIds) => {
             :model-value="localReadingOrder"
             :all-items="allRegionsForReadingOrder"
             @update:model-value="handleReadingOrderUpdate"
+          />
+        </div>
+      </template>
+      <template #relations>
+        <div data-tour="editor-layout-relations-panel" class="h-full">
+          <EditorRelationsPanel
+            :document="document"
+            :page="page"
+            :commander="commander"
+            :regions="allRegionsForRelations"
           />
         </div>
       </template>

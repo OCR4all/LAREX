@@ -9,6 +9,7 @@ import { Metadata, PcGts as PcGtsClass } from '@/models/editor/document'
 import { Page } from '@/models/editor/page'
 import { Polygon } from '@/models/editor/geometry'
 import type { TextRegion, Region } from '@/models/editor/region'
+import type { Relation } from '@/models/editor/page'
 import { createSpatialIndex } from '@/services/editor/spatial-index-service'
 import { shallowRef } from 'vue'
 
@@ -17,6 +18,7 @@ import { shallowRef } from 'vue'
  */
 export function createTestDocument(options?: {
   regions?: Region[]
+  relations?: Relation[]
 }): PcGts {
   const metadata = new Metadata({
     creator: 'test',
@@ -28,7 +30,8 @@ export function createTestDocument(options?: {
     imageFilename: 'test.jpg',
     imageWidth: 2000,
     imageHeight: 3000,
-    regions: options?.regions ?? []
+    regions: options?.regions ?? [],
+    relations: options?.relations
   })
 
   return new PcGtsClass(metadata, page, 'test-pcgts')
@@ -157,4 +160,16 @@ export function findRegionById(regions: Region[], id: string): Region | null {
     }
   }
   return null
+}
+
+export function createTestRelation(overrides?: Partial<Relation>): Relation {
+  return {
+    id: overrides?.id ?? 'rel-1',
+    type: overrides?.type ?? 'link',
+    sourceRegionRef: overrides?.sourceRegionRef ?? 'r1',
+    targetRegionRef: overrides?.targetRegionRef ?? 'r2',
+    custom: overrides?.custom,
+    comments: overrides?.comments,
+    labels: overrides?.labels
+  }
 }

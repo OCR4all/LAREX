@@ -1,3 +1,5 @@
+import type { RelationDraftState } from '@/utils/editor/relations'
+
 export type UiMode = 'layout' | 'text'
 export type LayoutViewMode = 'default' | 'textline' | 'baseline'
 export type LineWidthPreset = 'thin' | 'light' | 'normal' | 'medium' | 'bold' | 'extraBold'
@@ -6,6 +8,7 @@ export type ToolbarLayout = 'floating' | 'docked-top' | 'docked-bottom' | 'docke
 export type VirtualKeyboardMode = 'off' | 'floating' | 'slideover'
 export type TextItemLayout = 'side-by-side' | 'vertical'
 export type ConfidenceHeatmapMode = 'indices' | 'average'
+export type RelationPickerMode = 'idle' | 'pick-source' | 'pick-target' | 'repick-source' | 'repick-target'
 
 export interface ConfidenceHeatmapSettings {
   enabled: boolean
@@ -84,6 +87,18 @@ export interface ReadingOrderOverlaySettings {
   showAllRegions: boolean
   /** Show labels next to order numbers and group bounds */
   showLabels: boolean
+}
+
+export interface RelationsOverlaySettings {
+  visible: boolean
+  showLabels: boolean
+}
+
+export interface RelationsEditorState {
+  pickerMode: RelationPickerMode
+  selectedRelationId: string | null
+  pickerRegionId: string | null
+  draft: RelationDraftState
 }
 
 export interface CanvasState {

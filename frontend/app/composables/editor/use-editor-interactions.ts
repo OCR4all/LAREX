@@ -1,10 +1,11 @@
 import { getWorldCoordsFromEvent } from '@/utils/editor/coordinates'
 import { getVisiblePolygonAtPoint, getHoverablePolylineAtPoint, isPointInPolygon } from '@/utils/editor/hit-detection'
 import { visibilityService } from '@/services/editor/visibility-service'
-import type { View, AspectRatioScale, Point } from '@/models/editor'
+import { PolygonType, type View, type AspectRatioScale, type Point } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
 import { TIMING, VIEW_PADDING } from '@/utils/editor/editor-constants'
 import type { EditorStateActions } from './use-editor-state'
+import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type {
   MouseInteraction,
   PolygonDrawing,
@@ -67,6 +68,7 @@ export function useEditorInteractions(
     | 'setHoveredPolylineId'
   >
 ) {
+  const editorUiStore = useEditorUiStore()
   const hiddenPolygonIdSet = computed(() => new Set(hiddenPolygonIds.value))
   const hiddenPolylineIdSet = computed(() => new Set(hiddenPolylineIds.value))
 
@@ -383,6 +385,10 @@ export function useEditorInteractions(
         return
       }
 
+      if (editorUiStore.relationsEditor.pickerMode !== 'idle') {
+        return
+      }
+
       clearSelectionSetOnly()
 
       const point = getWorldCoordsFromEvent(e, canvas.value as HTMLCanvasElement, view, aspectRatioScale.value)
@@ -615,6 +621,42 @@ export function useEditorInteractions(
       const isDrawing = isPolygonMode.value || isRectangleMode.value || isPolylineMode.value
         || Boolean(canvasControls.isCutMode?.value)
 
+      if (editorUiStore.relationsEditor.pickerMode !== 'idle') {
+        const clickedPolygonIndex = getVisiblePolygonAtPoint(
+          polygons,
+          point,
+          -1,
+          undefined,
+          undefined,
+          hiddenPolygonIdSet.value
+        )
+
+        if (clickedPolygonIndex >= 0) {
+          const clickedPolygon = polygons[clickedPolygonIndex]
+          if (clickedPolygon?.type === PolygonType.REGION) {
+            if (editorUiStore.relationsEditor.pickerMode === 'pick-source') {
+              editorUiStore.updateRelationDraft({
+                sourceRegionRef: clickedPolygon.id,
+                targetRegionRef: ''
+              })
+              editorUiStore.setRelationPickerMode('pick-target')
+            } else if (editorUiStore.relationsEditor.pickerMode === 'pick-target') {
+              editorUiStore.updateRelationDraft({
+                targetRegionRef: clickedPolygon.id
+              })
+            } else {
+              editorUiStore.setRelationPickerRegionId(clickedPolygon.id)
+            }
+          }
+        }
+
+        setTimeout(() => {
+          polygonEditing.resetDragCompletionFlag()
+          polylineEditing.resetDragCompletionFlag()
+        }, TIMING.DRAG_COMPLETION_DELAY)
+        return
+      }
+
       const clickedPolylineIndex = getHoverablePolylineAtPoint(
         polylines,
         polygons,
@@ -760,6 +802,11 @@ export function useEditorInteractions(
   function onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       e.preventDefault()
+
+      if (editorUiStore.relationsEditor.pickerMode !== 'idle') {
+        editorUiStore.cancelRelationPicking()
+        return
+      }
 
       if (polygonDrawing.isActive()) {
         polygonDrawing.cancelPolygonCreation()

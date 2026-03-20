@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, TextLine, PolygonType, isTextRegion } from '@/models/editor'
-import type { Point, Region, TextRegion, ReadingOrderNode, ReadingOrderGroup, RegionRef } from '@/models/editor'
+import type { Point, Region, TextRegion, ReadingOrderNode, ReadingOrderGroup, RegionRef, Relation } from '@/models/editor'
 import { Polygon as PolygonGeometry, Polyline as PolylineGeometry } from '@/models/editor/geometry'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
@@ -20,6 +20,11 @@ import {
 } from '@/utils/editor/polygon-clipping'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
+import {
+  cloneRelations,
+  collectRegionIds,
+  filterRelationsByExistingRegionIds
+} from '@/utils/editor/relations'
 
 /**
  * Cut mode types
@@ -44,6 +49,7 @@ export interface CutElementsCommandData {
 interface UndoSnapshot {
   regions: Region[]
   readingOrderElements?: ReadingOrderNode[]
+  relations?: Relation[]
 }
 
 /**
@@ -84,7 +90,8 @@ export class CutElementsCommand implements Command {
       regions: this.deepCloneRegions(pcGts.page.regions),
       readingOrderElements: pcGts.page.readingOrder?.root?.elements
         ? this.deepCloneReadingOrder(pcGts.page.readingOrder.root.elements)
-        : undefined
+        : undefined,
+      relations: cloneRelations(pcGts.page.relations)
     }
 
     const allPolygons = collectRenderablePolygonsFromPcGts(pcGts)
@@ -135,6 +142,11 @@ export class CutElementsCommand implements Command {
       invalidateMultiplePolygonGeometry(ctx.canvasId, this.affectedPolygonIds)
     }
 
+    pcGts.page.relations = filterRelationsByExistingRegionIds(
+      pcGts.page.relations,
+      collectRegionIds(pcGts.page.regions)
+    )
+
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)
     visibilityService.clearCache()
@@ -161,6 +173,8 @@ export class CutElementsCommand implements Command {
     if (this.undoSnapshot.readingOrderElements && pcGts.page.readingOrder?.root) {
       pcGts.page.readingOrder.root.elements = this.undoSnapshot.readingOrderElements
     }
+
+    pcGts.page.relations = cloneRelations(this.undoSnapshot.relations)
 
     session.document.value = new PcGts(pcGts.metadata, pcGts.page, pcGts.pcGtsId)
     rebuildSpatialIndexFromPcGts(session)

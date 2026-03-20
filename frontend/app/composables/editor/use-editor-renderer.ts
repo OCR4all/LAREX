@@ -3,7 +3,7 @@ import { computeAutoParentPreview } from '@/utils/editor/auto-parent-utils'
 import type { View, AspectRatioScale, Point } from '@/models/editor'
 import type { MouseInteraction, PolygonDrawing, PolylineDrawing, RectangleDrawing, PolygonEditing, PolylineEditing } from './use-editor-interactions'
 import type { CutDrawing } from './editor-interactions/types'
-import type { WebGLRenderState, ViewMode } from '@/types/editor/rendering'
+import type { WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 
@@ -60,6 +60,8 @@ export function useEditorRenderer(
   enabled?: Ref<boolean>,
   readingOrderData?: Ref<ReadingOrderRenderData | undefined>,
   showReadingOrderOverlay?: Ref<boolean>,
+  relationData?: Ref<RelationRenderData | undefined>,
+  showRelationsOverlay?: Ref<boolean>,
   cutDrawing?: CutDrawing,
   isCutMode?: Ref<boolean>,
   isCutLineMode?: Ref<boolean>,
@@ -134,6 +136,8 @@ export function useEditorRenderer(
       autoParentPreview,
       readingOrderData: readingOrderData?.value,
       showReadingOrderOverlay: showReadingOrderOverlay?.value ?? false,
+      relationData: relationData?.value,
+      showRelationsOverlay: showRelationsOverlay?.value ?? false,
       cutLinePoints: isCutLineMode?.value && cutDrawing?.currentPoints?.length
         ? [...cutDrawing.currentPoints]
         : undefined,
@@ -207,6 +211,8 @@ export function useEditorRenderer(
       viewMode,
       readingOrderData,
       showReadingOrderOverlay,
+      relationData,
+      showRelationsOverlay,
       () => editorUiStore.readingOrderVersion,
       () => editorUiStore.confidenceHeatmap
     ],
@@ -333,9 +339,15 @@ export function useEditorRenderer(
    * Setup reading order animation watch
    */
   function setupReadingOrderAnimationWatch(): void {
-    if (!showReadingOrderOverlay) return
+    if (!showReadingOrderOverlay && !showRelationsOverlay) return
 
-    watch(showReadingOrderOverlay, (visible) => {
+    const hasAnimatedOverlay = computed(() => {
+      const readingOrderVisible = showReadingOrderOverlay?.value ?? false
+      const relationsVisible = showRelationsOverlay?.value ?? false
+      return readingOrderVisible || relationsVisible
+    })
+
+    watch(hasAnimatedOverlay, (visible) => {
       if (visible) {
         startReadingOrderAnimation()
       } else {

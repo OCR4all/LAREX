@@ -5,6 +5,8 @@ import type {
   ToolbarLayout,
   GlobalSettings,
   ReadingOrderOverlaySettings,
+  RelationsOverlaySettings,
+  RelationsEditorState,
   VirtualKeyboardMode,
   LineWidthPreset,
   TextItemLayout,
@@ -12,6 +14,7 @@ import type {
   ConfidenceHeatmapSettings
 } from './types'
 import { useEditorPreferences } from '@/composables/use-editor-preferences'
+import { createEmptyRelationDraft } from '@/utils/editor/relations'
 
 export const useEditorUiStore = defineStore('editor-ui', () => {
   const editorPreferences = useEditorPreferences()
@@ -51,6 +54,18 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   })
 
   const readingOrderVersion = ref(0)
+
+  const relationsOverlay = ref<RelationsOverlaySettings>({
+    visible: false,
+    showLabels: true
+  })
+
+  const relationsEditor = ref<RelationsEditorState>({
+    pickerMode: 'idle',
+    selectedRelationId: null,
+    pickerRegionId: null,
+    draft: createEmptyRelationDraft()
+  })
 
   const temporaryHoverPolygonId = ref<string | null>(null)
   const temporaryHoverPolylineId = ref<string | null>(null)
@@ -234,6 +249,72 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function bumpReadingOrderVersion() {
     readingOrderVersion.value++
+  }
+
+  function setRelationsOverlayVisible(visible: boolean) {
+    relationsOverlay.value.visible = visible
+  }
+
+  function toggleRelationsOverlay() {
+    relationsOverlay.value.visible = !relationsOverlay.value.visible
+  }
+
+  function updateRelationsOverlaySettings(settings: Partial<RelationsOverlaySettings>) {
+    relationsOverlay.value = { ...relationsOverlay.value, ...settings }
+  }
+
+  function setRelationPickerMode(mode: RelationsEditorState['pickerMode']) {
+    relationsEditor.value.pickerMode = mode
+  }
+
+  function setSelectedRelationId(relationId: string | null) {
+    relationsEditor.value.selectedRelationId = relationId
+  }
+
+  function setRelationPickerRegionId(regionId: string | null) {
+    relationsEditor.value.pickerRegionId = regionId
+  }
+
+  function updateRelationDraft(draft: Partial<RelationsEditorState['draft']>) {
+    relationsEditor.value.draft = {
+      ...relationsEditor.value.draft,
+      ...draft
+    }
+  }
+
+  function resetRelationDraft() {
+    relationsEditor.value.draft = createEmptyRelationDraft()
+  }
+
+  function beginRelationCreation() {
+    relationsEditor.value.pickerMode = 'pick-source'
+    relationsEditor.value.pickerRegionId = null
+    relationsEditor.value.draft = {
+      ...relationsEditor.value.draft,
+      sourceRegionRef: '',
+      targetRegionRef: ''
+    }
+  }
+
+  function beginRelationRepickSource(relationId: string) {
+    relationsEditor.value.selectedRelationId = relationId
+    relationsEditor.value.pickerMode = 'repick-source'
+    relationsEditor.value.pickerRegionId = null
+  }
+
+  function beginRelationRepickTarget(relationId: string) {
+    relationsEditor.value.selectedRelationId = relationId
+    relationsEditor.value.pickerMode = 'repick-target'
+    relationsEditor.value.pickerRegionId = null
+  }
+
+  function cancelRelationPicking() {
+    relationsEditor.value.pickerMode = 'idle'
+    relationsEditor.value.pickerRegionId = null
+  }
+
+  function clearRelationSelection() {
+    relationsEditor.value.selectedRelationId = null
   }
 
   function toggleLeftCollapsed() {
@@ -425,6 +506,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     backgroundOpacity,
     readingOrderOverlay,
     readingOrderVersion,
+    relationsOverlay,
+    relationsEditor,
     temporaryHoverPolygonId,
     temporaryHoverPolylineId,
     textViewFontSize,
@@ -463,6 +546,19 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleReadingOrderOverlay,
     updateReadingOrderOverlaySettings,
     bumpReadingOrderVersion,
+    setRelationsOverlayVisible,
+    toggleRelationsOverlay,
+    updateRelationsOverlaySettings,
+    setRelationPickerMode,
+    setSelectedRelationId,
+    setRelationPickerRegionId,
+    updateRelationDraft,
+    resetRelationDraft,
+    beginRelationCreation,
+    beginRelationRepickSource,
+    beginRelationRepickTarget,
+    cancelRelationPicking,
+    clearRelationSelection,
     toggleLeftCollapsed,
     toggleRightCollapsed,
     setLeftWidth,

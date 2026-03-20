@@ -22,6 +22,10 @@ export { SetHiddenElementsCommand, type SetHiddenElementsCommandData, type Hidde
 
 export { DeleteSelectedElementsCommand, type DeleteSelectedElementsCommandData } from './delete-selected-elements-command'
 
+export { CreateRelationCommand, type CreateRelationCommandData } from './create-relation-command'
+export { UpdateRelationCommand, type UpdateRelationCommandData } from './update-relation-command'
+export { DeleteRelationCommand, type DeleteRelationCommandData } from './delete-relation-command'
+
 export { CompoundCommand, CompoundCommandBuilder } from './compound-command'
 
 export { CutElementsCommand, type CutElementsCommandData, type CutMode } from './cut-elements-command'
