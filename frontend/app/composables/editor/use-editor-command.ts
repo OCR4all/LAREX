@@ -4,11 +4,10 @@ import { DeletePolygonCommand, DeletePolylineCommand, ChangeRegionLabelCommand, 
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
-import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, RegionKind, TextRegion, TextRegionSubtype, GraphicRegionSubtype, ChartRegionSubtype } from '@/models/editor'
+import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, RegionKind } from '@/models/editor'
 import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, canContainTextLines, PolygonType } from '@/models/editor'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import type { LabelDefinition } from '@/models/editor/labels'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getRegionKindDisplayName, getRegionKindIcon } from '@/utils/editor/region-colors'
 import { buildMergedCustomForAppliedRegionLabel, clearLarexRegionLabelMetadata, findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -226,7 +225,6 @@ export function useEditorCommand(
   polylines: RenderablePolyline[],
   clearHoverAndSelectionCallback: () => void
 ) {
-  const editorUiStore = useEditorUiStore()
   const editorStore = useEditorStore()
   const dialogs = useOverlayDialogs()
 
@@ -336,7 +334,7 @@ export function useEditorCommand(
 
     return validParents.map(p => ({
       id: `reparent-to-${p.id}`,
-      label: p.label || p.id,
+      label: p.label ? `${p.label} (${p.id})` : p.id,
       icon: p.regionKind ? getRegionKindIcon(p.regionKind) : 'i-lucide-square'
     }))
   }
@@ -510,7 +508,7 @@ export function useEditorCommand(
         const polygon = target.element as RenderablePolygon
 
         const parts = item.id.replace('region-type-', '').split('-')
-        let newKind: RegionKind
+        const newKind: RegionKind = kindParts.join('') as RegionKind
         let newSubtype: string | undefined
 
         const kindParts: string[] = []
@@ -528,7 +526,6 @@ export function useEditorCommand(
           }
         }
 
-        newKind = kindParts.join('') as RegionKind
         if (subtypeParts.length > 0) {
           newSubtype = subtypeParts.join('-')
         }

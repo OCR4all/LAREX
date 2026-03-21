@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { LazyEditorReadingOrderNumbersOverlay } from '#components'
-import { LazyEditorRelationsLabelsOverlay } from '#components'
+import { LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
 import { triangulatePolygon } from '@/utils/editor/hit-detection'
 import { pixelsToWorld } from '@/utils/editor/coordinates'
 import { parseCanvasId } from '@/stores/editor/editor.keys'
@@ -214,7 +213,13 @@ const moveInteraction = useMoveInteraction(
   hiddenPolygonIds, hiddenPolylineIds, canvasControls.viewMode
 )
 
-const editorCommands = useEditorCommand(canvasControls.commander, props.canvasId, polygons, polylines, stateActions.clearHoverAndSelectionStates)
+const editorCommands = useEditorCommand(
+  canvasControls.commander,
+  props.canvasId,
+  polygons,
+  polylines,
+  stateActions.clearHoverAndSelectionStates
+)
 const contextMenuOpen = ref(false)
 
 type UiContextMenuItem = {
