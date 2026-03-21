@@ -345,10 +345,6 @@ export function useEditorCommand(
    * Show context menu for a polygon at the given screen position
    */
   function showContextMenuForPolygon(event: MouseEvent, polygon: RenderablePolygon): void {
-    const children = polygons.filter(p => p.parentId === polygon.id)
-    const childPolylines = polylines.filter(p => p.parentId === polygon.id)
-    const totalChildren = children.length + childPolylines.length
-
     const isRegion = polygon.type === 'region'
     const isTextLine = polygon.type === 'textline'
 
@@ -400,12 +396,6 @@ export function useEditorCommand(
 
     menuItems.push(
       {
-        id: 'delete',
-        label: 'Delete',
-        icon: 'i-lucide-trash-2',
-        danger: true
-      },
-      {
         id: 'duplicate',
         label: 'Duplicate',
         icon: 'i-lucide-copy'
@@ -422,26 +412,14 @@ export function useEditorCommand(
         ]
       },
       {
-        id: 'properties',
-        label: 'Properties',
-        icon: 'i-lucide-settings',
-        disabled: false
+        id: 'delete',
+        label: 'Delete',
+        icon: 'i-lucide-trash-2',
+        danger: true
       }
     )
 
     contextMenuItems.value = menuItems
-
-    if (totalChildren > 0) {
-      const deleteIndex = contextMenuItems.value.findIndex(item => item.id === 'delete')
-      if (deleteIndex >= 0) {
-        contextMenuItems.value.splice(deleteIndex + 1, 0, {
-          id: 'delete-with-children',
-          label: `Delete with ${totalChildren} child${totalChildren === 1 ? '' : 'ren'}`,
-          icon: 'i-lucide-trash-2',
-          danger: true
-        })
-      }
-    }
 
     contextMenuVisible.value = true
   }
@@ -458,21 +436,15 @@ export function useEditorCommand(
     contextMenuY.value = event.clientY
     contextMenuItems.value = [
       {
-        id: 'delete',
-        label: 'Delete Baseline',
-        icon: 'i-lucide-trash-2',
-        danger: true
-      },
-      {
         id: 'duplicate',
         label: 'Duplicate',
         icon: 'i-lucide-copy'
       },
       {
-        id: 'properties',
-        label: 'Properties',
-        icon: 'i-lucide-settings',
-        disabled: false
+        id: 'delete',
+        label: 'Delete Baseline',
+        icon: 'i-lucide-trash-2',
+        danger: true
       }
     ]
 
@@ -615,7 +587,6 @@ export function useEditorCommand(
 
     switch (item.id) {
       case 'delete':
-      case 'delete-with-children':
         if (target.type === 'polygon') {
           await deletePolygon((target.element as RenderablePolygon).id)
         } else if (target.type === 'polyline') {
@@ -676,9 +647,6 @@ export function useEditorCommand(
         if (target.type === 'polygon') {
           pendingBufferPolygon.value = target.element as RenderablePolygon
         }
-        break
-      case 'properties':
-        pendingPropertiesTarget.value = target
         break
     }
   }
