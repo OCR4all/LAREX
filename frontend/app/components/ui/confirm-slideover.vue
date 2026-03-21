@@ -50,7 +50,7 @@ const emit = defineEmits<{
           {{ cancelLabel }}
         </UButton>
         <UButton
-          variant="solid"
+          variant="subtle"
           :color="confirmColor"
           :icon="confirmIcon"
           :loading="loading"
