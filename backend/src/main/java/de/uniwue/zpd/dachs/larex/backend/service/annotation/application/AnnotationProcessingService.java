@@ -159,8 +159,7 @@ public class AnnotationProcessingService {
         if (targetSchema == XmlSchema.PAGE_XML) {
             return pageXmlExporter.export(pageDto, originalXml);
         } else if (targetSchema == XmlSchema.ALTO_XML) {
-            // TODO(larex): Migrate ALTO exporter to PageDto via page4j ALTO support.
-            throw new UnsupportedOperationException("ALTO XML export not yet migrated to PageDto");
+            return altoXmlExporter.toXmlString(pageDto);
         } else {
             throw new UnsupportedOperationException("No exporter available for schema: " + targetSchema);
         }
@@ -248,8 +247,7 @@ public class AnnotationProcessingService {
     public Map<XmlSchema, String> getAvailableExportSchemas() {
         Map<XmlSchema, String> schemas = new HashMap<>();
         schemas.put(XmlSchema.PAGE_XML, XmlSchema.PAGE_XML.getDisplayName());
-        // TODO(larex): Enable ALTO schema once ALTO parse/export migration is complete.
-        // schemas.put(XmlSchema.ALTO_XML, XmlSchema.ALTO_XML.getDisplayName());
+        schemas.put(XmlSchema.ALTO_XML, XmlSchema.ALTO_XML.getDisplayName());
         return schemas;
     }
 
@@ -265,8 +263,7 @@ public class AnnotationProcessingService {
      * Check if a schema is supported for export.
      */
     public boolean isExportSupported(XmlSchema schema) {
-        // TODO(larex): Add ALTO_XML once ALTO export support is migrated.
-        return schema == XmlSchema.PAGE_XML;
+        return schema == XmlSchema.PAGE_XML || schema == XmlSchema.ALTO_XML;
     }
 
     private PageDto enrichMetadataForSave(PageDto dto, String userId) {

@@ -35,6 +35,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationServ
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -51,10 +53,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 @Service
 @Transactional
@@ -152,9 +162,16 @@ public class ProjectPackageService {
         boolean legacyTarget = pageXmlConversionService.isLegacyTargetVersion(targetPageXmlVersion);
         List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
         ExportBundle exportBundle = buildExportBundle(project, pages, targetPageXmlVersion, legacyTarget);
+        List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs = documentExportService.exportEmbeddedProjectOutputs(
+                project,
+                pages,
+                request == null ? null : request.embeddedOutputs()
+        );
+        byte[] metsBytes = buildMetsXml(project, pages, exportBundle.manifest(), embeddedOutputs);
 
         return archiveIoService.createZip(zipOut -> {
             archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportBundle.manifest());
+            archiveIoService.writeBytesEntry(zipOut, "mets.xml", metsBytes);
 
             for (ProjectPackageDto.FileEntry fileEntry : exportBundle.manifest().files()) {
                 Path source = resolveUploadPath(fileEntry.archivePath(), fileEntry.kind(), fileEntry.sourceId(), exportBundle);
@@ -184,11 +201,7 @@ public class ProjectPackageService {
                 archiveIoService.writeJsonEntry(zipOut, entry.getKey(), entry.getValue());
             }
 
-            for (DocumentExportService.EmbeddedProjectOutput output : documentExportService.exportEmbeddedProjectOutputs(
-                    project,
-                    pages,
-                    request == null ? null : request.embeddedOutputs()
-            )) {
+            for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
                 archiveIoService.writeBytesEntry(zipOut, output.archivePath(), output.bytes());
             }
         });
@@ -832,6 +845,177 @@ public class ProjectPackageService {
             return "";
         }
         return name.substring(dot);
+    }
+
+    private byte[] buildMetsXml(Project project,
+                                List<Page> pages,
+                                ProjectPackageDto.PackageManifest manifest,
+                                List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs) throws IOException {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setNamespaceAware(true);
+            Document document = factory.newDocumentBuilder().newDocument();
+
+            String metsNs = "http://www.loc.gov/METS/";
+            String xlinkNs = "http://www.w3.org/1999/xlink";
+            Element mets = document.createElementNS(metsNs, "mets:mets");
+            mets.setAttribute("OBJID", project.getId());
+            mets.setAttribute("TYPE", "LAREX_PROJECT_PACKAGE");
+            mets.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:mets", metsNs);
+            mets.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:xlink", xlinkNs);
+            document.appendChild(mets);
+
+            Element metsHdr = document.createElementNS(metsNs, "mets:metsHdr");
+            metsHdr.setAttribute("CREATEDATE", LocalDateTime.now().toString());
+            mets.appendChild(metsHdr);
+
+            Element fileSec = document.createElementNS(metsNs, "mets:fileSec");
+            mets.appendChild(fileSec);
+
+            Element imageGroup = document.createElementNS(metsNs, "mets:fileGrp");
+            imageGroup.setAttribute("USE", "ORIGINAL_IMAGES");
+            fileSec.appendChild(imageGroup);
+
+            Element pageXmlGroup = document.createElementNS(metsNs, "mets:fileGrp");
+            pageXmlGroup.setAttribute("USE", "PAGE_XML");
+            fileSec.appendChild(pageXmlGroup);
+
+            Element derivativeGroup = document.createElementNS(metsNs, "mets:fileGrp");
+            derivativeGroup.setAttribute("USE", "DERIVATIVES");
+            fileSec.appendChild(derivativeGroup);
+
+            Map<String, String> imageFileIdByPageId = new HashMap<>();
+            Map<String, String> xmlFileIdByPageId = new HashMap<>();
+
+            for (ProjectPackageDto.FileEntry file : manifest.files()) {
+                if (file.kind() == ProjectPackageDto.FileKind.IMAGE) {
+                    String fileId = "IMG_" + sanitizeMetsId(file.sourceId());
+                    imageFileIdByPageId.put(file.sourcePageId(), fileId);
+                    imageGroup.appendChild(createMetsFile(document, metsNs, xlinkNs, fileId, file.mimeType(), file.archivePath()));
+                } else if (file.kind() == ProjectPackageDto.FileKind.XML) {
+                    String fileId = "XML_" + sanitizeMetsId(file.sourceId());
+                    xmlFileIdByPageId.put(file.sourcePageId(), fileId);
+                    pageXmlGroup.appendChild(createMetsFile(document, metsNs, xlinkNs, fileId, file.mimeType(), file.archivePath()));
+                }
+            }
+
+            List<String> derivativeFileIds = new ArrayList<>();
+            for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
+                String fileId = "DERIV_" + sanitizeMetsId(output.archivePath());
+                derivativeFileIds.add(fileId);
+                String mimeType = guessDerivativeMimeType(output.archivePath());
+                derivativeGroup.appendChild(createMetsFile(document, metsNs, xlinkNs, fileId, mimeType, output.archivePath()));
+            }
+
+            Element structMap = document.createElementNS(metsNs, "mets:structMap");
+            structMap.setAttribute("TYPE", "physical");
+            mets.appendChild(structMap);
+
+            Element rootDiv = document.createElementNS(metsNs, "mets:div");
+            rootDiv.setAttribute("TYPE", "project");
+            rootDiv.setAttribute("LABEL", project.getName());
+            structMap.appendChild(rootDiv);
+
+            for (Page page : pages) {
+                Element pageDiv = document.createElementNS(metsNs, "mets:div");
+                pageDiv.setAttribute("TYPE", "page");
+                pageDiv.setAttribute("DMDID", sanitizeMetsId(page.getId()));
+                pageDiv.setAttribute("LABEL", page.getName());
+                rootDiv.appendChild(pageDiv);
+
+                String imageFileId = imageFileIdByPageId.get(page.getId());
+                if (imageFileId != null) {
+                    pageDiv.appendChild(createFptr(document, metsNs, imageFileId));
+                }
+                String xmlFileId = xmlFileIdByPageId.get(page.getId());
+                if (xmlFileId != null) {
+                    pageDiv.appendChild(createFptr(document, metsNs, xmlFileId));
+                }
+            }
+
+            if (!derivativeFileIds.isEmpty()) {
+                Element derivativesDiv = document.createElementNS(metsNs, "mets:div");
+                derivativesDiv.setAttribute("TYPE", "derivatives");
+                derivativesDiv.setAttribute("LABEL", "Embedded exports");
+                rootDiv.appendChild(derivativesDiv);
+                for (String derivativeFileId : derivativeFileIds) {
+                    derivativesDiv.appendChild(createFptr(document, metsNs, derivativeFileId));
+                }
+            }
+
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            var transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.name());
+            transformer.transform(new DOMSource(document), new StreamResult(outputStream));
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            throw new IOException("Failed to generate mets.xml", e);
+        }
+    }
+
+    private Element createMetsFile(Document document,
+                                   String metsNs,
+                                   String xlinkNs,
+                                   String id,
+                                   String mimeType,
+                                   String href) {
+        Element file = document.createElementNS(metsNs, "mets:file");
+        file.setAttribute("ID", id);
+        if (mimeType != null && !mimeType.isBlank()) {
+            file.setAttribute("MIMETYPE", mimeType);
+        }
+
+        Element flocat = document.createElementNS(metsNs, "mets:FLocat");
+        flocat.setAttribute("LOCTYPE", "URL");
+        flocat.setAttributeNS(xlinkNs, "xlink:href", href);
+        file.appendChild(flocat);
+        return file;
+    }
+
+    private Element createFptr(Document document, String metsNs, String fileId) {
+        Element fptr = document.createElementNS(metsNs, "mets:fptr");
+        fptr.setAttribute("FILEID", fileId);
+        return fptr;
+    }
+
+    private String sanitizeMetsId(String value) {
+        if (value == null || value.isBlank()) {
+            return "ID";
+        }
+        return value.replaceAll("[^A-Za-z0-9_.-]+", "_");
+    }
+
+    private String guessDerivativeMimeType(String archivePath) {
+        String normalized = archivePath == null ? "" : archivePath.toLowerCase();
+        if (normalized.endsWith(".zip")) {
+            return "application/zip";
+        }
+        if (normalized.endsWith(".pdf")) {
+            return "application/pdf";
+        }
+        if (normalized.endsWith(".docx")) {
+            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        }
+        if (normalized.endsWith(".tei.xml")) {
+            return "application/tei+xml";
+        }
+        if (normalized.endsWith(".alto.xml") || normalized.endsWith(".xml")) {
+            return "application/xml";
+        }
+        if (normalized.endsWith(".csv")) {
+            return "text/csv";
+        }
+        if (normalized.endsWith(".xlsx")) {
+            return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        }
+        if (normalized.endsWith(".txt")) {
+            return "text/plain";
+        }
+        return "application/octet-stream";
     }
 
     private void deleteDirectoryQuietly(Path directory) {

@@ -163,18 +163,26 @@ class ProjectPackageServiceTest {
                                 DocumentExportDto.ExportFormat.TXT,
                                 true,
                                 DocumentExportDto.TextLevel.TEXT_LINE,
-                                1
+                                1,
+                                null,
+                                null,
+                                null,
+                                null
                         ))
                 )
         );
 
         boolean foundManifest = false;
+        boolean foundMets = false;
         boolean foundEmbedded = false;
         try (ZipInputStream zipIn = new ZipInputStream(new java.io.ByteArrayInputStream(zipBytes))) {
             java.util.zip.ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
                 if ("manifest.json".equals(entry.getName())) {
                     foundManifest = true;
+                }
+                if ("mets.xml".equals(entry.getName())) {
+                    foundMets = true;
                 }
                 if ("exports/project.txt".equals(entry.getName())) {
                     foundEmbedded = true;
@@ -183,6 +191,7 @@ class ProjectPackageServiceTest {
         }
 
         assertTrue(foundManifest);
+        assertTrue(foundMets);
         assertTrue(foundEmbedded);
     }
 

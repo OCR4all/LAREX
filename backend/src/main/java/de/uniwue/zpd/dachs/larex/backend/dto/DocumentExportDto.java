@@ -10,13 +10,33 @@ public class DocumentExportDto {
         TEXT_LINE
     }
 
+    public enum SpreadsheetProfile {
+        PAGE_METADATA,
+        TAGS,
+        REGIONS
+    }
+
+    public enum PdfProfile {
+        SEARCHABLE,
+        IMAGES_ONLY,
+        TEXT_PAGES,
+        PDFA_SEARCHABLE
+    }
+
+    public enum TeiProfile {
+        STANDARD,
+        LAYOUT
+    }
+
     public enum ExportFormat {
         PAGE_XML("xml", "application/xml"),
+        ALTO_XML("alto.xml", "application/xml"),
         TXT("txt", "text/plain; charset=UTF-8"),
         PDF("pdf", "application/pdf"),
         DOCX("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
         TEI("tei.xml", "application/tei+xml"),
-        ALTO_XML("alto.xml", "application/xml");
+        CSV("csv", "text/csv; charset=UTF-8"),
+        XLSX("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
         private final String fileExtension;
         private final String contentType;
@@ -35,20 +55,28 @@ public class DocumentExportDto {
         }
 
         public boolean isRenderedOutput() {
-            return this == TXT || this == PDF || this == DOCX || this == TEI;
+            return this == TXT || this == PDF || this == DOCX || this == TEI || this == ALTO_XML;
         }
 
         public boolean supportsPageExportEndpoint() {
-            return this == PAGE_XML || isRenderedOutput();
+            return this == PAGE_XML || this == ALTO_XML || this == TXT || this == PDF || this == DOCX || this == TEI;
         }
 
         public boolean supportsProjectExportEndpoint() {
-            return isRenderedOutput();
+            return this != PAGE_XML;
         }
 
         public boolean supportsProjectPackageEmbedding() {
-            return isRenderedOutput();
+            return this != PAGE_XML;
         }
+    }
+
+    public record DocxOptions(
+            Boolean preserveLineBreaks,
+            Boolean forcePageBreaks,
+            Boolean includeImageNames,
+            Boolean markUnclearWords
+    ) {
     }
 
     public record PageExportRequest(
@@ -56,7 +84,11 @@ public class DocumentExportDto {
             String targetPageXmlVersion,
             Boolean includePageDelimiters,
             TextLevel textLevel,
-            Integer textVariantIndex
+            Integer textVariantIndex,
+            PdfProfile pdfProfile,
+            TeiProfile teiProfile,
+            List<SpreadsheetProfile> spreadsheetProfiles,
+            DocxOptions docxOptions
     ) {
     }
 
@@ -66,7 +98,11 @@ public class DocumentExportDto {
             String targetPageXmlVersion,
             Boolean includePageDelimiters,
             TextLevel textLevel,
-            Integer textVariantIndex
+            Integer textVariantIndex,
+            PdfProfile pdfProfile,
+            TeiProfile teiProfile,
+            List<SpreadsheetProfile> spreadsheetProfiles,
+            DocxOptions docxOptions
     ) {
     }
 
@@ -74,7 +110,11 @@ public class DocumentExportDto {
             ExportFormat format,
             Boolean includePageDelimiters,
             TextLevel textLevel,
-            Integer textVariantIndex
+            Integer textVariantIndex,
+            PdfProfile pdfProfile,
+            TeiProfile teiProfile,
+            List<SpreadsheetProfile> spreadsheetProfiles,
+            DocxOptions docxOptions
     ) {
     }
 }

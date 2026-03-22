@@ -83,20 +83,37 @@ type ResolvedTag = {
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
 
 type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
-type ExportFormat = 'PAGE_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI'
+type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
+type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
+type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'
+type TeiProfile = 'STANDARD' | 'LAYOUT'
 type ExportDialogMode = 'page' | 'project' | 'package'
+type DocxOptions = {
+  preserveLineBreaks: boolean
+  forcePageBreaks: boolean
+  includeImageNames: boolean
+  markUnclearWords: boolean
+}
 type ExportDialogResult = {
   format: ExportFormat | null
   targetPageXmlVersion: string
   includePageDelimiters: boolean
   textLevel: TextLevel
   textVariantIndex: number
+  pdfProfile: PdfProfile
+  teiProfile: TeiProfile
+  spreadsheetProfiles: SpreadsheetProfile[]
+  docxOptions: DocxOptions
   embeddedOutputs: Array<{
     format: Exclude<ExportFormat, 'PAGE_XML'>
     includePageDelimiters?: boolean
     textLevel?: TextLevel
     textVariantIndex?: number
+    pdfProfile?: PdfProfile
+    teiProfile?: TeiProfile
+    spreadsheetProfiles?: SpreadsheetProfile[]
+    docxOptions?: DocxOptions
   }>
 }
 
@@ -647,7 +664,11 @@ async function exportProjectOutput() {
     pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : null,
     includePageDelimiters: options.includePageDelimiters,
     textLevel: normalizeTextLevel(options.textLevel),
-    textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0
+    textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0,
+    pdfProfile: normalizePdfProfile(options.pdfProfile),
+    teiProfile: normalizeTeiProfile(options.teiProfile),
+    spreadsheetProfiles: normalizeSpreadsheetProfiles(options.spreadsheetProfiles),
+    docxOptions: normalizeDocxOptions(options.docxOptions)
   }
 
   try {
@@ -700,7 +721,11 @@ async function exportPageOutput(page: Page) {
         format,
         targetPageXmlVersion: options.targetPageXmlVersion,
         textLevel: normalizeTextLevel(options.textLevel),
-        textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0
+        textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0,
+        pdfProfile: normalizePdfProfile(options.pdfProfile),
+        teiProfile: normalizeTeiProfile(options.teiProfile),
+        spreadsheetProfiles: normalizeSpreadsheetProfiles(options.spreadsheetProfiles),
+        docxOptions: normalizeDocxOptions(options.docxOptions)
       })
     })
 
@@ -798,10 +823,51 @@ function normalizeTextLevel(value: unknown): TextLevel {
   return 'PAGE'
 }
 
+function normalizePdfProfile(value: unknown): PdfProfile {
+  if (typeof value === 'string' && ['SEARCHABLE', 'IMAGES_ONLY', 'TEXT_PAGES', 'PDFA_SEARCHABLE'].includes(value)) {
+    return value as PdfProfile
+  }
+  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
+    return normalizePdfProfile(value.value)
+  }
+  return 'SEARCHABLE'
+}
+
+function normalizeTeiProfile(value: unknown): TeiProfile {
+  if (typeof value === 'string' && ['STANDARD', 'LAYOUT'].includes(value)) {
+    return value as TeiProfile
+  }
+  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
+    return normalizeTeiProfile(value.value)
+  }
+  return 'STANDARD'
+}
+
+function normalizeSpreadsheetProfiles(value: unknown): SpreadsheetProfile[] {
+  if (Array.isArray(value)) {
+    return value
+      .map(item => typeof item === 'string' ? item : (item && typeof item === 'object' && 'value' in item && typeof item.value === 'string' ? item.value : null))
+      .filter((item): item is SpreadsheetProfile => item === 'PAGE_METADATA' || item === 'TAGS' || item === 'REGIONS')
+  }
+  return ['PAGE_METADATA']
+}
+
+function normalizeDocxOptions(value: unknown): DocxOptions {
+  const source = value && typeof value === 'object' ? value as Partial<DocxOptions> : {}
+  return {
+    preserveLineBreaks: source.preserveLineBreaks !== false,
+    forcePageBreaks: source.forcePageBreaks !== false,
+    includeImageNames: source.includeImageNames === true,
+    markUnclearWords: source.markUnclearWords === true
+  }
+}
+
 function formatExtension(format: ExportFormat): string {
   switch (format) {
     case 'PAGE_XML':
       return 'xml'
+    case 'ALTO_XML':
+      return 'alto.xml'
     case 'TXT':
       return 'txt'
     case 'PDF':
@@ -810,6 +876,10 @@ function formatExtension(format: ExportFormat): string {
       return 'docx'
     case 'TEI':
       return 'tei.xml'
+    case 'CSV':
+      return 'csv'
+    case 'XLSX':
+      return 'xlsx'
   }
 }
 
@@ -864,6 +934,10 @@ async function requestExportOptions(mode: ExportDialogMode): Promise<ExportDialo
     targetPageXmlVersion: confirmedTarget,
     textLevel: normalizeTextLevel(result.textLevel),
     textVariantIndex: Number.isFinite(result.textVariantIndex) ? result.textVariantIndex : 0,
+    pdfProfile: normalizePdfProfile(result.pdfProfile),
+    teiProfile: normalizeTeiProfile(result.teiProfile),
+    spreadsheetProfiles: normalizeSpreadsheetProfiles(result.spreadsheetProfiles),
+    docxOptions: normalizeDocxOptions(result.docxOptions),
     embeddedOutputs: result.embeddedOutputs
       .map((output) => {
         const format = normalizeExportFormat(output.format)
@@ -873,7 +947,11 @@ async function requestExportOptions(mode: ExportDialogMode): Promise<ExportDialo
           format,
           includePageDelimiters: output.includePageDelimiters,
           textLevel: normalizeTextLevel(output.textLevel),
-          textVariantIndex: Number.isFinite(output.textVariantIndex) ? output.textVariantIndex : 0
+          textVariantIndex: Number.isFinite(output.textVariantIndex) ? output.textVariantIndex : 0,
+          pdfProfile: normalizePdfProfile(output.pdfProfile),
+          teiProfile: normalizeTeiProfile(output.teiProfile),
+          spreadsheetProfiles: normalizeSpreadsheetProfiles(output.spreadsheetProfiles),
+          docxOptions: normalizeDocxOptions(output.docxOptions)
         }
       })
       .filter((output): output is ExportDialogResult['embeddedOutputs'][number] => output !== null)

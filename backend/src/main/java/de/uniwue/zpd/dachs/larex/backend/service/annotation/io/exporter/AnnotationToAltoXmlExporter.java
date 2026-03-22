@@ -1,17 +1,32 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter;
 
+import com.maxnth.page4j.dla.page.Page;
+import com.maxnth.page4j.dla.page.io.xml.StreamTarget;
+import com.maxnth.page4j.dla.page.io.xml.XmlPageWriter_Alto;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.mapping.DtoToPage4jMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import java.io.ByteArrayOutputStream;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Exporter for PageDto to ALTO XML format.
- * TODO(larex): Implement ALTO export via page4j ALTO support.
  */
 @Component
 public class AnnotationToAltoXmlExporter {
+
+    private final DtoToPage4jMapper mapper;
+
+    public AnnotationToAltoXmlExporter(DtoToPage4jMapper mapper) {
+        this.mapper = mapper;
+    }
 
     /**
      * Export a PageDto to ALTO XML format.
@@ -22,12 +37,12 @@ public class AnnotationToAltoXmlExporter {
      * @throws IOException if export fails
      */
     public void export(PageDto page, Path outputPath) throws IOException {
-        // TODO(larex): Implement ALTO export with page4j's ALTO writer.
-
-        throw new UnsupportedOperationException(
-            "ALTO XML export not yet migrated to page4j. " +
-            "Use PAGE XML format or implement ALTO support using page4j's ALTO writer."
-        );
+        Page page4j = preparePage(page);
+        try (OutputStream outputStream = Files.newOutputStream(outputPath)) {
+            write(page4j, new StreamTarget(outputStream));
+        } catch (Exception e) {
+            throw new IOException("Failed to write ALTO XML to " + outputPath, e);
+        }
     }
 
     /**
@@ -38,11 +53,40 @@ public class AnnotationToAltoXmlExporter {
      * @return ALTO XML as string
      */
     public String toXmlString(PageDto page) {
-        // TODO(larex): Implement ALTO string conversion with page4j's ALTO writer.
+        Page page4j = preparePage(page);
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            write(page4j, new StreamTarget(outputStream));
+            return outputStream.toString(StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to convert PAGE annotations to ALTO XML", e);
+        }
+    }
 
-        throw new UnsupportedOperationException(
-            "ALTO XML conversion not yet migrated to page4j. " +
-            "Use PAGE XML format or implement ALTO support using page4j's ALTO writer."
-        );
+    private Page preparePage(PageDto pageDto) {
+        if (pageDto == null) {
+            throw new IllegalArgumentException("PageDto cannot be null");
+        }
+        return mapper.toPage4j(pageDto);
+    }
+
+    private void write(Page page, StreamTarget target) throws Exception {
+        XmlPageWriter_Alto writer = new XmlPageWriter_Alto(null);
+        boolean success = writer.write(page, target);
+        List<String> errors = extractMessages(writer.getErrors());
+        if (!success || !errors.isEmpty()) {
+            throw new IOException("ALTO XML validation failed: " + String.join("; ", errors));
+        }
+    }
+
+    private List<String> extractMessages(List<?> errors) {
+        if (errors == null || errors.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> messages = new ArrayList<>();
+        for (Object error : errors) {
+            messages.add(error == null ? "unknown error" : error.toString());
+        }
+        return List.copyOf(messages);
     }
 }

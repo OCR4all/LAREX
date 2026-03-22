@@ -6,8 +6,10 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PointDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionKind;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
@@ -26,6 +28,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -38,6 +42,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import java.net.URL;
 import javax.imageio.ImageIO;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -45,32 +52,49 @@ import javax.xml.transform.OutputKeys;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentInformation;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDMetadata;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.graphics.color.PDOutputIntent;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.state.RenderingMode;
 import org.apache.pdfbox.util.Matrix;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xwpf.usermodel.BreakType;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
+import org.apache.poi.xwpf.usermodel.UnderlinePatterns;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFRun;
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XsltCompiler;
+import net.sf.saxon.s9api.XsltExecutable;
+import net.sf.saxon.s9api.XsltTransformer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import javax.xml.transform.stream.StreamSource;
 
 @Service
 @Transactional(readOnly = true)
 public class DocumentExportService {
 
     private static final String PDF_FONT_RESOURCE_PATH = "/fonts/Junicode.ttf";
+    private static final String PDF_A_ICC_RESOURCE_PATH = "/color/sRGB.icc";
+    private static final String PAGE2TEI_XSLT_RESOURCE_PATH = "/xslt/page2tei-0.xsl";
+    private static final double UNCLEAR_CONFIDENCE_THRESHOLD = 0.75d;
     private static final Comparator<Page> PAGE_NAME_COMPARATOR =
             Comparator.comparing(Page::getName, String.CASE_INSENSITIVE_ORDER)
                     .thenComparing(Page::getId);
@@ -118,14 +142,7 @@ public class DocumentExportService {
         }
 
         List<PreparedPageExport> preparedPages = preparePages(project, List.of(page));
-        return renderDirectExport(
-                project,
-                preparedPages,
-                format,
-                Boolean.TRUE.equals(request.includePageDelimiters()),
-                request == null ? null : request.textLevel(),
-                request == null ? null : request.textVariantIndex()
-        );
+        return renderExport(project, preparedPages, ExportOptions.fromPageRequest(request), true);
     }
 
     public DocumentExportResult exportProject(String workspaceId,
@@ -143,14 +160,7 @@ public class DocumentExportService {
 
         List<Page> selectedPages = resolvePages(project, request.pageIds());
         List<PreparedPageExport> preparedPages = preparePages(project, selectedPages);
-        return renderDirectExport(
-                project,
-                preparedPages,
-                format,
-                Boolean.TRUE.equals(request.includePageDelimiters()),
-                request == null ? null : request.textLevel(),
-                request == null ? null : request.textVariantIndex()
-        );
+        return renderExport(project, preparedPages, ExportOptions.fromProjectRequest(request), false);
     }
 
     public List<EmbeddedProjectOutput> exportEmbeddedProjectOutputs(Project project,
@@ -171,16 +181,8 @@ public class DocumentExportService {
                 throw new IllegalArgumentException("Unsupported embedded project output format: " + request.format());
             }
 
-            boolean includePageDelimiters = Boolean.TRUE.equals(request.includePageDelimiters());
-            DocumentExportResult export = renderDirectExport(
-                    project,
-                    preparedPages,
-                    request.format(),
-                    includePageDelimiters,
-                    request.textLevel(),
-                    request.textVariantIndex()
-            );
-            String archivePath = "exports/" + sanitizeFileName(project.getName(), "project") + "." + request.format().getFileExtension();
+            DocumentExportResult export = renderExport(project, preparedPages, ExportOptions.fromEmbeddedRequest(request), false);
+            String archivePath = "exports/" + export.fileName();
             outputsByPath.putIfAbsent(archivePath, new EmbeddedProjectOutput(archivePath, export.bytes()));
         }
 
@@ -233,8 +235,9 @@ public class DocumentExportService {
             Path imagePath = primaryImage == null ? null : resolveUploadPath(primaryImage.getFilePath());
             preparedPages.add(new PreparedPageExport(
                     page,
+                    primaryXml,
                     pageDto,
-                    extractTextBlocks(pageDto, gtIndex),
+                    extractRegions(pageDto, gtIndex),
                     primaryImage,
                     imagePath
             ));
@@ -243,34 +246,72 @@ public class DocumentExportService {
         return preparedPages;
     }
 
-    private DocumentExportResult renderDirectExport(Project project,
-                                                    List<PreparedPageExport> pages,
-                                                    DocumentExportDto.ExportFormat format,
-                                                    boolean includePageDelimiters,
-                                                    DocumentExportDto.TextLevel textLevel,
-                                                    Integer textVariantIndex) throws IOException {
-        byte[] bytes = switch (format) {
-            case TXT -> renderText(pages, includePageDelimiters, textLevel, textVariantIndex);
-            case DOCX -> renderDocx(project, pages);
-            case TEI -> renderTei(project, pages);
-            case PDF -> renderPdf(pages);
-            case PAGE_XML, ALTO_XML -> throw new IllegalArgumentException("Unsupported direct export format: " + format);
-        };
+    private DocumentExportResult renderExport(Project project,
+                                              List<PreparedPageExport> pages,
+                                              ExportOptions options,
+                                              boolean pageScope) throws IOException {
+        if (options.format() == DocumentExportDto.ExportFormat.CSV || options.format() == DocumentExportDto.ExportFormat.XLSX) {
+            if (pageScope) {
+                throw new IllegalArgumentException("Spreadsheet export is only available for projects");
+            }
+            return renderSpreadsheetExport(project, pages, options);
+        }
 
         String baseName = pages.size() == 1
                 ? sanitizeFileName(pages.get(0).page().getName(), "page")
                 : sanitizeFileName(project.getName(), "project");
-        String fileName = baseName + "." + format.getFileExtension();
-        return new DocumentExportResult(fileName, format.getContentType(), bytes);
+
+        return switch (options.format()) {
+            case TXT -> new DocumentExportResult(
+                    baseName + ".txt",
+                    DocumentExportDto.ExportFormat.TXT.getContentType(),
+                    renderText(pages, options.includePageDelimiters(), options.textLevel(), options.textVariantIndex())
+            );
+            case DOCX -> new DocumentExportResult(
+                    baseName + ".docx",
+                    DocumentExportDto.ExportFormat.DOCX.getContentType(),
+                    renderDocx(project, pages, options.docxOptions(), pageScope)
+            );
+            case TEI -> new DocumentExportResult(
+                    baseName + ".tei.xml",
+                    DocumentExportDto.ExportFormat.TEI.getContentType(),
+                    renderTei(project, pages, options.teiProfile())
+            );
+            case PDF -> new DocumentExportResult(
+                    baseName + ".pdf",
+                    DocumentExportDto.ExportFormat.PDF.getContentType(),
+                    renderPdf(project, pages, options.pdfProfile())
+            );
+            case ALTO_XML -> renderAlto(project, pages);
+            case PAGE_XML -> throw new IllegalArgumentException("PAGE XML export is only supported on the legacy page endpoint");
+            case CSV, XLSX -> throw new IllegalStateException("Spreadsheet formats handled above");
+        };
+    }
+
+    private DocumentExportResult renderAlto(Project project, List<PreparedPageExport> pages) throws IOException {
+        if (pages.size() == 1) {
+            PreparedPageExport page = pages.getFirst();
+            String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, page.pageXml().getId());
+            String fileName = sanitizeFileName(page.page().getName(), "page") + ".alto.xml";
+            return new DocumentExportResult(fileName, DocumentExportDto.ExportFormat.ALTO_XML.getContentType(), xml.getBytes(StandardCharsets.UTF_8));
+        }
+
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        for (PreparedPageExport page : pages) {
+            String xml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.ALTO_XML, page.pageXml().getId());
+            String fileName = sanitizeFileName(page.page().getName(), "page") + ".alto.xml";
+            entries.put(fileName, xml.getBytes(StandardCharsets.UTF_8));
+        }
+        String baseName = sanitizeFileName(project.getName(), "project");
+        return new DocumentExportResult(baseName + ".alto.zip", "application/zip", zipEntries(entries));
     }
 
     private byte[] renderText(List<PreparedPageExport> pages,
                               boolean includePageDelimiters,
-                              DocumentExportDto.TextLevel requestedTextLevel,
-                              Integer requestedTextVariantIndex) {
+                              DocumentExportDto.TextLevel textLevel,
+                              int textVariantIndex) {
         StringBuilder builder = new StringBuilder();
-        DocumentExportDto.TextLevel textLevel = resolveTextLevel(requestedTextLevel);
-        int textVariantIndex = resolveTextVariantIndex(requestedTextVariantIndex);
+        DocumentExportDto.TextLevel resolvedTextLevel = resolveTextLevel(textLevel);
 
         for (int i = 0; i < pages.size(); i++) {
             PreparedPageExport page = pages.get(i);
@@ -282,13 +323,16 @@ public class DocumentExportService {
                         .append(page.page().getName())
                         .append(" =====\n\n");
             }
-            builder.append(renderPageText(page, textLevel, textVariantIndex));
+            builder.append(renderPageText(page, resolvedTextLevel, textVariantIndex));
         }
 
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private byte[] renderDocx(Project project, List<PreparedPageExport> pages) throws IOException {
+    private byte[] renderDocx(Project project,
+                              List<PreparedPageExport> pages,
+                              ResolvedDocxOptions options,
+                              boolean pageScope) throws IOException {
         try (XWPFDocument document = new XWPFDocument();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             XWPFParagraph titleParagraph = document.createParagraph();
@@ -300,6 +344,7 @@ public class DocumentExportService {
 
             for (int i = 0; i < pages.size(); i++) {
                 PreparedPageExport page = pages.get(i);
+
                 XWPFParagraph heading = document.createParagraph();
                 heading.setStyle("Heading1");
                 XWPFRun headingRun = heading.createRun();
@@ -307,13 +352,23 @@ public class DocumentExportService {
                 headingRun.setFontSize(14);
                 headingRun.setText(page.page().getName());
 
-                for (PreparedTextBlock block : page.blocks()) {
-                    XWPFParagraph paragraph = document.createParagraph();
-                    XWPFRun run = paragraph.createRun();
-                    run.setText(block.text());
+                if (options.includeImageNames() && page.image() != null && page.image().getFileName() != null) {
+                    XWPFParagraph imageParagraph = document.createParagraph();
+                    XWPFRun imageRun = imageParagraph.createRun();
+                    imageRun.setItalic(true);
+                    imageRun.setUnderline(UnderlinePatterns.SINGLE);
+                    imageRun.setText(page.image().getFileName());
                 }
 
-                if (i < pages.size() - 1) {
+                for (PreparedRegion region : page.regions()) {
+                    if (!region.hasText()) {
+                        continue;
+                    }
+                    XWPFParagraph paragraph = document.createParagraph();
+                    appendRegionToDocx(paragraph, region, options);
+                }
+
+                if (!pageScope && options.forcePageBreaks() && i < pages.size() - 1) {
                     XWPFParagraph breakParagraph = document.createParagraph();
                     XWPFRun breakRun = breakParagraph.createRun();
                     breakRun.addBreak(BreakType.PAGE);
@@ -325,143 +380,750 @@ public class DocumentExportService {
         }
     }
 
-    private byte[] renderTei(Project project, List<PreparedPageExport> pages) throws IOException {
+    private void appendRegionToDocx(XWPFParagraph paragraph,
+                                    PreparedRegion region,
+                                    ResolvedDocxOptions options) {
+        if (options.preserveLineBreaks()) {
+            List<PreparedTextLine> lines = region.lines().stream().filter(PreparedTextLine::hasText).toList();
+            if (!lines.isEmpty()) {
+                for (int i = 0; i < lines.size(); i++) {
+                    appendLineToDocx(paragraph, lines.get(i), options.markUnclearWords());
+                    if (i < lines.size() - 1) {
+                        paragraph.createRun().addBreak();
+                    }
+                }
+                return;
+            }
+        }
+
+        if (!region.lines().isEmpty()) {
+            boolean firstToken = true;
+            for (PreparedTextLine line : region.lines()) {
+                if (!line.hasText()) {
+                    continue;
+                }
+                if (!firstToken) {
+                    paragraph.createRun().setText(" ");
+                }
+                appendLineInlineToDocx(paragraph, line, options.markUnclearWords());
+                firstToken = false;
+            }
+            return;
+        }
+
+        XWPFRun run = paragraph.createRun();
+        run.setText(nullToEmpty(region.text()));
+    }
+
+    private void appendLineToDocx(XWPFParagraph paragraph,
+                                  PreparedTextLine line,
+                                  boolean markUnclearWords) {
+        if (!line.words().isEmpty()) {
+            boolean first = true;
+            for (PreparedWord word : line.words()) {
+                if (!word.hasText()) {
+                    continue;
+                }
+                if (!first) {
+                    paragraph.createRun().setText(" ");
+                }
+                XWPFRun run = paragraph.createRun();
+                styleRunForUnclear(run, markUnclearWords && isUnclear(word, line));
+                run.setText(word.text());
+                first = false;
+            }
+            return;
+        }
+
+        XWPFRun run = paragraph.createRun();
+        styleRunForUnclear(run, markUnclearWords && isUnclear(line));
+        run.setText(nullToEmpty(line.text()));
+    }
+
+    private void appendLineInlineToDocx(XWPFParagraph paragraph,
+                                        PreparedTextLine line,
+                                        boolean markUnclearWords) {
+        appendLineToDocx(paragraph, line, markUnclearWords);
+    }
+
+    private void styleRunForUnclear(XWPFRun run, boolean unclear) {
+        if (!unclear) {
+            return;
+        }
+        run.setItalic(true);
+        run.setTextHighlightColor("yellow");
+    }
+
+    private boolean isUnclear(PreparedWord word, PreparedTextLine line) {
+        Double confidence = firstNonNull(word.confidence(), word.variantConfidence(), line.variantConfidence(), line.confidence());
+        return confidence != null && confidence < UNCLEAR_CONFIDENCE_THRESHOLD;
+    }
+
+    private boolean isUnclear(PreparedTextLine line) {
+        Double confidence = firstNonNull(line.variantConfidence(), line.confidence());
+        return confidence != null && confidence < UNCLEAR_CONFIDENCE_THRESHOLD;
+    }
+
+    private byte[] renderTei(Project project,
+                             List<PreparedPageExport> pages,
+                             DocumentExportDto.TeiProfile teiProfile) throws IOException {
+        if (resolveTeiProfile(teiProfile) == DocumentExportDto.TeiProfile.LAYOUT) {
+            return renderTeiLayoutWithPage2Tei(pages);
+        }
+
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             factory.setNamespaceAware(true);
             Document document = factory.newDocumentBuilder().newDocument();
+            String namespace = "http://www.tei-c.org/ns/1.0";
 
-            Element tei = document.createElementNS("http://www.tei-c.org/ns/1.0", "TEI");
+            Element tei = document.createElementNS(namespace, "TEI");
             document.appendChild(tei);
+            appendTeiHeader(document, tei, pages.size() == 1 ? pages.get(0).page().getName() : project.getName());
 
-            Element teiHeader = document.createElementNS(tei.getNamespaceURI(), "teiHeader");
-            tei.appendChild(teiHeader);
-
-            Element fileDesc = document.createElementNS(tei.getNamespaceURI(), "fileDesc");
-            teiHeader.appendChild(fileDesc);
-
-            Element titleStmt = document.createElementNS(tei.getNamespaceURI(), "titleStmt");
-            fileDesc.appendChild(titleStmt);
-            Element title = document.createElementNS(tei.getNamespaceURI(), "title");
-            title.setTextContent(pages.size() == 1 ? pages.get(0).page().getName() : project.getName());
-            titleStmt.appendChild(title);
-
-            Element publicationStmt = document.createElementNS(tei.getNamespaceURI(), "publicationStmt");
-            fileDesc.appendChild(publicationStmt);
-            Element publisher = document.createElementNS(tei.getNamespaceURI(), "p");
-            publisher.setTextContent("Generated by LAREX");
-            publicationStmt.appendChild(publisher);
-
-            Element sourceDesc = document.createElementNS(tei.getNamespaceURI(), "sourceDesc");
-            fileDesc.appendChild(sourceDesc);
-            Element source = document.createElementNS(tei.getNamespaceURI(), "p");
-            source.setTextContent("Derived from PAGE XML annotations.");
-            sourceDesc.appendChild(source);
-
-            Element text = document.createElementNS(tei.getNamespaceURI(), "text");
+            Element text = document.createElementNS(namespace, "text");
             tei.appendChild(text);
-            Element body = document.createElementNS(tei.getNamespaceURI(), "body");
+            Element body = document.createElementNS(namespace, "body");
             text.appendChild(body);
 
             for (int i = 0; i < pages.size(); i++) {
                 PreparedPageExport page = pages.get(i);
-                Element div = document.createElementNS(tei.getNamespaceURI(), "div");
+                Element div = document.createElementNS(namespace, "div");
                 div.setAttribute("type", "page");
                 div.setAttributeNS(XMLConstants.XML_NS_URI, "xml:id", sanitizeXmlId("page-" + page.page().getId()));
                 body.appendChild(div);
 
-                Element head = document.createElementNS(tei.getNamespaceURI(), "head");
+                Element head = document.createElementNS(namespace, "head");
                 head.setTextContent(page.page().getName());
                 div.appendChild(head);
 
-                if (pages.size() > 1) {
-                    Element pb = document.createElementNS(tei.getNamespaceURI(), "pb");
-                    pb.setAttribute("n", Integer.toString(i + 1));
-                    if (page.pageDto().imageFilename() != null && !page.pageDto().imageFilename().isBlank()) {
-                        pb.setAttribute("facs", page.pageDto().imageFilename());
-                    }
-                    div.appendChild(pb);
+                Element pb = document.createElementNS(namespace, "pb");
+                pb.setAttribute("n", Integer.toString(i + 1));
+                if (page.pageDto().imageFilename() != null && !page.pageDto().imageFilename().isBlank()) {
+                    pb.setAttribute("facs", page.pageDto().imageFilename());
                 }
+                div.appendChild(pb);
 
-                for (PreparedTextBlock block : page.blocks()) {
-                    Element ab = document.createElementNS(tei.getNamespaceURI(), "ab");
-                    ab.setAttributeNS(XMLConstants.XML_NS_URI, "xml:id", sanitizeXmlId("region-" + block.regionId()));
-                    ab.setTextContent(block.text());
+                for (PreparedRegion region : page.regions()) {
+                    if (!region.hasText()) {
+                        continue;
+                    }
+                    Element ab = document.createElementNS(namespace, "ab");
+                    ab.setAttributeNS(XMLConstants.XML_NS_URI, "xml:id", sanitizeXmlId("region-" + region.id()));
+
+                    if (!region.lines().isEmpty()) {
+                        boolean firstLine = true;
+                        for (PreparedTextLine line : region.lines()) {
+                            if (!line.hasText()) {
+                                continue;
+                            }
+                            if (!firstLine) {
+                                Element lb = document.createElementNS(namespace, "lb");
+                                ab.appendChild(lb);
+                            }
+                            ab.appendChild(document.createTextNode(line.text()));
+                            firstLine = false;
+                        }
+                    } else {
+                        ab.setTextContent(region.text());
+                    }
                     div.appendChild(ab);
                 }
             }
 
-            TransformerFactory transformerFactory = TransformerFactory.newInstance();
-            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            var transformer = transformerFactory.newTransformer();
-            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-            transformer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.name());
-            transformer.transform(new DOMSource(document), new StreamResult(outputStream));
-            return outputStream.toByteArray();
+            return serializeXml(document);
         } catch (Exception e) {
             throw new IOException("Failed to render TEI export", e);
         }
     }
 
-    private byte[] renderPdf(List<PreparedPageExport> pages) throws IOException {
+    private byte[] renderTeiLayoutWithPage2Tei(List<PreparedPageExport> pages) throws IOException {
+        Path tempDir = Files.createTempDirectory("larex-page2tei-");
+        try {
+            Path xmlDir = Files.createDirectories(tempDir.resolve("xml"));
+            Path metsPath = tempDir.resolve("mets.xml");
+
+            List<Page2TeiPageRef> pageRefs = new ArrayList<>();
+            for (int i = 0; i < pages.size(); i++) {
+                PreparedPageExport page = pages.get(i);
+                String xmlFileName = String.format(Locale.ROOT, "page-%04d.xml", i + 1);
+                Path xmlPath = xmlDir.resolve(xmlFileName);
+                String pageXml = annotationProcessingService.exportAnnotationToXml(page.pageDto(), XmlSchema.PAGE_XML, page.pageXml().getId());
+                Files.writeString(xmlPath, pageXml, StandardCharsets.UTF_8);
+                pageRefs.add(new Page2TeiPageRef(i + 1, xmlPath.toUri().toString()));
+            }
+
+            Files.write(metsPath, buildPage2TeiMets(pageRefs));
+            return transformWithPage2Tei(metsPath);
+        } finally {
+            deleteDirectoryQuietly(tempDir);
+        }
+    }
+
+    private void appendTeiHeader(Document document, Element tei, String titleText) {
+        String namespace = tei.getNamespaceURI();
+        Element teiHeader = document.createElementNS(namespace, "teiHeader");
+        tei.appendChild(teiHeader);
+
+        Element fileDesc = document.createElementNS(namespace, "fileDesc");
+        teiHeader.appendChild(fileDesc);
+
+        Element titleStmt = document.createElementNS(namespace, "titleStmt");
+        fileDesc.appendChild(titleStmt);
+        Element title = document.createElementNS(namespace, "title");
+        title.setTextContent(titleText);
+        titleStmt.appendChild(title);
+
+        Element publicationStmt = document.createElementNS(namespace, "publicationStmt");
+        fileDesc.appendChild(publicationStmt);
+        Element publisher = document.createElementNS(namespace, "p");
+        publisher.setTextContent("Generated by LAREX");
+        publicationStmt.appendChild(publisher);
+
+        Element sourceDesc = document.createElementNS(namespace, "sourceDesc");
+        fileDesc.appendChild(sourceDesc);
+        Element source = document.createElementNS(namespace, "p");
+        source.setTextContent("Derived from PAGE XML annotations.");
+        sourceDesc.appendChild(source);
+    }
+
+    private byte[] renderPdf(Project project,
+                             List<PreparedPageExport> pages,
+                             DocumentExportDto.PdfProfile pdfProfile) throws IOException {
+        DocumentExportDto.PdfProfile resolvedProfile = resolvePdfProfile(pdfProfile);
         try (PDDocument document = new PDDocument();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             PDFont font = loadPdfFont(document);
 
             for (PreparedPageExport preparedPage : pages) {
-                PDRectangle pageSize = new PDRectangle(preparedPage.pageDto().imageWidth(), preparedPage.pageDto().imageHeight());
-                PDPage pdfPage = new PDPage(pageSize);
-                document.addPage(pdfPage);
-
-                try (PDPageContentStream contentStream = new PDPageContentStream(document, pdfPage)) {
-                    BufferedImage image = readImage(preparedPage.imagePath());
-                    if (image != null) {
-                        var pdImage = LosslessFactory.createFromImage(document, image);
-                        contentStream.drawImage(pdImage, 0, 0, pageSize.getWidth(), pageSize.getHeight());
-                    }
-
-                    contentStream.setRenderingMode(RenderingMode.NEITHER);
-                    contentStream.setFont(font, 1);
-
-                    for (PreparedTextLine line : collectPdfLines(preparedPage)) {
-                        renderInvisibleTextLine(contentStream, font, line, preparedPage.pageDto());
+                switch (resolvedProfile) {
+                    case SEARCHABLE, PDFA_SEARCHABLE -> addPdfPage(document, font, preparedPage, true, true, RenderingMode.NEITHER);
+                    case IMAGES_ONLY -> addPdfPage(document, font, preparedPage, true, false, null);
+                    case TEXT_PAGES -> {
+                        addPdfPage(document, font, preparedPage, true, false, null);
+                        addPdfPage(document, font, preparedPage, false, true, RenderingMode.FILL);
                     }
                 }
             }
 
-            document.save(outputStream);
-            try (PDDocument loaded = Loader.loadPDF(outputStream.toByteArray())) {
-                loaded.getNumberOfPages();
+            if (resolvedProfile == DocumentExportDto.PdfProfile.PDFA_SEARCHABLE) {
+                applyPdfaMetadata(document, pages.size() == 1 ? pages.get(0).page().getName() : project.getName());
             }
+
+            document.save(outputStream);
             return outputStream.toByteArray();
         }
     }
 
-    private List<PreparedTextLine> collectPdfLines(PreparedPageExport page) {
-        List<PreparedTextLine> lines = new ArrayList<>();
-        for (PreparedTextBlock block : page.blocks()) {
-            if (!block.lines().isEmpty()) {
-                lines.addAll(block.lines());
+    private void addPdfPage(PDDocument document,
+                            PDFont font,
+                            PreparedPageExport preparedPage,
+                            boolean drawImage,
+                            boolean drawText,
+                            RenderingMode renderingMode) throws IOException {
+        PDRectangle pageSize = new PDRectangle(preparedPage.pageDto().imageWidth(), preparedPage.pageDto().imageHeight());
+        PDPage pdfPage = new PDPage(pageSize);
+        document.addPage(pdfPage);
+
+        try (PDPageContentStream contentStream = new PDPageContentStream(document, pdfPage)) {
+            if (drawImage) {
+                BufferedImage image = readImage(preparedPage.imagePath());
+                if (image != null) {
+                    var pdImage = LosslessFactory.createFromImage(document, image);
+                    contentStream.drawImage(pdImage, 0, 0, pageSize.getWidth(), pageSize.getHeight());
+                }
+            }
+
+            if (!drawText || renderingMode == null) {
+                return;
+            }
+
+            contentStream.setRenderingMode(renderingMode);
+            contentStream.setFont(font, 1);
+
+            for (PreparedTextLine line : collectPdfLines(preparedPage)) {
+                renderTextLine(contentStream, font, line, preparedPage.pageDto());
+            }
+        }
+    }
+
+    private void applyPdfaMetadata(PDDocument document, String title) throws IOException {
+        document.setVersion(1.7f);
+        PDDocumentInformation info = document.getDocumentInformation();
+        info.setTitle(title);
+        info.setProducer("LAREX");
+        info.setCreator("LAREX");
+
+        PDDocumentCatalog catalog = document.getDocumentCatalog();
+        catalog.setLanguage("en-US");
+
+        try (InputStream iccStream = DocumentExportService.class.getResourceAsStream(PDF_A_ICC_RESOURCE_PATH)) {
+            if (iccStream == null) {
+                throw new IOException("Bundled PDF/A ICC profile not found: " + PDF_A_ICC_RESOURCE_PATH);
+            }
+            PDOutputIntent outputIntent = new PDOutputIntent(document, iccStream);
+            outputIntent.setInfo("sRGB IEC61966-2.1");
+            outputIntent.setOutputCondition("sRGB IEC61966-2.1");
+            outputIntent.setOutputConditionIdentifier("sRGB IEC61966-2.1");
+            outputIntent.setRegistryName("http://www.color.org");
+            catalog.addOutputIntent(outputIntent);
+        }
+
+        String timestamp = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
+        String xmp = """
+                <?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+                <x:xmpmeta xmlns:x="adobe:ns:meta/">
+                  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+                    <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">
+                      <dc:title>
+                        <rdf:Alt>
+                          <rdf:li xml:lang="x-default">%s</rdf:li>
+                        </rdf:Alt>
+                      </dc:title>
+                    </rdf:Description>
+                    <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/">
+                      <pdf:Producer>LAREX</pdf:Producer>
+                    </rdf:Description>
+                    <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">
+                      <xmp:CreatorTool>LAREX</xmp:CreatorTool>
+                      <xmp:CreateDate>%s</xmp:CreateDate>
+                      <xmp:ModifyDate>%s</xmp:ModifyDate>
+                    </rdf:Description>
+                    <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/">
+                      <pdfaid:part>2</pdfaid:part>
+                      <pdfaid:conformance>B</pdfaid:conformance>
+                    </rdf:Description>
+                  </rdf:RDF>
+                </x:xmpmeta>
+                <?xpacket end="w"?>
+                """.formatted(escapeXml(title), timestamp, timestamp);
+        PDMetadata metadata = new PDMetadata(document);
+        metadata.importXMPMetadata(xmp.getBytes(StandardCharsets.UTF_8));
+        catalog.setMetadata(metadata);
+    }
+
+    private DocumentExportResult renderSpreadsheetExport(Project project,
+                                                         List<PreparedPageExport> pages,
+                                                         ExportOptions options) throws IOException {
+        List<DocumentExportDto.SpreadsheetProfile> profiles = resolveSpreadsheetProfiles(options.spreadsheetProfiles());
+        String baseName = sanitizeFileName(project.getName(), "project");
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+
+        for (DocumentExportDto.SpreadsheetProfile profile : profiles) {
+            String profileSlug = profile.name().toLowerCase(Locale.ROOT);
+            if (options.format() == DocumentExportDto.ExportFormat.CSV) {
+                entries.put(baseName + "-" + profileSlug + ".csv", renderCsv(project, pages, profile));
+            } else {
+                entries.put(baseName + "-" + profileSlug + ".xlsx", renderXlsx(project, pages, profile));
+            }
+        }
+
+        if (entries.size() == 1) {
+            Map.Entry<String, byte[]> entry = entries.entrySet().iterator().next();
+            return new DocumentExportResult(entry.getKey(), options.format().getContentType(), entry.getValue());
+        }
+
+        String suffix = options.format() == DocumentExportDto.ExportFormat.CSV ? "-csv.zip" : "-xlsx.zip";
+        return new DocumentExportResult(baseName + suffix, "application/zip", zipEntries(entries));
+    }
+
+    private byte[] renderCsv(Project project,
+                             List<PreparedPageExport> pages,
+                             DocumentExportDto.SpreadsheetProfile profile) {
+        List<List<String>> rows = spreadsheetRows(project, pages, profile);
+        StringBuilder builder = new StringBuilder();
+        for (List<String> row : rows) {
+            builder.append(row.stream().map(this::csvCell).reduce((left, right) -> left + "," + right).orElse(""));
+            builder.append('\n');
+        }
+        return builder.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private byte[] renderXlsx(Project project,
+                              List<PreparedPageExport> pages,
+                              DocumentExportDto.SpreadsheetProfile profile) throws IOException {
+        try (XSSFWorkbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet(profile.name());
+            List<List<String>> rows = spreadsheetRows(project, pages, profile);
+
+            for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+                Row row = sheet.createRow(rowIndex);
+                List<String> values = rows.get(rowIndex);
+                for (int columnIndex = 0; columnIndex < values.size(); columnIndex++) {
+                    row.createCell(columnIndex).setCellValue(values.get(columnIndex));
+                }
+            }
+
+            for (int i = 0; i < rows.getFirst().size(); i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(outputStream);
+            return outputStream.toByteArray();
+        }
+    }
+
+    private List<List<String>> spreadsheetRows(Project project,
+                                               List<PreparedPageExport> pages,
+                                               DocumentExportDto.SpreadsheetProfile profile) {
+        return switch (profile) {
+            case PAGE_METADATA -> pageMetadataRows(project, pages);
+            case TAGS -> tagRows(project, pages);
+            case REGIONS -> regionRows(project, pages);
+        };
+    }
+
+    private List<List<String>> pageMetadataRows(Project project, List<PreparedPageExport> pages) {
+        List<List<String>> rows = new ArrayList<>();
+        rows.add(List.of(
+                "workspaceId", "workspaceName", "projectId", "projectName", "pageId", "pageName", "pageDescription",
+                "created", "updated", "locked", "imageCount", "xmlFileCount", "primaryImageFileName", "primaryXmlFileName", "defaultGtIndex"
+        ));
+
+        for (PreparedPageExport page : pages) {
+            rows.add(List.of(
+                    nullToEmpty(project.getLibrary().getWorkspaceId()),
+                    nullToEmpty(project.getLibrary().getName()),
+                    nullToEmpty(project.getId()),
+                    nullToEmpty(project.getName()),
+                    nullToEmpty(page.page().getId()),
+                    nullToEmpty(page.page().getName()),
+                    nullToEmpty(page.page().getDescription()),
+                    timeValue(page.page().getCreated()),
+                    timeValue(page.page().getUpdated()),
+                    Boolean.toString(page.page().isLocked()),
+                    Integer.toString(page.page().getImages() == null ? 0 : page.page().getImages().size()),
+                    Integer.toString(page.page().getXmlFiles() == null ? 0 : page.page().getXmlFiles().size()),
+                    page.image() == null ? "" : nullToEmpty(page.image().getFileName()),
+                    page.pageXml() == null ? "" : nullToEmpty(page.pageXml().getFileName()),
+                    Integer.toString(project.getEffectiveDefaultGtIndex())
+            ));
+        }
+        return rows;
+    }
+
+    private List<List<String>> tagRows(Project project, List<PreparedPageExport> pages) {
+        List<List<String>> rows = new ArrayList<>();
+        rows.add(List.of("scope", "workspaceId", "projectId", "projectName", "pageId", "pageName", "tag"));
+
+        for (String tag : project.getTags() == null ? List.<String>of() : project.getTags()) {
+            rows.add(List.of(
+                    "PROJECT",
+                    nullToEmpty(project.getLibrary().getWorkspaceId()),
+                    nullToEmpty(project.getId()),
+                    nullToEmpty(project.getName()),
+                    "",
+                    "",
+                    nullToEmpty(tag)
+            ));
+        }
+
+        for (PreparedPageExport page : pages) {
+            for (String tag : page.page().getTags() == null ? List.<String>of() : page.page().getTags()) {
+                rows.add(List.of(
+                        "PAGE",
+                        nullToEmpty(project.getLibrary().getWorkspaceId()),
+                        nullToEmpty(project.getId()),
+                        nullToEmpty(project.getName()),
+                        nullToEmpty(page.page().getId()),
+                        nullToEmpty(page.page().getName()),
+                        nullToEmpty(tag)
+                ));
+            }
+        }
+
+        return rows;
+    }
+
+    private List<List<String>> regionRows(Project project, List<PreparedPageExport> pages) {
+        List<List<String>> rows = new ArrayList<>();
+        rows.add(List.of(
+                "workspaceId", "projectId", "projectName", "pageId", "pageName", "regionId", "parentRegionId", "kind", "type",
+                "readingOrderIndex", "text", "bboxX", "bboxY", "bboxWidth", "bboxHeight", "polygon", "rows", "columns", "labelIds", "custom"
+        ));
+
+        for (PreparedPageExport page : pages) {
+            for (PreparedRegion region : page.regions()) {
+                PolygonDto.BoundingBoxDto box = region.coords() == null ? null : region.coords().getBoundingBox();
+                rows.add(List.of(
+                        nullToEmpty(project.getLibrary().getWorkspaceId()),
+                        nullToEmpty(project.getId()),
+                        nullToEmpty(project.getName()),
+                        nullToEmpty(page.page().getId()),
+                        nullToEmpty(page.page().getName()),
+                        nullToEmpty(region.id()),
+                        nullToEmpty(region.parentRegionId()),
+                        region.kind() == null ? "" : region.kind().name(),
+                        nullToEmpty(region.type()),
+                        region.readingOrderIndex() == null ? "" : Integer.toString(region.readingOrderIndex()),
+                        nullToEmpty(region.text()),
+                        box == null ? "" : doubleToString(box.x()),
+                        box == null ? "" : doubleToString(box.y()),
+                        box == null ? "" : doubleToString(box.width()),
+                        box == null ? "" : doubleToString(box.height()),
+                        polygonToString(region.coords()),
+                        region.rows() == null ? "" : Integer.toString(region.rows()),
+                        region.columns() == null ? "" : Integer.toString(region.columns()),
+                        region.labelIds() == null ? "" : String.join("|", region.labelIds()),
+                        nullToEmpty(region.custom())
+                ));
+            }
+        }
+        return rows;
+    }
+
+    private String renderPageText(PreparedPageExport page,
+                                  DocumentExportDto.TextLevel textLevel,
+                                  int textVariantIndex) {
+        List<String> fragments = extractTextFragments(page.pageDto(), textLevel, textVariantIndex);
+        if (fragments.isEmpty()) {
+            return "";
+        }
+        String separator = textLevel == DocumentExportDto.TextLevel.TEXT_LINE ? "\n" : "\n\n";
+        return String.join(separator, fragments);
+    }
+
+    private List<String> extractTextFragments(PageDto pageDto,
+                                              DocumentExportDto.TextLevel textLevel,
+                                              int textVariantIndex) {
+        List<PreparedRegion> regions = extractRegions(pageDto, textVariantIndex).stream()
+                .filter(PreparedRegion::hasText)
+                .toList();
+        if (regions.isEmpty()) {
+            return List.of();
+        }
+
+        return switch (textLevel) {
+            case PAGE -> List.of(regions.stream()
+                    .map(PreparedRegion::text)
+                    .filter(text -> text != null && !text.isBlank())
+                    .reduce((left, right) -> left + "\n\n" + right)
+                    .orElse(""));
+            case REGION -> regions.stream()
+                    .map(PreparedRegion::text)
+                    .filter(text -> text != null && !text.isBlank())
+                    .toList();
+            case TEXT_LINE -> regions.stream()
+                    .flatMap(region -> region.lines().isEmpty()
+                            ? java.util.stream.Stream.of(region.text())
+                            : region.lines().stream().map(PreparedTextLine::text))
+                    .filter(text -> text != null && !text.isBlank())
+                    .toList();
+        };
+    }
+
+    private List<PreparedRegion> extractRegions(PageDto pageDto, int gtIndex) {
+        Map<String, RegionDto> regionById = new LinkedHashMap<>();
+        Map<String, String> parentByRegionId = new HashMap<>();
+        List<RegionDto> structuralOrder = new ArrayList<>();
+        collectRegions(pageDto.regions(), null, regionById, parentByRegionId, structuralOrder);
+
+        List<String> readingOrderIds = new ArrayList<>();
+        flattenReadingOrder(pageDto.readingOrder(), readingOrderIds);
+
+        List<PreparedRegion> regions = new ArrayList<>();
+        Set<String> visitedRegionIds = new HashSet<>();
+        int readingOrderIndex = 0;
+
+        for (String regionId : readingOrderIds) {
+            RegionDto region = regionById.get(regionId);
+            PreparedRegion preparedRegion = toPreparedRegion(region, parentByRegionId.get(regionId), gtIndex, readingOrderIndex);
+            if (preparedRegion != null && visitedRegionIds.add(preparedRegion.id())) {
+                regions.add(preparedRegion);
+                readingOrderIndex++;
+            }
+        }
+
+        for (RegionDto region : structuralOrder) {
+            PreparedRegion preparedRegion = toPreparedRegion(region, parentByRegionId.get(region.id()), gtIndex, readingOrderIndex);
+            if (preparedRegion != null && visitedRegionIds.add(preparedRegion.id())) {
+                regions.add(preparedRegion);
+                readingOrderIndex++;
+            }
+        }
+
+        return regions;
+    }
+
+    private void collectRegions(List<RegionDto> regions,
+                                String parentRegionId,
+                                Map<String, RegionDto> regionById,
+                                Map<String, String> parentByRegionId,
+                                List<RegionDto> structuralOrder) {
+        if (regions == null) {
+            return;
+        }
+        for (RegionDto region : regions) {
+            if (region == null || region.id() == null) {
                 continue;
             }
-            if (block.text() != null && !block.text().isBlank()) {
+            regionById.put(region.id(), region);
+            parentByRegionId.put(region.id(), parentRegionId);
+            structuralOrder.add(region);
+            collectRegions(region.nestedRegions(), region.id(), regionById, parentByRegionId, structuralOrder);
+        }
+    }
+
+    private void flattenReadingOrder(ReadingOrderDto readingOrder, List<String> orderedIds) {
+        if (readingOrder == null || readingOrder.root() == null) {
+            return;
+        }
+        flattenGroup(readingOrder.root(), orderedIds);
+    }
+
+    private void flattenGroup(ReadingOrderDto.GroupDto group, List<String> orderedIds) {
+        if (group == null || group.members() == null) {
+            return;
+        }
+        for (ReadingOrderDto.GroupMemberDto member : group.members()) {
+            if (member instanceof ReadingOrderDto.RegionRefDto regionRef && regionRef.regionRef() != null) {
+                orderedIds.add(regionRef.regionRef());
+            } else if (member instanceof ReadingOrderDto.NestedGroupDto nestedGroup) {
+                flattenGroup(nestedGroup.group(), orderedIds);
+            }
+        }
+    }
+
+    private PreparedRegion toPreparedRegion(RegionDto region,
+                                            String parentRegionId,
+                                            int gtIndex,
+                                            int readingOrderIndex) {
+        if (region == null || region.id() == null) {
+            return null;
+        }
+
+        List<PreparedTextLine> lines = extractLines(region.textLines(), gtIndex);
+        String text = !lines.isEmpty()
+                ? String.join("\n", lines.stream().map(PreparedTextLine::text).filter(Objects::nonNull).toList())
+                : resolveVariant(region.textContentVariants(), gtIndex).text();
+
+        return new PreparedRegion(
+                region.id(),
+                parentRegionId,
+                region.kind(),
+                region.type(),
+                readingOrderIndex,
+                region.coords(),
+                region.rows(),
+                region.columns(),
+                region.labelIds(),
+                region.custom(),
+                text,
+                lines
+        );
+    }
+
+    private List<PreparedTextLine> extractLines(List<TextLineDto> textLines, int gtIndex) {
+        if (textLines == null || textLines.isEmpty()) {
+            return List.of();
+        }
+
+        List<TextLineDto> sortedTextLines = textLines.stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing((TextLineDto line) -> line.index() == null ? Integer.MAX_VALUE : line.index())
+                        .thenComparing(line -> line.id() == null ? "" : line.id()))
+                .toList();
+
+        List<PreparedTextLine> lines = new ArrayList<>();
+        for (TextLineDto line : sortedTextLines) {
+            VariantSelection variant = resolveVariant(line.textContentVariants(), gtIndex);
+            String text = variant.text();
+            if ((text == null || text.isBlank()) && line.getText() != null && !line.getText().isBlank()) {
+                text = line.getText();
+            }
+            List<PreparedWord> words = extractWords(line.words(), gtIndex);
+            if ((text == null || text.isBlank()) && !words.isEmpty()) {
+                text = words.stream().map(PreparedWord::text).filter(Objects::nonNull).reduce((left, right) -> left + " " + right).orElse(null);
+            }
+            lines.add(new PreparedTextLine(
+                    line.id(),
+                    text,
+                    line.coords(),
+                    line.baseline(),
+                    line.confidence(),
+                    variant.confidence(),
+                    words
+            ));
+        }
+        return lines;
+    }
+
+    private List<PreparedWord> extractWords(List<WordDto> words, int gtIndex) {
+        if (words == null || words.isEmpty()) {
+            return List.of();
+        }
+
+        List<PreparedWord> preparedWords = new ArrayList<>();
+        for (WordDto word : words) {
+            if (word == null) {
+                continue;
+            }
+            VariantSelection variant = resolveVariant(word.textContentVariants(), gtIndex);
+            String text = variant.text();
+            if ((text == null || text.isBlank()) && word.getText() != null && !word.getText().isBlank()) {
+                text = word.getText();
+            }
+            preparedWords.add(new PreparedWord(word.id(), text, word.coords(), word.confidence(), variant.confidence()));
+        }
+        return preparedWords;
+    }
+
+    private VariantSelection resolveVariant(List<TextContentVariantDto> variants, int gtIndex) {
+        if (variants == null || variants.isEmpty()) {
+            return VariantSelection.EMPTY;
+        }
+
+        for (TextContentVariantDto variant : variants) {
+            if (variant != null && Objects.equals(variant.index(), gtIndex) && hasText(variant.unicode())) {
+                return new VariantSelection(variant.unicode(), variant.confidence());
+            }
+        }
+
+        if (gtIndex != 0) {
+            for (TextContentVariantDto variant : variants) {
+                if (variant != null && Objects.equals(variant.index(), 0) && hasText(variant.unicode())) {
+                    return new VariantSelection(variant.unicode(), variant.confidence());
+                }
+            }
+        }
+
+        return variants.stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing((TextContentVariantDto variant) -> variant.index() == null ? Integer.MAX_VALUE : variant.index()))
+                .filter(variant -> hasText(variant.unicode()))
+                .findFirst()
+                .map(variant -> new VariantSelection(variant.unicode(), variant.confidence()))
+                .orElse(VariantSelection.EMPTY);
+    }
+
+    private List<PreparedTextLine> collectPdfLines(PreparedPageExport page) {
+        List<PreparedTextLine> lines = new ArrayList<>();
+        for (PreparedRegion region : page.regions()) {
+            if (!region.lines().isEmpty()) {
+                lines.addAll(region.lines().stream().filter(PreparedTextLine::hasText).toList());
+                continue;
+            }
+            if (region.hasText()) {
                 lines.add(new PreparedTextLine(
-                        block.regionId(),
-                        block.text(),
-                        block.coords(),
-                        null
+                        region.id(),
+                        region.text(),
+                        region.coords(),
+                        null,
+                        null,
+                        null,
+                        List.of()
                 ));
             }
         }
         return lines;
     }
 
-    private void renderInvisibleTextLine(PDPageContentStream contentStream,
-                                         PDFont font,
-                                         PreparedTextLine line,
-                                         PageDto pageDto) throws IOException {
+    private void renderTextLine(PDPageContentStream contentStream,
+                                PDFont font,
+                                PreparedTextLine line,
+                                PageDto pageDto) throws IOException {
         String pdfText = sanitizePdfText(line.text());
         if (pdfText == null || pdfText.isBlank()) {
             return;
@@ -500,18 +1162,18 @@ public class DocumentExportService {
     private LinePlacement computePlacement(PreparedTextLine line, PageDto pageDto) {
         PolygonDto baseline = line.baseline();
         if (baseline != null && baseline.points() != null && baseline.points().size() >= 2) {
-            PointDto start = baseline.points().get(0);
-            PointDto end = baseline.points().get(baseline.points().size() - 1);
+            PointDto start = baseline.points().getFirst();
+            PointDto end = baseline.points().getLast();
             float startX = CoordinateUtils.worldToPixelX(start.x(), pageDto.imageWidth());
             float startY = pageDto.imageHeight() - CoordinateUtils.worldToPixelY(start.y(), pageDto.imageHeight());
             float endX = CoordinateUtils.worldToPixelX(end.x(), pageDto.imageWidth());
             float endY = pageDto.imageHeight() - CoordinateUtils.worldToPixelY(end.y(), pageDto.imageHeight());
 
-            PolygonDto.BoundingBoxDto box = (line.coords() == null ? null : line.coords().getBoundingBox());
+            PolygonDto.BoundingBoxDto box = line.coords() == null ? null : line.coords().getBoundingBox();
             float boxHeight = box == null
                     ? 12f
                     : Math.max(8f, Math.abs(CoordinateUtils.worldToPixelY(box.y(), pageDto.imageHeight())
-                            - CoordinateUtils.worldToPixelY(box.y() + box.height(), pageDto.imageHeight())) * 0.8f);
+                    - CoordinateUtils.worldToPixelY(box.y() + box.height(), pageDto.imageHeight())) * 0.8f);
 
             return new LinePlacement(
                     startX,
@@ -550,201 +1212,6 @@ public class DocumentExportService {
         return ImageIO.read(imagePath.toFile());
     }
 
-    private String renderPageText(PreparedPageExport page,
-                                  DocumentExportDto.TextLevel textLevel,
-                                  int textVariantIndex) {
-        List<String> fragments = extractTextFragments(page.pageDto(), textVariantIndex, textLevel);
-        if (fragments.isEmpty()) {
-            return "";
-        }
-        String separator = textLevel == DocumentExportDto.TextLevel.TEXT_LINE ? "\n" : "\n\n";
-        return String.join(separator, fragments);
-    }
-
-    private List<String> extractTextFragments(PageDto pageDto,
-                                              int gtIndex,
-                                              DocumentExportDto.TextLevel textLevel) {
-        List<PreparedTextBlock> blocks = extractTextBlocks(pageDto, gtIndex);
-        if (blocks.isEmpty()) {
-            return List.of();
-        }
-
-        return switch (textLevel) {
-            case PAGE -> List.of(blocks.stream()
-                    .map(PreparedTextBlock::text)
-                    .filter(text -> text != null && !text.isBlank())
-                    .reduce((left, right) -> left + "\n\n" + right)
-                    .orElse(""));
-            case REGION -> blocks.stream()
-                    .map(PreparedTextBlock::text)
-                    .filter(text -> text != null && !text.isBlank())
-                    .toList();
-            case TEXT_LINE -> blocks.stream()
-                    .flatMap(block -> {
-                        if (!block.lines().isEmpty()) {
-                            return block.lines().stream().map(PreparedTextLine::text);
-                        }
-                        return java.util.stream.Stream.of(block.text());
-                    })
-                    .filter(text -> text != null && !text.isBlank())
-                    .toList();
-        };
-    }
-
-    private List<PreparedTextBlock> extractTextBlocks(PageDto pageDto, int gtIndex) {
-        Map<String, RegionDto> regionById = new LinkedHashMap<>();
-        collectRegions(pageDto.regions(), regionById);
-
-        Set<String> orderedIds = new LinkedHashSet<>();
-        flattenReadingOrder(pageDto.readingOrder(), orderedIds);
-
-        List<PreparedTextBlock> blocks = new ArrayList<>();
-        Set<String> visitedRegionIds = new HashSet<>();
-
-        for (String regionId : orderedIds) {
-            RegionDto region = regionById.get(regionId);
-            PreparedTextBlock block = toTextBlock(region, gtIndex);
-            if (block != null && visitedRegionIds.add(block.regionId())) {
-                blocks.add(block);
-            }
-        }
-
-        appendFallbackBlocks(pageDto.regions(), gtIndex, visitedRegionIds, blocks);
-        return blocks;
-    }
-
-    private void collectRegions(List<RegionDto> regions, Map<String, RegionDto> regionById) {
-        if (regions == null) {
-            return;
-        }
-        for (RegionDto region : regions) {
-            if (region == null || region.id() == null) {
-                continue;
-            }
-            regionById.put(region.id(), region);
-            collectRegions(region.nestedRegions(), regionById);
-        }
-    }
-
-    private void flattenReadingOrder(ReadingOrderDto readingOrder, Set<String> orderedIds) {
-        if (readingOrder == null || readingOrder.root() == null) {
-            return;
-        }
-        flattenGroup(readingOrder.root(), orderedIds);
-    }
-
-    private void flattenGroup(ReadingOrderDto.GroupDto group, Set<String> orderedIds) {
-        if (group == null || group.members() == null) {
-            return;
-        }
-        for (ReadingOrderDto.GroupMemberDto member : group.members()) {
-            if (member instanceof ReadingOrderDto.RegionRefDto regionRef && regionRef.regionRef() != null) {
-                orderedIds.add(regionRef.regionRef());
-            } else if (member instanceof ReadingOrderDto.NestedGroupDto nestedGroup) {
-                flattenGroup(nestedGroup.group(), orderedIds);
-            }
-        }
-    }
-
-    private void appendFallbackBlocks(List<RegionDto> regions,
-                                      int gtIndex,
-                                      Set<String> visitedRegionIds,
-                                      List<PreparedTextBlock> blocks) {
-        if (regions == null) {
-            return;
-        }
-        for (RegionDto region : regions) {
-            PreparedTextBlock block = toTextBlock(region, gtIndex);
-            if (block != null && visitedRegionIds.add(block.regionId())) {
-                blocks.add(block);
-            }
-            appendFallbackBlocks(region == null ? null : region.nestedRegions(), gtIndex, visitedRegionIds, blocks);
-        }
-    }
-
-    private PreparedTextBlock toTextBlock(RegionDto region, int gtIndex) {
-        if (region == null || region.id() == null) {
-            return null;
-        }
-
-        List<PreparedTextLine> lines = extractLines(region.textLines(), gtIndex);
-        String text;
-        if (!lines.isEmpty()) {
-            text = String.join("\n", lines.stream().map(PreparedTextLine::text).toList());
-        } else {
-            text = resolveVariantText(region.textContentVariants(), gtIndex);
-        }
-
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-
-        return new PreparedTextBlock(region.id(), text, region.coords(), lines);
-    }
-
-    private List<PreparedTextLine> extractLines(List<TextLineDto> textLines, int gtIndex) {
-        if (textLines == null || textLines.isEmpty()) {
-            return List.of();
-        }
-
-        List<TextLineDto> sortedTextLines = textLines.stream()
-                .filter(Objects::nonNull)
-                .sorted(Comparator.comparing((TextLineDto line) -> line.index() == null ? Integer.MAX_VALUE : line.index())
-                        .thenComparing(line -> line.id() == null ? "" : line.id()))
-                .toList();
-
-        List<PreparedTextLine> lines = new ArrayList<>();
-        for (TextLineDto line : sortedTextLines) {
-            String text = resolveVariantText(line.textContentVariants(), gtIndex);
-            if ((text == null || text.isBlank()) && line.getText() != null && !line.getText().isBlank()) {
-                text = line.getText();
-            }
-            if (text == null || text.isBlank()) {
-                continue;
-            }
-            lines.add(new PreparedTextLine(line.id(), text, line.coords(), line.baseline()));
-        }
-        return lines;
-    }
-
-    private String resolveVariantText(List<TextContentVariantDto> variants, int gtIndex) {
-        if (variants == null || variants.isEmpty()) {
-            return null;
-        }
-
-        String exactMatch = variants.stream()
-                .filter(Objects::nonNull)
-                .filter(variant -> Objects.equals(variant.index(), gtIndex))
-                .map(TextContentVariantDto::unicode)
-                .filter(text -> text != null && !text.isBlank())
-                .findFirst()
-                .orElse(null);
-        if (exactMatch != null) {
-            return exactMatch;
-        }
-
-        if (gtIndex != 0) {
-            String zeroMatch = variants.stream()
-                    .filter(Objects::nonNull)
-                    .filter(variant -> Objects.equals(variant.index(), 0))
-                    .map(TextContentVariantDto::unicode)
-                    .filter(text -> text != null && !text.isBlank())
-                    .findFirst()
-                    .orElse(null);
-            if (zeroMatch != null) {
-                return zeroMatch;
-            }
-        }
-
-        return variants.stream()
-                .filter(Objects::nonNull)
-                .sorted(Comparator.comparing((TextContentVariantDto variant) -> variant.index() == null ? Integer.MAX_VALUE : variant.index()))
-                .map(TextContentVariantDto::unicode)
-                .filter(text -> text != null && !text.isBlank())
-                .findFirst()
-                .orElse(null);
-    }
-
     private PageXml resolvePrimaryXml(Page page) {
         PageXml pageXml = resolvePrimaryPageXml(page);
         if (pageXml != null) {
@@ -752,9 +1219,9 @@ public class DocumentExportService {
         }
 
         return page.getXmlFiles().stream()
-                        .sorted(PAGE_XML_COMPARATOR)
-                        .findFirst()
-                        .orElse(null);
+                .sorted(PAGE_XML_COMPARATOR)
+                .findFirst()
+                .orElse(null);
     }
 
     private PageXml resolvePrimaryPageXml(Page page) {
@@ -796,6 +1263,10 @@ public class DocumentExportService {
         return sanitized.isBlank() ? "id" : sanitized.toLowerCase(Locale.ROOT);
     }
 
+    private String zoneId(String prefix, String id) {
+        return sanitizeXmlId(prefix + "-" + id);
+    }
+
     private PDType0Font loadPdfFont(PDDocument document) throws IOException {
         try (InputStream inputStream = DocumentExportService.class.getResourceAsStream(PDF_FONT_RESOURCE_PATH)) {
             if (inputStream == null) {
@@ -817,7 +1288,31 @@ public class DocumentExportService {
     }
 
     private int resolveTextVariantIndex(Integer requestedTextVariantIndex) {
-        return requestedTextVariantIndex == null ? 0 : requestedTextVariantIndex;
+        return requestedTextVariantIndex == null ? 0 : Math.max(0, requestedTextVariantIndex);
+    }
+
+    private DocumentExportDto.PdfProfile resolvePdfProfile(DocumentExportDto.PdfProfile pdfProfile) {
+        return pdfProfile == null ? DocumentExportDto.PdfProfile.SEARCHABLE : pdfProfile;
+    }
+
+    private DocumentExportDto.TeiProfile resolveTeiProfile(DocumentExportDto.TeiProfile teiProfile) {
+        return teiProfile == null ? DocumentExportDto.TeiProfile.STANDARD : teiProfile;
+    }
+
+    private List<DocumentExportDto.SpreadsheetProfile> resolveSpreadsheetProfiles(List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles) {
+        if (spreadsheetProfiles == null || spreadsheetProfiles.isEmpty()) {
+            return List.of(DocumentExportDto.SpreadsheetProfile.PAGE_METADATA);
+        }
+        return spreadsheetProfiles.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    private ResolvedDocxOptions resolveDocxOptions(DocumentExportDto.DocxOptions options, boolean pageScope) {
+        return new ResolvedDocxOptions(
+                options == null || options.preserveLineBreaks() == null || options.preserveLineBreaks(),
+                !pageScope && (options == null || options.forcePageBreaks() == null || options.forcePageBreaks()),
+                options != null && Boolean.TRUE.equals(options.includeImageNames()),
+                options != null && Boolean.TRUE.equals(options.markUnclearWords())
+        );
     }
 
     private DocumentExportResult exportPageXml(Page page, String targetPageXmlVersion) throws IOException {
@@ -840,6 +1335,169 @@ public class DocumentExportService {
         return new DocumentExportResult(fileName, contentType, bytes);
     }
 
+    private byte[] serializeXml(Document document) throws Exception {
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        var transformer = transformerFactory.newTransformer();
+        transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+        transformer.setOutputProperty(OutputKeys.ENCODING, StandardCharsets.UTF_8.name());
+        transformer.transform(new DOMSource(document), new StreamResult(outputStream));
+        return outputStream.toByteArray();
+    }
+
+    private byte[] buildPage2TeiMets(List<Page2TeiPageRef> pageRefs) throws IOException {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setNamespaceAware(true);
+            Document document = factory.newDocumentBuilder().newDocument();
+
+            String metsNs = "http://www.loc.gov/METS/";
+            String xlinkNs = "http://www.w3.org/1999/xlink";
+            Element mets = document.createElementNS(metsNs, "mets:mets");
+            mets.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:mets", metsNs);
+            mets.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:xlink", xlinkNs);
+            document.appendChild(mets);
+
+            Element fileSec = document.createElementNS(metsNs, "mets:fileSec");
+            mets.appendChild(fileSec);
+
+            Element fileGrp = document.createElementNS(metsNs, "mets:fileGrp");
+            fileGrp.setAttribute("USE", "PAGEXML");
+            fileSec.appendChild(fileGrp);
+
+            for (Page2TeiPageRef pageRef : pageRefs) {
+                Element file = document.createElementNS(metsNs, "mets:file");
+                file.setAttribute("ID", "PAGE_" + pageRef.sequence());
+                file.setAttribute("SEQ", Integer.toString(pageRef.sequence()));
+                fileGrp.appendChild(file);
+
+                Element flocat = document.createElementNS(metsNs, "mets:FLocat");
+                flocat.setAttribute("LOCTYPE", "URL");
+                flocat.setAttributeNS(xlinkNs, "xlink:href", pageRef.href());
+                file.appendChild(flocat);
+            }
+
+            return serializeXml(document);
+        } catch (Exception e) {
+            throw new IOException("Failed to build temporary METS for page2tei", e);
+        }
+    }
+
+    private byte[] transformWithPage2Tei(Path metsPath) throws IOException {
+        URL xslUrl = DocumentExportService.class.getResource(PAGE2TEI_XSLT_RESOURCE_PATH);
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            if (xslUrl == null) {
+                throw new IOException("Bundled page2tei stylesheet not found: " + PAGE2TEI_XSLT_RESOURCE_PATH);
+            }
+
+            Processor processor = new Processor(false);
+            XsltCompiler compiler = processor.newXsltCompiler();
+            StreamSource stylesheetSource = new StreamSource(xslUrl.toExternalForm());
+            stylesheetSource.setSystemId(xslUrl.toExternalForm());
+            XsltExecutable executable = compiler.compile(stylesheetSource);
+            XsltTransformer transformer = executable.load();
+            transformer.setSource(new StreamSource(metsPath.toFile()));
+
+            Serializer serializer = processor.newSerializer(outputStream);
+            serializer.setOutputProperty(Serializer.Property.METHOD, "xml");
+            serializer.setOutputProperty(Serializer.Property.INDENT, "yes");
+            transformer.setDestination(serializer);
+            transformer.transform();
+            return outputStream.toByteArray();
+        } catch (SaxonApiException e) {
+            throw new IOException("Failed to transform PAGE XML to TEI via page2tei", e);
+        }
+    }
+
+    private byte[] zipEntries(Map<String, byte[]> entries) throws IOException {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+             ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
+            for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+                zipOutputStream.putNextEntry(new ZipEntry(entry.getKey()));
+                zipOutputStream.write(entry.getValue());
+                zipOutputStream.closeEntry();
+            }
+            zipOutputStream.finish();
+            return outputStream.toByteArray();
+        }
+    }
+
+    private String csvCell(String value) {
+        String normalized = value == null ? "" : value;
+        boolean needsQuotes = normalized.contains(",")
+                || normalized.contains("\"")
+                || normalized.contains("\n")
+                || normalized.contains("\r");
+        String escaped = normalized.replace("\"", "\"\"");
+        return needsQuotes ? "\"" + escaped + "\"" : escaped;
+    }
+
+    private String polygonToString(PolygonDto polygon) {
+        if (polygon == null || polygon.points() == null || polygon.points().isEmpty()) {
+            return "";
+        }
+        return polygon.points().stream()
+                .map(point -> doubleToString(point.x()) + "," + doubleToString(point.y()))
+                .reduce((left, right) -> left + " " + right)
+                .orElse("");
+    }
+
+    private String doubleToString(Double value) {
+        if (value == null) {
+            return "";
+        }
+        return value % 1d == 0d ? Long.toString(value.longValue()) : Double.toString(value);
+    }
+
+    private String timeValue(java.time.LocalDateTime value) {
+        return value == null ? "" : value.toString();
+    }
+
+    private String nullToEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    @SafeVarargs
+    private final <T> T firstNonNull(T... values) {
+        for (T value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String escapeXml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
+    }
+
+    private void deleteDirectoryQuietly(Path directory) {
+        if (directory == null || !Files.exists(directory)) {
+            return;
+        }
+        try (var paths = Files.walk(directory)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException ignored) {
+        }
+    }
+
     public record DocumentExportResult(
             String fileName,
             String contentType,
@@ -853,28 +1511,141 @@ public class DocumentExportService {
     ) {
     }
 
+    private record ExportOptions(
+            DocumentExportDto.ExportFormat format,
+            boolean includePageDelimiters,
+            DocumentExportDto.TextLevel textLevel,
+            int textVariantIndex,
+            DocumentExportDto.PdfProfile pdfProfile,
+            DocumentExportDto.TeiProfile teiProfile,
+            List<DocumentExportDto.SpreadsheetProfile> spreadsheetProfiles,
+            ResolvedDocxOptions docxOptions
+    ) {
+        private static ExportOptions fromPageRequest(DocumentExportDto.PageExportRequest request) {
+            return new ExportOptions(
+                    request.format(),
+                    Boolean.TRUE.equals(request.includePageDelimiters()),
+                    request.textLevel() == null ? DocumentExportDto.TextLevel.PAGE : request.textLevel(),
+                    request.textVariantIndex() == null ? 0 : Math.max(0, request.textVariantIndex()),
+                    request.pdfProfile(),
+                    request.teiProfile(),
+                    request.spreadsheetProfiles(),
+                    ResolvedDocxOptions.from(request.docxOptions(), true)
+            );
+        }
+
+        private static ExportOptions fromProjectRequest(DocumentExportDto.ProjectExportRequest request) {
+            return new ExportOptions(
+                    request.format(),
+                    Boolean.TRUE.equals(request.includePageDelimiters()),
+                    request.textLevel() == null ? DocumentExportDto.TextLevel.PAGE : request.textLevel(),
+                    request.textVariantIndex() == null ? 0 : Math.max(0, request.textVariantIndex()),
+                    request.pdfProfile(),
+                    request.teiProfile(),
+                    request.spreadsheetProfiles(),
+                    ResolvedDocxOptions.from(request.docxOptions(), false)
+            );
+        }
+
+        private static ExportOptions fromEmbeddedRequest(DocumentExportDto.EmbeddedProjectOutputRequest request) {
+            return new ExportOptions(
+                    request.format(),
+                    Boolean.TRUE.equals(request.includePageDelimiters()),
+                    request.textLevel() == null ? DocumentExportDto.TextLevel.PAGE : request.textLevel(),
+                    request.textVariantIndex() == null ? 0 : Math.max(0, request.textVariantIndex()),
+                    request.pdfProfile(),
+                    request.teiProfile(),
+                    request.spreadsheetProfiles(),
+                    ResolvedDocxOptions.from(request.docxOptions(), false)
+            );
+        }
+    }
+
+    private record ResolvedDocxOptions(
+            boolean preserveLineBreaks,
+            boolean forcePageBreaks,
+            boolean includeImageNames,
+            boolean markUnclearWords
+    ) {
+        private static ResolvedDocxOptions from(DocumentExportDto.DocxOptions options, boolean pageScope) {
+            return new ResolvedDocxOptions(
+                    options == null || options.preserveLineBreaks() == null || options.preserveLineBreaks(),
+                    !pageScope && (options == null || options.forcePageBreaks() == null || options.forcePageBreaks()),
+                    options != null && Boolean.TRUE.equals(options.includeImageNames()),
+                    options != null && Boolean.TRUE.equals(options.markUnclearWords())
+            );
+        }
+    }
+
     private record PreparedPageExport(
             Page page,
+            PageXml pageXml,
             PageDto pageDto,
-            List<PreparedTextBlock> blocks,
+            List<PreparedRegion> regions,
             PageImage image,
             Path imagePath
     ) {
     }
 
-    private record PreparedTextBlock(
-            String regionId,
-            String text,
+    private record PreparedRegion(
+            String id,
+            String parentRegionId,
+            RegionKind kind,
+            String type,
+            Integer readingOrderIndex,
             PolygonDto coords,
+            Integer rows,
+            Integer columns,
+            List<String> labelIds,
+            String custom,
+            String text,
             List<PreparedTextLine> lines
     ) {
+        private boolean hasText() {
+            return hasText(text) || lines.stream().anyMatch(PreparedTextLine::hasText);
+        }
+
+        private boolean hasText(String value) {
+            return value != null && !value.isBlank();
+        }
     }
 
     private record PreparedTextLine(
             String id,
             String text,
             PolygonDto coords,
-            PolygonDto baseline
+            PolygonDto baseline,
+            Double confidence,
+            Double variantConfidence,
+            List<PreparedWord> words
+    ) {
+        private boolean hasText() {
+            return text != null && !text.isBlank();
+        }
+    }
+
+    private record PreparedWord(
+            String id,
+            String text,
+            PolygonDto coords,
+            Double confidence,
+            Double variantConfidence
+    ) {
+        private boolean hasText() {
+            return text != null && !text.isBlank();
+        }
+    }
+
+    private record VariantSelection(
+            String text,
+            Double confidence
+    ) {
+        private static final VariantSelection EMPTY = new VariantSelection(null, null);
+    }
+
+    private record Page2TeiPageRef(
+            int sequence,
+            String href
     ) {
     }
 

@@ -53,7 +53,7 @@ class ProjectControllerExportTest {
         );
 
         byte[] body = "hello".getBytes();
-        var request = new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, true, null, null);
+        var request = new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, true, null, null, null, null, null, null);
         when(documentExportService.exportProject("ws-1", "project-1", "user-1", request))
                 .thenReturn(new DocumentExportService.DocumentExportResult("Project.txt", "text/plain", body));
 

@@ -76,13 +76,13 @@ class PageControllerExportTest {
 
         byte[] body = "hello".getBytes();
         when(documentExportService.exportPage("project-1", "page-1", "user-1",
-                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, null, null)))
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, null, null, null, null, null, null)))
                 .thenReturn(new DocumentExportService.DocumentExportResult("Alpha.txt", "text/plain", body));
 
         ResponseEntity<byte[]> response = controller.exportPage(
                 "project-1",
                 "page-1",
-                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, null, null),
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, null, null, null, null, null, null),
                 "user-1"
         );
 

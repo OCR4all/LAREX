@@ -44,8 +44,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -103,7 +106,7 @@ class DocumentExportServiceTest {
                 "ws-1",
                 "project-1",
                 "user-1",
-                new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, true, null, null)
+                new DocumentExportDto.ProjectExportRequest(DocumentExportDto.ExportFormat.TXT, null, null, true, null, null, null, null, null, null)
         );
 
         String text = new String(result.bytes(), StandardCharsets.UTF_8);
@@ -131,7 +134,7 @@ class DocumentExportServiceTest {
                 "project-1",
                 "page-1",
                 "user-1",
-                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.DOCX, null, null, null, null)
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.DOCX, null, null, null, null, null, null, null, null)
         );
 
         try (XWPFDocument document = new XWPFDocument(new ByteArrayInputStream(result.bytes()))) {
@@ -160,7 +163,7 @@ class DocumentExportServiceTest {
                 "project-1",
                 "page-1",
                 "user-1",
-                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TEI, null, null, null, null)
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TEI, null, null, null, null, null, null, null, null)
         );
 
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -171,6 +174,78 @@ class DocumentExportServiceTest {
         assertEquals("TEI", document.getDocumentElement().getLocalName());
         assertEquals(1, document.getElementsByTagNameNS("http://www.tei-c.org/ns/1.0", "div").getLength());
         assertEquals(1, document.getElementsByTagNameNS("http://www.tei-c.org/ns/1.0", "ab").getLength());
+    }
+
+    @Test
+    void exportPageTeiLayout_containsFacsimileAndZones() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", null);
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        PageDto dto = pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "layout text", 0, simpleBaseline(10, 30, 160, 30))))),
+                null
+        );
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(dto);
+        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.PAGE_XML), eq("xml-page-1")))
+                .thenReturn("""
+                        <PcGts xmlns=\"http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15\">
+                          <Page imageFilename=\"alpha.png\" imageWidth=\"400\" imageHeight=\"200\">
+                            <TextRegion id=\"r1\">
+                              <Coords points=\"10,20 300,20 300,100 10,100\"/>
+                              <TextLine id=\"l1\">
+                                <Coords points=\"10,20 280,20 280,40 10,40\"/>
+                                <Baseline points=\"10,30 160,30\"/>
+                                <TextEquiv><Unicode>layout text</Unicode></TextEquiv>
+                              </TextLine>
+                            </TextRegion>
+                          </Page>
+                        </PcGts>
+                        """);
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.TEI, null, null, null, null, null, DocumentExportDto.TeiProfile.LAYOUT, null, null)
+        );
+
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setNamespaceAware(true);
+        var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(result.bytes()));
+
+        assertEquals(1, document.getElementsByTagNameNS("http://www.tei-c.org/ns/1.0", "facsimile").getLength());
+        assertEquals(2, document.getElementsByTagNameNS("http://www.tei-c.org/ns/1.0", "zone").getLength());
+    }
+
+    @Test
+    void exportPageAlto_returnsAltoXml() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", null);
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        PageDto dto = pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "alto text", 0, simpleBaseline(10, 30, 160, 30))))),
+                null
+        );
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(dto);
+        when(annotationProcessingService.exportAnnotationToXml(any(PageDto.class), eq(XmlSchema.ALTO_XML), eq("xml-page-1")))
+                .thenReturn("<alto xmlns=\"http://www.loc.gov/standards/alto/ns-v4#\"/>");
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.ALTO_XML, null, null, null, null, null, null, null, null)
+        );
+
+        assertEquals("Alpha.alto.xml", result.fileName());
+        assertTrue(new String(result.bytes(), StandardCharsets.UTF_8).contains("<alto"));
     }
 
     @Test
@@ -200,12 +275,74 @@ class DocumentExportServiceTest {
                 "project-1",
                 "page-1",
                 "user-1",
-                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null)
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null, null, null, null, null)
         );
 
         try (var pdf = Loader.loadPDF(result.bytes())) {
             String extracted = new PDFTextStripper().getText(pdf);
             assertTrue(extracted.contains("searchable text"));
+        }
+    }
+
+    @Test
+    void exportPagePdf_imagesOnlyContainsNoExtractableText() throws Exception {
+        Path imagePath = tempDir.resolve("images/image-only.png");
+        Files.createDirectories(imagePath.getParent());
+        BufferedImage bufferedImage = new BufferedImage(400, 200, BufferedImage.TYPE_INT_RGB);
+        ImageIO.write(bufferedImage, "png", imagePath.toFile());
+
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", "images/image-only.png");
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "image-only.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "hidden text", 0, simpleBaseline(30, 80, 240, 80))))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null, DocumentExportDto.PdfProfile.IMAGES_ONLY, null, null, null)
+        );
+
+        try (var pdf = Loader.loadPDF(result.bytes())) {
+            String extracted = new PDFTextStripper().getText(pdf).trim();
+            assertFalse(extracted.contains("hidden text"));
+        }
+    }
+
+    @Test
+    void exportPagePdf_pdfaAddsMetadataAndOutputIntent() throws Exception {
+        Path imagePath = tempDir.resolve("images/pdfa.png");
+        Files.createDirectories(imagePath.getParent());
+        BufferedImage bufferedImage = new BufferedImage(400, 200, BufferedImage.TYPE_INT_RGB);
+        ImageIO.write(bufferedImage, "png", imagePath.toFile());
+
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", "images/pdfa.png");
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "pdfa.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "pdfa text", 0, simpleBaseline(30, 80, 240, 80))))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportPage(
+                "project-1",
+                "page-1",
+                "user-1",
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null, DocumentExportDto.PdfProfile.PDFA_SEARCHABLE, null, null, null)
+        );
+
+        try (var pdf = Loader.loadPDF(result.bytes())) {
+            assertTrue(pdf.getDocumentCatalog().getMetadata() != null);
+            assertFalse(pdf.getDocumentCatalog().getOutputIntents().isEmpty());
         }
     }
 
@@ -236,11 +373,52 @@ class DocumentExportServiceTest {
                         null,
                         false,
                         DocumentExportDto.TextLevel.TEXT_LINE,
-                        1
+                        1,
+                        null,
+                        null,
+                        null,
+                        null
                 )
         );
 
         assertEquals("one-one\none-two", new String(result.bytes(), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void exportProjectCsv_includesMetadataHeader() throws Exception {
+        Project project = project("project-1", "Demo Project");
+        Page page = page(project, "page-1", "Alpha", "alpha.xml", null);
+        project.setPages(new ArrayList<>(List.of(page)));
+
+        when(projectRepository.findWithAssociationsById("project-1")).thenReturn(Optional.of(project));
+        when(annotationProcessingService.parseXmlToAnnotation("xml-page-1")).thenReturn(pageDto(
+                "alpha.png",
+                List.of(textRegion("r1", List.of(textLine("l1", "csv text", 0, simpleBaseline(10, 30, 120, 30))))),
+                null
+        ));
+
+        DocumentExportService.DocumentExportResult result = service.exportProject(
+                "ws-1",
+                "project-1",
+                "user-1",
+                new DocumentExportDto.ProjectExportRequest(
+                        DocumentExportDto.ExportFormat.CSV,
+                        null,
+                        null,
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of(DocumentExportDto.SpreadsheetProfile.PAGE_METADATA),
+                        null
+                )
+        );
+
+        String csv = new String(result.bytes(), StandardCharsets.UTF_8);
+        assertEquals("Demo Project-page_metadata.csv", result.fileName());
+        assertTrue(csv.contains("workspaceId,workspaceName,projectId,projectName,pageId,pageName"));
+        assertTrue(csv.contains("project-1"));
     }
 
     @Test
@@ -271,7 +449,7 @@ class DocumentExportServiceTest {
                 "project-1",
                 "page-1",
                 "user-1",
-                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null)
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PDF, null, null, null, null, null, null, null, null)
         );
 
         try (var pdf = Loader.loadPDF(result.bytes())) {
@@ -298,7 +476,7 @@ class DocumentExportServiceTest {
                 "project-1",
                 "page-1",
                 "user-1",
-                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PAGE_XML, "2017-07-15", null, null, null)
+                new DocumentExportDto.PageExportRequest(DocumentExportDto.ExportFormat.PAGE_XML, "2017-07-15", null, null, null, null, null, null, null)
         );
 
         assertEquals("Alpha.xml", result.fileName());

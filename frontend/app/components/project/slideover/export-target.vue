@@ -1,7 +1,28 @@
 <script setup lang="ts">
-type ExportFormat = 'PAGE_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI'
+type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
 type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
+type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
+type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'
+type TeiProfile = 'STANDARD' | 'LAYOUT'
 type ExportDialogMode = 'page' | 'project' | 'package'
+
+type DocxOptions = {
+  preserveLineBreaks: boolean
+  forcePageBreaks: boolean
+  includeImageNames: boolean
+  markUnclearWords: boolean
+}
+
+type EmbeddedOutputRequest = {
+  format: Exclude<ExportFormat, 'PAGE_XML'>
+  includePageDelimiters?: boolean
+  textLevel?: TextLevel
+  textVariantIndex?: number
+  pdfProfile?: PdfProfile
+  teiProfile?: TeiProfile
+  spreadsheetProfiles?: SpreadsheetProfile[]
+  docxOptions?: DocxOptions
+}
 
 type ExportDialogResult = {
   format: ExportFormat | null
@@ -9,12 +30,11 @@ type ExportDialogResult = {
   includePageDelimiters: boolean
   textLevel: TextLevel
   textVariantIndex: number
-  embeddedOutputs: Array<{
-    format: Exclude<ExportFormat, 'PAGE_XML'>
-    includePageDelimiters?: boolean
-    textLevel?: TextLevel
-    textVariantIndex?: number
-  }>
+  pdfProfile: PdfProfile
+  teiProfile: TeiProfile
+  spreadsheetProfiles: SpreadsheetProfile[]
+  docxOptions: DocxOptions
+  embeddedOutputs: EmbeddedOutputRequest[]
 }
 
 const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
@@ -30,23 +50,45 @@ const versionOptions = [
 
 const pageFormatOptions = [
   { label: 'PAGE XML', value: 'PAGE_XML' },
+  { label: 'ALTO XML (.alto.xml)', value: 'ALTO_XML' },
   { label: 'Text (.txt)', value: 'TXT' },
   { label: 'PDF (.pdf)', value: 'PDF' },
   { label: 'DOCX (.docx)', value: 'DOCX' },
   { label: 'TEI (.tei.xml)', value: 'TEI' }
 ] as const
 
-const renderedFormatOptions = [
+const projectFormatOptions = [
+  { label: 'ALTO XML (.alto.zip)', value: 'ALTO_XML' },
   { label: 'Text (.txt)', value: 'TXT' },
   { label: 'PDF (.pdf)', value: 'PDF' },
   { label: 'DOCX (.docx)', value: 'DOCX' },
-  { label: 'TEI (.tei.xml)', value: 'TEI' }
+  { label: 'TEI (.tei.xml)', value: 'TEI' },
+  { label: 'CSV (.csv / .zip)', value: 'CSV' },
+  { label: 'XLSX (.xlsx / .zip)', value: 'XLSX' }
 ] as const
 
 const textLevelOptions = [
   { label: 'Page', value: 'PAGE' },
   { label: 'Region', value: 'REGION' },
   { label: 'Text line', value: 'TEXT_LINE' }
+] as const
+
+const pdfProfileOptions = [
+  { label: 'Searchable', value: 'SEARCHABLE' },
+  { label: 'Images only', value: 'IMAGES_ONLY' },
+  { label: 'Text pages', value: 'TEXT_PAGES' },
+  { label: 'PDF/A searchable', value: 'PDFA_SEARCHABLE' }
+] as const
+
+const teiProfileOptions = [
+  { label: 'Standard', value: 'STANDARD' },
+  { label: 'Layout-aware', value: 'LAYOUT' }
+] as const
+
+const spreadsheetProfileOptions = [
+  { label: 'Page metadata', value: 'PAGE_METADATA' },
+  { label: 'Tags', value: 'TAGS' },
+  { label: 'Regions', value: 'REGIONS' }
 ] as const
 
 const props = withDefaults(defineProps<{
@@ -58,6 +100,10 @@ const props = withDefaults(defineProps<{
   initialIncludePageDelimiters?: boolean
   initialTextLevel?: TextLevel
   initialTextVariantIndex?: number
+  initialPdfProfile?: PdfProfile
+  initialTeiProfile?: TeiProfile
+  initialSpreadsheetProfiles?: SpreadsheetProfile[]
+  initialDocxOptions?: Partial<DocxOptions>
   initialEmbeddedFormats?: Array<Exclude<ExportFormat, 'PAGE_XML'>>
   initialEmbeddedTxtPageDelimiters?: boolean
   initialEmbeddedTxtTextLevel?: TextLevel
@@ -72,6 +118,15 @@ const props = withDefaults(defineProps<{
   initialIncludePageDelimiters: false,
   initialTextLevel: 'PAGE',
   initialTextVariantIndex: 0,
+  initialPdfProfile: 'SEARCHABLE',
+  initialTeiProfile: 'STANDARD',
+  initialSpreadsheetProfiles: () => ['PAGE_METADATA'],
+  initialDocxOptions: () => ({
+    preserveLineBreaks: true,
+    forcePageBreaks: true,
+    includeImageNames: false,
+    markUnclearWords: false
+  }),
   initialEmbeddedFormats: () => [],
   initialEmbeddedTxtPageDelimiters: false,
   initialEmbeddedTxtTextLevel: 'PAGE',
@@ -83,7 +138,7 @@ const emit = defineEmits<{
   close: [result: ExportDialogResult | null]
 }>()
 
-const formatOptions = computed(() => props.mode === 'page' ? pageFormatOptions : renderedFormatOptions)
+const formatOptions = computed(() => props.mode === 'page' ? pageFormatOptions : projectFormatOptions)
 const selectedFormat = ref<ExportFormat | null>(
   props.mode === 'package'
     ? null
@@ -93,12 +148,28 @@ const targetVersion = ref(props.initialTargetVersion)
 const includePageDelimiters = ref(Boolean(props.initialIncludePageDelimiters))
 const textLevel = ref<TextLevel>(props.initialTextLevel)
 const textVariantIndex = ref<number>(props.initialTextVariantIndex)
+const pdfProfile = ref<PdfProfile>(props.initialPdfProfile)
+const teiProfile = ref<TeiProfile>(props.initialTeiProfile)
+const spreadsheetSelection = reactive<Record<SpreadsheetProfile, boolean>>({
+  PAGE_METADATA: props.initialSpreadsheetProfiles.includes('PAGE_METADATA'),
+  TAGS: props.initialSpreadsheetProfiles.includes('TAGS'),
+  REGIONS: props.initialSpreadsheetProfiles.includes('REGIONS')
+})
+const docxOptions = reactive<DocxOptions>({
+  preserveLineBreaks: props.initialDocxOptions.preserveLineBreaks ?? true,
+  forcePageBreaks: props.initialDocxOptions.forcePageBreaks ?? true,
+  includeImageNames: props.initialDocxOptions.includeImageNames ?? false,
+  markUnclearWords: props.initialDocxOptions.markUnclearWords ?? false
+})
 
-const embeddedSelection = reactive<Record<'TXT' | 'PDF' | 'DOCX' | 'TEI', boolean>>({
+const embeddedSelection = reactive<Record<Exclude<ExportFormat, 'PAGE_XML'>, boolean>>({
+  ALTO_XML: props.initialEmbeddedFormats.includes('ALTO_XML'),
   TXT: props.initialEmbeddedFormats.includes('TXT'),
   PDF: props.initialEmbeddedFormats.includes('PDF'),
   DOCX: props.initialEmbeddedFormats.includes('DOCX'),
-  TEI: props.initialEmbeddedFormats.includes('TEI')
+  TEI: props.initialEmbeddedFormats.includes('TEI'),
+  CSV: props.initialEmbeddedFormats.includes('CSV'),
+  XLSX: props.initialEmbeddedFormats.includes('XLSX')
 })
 const embeddedTxtPageDelimiters = ref(Boolean(props.initialEmbeddedTxtPageDelimiters))
 const embeddedTxtTextLevel = ref<TextLevel>(props.initialEmbeddedTxtTextLevel)
@@ -116,19 +187,56 @@ const showDirectTxtOptions = computed(() =>
   props.mode !== 'package' && selectedFormat.value === 'TXT'
 )
 
-const showEmbeddedTxtDelimiter = computed(() =>
-  props.mode === 'package' && embeddedSelection.TXT
+const showDirectPdfOptions = computed(() =>
+  props.mode !== 'package' && selectedFormat.value === 'PDF'
+)
+
+const showDirectTeiOptions = computed(() =>
+  props.mode !== 'package' && selectedFormat.value === 'TEI'
+)
+
+const showDirectSpreadsheetOptions = computed(() =>
+  props.mode === 'project' && (selectedFormat.value === 'CSV' || selectedFormat.value === 'XLSX')
+)
+
+const showDirectDocxOptions = computed(() =>
+  props.mode !== 'package' && selectedFormat.value === 'DOCX'
 )
 
 const showEmbeddedTxtOptions = computed(() =>
   props.mode === 'package' && embeddedSelection.TXT
 )
 
+const showEmbeddedPdfOptions = computed(() =>
+  props.mode === 'package' && embeddedSelection.PDF
+)
+
+const showEmbeddedTeiOptions = computed(() =>
+  props.mode === 'package' && embeddedSelection.TEI
+)
+
+const showEmbeddedSpreadsheetOptions = computed(() =>
+  props.mode === 'package' && (embeddedSelection.CSV || embeddedSelection.XLSX)
+)
+
+const showEmbeddedDocxOptions = computed(() =>
+  props.mode === 'package' && embeddedSelection.DOCX
+)
+
 const isLegacyTarget = computed(() => targetVersion.value !== PAGE_XML_PRIMARY_VERSION)
 
+function selectedSpreadsheetProfiles(): SpreadsheetProfile[] {
+  return spreadsheetProfileOptions
+    .map(option => option.value)
+    .filter(value => spreadsheetSelection[value])
+}
+
 function closeWithResult() {
+  const spreadsheetProfiles = selectedSpreadsheetProfiles()
   const embeddedOutputs: ExportDialogResult['embeddedOutputs'] = []
+
   if (props.mode === 'package') {
+    if (embeddedSelection.ALTO_XML) embeddedOutputs.push({ format: 'ALTO_XML' })
     if (embeddedSelection.TXT) {
       embeddedOutputs.push({
         format: 'TXT',
@@ -137,9 +245,16 @@ function closeWithResult() {
         textVariantIndex: Number.isFinite(embeddedTxtTextVariantIndex.value) ? embeddedTxtTextVariantIndex.value : 0
       })
     }
-    if (embeddedSelection.PDF) embeddedOutputs.push({ format: 'PDF' })
-    if (embeddedSelection.DOCX) embeddedOutputs.push({ format: 'DOCX' })
-    if (embeddedSelection.TEI) embeddedOutputs.push({ format: 'TEI' })
+    if (embeddedSelection.PDF) embeddedOutputs.push({ format: 'PDF', pdfProfile: pdfProfile.value })
+    if (embeddedSelection.DOCX) {
+      embeddedOutputs.push({
+        format: 'DOCX',
+        docxOptions: { ...docxOptions }
+      })
+    }
+    if (embeddedSelection.TEI) embeddedOutputs.push({ format: 'TEI', teiProfile: teiProfile.value })
+    if (embeddedSelection.CSV) embeddedOutputs.push({ format: 'CSV', spreadsheetProfiles })
+    if (embeddedSelection.XLSX) embeddedOutputs.push({ format: 'XLSX', spreadsheetProfiles })
   }
 
   emit('close', {
@@ -148,6 +263,10 @@ function closeWithResult() {
     includePageDelimiters: includePageDelimiters.value,
     textLevel: textLevel.value,
     textVariantIndex: Number.isFinite(textVariantIndex.value) ? textVariantIndex.value : 0,
+    pdfProfile: pdfProfile.value,
+    teiProfile: teiProfile.value,
+    spreadsheetProfiles,
+    docxOptions: { ...docxOptions },
     embeddedOutputs
   })
 }
@@ -239,19 +358,103 @@ function closeWithResult() {
         </div>
 
         <div
+          v-if="showDirectPdfOptions"
+          class="space-y-4 rounded-lg border border-default p-3"
+        >
+          <UFormField
+            label="PDF profile"
+            name="pdfProfile"
+          >
+            <USelect
+              v-model="pdfProfile"
+              :items="pdfProfileOptions"
+              value-key="value"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+
+        <div
+          v-if="showDirectTeiOptions"
+          class="space-y-4 rounded-lg border border-default p-3"
+        >
+          <UFormField
+            label="TEI profile"
+            name="teiProfile"
+          >
+            <USelect
+              v-model="teiProfile"
+              :items="teiProfileOptions"
+              value-key="value"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+
+        <div
+          v-if="showDirectSpreadsheetOptions"
+          class="space-y-4 rounded-lg border border-default p-3"
+        >
+          <p class="text-sm font-medium">
+            Spreadsheet profiles
+          </p>
+          <div class="space-y-2">
+            <UCheckbox
+              v-for="option in spreadsheetProfileOptions"
+              :key="option.value"
+              :model-value="spreadsheetSelection[option.value]"
+              :label="option.label"
+              @update:model-value="spreadsheetSelection[option.value] = ($event === true)"
+            />
+          </div>
+        </div>
+
+        <div
+          v-if="showDirectDocxOptions"
+          class="space-y-3 rounded-lg border border-default p-3"
+        >
+          <UCheckbox
+            :model-value="docxOptions.preserveLineBreaks"
+            label="Preserve line breaks"
+            @update:model-value="docxOptions.preserveLineBreaks = ($event === true)"
+          />
+          <UCheckbox
+            v-if="props.mode === 'project'"
+            :model-value="docxOptions.forcePageBreaks"
+            label="Force page breaks between pages"
+            @update:model-value="docxOptions.forcePageBreaks = ($event === true)"
+          />
+          <UCheckbox
+            :model-value="docxOptions.includeImageNames"
+            label="Include image file names"
+            @update:model-value="docxOptions.includeImageNames = ($event === true)"
+          />
+          <UCheckbox
+            :model-value="docxOptions.markUnclearWords"
+            label="Mark unclear words"
+            @update:model-value="docxOptions.markUnclearWords = ($event === true)"
+          />
+        </div>
+
+        <div
           v-if="props.mode === 'package'"
           class="space-y-3 rounded-lg border border-default p-4"
         >
           <div>
             <p class="text-sm font-medium">
-              Embed auxiliary outputs in ZIP
+              Package extras
             </p>
             <p class="text-xs text-muted mt-1">
-              These files are added under <code>exports/</code> in the package.
+              <code>mets.xml</code> is included automatically. Optional outputs are added under <code>exports/</code>.
             </p>
           </div>
 
           <div class="space-y-2">
+            <UCheckbox
+              :model-value="embeddedSelection.ALTO_XML"
+              label="ALTO XML (.alto.zip)"
+              @update:model-value="embeddedSelection.ALTO_XML = ($event === true)"
+            />
             <UCheckbox
               :model-value="embeddedSelection.TXT"
               label="Text (.txt)"
@@ -271,6 +474,16 @@ function closeWithResult() {
               :model-value="embeddedSelection.TEI"
               label="TEI (.tei.xml)"
               @update:model-value="embeddedSelection.TEI = ($event === true)"
+            />
+            <UCheckbox
+              :model-value="embeddedSelection.CSV"
+              label="CSV (.csv / .zip)"
+              @update:model-value="embeddedSelection.CSV = ($event === true)"
+            />
+            <UCheckbox
+              :model-value="embeddedSelection.XLSX"
+              label="XLSX (.xlsx / .zip)"
+              @update:model-value="embeddedSelection.XLSX = ($event === true)"
             />
           </div>
 
@@ -305,10 +518,87 @@ function closeWithResult() {
             </UFormField>
 
             <UCheckbox
-              v-if="showEmbeddedTxtDelimiter"
               :model-value="embeddedTxtPageDelimiters"
               label="Insert page delimiters in embedded TXT export"
               @update:model-value="embeddedTxtPageDelimiters = ($event === true)"
+            />
+          </div>
+
+          <div
+            v-if="showEmbeddedPdfOptions"
+            class="space-y-4 rounded-lg border border-default p-3"
+          >
+            <UFormField
+              label="PDF profile"
+              name="embeddedPdfProfile"
+            >
+              <USelect
+                v-model="pdfProfile"
+                :items="pdfProfileOptions"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+
+          <div
+            v-if="showEmbeddedTeiOptions"
+            class="space-y-4 rounded-lg border border-default p-3"
+          >
+            <UFormField
+              label="TEI profile"
+              name="embeddedTeiProfile"
+            >
+              <USelect
+                v-model="teiProfile"
+                :items="teiProfileOptions"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+
+          <div
+            v-if="showEmbeddedSpreadsheetOptions"
+            class="space-y-4 rounded-lg border border-default p-3"
+          >
+            <p class="text-sm font-medium">
+              Spreadsheet profiles
+            </p>
+            <div class="space-y-2">
+              <UCheckbox
+                v-for="option in spreadsheetProfileOptions"
+                :key="option.value"
+                :model-value="spreadsheetSelection[option.value]"
+                :label="option.label"
+                @update:model-value="spreadsheetSelection[option.value] = ($event === true)"
+              />
+            </div>
+          </div>
+
+          <div
+            v-if="showEmbeddedDocxOptions"
+            class="space-y-3 rounded-lg border border-default p-3"
+          >
+            <UCheckbox
+              :model-value="docxOptions.preserveLineBreaks"
+              label="Preserve line breaks"
+              @update:model-value="docxOptions.preserveLineBreaks = ($event === true)"
+            />
+            <UCheckbox
+              :model-value="docxOptions.forcePageBreaks"
+              label="Force page breaks between pages"
+              @update:model-value="docxOptions.forcePageBreaks = ($event === true)"
+            />
+            <UCheckbox
+              :model-value="docxOptions.includeImageNames"
+              label="Include image file names"
+              @update:model-value="docxOptions.includeImageNames = ($event === true)"
+            />
+            <UCheckbox
+              :model-value="docxOptions.markUnclearWords"
+              label="Mark unclear words"
+              @update:model-value="docxOptions.markUnclearWords = ($event === true)"
             />
           </div>
         </div>
