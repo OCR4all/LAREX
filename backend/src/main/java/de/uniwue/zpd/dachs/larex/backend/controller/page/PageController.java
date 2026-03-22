@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.page;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.PaginatedResponse;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.SubtaskDto;
@@ -13,6 +14,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexSe
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.search.SearchPreviewService;
+import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.task.SubtaskService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagLookupService;
@@ -56,6 +58,7 @@ public class PageController {
     private final TagLookupService tagLookupService;
     private final PageXmlRawEditService pageXmlRawEditService;
     private final PageXmlConversionService pageXmlConversionService;
+    private final DocumentExportService documentExportService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final SearchPreviewService searchPreviewService;
 
@@ -66,6 +69,7 @@ public class PageController {
                           PageIndexStatusReadService pageIndexStatusReadService, TagLookupService tagLookupService,
                           PageXmlRawEditService pageXmlRawEditService,
                           PageXmlConversionService pageXmlConversionService,
+                          DocumentExportService documentExportService,
                           WorkspaceQuotaGuardService workspaceQuotaGuardService,
                           SearchPreviewService searchPreviewService) {
         this.pageService = pageService;
@@ -75,6 +79,7 @@ public class PageController {
         this.tagLookupService = tagLookupService;
         this.pageXmlRawEditService = pageXmlRawEditService;
         this.pageXmlConversionService = pageXmlConversionService;
+        this.documentExportService = documentExportService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.searchPreviewService = searchPreviewService;
     }
@@ -363,6 +368,27 @@ public class PageController {
                 .map(this::mapToXmlResponse)
                 .toList();
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{pageId}/export")
+    public ResponseEntity<byte[]> exportPage(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @RequestBody DocumentExportDto.PageExportRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+        DocumentExportService.DocumentExportResult exportResult =
+                documentExportService.exportPage(projectId, pageId, userId, request);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(exportResult.contentType()));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(exportResult.fileName())
+                .build());
+        headers.setContentLength(exportResult.bytes().length);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(exportResult.bytes());
     }
 
     @GetMapping("/{pageId}/xml/{xmlId}/text")
@@ -726,10 +752,7 @@ public class PageController {
 
             FileSystemResource resource = new FileSystemResource(filePath);
             HttpHeaders headers = new HttpHeaders();
-            MediaType contentType = MediaType.APPLICATION_XML;
-            if (xml.getMimeType() != null && !xml.getMimeType().isBlank()) {
-                contentType = MediaType.parseMediaType(xml.getMimeType());
-            }
+            MediaType contentType = resolveXmlContentType(xml);
 
             headers.setContentType(contentType);
             if (asAttachment) {
@@ -757,9 +780,23 @@ public class PageController {
                     .headers(headers)
                     .body(resource);
         } catch (IllegalArgumentException e) {
+            log.warn("Failed to export XML {}: {}", xmlId, e.getMessage());
             return ResponseEntity.badRequest().build();
         } catch (IOException e) {
+            log.error("I/O failure while exporting XML {}", xmlId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private MediaType resolveXmlContentType(PageXml xml) {
+        if (xml.getMimeType() == null || xml.getMimeType().isBlank()) {
+            return MediaType.APPLICATION_XML;
+        }
+        try {
+            return MediaType.parseMediaType(xml.getMimeType());
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid XML mime type '{}' for xml {}", xml.getMimeType(), xml.getId());
+            return MediaType.APPLICATION_XML;
         }
     }
 

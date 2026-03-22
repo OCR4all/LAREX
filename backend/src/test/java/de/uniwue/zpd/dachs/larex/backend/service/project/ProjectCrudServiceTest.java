@@ -5,6 +5,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
@@ -49,6 +50,8 @@ class ProjectCrudServiceTest {
 
     @Mock
     private CodecRepository codecRepository;
+    @Mock
+    private ControlledDictionaryRepository dictionaryRepository;
 
     @Mock
     private LabelSetRepository labelSetRepository;
@@ -84,6 +87,7 @@ class ProjectCrudServiceTest {
                 projectRepository,
                 libraryRepository,
                 codecRepository,
+                dictionaryRepository,
                 labelSetRepository,
                 tagSetRepository,
                 workspaceMemberRepository,
@@ -119,6 +123,7 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 null,
+                null,
                 USER_ID
         );
 
@@ -143,6 +148,7 @@ class ProjectCrudServiceTest {
                 WORKSPACE_ID,
                 PROJECT_NAME,
                 "desc",
+                null,
                 null,
                 null,
                 null,
@@ -181,6 +187,7 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 "labelset-explicit",
+                null,
                 null,
                 null,
                 null,

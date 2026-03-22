@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.project;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectTransferDto;
@@ -12,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UnifiedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
@@ -44,6 +46,7 @@ public class ProjectController {
     private final ProjectTransferService projectTransferService;
     private final ProjectReadService projectReadService;
     private final ProjectPackageService projectPackageService;
+    private final DocumentExportService documentExportService;
     private final UnifiedUploadService unifiedUploadService;
     private final UploadConflictService uploadConflictService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
@@ -51,6 +54,7 @@ public class ProjectController {
     public ProjectController(ProjectService projectService, ProjectTransferService projectTransferService,
                            ProjectReadService projectReadService,
                            ProjectPackageService projectPackageService,
+                           DocumentExportService documentExportService,
                            UnifiedUploadService unifiedUploadService,
                            UploadConflictService uploadConflictService,
                            WorkspaceQuotaGuardService workspaceQuotaGuardService) {
@@ -58,6 +62,7 @@ public class ProjectController {
         this.projectTransferService = projectTransferService;
         this.projectReadService = projectReadService;
         this.projectPackageService = projectPackageService;
+        this.documentExportService = documentExportService;
         this.unifiedUploadService = unifiedUploadService;
         this.uploadConflictService = uploadConflictService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
@@ -317,6 +322,28 @@ public class ProjectController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(packageBytes);
+    }
+
+    @PostMapping("/{projectId}/export")
+    public ResponseEntity<byte[]> exportProjectOutput(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @RequestBody DocumentExportDto.ProjectExportRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        DocumentExportService.DocumentExportResult exportResult =
+                documentExportService.exportProject(workspaceId, projectId, userId, request);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(exportResult.contentType()));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(exportResult.fileName())
+                .build());
+        headers.setContentLength(exportResult.bytes().length);
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(exportResult.bytes());
     }
 
     private String sanitizeFileName(String value, String fallback) {

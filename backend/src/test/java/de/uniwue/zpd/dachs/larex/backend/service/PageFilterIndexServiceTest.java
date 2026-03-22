@@ -20,6 +20,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentReposito
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.search.SearchLexiconService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,6 +67,8 @@ class PageFilterIndexServiceTest {
 
     @Mock
     private AnnotationProcessingService annotationProcessingService;
+    @Mock
+    private SearchLexiconService searchLexiconService;
 
     private PageFilterIndexService service;
 
@@ -77,7 +80,8 @@ class PageFilterIndexServiceTest {
             textContentRepository,
             labelIndexRepository,
             confidenceIndexRepository,
-            annotationProcessingService
+            annotationProcessingService,
+            searchLexiconService
         );
     }
 

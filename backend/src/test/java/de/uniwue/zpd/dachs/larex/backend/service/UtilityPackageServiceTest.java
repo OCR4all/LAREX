@@ -5,6 +5,8 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryEntryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.board.BoardThemeRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
@@ -13,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.board.BoardThemeService;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
+import de.uniwue.zpd.dachs.larex.backend.service.dictionary.DictionaryService;
 import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagSetService;
@@ -47,6 +50,10 @@ class UtilityPackageServiceTest {
 
     @Mock
     private CodecRepository codecRepository;
+    @Mock
+    private ControlledDictionaryEntryRepository dictionaryEntryRepository;
+    @Mock
+    private ControlledDictionaryRepository dictionaryRepository;
 
     @Mock
     private LabelSetRepository labelSetRepository;
@@ -62,6 +69,8 @@ class UtilityPackageServiceTest {
 
     @Mock
     private CodecService codecService;
+    @Mock
+    private DictionaryService dictionaryService;
 
     @Mock
     private LabelSetService labelSetService;
@@ -85,11 +94,14 @@ class UtilityPackageServiceTest {
                 workspaceAccessService,
                 workspaceQueryService,
                 codecRepository,
+                dictionaryEntryRepository,
+                dictionaryRepository,
                 labelSetRepository,
                 tagSetRepository,
                 virtualKeyboardRepository,
                 boardThemeRepository,
                 codecService,
+                dictionaryService,
                 labelSetService,
                 tagSetService,
                 virtualKeyboardService,

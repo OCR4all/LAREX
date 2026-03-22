@@ -44,6 +44,10 @@ public class PageXmlConversionService {
             return PRIMARY_PAGE_VERSION;
         }
         String normalized = requestedVersion.trim();
+        Matcher matcher = VERSION_PATTERN.matcher(normalized);
+        if (matcher.find()) {
+            normalized = matcher.group(1);
+        }
         if (!SUPPORTED_EXPORT_VERSIONS.contains(normalized)) {
             throw new IllegalArgumentException("Unsupported PAGE XML target version: " + normalized);
         }

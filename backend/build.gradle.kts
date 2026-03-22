@@ -36,6 +36,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("net.coobird:thumbnailator:0.4.20")
 	implementation("org.apache.pdfbox:pdfbox:3.0.3")
+	implementation("org.apache.poi:poi-ooxml:5.4.1")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")

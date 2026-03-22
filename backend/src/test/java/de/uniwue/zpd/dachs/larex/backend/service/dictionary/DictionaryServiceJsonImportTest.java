@@ -23,6 +23,8 @@ class DictionaryServiceJsonImportTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 new ObjectMapper()
         );
 

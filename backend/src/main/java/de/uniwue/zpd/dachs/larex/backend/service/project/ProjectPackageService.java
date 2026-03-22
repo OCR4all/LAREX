@@ -25,6 +25,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
@@ -77,6 +78,7 @@ public class ProjectPackageService {
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final PageXmlConversionService pageXmlConversionService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
+    private final DocumentExportService documentExportService;
     private final ObjectMapper objectMapper;
 
     @Value("${file.upload-dir}")
@@ -100,6 +102,7 @@ public class ProjectPackageService {
                                  WorkspaceQuotaGuardService workspaceQuotaGuardService,
                                  PageXmlConversionService pageXmlConversionService,
                                  PageXmlCanonicalizationService pageXmlCanonicalizationService,
+                                 DocumentExportService documentExportService,
                                  ObjectMapper objectMapper) {
         this.projectRepository = projectRepository;
         this.libraryRepository = libraryRepository;
@@ -119,6 +122,7 @@ public class ProjectPackageService {
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.pageXmlConversionService = pageXmlConversionService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
+        this.documentExportService = documentExportService;
         this.objectMapper = objectMapper;
     }
 
@@ -178,6 +182,14 @@ public class ProjectPackageService {
 
             for (Map.Entry<String, UtilityPackageDto.UtilityResource> entry : exportBundle.utilityResourceByPath().entrySet()) {
                 archiveIoService.writeJsonEntry(zipOut, entry.getKey(), entry.getValue());
+            }
+
+            for (DocumentExportService.EmbeddedProjectOutput output : documentExportService.exportEmbeddedProjectOutputs(
+                    project,
+                    pages,
+                    request == null ? null : request.embeddedOutputs()
+            )) {
+                archiveIoService.writeBytesEntry(zipOut, output.archivePath(), output.bytes());
             }
         });
     }

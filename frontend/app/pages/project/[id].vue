@@ -83,6 +83,22 @@ type ResolvedTag = {
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
 
 type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
+type ExportFormat = 'PAGE_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI'
+type TextLevel = 'PAGE' | 'REGION' | 'TEXT_LINE'
+type ExportDialogMode = 'page' | 'project' | 'package'
+type ExportDialogResult = {
+  format: ExportFormat | null
+  targetPageXmlVersion: string
+  includePageDelimiters: boolean
+  textLevel: TextLevel
+  textVariantIndex: number
+  embeddedOutputs: Array<{
+    format: Exclude<ExportFormat, 'PAGE_XML'>
+    includePageDelimiters?: boolean
+    textLevel?: TextLevel
+    textVariantIndex?: number
+  }>
+}
 
 type Page = {
   id: string
@@ -580,12 +596,12 @@ async function handleDeleteProject() {
 async function exportProjectPackage() {
   if (!selectedWorkspace.value || !project.value) return
 
-  const targetPageXmlVersion = await requestPageXmlExportTarget('package')
-  if (!targetPageXmlVersion) return
+  const options = await requestExportOptions('package')
+  if (!options) return
 
   const payload = hasSelection.value
-    ? { pageIds: Array.from(selectedPageIds.value), targetPageXmlVersion }
-    : { pageIds: null, targetPageXmlVersion }
+    ? { pageIds: Array.from(selectedPageIds.value), targetPageXmlVersion: options.targetPageXmlVersion, embeddedOutputs: options.embeddedOutputs }
+    : { pageIds: null, targetPageXmlVersion: options.targetPageXmlVersion, embeddedOutputs: options.embeddedOutputs }
   const fallbackName = `${project.value.name.replace(/\\s+/g, '-').toLowerCase()}.larex-project.zip`
 
   try {
@@ -599,19 +615,7 @@ async function exportProjectPackage() {
       throw new Error(`Export failed (${response.status})`)
     }
 
-    const blob = await response.blob()
-    const contentDisposition = response.headers.get('content-disposition')
-    const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
-    const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
-
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    await downloadBlobResponse(response, fallbackName)
 
     toast.add({
       title: 'Project package exported',
@@ -628,7 +632,100 @@ async function exportProjectPackage() {
   }
 }
 
-async function exportPageXml(page: Page) {
+async function exportProjectOutput() {
+  if (!selectedWorkspace.value || !project.value) return
+
+  const options = await requestExportOptions('project')
+  if (!options) return
+
+  const format = normalizeExportFormat(options.format)
+  if (!format) return
+
+  const fallbackName = `${project.value.name.replace(/\\s+/g, '-').toLowerCase()}.${formatExtension(format)}`
+  const payload = {
+    format,
+    pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : null,
+    includePageDelimiters: options.includePageDelimiters,
+    textLevel: normalizeTextLevel(options.textLevel),
+    textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0
+  }
+
+  try {
+    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      throw new Error(`Export failed (${response.status})`)
+    }
+
+    await downloadBlobResponse(response, fallbackName)
+
+    toast.add({
+      title: 'Project output exported',
+      color: 'success',
+      icon: 'i-lucide-download'
+    })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to export project output'
+    toast.add({
+      title: 'Export failed',
+      description: message,
+      color: 'error'
+    })
+  }
+}
+
+async function exportPageOutput(page: Page) {
+  const options = await requestExportOptions('page')
+  if (!options) return
+
+  const format = normalizeExportFormat(options.format)
+  if (!format) return
+
+  if (format === 'PAGE_XML') {
+    await exportPageXml(page, options.targetPageXmlVersion)
+    return
+  }
+
+  const fallbackName = `${page.name}.${formatExtension(format)}`
+
+  try {
+    const response = await fetch(`/api/projects/${projectId}/pages/${page.id}/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        format,
+        targetPageXmlVersion: options.targetPageXmlVersion,
+        textLevel: normalizeTextLevel(options.textLevel),
+        textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Export failed (${response.status})`)
+    }
+
+    await downloadBlobResponse(response, fallbackName)
+
+    toast.add({
+      title: 'Page output exported',
+      color: 'success',
+      icon: 'i-lucide-download'
+    })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to export output'
+    toast.add({
+      title: 'Export failed',
+      description: message,
+      color: 'error'
+    })
+  }
+}
+
+async function exportPageXml(page: Page, targetPageXmlVersion?: string) {
   try {
     const xmlFiles = await $fetch<{ id: string }[]>(`/api/projects/${projectId}/pages/${page.id}/xml`)
     if (!xmlFiles?.length) {
@@ -641,16 +738,14 @@ async function exportPageXml(page: Page) {
     }
 
     const xmlId = xmlFiles[0]!.id
-    const targetPageXmlVersion = await requestPageXmlExportTarget('page')
-    if (!targetPageXmlVersion) return
-    const query = new URLSearchParams({ targetPageXmlVersion })
+    const selectedVersion = targetPageXmlVersion ?? PAGE_XML_PRIMARY_VERSION
+    const query = new URLSearchParams({ targetPageXmlVersion: selectedVersion })
+    const response = await fetch(`/api/projects/${projectId}/pages/xml/${xmlId}/export?${query.toString()}`)
+    if (!response.ok) {
+      throw new Error(`Export failed (${response.status})`)
+    }
 
-    const a = document.createElement('a')
-    a.href = `/api/projects/${projectId}/pages/xml/${xmlId}/export?${query.toString()}`
-    a.download = `${page.name}.xml`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    await downloadBlobResponse(response, `${page.name}.xml`)
 
     if (xmlFiles.length > 1) {
       toast.add({
@@ -671,21 +766,121 @@ async function exportPageXml(page: Page) {
 
 const PAGE_XML_PRIMARY_VERSION = '2019-07-15'
 
-async function requestPageXmlExportTarget(exportType: 'page' | 'package'): Promise<string | null> {
+function normalizePageXmlVersion(value: unknown): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    const match = trimmed.match(/\d{4}-\d{2}-\d{2}/)
+    return match ? match[0] : PAGE_XML_PRIMARY_VERSION
+  }
+  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
+    return normalizePageXmlVersion(value.value)
+  }
+  return PAGE_XML_PRIMARY_VERSION
+}
+
+function normalizeExportFormat(value: unknown): ExportFormat | null {
+  if (typeof value === 'string') {
+    return value as ExportFormat
+  }
+  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
+    return value.value as ExportFormat
+  }
+  return null
+}
+
+function normalizeTextLevel(value: unknown): TextLevel {
+  if (typeof value === 'string' && ['PAGE', 'REGION', 'TEXT_LINE'].includes(value)) {
+    return value as TextLevel
+  }
+  if (value && typeof value === 'object' && 'value' in value && typeof value.value === 'string') {
+    return normalizeTextLevel(value.value)
+  }
+  return 'PAGE'
+}
+
+function formatExtension(format: ExportFormat): string {
+  switch (format) {
+    case 'PAGE_XML':
+      return 'xml'
+    case 'TXT':
+      return 'txt'
+    case 'PDF':
+      return 'pdf'
+    case 'DOCX':
+      return 'docx'
+    case 'TEI':
+      return 'tei.xml'
+  }
+}
+
+async function downloadBlobResponse(response: Response, fallbackName: string) {
+  const blob = await response.blob()
+  const contentDisposition = response.headers.get('content-disposition')
+  const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
+  const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
+
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+async function requestExportOptions(mode: ExportDialogMode): Promise<ExportDialogResult | null> {
   const selector = exportTargetSlideover.open({
-    title: exportType === 'page' ? 'Export XML' : 'Export Project Package',
-    description: exportType === 'page'
-      ? 'Choose the PAGE XML target schema version for this file export.'
-      : 'Choose the PAGE XML target schema version for XML files included in the package.',
+    mode,
+    title: mode === 'page'
+      ? 'Export Page'
+      : mode === 'project'
+        ? 'Export Project Output'
+        : 'Export Project Package',
+    description: mode === 'page'
+      ? 'Choose the page export format and options.'
+      : mode === 'project'
+        ? 'Choose the project output format and options.'
+        : 'Choose package export options and optional embedded outputs.',
     initialTargetVersion: PAGE_XML_PRIMARY_VERSION,
-    confirmLabel: exportType === 'page' ? 'Export XML' : 'Export Package'
+    confirmLabel: mode === 'package' ? 'Export Package' : 'Export'
   })
 
-  const selectedVersion = await selector.result as string | null
-  if (!selectedVersion) {
+  const result = await selector.result as ExportDialogResult | null
+  if (!result) {
     return null
   }
 
+  const normalizedFormat = normalizeExportFormat(result.format)
+  const normalizedTargetVersion = normalizePageXmlVersion(result.targetPageXmlVersion)
+  const confirmedTarget = await confirmLegacyPageXmlVersion(normalizedTargetVersion)
+  if (!confirmedTarget) {
+    return null
+  }
+
+  return {
+    ...result,
+    format: normalizedFormat,
+    targetPageXmlVersion: confirmedTarget,
+    textLevel: normalizeTextLevel(result.textLevel),
+    textVariantIndex: Number.isFinite(result.textVariantIndex) ? result.textVariantIndex : 0,
+    embeddedOutputs: result.embeddedOutputs
+      .map((output) => {
+        const format = normalizeExportFormat(output.format)
+        if (!format || format === 'PAGE_XML') return null
+
+        return {
+          format,
+          includePageDelimiters: output.includePageDelimiters,
+          textLevel: normalizeTextLevel(output.textLevel),
+          textVariantIndex: Number.isFinite(output.textVariantIndex) ? output.textVariantIndex : 0
+        }
+      })
+      .filter((output): output is ExportDialogResult['embeddedOutputs'][number] => output !== null)
+  }
+}
+
+async function confirmLegacyPageXmlVersion(selectedVersion: string): Promise<string | null> {
   if (selectedVersion === PAGE_XML_PRIMARY_VERSION) {
     return selectedVersion
   }
@@ -726,6 +921,14 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => {
         void openDictionaryValidationModal()
+      }
+    },
+    {
+      label: hasSelection.value ? 'Export output (selected pages)' : 'Export output (full project)',
+      icon: 'i-lucide-file-output',
+      disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
+      onSelect: () => {
+        void exportProjectOutput()
       }
     },
     {
@@ -1207,7 +1410,7 @@ function getPageRowItems(page: Page) {
     { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked || !allow(projectCapabilities.value.canEdit), onSelect: () => openEditModal(page) },
     { label: 'View Images', icon: 'i-lucide-images', disabled: page.imageCount === 0, onSelect: () => openImageModal(page) },
     { label: 'View/Edit XML', icon: 'i-lucide-file-pen-line', disabled: page.xmlFileCount === 0, onSelect: () => openXmlEditor(page) },
-    { label: 'Export XML', icon: 'i-lucide-file-code-2', disabled: page.xmlFileCount === 0, onSelect: () => exportPageXml(page) },
+    { label: 'Export', icon: 'i-lucide-file-output', disabled: page.xmlFileCount === 0, onSelect: () => exportPageOutput(page) },
     { label: 'Version History', icon: 'i-lucide-history', disabled: page.xmlFileCount === 0, onSelect: () => openVersionHistory(page) }
   ]
 

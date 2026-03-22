@@ -2,7 +2,6 @@ package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import jakarta.validation.constraints.NotBlank;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -13,10 +12,15 @@ public class ProjectPackageDto {
 
     public record ExportRequest(
             List<String> pageIds,
-            String targetPageXmlVersion
+            String targetPageXmlVersion,
+            List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs
     ) {
         public ExportRequest(List<String> pageIds) {
-            this(pageIds, null);
+            this(pageIds, null, null);
+        }
+
+        public ExportRequest(List<String> pageIds, String targetPageXmlVersion) {
+            this(pageIds, targetPageXmlVersion, null);
         }
     }
 
