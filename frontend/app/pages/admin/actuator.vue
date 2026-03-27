@@ -8,10 +8,6 @@ const links = [[{
   icon: 'i-lucide-heart-pulse',
   to: '/admin/actuator',
   exact: true
-}, {
-  label: 'Info',
-  icon: 'i-lucide-info',
-  to: '/admin/actuator/info'
 }]] satisfies NavigationMenuItem[][]
 </script>
 

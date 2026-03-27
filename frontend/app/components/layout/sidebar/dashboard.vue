@@ -67,10 +67,6 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
 })
 
 const adminNavigation = computed<NavigationMenuItem[]>(() => {
-  const actuatorChildren = withActive([
-    { label: 'Health', to: '/admin/actuator', exact: true },
-    { label: 'Info', to: '/admin/actuator/info' }
-  ])
   const dataManagementChildren = withActive([
     { label: 'Import', icon: 'i-lucide-folder-input', to: '/admin/import' },
     { label: 'Backup', icon: 'i-lucide-database-backup', to: '/admin/backup' },
@@ -81,7 +77,7 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
 
   return [
     { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/admin', active: route.path === '/admin' },
-    { label: 'Actuator', icon: 'i-lucide-heart-pulse', defaultOpen: hasActive(actuatorChildren), type: 'trigger', children: actuatorChildren },
+    { label: 'Actuator', icon: 'i-lucide-heart-pulse', to: '/admin/actuator', active: isActive('/admin/actuator') },
     { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index', active: isActive('/admin/search-index') },
     { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas', active: isActive('/admin/quotas') },
     { label: 'Data Management', icon: 'i-lucide-database', defaultOpen: hasActive(dataManagementChildren), type: 'trigger', children: dataManagementChildren },
