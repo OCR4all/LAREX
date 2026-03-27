@@ -131,6 +131,9 @@ const currentPageFiles = computed(() => orphanedFiles.value?.files ?? [])
 const totalItems = computed(() => orphanedFiles.value?.totalCount ?? 0)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
 const filteredTotalSize = computed(() => orphanedFiles.value?.totalSizeBytes ?? 0)
+const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
+const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
+const hasActiveFilters = computed(() => Boolean(typeFilter.value || searchQuery.value.trim()))
 
 watch([typeFilter, searchQuery, itemsPerPage], () => {
   page.value = 1
@@ -187,6 +190,12 @@ function toggleAllOnPage() {
 
 function clearSelection() {
   selectedFiles.value = new Set()
+}
+
+function clearFilters() {
+  typeFilter.value = null
+  searchQuery.value = ''
+  page.value = 1
 }
 
 async function refreshOrphanedWithPageGuard() {
@@ -400,8 +409,8 @@ const contextMenuItems = computed(() => {
   return getRowActions(contextMenuFile.value)
 })
 
-function handleRowContextMenu(_event: Event, row: any) {
-  contextMenuFile.value = row.original as OrphanedFile
+function handleRowContextMenu(_event: Event, row: { original: OrphanedFile }) {
+  contextMenuFile.value = row.original
 }
 
 async function refreshAll() {
@@ -436,186 +445,192 @@ async function refreshAll() {
           />
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #left>
+          <UInput
+            v-model="searchQuery"
+            placeholder="Search file paths..."
+            icon="i-lucide-search"
+            class="w-full sm:w-72"
+          >
+            <template v-if="searchQuery" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                icon="i-lucide-x"
+                :padded="false"
+                @click="searchQuery = ''"
+              />
+            </template>
+          </UInput>
+
+          <USelectMenu
+            v-model="typeFilter"
+            :items="typeOptions"
+            placeholder="All types"
+            class="w-full sm:w-40"
+            value-key="value"
+          >
+            <template #label>
+              <span v-if="typeFilter">{{ typeOptions.find(option => option.value === typeFilter)?.label }}</span>
+              <span v-else class="text-muted">All types</span>
+            </template>
+          </USelectMenu>
+
+          <UButton
+            v-if="hasActiveFilters"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="clearFilters"
+          >
+            Clear Filters
+          </UButton>
+        </template>
+
+        <template #right>
+          <div class="flex items-center gap-2">
+            <UBadge
+              v-if="totalItems > 0"
+              color="neutral"
+              variant="subtle"
+            >
+              {{ totalItems }} files
+            </UBadge>
+            <UBadge
+              v-if="totalItems > 0"
+              color="neutral"
+              variant="subtle"
+            >
+              {{ formatBytes(filteredTotalSize) }}
+            </UBadge>
+            <UBadge
+              v-if="selectedFiles.size > 0"
+              color="warning"
+              variant="soft"
+            >
+              {{ selectedFiles.size }} selected
+            </UBadge>
+            <UButton
+              v-if="selectedFiles.size > 0"
+              color="error"
+              variant="soft"
+              size="sm"
+              icon="i-lucide-trash-2"
+              :loading="isDeleting"
+              @click="deleteSelectedFiles"
+            >
+              Delete Selected
+            </UButton>
+            <UButton
+              v-if="selectedFiles.size > 0"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              @click="clearSelection"
+            >
+              Clear
+            </UButton>
+          </div>
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <UPageCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold">
-              {{ overview?.totalUsedFormatted || '0 B' }}
-            </h3>
-            <p class="text-sm text-muted">
-              Total Storage Used
-            </p>
+      <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Total Storage Used
+          </p>
+          <div class="mt-2 text-xl font-semibold text-highlighted">
+            {{ overview?.totalUsedFormatted || '0 B' }}
           </div>
-        </UPageCard>
-        <UPageCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-primary">
-              {{ overview?.totalImages || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Images in Database
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Images in Database
+          </p>
+          <div class="mt-2 text-xl font-semibold text-primary">
+            {{ overview?.totalImages || 0 }}
           </div>
-        </UPageCard>
-        <UPageCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-info">
-              {{ overview?.totalXmlFiles || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              XML Files in Database
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            XML Files in Database
+          </p>
+          <div class="mt-2 text-xl font-semibold text-info">
+            {{ overview?.totalXmlFiles || 0 }}
           </div>
-        </UPageCard>
-        <UPageCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-warning">
-              {{ overview?.totalThumbnails || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Thumbnails on Disk
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Thumbnails on Disk
+          </p>
+          <div class="mt-2 text-xl font-semibold text-warning">
+            {{ overview?.totalThumbnails || 0 }}
           </div>
-        </UPageCard>
+        </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <UPageCard :class="{ 'border-error': (overview?.orphanedImages || 0) > 0 }">
-          <div class="text-center">
-            <h3 class="text-xl font-bold" :class="{ 'text-error': (overview?.orphanedImages || 0) > 0 }">
-              {{ overview?.orphanedImages || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Orphaned Images
-            </p>
+      <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-5">
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Orphaned Images
+          </p>
+          <div class="mt-2 text-lg font-semibold" :class="{ 'text-error': (overview?.orphanedImages || 0) > 0, 'text-highlighted': (overview?.orphanedImages || 0) === 0 }">
+            {{ overview?.orphanedImages || 0 }}
           </div>
-        </UPageCard>
-        <UPageCard :class="{ 'border-error': (overview?.orphanedXmlFiles || 0) > 0 }">
-          <div class="text-center">
-            <h3 class="text-xl font-bold" :class="{ 'text-error': (overview?.orphanedXmlFiles || 0) > 0 }">
-              {{ overview?.orphanedXmlFiles || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Orphaned XML
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Orphaned XML
+          </p>
+          <div class="mt-2 text-lg font-semibold" :class="{ 'text-error': (overview?.orphanedXmlFiles || 0) > 0, 'text-highlighted': (overview?.orphanedXmlFiles || 0) === 0 }">
+            {{ overview?.orphanedXmlFiles || 0 }}
           </div>
-        </UPageCard>
-        <UPageCard :class="{ 'border-error': (overview?.orphanedThumbnails || 0) > 0 }">
-          <div class="text-center">
-            <h3 class="text-xl font-bold" :class="{ 'text-error': (overview?.orphanedThumbnails || 0) > 0 }">
-              {{ overview?.orphanedThumbnails || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Orphaned Thumbnails
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Orphaned Thumbnails
+          </p>
+          <div class="mt-2 text-lg font-semibold" :class="{ 'text-error': (overview?.orphanedThumbnails || 0) > 0, 'text-highlighted': (overview?.orphanedThumbnails || 0) === 0 }">
+            {{ overview?.orphanedThumbnails || 0 }}
           </div>
-        </UPageCard>
-        <UPageCard :class="{ 'border-error': (overview?.orphanedTempFiles || 0) > 0 }">
-          <div class="text-center">
-            <h3 class="text-xl font-bold" :class="{ 'text-error': (overview?.orphanedTempFiles || 0) > 0 }">
-              {{ overview?.orphanedTempFiles || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Temp Files
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Temp Files
+          </p>
+          <div class="mt-2 text-lg font-semibold" :class="{ 'text-error': (overview?.orphanedTempFiles || 0) > 0, 'text-highlighted': (overview?.orphanedTempFiles || 0) === 0 }">
+            {{ overview?.orphanedTempFiles || 0 }}
           </div>
-        </UPageCard>
-        <UPageCard :class="{ 'border-error': (overview?.orphanedTotalBytes || 0) > 0 }">
-          <div class="text-center">
-            <h3 class="text-xl font-bold" :class="{ 'text-error': (overview?.orphanedTotalBytes || 0) > 0 }">
-              {{ overview?.orphanedTotalFormatted || '0 B' }}
-            </h3>
-            <p class="text-sm text-muted">
-              Total Orphaned Size
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Total Orphaned Size
+          </p>
+          <div class="mt-2 text-lg font-semibold" :class="{ 'text-error': (overview?.orphanedTotalBytes || 0) > 0, 'text-highlighted': (overview?.orphanedTotalBytes || 0) === 0 }">
+            {{ overview?.orphanedTotalFormatted || '0 B' }}
           </div>
-        </UPageCard>
+        </div>
       </div>
 
-      <UCard>
-        <template #header>
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold">
-              Orphaned Files
-            </h3>
-            <span v-if="totalItems > 0" class="text-sm text-muted">
-              {{ totalItems }} files ({{ formatBytes(filteredTotalSize) }})
-            </span>
-          </div>
-        </template>
-
-        <div class="mb-4 space-y-4">
-          <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div class="flex gap-3 items-center">
-              <UInput
-                v-model="searchQuery"
-                placeholder="Search file paths..."
-                icon="i-lucide-search"
-                class="w-64"
-              >
-                <template v-if="searchQuery" #trailing>
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    icon="i-lucide-x"
-                    :padded="false"
-                    @click="searchQuery = ''"
-                  />
-                </template>
-              </UInput>
-
-              <USelectMenu
-                v-model="typeFilter"
-                :items="typeOptions"
-                placeholder="All types"
-                class="w-40"
-                value-key="value"
-              >
-                <template #label>
-                  <span v-if="typeFilter">{{ typeOptions.find(option => option.value === typeFilter)?.label }}</span>
-                  <span v-else class="text-muted">All types</span>
-                </template>
-              </USelectMenu>
-
-              <UButton
-                v-if="typeFilter || searchQuery"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                icon="i-lucide-x"
-                @click="typeFilter = null; searchQuery = ''"
-              >
-                Clear
-              </UButton>
-            </div>
-
-            <div v-if="selectedFiles.size > 0" class="flex items-center gap-3">
-              <span class="text-sm font-medium">
-                {{ selectedFiles.size }} selected
-              </span>
-              <UButton
-                color="error"
-                variant="soft"
-                size="sm"
-                icon="i-lucide-trash-2"
-                :loading="isDeleting"
-                @click="deleteSelectedFiles"
-              >
-                Delete Selected
-              </UButton>
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                @click="clearSelection"
-              >
-                Clear
-              </UButton>
-            </div>
-          </div>
+      <div>
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="font-semibold">
+            Orphaned Files
+          </h3>
+          <span v-if="totalItems > 0" class="text-sm text-muted">
+            {{ totalItems }} files ({{ formatBytes(filteredTotalSize) }})
+          </span>
         </div>
 
         <div v-if="!orphanedPending && totalItems === 0" class="py-12 text-center">
@@ -640,35 +655,33 @@ async function refreshAll() {
           </UContextMenu>
         </template>
 
-        <template #footer>
-          <div v-if="totalItems > 0" class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="text-sm text-muted">
-              Showing {{ totalItems === 0 ? 0 : (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} files
-            </div>
-
-            <div class="flex items-center gap-4">
-              <USelect
-                v-model="itemsPerPage"
-                :items="[10, 25, 50, 100]"
-                class="w-32"
-                size="sm"
-              >
-                <template #label>
-                  {{ itemsPerPage }} per page
-                </template>
-              </USelect>
-
-              <UPagination
-                v-model:page="page"
-                :total="totalItems"
-                :items-per-page="itemsPerPage"
-                show-edges
-                :sibling-count="1"
-              />
-            </div>
+        <div v-if="totalItems > 0" class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="text-sm text-muted">
+            Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} files
           </div>
-        </template>
-      </UCard>
+
+          <div class="flex items-center gap-4">
+            <USelect
+              v-model="itemsPerPage"
+              :items="[10, 25, 50, 100]"
+              class="w-32"
+              size="sm"
+            >
+              <template #label>
+                {{ itemsPerPage }} per page
+              </template>
+            </USelect>
+
+            <UPagination
+              v-model:page="page"
+              :total="totalItems"
+              :items-per-page="itemsPerPage"
+              show-edges
+              :sibling-count="1"
+            />
+          </div>
+        </div>
+      </div>
     </template>
   </UDashboardPanel>
 </template>

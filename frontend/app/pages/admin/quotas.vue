@@ -107,6 +107,8 @@ const page = ref(1)
 const itemsPerPage = ref(25)
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
+const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
 const paginatedRows = computed(() => {
   const start = (page.value - 1) * itemsPerPage.value
   return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
@@ -214,6 +216,11 @@ function handleRowContextMenu(_event: Event, row: { original: Record<string, unk
   contextMenuQuota.value = row.original as unknown as AdminQuotaRow
 }
 
+function clearFilters() {
+  resetAllFilters()
+  page.value = 1
+}
+
 async function recalculateUsage(workspaceId: string) {
   try {
     await $fetch(`/api/storage/quotas/workspace/${workspaceId}/recalculate`, { method: 'POST' })
@@ -291,133 +298,129 @@ function formatBytes(bytes: number) {
           />
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #left>
+          <UInput
+            v-model="globalFilter"
+            placeholder="Search by workspace name or ID..."
+            icon="i-lucide-search"
+            class="w-full sm:w-80"
+          >
+            <template v-if="globalFilter" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                icon="i-lucide-x"
+                :padded="false"
+                @click="globalFilter = ''"
+              />
+            </template>
+          </UInput>
+
+          <USelectMenu
+            v-model="columnFilters['isQuotaExceeded']"
+            :items="statusOptions"
+            value-key="value"
+            placeholder="All statuses"
+            class="w-full sm:w-40"
+          >
+            <template #label>
+              <span v-if="columnFilters['isQuotaExceeded']">{{ columnFilters['isQuotaExceeded'] === 'true' ? 'Exceeded' : 'OK' }}</span>
+              <span v-else class="text-muted">All Statuses</span>
+            </template>
+          </USelectMenu>
+
+          <USelectMenu
+            v-model="columnFilters['isCustom']"
+            :items="customOptions"
+            value-key="value"
+            placeholder="All types"
+            class="w-full sm:w-40"
+          >
+            <template #label>
+              <span v-if="columnFilters['isCustom']">{{ columnFilters['isCustom'] === 'true' ? 'Custom' : 'Default' }}</span>
+              <span v-else class="text-muted">All Types</span>
+            </template>
+          </USelectMenu>
+
+          <UButton
+            v-if="activeFilters.length > 0"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="clearFilters"
+          >
+            Clear Filters
+          </UButton>
+        </template>
+
+        <template #right>
+          <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
+            <span class="text-xs text-neutral-500">Active filters:</span>
+            <UBadge
+              v-for="filter in activeFilters"
+              :key="`${filter.type}-${filter.column || 'global'}`"
+              variant="soft"
+              color="neutral"
+              size="sm"
+              class="flex items-center gap-1"
+            >
+              {{ filter.label }}
+              <UButton
+                size="2xs"
+                color="neutral"
+                variant="link"
+                icon="i-lucide-x"
+                :padded="false"
+                @click="filter.clear()"
+              />
+            </UBadge>
+          </div>
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold">
-              {{ quotas?.length || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Total Workspaces
-            </p>
+      <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-4">
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Total Workspaces
+          </p>
+          <div class="mt-2 text-xl font-semibold text-highlighted">
+            {{ quotas?.length || 0 }}
           </div>
-        </UCard>
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-error">
-              {{ exceededQuotas?.length || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Quota Exceeded
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Quota Exceeded
+          </p>
+          <div class="mt-2 text-xl font-semibold text-error">
+            {{ exceededQuotas?.length || 0 }}
           </div>
-        </UCard>
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-primary">
-              {{ quotas?.filter(q => q.isCustom).length || 0 }}
-            </h3>
-            <p class="text-sm text-muted">
-              Custom Quotas
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Custom Quotas
+          </p>
+          <div class="mt-2 text-xl font-semibold text-primary">
+            {{ quotas?.filter(q => q.isCustom).length || 0 }}
           </div>
-        </UCard>
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold">
-              {{ formatBytes(defaultQuota || 0) }}
-            </h3>
-            <p class="text-sm text-muted">
-              Default Quota
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Default Quota
+          </p>
+          <div class="mt-2 text-xl font-semibold text-highlighted">
+            {{ formatBytes(defaultQuota || 0) }}
           </div>
-        </UCard>
+        </div>
       </div>
 
-      <UCard>
-        <template #header>
-          <div class="space-y-4">
-            <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div class="flex-1 max-w-md">
-                <UInput
-                  v-model="globalFilter"
-                  placeholder="Search by workspace name or ID..."
-                  icon="i-lucide-search"
-                >
-                  <template v-if="globalFilter" #trailing>
-                    <UButton
-                      color="neutral"
-                      variant="link"
-                      icon="i-lucide-x"
-                      :padded="false"
-                      @click="globalFilter = ''"
-                    />
-                  </template>
-                </UInput>
-              </div>
-
-              <div class="flex flex-wrap gap-3">
-                <USelectMenu
-                  v-model="columnFilters['isQuotaExceeded']"
-                  :items="statusOptions"
-                  value-key="value"
-                  class="w-40"
-                >
-                  <template #label>
-                    <span v-if="columnFilters['isQuotaExceeded']">{{ columnFilters['isQuotaExceeded'] === 'true' ? 'Exceeded' : 'OK' }}</span>
-                    <span v-else class="text-muted">All Statuses</span>
-                  </template>
-                </USelectMenu>
-
-                <USelectMenu
-                  v-model="columnFilters['isCustom']"
-                  :items="customOptions"
-                  value-key="value"
-                  class="w-40"
-                >
-                  <template #label>
-                    <span v-if="columnFilters['isCustom']">{{ columnFilters['isCustom'] === 'true' ? 'Custom' : 'Default' }}</span>
-                    <span v-else class="text-muted">All Types</span>
-                  </template>
-                </USelectMenu>
-
-                <UButton
-                  v-if="activeFilters.length > 0"
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  @click="resetAllFilters"
-                >
-                  Clear Filters
-                </UButton>
-              </div>
-            </div>
-
-            <div v-if="activeFilters.length > 0" class="flex flex-wrap gap-2">
-              <UBadge
-                v-for="filter in activeFilters"
-                :key="`${filter.type}-${filter.column || 'global'}`"
-                variant="solid"
-                color="primary"
-                class="flex items-center gap-1"
-              >
-                {{ filter.label }}
-                <UButton
-                  size="2xs"
-                  color="primary"
-                  variant="link"
-                  icon="i-lucide-x"
-                  :padded="false"
-                  @click="filter.clear()"
-                />
-              </UBadge>
-            </div>
-          </div>
-        </template>
-
+      <div>
         <UContextMenu :items="contextMenuItems as any">
           <UTable
             :data="paginatedRows"
@@ -428,35 +431,33 @@ function formatBytes(bytes: number) {
           />
         </UContextMenu>
 
-        <template #footer>
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="text-sm text-muted">
-              Showing {{ totalItems === 0 ? 0 : (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} quota entries
-            </div>
-
-            <div class="flex items-center gap-4">
-              <USelect
-                v-model="itemsPerPage"
-                :items="[10, 25, 50, 100]"
-                class="w-32"
-                size="sm"
-              >
-                <template #label>
-                  {{ itemsPerPage }} per page
-                </template>
-              </USelect>
-
-              <UPagination
-                v-model:page="page"
-                :total="totalItems"
-                :items-per-page="itemsPerPage"
-                show-edges
-                :sibling-count="1"
-              />
-            </div>
+        <div class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="text-sm text-muted">
+            Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} quota entries
           </div>
-        </template>
-      </UCard>
+
+          <div class="flex items-center gap-4">
+            <USelect
+              v-model="itemsPerPage"
+              :items="[10, 25, 50, 100]"
+              class="w-32"
+              size="sm"
+            >
+              <template #label>
+                {{ itemsPerPage }} per page
+              </template>
+            </USelect>
+
+            <UPagination
+              v-model:page="page"
+              :total="totalItems"
+              :items-per-page="itemsPerPage"
+              show-edges
+              :sibling-count="1"
+            />
+          </div>
+        </div>
+      </div>
     </template>
   </UDashboardPanel>
 </template>
