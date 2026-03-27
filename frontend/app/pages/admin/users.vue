@@ -3,62 +3,19 @@ import { h, resolveComponent } from 'vue'
 import * as z from 'zod'
 import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import { LazyUiConfirmSlideover } from '#components'
+import type {
+  AdminGlobalRoles,
+  AdminUser,
+  AdminUserAuditEvent,
+  AdminUserIdentitySource,
+  AdminUserOnboardingState,
+  AdminUserPage,
+  AdminUserStatusFilter,
+  ErrorResponseData
+} from '@/types/admin-users'
 import { globalKey } from '@/utils/fetch-keys'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-
-type AdminUserOnboardingState = 'ACTIVE' | 'PENDING_SETUP' | 'DISABLED' | 'SERVICE_ACCOUNT'
-type AdminUserStatusFilter = 'ALL' | 'ACTIVE' | 'PENDING_SETUP' | 'DISABLED'
-type AdminUserAuditAction = 'CREATE' | 'ENABLE' | 'DISABLE' | 'RESEND_SETUP_EMAIL' | 'GLOBAL_CURATOR_GRANT' | 'GLOBAL_CURATOR_REVOKE'
-type AdminUserAuditOutcome = 'SUCCESS' | 'FAILURE'
-type AdminUserIdentitySource = 'LOCAL' | 'LDAP' | 'SERVICE_ACCOUNT'
-
-interface AdminUser {
-  id: string
-  username: string
-  email?: string | null
-  firstName?: string | null
-  lastName?: string | null
-  avatar?: string | null
-  enabled: boolean
-  emailVerified: boolean
-  serviceAccount: boolean
-  externallyManaged: boolean
-  identitySource: AdminUserIdentitySource
-  onboardingState: AdminUserOnboardingState
-  createdTimestamp?: string | null
-}
-
-interface AdminUserPage {
-  items: AdminUser[]
-  page: number
-  size: number
-  totalElements: number
-  totalPages: number
-  creationAllowed: boolean
-  setupEmailAllowed: boolean
-}
-
-interface AdminUserAuditEvent {
-  id: string
-  action: AdminUserAuditAction
-  outcome: AdminUserAuditOutcome
-  actorUserId: string
-  actorUsername: string
-  created?: string | null
-  details?: string | null
-}
-
-interface AdminGlobalRoles {
-  globalAdmin: boolean
-  globalCurator: boolean
-}
-
-interface ErrorResponseData {
-  code?: string
-  message?: string
-  details?: string[]
-}
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -189,6 +146,7 @@ const visiblePendingCount = computed(() => users.value.filter(user => user.onboa
 const visibleDisabledCount = computed(() => users.value.filter(user => user.onboardingState === 'DISABLED').length)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
+const hasActiveFilters = computed(() => Boolean(searchInput.value.trim()) || statusFilter.value !== 'ALL')
 
 watch(searchInput, useDebounceFn((value: string) => {
   debouncedSearch.value = value.trim()
@@ -333,8 +291,8 @@ const contextMenuItems = computed(() => {
   }))]
 })
 
-function handleRowContextMenu(_event: Event, row: any) {
-  contextMenuUser.value = row.original as AdminUser
+function handleRowContextMenu(_event: Event, row: { original: AdminUser }) {
+  contextMenuUser.value = row.original
 }
 
 function displayName(user: AdminUser): string {
@@ -394,29 +352,6 @@ function formatDate(value?: string | null): string {
   return value ? new Date(value).toLocaleString() : '-'
 }
 
-function formatActionLabel(value: string): string {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-function formatAuditDetails(details?: string | null): string {
-  if (!details) {
-    return 'No details recorded.'
-  }
-
-  try {
-    const parsed = JSON.parse(details) as Record<string, unknown>
-    return Object.entries(parsed)
-      .map(([key, value]) => `${formatActionLabel(key)}: ${String(value)}`)
-      .join('\n')
-  } catch {
-    return details
-  }
-}
-
 function getErrorData(error: unknown): ErrorResponseData | undefined {
   if (!error || typeof error !== 'object' || !('data' in error)) {
     return undefined
@@ -467,6 +402,13 @@ function openCreateUserModal() {
 
 function closeCreateUserModal() {
   isCreateUserModalOpen.value = false
+}
+
+function clearFilters() {
+  searchInput.value = ''
+  debouncedSearch.value = ''
+  statusFilter.value = 'ALL'
+  page.value = 1
 }
 
 function canDisable(user: AdminUser): boolean {
@@ -725,86 +667,90 @@ async function submitGlobalRoleAction() {
           />
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #left>
+          <UInput
+            v-model="searchInput"
+            icon="i-lucide-search"
+            placeholder="Search by username, email, or name..."
+            class="w-full sm:w-80"
+          >
+            <template v-if="searchInput" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                icon="i-lucide-x"
+                :padded="false"
+                @click="searchInput = ''"
+              />
+            </template>
+          </UInput>
+
+          <USelect
+            v-model="statusFilter"
+            :items="statusOptions"
+            value-key="value"
+            class="w-full sm:w-48"
+          />
+
+          <UButton
+            v-if="hasActiveFilters"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="clearFilters"
+          >
+            Clear Filters
+          </UButton>
+        </template>
+
+        <template #right>
+          <UBadge color="neutral" variant="subtle">
+            Service accounts hidden by default
+          </UBadge>
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold">
-              {{ totalItems }}
-            </h3>
-            <p class="text-sm text-muted">
-              Matched Users
-            </p>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-warning">
-              {{ visiblePendingCount }}
-            </h3>
-            <p class="text-sm text-muted">
-              Pending Setup on Page
-            </p>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-error">
-              {{ visibleDisabledCount }}
-            </h3>
-            <p class="text-sm text-muted">
-              Disabled on Page
-            </p>
-          </div>
-        </UCard>
+      <div
+        v-if="!creationAllowed"
+        class="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
+      >
+        User creation is disabled because this deployment uses LDAP-managed identities.
       </div>
 
-      <UCard>
-        <template #header>
-          <div class="flex flex-col gap-4">
-            <div
-              v-if="!creationAllowed"
-              class="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
-            >
-              User creation is disabled because this deployment uses LDAP-managed identities.
-            </div>
-
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div class="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
-                <UInput
-                  v-model="searchInput"
-                  icon="i-lucide-search"
-                  placeholder="Search by username, email, or name..."
-                  class="w-full sm:max-w-md"
-                >
-                  <template v-if="searchInput" #trailing>
-                    <UButton
-                      color="neutral"
-                      variant="link"
-                      icon="i-lucide-x"
-                      :padded="false"
-                      @click="searchInput = ''"
-                    />
-                  </template>
-                </UInput>
-
-                <USelect
-                  v-model="statusFilter"
-                  :items="statusOptions"
-                  value-key="value"
-                  class="w-full sm:w-56"
-                />
-              </div>
-
-              <div class="text-sm text-muted">
-                Service accounts are hidden by default.
-              </div>
-            </div>
+      <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Matched Users
+          </p>
+          <div class="mt-2 text-xl font-semibold text-highlighted">
+            {{ totalItems }}
           </div>
-        </template>
+        </div>
 
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Pending Setup on Page
+          </p>
+          <div class="mt-2 text-xl font-semibold text-warning">
+            {{ visiblePendingCount }}
+          </div>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Disabled on Page
+          </p>
+          <div class="mt-2 text-xl font-semibold text-error">
+            {{ visibleDisabledCount }}
+          </div>
+        </div>
+      </div>
+
+      <div>
         <UContextMenu :items="contextMenuItems as any">
           <UTable
             :data="users"
@@ -815,7 +761,7 @@ async function submitGlobalRoleAction() {
           />
         </UContextMenu>
 
-        <div class="flex flex-col gap-4 border-t border-default p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">
             Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} users
           </div>
@@ -845,7 +791,7 @@ async function submitGlobalRoleAction() {
             />
           </div>
         </div>
-      </UCard>
+      </div>
     </template>
   </UDashboardPanel>
 
@@ -915,188 +861,17 @@ async function submitGlobalRoleAction() {
     </template>
   </UModal>
 
-  <USlideover
-    v-model:open="isDetailsOpen"
-    title="User Details"
-    :close="{ onClick: closeUserDetails }"
-  >
-    <template #body>
-      <div class="space-y-6">
-        <div v-if="detailPending" class="text-sm text-muted">
-          Loading user details...
-        </div>
-
-        <div v-else-if="detailError" class="text-sm text-error">
-          {{ detailError }}
-        </div>
-
-        <template v-else-if="detailUser">
-          <div class="flex items-center gap-3">
-            <UAvatar :src="detailUser.avatar || undefined" :alt="detailUser.username" size="lg" />
-            <div>
-              <div class="text-lg font-semibold">
-                {{ displayName(detailUser) }}
-              </div>
-              <div class="text-sm text-muted">
-                {{ detailUser.email || detailUser.username }}
-              </div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <UCard>
-              <div class="text-xs uppercase tracking-wide text-muted mb-1">
-                Username
-              </div>
-              <div class="font-medium break-all">
-                {{ detailUser.username }}
-              </div>
-            </UCard>
-
-            <UCard>
-              <div class="text-xs uppercase tracking-wide text-muted mb-1">
-                User ID
-              </div>
-              <div class="font-medium break-all">
-                {{ detailUser.id }}
-              </div>
-            </UCard>
-
-            <UCard>
-              <div class="text-xs uppercase tracking-wide text-muted mb-1">
-                Status
-              </div>
-              <div class="flex items-center gap-2">
-                <UBadge :color="statusColor(detailUser.onboardingState)" variant="soft">
-                  {{ statusLabel(detailUser.onboardingState) }}
-                </UBadge>
-                <UBadge :color="detailUser.emailVerified ? 'success' : 'warning'" variant="subtle">
-                  {{ detailUser.emailVerified ? 'Email Verified' : 'Email Unverified' }}
-                </UBadge>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div class="text-xs uppercase tracking-wide text-muted mb-1">
-                Identity Source
-              </div>
-              <div class="flex items-center gap-2">
-                <UBadge :color="identitySourceColor(detailUser.identitySource)" variant="soft">
-                  {{ identitySourceLabel(detailUser.identitySource) }}
-                </UBadge>
-                <span
-                  v-if="detailUser.externallyManaged"
-                  class="text-sm text-muted"
-                >
-                  Managed externally
-                </span>
-              </div>
-            </UCard>
-
-            <UCard>
-              <div class="text-xs uppercase tracking-wide text-muted mb-1">
-                Created
-              </div>
-              <div class="font-medium">
-                {{ formatDate(detailUser.createdTimestamp) }}
-              </div>
-            </UCard>
-          </div>
-
-          <UCard>
-            <div class="flex flex-col gap-4">
-              <div>
-                <div class="text-xs uppercase tracking-wide text-muted mb-1">
-                  Global Permissions
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <UBadge :color="detailGlobalRoles?.globalAdmin ? 'success' : 'neutral'" variant="soft">
-                    GLOBAL_ADMIN: {{ detailGlobalRoles?.globalAdmin ? 'Yes' : 'No' }}
-                  </UBadge>
-                  <UBadge :color="detailGlobalRoles?.globalCurator ? 'info' : 'neutral'" variant="soft">
-                    GLOBAL_CURATOR: {{ detailGlobalRoles?.globalCurator ? 'Yes' : 'No' }}
-                  </UBadge>
-                </div>
-                <p class="mt-2 text-xs text-muted">
-                  Changes take effect after token refresh or re-login.
-                </p>
-              </div>
-
-              <div v-if="!detailUser.serviceAccount" class="flex flex-wrap gap-2">
-                <UButton
-                  color="primary"
-                  variant="outline"
-                  icon="i-lucide-user-plus"
-                  :disabled="!!detailGlobalRoles?.globalCurator"
-                  @click="openGlobalRoleModal('grant')"
-                >
-                  Grant Global Curator
-                </UButton>
-                <UButton
-                  color="error"
-                  variant="outline"
-                  icon="i-lucide-user-minus"
-                  :disabled="!detailGlobalRoles?.globalCurator"
-                  @click="openGlobalRoleModal('revoke')"
-                >
-                  Revoke Global Curator
-                </UButton>
-              </div>
-
-              <p v-else class="text-xs text-muted">
-                Service accounts cannot be changed.
-              </p>
-            </div>
-          </UCard>
-
-          <div
-            v-if="detailUser.identitySource === 'LDAP'"
-            class="rounded-lg border border-info/30 bg-info/10 px-4 py-3 text-sm text-info"
-          >
-            Account lifecycle changes must be handled in your directory or identity provider.
-          </div>
-
-          <div>
-            <div class="mb-3 flex items-center justify-between">
-              <h3 class="text-sm font-semibold uppercase tracking-wide text-muted">
-                Audit Events
-              </h3>
-              <UButton
-                size="xs"
-                variant="ghost"
-                color="neutral"
-                icon="i-lucide-refresh-cw"
-                :loading="detailPending"
-                @click="selectedUserId && loadUserDetails(selectedUserId)"
-              >
-                Refresh
-              </UButton>
-            </div>
-
-            <div v-if="detailAuditEvents.length === 0" class="text-sm text-muted">
-              No audit events recorded for this user.
-            </div>
-
-            <div v-else class="space-y-3">
-              <UCard v-for="event in detailAuditEvents" :key="event.id">
-                <div class="flex flex-col gap-2">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <UBadge :color="event.outcome === 'SUCCESS' ? 'success' : 'error'" variant="soft">
-                      {{ formatActionLabel(event.outcome) }}
-                    </UBadge>
-                    <span class="font-medium">{{ formatActionLabel(event.action) }}</span>
-                    <span class="text-sm text-muted">by {{ event.actorUsername }}</span>
-                    <span class="text-sm text-muted">{{ formatDate(event.created) }}</span>
-                  </div>
-                  <pre class="whitespace-pre-wrap wrap-break-word text-sm text-muted font-sans">{{ formatAuditDetails(event.details) }}</pre>
-                </div>
-              </UCard>
-            </div>
-          </div>
-        </template>
-      </div>
-    </template>
-  </USlideover>
+  <AdminSlideoverUserDetails
+    :open="isDetailsOpen"
+    :user="detailUser"
+    :audit-events="detailAuditEvents"
+    :global-roles="detailGlobalRoles"
+    :pending="detailPending"
+    :error="detailError"
+    @close="closeUserDetails"
+    @refresh="selectedUserId && loadUserDetails(selectedUserId)"
+    @global-role-action="openGlobalRoleModal"
+  />
 
   <UModal
     v-model:open="isGlobalRoleModalOpen"
