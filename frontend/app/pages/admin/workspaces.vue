@@ -36,12 +36,15 @@ const datatableUi = {
   separator: 'h-0'
 }
 
-const { sort, globalFilter, filteredAndSortedData, activeFilters, resetAllFilters } = useTableFilters(workspaces, { column: 'created', direction: 'desc' })
+const { sort, globalFilter, filteredAndSortedData } = useTableFilters(workspaces, { column: 'created', direction: 'desc' })
 
 const page = ref(1)
 const itemsPerPage = ref(25)
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
+const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
+const hasActiveFilters = computed(() => Boolean(globalFilter.value.trim()))
 const paginatedRows = computed(() => {
   const start = (page.value - 1) * itemsPerPage.value
   return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
@@ -141,12 +144,17 @@ const contextMenuItems = computed(() => {
   return getRowActions(contextMenuWorkspace.value)
 })
 
-function handleRowContextMenu(_event: Event, row: any) {
-  contextMenuWorkspace.value = row.original as AdminWorkspace
+function handleRowContextMenu(_event: Event, row: { original: AdminWorkspace }) {
+  contextMenuWorkspace.value = row.original
 }
 
 const personalCount = computed(() => workspaces.value.filter(w => w.isPersonal).length)
 const teamCount = computed(() => workspaces.value.filter(w => !w.isPersonal).length)
+
+function clearFilters() {
+  globalFilter.value = ''
+  page.value = 1
+}
 </script>
 
 <template>
@@ -167,70 +175,70 @@ const teamCount = computed(() => workspaces.value.filter(w => !w.isPersonal).len
           />
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #left>
+          <UInput
+            v-model="globalFilter"
+            placeholder="Search workspaces..."
+            icon="i-lucide-search"
+            class="w-full sm:w-80"
+          >
+            <template v-if="globalFilter" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                icon="i-lucide-x"
+                :padded="false"
+                @click="globalFilter = ''"
+              />
+            </template>
+          </UInput>
+
+          <UButton
+            v-if="hasActiveFilters"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="clearFilters"
+          >
+            Clear Filters
+          </UButton>
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold">
-              {{ workspaces.length }}
-            </h3>
-            <p class="text-sm text-muted">
-              Total Workspaces
-            </p>
+      <div class="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Total Workspaces
+          </p>
+          <div class="mt-2 text-xl font-semibold text-highlighted">
+            {{ workspaces.length }}
           </div>
-        </UCard>
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold">
-              {{ personalCount }}
-            </h3>
-            <p class="text-sm text-muted">
-              Personal
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Personal
+          </p>
+          <div class="mt-2 text-xl font-semibold text-highlighted">
+            {{ personalCount }}
           </div>
-        </UCard>
-        <UCard>
-          <div class="text-center">
-            <h3 class="text-2xl font-bold text-primary">
-              {{ teamCount }}
-            </h3>
-            <p class="text-sm text-muted">
-              Team
-            </p>
+        </div>
+
+        <div class="rounded-lg bg-elevated/30 px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-muted">
+            Team
+          </p>
+          <div class="mt-2 text-xl font-semibold text-primary">
+            {{ teamCount }}
           </div>
-        </UCard>
+        </div>
       </div>
 
-      <UCard>
-        <template #header>
-          <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div class="flex-1 max-w-md">
-              <UInput v-model="globalFilter" placeholder="Search workspaces..." icon="i-lucide-search">
-                <template v-if="globalFilter" #trailing>
-                  <UButton
-                    color="neutral"
-                    variant="link"
-                    icon="i-lucide-x"
-                    :padded="false"
-                    @click="globalFilter = ''"
-                  />
-                </template>
-              </UInput>
-            </div>
-            <UButton
-              v-if="activeFilters.length > 0"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              @click="resetAllFilters"
-            >
-              Clear Filters
-            </UButton>
-          </div>
-        </template>
-
+      <div>
         <UContextMenu :items="contextMenuItems as any">
           <UTable
             :data="paginatedRows"
@@ -241,35 +249,33 @@ const teamCount = computed(() => workspaces.value.filter(w => !w.isPersonal).len
           />
         </UContextMenu>
 
-        <template #footer>
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="text-sm text-muted">
-              Showing {{ totalItems === 0 ? 0 : (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} workspaces
-            </div>
-
-            <div class="flex items-center gap-4">
-              <USelect
-                v-model="itemsPerPage"
-                :items="[10, 25, 50, 100]"
-                class="w-32"
-                size="sm"
-              >
-                <template #label>
-                  {{ itemsPerPage }} per page
-                </template>
-              </USelect>
-
-              <UPagination
-                v-model:page="page"
-                :total="totalItems"
-                :items-per-page="itemsPerPage"
-                show-edges
-                :sibling-count="1"
-              />
-            </div>
+        <div class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
+          <div class="text-sm text-muted">
+            Showing {{ showingFrom }} to {{ showingTo }} of {{ totalItems }} workspaces
           </div>
-        </template>
-      </UCard>
+
+          <div class="flex items-center gap-4">
+            <USelect
+              v-model="itemsPerPage"
+              :items="[10, 25, 50, 100]"
+              class="w-32"
+              size="sm"
+            >
+              <template #label>
+                {{ itemsPerPage }} per page
+              </template>
+            </USelect>
+
+            <UPagination
+              v-model:page="page"
+              :total="totalItems"
+              :items-per-page="itemsPerPage"
+              show-edges
+              :sibling-count="1"
+            />
+          </div>
+        </div>
+      </div>
     </template>
   </UDashboardPanel>
 </template>
