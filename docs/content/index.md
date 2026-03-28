@@ -157,7 +157,7 @@ For end users who annotate and analyze documents in LAREX.
     Projects
 
     #description
-    Manage project pages, uploads, filters, and project actions.
+    Manage project pages, uploads, IIIF imports, filters, and project actions.
     ::::
 
     ::::u-page-card
