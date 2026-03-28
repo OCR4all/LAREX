@@ -7,6 +7,7 @@ import {
   LazyProjectSlideoverPdfPrefix,
   LazyProjectSlideoverEdit,
   LazyProjectSlideoverExportTarget,
+  LazyProjectSlideoverIiifImport,
   LazyProjectSlideoverBulkDeletePages,
   LazyProjectSlideoverXmlEditor,
   LazyUiConfirmSlideover,
@@ -510,12 +511,46 @@ const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePages)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
 const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
+const iiifImportSlideover = overlay.create(LazyProjectSlideoverIiifImport)
 
 const router = useRouter()
 const isDeletingProject = ref(false)
 
 async function goToLibrary() {
   await router.push('/')
+}
+
+async function refreshProjectPagesData() {
+  try {
+    await $fetch(`/api/projects/${projectId}/pages/invalidate-cache`, { method: 'POST' })
+  } catch {
+    // Best effort. The follow-up refresh still fetches current data when cache invalidation is unavailable.
+  }
+
+  const workspaceId = selectedWorkspace.value
+  await Promise.allSettled([
+    refreshPagesFetch(),
+    refreshProject(),
+    refreshProjectStatus(),
+    workspaceId ? refreshNuxtData(libraryProjectsKey.value) : Promise.resolve(),
+    workspaceId ? refreshNuxtData(starredProjectsKey.value) : Promise.resolve(),
+    workspaceId ? refreshNuxtData(wsKey(workspaceId, 'storage', 'quota')) : Promise.resolve()
+  ])
+}
+
+async function openIiifImportSlideover() {
+  if (!project.value) return
+
+  const instance = iiifImportSlideover.open({
+    projectId: project.value.id,
+    workspaceId: selectedWorkspace.value ?? '',
+    onFinished: refreshProjectPagesData
+  })
+
+  const imported = await instance.result
+  if (imported) {
+    await refreshProjectPagesData()
+  }
 }
 
 const projectNotFoundActions = computed<Array<Record<string, unknown>>>(() => [
@@ -1061,6 +1096,15 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
   ]
 
   if (allow(projectCapabilities.value.canEdit)) {
+    projectItems.push({
+      label: 'Import IIIF',
+      icon: 'i-lucide-image-plus',
+      disabled: project.value?.locked,
+      onSelect: () => {
+        void openIiifImportSlideover()
+      }
+    })
+
     projectItems.push({
       label: 'Edit project',
       icon: 'i-lucide-edit',

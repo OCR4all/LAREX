@@ -47,6 +47,18 @@ public class Page {
     @Column(name = "locked_reason", columnDefinition = "TEXT")
     private String lockedReason;
 
+    @Column(name = "external_source_type", length = 64)
+    private String externalSourceType;
+
+    @Column(name = "external_source_id", columnDefinition = "TEXT")
+    private String externalSourceId;
+
+    @Column(name = "external_source_url", columnDefinition = "TEXT")
+    private String externalSourceUrl;
+
+    @Column(name = "external_source_metadata_json", columnDefinition = "TEXT")
+    private String externalSourceMetadataJson;
+
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<PageImage> images = new HashSet<>();
 
@@ -127,6 +139,38 @@ public class Page {
 
     public void setLockedReason(String lockedReason) {
         this.lockedReason = lockedReason;
+    }
+
+    public String getExternalSourceType() {
+        return externalSourceType;
+    }
+
+    public void setExternalSourceType(String externalSourceType) {
+        this.externalSourceType = externalSourceType;
+    }
+
+    public String getExternalSourceId() {
+        return externalSourceId;
+    }
+
+    public void setExternalSourceId(String externalSourceId) {
+        this.externalSourceId = externalSourceId;
+    }
+
+    public String getExternalSourceUrl() {
+        return externalSourceUrl;
+    }
+
+    public void setExternalSourceUrl(String externalSourceUrl) {
+        this.externalSourceUrl = externalSourceUrl;
+    }
+
+    public String getExternalSourceMetadataJson() {
+        return externalSourceMetadataJson;
+    }
+
+    public void setExternalSourceMetadataJson(String externalSourceMetadataJson) {
+        this.externalSourceMetadataJson = externalSourceMetadataJson;
     }
 
     public Set<PageImage> getImages() {

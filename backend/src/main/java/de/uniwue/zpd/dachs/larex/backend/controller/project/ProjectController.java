@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.project;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectTransferDto;
@@ -14,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
+import de.uniwue.zpd.dachs.larex.backend.service.importer.IiifImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UnifiedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
@@ -47,6 +49,7 @@ public class ProjectController {
     private final ProjectReadService projectReadService;
     private final ProjectPackageService projectPackageService;
     private final DocumentExportService documentExportService;
+    private final IiifImportService iiifImportService;
     private final UnifiedUploadService unifiedUploadService;
     private final UploadConflictService uploadConflictService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
@@ -55,6 +58,7 @@ public class ProjectController {
                            ProjectReadService projectReadService,
                            ProjectPackageService projectPackageService,
                            DocumentExportService documentExportService,
+                           IiifImportService iiifImportService,
                            UnifiedUploadService unifiedUploadService,
                            UploadConflictService uploadConflictService,
                            WorkspaceQuotaGuardService workspaceQuotaGuardService) {
@@ -63,6 +67,7 @@ public class ProjectController {
         this.projectReadService = projectReadService;
         this.projectPackageService = projectPackageService;
         this.documentExportService = documentExportService;
+        this.iiifImportService = iiifImportService;
         this.unifiedUploadService = unifiedUploadService;
         this.uploadConflictService = uploadConflictService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
@@ -370,6 +375,57 @@ public class ProjectController {
 
         ProjectPackageDto.ImportResult result = projectPackageService.importProjectPackage(workspaceId, userId, packageFile);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{projectId}/iiif-import/preview")
+    public ResponseEntity<IiifImportDto.PreviewResponse> previewIiifImportFromUrl(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @Valid @RequestBody IiifImportDto.PreviewRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        return ResponseEntity.ok(iiifImportService.previewFromManifestUrl(workspaceId, projectId, userId, request));
+    }
+
+    @PostMapping(value = "/{projectId}/iiif-import/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<IiifImportDto.PreviewResponse> previewIiifImportFromFile(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        return ResponseEntity.ok(iiifImportService.previewFromManifestFile(workspaceId, projectId, userId, file));
+    }
+
+    @PostMapping("/{projectId}/iiif-import/jobs")
+    public ResponseEntity<IiifImportDto.JobResponse> createIiifImportJob(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @Valid @RequestBody IiifImportDto.StartJobRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        IiifImportDto.JobResponse response = iiifImportService.startImportJob(workspaceId, projectId, userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{projectId}/iiif-import/jobs/{jobId}")
+    public ResponseEntity<IiifImportDto.JobResponse> getIiifImportJob(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String jobId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        return ResponseEntity.ok(iiifImportService.getImportJob(workspaceId, projectId, userId, jobId));
+    }
+
+    @DeleteMapping("/{projectId}/iiif-import/jobs/{jobId}")
+    public ResponseEntity<IiifImportDto.JobResponse> cancelIiifImportJob(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String jobId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        return ResponseEntity.ok(iiifImportService.cancelImportJob(workspaceId, projectId, userId, jobId));
     }
 
     @PostMapping("/{projectId}/transfer")

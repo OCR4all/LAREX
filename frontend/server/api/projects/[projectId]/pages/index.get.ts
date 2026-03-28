@@ -2,7 +2,7 @@ import { pageCacheUtils } from '../../../../utils/page-cache'
 
 /**
  * GET /api/projects/{projectId}/pages
- * 
+ *
  * Returns the list of pages for a project with server-side caching.
  * Cache is invalidated via WebSocket when pages are modified.
  */
@@ -63,11 +63,13 @@ export default defineEventHandler(async (event) => {
     pageCacheUtils.setPageList(projectId, data)
 
     return data
-  } catch (error: any) {
-    const statusCode = error.response?.status || 500
+  } catch (error: unknown) {
+    const statusCode = Number(
+      (error as { response?: { status?: number } })?.response?.status ?? 500
+    ) || 500
     throw createError({
       statusCode,
-      statusMessage: error.message || 'Failed to fetch pages'
+      statusMessage: (error as { message?: string })?.message || 'Failed to fetch pages'
     })
   }
 })
