@@ -28,6 +28,7 @@ import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import type { Commander } from '@/commands/editor/commander'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import { createSkeletonPageData } from '@/services/editor/project-loader'
+import { copyTextToClipboard } from '@/utils/clipboard'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PageIndexingStatus } from '@/stores/editor/types'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
@@ -857,21 +858,11 @@ function getProjectDeepLink(projectId: string): string {
 }
 
 async function copyToClipboard(text: string, successTitle: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    toast.add({
-      title: successTitle,
-      color: 'success',
-      icon: 'i-lucide-check'
-    })
-  } catch {
-    toast.add({
-      title: 'Copy failed',
-      description: 'Your browser blocked clipboard access.',
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
-    })
-  }
+  await copyTextToClipboard(text, {
+    successTitle,
+    failureTitle: 'Copy failed',
+    failureDescription: 'Your browser blocked clipboard access.'
+  })
 }
 
 async function handleCopyProjectLink(projectId: string) {

@@ -197,6 +197,13 @@ const groups = computed(() => {
       to: '/admin/import',
       onSelect: () => { open.value = false }
     }, {
+      id: 'go-admin-errors',
+      label: 'Go to Errors',
+      icon: 'i-lucide-bug',
+      suffix: 'Inspect captured API errors',
+      to: '/admin/errors',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'go-admin-storage',
       label: 'Go to Storage',
       icon: 'i-lucide-trash-2',

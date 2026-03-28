@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import { wsKey } from '@/utils/fetch-keys'
 import type { UploadFile } from '@/composables/use-chunked-upload'
 import type { UploadSessionStatus, UploadUiFile, UploadUiFileStatus } from '@/stores/upload.store'
+import { showApiErrorToast } from '@/utils/error-toast'
 
 type ProjectPageLike = {
   id: string
@@ -182,7 +183,6 @@ function mapServerFileToRecoveredUiFile(file: UploadSessionFileResponse): Upload
 }
 
 export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(options: UseProjectUploadOrchestrationOptions<TPage>) {
-  const toast = useToast()
   const uploadStore = useUploadStore()
   const uploadSessionActions = useUploadSessionActions()
 
@@ -279,11 +279,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
         uploadStore.completeUpload(sessionId, 'FAILED', error.message)
       }
 
-      toast.add({
+      showApiErrorToast({
         title: 'Upload failed',
-        description: file ? `Failed to upload ${file.fileName}: ${error.message}` : error.message,
-        color: 'error',
-        icon: 'i-lucide-alert-circle'
+        error,
+        fallback: file ? `Failed to upload ${file.fileName}: ${error.message}` : error.message
       })
     }
   })
@@ -449,11 +448,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
     await syncProjectDataAfterUploadTerminal()
 
     if (status === 'FAILED') {
-      toast.add({
+      showApiErrorToast({
         title: 'Processing failed',
-        description: 'Some files could not be processed',
-        color: 'error',
-        icon: 'i-lucide-alert-circle'
+        error: new Error('Some files could not be processed'),
+        fallback: 'Some files could not be processed'
       })
     }
   }
@@ -722,11 +720,10 @@ export function useProjectUploadOrchestration<TPage extends ProjectPageLike>(opt
       }
       currentUploadSessionId.value = null
       tempUploadSessionId.value = null
-      toast.add({
+      showApiErrorToast({
         title: 'Upload failed',
-        description: message,
-        color: 'error',
-        icon: 'i-lucide-alert-circle'
+        error,
+        fallback: message
       })
     }
   }

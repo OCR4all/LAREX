@@ -13,6 +13,7 @@ import type {
 import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData } from '@/services/editor/project-loader'
 import type { PageResponse } from '@/services/editor/project-loader'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 type SourceProject = {
   id: string
@@ -702,14 +703,12 @@ async function handleSubmit() {
 
 async function copyMissingCharacters() {
   const missing = validateResult.value?.missingCharacters ?? []
-  if (missing.length === 0 || !import.meta.client || !navigator.clipboard) return
+  if (missing.length === 0) return
 
-  try {
-    await navigator.clipboard.writeText(missing.join(''))
-    toast.add({ title: 'Missing characters copied', color: 'success' })
-  } catch {
-    toast.add({ title: 'Failed to copy missing characters', color: 'error' })
-  }
+  await copyTextToClipboard(missing.join(''), {
+    successTitle: 'Missing characters copied',
+    failureTitle: 'Failed to copy missing characters'
+  })
 }
 
 function closeWithResult() {

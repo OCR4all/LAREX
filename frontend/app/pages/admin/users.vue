@@ -14,6 +14,7 @@ import type {
   ErrorResponseData
 } from '@/types/admin-users'
 import { globalKey } from '@/utils/fetch-keys'
+import { showApiErrorToast } from '@/utils/error-toast'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -511,10 +512,10 @@ async function onCreateUserSubmit(event: FormSubmitEvent<CreateUserSchema>) {
     page.value = 1
     await refreshUsersAndDetails()
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: 'User creation failed',
-      description: getErrorMessage(error, 'Failed to create user.'),
-      color: 'error'
+      error,
+      fallback: getErrorMessage(error, 'Failed to create user.')
     })
   } finally {
     isCreatingUser.value = false
@@ -539,10 +540,10 @@ async function disableUser(user: AdminUser) {
     toast.add({ title: 'User disabled', color: 'success' })
     await refreshUsersAndDetails()
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: 'Disable failed',
-      description: getErrorMessage(error, 'Failed to disable user.'),
-      color: 'error'
+      error,
+      fallback: getErrorMessage(error, 'Failed to disable user.')
     })
   } finally {
     activeActionKey.value = null
@@ -556,10 +557,10 @@ async function enableUser(user: AdminUser) {
     toast.add({ title: 'User enabled', color: 'success' })
     await refreshUsersAndDetails()
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: 'Enable failed',
-      description: getErrorMessage(error, 'Failed to enable user.'),
-      color: 'error'
+      error,
+      fallback: getErrorMessage(error, 'Failed to enable user.')
     })
   } finally {
     activeActionKey.value = null
@@ -573,10 +574,10 @@ async function resendSetupEmail(user: AdminUser) {
     toast.add({ title: 'Setup email sent', color: 'success' })
     await refreshUsersAndDetails()
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: 'Resend failed',
-      description: getErrorMessage(error, 'Failed to resend setup email.'),
-      color: 'error'
+      error,
+      fallback: getErrorMessage(error, 'Failed to resend setup email.')
     })
   } finally {
     activeActionKey.value = null
@@ -630,10 +631,10 @@ async function submitGlobalRoleAction() {
     }
     await refresh()
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: isGrant ? 'Grant failed' : 'Revoke failed',
-      description: getErrorMessage(error, 'Failed to update global curator role.'),
-      color: 'error'
+      error,
+      fallback: getErrorMessage(error, 'Failed to update global curator role.')
     })
   } finally {
     isSubmittingGlobalRole.value = false

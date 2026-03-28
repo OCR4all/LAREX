@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { showApiErrorToast } from '@/utils/error-toast'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
@@ -168,7 +170,7 @@ async function startJob() {
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to start backup job'
-    toast.add({ title: 'Failed to start job', description: message, color: 'error' })
+    showApiErrorToast({ title: 'Failed to start job', error, fallback: message })
   } finally {
     isStarting.value = false
   }
@@ -184,7 +186,7 @@ async function cancelJob(jobId: string) {
     toast.add({ title: 'Job cancelled', color: 'success' })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to cancel job'
-    toast.add({ title: 'Cancel failed', description: message, color: 'error' })
+    showApiErrorToast({ title: 'Cancel failed', error, fallback: message })
   }
 }
 

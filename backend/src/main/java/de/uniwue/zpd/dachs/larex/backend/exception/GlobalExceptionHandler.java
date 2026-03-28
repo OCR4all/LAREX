@@ -1,10 +1,18 @@
 package de.uniwue.zpd.dachs.larex.backend.exception;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.ErrorResponseDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ErrorEventCaptureRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.StorageQuotaErrorResponseDto;
+import de.uniwue.zpd.dachs.larex.backend.service.admin.ErrorEventContextResolver;
+import de.uniwue.zpd.dachs.larex.backend.service.admin.ErrorEventService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.LinkedHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -29,6 +37,18 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private final ErrorEventService errorEventService;
+    private final ErrorEventContextResolver errorEventContextResolver;
+    private final ObjectMapper objectMapper;
+
+    public GlobalExceptionHandler(
+            ErrorEventService errorEventService,
+            ErrorEventContextResolver errorEventContextResolver,
+            ObjectMapper objectMapper) {
+        this.errorEventService = errorEventService;
+        this.errorEventContextResolver = errorEventContextResolver;
+        this.objectMapper = objectMapper;
+    }
 
     /**
      * Handle validation errors from @Valid annotations
@@ -85,12 +105,23 @@ public class GlobalExceptionHandler {
             AdminUserManagementException ex, HttpServletRequest request) {
 
         HttpStatus status = resolveAdminUserStatus(ex.getCode());
+        String errorId = captureEvent(
+                request,
+                status.value(),
+                status.getReasonPhrase(),
+                ex.getMessage(),
+                ex.getCode().name(),
+                ex,
+                null,
+                shouldPersist(status)
+        );
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 status.value(),
                 status.getReasonPhrase(),
                 ex.getMessage(),
                 request.getRequestURI(),
-                ex.getCode().name()
+                ex.getCode().name(),
+                errorId
         );
 
         return ResponseEntity.status(status).body(errorResponse);
@@ -162,11 +193,23 @@ public class GlobalExceptionHandler {
             }
         }
 
+        String errorId = captureEvent(
+                request,
+                HttpStatus.CONFLICT.value(),
+                "Data Conflict",
+                message,
+                null,
+                ex,
+                null,
+                true
+        );
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.CONFLICT.value(),
                 "Data Conflict",
                 message,
-                request.getRequestURI()
+                request.getRequestURI(),
+                (String) null,
+                errorId
         );
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
@@ -178,12 +221,23 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<ErrorResponseDto> handleSecurityException(
             SecurityException ex, HttpServletRequest request) {
-        
+        String errorId = captureEvent(
+                request,
+                HttpStatus.FORBIDDEN.value(),
+                "Access Denied",
+                ex.getMessage(),
+                null,
+                ex,
+                null,
+                true
+        );
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.FORBIDDEN.value(),
                 "Access Denied",
                 ex.getMessage(),
-                request.getRequestURI()
+                request.getRequestURI(),
+                (String) null,
+                errorId
         );
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
@@ -196,11 +250,24 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponseDto> handleAccessDeniedException(
             RuntimeException ex, HttpServletRequest request) {
 
+        String message = "You do not have permission to perform this action.";
+        String errorId = captureEvent(
+                request,
+                HttpStatus.FORBIDDEN.value(),
+                "Access Denied",
+                message,
+                null,
+                ex,
+                null,
+                true
+        );
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.FORBIDDEN.value(),
                 "Access Denied",
-                "You do not have permission to perform this action.",
-                request.getRequestURI()
+                message,
+                request.getRequestURI(),
+                (String) null,
+                errorId
         );
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
@@ -226,6 +293,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(StorageQuotaExceededException.class)
     public ResponseEntity<StorageQuotaErrorResponseDto> handleStorageQuotaExceededException(
             StorageQuotaExceededException ex, HttpServletRequest request) {
+        String errorId = captureEvent(
+                request,
+                HttpStatus.INSUFFICIENT_STORAGE.value(),
+                HttpStatus.INSUFFICIENT_STORAGE.getReasonPhrase(),
+                ex.getMessage(),
+                StorageQuotaExceededException.ERROR_CODE,
+                ex,
+                serializeDetails(new LinkedHashMap<>() {{
+                    put("blockedOperation", ex.getBlockedOperation());
+                    put("workspaceId", ex.getWorkspaceId());
+                    put("requiredBytes", ex.getRequiredBytes());
+                    put("quotaLimitBytes", ex.getQuotaLimitBytes());
+                    put("currentUsageBytes", ex.getCurrentUsageBytes());
+                    put("reservedBytes", ex.getReservedBytes());
+                    put("availableBytes", ex.getAvailableBytes());
+                    put("usagePercentage", ex.getUsagePercentage());
+                }}),
+                true
+        );
 
         StorageQuotaErrorResponseDto errorResponse = new StorageQuotaErrorResponseDto(
                 HttpStatus.INSUFFICIENT_STORAGE.value(),
@@ -233,6 +319,7 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 request.getRequestURI(),
                 StorageQuotaExceededException.ERROR_CODE,
+                errorId,
                 ex.getBlockedOperation(),
                 ex.getWorkspaceId(),
                 ex.getRequiredBytes(),
@@ -256,11 +343,23 @@ public class GlobalExceptionHandler {
         // Log the full exception for debugging
         logger.error("Unexpected error at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
         
+        String errorId = captureEvent(
+                request,
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Internal Server Error",
+                "An unexpected error occurred. Please try again later.",
+                null,
+                ex,
+                null,
+                true
+        );
         ErrorResponseDto errorResponse = new ErrorResponseDto(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
                 "An unexpected error occurred. Please try again later.",
-                request.getRequestURI()
+                request.getRequestURI(),
+                (String) null,
+                errorId
         );
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
@@ -287,5 +386,56 @@ public class GlobalExceptionHandler {
                     ADMIN_USER_RESEND_NOT_ALLOWED -> HttpStatus.BAD_REQUEST;
             case ADMIN_USER_SETUP_EMAIL_FAILED, ADMIN_USER_KEYCLOAK_OPERATION_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
+    }
+
+    private boolean shouldPersist(HttpStatus status) {
+        return status.is5xxServerError()
+                || status == HttpStatus.FORBIDDEN
+                || status == HttpStatus.CONFLICT
+                || status == HttpStatus.INSUFFICIENT_STORAGE;
+    }
+
+    private String captureEvent(
+            HttpServletRequest request,
+            int status,
+            String error,
+            String message,
+            String code,
+            Exception ex,
+            String detailsJson,
+            boolean persist
+    ) {
+        if (!persist) {
+            return null;
+        }
+
+        return errorEventService.capture(new ErrorEventCaptureRequest(
+                status,
+                code,
+                error,
+                message,
+                request.getRequestURI(),
+                request.getMethod(),
+                ex.getClass().getName(),
+                errorEventContextResolver.resolveUserId(),
+                errorEventContextResolver.resolveUsername(),
+                errorEventContextResolver.resolveWorkspaceId(request),
+                detailsJson,
+                status >= 500 ? stackTraceOf(ex) : null
+        ));
+    }
+
+    private String serializeDetails(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
+    }
+
+    private String stackTraceOf(Exception ex) {
+        StringWriter stringWriter = new StringWriter();
+        ex.printStackTrace(new PrintWriter(stringWriter));
+        return stringWriter.toString();
     }
 }

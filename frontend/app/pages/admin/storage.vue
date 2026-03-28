@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import { globalKey } from '@/utils/fetch-keys'
+import { showApiErrorToast } from '@/utils/error-toast'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -239,11 +240,10 @@ async function deleteSelectedFiles() {
     clearSelection()
     await Promise.all([refreshOverview(), refreshOrphanedWithPageGuard()])
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: 'Cleanup Failed',
-      description: getErrorMessage(error, 'Failed to delete files'),
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
+      error,
+      fallback: getErrorMessage(error, 'Failed to delete files')
     })
   } finally {
     isDeleting.value = false
@@ -276,11 +276,10 @@ async function deleteSingleFile(path: string) {
 
     await Promise.all([refreshOverview(), refreshOrphanedWithPageGuard()])
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: 'Deletion Failed',
-      description: getErrorMessage(error, 'Failed to delete file'),
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
+      error,
+      fallback: getErrorMessage(error, 'Failed to delete file')
     })
   } finally {
     isDeleting.value = false
@@ -315,11 +314,10 @@ async function deleteAllOrphanedFiles() {
     clearSelection()
     await Promise.all([refreshOverview(), refreshOrphanedWithPageGuard()])
   } catch (error: unknown) {
-    toast.add({
+    showApiErrorToast({
       title: 'Cleanup Failed',
-      description: getErrorMessage(error, 'Failed to delete files'),
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
+      error,
+      fallback: getErrorMessage(error, 'Failed to delete files')
     })
   } finally {
     isDeletingAll.value = false

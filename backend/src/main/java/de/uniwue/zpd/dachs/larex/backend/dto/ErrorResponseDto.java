@@ -16,22 +16,31 @@ public record ErrorResponseDto(
         String message,
         String path,
         List<String> details,
-        String code
+        String code,
+        String errorId
 ) {
     
     public ErrorResponseDto(int status, String error, String message, String path) {
-        this(LocalDateTime.now(), status, error, message, path, null, null);
+        this(LocalDateTime.now(), status, error, message, path, null, null, null);
     }
     
     public ErrorResponseDto(int status, String error, String message, String path, List<String> details) {
-        this(LocalDateTime.now(), status, error, message, path, details, null);
+        this(LocalDateTime.now(), status, error, message, path, details, null, null);
     }
 
     public ErrorResponseDto(int status, String error, String message, String path, String code) {
-        this(LocalDateTime.now(), status, error, message, path, null, code);
+        this(LocalDateTime.now(), status, error, message, path, null, code, null);
     }
 
     public ErrorResponseDto(int status, String error, String message, String path, List<String> details, String code) {
-        this(LocalDateTime.now(), status, error, message, path, details, code);
+        this(LocalDateTime.now(), status, error, message, path, details, code, null);
+    }
+
+    public ErrorResponseDto(int status, String error, String message, String path, String code, String errorId) {
+        this(LocalDateTime.now(), status, error, message, path, null, code, errorId);
+    }
+
+    public ErrorResponseDto(int status, String error, String message, String path, List<String> details, String code, String errorId) {
+        this(LocalDateTime.now(), status, error, message, path, details, code, errorId);
     }
 }

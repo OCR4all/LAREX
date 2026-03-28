@@ -2,6 +2,7 @@
 import type { TableColumn } from '@nuxt/ui'
 import { LazyAdminSlideoverEditQuota } from '#components'
 import { globalKey } from '@/utils/fetch-keys'
+import { showApiErrorToast } from '@/utils/error-toast'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -226,8 +227,8 @@ async function recalculateUsage(workspaceId: string) {
     await $fetch(`/api/storage/quotas/workspace/${workspaceId}/recalculate`, { method: 'POST' })
     toast.add({ title: 'Success', description: 'Usage recalculated successfully', color: 'success' })
     await refreshAdminQuotas()
-  } catch {
-    toast.add({ title: 'Error', description: 'Failed to recalculate usage', color: 'error' })
+  } catch (error) {
+    showApiErrorToast({ title: 'Error', error, fallback: 'Failed to recalculate usage' })
   }
 }
 
@@ -241,8 +242,8 @@ async function resetToDefault(workspaceId: string) {
     })
     toast.add({ title: 'Success', description: 'Quota reset to default', color: 'success' })
     await refreshAdminQuotas()
-  } catch {
-    toast.add({ title: 'Error', description: 'Failed to reset quota', color: 'error' })
+  } catch (error) {
+    showApiErrorToast({ title: 'Error', error, fallback: 'Failed to reset quota' })
   }
 }
 
@@ -251,8 +252,8 @@ async function resetAllToDefault() {
     await $fetch('/api/storage/quotas/admin/reset-defaults', { method: 'POST' })
     toast.add({ title: 'Success', description: 'All non-custom quotas reset to default', color: 'success' })
     await refreshAdminQuotas()
-  } catch {
-    toast.add({ title: 'Error', description: 'Failed to reset quotas', color: 'error' })
+  } catch (error) {
+    showApiErrorToast({ title: 'Error', error, fallback: 'Failed to reset quotas' })
   }
 }
 

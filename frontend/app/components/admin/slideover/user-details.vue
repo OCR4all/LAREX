@@ -6,6 +6,7 @@ import type {
   AdminUserIdentitySource,
   AdminUserOnboardingState
 } from '@/types/admin-users'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 interface Props {
   open: boolean
@@ -23,8 +24,6 @@ const emit = defineEmits<{
   refresh: []
   globalRoleAction: [action: 'grant' | 'revoke']
 }>()
-
-const toast = useToast()
 
 function displayName(user: AdminUser): string {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
@@ -138,28 +137,11 @@ function avatarFallback(user: AdminUser): string {
 }
 
 async function copyUserId(userId: string) {
-  if (!import.meta.client || !navigator.clipboard) {
-    toast.add({
-      title: 'Clipboard unavailable',
-      description: 'Your browser blocked clipboard access.',
-      color: 'warning'
-    })
-    return
-  }
-
-  try {
-    await navigator.clipboard.writeText(userId)
-    toast.add({
-      title: 'User ID copied',
-      color: 'success'
-    })
-  } catch {
-    toast.add({
-      title: 'Copy failed',
-      description: 'Unable to copy the user ID to the clipboard.',
-      color: 'error'
-    })
-  }
+  await copyTextToClipboard(userId, {
+    successTitle: 'User ID copied',
+    failureTitle: 'Copy failed',
+    failureDescription: 'Unable to copy the user ID to the clipboard.'
+  })
 }
 
 function handleOpenChange(open: boolean) {

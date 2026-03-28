@@ -1,6 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.admin;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorEventDetailDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorEventPageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorSummaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalCuratorRoleRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
@@ -48,6 +51,29 @@ public class AdminController {
     @GetMapping("/workspaces")
     public ResponseEntity<List<AdminWorkspaceDto>> getAllWorkspaces() {
         return ResponseEntity.ok(adminService.getAllWorkspacesForAdmin());
+    }
+
+    @GetMapping("/errors/summary")
+    public ResponseEntity<AdminErrorSummaryDto> getErrorSummary(
+            @RequestParam(value = "days", defaultValue = "7") @Min(1) @Max(365) int days) {
+        return ResponseEntity.ok(adminService.getErrorSummaryForAdmin(days));
+    }
+
+    @GetMapping("/errors")
+    public ResponseEntity<AdminErrorEventPageDto> getErrors(
+            @RequestParam(value = "page", defaultValue = "0") @Min(0) int page,
+            @RequestParam(value = "size", defaultValue = "25") @Min(1) @Max(100) int size,
+            @RequestParam(value = "days", defaultValue = "7") @Min(1) @Max(365) int days,
+            @RequestParam(value = "status", required = false) Integer status,
+            @RequestParam(value = "userId", required = false) @Size(max = 255) String userId,
+            @RequestParam(value = "workspaceId", required = false) @Size(max = 255) String workspaceId,
+            @RequestParam(value = "query", required = false) @Size(max = 200) String query) {
+        return ResponseEntity.ok(adminService.getErrorsForAdmin(page, size, days, status, userId, workspaceId, query));
+    }
+
+    @GetMapping("/errors/{errorId}")
+    public ResponseEntity<AdminErrorEventDetailDto> getError(@PathVariable String errorId) {
+        return ResponseEntity.ok(adminService.getErrorForAdmin(errorId));
     }
 
     @GetMapping("/users")

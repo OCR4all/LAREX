@@ -80,6 +80,7 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
   return [
     { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/admin', active: route.path === '/admin' },
     { label: 'Actuator', icon: 'i-lucide-heart-pulse', to: '/admin/actuator', active: isActive('/admin/actuator') },
+    { label: 'Errors', icon: 'i-lucide-bug', to: '/admin/errors', active: isActive('/admin/errors') },
     { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index', active: isActive('/admin/search-index') },
     { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas', active: isActive('/admin/quotas') },
     { label: 'Data Management', icon: 'i-lucide-database', defaultOpen: hasActive(dataManagementChildren), type: 'trigger', children: dataManagementChildren },

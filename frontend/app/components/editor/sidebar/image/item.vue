@@ -4,6 +4,7 @@ import type { PageData } from '@/stores/editor/types'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import { copyTextToClipboard } from '@/utils/clipboard'
 
 type VariantItem = { label: string, value: string }
 
@@ -190,21 +191,11 @@ function getPageDeepLink(): string | null {
 }
 
 async function copyToClipboard(text: string, successTitle: string) {
-  try {
-    await navigator.clipboard.writeText(text)
-    toast.add({
-      title: successTitle,
-      color: 'success',
-      icon: 'i-lucide-check'
-    })
-  } catch {
-    toast.add({
-      title: 'Copy failed',
-      description: 'Your browser blocked clipboard access.',
-      color: 'error',
-      icon: 'i-lucide-alert-circle'
-    })
-  }
+  await copyTextToClipboard(text, {
+    successTitle,
+    failureTitle: 'Copy failed',
+    failureDescription: 'Your browser blocked clipboard access.'
+  })
 }
 
 async function handleCopyPageLink() {

@@ -1,6 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.service.admin;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorEventDetailDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorEventPageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorSummaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
@@ -33,17 +36,20 @@ public class AdminService {
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ProjectRepository projectRepository;
     private final UserService userService;
+    private final ErrorEventService errorEventService;
 
     public AdminService(PersonalWorkspaceRepository personalWorkspaceRepository,
                         TeamWorkspaceRepository teamWorkspaceRepository,
                         WorkspaceMemberRepository workspaceMemberRepository,
                         ProjectRepository projectRepository,
-                        UserService userService) {
+                        UserService userService,
+                        ErrorEventService errorEventService) {
         this.personalWorkspaceRepository = personalWorkspaceRepository;
         this.teamWorkspaceRepository = teamWorkspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.projectRepository = projectRepository;
         this.userService = userService;
+        this.errorEventService = errorEventService;
     }
 
     public List<AdminWorkspaceDto> getAllWorkspacesForAdmin() {
@@ -140,6 +146,26 @@ public class AdminService {
     @Transactional
     public AdminGlobalRolesDto revokeGlobalCuratorForAdmin(String actorUserId, String actorUsername, String targetUserId, String reason) {
         return userService.revokeGlobalCuratorForAdmin(actorUserId, actorUsername, targetUserId, reason);
+    }
+
+    public AdminErrorSummaryDto getErrorSummaryForAdmin(int days) {
+        return errorEventService.getSummary(days);
+    }
+
+    public AdminErrorEventPageDto getErrorsForAdmin(
+            int page,
+            int size,
+            int days,
+            Integer status,
+            String userId,
+            String workspaceId,
+            String query
+    ) {
+        return errorEventService.getEvents(page, size, days, status, userId, workspaceId, query);
+    }
+
+    public AdminErrorEventDetailDto getErrorForAdmin(String errorId) {
+        return errorEventService.getEvent(errorId);
     }
 
     private Map<String, Long> toLongMap(Collection<Object[]> rows) {

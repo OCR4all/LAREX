@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import * as z from 'zod'
-import type { FormSubmitEvent } from '@nuxt/ui'
 import { extractApiErrorMessage } from '@/utils/api-error'
+import { showApiErrorToast } from '@/utils/error-toast'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -135,10 +134,10 @@ async function scanDirectory() {
     scanResults.value = result
   } catch (err) {
     scanError.value = extractApiErrorMessage(err, 'Scan failed')
-    toast.add({
+    showApiErrorToast({
       title: 'Scan Failed',
-      description: scanError.value,
-      color: 'error'
+      error: err,
+      fallback: scanError.value
     })
   } finally {
     isScanning.value = false
@@ -185,10 +184,10 @@ async function startImport() {
 
     await refreshJobs()
   } catch (err) {
-    toast.add({
+    showApiErrorToast({
       title: 'Import Failed',
-      description: extractApiErrorMessage(err, 'Failed to start import'),
-      color: 'error'
+      error: err,
+      fallback: extractApiErrorMessage(err, 'Failed to start import')
     })
   } finally {
     isImporting.value = false
@@ -205,10 +204,10 @@ async function cancelJob(jobId: string) {
     })
     await refreshJobs()
   } catch (err) {
-    toast.add({
+    showApiErrorToast({
       title: 'Cancel Failed',
-      description: err instanceof Error ? err.message : 'Failed to cancel job',
-      color: 'error'
+      error: err,
+      fallback: err instanceof Error ? err.message : 'Failed to cancel job'
     })
   }
 }

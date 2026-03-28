@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { showApiErrorToast } from '@/utils/error-toast'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const toast = useToast()
@@ -115,10 +117,10 @@ async function rebuildGlobalIndex() {
     })
   } catch (error: unknown) {
     rebuildStatus.value = 'error'
-    toast.add({
+    showApiErrorToast({
       title: 'Rebuild failed',
-      description: getErrorMessage(error, 'Failed to start index rebuild'),
-      color: 'error'
+      error,
+      fallback: getErrorMessage(error, 'Failed to start index rebuild')
     })
   } finally {
     isRebuilding.value = false
