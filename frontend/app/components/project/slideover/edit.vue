@@ -5,7 +5,9 @@ import { wsKey } from '@/utils/fetch-keys'
 import type { CodecSummary } from '@/types/codec'
 import type { DictionarySummary } from '@/types/dictionary'
 import type { LabelSetSummary } from '~/types/label-set'
+import type { NormalizationProfileSummary } from '~/types/normalization-profile'
 import type { TagSetSummary } from '~/types/tag-set'
+import type { ValidationRulesetSummary } from '~/types/validation-ruleset'
 
 const UNDEFINED_RECOGNITION_SENTINEL = -1
 type SelectOption = { label: string, value: string }
@@ -19,6 +21,8 @@ interface Project {
   labelSetId?: string
   dictionaryId?: string
   tagSetId?: string
+  normalizationProfileId?: string
+  validationRulesetId?: string
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
 }
@@ -41,6 +45,8 @@ const schema = z.object({
   labelSetId: z.string().optional().or(z.literal('')),
   dictionaryId: z.string().optional().or(z.literal('')),
   tagSetId: z.string().optional().or(z.literal('')),
+  normalizationProfileId: z.string().optional().or(z.literal('')),
+  validationRulesetId: z.string().optional().or(z.literal('')),
   defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
   defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
@@ -57,6 +63,8 @@ const state = ref<Schema>({
   labelSetId: props.project.labelSetId || '',
   dictionaryId: props.project.dictionaryId || '',
   tagSetId: props.project.tagSetId || '',
+  normalizationProfileId: props.project.normalizationProfileId || '',
+  validationRulesetId: props.project.validationRulesetId || '',
   defaultGtIndexInput: String(props.project.defaultGtIndex ?? 0),
   defaultGtIndexUndefined: props.project.defaultGtIndex == null,
   defaultRecognitionIndicesInput: Array.isArray(props.project.defaultRecognitionIndices) && props.project.defaultRecognitionIndices.length > 0
@@ -99,10 +107,28 @@ const { data: tagSets, error: tagSetsError } = await useFetch<TagSetSummary[]>(
   }
 )
 
+const { data: normalizationProfiles, error: normalizationProfilesError } = await useFetch<NormalizationProfileSummary[]>(
+  `/api/workspaces/${workspace.selectedWorkspaceId}/normalization-profiles`,
+  {
+    key: wsKey(workspace.selectedWorkspaceId!, 'normalization-profiles', 'list'),
+    default: () => []
+  }
+)
+
+const { data: validationRulesets, error: validationRulesetsError } = await useFetch<ValidationRulesetSummary[]>(
+  `/api/workspaces/${workspace.selectedWorkspaceId}/validation-rulesets`,
+  {
+    key: wsKey(workspace.selectedWorkspaceId!, 'validation-rulesets', 'list'),
+    default: () => []
+  }
+)
+
 const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({ label: codec.name, value: codec.id })))
 const labelSetsSafe = computed<SelectOption[]>(() => (labelSets.value ?? []).map(set => ({ label: set.meta.name, value: set.id })))
 const dictionariesSafe = computed<SelectOption[]>(() => (dictionaries.value ?? []).map(dictionary => ({ label: dictionary.name, value: dictionary.id })))
 const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tagSet => ({ label: tagSet.meta.name, value: tagSet.id })))
+const normalizationProfilesSafe = computed<SelectOption[]>(() => (normalizationProfiles.value ?? []).map(profile => ({ label: profile.name, value: profile.id })))
+const validationRulesetsSafe = computed<SelectOption[]>(() => (validationRulesets.value ?? []).map(ruleset => ({ label: ruleset.name, value: ruleset.id })))
 
 const { data: workspaceDefaults } = await useFetch<WorkspaceDefaults>(
   `/api/workspaces/${workspace.selectedWorkspaceId}`,
@@ -134,7 +160,7 @@ function parseRecognitionIndices(values: Array<string | number> | undefined, gtI
     .flatMap(v => String(v).split(','))
     .map(v => v.trim())
     .filter(Boolean)
-    .map(v => {
+    .map((v) => {
       if (!/^\d+$/.test(v)) {
         throw new Error('Recognition indices must be non-negative integers.')
       }
@@ -178,6 +204,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         labelSetId: event.data.labelSetId || null,
         dictionaryId: event.data.dictionaryId || null,
         tagSetId: event.data.tagSetId || null,
+        normalizationProfileId: event.data.normalizationProfileId || null,
+        validationRulesetId: event.data.validationRulesetId || null,
         ...(defaultGtIndex !== undefined ? { defaultGtIndex } : {}),
         ...(defaultRecognitionIndices.length > 0 ? { defaultRecognitionIndices } : {})
       }
@@ -186,8 +214,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     toast.add({ title: 'Project Updated', color: 'success', icon: 'i-lucide-check' })
     emit('updated', response)
     emit('close', true)
-  } catch (error: any) {
-    toast.add({ title: 'Update Failed', description: error.data?.message || error.message || 'Failed to update project', color: 'error' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Update Failed', description: error instanceof Error ? error.message : 'Failed to update project', color: 'error' })
   } finally {
     isSubmitting.value = false
   }
@@ -277,6 +305,24 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                   placeholder="Select a dictionary"
                   class="w-full"
                   :disabled="isSubmitting || !!dictionariesError || dictionariesSafe.length === 0"
+                />
+              </UFormField>
+              <UFormField label="Normalization Profile" name="normalizationProfileId" hint="Normalize text before search, QA, and export">
+                <USelect
+                  v-model="state.normalizationProfileId"
+                  :items="normalizationProfilesSafe"
+                  placeholder="Select a normalization profile"
+                  class="w-full"
+                  :disabled="isSubmitting || !!normalizationProfilesError || normalizationProfilesSafe.length === 0"
+                />
+              </UFormField>
+              <UFormField label="Validation Ruleset" name="validationRulesetId" hint="QA ruleset for suspicious transcription patterns">
+                <USelect
+                  v-model="state.validationRulesetId"
+                  :items="validationRulesetsSafe"
+                  placeholder="Select a validation ruleset"
+                  class="w-full"
+                  :disabled="isSubmitting || !!validationRulesetsError || validationRulesetsSafe.length === 0"
                 />
               </UFormField>
             </div>

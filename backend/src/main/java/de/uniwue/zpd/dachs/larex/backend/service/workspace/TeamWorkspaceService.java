@@ -8,7 +8,9 @@ import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
@@ -16,7 +18,9 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryServ
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetInitializationService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
@@ -42,6 +46,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
     private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
+    private final NormalizationProfileRepository normalizationProfileRepository;
+    private final ValidationRulesetRepository validationRulesetRepository;
     private final LabelSetInitializationService labelSetInitializationService;
     private final WorkspaceAccessService workspaceAccessService;
 
@@ -55,6 +61,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                                ControlledDictionaryRepository dictionaryRepository,
                                LabelSetRepository labelSetRepository,
                                TagSetRepository tagSetRepository,
+                               NormalizationProfileRepository normalizationProfileRepository,
+                               ValidationRulesetRepository validationRulesetRepository,
                                LabelSetInitializationService labelSetInitializationService,
                                WorkspaceAccessService workspaceAccessService) {
         super(workspaceQueryService);
@@ -67,6 +75,8 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
         this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
+        this.normalizationProfileRepository = normalizationProfileRepository;
+        this.validationRulesetRepository = validationRulesetRepository;
         this.labelSetInitializationService = labelSetInitializationService;
         this.workspaceAccessService = workspaceAccessService;
     }
@@ -107,6 +117,7 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
      */
     public Optional<TeamWorkspace> updateTeamWorkspace(String workspaceId, String name, String description, String avatar,
                                                        String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                                       String normalizationProfileId, String validationRulesetId,
                                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                                        String userId) {
         Optional<TeamWorkspace> workspaceOpt = teamWorkspaceRepository.findById(workspaceId);
@@ -161,6 +172,18 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
                 tagSet = tagSetRepository.findById(tagSetId).orElse(null);
             }
             workspace.setTagSet(tagSet);
+
+            NormalizationProfile normalizationProfile = null;
+            if (normalizationProfileId != null && !normalizationProfileId.trim().isEmpty()) {
+                normalizationProfile = normalizationProfileRepository.findById(normalizationProfileId).orElse(null);
+            }
+            workspace.setNormalizationProfile(normalizationProfile);
+
+            ValidationRuleset validationRuleset = null;
+            if (validationRulesetId != null && !validationRulesetId.trim().isEmpty()) {
+                validationRuleset = validationRulesetRepository.findById(validationRulesetId).orElse(null);
+            }
+            workspace.setValidationRuleset(validationRuleset);
 
             if (defaultGtIndex != null || defaultRecognitionIndices != null) {
                 var resolved = TextIndexDefaultsUtil.resolve(

@@ -62,13 +62,13 @@ public interface PageTextContentRepository extends JpaRepository<PageTextContent
     /**
      * Find all indexed text content rows for a project.
      */
-    @Query("SELECT p FROM PageTextContent p JOIN FETCH p.page WHERE p.page.project.id = :projectId")
+    @Query("SELECT p FROM PageTextContent p JOIN FETCH p.page page JOIN FETCH page.project WHERE page.project.id = :projectId")
     List<PageTextContent> findByProjectId(@Param("projectId") String projectId);
 
     /**
      * Find all indexed text content rows for selected pages in a project.
      */
-    @Query("SELECT p FROM PageTextContent p JOIN FETCH p.page WHERE p.page.project.id = :projectId AND p.page.id IN :pageIds")
+    @Query("SELECT p FROM PageTextContent p JOIN FETCH p.page page JOIN FETCH page.project WHERE page.project.id = :projectId AND page.id IN :pageIds")
     List<PageTextContent> findByProjectIdAndPageIds(
             @Param("projectId") String projectId,
             @Param("pageIds") List<String> pageIds);

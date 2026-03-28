@@ -3,7 +3,9 @@ package de.uniwue.zpd.dachs.larex.backend.entity.workspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import jakarta.persistence.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -52,6 +54,14 @@ public abstract class AbstractWorkspace {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tag_set_id")
     private TagSet tagSet;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "normalization_profile_id")
+    private NormalizationProfile normalizationProfile;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "validation_ruleset_id")
+    private ValidationRuleset validationRuleset;
 
     @Column(name = "default_gt_index")
     private Integer defaultGtIndex;
@@ -140,6 +150,22 @@ public abstract class AbstractWorkspace {
 
     public void setTagSet(TagSet tagSet) {
         this.tagSet = tagSet;
+    }
+
+    public NormalizationProfile getNormalizationProfile() {
+        return normalizationProfile;
+    }
+
+    public void setNormalizationProfile(NormalizationProfile normalizationProfile) {
+        this.normalizationProfile = normalizationProfile;
+    }
+
+    public ValidationRuleset getValidationRuleset() {
+        return validationRuleset;
+    }
+
+    public void setValidationRuleset(ValidationRuleset validationRuleset) {
+        this.validationRuleset = validationRuleset;
     }
 
     public Integer getDefaultGtIndex() {

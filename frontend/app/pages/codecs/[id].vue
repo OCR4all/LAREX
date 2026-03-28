@@ -487,17 +487,17 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   if (!isNew) {
     if (canEditCodec.value) {
       items.push({
-      label: 'Share codec',
-      icon: 'i-lucide-share-2',
-      onSelect: () => shareSlideover.open({ resourceId: id, resourceName: name.value, resourceType: 'CODEC', currentWorkspaceId: selectedWorkspace.value })
+        label: 'Share codec',
+        icon: 'i-lucide-share-2',
+        onSelect: () => shareSlideover.open({ resourceId: id, resourceName: name.value, resourceType: 'CODEC', currentWorkspaceId: selectedWorkspace.value })
       })
     }
     if (canDeleteCodec.value) {
       items.push({
-      label: 'Delete codec',
-      icon: 'i-lucide-trash',
-      color: 'error' as const,
-      onSelect: handleDelete
+        label: 'Delete codec',
+        icon: 'i-lucide-trash',
+        color: 'error' as const,
+        onSelect: handleDelete
       })
     }
   }
@@ -521,24 +521,35 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             accept=".json,.larex-utilities.json,application/json"
             @change="handleCodecImport"
           >
-          <UFieldGroup>
-            <UButton
-              label="Save"
-              color="neutral"
-              variant="subtle"
-              icon="i-lucide-save"
-              :disabled="!canEditCodec"
-              @click="handleSave"
+          <div class="flex items-center gap-2">
+            <UtilityHelpPopover
+              title="About Codecs"
+              description="Codecs define the character inventory that a project is allowed to use during transcription and QA."
+              :items="[
+                'Curate the allowed character set directly or generate it from project sources.',
+                'Validate codec coverage against sources before assigning it to a project.',
+                'Share and export codecs as reusable workspace utilities.'
+              ]"
             />
-
-            <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+            <UFieldGroup>
               <UButton
+                label="Save"
                 color="neutral"
                 variant="subtle"
-                icon="i-lucide-chevron-down"
+                icon="i-lucide-save"
+                :disabled="!canEditCodec"
+                @click="handleSave"
               />
-            </UDropdownMenu>
-          </UFieldGroup>
+
+              <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+                <UButton
+                  color="neutral"
+                  variant="subtle"
+                  icon="i-lucide-chevron-down"
+                />
+              </UDropdownMenu>
+            </UFieldGroup>
+          </div>
         </template>
       </UDashboardNavbar>
       <UDashboardToolbar>

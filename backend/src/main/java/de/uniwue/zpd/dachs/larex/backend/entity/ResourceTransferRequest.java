@@ -60,7 +60,9 @@ public class ResourceTransferRequest {
         CODEC,
         DICTIONARY,
         VIRTUAL_KEYBOARD,
-        LABEL_SET
+        LABEL_SET,
+        NORMALIZATION_PROFILE,
+        VALIDATION_RULESET
     }
 
     public enum Status {

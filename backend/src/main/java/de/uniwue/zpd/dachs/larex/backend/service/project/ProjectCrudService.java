@@ -4,16 +4,20 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
+import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
@@ -38,6 +42,8 @@ public class ProjectCrudService {
     private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
+    private final NormalizationProfileRepository normalizationProfileRepository;
+    private final ValidationRulesetRepository validationRulesetRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final WorkspaceQueryService workspaceQueryService;
     private final WorkspaceAccessService workspaceAccessService;
@@ -52,6 +58,8 @@ public class ProjectCrudService {
                               ControlledDictionaryRepository dictionaryRepository,
                               LabelSetRepository labelSetRepository,
                               TagSetRepository tagSetRepository,
+                              NormalizationProfileRepository normalizationProfileRepository,
+                              ValidationRulesetRepository validationRulesetRepository,
                               WorkspaceMemberRepository workspaceMemberRepository,
                               WorkspaceQueryService workspaceQueryService,
                               WorkspaceAccessService workspaceAccessService,
@@ -65,6 +73,8 @@ public class ProjectCrudService {
         this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
+        this.normalizationProfileRepository = normalizationProfileRepository;
+        this.validationRulesetRepository = validationRulesetRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.workspaceQueryService = workspaceQueryService;
         this.workspaceAccessService = workspaceAccessService;
@@ -95,6 +105,7 @@ public class ProjectCrudService {
 
     public Optional<Project> createProject(String workspaceId, String name, String description, List<String> tags,
                                            String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                           String normalizationProfileId, String validationRulesetId,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                            String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
@@ -152,6 +163,22 @@ public class ProjectCrudService {
         }
         project.setTagSet(tagSet);
 
+        NormalizationProfile normalizationProfile = null;
+        if (normalizationProfileId != null && !normalizationProfileId.trim().isEmpty()) {
+            normalizationProfile = normalizationProfileRepository.findById(normalizationProfileId).orElse(null);
+        } else if (workspace != null && workspace.getNormalizationProfile() != null) {
+            normalizationProfile = workspace.getNormalizationProfile();
+        }
+        project.setNormalizationProfile(normalizationProfile);
+
+        ValidationRuleset validationRuleset = null;
+        if (validationRulesetId != null && !validationRulesetId.trim().isEmpty()) {
+            validationRuleset = validationRulesetRepository.findById(validationRulesetId).orElse(null);
+        } else if (workspace != null && workspace.getValidationRuleset() != null) {
+            validationRuleset = workspace.getValidationRuleset();
+        }
+        project.setValidationRuleset(validationRuleset);
+
         var resolvedTextIndexDefaults = TextIndexDefaultsUtil.resolve(
                 defaultGtIndex,
                 defaultRecognitionIndices,
@@ -180,6 +207,7 @@ public class ProjectCrudService {
 
     public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags,
                                            String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                           String normalizationProfileId, String validationRulesetId,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                            String userId) {
         Optional<Project> projectOpt = getProjectById(projectId, userId);
@@ -220,6 +248,18 @@ public class ProjectCrudService {
                 tagSet = tagSetRepository.findById(tagSetId).orElse(null);
             }
             project.setTagSet(tagSet);
+
+            NormalizationProfile normalizationProfile = null;
+            if (normalizationProfileId != null && !normalizationProfileId.trim().isEmpty()) {
+                normalizationProfile = normalizationProfileRepository.findById(normalizationProfileId).orElse(null);
+            }
+            project.setNormalizationProfile(normalizationProfile);
+
+            ValidationRuleset validationRuleset = null;
+            if (validationRulesetId != null && !validationRulesetId.trim().isEmpty()) {
+                validationRuleset = validationRulesetRepository.findById(validationRulesetId).orElse(null);
+            }
+            project.setValidationRuleset(validationRuleset);
 
             if (defaultGtIndex != null || defaultRecognitionIndices != null) {
                 var resolvedTextIndexDefaults = TextIndexDefaultsUtil.resolve(

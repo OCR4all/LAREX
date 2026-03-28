@@ -403,6 +403,13 @@ const openSettings = () => {
         :is-new="isNew"
         :is-system="isReadOnlyLabelSet"
         :breadcrumb-items="breadcrumbItems"
+        help-title="About Label Sets"
+        help-description="Label sets define structural annotation vocabularies and their export mappings for region and line annotation workflows."
+        :help-items="[
+          'Use scopes and mappings to align labels with your PAGE and ALTO export model.',
+          'Keep labels visually distinct so annotators can read segmentation state quickly.',
+          'Import, export, and share label sets as reusable workspace utilities.'
+        ]"
         @import="triggerImport"
         @export="exportSet"
         @save="handleSave"

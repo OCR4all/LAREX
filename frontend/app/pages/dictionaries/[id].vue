@@ -513,27 +513,38 @@ const emptyStateActions = computed(() => {
             accept=".txt,.csv,.tsv,.json,.xml,.tei,text/plain,text/csv,application/json,application/xml,text/xml"
             @change="importEntries"
           >
-          <UFieldGroup>
-            <UButton
-              label="Save"
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-save"
-              :loading="isSaving"
-              :disabled="!canEditDictionary || isBusy"
-              @click="saveDictionary"
+          <div class="flex items-center gap-2">
+            <UtilityHelpPopover
+              title="About Dictionaries"
+              description="Dictionaries store accepted surface forms for QA, editor suggestions, and project-specific spelling control."
+              :items="[
+                'Import TXT, CSV, TSV, JSON, or TEI source data into the dictionary entry browser.',
+                'Tune case sensitivity and Unicode normalization so lookup behavior matches your corpus.',
+                'Share and export dictionaries as reusable workspace utilities.'
+              ]"
             />
-
-            <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+            <UFieldGroup>
               <UButton
+                label="Save"
                 color="neutral"
                 variant="outline"
-                icon="i-lucide-chevron-down"
-                :loading="isDeleting || isExporting"
-                :disabled="isBusy"
+                icon="i-lucide-save"
+                :loading="isSaving"
+                :disabled="!canEditDictionary || isBusy"
+                @click="saveDictionary"
               />
-            </UDropdownMenu>
-          </UFieldGroup>
+
+              <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-lucide-chevron-down"
+                  :loading="isDeleting || isExporting"
+                  :disabled="isBusy"
+                />
+              </UDropdownMenu>
+            </UFieldGroup>
+          </div>
         </template>
       </UDashboardNavbar>
       <UDashboardToolbar>
@@ -624,8 +635,8 @@ const emptyStateActions = computed(() => {
               {{
                 isImporting
                   ? (importStage === 'processing'
-                      ? 'Processing...'
-                      : (importProgress !== null ? `Uploading ${importProgress}%` : 'Uploading...'))
+                    ? 'Processing...'
+                    : (importProgress !== null ? `Uploading ${importProgress}%` : 'Uploading...'))
                   : 'Import'
               }}
             </UButton>

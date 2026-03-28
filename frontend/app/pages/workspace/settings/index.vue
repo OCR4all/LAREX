@@ -5,7 +5,9 @@ import { LazyUiDeleteSlideover } from '#components'
 import type { CodecSummary } from '@/types/codec'
 import type { DictionarySummary } from '@/types/dictionary'
 import type { LabelSetSummary } from '@/types/label-set'
+import type { NormalizationProfileSummary } from '@/types/normalization-profile'
 import type { TagSetSummary } from '@/types/tag-set'
+import type { ValidationRulesetSummary } from '@/types/validation-ruleset'
 
 type SelectOption = { label: string, value: string }
 
@@ -21,6 +23,8 @@ interface Workspace {
   labelSetId?: string
   dictionaryId?: string
   tagSetId?: string
+  normalizationProfileId?: string
+  validationRulesetId?: string
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
   created?: string
@@ -99,6 +103,8 @@ const form = reactive({
   labelSetId: '',
   dictionaryId: '',
   tagSetId: '',
+  normalizationProfileId: '',
+  validationRulesetId: '',
   defaultGtIndexInput: '0',
   defaultRecognitionIndicesInput: '1'
 })
@@ -175,6 +181,30 @@ const { data: tagSets, error: tagSetsError } = await useFetch<TagSetSummary[]>(
   }
 )
 
+const { data: normalizationProfiles, error: normalizationProfilesError } = await useFetch<NormalizationProfileSummary[]>(
+  () => `/api/workspaces/${selectedWorkspace.value as string}/normalization-profiles`,
+  {
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'normalization-profiles', 'list')
+      : globalKey('pending', 'normalization-profiles', 'list')),
+    watch: [selectedWorkspace],
+    default: () => [],
+    immediate: !!selectedWorkspace.value
+  }
+)
+
+const { data: validationRulesets, error: validationRulesetsError } = await useFetch<ValidationRulesetSummary[]>(
+  () => `/api/workspaces/${selectedWorkspace.value as string}/validation-rulesets`,
+  {
+    key: computed(() => selectedWorkspace.value
+      ? wsKey(selectedWorkspace.value, 'validation-rulesets', 'list')
+      : globalKey('pending', 'validation-rulesets', 'list')),
+    watch: [selectedWorkspace],
+    default: () => [],
+    immediate: !!selectedWorkspace.value
+  }
+)
+
 const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({
   label: codec.name,
   value: codec.id
@@ -191,6 +221,14 @@ const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tag
   label: tagSet.meta.name,
   value: tagSet.id
 })))
+const normalizationProfilesSafe = computed<SelectOption[]>(() => (normalizationProfiles.value ?? []).map(profile => ({
+  label: profile.name,
+  value: profile.id
+})))
+const validationRulesetsSafe = computed<SelectOption[]>(() => (validationRulesets.value ?? []).map(ruleset => ({
+  label: ruleset.name,
+  value: ruleset.id
+})))
 
 watchEffect(() => {
   if (workspace.value) {
@@ -200,6 +238,8 @@ watchEffect(() => {
     form.labelSetId = workspace.value.labelSetId || ''
     form.dictionaryId = workspace.value.dictionaryId || ''
     form.tagSetId = workspace.value.tagSetId || ''
+    form.normalizationProfileId = workspace.value.normalizationProfileId || ''
+    form.validationRulesetId = workspace.value.validationRulesetId || ''
     form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
     form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
   }
@@ -218,6 +258,8 @@ const cancelEditing = () => {
     form.labelSetId = workspace.value.labelSetId || ''
     form.dictionaryId = workspace.value.dictionaryId || ''
     form.tagSetId = workspace.value.tagSetId || ''
+    form.normalizationProfileId = workspace.value.normalizationProfileId || ''
+    form.validationRulesetId = workspace.value.validationRulesetId || ''
     form.defaultGtIndexInput = String(workspace.value.defaultGtIndex ?? 0)
     form.defaultRecognitionIndicesInput = formatRecognitionIndices(workspace.value.defaultRecognitionIndices)
   }
@@ -241,6 +283,8 @@ const saveWorkspace = async () => {
         labelSetId: form.labelSetId || null,
         dictionaryId: form.dictionaryId || null,
         tagSetId: form.tagSetId || null,
+        normalizationProfileId: form.normalizationProfileId || null,
+        validationRulesetId: form.validationRulesetId || null,
         defaultGtIndex,
         defaultRecognitionIndices
       }
@@ -258,10 +302,10 @@ const saveWorkspace = async () => {
       description: 'Workspace settings have been saved',
       color: 'success'
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     toast.add({
       title: 'Failed to update workspace',
-      description: err?.data?.message || err?.message || 'An error occurred',
+      description: err instanceof Error ? err.message : 'An error occurred',
       color: 'error'
     })
   } finally {
@@ -287,10 +331,10 @@ const leaveWorkspace = async () => {
     await refreshWorkspaceList()
     await workspaceStore.validateAndSelectWorkspace()
     navigateTo('/')
-  } catch (err: any) {
+  } catch (err: unknown) {
     toast.add({
       title: 'Failed to leave workspace',
-      description: err?.data?.message || 'You may be the last administrator',
+      description: err instanceof Error ? err.message : 'You may be the last administrator',
       color: 'error'
     })
   }
@@ -313,8 +357,8 @@ async function openDeleteSlideover() {
     await refreshWorkspaceList()
     await workspaceStore.validateAndSelectWorkspace()
     navigateTo('/')
-  } catch (err: any) {
-    toast.add({ title: 'Failed to delete', description: err?.data?.message || 'An error occurred', color: 'error' })
+  } catch (err: unknown) {
+    toast.add({ title: 'Failed to delete', description: err instanceof Error ? err.message : 'An error occurred', color: 'error' })
   }
 }
 </script>
@@ -371,8 +415,8 @@ async function openDeleteSlideover() {
     </UPageCard>
 
     <UPageCard
-      data-tour="workspace-general-panel"
       v-if="workspace?.isPersonal"
+      data-tour="workspace-general-panel"
       title="Personal Workspace"
       description="This is your personal workspace. It cannot be renamed or deleted."
       variant="subtle"
@@ -428,6 +472,26 @@ async function openDeleteSlideover() {
             icon="i-lucide-network"
             :disabled="!isEditing || !!tagSetsError"
             placeholder="Select a tag set"
+            class="max-w-md"
+          />
+        </UFormField>
+        <UFormField label="Default Normalization Profile" hint="Default text normalization profile for new projects in this workspace">
+          <USelect
+            v-model="form.normalizationProfileId"
+            :items="normalizationProfilesSafe"
+            icon="i-lucide-wand-sparkles"
+            :disabled="!isEditing || !!normalizationProfilesError"
+            placeholder="Select a normalization profile"
+            class="max-w-md"
+          />
+        </UFormField>
+        <UFormField label="Default Validation Ruleset" hint="Default QA ruleset for new projects in this workspace">
+          <USelect
+            v-model="form.validationRulesetId"
+            :items="validationRulesetsSafe"
+            icon="i-lucide-shield-alert"
+            :disabled="!isEditing || !!validationRulesetsError"
+            placeholder="Select a validation ruleset"
             class="max-w-md"
           />
         </UFormField>
@@ -506,7 +570,12 @@ async function openDeleteSlideover() {
 
           <USeparator />
 
-          <UFormField data-tour="workspace-general-presets" v-if="canSetWorkspacePresets" label="Default Codec" hint="Default codec for new projects">
+          <UFormField
+            v-if="canSetWorkspacePresets"
+            data-tour="workspace-general-presets"
+            label="Default Codec"
+            hint="Default codec for new projects"
+          >
             <USelect
               v-model="form.codecId"
               :items="codecsSafe"
@@ -536,6 +605,22 @@ async function openDeleteSlideover() {
               :items="tagSetsSafe"
               :disabled="!isEditing || !canSetWorkspacePresets || !!tagSetsError || tagSetsSafe.length === 0"
               placeholder="Select a tag set"
+            />
+          </UFormField>
+          <UFormField v-if="canSetWorkspacePresets" label="Default Normalization Profile" hint="Default normalization profile for new projects">
+            <USelect
+              v-model="form.normalizationProfileId"
+              :items="normalizationProfilesSafe"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!normalizationProfilesError || normalizationProfilesSafe.length === 0"
+              placeholder="Select a normalization profile"
+            />
+          </UFormField>
+          <UFormField v-if="canSetWorkspacePresets" label="Default Validation Ruleset" hint="Default validation ruleset for new projects">
+            <USelect
+              v-model="form.validationRulesetId"
+              :items="validationRulesetsSafe"
+              :disabled="!isEditing || !canSetWorkspacePresets || !!validationRulesetsError || validationRulesetsSafe.length === 0"
+              placeholder="Select a validation ruleset"
             />
           </UFormField>
           <UFormField v-if="canSetWorkspacePresets" label="Default GT Index" hint="Single Ground Truth index for new projects">

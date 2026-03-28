@@ -7,22 +7,26 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
+import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
@@ -79,6 +83,8 @@ public class ProjectPackageService {
     private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
+    private final NormalizationProfileRepository normalizationProfileRepository;
+    private final ValidationRulesetRepository validationRulesetRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final ArchiveIoService archiveIoService;
     private final UtilityPackageService utilityPackageService;
@@ -103,6 +109,8 @@ public class ProjectPackageService {
                                  ControlledDictionaryRepository dictionaryRepository,
                                  LabelSetRepository labelSetRepository,
                                  TagSetRepository tagSetRepository,
+                                 NormalizationProfileRepository normalizationProfileRepository,
+                                 ValidationRulesetRepository validationRulesetRepository,
                                  WorkspaceAccessService workspaceAccessService,
                                  ArchiveIoService archiveIoService,
                                  UtilityPackageService utilityPackageService,
@@ -123,6 +131,8 @@ public class ProjectPackageService {
         this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
+        this.normalizationProfileRepository = normalizationProfileRepository;
+        this.validationRulesetRepository = validationRulesetRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.archiveIoService = archiveIoService;
         this.utilityPackageService = utilityPackageService;
@@ -444,7 +454,9 @@ public class ProjectPackageService {
                 project.getCodec() == null ? null : project.getCodec().getId(),
                 project.getLabelSet() == null ? null : project.getLabelSet().getId(),
                 project.getDictionary() == null ? null : project.getDictionary().getId(),
-                project.getTagSet() == null ? null : project.getTagSet().getId()
+                project.getTagSet() == null ? null : project.getTagSet().getId(),
+                project.getNormalizationProfile() == null ? null : project.getNormalizationProfile().getId(),
+                project.getValidationRuleset() == null ? null : project.getValidationRuleset().getId()
         );
 
         Map<String, UtilityPackageDto.UtilityResource> utilityResourcesByPath = new LinkedHashMap<>();
@@ -466,7 +478,9 @@ public class ProjectPackageService {
                 utilityRefByType.get(UtilityPackageDto.UtilityType.CODEC),
                 utilityRefByType.get(UtilityPackageDto.UtilityType.LABEL_SET),
                 utilityRefByType.get(UtilityPackageDto.UtilityType.DICTIONARY),
-                utilityRefByType.get(UtilityPackageDto.UtilityType.TAG_SET)
+                utilityRefByType.get(UtilityPackageDto.UtilityType.TAG_SET),
+                utilityRefByType.get(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE),
+                utilityRefByType.get(UtilityPackageDto.UtilityType.VALIDATION_RULESET)
         );
 
         ProjectPackageDto.PackageManifest manifest = new ProjectPackageDto.PackageManifest(
@@ -553,6 +567,8 @@ public class ProjectPackageService {
         loadUtilityResource(tempDir, utilityReferences.labelSet(), resources);
         loadUtilityResource(tempDir, utilityReferences.dictionary(), resources);
         loadUtilityResource(tempDir, utilityReferences.tagSet(), resources);
+        loadUtilityResource(tempDir, utilityReferences.normalizationProfile(), resources);
+        loadUtilityResource(tempDir, utilityReferences.validationRuleset(), resources);
 
         if (resources.isEmpty()) {
             return new UtilityPackageDto.ImportResult(workspaceId, 0, 0, List.of(), List.of(), Map.of());
@@ -607,6 +623,16 @@ public class ProjectPackageService {
         String tagSetId = mapSourceUtilityId(utilityReferences.tagSet(), sourceToTarget);
         if (tagSetId != null) {
             tagSetRepository.findById(tagSetId).ifPresent(project::setTagSet);
+        }
+
+        String normalizationProfileId = mapSourceUtilityId(utilityReferences.normalizationProfile(), sourceToTarget);
+        if (normalizationProfileId != null) {
+            normalizationProfileRepository.findById(normalizationProfileId).ifPresent(project::setNormalizationProfile);
+        }
+
+        String validationRulesetId = mapSourceUtilityId(utilityReferences.validationRuleset(), sourceToTarget);
+        if (validationRulesetId != null) {
+            validationRulesetRepository.findById(validationRulesetId).ifPresent(project::setValidationRuleset);
         }
     }
 

@@ -36,6 +36,8 @@ public class WorkspaceDto {
         private final String labelSetId;
         private final String dictionaryId;
         private final String tagSetId;
+        private final String normalizationProfileId;
+        private final String validationRulesetId;
         private final Integer defaultGtIndex;
         private final List<Integer> defaultRecognitionIndices;
         private final AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities;
@@ -43,6 +45,7 @@ public class WorkspaceDto {
         protected Response(String id, String name, String description, String avatar,
                           LocalDateTime created, LocalDateTime updated, boolean isPersonal,
                           String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                          String normalizationProfileId, String validationRulesetId,
                           Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                           AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
             this.id = id;
@@ -57,6 +60,8 @@ public class WorkspaceDto {
             this.labelSetId = labelSetId;
             this.dictionaryId = dictionaryId;
             this.tagSetId = tagSetId;
+            this.normalizationProfileId = normalizationProfileId;
+            this.validationRulesetId = validationRulesetId;
             this.defaultGtIndex = defaultGtIndex;
             this.defaultRecognitionIndices = defaultRecognitionIndices;
             this.capabilities = capabilities;
@@ -75,6 +80,8 @@ public class WorkspaceDto {
         public String getLabelSetId() { return labelSetId; }
         public String getDictionaryId() { return dictionaryId; }
         public String getTagSetId() { return tagSetId; }
+        public String getNormalizationProfileId() { return normalizationProfileId; }
+        public String getValidationRulesetId() { return validationRulesetId; }
         public Integer getDefaultGtIndex() { return defaultGtIndex; }
         public List<Integer> getDefaultRecognitionIndices() { return defaultRecognitionIndices; }
         public AuthorizationCapabilitiesDto.WorkspaceCapabilities getCapabilities() { return capabilities; }
@@ -84,9 +91,11 @@ public class WorkspaceDto {
         public PersonalWorkspaceResponse(String id, String description, String avatar,
                                        LocalDateTime created, LocalDateTime updated,
                                        String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                       String normalizationProfileId, String validationRulesetId,
                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                        AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
             super(id, "Personal Workspace", description, avatar, created, updated, true, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
+                    normalizationProfileId, validationRulesetId,
                     defaultGtIndex, defaultRecognitionIndices, capabilities);
         }
     }
@@ -95,9 +104,11 @@ public class WorkspaceDto {
         public TeamWorkspaceResponse(String id, String name, String description, String avatar,
                                    LocalDateTime created, LocalDateTime updated,
                                    String ownerUserId, String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                   String normalizationProfileId, String validationRulesetId,
                                    Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                    AuthorizationCapabilitiesDto.WorkspaceCapabilities capabilities) {
             super(id, name, description, avatar, created, updated, false, ownerUserId, codecId, labelSetId, dictionaryId, tagSetId,
+                    normalizationProfileId, validationRulesetId,
                     defaultGtIndex, defaultRecognitionIndices, capabilities);
         }
     }
@@ -132,6 +143,8 @@ public class WorkspaceDto {
             String labelSetId,
             String dictionaryId,
             String tagSetId,
+            String normalizationProfileId,
+            String validationRulesetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices
     ) {}
@@ -147,6 +160,8 @@ public class WorkspaceDto {
             String labelSetId,
             String dictionaryId,
             String tagSetId,
+            String normalizationProfileId,
+            String validationRulesetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices
     ) {}
@@ -159,6 +174,8 @@ public class WorkspaceDto {
             String labelSetId,
             String dictionaryId,
             String tagSetId,
+            String normalizationProfileId,
+            String validationRulesetId,
             Integer defaultGtIndex,
             List<Integer> defaultRecognitionIndices
     ) {}

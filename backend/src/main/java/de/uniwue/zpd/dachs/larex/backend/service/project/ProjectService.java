@@ -37,13 +37,17 @@ public class ProjectService {
     }
 
     public Optional<Project> createProject(String workspaceId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                           String normalizationProfileId, String validationRulesetId,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices, String userId) {
-        return projectCrudService.createProject(workspaceId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId, defaultGtIndex, defaultRecognitionIndices, userId);
+        return projectCrudService.createProject(workspaceId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
+                normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId);
     }
 
     public Optional<Project> updateProject(String projectId, String name, String description, List<String> tags, String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                           String normalizationProfileId, String validationRulesetId,
                                            Integer defaultGtIndex, List<Integer> defaultRecognitionIndices, String userId) {
-        return projectCrudService.updateProject(projectId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId, defaultGtIndex, defaultRecognitionIndices, userId);
+        return projectCrudService.updateProject(projectId, name, description, tags, codecId, labelSetId, dictionaryId, tagSetId,
+                normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId);
     }
 
     public boolean deleteProject(String projectId, String userId) {

@@ -11,15 +11,15 @@ import java.util.Optional;
 public interface PersonalWorkspaceRepository extends AbstractWorkspaceRepository<PersonalWorkspace> {
 
     @Override
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     List<PersonalWorkspace> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     Optional<PersonalWorkspace> findById(String id);
 
     @Override
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     List<PersonalWorkspace> findByOwnerUserId(String ownerUserId);
 
     // Override with specific return type for personal workspace (user can only have one)

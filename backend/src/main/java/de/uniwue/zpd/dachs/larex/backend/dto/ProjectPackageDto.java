@@ -116,7 +116,9 @@ public class ProjectPackageDto {
             UtilityReference codec,
             UtilityReference labelSet,
             UtilityReference dictionary,
-            UtilityReference tagSet
+            UtilityReference tagSet,
+            UtilityReference normalizationProfile,
+            UtilityReference validationRuleset
     ) {
     }
 

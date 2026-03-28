@@ -41,7 +41,9 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Virtual Keyboards', icon: 'i-lucide-keyboard', to: '/virtual-keyboard', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Dictionaries', icon: 'i-lucide-book-copy', to: '/dictionaries', onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Codecs', icon: 'i-lucide-case-lower', to: '/codecs', onSelect: () => { sidebarOpen.value = false } }
+    { label: 'Codecs', icon: 'i-lucide-case-lower', to: '/codecs', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Normalization', icon: 'i-lucide-wand-sparkles', to: '/normalization-profiles', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Validation', icon: 'i-lucide-shield-alert', to: '/validation-rulesets', onSelect: () => { sidebarOpen.value = false } }
   ])
   const workspaceChildren = withActive([
     { label: 'General', to: '/workspace/settings', icon: 'i-lucide-sliders-horizontal', exact: true, onSelect: () => { sidebarOpen.value = false } },

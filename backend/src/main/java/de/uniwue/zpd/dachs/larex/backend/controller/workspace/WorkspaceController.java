@@ -115,6 +115,8 @@ public class WorkspaceController {
                 teamWorkspace.getLabelSet() != null ? teamWorkspace.getLabelSet().getId() : null,
                 teamWorkspace.getDictionary() != null ? teamWorkspace.getDictionary().getId() : null,
                 teamWorkspace.getTagSet() != null ? teamWorkspace.getTagSet().getId() : null,
+                teamWorkspace.getNormalizationProfile() != null ? teamWorkspace.getNormalizationProfile().getId() : null,
+                teamWorkspace.getValidationRuleset() != null ? teamWorkspace.getValidationRuleset().getId() : null,
                 teamWorkspace.getEffectiveDefaultGtIndex(),
                 teamWorkspace.getDefaultRecognitionIndicesList(),
                 authorizationPolicyService.resolveWorkspaceCapabilities(teamWorkspace.getId(), userId)
@@ -141,6 +143,8 @@ public class WorkspaceController {
                 request.labelSetId(),
                 request.dictionaryId(),
                 request.tagSetId(),
+                request.normalizationProfileId(),
+                request.validationRulesetId(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
                 userId
@@ -353,6 +357,8 @@ public class WorkspaceController {
         String labelSetId = workspace.getLabelSet() != null ? workspace.getLabelSet().getId() : null;
         String dictionaryId = workspace.getDictionary() != null ? workspace.getDictionary().getId() : null;
         String tagSetId = workspace.getTagSet() != null ? workspace.getTagSet().getId() : null;
+        String normalizationProfileId = workspace.getNormalizationProfile() != null ? workspace.getNormalizationProfile().getId() : null;
+        String validationRulesetId = workspace.getValidationRuleset() != null ? workspace.getValidationRuleset().getId() : null;
         Integer defaultGtIndex = workspace.getEffectiveDefaultGtIndex();
         List<Integer> defaultRecognitionIndices = workspace.getDefaultRecognitionIndicesList();
         var capabilities = authorizationPolicyService.resolveWorkspaceCapabilities(workspace.getId(), userId);
@@ -369,6 +375,8 @@ public class WorkspaceController {
                     labelSetId,
                     dictionaryId,
                     tagSetId,
+                    normalizationProfileId,
+                    validationRulesetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
                     capabilities
@@ -386,6 +394,8 @@ public class WorkspaceController {
                     labelSetId,
                     dictionaryId,
                     tagSetId,
+                    normalizationProfileId,
+                    validationRulesetId,
                     defaultGtIndex,
                     defaultRecognitionIndices,
                     capabilities

@@ -5,11 +5,15 @@ import { wsKey } from '@/utils/fetch-keys'
 import type { CodecSummary } from '~/types/codec'
 import type { DictionarySummary } from '~/types/dictionary'
 import type { LabelSetSummary } from '~/types/label-set'
+import type { NormalizationProfileSummary } from '~/types/normalization-profile'
 import type { TagSetSummary } from '~/types/tag-set'
+import type { ValidationRulesetSummary } from '~/types/validation-ruleset'
 
 type SelectOption = { label: string, value: string }
 type WorkspaceDefaults = {
   labelSetId?: string | null
+  normalizationProfileId?: string | null
+  validationRulesetId?: string | null
   defaultGtIndex?: number | null
   defaultRecognitionIndices?: number[] | null
 }
@@ -36,6 +40,8 @@ const schema = z.object({
   labelSetId: z.string().optional(),
   dictionaryId: z.string().optional(),
   tagSetId: z.string().optional(),
+  normalizationProfileId: z.string().optional(),
+  validationRulesetId: z.string().optional(),
   defaultGtIndexInput: z.union([z.string(), z.number()]).optional(),
   defaultGtIndexUndefined: z.boolean().optional(),
   defaultRecognitionIndicesInput: z.array(z.union([z.string(), z.number()])).optional(),
@@ -52,6 +58,8 @@ const state = reactive<Partial<Schema>>({
   labelSetId: undefined,
   dictionaryId: undefined,
   tagSetId: undefined,
+  normalizationProfileId: undefined,
+  validationRulesetId: undefined,
   defaultGtIndexInput: '0',
   defaultGtIndexUndefined: true,
   defaultRecognitionIndicesInput: ['1'],
@@ -107,6 +115,24 @@ const { data: tagSets, error: tagSetsError } = await useFetch<TagSetSummary[]>(
   }
 )
 
+const normalizationProfilesKey = computed(() => wsKey(selectedWorkspace.value, 'normalization-profiles', 'list'))
+const { data: normalizationProfiles, error: normalizationProfilesError } = await useFetch<NormalizationProfileSummary[]>(
+  () => `/api/workspaces/${selectedWorkspace.value}/normalization-profiles`,
+  {
+    key: normalizationProfilesKey,
+    default: () => []
+  }
+)
+
+const validationRulesetsKey = computed(() => wsKey(selectedWorkspace.value, 'validation-rulesets', 'list'))
+const { data: validationRulesets, error: validationRulesetsError } = await useFetch<ValidationRulesetSummary[]>(
+  () => `/api/workspaces/${selectedWorkspace.value}/validation-rulesets`,
+  {
+    key: validationRulesetsKey,
+    default: () => []
+  }
+)
+
 const codecsSafe = computed<SelectOption[]>(() => (codecs.value ?? []).map(codec => ({
   label: codec.name,
   value: codec.id
@@ -122,6 +148,14 @@ const labelSetsSafe = computed<SelectOption[]>(() => (labelSets.value ?? []).map
 const tagSetsSafe = computed<SelectOption[]>(() => (tagSets.value ?? []).map(tagSet => ({
   label: tagSet.meta.name,
   value: tagSet.id
+})))
+const normalizationProfilesSafe = computed<SelectOption[]>(() => (normalizationProfiles.value ?? []).map(profile => ({
+  label: profile.name,
+  value: profile.id
+})))
+const validationRulesetsSafe = computed<SelectOption[]>(() => (validationRulesets.value ?? []).map(ruleset => ({
+  label: ruleset.name,
+  value: ruleset.id
 })))
 
 const hasAppliedLabelSetDefault = ref(false)
@@ -156,6 +190,16 @@ watch([workspaceDetails, labelSetsSafe], ([workspace, availableLabelSets]) => {
 }, { immediate: true })
 
 watch(workspaceDetails, (workspace) => {
+  if (!workspace) return
+  if (state.normalizationProfileId == null && workspace.normalizationProfileId) {
+    state.normalizationProfileId = workspace.normalizationProfileId
+  }
+  if (state.validationRulesetId == null && workspace.validationRulesetId) {
+    state.validationRulesetId = workspace.validationRulesetId
+  }
+}, { immediate: true })
+
+watch(workspaceDetails, (workspace) => {
   if (hasAppliedTextIndexDefaults.value || !workspace) return
 
   state.defaultGtIndexInput = String(workspace.defaultGtIndex ?? 0)
@@ -183,7 +227,7 @@ function parseRecognitionIndices(values: Array<string | number> | undefined, gtI
     .flatMap(value => String(value).split(','))
     .map(value => value.trim())
     .filter(Boolean)
-    .map(value => {
+    .map((value) => {
       if (!/^\d+$/.test(value)) {
         throw new Error('Recognition indices must be non-negative integers.')
       }
@@ -231,13 +275,15 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       labelSetId: event.data.labelSetId,
       dictionaryId: event.data.dictionaryId,
       tagSetId: event.data.tagSetId,
+      normalizationProfileId: event.data.normalizationProfileId,
+      validationRulesetId: event.data.validationRulesetId,
       ...(parsedGtIndex !== undefined ? { defaultGtIndex: parsedGtIndex } : {}),
       ...(parsedRecognitionIndices.length > 0 ? { defaultRecognitionIndices: parsedRecognitionIndices } : {})
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     toast.add({
       title: 'Invalid Text Index Defaults',
-      description: e.message || 'Please check the default GT and recognition indices.',
+      description: e instanceof Error ? e.message : 'Please check the default GT and recognition indices.',
       color: 'error'
     })
     return
@@ -339,6 +385,22 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                   :items="dictionariesSafe"
                   placeholder="Select a dictionary"
                   :disabled="!!dictionariesError || dictionariesSafe.length === 0"
+                />
+              </UFormField>
+              <UFormField label="Normalization Profile" name="normalizationProfileId" hint="Normalize text before QA and export">
+                <USelect
+                  v-model="state.normalizationProfileId"
+                  :items="normalizationProfilesSafe"
+                  placeholder="Select a normalization profile"
+                  :disabled="!!normalizationProfilesError || normalizationProfilesSafe.length === 0"
+                />
+              </UFormField>
+              <UFormField label="Validation Ruleset" name="validationRulesetId" hint="Run project text QA with this ruleset">
+                <USelect
+                  v-model="state.validationRulesetId"
+                  :items="validationRulesetsSafe"
+                  placeholder="Select a validation ruleset"
+                  :disabled="!!validationRulesetsError || validationRulesetsSafe.length === 0"
                 />
               </UFormField>
             </div>

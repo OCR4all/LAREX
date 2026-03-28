@@ -288,17 +288,17 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   if (!isNew) {
     if (canEditKeyboard.value) {
       items.push({
-      label: 'Share keyboard',
-      icon: 'i-lucide-share-2',
-      onSelect: () => shareSlideover.open({ resourceId: id, resourceName: builderState.layoutName.value, resourceType: 'VIRTUAL_KEYBOARD', currentWorkspaceId: selectedWorkspace.value })
+        label: 'Share keyboard',
+        icon: 'i-lucide-share-2',
+        onSelect: () => shareSlideover.open({ resourceId: id, resourceName: builderState.layoutName.value, resourceType: 'VIRTUAL_KEYBOARD', currentWorkspaceId: selectedWorkspace.value })
       })
     }
     if (canDeleteKeyboard.value) {
       items.push({
-      label: 'Delete keyboard',
-      icon: 'i-lucide-trash',
-      color: 'error' as const,
-      onSelect: handleDelete
+        label: 'Delete keyboard',
+        icon: 'i-lucide-trash',
+        color: 'error' as const,
+        onSelect: handleDelete
       })
     }
   }
@@ -322,24 +322,35 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             accept=".json,application/json"
             @change="handleImportLayout"
           >
-          <UFieldGroup>
-            <UButton
-              label="Save"
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-save"
-              :disabled="!canEditKeyboard"
-              @click="handleSave"
+          <div class="flex items-center gap-2">
+            <UtilityHelpPopover
+              title="About Virtual Keyboards"
+              description="Virtual keyboards provide reusable on-screen input layouts for transcription and special-character entry."
+              :items="[
+                'Design key layouts for the character repertoire your project needs most often.',
+                'Use the preview tab to test typing behavior before assigning a keyboard to projects.',
+                'Import, export, and share layouts as reusable workspace utilities.'
+              ]"
             />
-
-            <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+            <UFieldGroup>
               <UButton
+                label="Save"
                 color="neutral"
                 variant="outline"
-                icon="i-lucide-chevron-down"
+                icon="i-lucide-save"
+                :disabled="!canEditKeyboard"
+                @click="handleSave"
               />
-            </UDropdownMenu>
-          </UFieldGroup>
+
+              <UDropdownMenu :items="actionItems" :content="{ align: 'end' }">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-lucide-chevron-down"
+                />
+              </UDropdownMenu>
+            </UFieldGroup>
+          </div>
         </template>
       </UDashboardNavbar>
       <UDashboardToolbar>

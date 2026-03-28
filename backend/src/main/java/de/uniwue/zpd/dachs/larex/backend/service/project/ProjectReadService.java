@@ -87,6 +87,8 @@ public class ProjectReadService {
                     project.getLabelSet() != null ? project.getLabelSet().getId() : null,
                     project.getDictionary() != null ? project.getDictionary().getId() : null,
                     project.getTagSet() != null ? project.getTagSet().getId() : null,
+                    project.getNormalizationProfile() != null ? project.getNormalizationProfile().getId() : null,
+                    project.getValidationRuleset() != null ? project.getValidationRuleset().getId() : null,
                     project.getEffectiveDefaultGtIndex(),
                     project.getDefaultRecognitionIndicesList(),
                     authorizationPolicyService.resolveProjectCapabilities(project, userId)

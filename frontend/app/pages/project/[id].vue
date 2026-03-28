@@ -13,6 +13,8 @@ import {
   LazyUiDeleteSlideover,
   LazyEditorVersionHistorySlideover,
   LazyShareSlideover } from '#components'
+import DiffMatchPatch from 'diff-match-patch'
+import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import type { Subtask } from '~/types/index'
 import { wsKey } from '@/utils/fetch-keys'
@@ -23,6 +25,8 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { usePagePrefetch } from '@/composables/use-page-prefetch'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
+import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
+import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useIndexStatusPolling } from '@/composables/use-index-status-polling'
@@ -64,6 +68,9 @@ type ProjectData = {
   codecId?: string | null
   labelSetId?: string | null
   dictionaryId?: string | null
+  normalizationProfileId?: string | null
+  validationRulesetId?: string | null
+  defaultGtIndex?: number | null
   capabilities?: {
     canEdit: boolean
     canShare: boolean
@@ -371,7 +378,7 @@ async function viewConflicts() {
 
     conflictResolutionModal.open({
       projectId,
-      conflicts: conflicts as any,
+      conflicts,
       uploadResult: {
         totalPagesCreated: 0,
         totalPagesUpdated: 0,
@@ -492,13 +499,13 @@ const projectEditSlideover = overlay.create(LazyProjectSlideoverEdit, {
     project.value = updatedProject
     await refreshProject()
   }
-} as any)
+} as unknown as { onUpdated(updatedProject: ProjectData): Promise<void> })
 const projectDeleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const projectShareSlideover = overlay.create(LazyShareSlideover, {
   async onTransferred() {
     await refreshProject()
   }
-} as any)
+} as unknown as { onTransferred(): Promise<void> })
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePages)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
@@ -511,7 +518,7 @@ async function goToLibrary() {
   await router.push('/')
 }
 
-const projectNotFoundActions = computed<any[]>(() => [
+const projectNotFoundActions = computed<Array<Record<string, unknown>>>(() => [
   {
     icon: 'i-lucide-arrow-left',
     label: 'Back to library',
@@ -975,8 +982,12 @@ async function confirmLegacyPageXmlVersion(selectedVersion: string): Promise<str
   return confirmed ? selectedVersion : null
 }
 
-const actionItems = computed<DropdownMenuItem[]>(() => {
-  const items: DropdownMenuItem[] = [
+const actionItems = computed<DropdownMenuItem[][]>(() => {
+  const utilityItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Utilities'
+    },
     {
       label: hasSelection.value ? 'Generate codec (selected pages)' : 'Generate codec (all pages)',
       icon: 'i-lucide-wand-sparkles',
@@ -1002,6 +1013,29 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       }
     },
     {
+      label: hasSelection.value ? 'Normalization (selected pages)' : 'Normalization (all pages)',
+      icon: 'i-lucide-wand-sparkles',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => {
+        void openNormalizationPreviewModal()
+      }
+    },
+    {
+      label: hasSelection.value ? 'Validate ruleset (selected pages)' : 'Validate ruleset (all pages)',
+      icon: 'i-lucide-shield-alert',
+      disabled: (pages.value?.length ?? 0) === 0,
+      onSelect: () => {
+        void openValidationRulesetModal()
+      }
+    }
+  ]
+
+  const exportItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Export'
+    },
+    {
       label: hasSelection.value ? 'Export output (selected pages)' : 'Export output (full project)',
       icon: 'i-lucide-file-output',
       disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
@@ -1019,17 +1053,24 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
     }
   ]
 
+  const projectItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Project'
+    }
+  ]
+
   if (allow(projectCapabilities.value.canEdit)) {
-    items.push({
+    projectItems.push({
       label: 'Edit project',
       icon: 'i-lucide-edit',
       disabled: project.value?.locked,
-      onSelect: () => project.value && projectEditSlideover.open({ project: project.value as any })
+      onSelect: () => project.value && projectEditSlideover.open({ project: project.value as ProjectData })
     })
   }
 
   if (allow(projectCapabilities.value.canShare)) {
-    items.push({
+    projectItems.push({
       label: 'Share project',
       icon: 'i-lucide-share-2',
       disabled: project.value?.locked,
@@ -1043,7 +1084,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   }
 
   if (allow(projectCapabilities.value.canDelete)) {
-    items.push({
+    projectItems.push({
       label: 'Delete project',
       icon: 'i-lucide-trash',
       color: 'error' as const,
@@ -1052,7 +1093,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
     })
   }
 
-  return items
+  return [projectItems, exportItems, utilityItems].filter(group => group.length > 1)
 })
 
 const autoCreatedDescription = 'Auto-created from bulk upload'
@@ -1148,10 +1189,221 @@ const dictionarySources = computed<DictionaryProjectScope[]>(() => [{
   projectId,
   pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
 }])
+const normalizationSources = computed<NormalizationProjectScope[]>(() => [{
+  projectId,
+  pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
+}])
+const validationSources = computed<ValidationProjectScope[]>(() => [{
+  projectId,
+  pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
+}])
+
+type NormalizationDiffSegment = {
+  text: string
+  changed: boolean
+  kind: 'equal' | 'insert' | 'delete'
+}
+
+type NormalizationPreviewRow = NormalizePreview & {
+  key: string
+  originalSegments: NormalizationDiffSegment[]
+  normalizedSegments: NormalizationDiffSegment[]
+}
 
 const dictionaryValidationResult = ref<DictionaryValidateAgainstSourcesResponse | null>(null)
 const isDictionaryValidationModalOpen = ref(false)
 const isDictionaryValidationLoading = ref(false)
+const normalizationPreviewResult = ref<NormalizeSourcesResponse | null>(null)
+const isNormalizationPreviewSlideoverOpen = ref(false)
+const isNormalizationPreviewLoading = ref(false)
+const isApplyingNormalization = ref(false)
+const normalizationApplyingRowKey = ref<string | null>(null)
+const activeNormalizationProfile = ref<NormalizationProfile | null>(null)
+const isNormalizationProfileLoading = ref(false)
+const normalizationProfileLoadError = ref<string | null>(null)
+const isNormalizationRulesSlideoverOpen = ref(false)
+const normalizationVariantMode = ref<'PROJECT_GT' | 'CUSTOM'>('PROJECT_GT')
+const normalizationVariantIndexInput = ref<number>(0)
+const validationRulesetResult = ref<ValidateAgainstSourcesResponse | null>(null)
+const isValidationRulesetModalOpen = ref(false)
+const isValidationRulesetLoading = ref(false)
+
+let normalizationDmp: DiffMatchPatch | null = null
+
+function getNormalizationDmp(): DiffMatchPatch {
+  if (!normalizationDmp) {
+    normalizationDmp = new DiffMatchPatch()
+  }
+  return normalizationDmp
+}
+
+function buildNormalizationDiffSegments(originalText: string, normalizedText: string, side: 'original' | 'normalized'): NormalizationDiffSegment[] {
+  const dmp = getNormalizationDmp()
+  const diffs = dmp.diff_main(originalText || '', normalizedText || '') as Diff[]
+  dmp.diff_cleanupSemantic(diffs)
+
+  const segments: NormalizationDiffSegment[] = []
+  for (const diff of diffs) {
+    const [operation, text] = diff
+    if (!text) continue
+
+    if (operation === 0) {
+      segments.push({ text, changed: false, kind: 'equal' })
+      continue
+    }
+
+    if (operation === -1 && side === 'original') {
+      segments.push({ text, changed: true, kind: 'delete' })
+      continue
+    }
+
+    if (operation === 1 && side === 'normalized') {
+      segments.push({ text, changed: true, kind: 'insert' })
+    }
+  }
+
+  return segments.length > 0 ? segments : [{ text: side === 'original' ? originalText : normalizedText, changed: false, kind: 'equal' }]
+}
+
+const normalizationPreviewRows = computed<NormalizationPreviewRow[]>(() =>
+  (normalizationPreviewResult.value?.previews ?? []).map(preview => ({
+    ...preview,
+    key: [preview.pageId, preview.textLineId ?? preview.regionId ?? 'row', preview.variantIndex ?? 'primary', preview.originalText, preview.normalizedText].join('::'),
+    originalSegments: buildNormalizationDiffSegments(preview.originalText || '', preview.normalizedText || '', 'original'),
+    normalizedSegments: buildNormalizationDiffSegments(preview.originalText || '', preview.normalizedText || '', 'normalized')
+  }))
+)
+
+const normalizationPresetRules = computed(() => {
+  const profile = activeNormalizationProfile.value
+  if (!profile) return []
+
+  return [
+    {
+      key: 'unicodeNormalization',
+      label: 'Unicode normalization',
+      enabled: profile.unicodeNormalization !== 'NONE',
+      value: profile.unicodeNormalization === 'NONE' ? 'Disabled' : profile.unicodeNormalization
+    },
+    { key: 'collapseWhitespace', label: 'Collapse whitespace', enabled: profile.collapseWhitespace, value: profile.collapseWhitespace ? 'Enabled' : 'Disabled' },
+    { key: 'trimText', label: 'Trim text', enabled: profile.trimText, value: profile.trimText ? 'Enabled' : 'Disabled' },
+    { key: 'dehyphenateLineBreaks', label: 'Dehyphenate line breaks', enabled: profile.dehyphenateLineBreaks, value: profile.dehyphenateLineBreaks ? 'Enabled' : 'Disabled' },
+    { key: 'mapLongSToS', label: 'Map long s to s', enabled: profile.mapLongSToS, value: profile.mapLongSToS ? 'Enabled' : 'Disabled' },
+    { key: 'expandCommonLigatures', label: 'Expand common ligatures', enabled: profile.expandCommonLigatures, value: profile.expandCommonLigatures ? 'Enabled' : 'Disabled' },
+    { key: 'normalizeQuotes', label: 'Normalize quotes', enabled: profile.normalizeQuotes, value: profile.normalizeQuotes ? 'Enabled' : 'Disabled' },
+    { key: 'normalizeDashes', label: 'Normalize dashes', enabled: profile.normalizeDashes, value: profile.normalizeDashes ? 'Enabled' : 'Disabled' },
+    { key: 'normalizeEllipsis', label: 'Normalize ellipsis', enabled: profile.normalizeEllipsis, value: profile.normalizeEllipsis ? 'Enabled' : 'Disabled' }
+  ]
+})
+
+const enabledNormalizationPresetRuleCount = computed(() =>
+  normalizationPresetRules.value.filter(rule => rule.enabled).length
+)
+
+const normalizationManualRuleCount = computed(() =>
+  activeNormalizationProfile.value?.replacementRules.length ?? 0
+)
+
+const defaultNormalizationVariantIndex = computed(() => {
+  const value = project.value?.defaultGtIndex
+  return Number.isInteger(value) && Number(value) >= 0 ? Number(value) : 0
+})
+
+const normalizedCustomNormalizationVariantIndex = computed(() => {
+  const parsed = Number(normalizationVariantIndexInput.value)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null
+  }
+  return parsed
+})
+
+const effectiveNormalizationVariantIndex = computed(() =>
+  normalizationVariantMode.value === 'PROJECT_GT'
+    ? defaultNormalizationVariantIndex.value
+    : normalizedCustomNormalizationVariantIndex.value
+)
+
+watch(defaultNormalizationVariantIndex, (value) => {
+  if (normalizationVariantMode.value === 'PROJECT_GT') {
+    normalizationVariantIndexInput.value = value
+  }
+}, { immediate: true })
+
+function buildNormalizationRequestBody(targets?: NormalizeTarget[]) {
+  return {
+    sources: normalizationSources.value,
+    variantIndex: effectiveNormalizationVariantIndex.value,
+    ...(targets && targets.length > 0 ? { targets } : {})
+  }
+}
+
+function buildNormalizationRowTargets(preview: NormalizePreviewRow): NormalizeTarget[] {
+  return [{
+    pageId: preview.pageId,
+    textLineId: preview.textLineId ?? null,
+    regionId: preview.regionId ?? null,
+    variantIndex: preview.variantIndex ?? null
+  }]
+}
+
+async function loadActiveNormalizationProfile() {
+  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
+    activeNormalizationProfile.value = null
+    normalizationProfileLoadError.value = null
+    return
+  }
+
+  isNormalizationProfileLoading.value = true
+  normalizationProfileLoadError.value = null
+
+  try {
+    activeNormalizationProfile.value = await $fetch<NormalizationProfile>(
+      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${project.value.normalizationProfileId}`
+    )
+  } catch (error) {
+    activeNormalizationProfile.value = null
+    normalizationProfileLoadError.value = getErrorMessage(error, 'Could not load normalization profile details.')
+  } finally {
+    isNormalizationProfileLoading.value = false
+  }
+}
+
+async function loadNormalizationPreview(closeOnError = false) {
+  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
+    return
+  }
+  if (effectiveNormalizationVariantIndex.value === null) {
+    toast.add({
+      title: 'Invalid normalization index',
+      description: 'The target text index must be a non-negative integer.',
+      color: 'warning'
+    })
+    return
+  }
+
+  try {
+    normalizationPreviewResult.value = null
+    isNormalizationPreviewLoading.value = true
+    normalizationPreviewResult.value = await $fetch<NormalizeSourcesResponse>(
+      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${project.value.normalizationProfileId}/normalize-sources`,
+      {
+        method: 'POST',
+        body: buildNormalizationRequestBody()
+      }
+    )
+  } catch (error) {
+    if (closeOnError) {
+      isNormalizationPreviewSlideoverOpen.value = false
+    }
+    toast.add({
+      title: 'Normalization preview failed',
+      description: getErrorMessage(error, 'Could not load normalization details for this project.'),
+      color: 'error'
+    })
+  } finally {
+    isNormalizationPreviewLoading.value = false
+  }
+}
 
 async function openCodecGenerateSlideover() {
   if (!selectedWorkspace.value) return
@@ -1222,6 +1474,145 @@ async function openDictionaryValidationModal() {
     })
   } finally {
     isDictionaryValidationLoading.value = false
+  }
+}
+
+async function openNormalizationPreviewModal() {
+  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
+    toast.add({
+      title: 'No project normalization profile configured',
+      description: 'Assign a normalization profile to this project first, then run a preview.',
+      color: 'warning'
+    })
+    return
+  }
+
+  normalizationVariantIndexInput.value = defaultNormalizationVariantIndex.value
+  isNormalizationPreviewSlideoverOpen.value = true
+  await Promise.all([
+    loadActiveNormalizationProfile(),
+    loadNormalizationPreview(true)
+  ])
+}
+
+async function openNormalizationRulesSlideover() {
+  isNormalizationRulesSlideoverOpen.value = true
+
+  if (!activeNormalizationProfile.value && !isNormalizationProfileLoading.value) {
+    await loadActiveNormalizationProfile()
+  }
+}
+
+async function applyNormalizationPreview(options: {
+  targets?: NormalizeTarget[]
+  rowKey?: string | null
+  closeOnSuccess?: boolean
+} = {}) {
+  if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
+    return
+  }
+  if (project.value?.locked) {
+    toast.add({
+      title: 'Project is locked',
+      description: project.value.lockedReason || 'Unlock the project before applying normalization changes.',
+      color: 'warning'
+    })
+    return
+  }
+  if (effectiveNormalizationVariantIndex.value === null) {
+    toast.add({
+      title: 'Invalid normalization index',
+      description: 'The target text index must be a non-negative integer.',
+      color: 'warning'
+    })
+    return
+  }
+
+  const { targets, rowKey = null, closeOnSuccess = rowKey === null } = options
+
+  try {
+    if (rowKey) {
+      normalizationApplyingRowKey.value = rowKey
+    } else {
+      isApplyingNormalization.value = true
+    }
+
+    const response = await $fetch<ApplySourcesResponse>(
+      `/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${project.value.normalizationProfileId}/apply-sources`,
+      {
+        method: 'POST',
+        body: buildNormalizationRequestBody(targets)
+      }
+    )
+
+    toast.add({
+      title: response.changedRowCount > 0
+        ? (rowKey ? 'Row normalization applied' : 'Normalization applied')
+        : (rowKey ? 'No row normalization changes applied' : 'No normalization changes applied'),
+      description: response.message,
+      color: response.changedRowCount > 0 ? 'success' : 'info',
+      icon: response.changedRowCount > 0 ? 'i-lucide-check' : 'i-lucide-info'
+    })
+
+    normalizationPreviewResult.value = null
+    if (closeOnSuccess) {
+      isNormalizationPreviewSlideoverOpen.value = false
+    } else {
+      await loadNormalizationPreview()
+    }
+  } catch (error) {
+    toast.add({
+      title: 'Normalization apply failed',
+      description: getErrorMessage(error, 'Could not apply normalization changes to this project.'),
+      color: 'error'
+    })
+  } finally {
+    if (rowKey) {
+      normalizationApplyingRowKey.value = null
+    } else {
+      isApplyingNormalization.value = false
+    }
+  }
+}
+
+async function applyNormalizationRow(preview: NormalizePreviewRow) {
+  await applyNormalizationPreview({
+    targets: buildNormalizationRowTargets(preview),
+    rowKey: preview.key,
+    closeOnSuccess: false
+  })
+}
+
+async function openValidationRulesetModal() {
+  if (!selectedWorkspace.value || !project.value?.validationRulesetId) {
+    toast.add({
+      title: 'No project validation ruleset configured',
+      description: 'Assign a validation ruleset to this project first, then run validation.',
+      color: 'warning'
+    })
+    return
+  }
+
+  try {
+    validationRulesetResult.value = null
+    isValidationRulesetModalOpen.value = true
+    isValidationRulesetLoading.value = true
+    validationRulesetResult.value = await $fetch<ValidateAgainstSourcesResponse>(
+      `/api/workspaces/${selectedWorkspace.value}/validation-rulesets/${project.value.validationRulesetId}/validate-against-sources`,
+      {
+        method: 'POST',
+        body: { sources: validationSources.value }
+      }
+    )
+  } catch (error) {
+    isValidationRulesetModalOpen.value = false
+    toast.add({
+      title: 'Validation ruleset check failed',
+      description: getErrorMessage(error, 'Could not validate project text against the selected ruleset.'),
+      color: 'error'
+    })
+  } finally {
+    isValidationRulesetLoading.value = false
   }
 }
 
@@ -1484,7 +1875,7 @@ const pageColumns = [
 ]
 
 function getPageRowItems(page: Page) {
-  const items: any[] = [
+  const items: Array<Record<string, unknown>> = [
     { label: 'Edit', icon: 'i-lucide-edit', disabled: project.value?.locked || !allow(projectCapabilities.value.canEdit), onSelect: () => openEditModal(page) },
     { label: 'View Images', icon: 'i-lucide-images', disabled: page.imageCount === 0, onSelect: () => openImageModal(page) },
     { label: 'View/Edit XML', icon: 'i-lucide-file-pen-line', disabled: page.xmlFileCount === 0, onSelect: () => openXmlEditor(page) },
@@ -2070,8 +2461,12 @@ useHead({
           >
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <p class="font-medium break-all">{{ tokenResult.token }}</p>
-                <p class="text-xs text-muted">{{ tokenResult.occurrenceCount }} occurrence(s)</p>
+                <p class="font-medium break-all">
+                  {{ tokenResult.token }}
+                </p>
+                <p class="text-xs text-muted">
+                  {{ tokenResult.occurrenceCount }} occurrence(s)
+                </p>
               </div>
               <UBadge color="warning" variant="soft">
                 {{ tokenResult.pages.length }} page(s)
@@ -2100,4 +2495,534 @@ useHead({
       />
     </template>
   </UModal>
+
+  <USlideover
+    v-model:open="isNormalizationPreviewSlideoverOpen"
+    title="Normalization"
+    description="Review and apply text rewrites for the current project scope."
+    :ui="{ content: 'w-full max-w-[96vw] sm:max-w-6xl' }"
+  >
+    <template #body>
+      <div v-if="isNormalizationPreviewLoading" class="space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+        </div>
+        <USkeleton class="h-20 w-full rounded-lg" />
+        <div class="space-y-3">
+          <USkeleton class="h-32 w-full rounded-lg" />
+          <USkeleton class="h-32 w-full rounded-lg" />
+        </div>
+      </div>
+      <div v-else-if="normalizationPreviewResult" class="space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <UPageCard title="Projects" :description="String(normalizationPreviewResult.analyzedProjectCount)" variant="subtle" />
+          <UPageCard title="Pages" :description="String(normalizationPreviewResult.analyzedPageCount)" variant="subtle" />
+          <UPageCard title="Rows" :description="String(normalizationPreviewResult.analyzedRowCount)" variant="subtle" />
+          <UPageCard title="Changed Rows" :description="String(normalizationPreviewResult.changedRowCount)" variant="subtle" />
+        </div>
+
+        <UAlert
+          :color="normalizationPreviewResult.changedRowCount > 0 ? 'warning' : 'success'"
+          variant="subtle"
+          :title="normalizationPreviewResult.changedRowCount > 0 ? 'Normalization changes were detected.' : 'No normalization changes were detected.'"
+          :description="normalizationPreviewResult.message"
+        />
+
+        <UAlert
+          v-if="project?.locked"
+          color="warning"
+          variant="subtle"
+          title="Project is locked"
+          :description="project.lockedReason || 'Unlock the project before applying normalization changes.'"
+        />
+
+        <div v-if="isNormalizationProfileLoading" class="space-y-3">
+          <USkeleton class="h-24 w-full rounded-lg" />
+        </div>
+
+        <UAlert
+          v-else-if="normalizationProfileLoadError"
+          color="warning"
+          variant="subtle"
+          title="Normalization profile details unavailable"
+          :description="normalizationProfileLoadError"
+        />
+
+        <UCard v-else-if="activeNormalizationProfile">
+          <template #header>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium">
+                  Assigned Normalization Profile
+                </p>
+                <p class="text-xs text-muted">
+                  This normalization run uses the assigned profile for all selected sources.
+                </p>
+              </div>
+              <UButton
+                icon="i-lucide-list"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                @click="openNormalizationRulesSlideover"
+              >
+                View rules
+              </UButton>
+            </div>
+          </template>
+
+          <div class="space-y-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <UBadge color="primary" variant="soft">
+                {{ activeNormalizationProfile.name }}
+              </UBadge>
+              <UBadge color="neutral" variant="subtle">
+                {{ enabledNormalizationPresetRuleCount }} preset rule(s) active
+              </UBadge>
+              <UBadge color="neutral" variant="subtle">
+                {{ normalizationManualRuleCount }} manual rule(s)
+              </UBadge>
+            </div>
+
+            <p v-if="activeNormalizationProfile.description" class="text-sm text-muted">
+              {{ activeNormalizationProfile.description }}
+            </p>
+
+            <div v-if="activeNormalizationProfile.tags.length > 0" class="flex flex-wrap gap-2">
+              <UBadge
+                v-for="tag in activeNormalizationProfile.tags"
+                :key="`normalization-profile-tag-${tag}`"
+                color="neutral"
+                variant="soft"
+              >
+                {{ tag }}
+              </UBadge>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <div class="text-sm font-medium">
+              Target Text Index
+            </div>
+          </template>
+
+          <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px]">
+            <UFormField label="Source variant">
+              <USelect
+                v-model="normalizationVariantMode"
+                :items="[
+                  { label: `Project GT index (${defaultNormalizationVariantIndex})`, value: 'PROJECT_GT' },
+                  { label: 'Custom index', value: 'CUSTOM' }
+                ]"
+                value-key="value"
+              />
+            </UFormField>
+
+            <UFormField
+              label="Index"
+              :error="normalizationVariantMode === 'CUSTOM' && normalizedCustomNormalizationVariantIndex === null ? 'Index must be a non-negative integer.' : undefined"
+            >
+              <UInput
+                v-model.number="normalizationVariantIndexInput"
+                type="number"
+                :min="0"
+                :disabled="normalizationVariantMode !== 'CUSTOM'"
+                placeholder="0"
+              />
+            </UFormField>
+          </div>
+          <p class="mt-2 text-xs text-muted">
+            Normalization runs against the selected text variant. By default this uses the project GT index.
+          </p>
+        </UCard>
+
+        <div v-if="normalizationPreviewRows.length > 0" class="space-y-3">
+          <h3 class="text-sm font-semibold">
+            Affected Rows
+          </h3>
+          <div
+            v-for="preview in normalizationPreviewRows"
+            :key="preview.key"
+            class="rounded-lg border border-default p-3 space-y-3"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="font-medium">
+                  {{ preview.pageName }}
+                </p>
+                <p class="text-xs text-muted">
+                  {{ preview.projectName }}
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <UBadge color="neutral" variant="soft">
+                  {{ preview.textLineId ? 'Text Line' : 'Region' }}
+                </UBadge>
+                <UBadge color="neutral" variant="subtle">
+                  Variant {{ preview.variantIndex ?? 0 }}
+                </UBadge>
+                <UButton
+                  icon="i-lucide-wand-sparkles"
+                  color="warning"
+                  variant="outline"
+                  size="xs"
+                  :loading="normalizationApplyingRowKey === preview.key"
+                  :disabled="project?.locked || isApplyingNormalization || (normalizationApplyingRowKey !== null && normalizationApplyingRowKey !== preview.key)"
+                  @click="applyNormalizationRow(preview)"
+                >
+                  Apply row
+                </UButton>
+              </div>
+            </div>
+
+            <div v-if="preview.matchedRules.length > 0" class="space-y-2">
+              <p class="text-xs font-medium text-muted">
+                Matched rules
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <UPopover
+                  v-for="rule in preview.matchedRules"
+                  :key="`${preview.key}-${rule.key}`"
+                  mode="hover"
+                >
+                  <UBadge :color="rule.manual ? 'warning' : 'primary'" variant="soft" class="cursor-help">
+                    {{ rule.label }}
+                  </UBadge>
+
+                  <template #content>
+                    <div class="max-w-xs space-y-1 p-3">
+                      <p class="text-sm font-medium">
+                        {{ rule.label }}
+                      </p>
+                      <p class="text-xs text-muted">
+                        {{ rule.description || 'No additional rule details.' }}
+                      </p>
+                    </div>
+                  </template>
+                </UPopover>
+              </div>
+            </div>
+
+            <div class="grid gap-3 lg:grid-cols-2">
+              <div>
+                <p class="mb-1 text-xs font-medium text-muted">
+                  Original
+                </p>
+                <div class="rounded border border-default bg-muted/30 p-2 text-sm whitespace-pre-wrap break-words font-junicode">
+                  <template v-for="(segment, segmentIndex) in preview.originalSegments" :key="`original-${preview.key}-${segmentIndex}`">
+                    <mark v-if="segment.changed" class="normalization-preview-mark normalization-preview-mark--delete">{{ segment.text }}</mark>
+                    <template v-else>
+                      {{ segment.text }}
+                    </template>
+                  </template>
+                </div>
+              </div>
+              <div>
+                <p class="mb-1 text-xs font-medium text-muted">
+                  Normalized
+                </p>
+                <div class="rounded border border-default bg-muted/30 p-2 text-sm whitespace-pre-wrap break-words font-junicode">
+                  <template v-for="(segment, segmentIndex) in preview.normalizedSegments" :key="`normalized-${preview.key}-${segmentIndex}`">
+                    <mark v-if="segment.changed" class="normalization-preview-mark normalization-preview-mark--insert">{{ segment.text }}</mark>
+                    <template v-else>
+                      {{ segment.text }}
+                    </template>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <UAlert
+        v-else
+        color="neutral"
+        variant="subtle"
+        title="No normalization results"
+        description="Run normalization again to load normalization details."
+      />
+    </template>
+    <template #footer>
+      <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-xs text-muted">
+          Applying normalization updates PAGE XML text variants. Search and filter indexes refresh asynchronously afterward.
+        </p>
+        <div class="flex items-center justify-end gap-2">
+          <UButton color="neutral" variant="ghost" @click="isNormalizationPreviewSlideoverOpen = false">
+            Close
+          </UButton>
+          <UButton
+            icon="i-lucide-rotate-cw"
+            color="neutral"
+            variant="outline"
+            :loading="isNormalizationPreviewLoading"
+            :disabled="effectiveNormalizationVariantIndex === null"
+            @click="loadNormalizationPreview()"
+          >
+            Refresh
+          </UButton>
+          <UButton
+            icon="i-lucide-wand-sparkles"
+            color="warning"
+            variant="solid"
+            :loading="isApplyingNormalization"
+            :disabled="project?.locked || normalizationApplyingRowKey !== null || effectiveNormalizationVariantIndex === null || !normalizationPreviewResult || normalizationPreviewResult.changedRowCount === 0"
+            @click="applyNormalizationPreview()"
+          >
+            Apply normalization
+          </UButton>
+        </div>
+      </div>
+    </template>
+  </USlideover>
+
+  <USlideover
+    v-model:open="isNormalizationRulesSlideoverOpen"
+    title="Normalization Rules"
+    description="Inspect the preset and manual rules of the assigned normalization profile."
+    :ui="{ content: 'w-full max-w-[96vw] sm:max-w-4xl' }"
+  >
+    <template #body>
+      <div v-if="isNormalizationProfileLoading" class="space-y-3">
+        <USkeleton class="h-24 w-full rounded-lg" />
+        <USkeleton class="h-48 w-full rounded-lg" />
+      </div>
+
+      <UAlert
+        v-else-if="normalizationProfileLoadError"
+        color="warning"
+        variant="subtle"
+        title="Normalization profile details unavailable"
+        :description="normalizationProfileLoadError"
+      />
+
+      <div v-else-if="activeNormalizationProfile" class="space-y-4">
+        <UCard>
+          <template #header>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium">
+                  {{ activeNormalizationProfile.name }}
+                </p>
+                <p class="text-xs text-muted">
+                  {{ activeNormalizationProfile.description || 'No description provided.' }}
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <UBadge color="neutral" variant="soft">
+                  {{ enabledNormalizationPresetRuleCount }} preset rule(s) active
+                </UBadge>
+                <UBadge color="neutral" variant="soft">
+                  {{ normalizationManualRuleCount }} manual rule(s)
+                </UBadge>
+              </div>
+            </div>
+          </template>
+
+          <div v-if="activeNormalizationProfile.tags.length > 0" class="flex flex-wrap gap-2">
+            <UBadge
+              v-for="tag in activeNormalizationProfile.tags"
+              :key="`normalization-rules-tag-${tag}`"
+              color="neutral"
+              variant="subtle"
+            >
+              {{ tag }}
+            </UBadge>
+          </div>
+          <p v-else class="text-sm text-muted">
+            No tags configured.
+          </p>
+        </UCard>
+
+        <UPageCard title="Preset Rules" variant="subtle">
+          <div class="space-y-3">
+            <div
+              v-for="rule in normalizationPresetRules"
+              :key="rule.key"
+              class="flex items-center justify-between gap-3 rounded-lg border border-default p-3"
+            >
+              <div>
+                <div class="flex items-center gap-1">
+                  <p class="text-sm font-medium">
+                    {{ rule.label }}
+                  </p>
+                  <NormalizationPresetRuleHelpPopover :rule-key="rule.key" />
+                </div>
+                <p class="text-xs text-muted">
+                  {{ rule.value }}
+                </p>
+              </div>
+              <UBadge :color="rule.enabled ? 'primary' : 'neutral'" variant="soft">
+                {{ rule.enabled ? 'Enabled' : 'Disabled' }}
+              </UBadge>
+            </div>
+          </div>
+        </UPageCard>
+
+        <UPageCard title="Manual Replacement Rules" variant="subtle">
+          <div v-if="activeNormalizationProfile.replacementRules.length === 0" class="rounded-lg border border-dashed border-default p-4 text-sm text-muted">
+            No manual replacement rules configured.
+          </div>
+
+          <div v-else class="space-y-3">
+            <div
+              v-for="(rule, index) in activeNormalizationProfile.replacementRules"
+              :key="`normalization-rules-${index}-${rule.search}-${rule.replacement}`"
+              class="rounded-lg border border-default p-4 space-y-3"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <p class="text-sm font-medium">
+                  Rule {{ index + 1 }}
+                </p>
+                <UBadge :color="rule.regex ? 'warning' : 'neutral'" variant="soft">
+                  {{ rule.regex ? 'Regex' : 'Plain text' }}
+                </UBadge>
+              </div>
+
+              <div class="grid gap-3 md:grid-cols-2">
+                <div>
+                  <p class="mb-1 text-xs font-medium text-muted">
+                    {{ rule.regex ? 'Pattern' : 'Search' }}
+                  </p>
+                  <div class="rounded border border-default bg-muted/30 p-2 text-sm font-mono whitespace-pre-wrap break-words">
+                    {{ rule.search || ' ' }}
+                  </div>
+                </div>
+                <div>
+                  <p class="mb-1 text-xs font-medium text-muted">
+                    Replacement
+                  </p>
+                  <div class="rounded border border-default bg-muted/30 p-2 text-sm font-mono whitespace-pre-wrap break-words">
+                    {{ rule.replacement || ' ' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </UPageCard>
+      </div>
+
+      <UAlert
+        v-else
+        color="neutral"
+        variant="subtle"
+        title="No normalization profile loaded"
+        description="Open normalization from a project with an assigned profile to inspect its rules."
+      />
+    </template>
+    <template #footer>
+      <div class="flex justify-end">
+        <UButton color="neutral" variant="ghost" @click="isNormalizationRulesSlideoverOpen = false">
+          Close
+        </UButton>
+      </div>
+    </template>
+  </USlideover>
+
+  <UModal v-model:open="isValidationRulesetModalOpen" title="Validation Ruleset Results">
+    <template #body>
+      <div v-if="isValidationRulesetLoading" class="space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+        </div>
+        <USkeleton class="h-20 w-full rounded-lg" />
+        <div class="space-y-3">
+          <USkeleton class="h-24 w-full rounded-lg" />
+          <USkeleton class="h-24 w-full rounded-lg" />
+        </div>
+      </div>
+      <div v-else-if="validationRulesetResult" class="space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <UPageCard title="Projects" :description="String(validationRulesetResult.analyzedProjectCount)" variant="subtle" />
+          <UPageCard title="Pages" :description="String(validationRulesetResult.analyzedPageCount)" variant="subtle" />
+          <UPageCard title="Occurrences" :description="String(validationRulesetResult.totalOccurrenceCount)" variant="subtle" />
+          <UPageCard title="Rules Matched" :description="String(validationRulesetResult.ruleResults.length)" variant="subtle" />
+        </div>
+
+        <UAlert
+          :color="validationRulesetResult.valid ? 'success' : 'warning'"
+          variant="subtle"
+          :title="validationRulesetResult.valid ? 'No rules matched the selected text.' : 'Validation rules matched suspicious patterns.'"
+          :description="validationRulesetResult.message"
+        />
+
+        <div v-if="validationRulesetResult.ruleResults.length > 0" class="space-y-3">
+          <h3 class="text-sm font-semibold">
+            Matched Rules
+          </h3>
+          <div
+            v-for="ruleResult in validationRulesetResult.ruleResults"
+            :key="ruleResult.ruleId"
+            class="rounded-lg border border-default p-3 space-y-2"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-medium">
+                  {{ ruleResult.ruleName }}
+                </p>
+                <p class="text-xs text-muted">
+                  {{ ruleResult.message }}
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <UBadge :color="ruleResult.severity === 'ERROR' ? 'error' : (ruleResult.severity === 'WARNING' ? 'warning' : 'neutral')" variant="soft">
+                  {{ ruleResult.severity }}
+                </UBadge>
+                <UBadge color="neutral" variant="soft">
+                  {{ ruleResult.occurrenceCount }} hit(s)
+                </UBadge>
+              </div>
+            </div>
+
+            <div v-if="ruleResult.matchedSamples.length > 0" class="flex flex-wrap gap-2">
+              <UBadge
+                v-for="sample in ruleResult.matchedSamples"
+                :key="`${ruleResult.ruleId}-${sample}`"
+                color="neutral"
+                variant="subtle"
+              >
+                {{ sample }}
+              </UBadge>
+            </div>
+
+            <p class="text-xs text-muted">
+              {{ ruleResult.pages.length }} page(s) affected
+            </p>
+          </div>
+        </div>
+      </div>
+      <UAlert
+        v-else
+        color="neutral"
+        variant="subtle"
+        title="No validation ruleset results"
+        description="Run the ruleset check again to load validation details."
+      />
+    </template>
+  </UModal>
 </template>
+
+<style scoped>
+.normalization-preview-mark {
+  border-radius: 0.25rem;
+  padding: 0 0.1rem;
+}
+
+.normalization-preview-mark--delete {
+  background: color-mix(in srgb, var(--ui-error) 14%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ui-error) 60%, transparent);
+}
+
+.normalization-preview-mark--insert {
+  background: color-mix(in srgb, var(--ui-warning) 18%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ui-warning) 70%, transparent);
+}
+</style>

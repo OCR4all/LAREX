@@ -7,9 +7,16 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDiction
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ResourceTransferRequestRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.workspace.PersonalWorkspaceRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
+import de.uniwue.zpd.dachs.larex.backend.entity.workspace.PersonalWorkspace;
+import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,7 +36,12 @@ public class ResourceTransferService {
     private final ControlledDictionaryRepository dictionaryRepository;
     private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final LabelSetRepository labelSetRepository;
+    private final NormalizationProfileRepository normalizationProfileRepository;
+    private final ValidationRulesetRepository validationRulesetRepository;
     private final LibraryRepository libraryRepository;
+    private final ProjectRepository projectRepository;
+    private final PersonalWorkspaceRepository personalWorkspaceRepository;
+    private final TeamWorkspaceRepository teamWorkspaceRepository;
     private final WorkspaceQueryService workspaceQueryService;
     private final AuthorizationPolicyService authorizationPolicyService;
 
@@ -39,7 +51,12 @@ public class ResourceTransferService {
             ControlledDictionaryRepository dictionaryRepository,
             VirtualKeyboardRepository virtualKeyboardRepository,
             LabelSetRepository labelSetRepository,
+            NormalizationProfileRepository normalizationProfileRepository,
+            ValidationRulesetRepository validationRulesetRepository,
             LibraryRepository libraryRepository,
+            ProjectRepository projectRepository,
+            PersonalWorkspaceRepository personalWorkspaceRepository,
+            TeamWorkspaceRepository teamWorkspaceRepository,
             WorkspaceQueryService workspaceQueryService,
             AuthorizationPolicyService authorizationPolicyService) {
         this.transferRequestRepository = transferRequestRepository;
@@ -47,7 +64,12 @@ public class ResourceTransferService {
         this.dictionaryRepository = dictionaryRepository;
         this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.labelSetRepository = labelSetRepository;
+        this.normalizationProfileRepository = normalizationProfileRepository;
+        this.validationRulesetRepository = validationRulesetRepository;
         this.libraryRepository = libraryRepository;
+        this.projectRepository = projectRepository;
+        this.personalWorkspaceRepository = personalWorkspaceRepository;
+        this.teamWorkspaceRepository = teamWorkspaceRepository;
         this.workspaceQueryService = workspaceQueryService;
         this.authorizationPolicyService = authorizationPolicyService;
     }
@@ -153,6 +175,8 @@ public class ResourceTransferService {
         Set<String> dictionaryIds = new HashSet<>();
         Set<String> keyboardIds = new HashSet<>();
         Set<String> labelSetIds = new HashSet<>();
+        Set<String> normalizationProfileIds = new HashSet<>();
+        Set<String> validationRulesetIds = new HashSet<>();
 
         for (ResourceTransferRequest request : requests) {
             workspaceIds.add(request.getSourceWorkspaceId());
@@ -162,6 +186,8 @@ public class ResourceTransferService {
                 case DICTIONARY -> dictionaryIds.add(request.getResourceId());
                 case VIRTUAL_KEYBOARD -> keyboardIds.add(request.getResourceId());
                 case LABEL_SET -> labelSetIds.add(request.getResourceId());
+                case NORMALIZATION_PROFILE -> normalizationProfileIds.add(request.getResourceId());
+                case VALIDATION_RULESET -> validationRulesetIds.add(request.getResourceId());
             }
         }
 
@@ -178,6 +204,12 @@ public class ResourceTransferService {
         }
         for (LabelSet labelSet : labelSetRepository.findAllById(labelSetIds)) {
             resourceNames.put(labelSet.getId(), labelSet.getName());
+        }
+        for (NormalizationProfile profile : normalizationProfileRepository.findAllById(normalizationProfileIds)) {
+            resourceNames.put(profile.getId(), profile.getName());
+        }
+        for (ValidationRuleset ruleset : validationRulesetRepository.findAllById(validationRulesetIds)) {
+            resourceNames.put(ruleset.getId(), ruleset.getName());
         }
 
         List<ResourceTransferDto.Response> responses = new ArrayList<>(requests.size());
@@ -219,6 +251,8 @@ public class ResourceTransferService {
             case DICTIONARY -> executeDictionaryTransfer(request);
             case VIRTUAL_KEYBOARD -> executeVirtualKeyboardTransfer(request);
             case LABEL_SET -> executeLabelSetTransfer(request);
+            case NORMALIZATION_PROFILE -> executeNormalizationProfileTransfer(request);
+            case VALIDATION_RULESET -> executeValidationRulesetTransfer(request);
         }
         request.setStatus(ResourceTransferRequest.Status.COMPLETED);
         transferRequestRepository.save(request);
@@ -319,6 +353,60 @@ public class ResourceTransferService {
         });
     }
 
+    private void executeNormalizationProfileTransfer(ResourceTransferRequest request) {
+        normalizationProfileRepository.findById(request.getResourceId()).ifPresent(profile -> {
+            if (request.getTransferType() == ResourceTransferRequest.TransferType.COPY) {
+                NormalizationProfile copy = new NormalizationProfile();
+                copy.setName(profile.getName() + " (Copy)");
+                copy.setWorkspaceId(request.getTargetWorkspaceId());
+                copy.setDescription(profile.getDescription());
+                copy.setTags(new ArrayList<>(profile.getTags()));
+                copy.setUnicodeNormalization(profile.getUnicodeNormalization());
+                copy.setCollapseWhitespace(profile.isCollapseWhitespace());
+                copy.setTrimText(profile.isTrimText());
+                copy.setDehyphenateLineBreaks(profile.isDehyphenateLineBreaks());
+                copy.setMapLongSToS(profile.isMapLongSToS());
+                copy.setExpandCommonLigatures(profile.isExpandCommonLigatures());
+                copy.setNormalizeQuotes(profile.isNormalizeQuotes());
+                copy.setNormalizeDashes(profile.isNormalizeDashes());
+                copy.setNormalizeEllipsis(profile.isNormalizeEllipsis());
+                List<NormalizationReplacementRule> copiedRules = profile.getReplacementRules().stream()
+                        .map(rule -> {
+                            NormalizationReplacementRule copyRule = new NormalizationReplacementRule();
+                            copyRule.setSearch(rule.getSearch());
+                            copyRule.setReplacement(rule.getReplacement());
+                            copyRule.setRegex(rule.isRegex());
+                            return copyRule;
+                        })
+                        .toList();
+                copy.setReplacementRules(copiedRules);
+                normalizationProfileRepository.save(copy);
+            } else {
+                clearNormalizationAssignments(request.getSourceWorkspaceId(), profile);
+                profile.setWorkspaceId(request.getTargetWorkspaceId());
+                normalizationProfileRepository.save(profile);
+            }
+        });
+    }
+
+    private void executeValidationRulesetTransfer(ResourceTransferRequest request) {
+        validationRulesetRepository.findById(request.getResourceId()).ifPresent(ruleset -> {
+            if (request.getTransferType() == ResourceTransferRequest.TransferType.COPY) {
+                ValidationRuleset copy = new ValidationRuleset();
+                copy.setName(ruleset.getName() + " (Copy)");
+                copy.setWorkspaceId(request.getTargetWorkspaceId());
+                copy.setDescription(ruleset.getDescription());
+                copy.setTags(new ArrayList<>(ruleset.getTags()));
+                copy.setRulesJson(ruleset.getRulesJson());
+                validationRulesetRepository.save(copy);
+            } else {
+                clearValidationAssignments(request.getSourceWorkspaceId(), ruleset);
+                ruleset.setWorkspaceId(request.getTargetWorkspaceId());
+                validationRulesetRepository.save(ruleset);
+            }
+        });
+    }
+
     private String getSourceWorkspaceId(String resourceId, ResourceTransferRequest.ResourceType resourceType) {
         return switch (resourceType) {
             case CODEC -> codecRepository.findById(resourceId)
@@ -329,7 +417,51 @@ public class ResourceTransferService {
                     .map(VirtualKeyboard::getWorkspaceId).orElse(null);
             case LABEL_SET -> labelSetRepository.findById(resourceId)
                     .map(LabelSet::getWorkspaceId).orElse(null);
+            case NORMALIZATION_PROFILE -> normalizationProfileRepository.findById(resourceId)
+                    .map(NormalizationProfile::getWorkspaceId).orElse(null);
+            case VALIDATION_RULESET -> validationRulesetRepository.findById(resourceId)
+                    .map(ValidationRuleset::getWorkspaceId).orElse(null);
         };
+    }
+
+    private void clearNormalizationAssignments(String workspaceId, NormalizationProfile profile) {
+        for (Project project : projectRepository.findByLibraryWorkspaceIdAndNormalizationProfileId(workspaceId, profile.getId())) {
+            project.setNormalizationProfile(null);
+        }
+        Optional<PersonalWorkspace> personalWorkspace = personalWorkspaceRepository.findById(workspaceId);
+        if (personalWorkspace.isPresent()
+                && personalWorkspace.get().getNormalizationProfile() != null
+                && profile.getId().equals(personalWorkspace.get().getNormalizationProfile().getId())) {
+            personalWorkspace.get().setNormalizationProfile(null);
+            personalWorkspaceRepository.save(personalWorkspace.get());
+        }
+        Optional<TeamWorkspace> teamWorkspace = teamWorkspaceRepository.findById(workspaceId);
+        if (teamWorkspace.isPresent()
+                && teamWorkspace.get().getNormalizationProfile() != null
+                && profile.getId().equals(teamWorkspace.get().getNormalizationProfile().getId())) {
+            teamWorkspace.get().setNormalizationProfile(null);
+            teamWorkspaceRepository.save(teamWorkspace.get());
+        }
+    }
+
+    private void clearValidationAssignments(String workspaceId, ValidationRuleset ruleset) {
+        for (Project project : projectRepository.findByLibraryWorkspaceIdAndValidationRulesetId(workspaceId, ruleset.getId())) {
+            project.setValidationRuleset(null);
+        }
+        Optional<PersonalWorkspace> personalWorkspace = personalWorkspaceRepository.findById(workspaceId);
+        if (personalWorkspace.isPresent()
+                && personalWorkspace.get().getValidationRuleset() != null
+                && ruleset.getId().equals(personalWorkspace.get().getValidationRuleset().getId())) {
+            personalWorkspace.get().setValidationRuleset(null);
+            personalWorkspaceRepository.save(personalWorkspace.get());
+        }
+        Optional<TeamWorkspace> teamWorkspace = teamWorkspaceRepository.findById(workspaceId);
+        if (teamWorkspace.isPresent()
+                && teamWorkspace.get().getValidationRuleset() != null
+                && ruleset.getId().equals(teamWorkspace.get().getValidationRuleset().getId())) {
+            teamWorkspace.get().setValidationRuleset(null);
+            teamWorkspaceRepository.save(teamWorkspace.get());
+        }
     }
 
     private Library getOrCreateTargetLibrary(String targetWorkspaceId) {

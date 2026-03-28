@@ -69,6 +69,14 @@ public class Project {
     @JoinColumn(name = "tag_set_id")
     private TagSet tagSet;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "normalization_profile_id")
+    private NormalizationProfile normalizationProfile;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "validation_ruleset_id")
+    private ValidationRuleset validationRuleset;
+
     @Column(name = "default_gt_index")
     private Integer defaultGtIndex;
 
@@ -193,6 +201,22 @@ public class Project {
 
     public void setTagSet(TagSet tagSet) {
         this.tagSet = tagSet;
+    }
+
+    public NormalizationProfile getNormalizationProfile() {
+        return normalizationProfile;
+    }
+
+    public void setNormalizationProfile(NormalizationProfile normalizationProfile) {
+        this.normalizationProfile = normalizationProfile;
+    }
+
+    public ValidationRuleset getValidationRuleset() {
+        return validationRuleset;
+    }
+
+    public void setValidationRuleset(ValidationRuleset validationRuleset) {
+        this.validationRuleset = validationRuleset;
     }
 
     public Integer getDefaultGtIndex() {

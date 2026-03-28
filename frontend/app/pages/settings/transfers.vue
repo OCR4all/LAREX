@@ -15,7 +15,7 @@ type TransferRequest = {
   projectName?: string
   resourceId?: string
   resourceName?: string
-  resourceType?: 'CODEC' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET'
+  resourceType?: 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
   sourceWorkspaceId: string
   sourceWorkspaceName: string
   targetWorkspaceId: string
@@ -80,7 +80,7 @@ const columns = [
   {
     accessorKey: 'name',
     header: 'Resource',
-    cell: ({ row }: { row: any }) => h('div', [
+    cell: ({ row }: { row: { original: TransferRow } }) => h('div', [
       h('p', { class: 'font-medium' }, row.original.projectName || row.original.resourceName),
       h('p', { class: 'text-xs text-muted' }, row.original.resourceType || 'Project')
     ])
@@ -88,27 +88,27 @@ const columns = [
   {
     accessorKey: 'transferType',
     header: 'Type',
-    cell: ({ row }: { row: any }) => h(UBadge, { color: 'neutral', variant: 'soft', size: 'sm' }, () => row.original.transferType)
+    cell: ({ row }: { row: { original: TransferRow } }) => h(UBadge, { color: 'neutral', variant: 'soft', size: 'sm' }, () => row.original.transferType)
   },
   {
     accessorKey: 'target',
     header: 'From → To',
-    cell: ({ row }: { row: any }) => h('span', { class: 'text-sm' }, `${row.original.sourceWorkspaceName} → ${row.original.targetWorkspaceName}`)
+    cell: ({ row }: { row: { original: TransferRow } }) => h('span', { class: 'text-sm' }, `${row.original.sourceWorkspaceName} → ${row.original.targetWorkspaceName}`)
   },
   {
     accessorKey: 'status',
     header: 'Status',
-    cell: ({ row }: { row: any }) => h(UBadge, { color: statusColors[row.original.status] || 'neutral', variant: 'soft', size: 'sm' }, () => row.original.status)
+    cell: ({ row }: { row: { original: TransferRow } }) => h(UBadge, { color: statusColors[row.original.status] || 'neutral', variant: 'soft', size: 'sm' }, () => row.original.status)
   },
   {
     accessorKey: 'created',
     header: 'Created',
-    cell: ({ row }: { row: any }) => h(NuxtTime, { datetime: row.original.created })
+    cell: ({ row }: { row: { original: TransferRow } }) => h(NuxtTime, { datetime: row.original.created })
   },
   {
     id: 'actions',
     header: '',
-    cell: ({ row }: { row: any }) => getRowActions(row.original).length > 0
+    cell: ({ row }: { row: { original: TransferRow } }) => getRowActions(row.original).length > 0
       ? h(UButton, { icon: 'i-lucide-x', color: 'neutral', variant: 'ghost', size: 'sm', onClick: () => cancelRequest(row.original) }, () => 'Cancel')
       : null
   }
@@ -122,7 +122,7 @@ const contextMenuItems = computed(() => {
   return [actions]
 })
 
-function handleRowContextMenu(_event: Event, row: any) {
+function handleRowContextMenu(_event: Event, row: { original: TransferRow }) {
   contextMenuTransfer.value = row.original as TransferRow
 }
 </script>

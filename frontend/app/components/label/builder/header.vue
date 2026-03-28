@@ -5,6 +5,9 @@ const props = defineProps<{
   isNew: boolean
   isSystem?: boolean
   breadcrumbItems: { label: string, icon?: string, to?: string }[]
+  helpTitle?: string
+  helpDescription?: string
+  helpItems?: string[]
 }>()
 
 const emit = defineEmits(['import', 'export', 'save', 'optimize', 'openSettings'])
@@ -24,30 +27,38 @@ const actionItems = computed<DropdownMenuItem[]>(() => [
       <LazyUDashboardSidebarCollapse />
     </template>
     <template #right>
-      <UFieldGroup>
-        <UButton
-          icon="i-lucide-settings"
-          variant="outline"
-          color="neutral"
-          :disabled="isSystem"
-          @click="$emit('openSettings')"
+      <div class="flex items-center gap-2">
+        <UtilityHelpPopover
+          v-if="helpTitle"
+          :title="helpTitle"
+          :description="helpDescription"
+          :items="helpItems"
         />
-        <UButton
-          label="Save"
-          icon="i-lucide-save"
-          :variant="totalErrors > 0 ? 'subtle' : 'outline'"
-          :color="totalErrors > 0 ? 'error' : 'neutral'"
-          :disabled="totalErrors > 0 || isSystem"
-          @click="$emit('save')"
-        >
-          <template v-if="totalErrors > 0" #trailing>
-            <UBadge :label="String(totalErrors)" color="error" size="xs" />
-          </template>
-        </UButton>
-        <UDropdownMenu v-if="!isSystem" :items="actionItems" :content="{ align: 'end' }">
-          <UButton color="neutral" variant="outline" icon="i-lucide-chevron-down" />
-        </UDropdownMenu>
-      </UFieldGroup>
+        <UFieldGroup>
+          <UButton
+            icon="i-lucide-settings"
+            variant="outline"
+            color="neutral"
+            :disabled="isSystem"
+            @click="$emit('openSettings')"
+          />
+          <UButton
+            label="Save"
+            icon="i-lucide-save"
+            :variant="totalErrors > 0 ? 'subtle' : 'outline'"
+            :color="totalErrors > 0 ? 'error' : 'neutral'"
+            :disabled="totalErrors > 0 || isSystem"
+            @click="$emit('save')"
+          >
+            <template v-if="totalErrors > 0" #trailing>
+              <UBadge :label="String(totalErrors)" color="error" size="xs" />
+            </template>
+          </UButton>
+          <UDropdownMenu v-if="!isSystem" :items="actionItems" :content="{ align: 'end' }">
+            <UButton color="neutral" variant="outline" icon="i-lucide-chevron-down" />
+          </UDropdownMenu>
+        </UFieldGroup>
+      </div>
     </template>
   </UDashboardNavbar>
   <UDashboardToolbar>

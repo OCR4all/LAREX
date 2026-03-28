@@ -75,6 +75,7 @@ public class WorkspaceService {
      */
     public Optional<AbstractWorkspace> updateWorkspace(String workspaceId, String name, String description, String avatar,
                                                        String codecId, String labelSetId, String dictionaryId, String tagSetId,
+                                                       String normalizationProfileId, String validationRulesetId,
                                                        Integer defaultGtIndex, List<Integer> defaultRecognitionIndices,
                                                        String userId) {
         Optional<AbstractWorkspace> workspaceOpt = workspaceQueryService.findWorkspaceById(workspaceId);
@@ -83,13 +84,15 @@ public class WorkspaceService {
         AbstractWorkspace workspace = workspaceOpt.get();
         if (workspace instanceof PersonalWorkspace) {
             Optional<PersonalWorkspace> personal = personalWorkspaceService.updatePersonalWorkspace(
-                    workspaceId, description, avatar, codecId, labelSetId, dictionaryId, tagSetId, defaultGtIndex, defaultRecognitionIndices, userId
+                    workspaceId, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
+                    normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId
             );
             return personal.map(pw -> (AbstractWorkspace) pw);
         }
 
         Optional<TeamWorkspace> team = teamWorkspaceService.updateTeamWorkspace(
-                workspaceId, name, description, avatar, codecId, labelSetId, dictionaryId, tagSetId, defaultGtIndex, defaultRecognitionIndices, userId
+                workspaceId, name, description, avatar, codecId, labelSetId, dictionaryId, tagSetId,
+                normalizationProfileId, validationRulesetId, defaultGtIndex, defaultRecognitionIndices, userId
         );
         return team.map(tw -> (AbstractWorkspace) tw);
     }

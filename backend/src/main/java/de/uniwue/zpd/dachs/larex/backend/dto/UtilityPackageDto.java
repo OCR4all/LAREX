@@ -15,6 +15,8 @@ public class UtilityPackageDto {
         DICTIONARY,
         LABEL_SET,
         TAG_SET,
+        NORMALIZATION_PROFILE,
+        VALIDATION_RULESET,
         VIRTUAL_KEYBOARD,
         BOARD_THEME
     }

@@ -13,23 +13,23 @@ import java.util.Optional;
 public interface TeamWorkspaceRepository extends AbstractWorkspaceRepository<TeamWorkspace> {
 
     @Override
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     List<TeamWorkspace> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     Optional<TeamWorkspace> findById(String id);
 
     @Override
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     List<TeamWorkspace> findByOwnerUserId(String ownerUserId);
     
     boolean existsByName(String name);
 
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     Optional<TeamWorkspace> findByName(String name);
 
-    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet"})
+    @EntityGraph(attributePaths = {"codec", "labelSet", "tagSet", "normalizationProfile", "validationRuleset"})
     @Query("SELECT tw FROM TeamWorkspace tw JOIN WorkspaceMember wm ON tw.id = wm.workspaceId " +
            "WHERE wm.userId = :userId AND wm.invitationStatus = 'ACCEPTED'")
     List<TeamWorkspace> findTeamWorkspacesByMemberId(@Param("userId") String userId);

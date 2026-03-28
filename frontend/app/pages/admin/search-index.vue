@@ -6,6 +6,84 @@ const toast = useToast()
 const isRebuilding = ref(false)
 const rebuildStatus = ref<'idle' | 'running' | 'success' | 'error'>('idle')
 const lastRebuildTime = ref<Date | null>(null)
+const technicalSections = ref<string[]>([])
+
+const indexCapabilities = [
+  {
+    title: 'Text Content',
+    description: 'Search for pages containing specific text in their transcriptions.',
+    icon: 'i-lucide-file-text'
+  },
+  {
+    title: 'Workspace Search',
+    description: 'Rank text hits across projects for workspace-wide search.',
+    icon: 'i-lucide-globe'
+  },
+  {
+    title: 'Labels',
+    description: 'Filter pages by regions or text lines with specific labels.',
+    icon: 'i-lucide-tag'
+  },
+  {
+    title: 'Tags',
+    description: 'Filter pages by their assigned tags.',
+    icon: 'i-lucide-search'
+  }
+] as const
+
+const databaseTables = [
+  {
+    name: 'page_text_content',
+    description: 'Stores indexed text content for filtering and workspace text search.'
+  },
+  {
+    name: 'search_lexicon_entries',
+    description: 'Stores normalized tokens for fuzzy search expansion.'
+  },
+  {
+    name: 'page_label_index',
+    description: 'Stores label assignments for fast label filtering.'
+  }
+] as const
+
+const rebuildReasons = [
+  'Imported pages from external sources that bypassed the normal save flow.',
+  'The index becomes corrupted or out of sync.',
+  'You upgraded from an older version that did not include search indexing.'
+] as const
+
+const rebuildStatusMeta = computed(() => {
+  switch (rebuildStatus.value) {
+    case 'running':
+      return {
+        title: 'Rebuilding indexes...',
+        icon: 'i-lucide-loader-circle',
+        iconClass: 'animate-spin text-warning',
+        iconWrapClass: 'bg-warning/10 text-warning'
+      }
+    case 'success':
+      return {
+        title: 'Last rebuild completed successfully',
+        icon: 'i-lucide-check-circle',
+        iconClass: 'text-success',
+        iconWrapClass: 'bg-success/10 text-success'
+      }
+    case 'error':
+      return {
+        title: 'Last rebuild failed',
+        icon: 'i-lucide-alert-circle',
+        iconClass: 'text-error',
+        iconWrapClass: 'bg-error/10 text-error'
+      }
+    default:
+      return {
+        title: 'Search index ready',
+        icon: 'i-lucide-database',
+        iconClass: 'text-muted',
+        iconWrapClass: 'bg-elevated text-muted'
+      }
+  }
+})
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'message' in error) {
@@ -55,110 +133,157 @@ async function rebuildGlobalIndex() {
         <template #leading>
           <UDashboardSidebarCollapse />
         </template>
-        <template #right>
-          <UButton
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-refresh-cw"
-            :loading="isRebuilding"
-            @click="rebuildGlobalIndex"
-          >
-            Rebuild All Indexes
-          </UButton>
-        </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
-      <div class="p-6 space-y-6">
-        <div>
-          <h1 class="text-2xl font-bold mb-2">
-            Search Index Management
-          </h1>
-          <p class="text-muted">
-            Manage the search index used for filtering pages by text content and labels.
-            The index is automatically updated when annotations are saved, but you can manually rebuild it here if needed.
-            It also powers workspace text search and fuzzy lookup across persisted transcriptions.
-          </p>
-        </div>
+      <div class="space-y-6 p-6">
+        <p class="max-w-4xl text-muted">
+          Manage the search index used for filtering pages by text content and labels. The index updates automatically when annotations are saved.
+        </p>
 
         <UCard>
-          <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-database" class="w-5 h-5" />
-              <h3 class="font-semibold">
-                Index Status
-              </h3>
-            </div>
-          </template>
-
-          <div class="space-y-4">
-            <div class="flex items-center gap-3">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex items-start gap-4">
               <div
-                class="w-3 h-3 rounded-full"
-                :class="{
-                  'bg-neutral-400': rebuildStatus === 'idle',
-                  'bg-yellow-500 animate-pulse': rebuildStatus === 'running',
-                  'bg-green-500': rebuildStatus === 'success',
-                  'bg-red-500': rebuildStatus === 'error'
-                }"
-              />
-              <span class="text-sm">
-                <template v-if="rebuildStatus === 'idle'">Ready</template>
-                <template v-else-if="rebuildStatus === 'running'">Rebuilding indexes...</template>
-                <template v-else-if="rebuildStatus === 'success'">Last rebuild completed successfully</template>
-                <template v-else-if="rebuildStatus === 'error'">Last rebuild failed</template>
-              </span>
+                class="flex size-16 shrink-0 items-center justify-center rounded-2xl"
+                :class="rebuildStatusMeta.iconWrapClass"
+              >
+                <UIcon :name="rebuildStatusMeta.icon" class="size-7" :class="rebuildStatusMeta.iconClass" />
+              </div>
+
+              <div class="space-y-2">
+                <div class="text-lg font-semibold text-highlighted">
+                  {{ rebuildStatusMeta.title }}
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+                  <UIcon name="i-lucide-clock-3" class="size-4" />
+                  <span v-if="lastRebuildTime">Last rebuilt: {{ lastRebuildTime.toLocaleString() }}</span>
+                  <span v-else>No rebuild triggered in this session.</span>
+                </div>
+              </div>
             </div>
 
-            <p v-if="lastRebuildTime" class="text-sm text-muted">
-              Last rebuild triggered: {{ lastRebuildTime.toLocaleString() }}
-            </p>
+            <div>
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-refresh-cw"
+                :loading="isRebuilding"
+                @click="rebuildGlobalIndex"
+              >
+                Rebuild Index
+              </UButton>
+            </div>
           </div>
         </UCard>
 
         <UCard>
-          <template #header>
-            <div class="flex items-center gap-2">
-              <UIcon name="i-lucide-info" class="w-5 h-5" />
-              <h3 class="font-semibold">
-                About the Search Index
-              </h3>
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <h2 class="text-lg font-semibold text-highlighted">
+                What the Index Powers
+              </h2>
+              <p class="text-muted">
+                Fast filtering and search capabilities enabled by the search index.
+              </p>
             </div>
-          </template>
 
-          <div class="prose prose-sm max-w-none text-muted">
-            <p>
-              The search index enables fast filtering of pages in the editor by:
-            </p>
-            <ul>
-              <li><strong>Text Content</strong>: Search for pages containing specific text in their transcriptions</li>
-              <li><strong>Workspace Search</strong>: Rank text hits across projects and pages for workspace-wide transcription search</li>
-              <li><strong>Labels</strong>: Filter pages that have regions or text lines with specific labels assigned</li>
-              <li><strong>Tags</strong>: Filter pages by their assigned tags</li>
-            </ul>
-            <p>
-              The index is stored in multiple database tables:
-            </p>
-            <ul>
-              <li><code>page_text_content</code>: Stores indexed text content for filtering and workspace text search</li>
-              <li><code>search_lexicon_entries</code>: Stores normalized tokens for fuzzy search expansion</li>
-              <li><code>page_label_index</code>: Stores label assignments for fast label filtering</li>
-            </ul>
-            <p>
-              <strong>When to rebuild:</strong> The index is automatically updated when you save annotations.
-              A full rebuild is only needed if:
-            </p>
-            <ul>
-              <li>You've imported pages from external sources that bypassed the normal save flow</li>
-              <li>The index becomes corrupted or out of sync</li>
-              <li>You've upgraded from an older version that didn't have search indexing</li>
-            </ul>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div
+                v-for="capability in indexCapabilities"
+                :key="capability.title"
+                class="rounded-xl border border-default bg-elevated/20 p-5"
+              >
+                <div class="flex items-start gap-4">
+                  <div class="flex size-14 shrink-0 items-center justify-center rounded-xl border border-default bg-default">
+                    <UIcon :name="capability.icon" class="size-6 text-muted" />
+                  </div>
+
+                  <div class="space-y-1">
+                    <h3 class="text-base font-medium text-highlighted">
+                      {{ capability.title }}
+                    </h3>
+                    <p class="text-sm leading-6 text-muted">
+                      {{ capability.description }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </UCard>
+
+        <UCard>
+          <div class="space-y-6">
+            <h2 class="text-lg font-semibold text-highlighted">
+              Technical Details
+            </h2>
+
+            <UAccordion
+              v-model="technicalSections"
+              type="multiple"
+              :items="[
+                { value: 'database-tables', label: 'Database Tables', icon: 'i-lucide-database' },
+                { value: 'when-to-rebuild', label: 'When to Rebuild', icon: 'i-lucide-refresh-cw' }
+              ]"
+              :ui="{
+                item: 'border-b border-default last:border-b-0',
+                trigger: 'px-0 py-4 hover:bg-transparent',
+                content: 'px-0 pb-4'
+              }"
+            >
+              <template #leading="{ item }">
+                <div class="flex min-w-0 items-center gap-3">
+                  <UIcon :name="item.icon" class="size-5 text-muted" />
+                  <span class="truncate text-base font-medium text-highlighted">{{ item.label }}</span>
+                </div>
+              </template>
+
+              <template #content="{ item }">
+                <div v-if="item.value === 'database-tables'" class="space-y-3 pt-2">
+                  <div
+                    v-for="table in databaseTables"
+                    :key="table.name"
+                    class="rounded-lg bg-elevated/30 px-4 py-3"
+                  >
+                    <div class="font-mono text-base text-highlighted">
+                      {{ table.name }}
+                    </div>
+                    <div class="mt-1 text-sm text-muted">
+                      {{ table.description }}
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else-if="item.value === 'when-to-rebuild'" class="space-y-4 pt-2">
+                  <p class="text-sm leading-6 text-muted">
+                    The index is automatically updated when you save annotations. A full rebuild is only needed if:
+                  </p>
+
+                  <div class="space-y-3">
+                    <div
+                      v-for="(reason, index) in rebuildReasons"
+                      :key="reason"
+                      class="flex items-start gap-3"
+                    >
+                      <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-elevated text-sm font-semibold text-muted">
+                        {{ index + 1 }}
+                      </div>
+                      <p class="pt-0.5 text-sm leading-6 text-muted">
+                        {{ reason }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </UAccordion>
           </div>
         </UCard>
 
         <UAlert
-          color="info"
+          color="warning"
           variant="subtle"
           icon="i-lucide-alert-triangle"
           title="Rebuilding takes time"

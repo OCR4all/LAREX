@@ -319,6 +319,13 @@ const openSettings = () => {
         :is-new="isNew"
         :is-read-only="!canEditTagSet"
         :breadcrumb-items="breadcrumbItems"
+        help-title="About Tag Sets"
+        help-description="Tag sets define reusable hierarchical taxonomies for classification, review, and downstream filtering across projects."
+        :help-items="[
+          'Build nested tag structures to reflect editorial or workflow-specific categories.',
+          'Use color deliberately so related tags stay legible in dense interfaces.',
+          'Import, export, and share tag sets like the other workspace utilities.'
+        ]"
         @import="triggerImport"
         @export="exportTagSet"
         @save="handleSave"

@@ -9,6 +9,9 @@ defineProps<{
   isNew: boolean
   isReadOnly?: boolean
   breadcrumbItems: BreadcrumbItem[]
+  helpTitle?: string
+  helpDescription?: string
+  helpItems?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -33,6 +36,13 @@ const { meta, totalErrors } = useTagSetBuilder()
           <UBadge v-if="totalErrors > 0" color="error" variant="soft">
             {{ totalErrors }} error{{ totalErrors > 1 ? 's' : '' }}
           </UBadge>
+
+          <UtilityHelpPopover
+            v-if="helpTitle"
+            :title="helpTitle"
+            :description="helpDescription"
+            :items="helpItems"
+          />
 
           <UFieldGroup>
             <UButton

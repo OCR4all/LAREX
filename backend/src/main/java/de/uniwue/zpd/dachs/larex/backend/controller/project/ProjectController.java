@@ -117,6 +117,8 @@ public class ProjectController {
                 request.labelSetId(),
                 request.dictionaryId(),
                 request.tagSetId(),
+                request.normalizationProfileId(),
+                request.validationRulesetId(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
                 userId
@@ -143,6 +145,8 @@ public class ProjectController {
                 request.labelSetId(),
                 request.dictionaryId(),
                 request.tagSetId(),
+                request.normalizationProfileId(),
+                request.validationRulesetId(),
                 request.defaultGtIndex(),
                 request.defaultRecognitionIndices(),
                 userId

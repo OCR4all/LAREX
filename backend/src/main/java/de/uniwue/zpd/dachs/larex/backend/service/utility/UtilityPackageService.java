@@ -8,14 +8,18 @@ import de.uniwue.zpd.dachs.larex.backend.dto.BoardThemeDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DictionaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.KeyboardItemDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.NormalizationProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ValidationRulesetDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.VirtualKeyboardDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.BoardTheme;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionaryEntry;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
+import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.board.BoardThemeRepository;
@@ -24,14 +28,18 @@ import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDiction
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.board.BoardThemeService;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
 import de.uniwue.zpd.dachs.larex.backend.service.dictionary.DictionaryService;
 import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetService;
+import de.uniwue.zpd.dachs.larex.backend.service.normalization.NormalizationProfileService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagSetService;
+import de.uniwue.zpd.dachs.larex.backend.service.validation.ValidationRulesetService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.util.JsonNodeUtils;
 import org.springframework.stereotype.Service;
@@ -66,12 +74,16 @@ public class UtilityPackageService {
     private final ControlledDictionaryRepository dictionaryRepository;
     private final LabelSetRepository labelSetRepository;
     private final TagSetRepository tagSetRepository;
+    private final NormalizationProfileRepository normalizationProfileRepository;
+    private final ValidationRulesetRepository validationRulesetRepository;
     private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final BoardThemeRepository boardThemeRepository;
     private final CodecService codecService;
     private final DictionaryService dictionaryService;
     private final LabelSetService labelSetService;
     private final TagSetService tagSetService;
+    private final NormalizationProfileService normalizationProfileService;
+    private final ValidationRulesetService validationRulesetService;
     private final VirtualKeyboardService virtualKeyboardService;
     private final BoardThemeService boardThemeService;
     private final ObjectMapper objectMapper;
@@ -83,12 +95,16 @@ public class UtilityPackageService {
                                  ControlledDictionaryRepository dictionaryRepository,
                                  LabelSetRepository labelSetRepository,
                                  TagSetRepository tagSetRepository,
+                                 NormalizationProfileRepository normalizationProfileRepository,
+                                 ValidationRulesetRepository validationRulesetRepository,
                                  VirtualKeyboardRepository virtualKeyboardRepository,
                                  BoardThemeRepository boardThemeRepository,
                                  CodecService codecService,
                                  DictionaryService dictionaryService,
                                  LabelSetService labelSetService,
                                  TagSetService tagSetService,
+                                 NormalizationProfileService normalizationProfileService,
+                                 ValidationRulesetService validationRulesetService,
                                  VirtualKeyboardService virtualKeyboardService,
                                  BoardThemeService boardThemeService,
                                  ObjectMapper objectMapper) {
@@ -99,12 +115,16 @@ public class UtilityPackageService {
         this.dictionaryRepository = dictionaryRepository;
         this.labelSetRepository = labelSetRepository;
         this.tagSetRepository = tagSetRepository;
+        this.normalizationProfileRepository = normalizationProfileRepository;
+        this.validationRulesetRepository = validationRulesetRepository;
         this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.boardThemeRepository = boardThemeRepository;
         this.codecService = codecService;
         this.dictionaryService = dictionaryService;
         this.labelSetService = labelSetService;
         this.tagSetService = tagSetService;
+        this.normalizationProfileService = normalizationProfileService;
+        this.validationRulesetService = validationRulesetService;
         this.virtualKeyboardService = virtualKeyboardService;
         this.boardThemeService = boardThemeService;
         this.objectMapper = objectMapper;
@@ -175,6 +195,28 @@ public class UtilityPackageService {
                     .forEach(resources::add);
         }
 
+        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE)) {
+            Collection<NormalizationProfile> profiles = includeAll
+                    ? normalizationProfileRepository.findByWorkspaceId(workspaceId)
+                    : normalizationProfileRepository.findByWorkspaceId(workspaceId).stream()
+                    .filter(p -> selectors.getOrDefault(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE, Set.of()).contains(p.getId()))
+                    .toList();
+            profiles.stream()
+                    .map(this::toNormalizationProfileResource)
+                    .forEach(resources::add);
+        }
+
+        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.VALIDATION_RULESET)) {
+            Collection<ValidationRuleset> rulesets = includeAll
+                    ? validationRulesetRepository.findByWorkspaceId(workspaceId)
+                    : validationRulesetRepository.findByWorkspaceId(workspaceId).stream()
+                    .filter(r -> selectors.getOrDefault(UtilityPackageDto.UtilityType.VALIDATION_RULESET, Set.of()).contains(r.getId()))
+                    .toList();
+            rulesets.stream()
+                    .map(this::toValidationRulesetResource)
+                    .forEach(resources::add);
+        }
+
         if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.VIRTUAL_KEYBOARD)) {
             Collection<VirtualKeyboard> keyboards = includeAll
                     ? virtualKeyboardRepository.findByWorkspaceId(workspaceId)
@@ -217,7 +259,9 @@ public class UtilityPackageService {
                                                                         String codecId,
                                                                         String labelSetId,
                                                                         String dictionaryId,
-                                                                        String tagSetId) {
+                                                                        String tagSetId,
+                                                                        String normalizationProfileId,
+                                                                        String validationRulesetId) {
         List<UtilityPackageDto.ResourceSelector> selectors = new ArrayList<>();
         if (codecId != null && !codecId.isBlank()) {
             selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.CODEC, List.of(codecId)));
@@ -230,6 +274,12 @@ public class UtilityPackageService {
         }
         if (tagSetId != null && !tagSetId.isBlank()) {
             selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.TAG_SET, List.of(tagSetId)));
+        }
+        if (normalizationProfileId != null && !normalizationProfileId.isBlank()) {
+            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE, List.of(normalizationProfileId)));
+        }
+        if (validationRulesetId != null && !validationRulesetId.isBlank()) {
+            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.VALIDATION_RULESET, List.of(validationRulesetId)));
         }
         return buildUtilityPackage(workspaceId, new UtilityPackageDto.ExportRequest(selectors, false));
     }
@@ -284,6 +334,8 @@ public class UtilityPackageService {
                 case DICTIONARY -> importDictionary(workspaceId, userId, resource);
                 case LABEL_SET -> importLabelSet(workspaceId, userId, resource);
                 case TAG_SET -> importTagSet(workspaceId, userId, resource);
+                case NORMALIZATION_PROFILE -> importNormalizationProfile(workspaceId, userId, resource);
+                case VALIDATION_RULESET -> importValidationRuleset(workspaceId, userId, resource);
                 case VIRTUAL_KEYBOARD -> importVirtualKeyboard(workspaceId, userId, resource);
                 case BOARD_THEME -> importBoardTheme(workspaceId, userId, resource);
             };
@@ -463,6 +515,107 @@ public class UtilityPackageService {
         );
     }
 
+    private UtilityPackageDto.ImportedResource importNormalizationProfile(String workspaceId,
+                                                                          String userId,
+                                                                          UtilityPackageDto.UtilityResource resource) {
+        NormalizationProfileDto.CreateOrUpdateRequest request = objectMapper.convertValue(
+                sanitizeNormalizationProfilePayload(resource.payload()),
+                NormalizationProfileDto.CreateOrUpdateRequest.class
+        );
+        String sourceName = normalizeName(request.name(), resource.name(), "Imported Normalization Profile");
+
+        Optional<NormalizationProfile> existingOpt = normalizationProfileRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
+        if (existingOpt.isPresent() && payloadEquals(normalizationProfilePayload(existingOpt.get()), normalizationProfilePayloadFromRequest(request, sourceName))) {
+            NormalizationProfile existing = existingOpt.get();
+            return new UtilityPackageDto.ImportedResource(
+                    UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE,
+                    resource.sourceId(),
+                    existing.getId(),
+                    sourceName,
+                    existing.getName(),
+                    "REUSED",
+                    "Identical normalization profile already exists"
+            );
+        }
+
+        String targetName = existingOpt.isPresent()
+                ? uniqueName(sourceName, name -> normalizationProfileRepository.findByNameAndWorkspaceId(name, workspaceId).isPresent())
+                : sourceName;
+
+        NormalizationProfileDto.CreateOrUpdateRequest createRequest = new NormalizationProfileDto.CreateOrUpdateRequest(
+                targetName,
+                request.description(),
+                request.tags(),
+                request.unicodeNormalization(),
+                request.collapseWhitespace(),
+                request.trimText(),
+                request.dehyphenateLineBreaks(),
+                request.mapLongSToS(),
+                request.expandCommonLigatures(),
+                request.normalizeQuotes(),
+                request.normalizeDashes(),
+                request.normalizeEllipsis(),
+                request.replacementRules()
+        );
+
+        NormalizationProfileDto.Response created = normalizationProfileService.createProfile(userId, workspaceId, createRequest);
+        return new UtilityPackageDto.ImportedResource(
+                UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE,
+                resource.sourceId(),
+                created.id(),
+                sourceName,
+                created.name(),
+                existingOpt.isPresent() ? "RENAMED_IMPORTED" : "IMPORTED",
+                existingOpt.isPresent() ? "Name conflict with different content" : "Created"
+        );
+    }
+
+    private UtilityPackageDto.ImportedResource importValidationRuleset(String workspaceId,
+                                                                       String userId,
+                                                                       UtilityPackageDto.UtilityResource resource) {
+        ValidationRulesetDto.CreateOrUpdateRequest request = objectMapper.convertValue(
+                sanitizeValidationRulesetPayload(resource.payload()),
+                ValidationRulesetDto.CreateOrUpdateRequest.class
+        );
+        String sourceName = normalizeName(request.name(), resource.name(), "Imported Validation Ruleset");
+
+        Optional<ValidationRuleset> existingOpt = validationRulesetRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
+        if (existingOpt.isPresent() && payloadEquals(validationRulesetPayload(existingOpt.get()), validationRulesetPayloadFromRequest(request, sourceName))) {
+            ValidationRuleset existing = existingOpt.get();
+            return new UtilityPackageDto.ImportedResource(
+                    UtilityPackageDto.UtilityType.VALIDATION_RULESET,
+                    resource.sourceId(),
+                    existing.getId(),
+                    sourceName,
+                    existing.getName(),
+                    "REUSED",
+                    "Identical validation ruleset already exists"
+            );
+        }
+
+        String targetName = existingOpt.isPresent()
+                ? uniqueName(sourceName, name -> validationRulesetRepository.findByNameAndWorkspaceId(name, workspaceId).isPresent())
+                : sourceName;
+
+        ValidationRulesetDto.CreateOrUpdateRequest createRequest = new ValidationRulesetDto.CreateOrUpdateRequest(
+                targetName,
+                request.description(),
+                request.tags(),
+                request.rules()
+        );
+
+        ValidationRulesetDto.Response created = validationRulesetService.createRuleset(userId, workspaceId, createRequest);
+        return new UtilityPackageDto.ImportedResource(
+                UtilityPackageDto.UtilityType.VALIDATION_RULESET,
+                resource.sourceId(),
+                created.id(),
+                sourceName,
+                created.name(),
+                existingOpt.isPresent() ? "RENAMED_IMPORTED" : "IMPORTED",
+                existingOpt.isPresent() ? "Name conflict with different content" : "Created"
+        );
+    }
+
     private UtilityPackageDto.ImportedResource importVirtualKeyboard(String workspaceId,
                                                                      String userId,
                                                                      UtilityPackageDto.UtilityResource resource) {
@@ -593,6 +746,12 @@ public class UtilityPackageService {
                 return UtilityPackageDto.UtilityType.TAG_SET;
             }
         }
+        if (root.has("unicodeNormalization") && root.has("collapseWhitespace")) {
+            return UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE;
+        }
+        if (root.has("rules") && root.path("rules").isArray()) {
+            return UtilityPackageDto.UtilityType.VALIDATION_RULESET;
+        }
         if (root.has("bgClass") || root.has("keyBgClass")) {
             return UtilityPackageDto.UtilityType.BOARD_THEME;
         }
@@ -604,7 +763,7 @@ public class UtilityPackageService {
             return null;
         }
         return switch (type) {
-            case CODEC, DICTIONARY, VIRTUAL_KEYBOARD, BOARD_THEME -> root.path("name").asText(null);
+            case CODEC, DICTIONARY, NORMALIZATION_PROFILE, VALIDATION_RULESET, VIRTUAL_KEYBOARD, BOARD_THEME -> root.path("name").asText(null);
             case LABEL_SET, TAG_SET -> root.path("meta").path("name").asText(null);
         };
     }
@@ -615,6 +774,8 @@ public class UtilityPackageService {
             case DICTIONARY -> sanitizeDictionaryPayload(root);
             case LABEL_SET -> sanitizeLabelPayload(root);
             case TAG_SET -> sanitizeTagPayload(root);
+            case NORMALIZATION_PROFILE -> sanitizeNormalizationProfilePayload(root);
+            case VALIDATION_RULESET -> sanitizeValidationRulesetPayload(root);
             case VIRTUAL_KEYBOARD -> sanitizeVirtualKeyboardPayload(root);
             case BOARD_THEME -> sanitizeBoardThemePayload(root);
         };
@@ -661,6 +822,28 @@ public class UtilityPackageService {
                 tagSet.getCreated(),
                 tagSet.getUpdated(),
                 tagSetPayload(tagSet)
+        );
+    }
+
+    private UtilityPackageDto.UtilityResource toNormalizationProfileResource(NormalizationProfile profile) {
+        return new UtilityPackageDto.UtilityResource(
+                UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE,
+                profile.getId(),
+                profile.getName(),
+                profile.getCreated(),
+                profile.getUpdated(),
+                normalizationProfilePayload(profile)
+        );
+    }
+
+    private UtilityPackageDto.UtilityResource toValidationRulesetResource(ValidationRuleset ruleset) {
+        return new UtilityPackageDto.UtilityResource(
+                UtilityPackageDto.UtilityType.VALIDATION_RULESET,
+                ruleset.getId(),
+                ruleset.getName(),
+                ruleset.getCreated(),
+                ruleset.getUpdated(),
+                validationRulesetPayload(ruleset)
         );
     }
 
@@ -845,6 +1028,115 @@ public class UtilityPackageService {
         return node;
     }
 
+    private JsonNode normalizationProfilePayload(NormalizationProfile profile) {
+        return normalizationProfilePayloadFromRequest(new NormalizationProfileDto.CreateOrUpdateRequest(
+                profile.getName(),
+                profile.getDescription(),
+                profile.getTags(),
+                profile.getUnicodeNormalization(),
+                profile.isCollapseWhitespace(),
+                profile.isTrimText(),
+                profile.isDehyphenateLineBreaks(),
+                profile.isMapLongSToS(),
+                profile.isExpandCommonLigatures(),
+                profile.isNormalizeQuotes(),
+                profile.isNormalizeDashes(),
+                profile.isNormalizeEllipsis(),
+                profile.getReplacementRules().stream()
+                        .map(rule -> new NormalizationProfileDto.ReplacementRule(
+                                rule.getSearch(),
+                                rule.getReplacement(),
+                                rule.isRegex()
+                        ))
+                        .toList()
+        ), profile.getName());
+    }
+
+    private JsonNode normalizationProfilePayloadFromRequest(NormalizationProfileDto.CreateOrUpdateRequest request, String nameOverride) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("name", normalizeName(nameOverride, request.name(), "Normalization Profile"));
+        node.put("description", request.description() == null ? "" : request.description());
+        node.put("unicodeNormalization", request.unicodeNormalization() == null ? "NFC" : request.unicodeNormalization());
+        node.put("collapseWhitespace", !Boolean.FALSE.equals(request.collapseWhitespace()));
+        node.put("trimText", !Boolean.FALSE.equals(request.trimText()));
+        node.put("dehyphenateLineBreaks", Boolean.TRUE.equals(request.dehyphenateLineBreaks()));
+        node.put("mapLongSToS", Boolean.TRUE.equals(request.mapLongSToS()));
+        node.put("expandCommonLigatures", Boolean.TRUE.equals(request.expandCommonLigatures()));
+        node.put("normalizeQuotes", Boolean.TRUE.equals(request.normalizeQuotes()));
+        node.put("normalizeDashes", Boolean.TRUE.equals(request.normalizeDashes()));
+        node.put("normalizeEllipsis", Boolean.TRUE.equals(request.normalizeEllipsis()));
+        ArrayNode tags = objectMapper.createArrayNode();
+        if (request.tags() != null) {
+            request.tags().stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(v -> !v.isBlank())
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .forEach(tags::add);
+        }
+        node.set("tags", tags);
+
+        ArrayNode replacementRules = objectMapper.createArrayNode();
+        if (request.replacementRules() != null) {
+            request.replacementRules().forEach(rule -> {
+                if (rule == null) {
+                    return;
+                }
+                ObjectNode ruleNode = objectMapper.createObjectNode();
+                ruleNode.put("search", rule.search() == null ? "" : rule.search());
+                ruleNode.put("replacement", rule.replacement() == null ? "" : rule.replacement());
+                ruleNode.put("regex", Boolean.TRUE.equals(rule.regex()));
+                replacementRules.add(ruleNode);
+            });
+        }
+        node.set("replacementRules", replacementRules);
+        return node;
+    }
+
+    private JsonNode validationRulesetPayload(ValidationRuleset ruleset) {
+        return validationRulesetPayloadFromRequest(new ValidationRulesetDto.CreateOrUpdateRequest(
+                ruleset.getName(),
+                ruleset.getDescription(),
+                ruleset.getTags(),
+                validationRulesetService.readRules(ruleset)
+        ), ruleset.getName());
+    }
+
+    private JsonNode validationRulesetPayloadFromRequest(ValidationRulesetDto.CreateOrUpdateRequest request, String nameOverride) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("name", normalizeName(nameOverride, request.name(), "Validation Ruleset"));
+        node.put("description", request.description() == null ? "" : request.description());
+        ArrayNode tags = objectMapper.createArrayNode();
+        if (request.tags() != null) {
+            request.tags().stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(v -> !v.isBlank())
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .forEach(tags::add);
+        }
+        node.set("tags", tags);
+
+        ArrayNode rules = objectMapper.createArrayNode();
+        if (request.rules() != null) {
+            request.rules().stream()
+                    .sorted(Comparator.comparing(ValidationRulesetDto.Rule::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                    .forEach(rule -> {
+                        ObjectNode ruleNode = objectMapper.createObjectNode();
+                        putNullable(ruleNode, "id", rule.id());
+                        ruleNode.put("name", rule.name());
+                        putNullable(ruleNode, "description", rule.description());
+                        ruleNode.put("severity", rule.severity() == null ? ValidationRulesetDto.Severity.WARNING.name() : rule.severity().name());
+                        ruleNode.put("pattern", rule.pattern());
+                        putNullable(ruleNode, "flags", rule.flags());
+                        putNullable(ruleNode, "message", rule.message());
+                        rules.add(ruleNode);
+                    });
+        }
+        node.set("rules", rules);
+        return node;
+    }
+
     private JsonNode virtualKeyboardPayload(VirtualKeyboard keyboard) {
         VirtualKeyboardDto dto = new VirtualKeyboardDto(keyboard);
         return virtualKeyboardPayloadFromDto(dto, keyboard.getName());
@@ -991,6 +1283,35 @@ public class UtilityPackageService {
         } else {
             node.set("tags", objectMapper.createArrayNode());
         }
+        return node;
+    }
+
+    private ObjectNode sanitizeNormalizationProfilePayload(JsonNode payload) {
+        ObjectNode root = ensureObject(payload);
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("name", root.path("name").asText(""));
+        node.put("description", root.path("description").asText(""));
+        node.put("unicodeNormalization", root.path("unicodeNormalization").asText("NFC"));
+        node.put("collapseWhitespace", root.path("collapseWhitespace").asBoolean(true));
+        node.put("trimText", root.path("trimText").asBoolean(true));
+        node.put("dehyphenateLineBreaks", root.path("dehyphenateLineBreaks").asBoolean(false));
+        node.put("mapLongSToS", root.path("mapLongSToS").asBoolean(false));
+        node.put("expandCommonLigatures", root.path("expandCommonLigatures").asBoolean(false));
+        node.put("normalizeQuotes", root.path("normalizeQuotes").asBoolean(false));
+        node.put("normalizeDashes", root.path("normalizeDashes").asBoolean(false));
+        node.put("normalizeEllipsis", root.path("normalizeEllipsis").asBoolean(false));
+        node.set("tags", root.path("tags").isArray() ? root.path("tags").deepCopy() : objectMapper.createArrayNode());
+        node.set("replacementRules", root.path("replacementRules").isArray() ? root.path("replacementRules").deepCopy() : objectMapper.createArrayNode());
+        return node;
+    }
+
+    private ObjectNode sanitizeValidationRulesetPayload(JsonNode payload) {
+        ObjectNode root = ensureObject(payload);
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("name", root.path("name").asText(""));
+        node.put("description", root.path("description").asText(""));
+        node.set("tags", root.path("tags").isArray() ? root.path("tags").deepCopy() : objectMapper.createArrayNode());
+        node.set("rules", root.path("rules").isArray() ? root.path("rules").deepCopy() : objectMapper.createArrayNode());
         return node;
     }
 
