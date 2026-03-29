@@ -397,6 +397,38 @@ public class ProjectController {
         return ResponseEntity.ok(iiifImportService.previewFromManifestFile(workspaceId, projectId, userId, file));
     }
 
+    @PostMapping("/{projectId}/iiif-import/preview-jobs")
+    public ResponseEntity<IiifImportDto.PreviewJobResponse> createIiifPreviewJobFromUrl(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @Valid @RequestBody IiifImportDto.PreviewRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        IiifImportDto.PreviewJobResponse response = iiifImportService.startPreviewJobFromManifestUrl(workspaceId, projectId, userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping(value = "/{projectId}/iiif-import/preview-jobs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<IiifImportDto.PreviewJobResponse> createIiifPreviewJobFromFile(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        IiifImportDto.PreviewJobResponse response = iiifImportService.startPreviewJobFromManifestFile(workspaceId, projectId, userId, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{projectId}/iiif-import/preview-jobs/{previewJobId}")
+    public ResponseEntity<IiifImportDto.PreviewJobResponse> getIiifPreviewJob(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String previewJobId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        return ResponseEntity.ok(iiifImportService.getPreviewJob(workspaceId, projectId, userId, previewJobId));
+    }
+
     @PostMapping("/{projectId}/iiif-import/jobs")
     public ResponseEntity<IiifImportDto.JobResponse> createIiifImportJob(
             @PathVariable String workspaceId,
@@ -426,6 +458,17 @@ public class ProjectController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         return ResponseEntity.ok(iiifImportService.cancelImportJob(workspaceId, projectId, userId, jobId));
+    }
+
+    @PostMapping("/{projectId}/iiif-import/jobs/{jobId}/retry-failed")
+    public ResponseEntity<IiifImportDto.JobResponse> retryFailedIiifImportJob(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String jobId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        IiifImportDto.JobResponse response = iiifImportService.retryFailedImportJob(workspaceId, projectId, userId, jobId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/{projectId}/transfer")

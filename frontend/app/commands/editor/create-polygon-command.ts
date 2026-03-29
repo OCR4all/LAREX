@@ -59,7 +59,6 @@ export class CreatePolygonCommand implements Command {
       const region: TextRegion = {
         id: this.regionId,
         kind: 'TextRegion',
-        type: this.label,
         coords: new Polygon(this.points.map(p => [p.x, p.y])),
         regions: [],
         textLines: [],

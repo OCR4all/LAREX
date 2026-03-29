@@ -1240,9 +1240,9 @@ export const useEditorStore = defineStore('editor', () => {
       return false
     }
 
-    const { pageId, xmlFileId } = canvas
-    if (!pageId || !xmlFileId) {
-      log.warn('No page ID or XML file ID available for saving')
+    const { pageId } = canvas
+    if (!pageId) {
+      log.warn('No page ID available for saving')
       return false
     }
 
@@ -1263,13 +1263,45 @@ export const useEditorStore = defineStore('editor', () => {
 
     try {
       const pageDto = convertPcGtsToPageDto(pcGts)
+      let xmlFileId = canvas.xmlFileId
 
-      log.info(`Saving annotations for page ${pageId} to XML file ${xmlFileId}`)
+      if (!xmlFileId) {
+        log.info(`Creating initial PAGE XML for page ${pageId}`)
+        const created = await $fetch<{ xmlId: string, fileName?: string, schema?: string, schemaVersion?: string }>(
+          `/api/projects/${projectId}/pages/${pageId}/annotations`,
+          {
+            method: 'POST',
+            body: pageDto
+          }
+        )
+        xmlFileId = created.xmlId
+        canvas.xmlFileId = xmlFileId
+        pageXmlPrefetchCache.set(`${projectId}:${pageId}`, xmlFileId)
 
-      await $fetch(`/api/projects/${projectId}/pages/${pageId}/annotations/${xmlFileId}`, {
-        method: 'PUT',
-        body: pageDto
-      })
+        const page = documentStore.getPage(pageId, projectId)
+        if (page) {
+          const hasPageXml = page.xmlFiles.some(xml => xml.id === xmlFileId)
+          if (!hasPageXml) {
+            page.xmlFiles = [
+              ...page.xmlFiles,
+              {
+                id: xmlFileId,
+                fileName: created.fileName || `${page.label}.xml`,
+                schema: 'PAGE_XML',
+                schemaVersion: created.schemaVersion || undefined,
+                variant: 'original'
+              }
+            ]
+          }
+          page.xmlFileCount = page.xmlFiles.length
+        }
+      } else {
+        log.info(`Saving annotations for page ${pageId} to XML file ${xmlFileId}`)
+        await $fetch(`/api/projects/${projectId}/pages/${pageId}/annotations/${xmlFileId}`, {
+          method: 'PUT',
+          body: pageDto
+        })
+      }
 
       log.info(`Successfully saved annotations for page ${pageId}`)
 

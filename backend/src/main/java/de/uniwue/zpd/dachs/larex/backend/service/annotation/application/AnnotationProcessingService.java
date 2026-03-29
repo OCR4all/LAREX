@@ -1,8 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation.application;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
+import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
@@ -13,6 +16,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.Annotati
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,12 +48,14 @@ public class AnnotationProcessingService {
     private static final Logger log = LoggerFactory.getLogger(AnnotationProcessingService.class);
     private static final DateTimeFormatter PAGE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
+    private final PageRepository pageRepository;
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlToAnnotationParser pageXmlParser;
     private final AltoXmlToAnnotationParser altoXmlParser;
     private final AnnotationToPageXmlExporter pageXmlExporter;
     private final AnnotationToAltoXmlExporter altoXmlExporter;
     private final PageXmlVersionService pageXmlVersionService;
+    private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final UserService userService;
     private final AnnotationReadCache annotationReadCache;
     private final ApplicationEventPublisher applicationEventPublisher;
@@ -59,23 +65,27 @@ public class AnnotationProcessingService {
     private String uploadDir;
 
     public AnnotationProcessingService(
+            PageRepository pageRepository,
             PageXmlRepository pageXmlRepository,
             PageXmlToAnnotationParser pageXmlParser,
             AltoXmlToAnnotationParser altoXmlParser,
             AnnotationToPageXmlExporter pageXmlExporter,
             AnnotationToAltoXmlExporter altoXmlExporter,
             PageXmlVersionService pageXmlVersionService,
+            HierarchicalFileStorageService hierarchicalFileStorageService,
             UserService userService,
             AnnotationReadCache annotationReadCache,
             ApplicationEventPublisher applicationEventPublisher,
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
 
+        this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlParser = pageXmlParser;
         this.altoXmlParser = altoXmlParser;
         this.pageXmlExporter = pageXmlExporter;
         this.altoXmlExporter = altoXmlExporter;
         this.pageXmlVersionService = pageXmlVersionService;
+        this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.userService = userService;
         this.annotationReadCache = annotationReadCache;
         this.applicationEventPublisher = applicationEventPublisher;
@@ -241,6 +251,70 @@ public class AnnotationProcessingService {
         }
     }
 
+    @Transactional
+    public PageXml createInitialAnnotationXml(String projectId, String pageId, PageDto pageDto, String userId) throws IOException {
+        Page page = pageRepository.findByIdAndProjectId(pageId, projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
+
+        Optional<PageXml> existingPageXml = pageXmlRepository.findByPage_Id(pageId).stream()
+                .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
+                .findFirst();
+        if (existingPageXml.isPresent()) {
+            saveAnnotationToXml(existingPageXml.get().getId(), pageDto, userId);
+            return existingPageXml.get();
+        }
+
+        String workspaceId = page.getProject().getLibrary().getWorkspaceId();
+        PageDto saveReadyPageDto = enrichMetadataForSave(pageDto, userId);
+
+        Path tempPath = Files.createTempFile("larex-initial-annotation-", ".xml");
+        try {
+            PageXmlWriteResult writeResult = pageXmlExporter.writeValidated(saveReadyPageDto, null, tempPath);
+            String fileName = buildInitialXmlFilename(page.getName());
+            var storedXml = hierarchicalFileStorageService.storeFromPath(
+                    tempPath,
+                    fileName,
+                    pageXmlExporter.getMimeType(),
+                    workspaceId,
+                    projectId,
+                    StoredFileType.XML,
+                    userId,
+                    true
+            );
+
+            String baseName = fileName.endsWith(".xml") ? fileName.substring(0, fileName.length() - 4) : fileName;
+            PageXml createdXml = new PageXml(
+                    storedXml.originalFilename(),
+                    storedXml.storagePath(),
+                    storedXml.mimeType(),
+                    storedXml.sizeBytes(),
+                    "original",
+                    baseName,
+                    XmlSchema.PAGE_XML,
+                    writeResult.schemaVersion(),
+                    page
+            );
+            createdXml = pageXmlRepository.save(createdXml);
+
+            Path xmlPath = Paths.get(uploadDir, createdXml.getFilePath());
+            annotationReadCache.put(createdXml.getId(), xmlPath, saveReadyPageDto);
+            applicationEventPublisher.publishEvent(new AnnotationSavedEvent(
+                    createdXml.getId(),
+                    page.getId(),
+                    projectId,
+                    saveReadyPageDto
+            ));
+            workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
+            return createdXml;
+        } catch (Exception e) {
+            Files.deleteIfExists(tempPath);
+            if (e instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw new IOException("Failed to create initial PAGE XML for page " + pageId, e);
+        }
+    }
+
     /**
      * Get available schemas for export.
      */
@@ -345,6 +419,18 @@ public class AnnotationProcessingService {
             .orElse(null);
 
         return username != null ? username : normalizedUserId;
+    }
+
+    private String buildInitialXmlFilename(String pageName) {
+        String safeStem = pageName == null ? "page" : pageName
+                .replaceAll("[\\\\/:*?\"<>|]+", " ")
+                .replaceAll("\\p{Cntrl}+", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (safeStem.isBlank()) {
+            safeStem = "page";
+        }
+        return safeStem + ".xml";
     }
 
     private void replaceAtomically(Path tempPath, Path xmlPath) throws IOException {

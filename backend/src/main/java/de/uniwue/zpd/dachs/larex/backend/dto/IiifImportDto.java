@@ -19,10 +19,12 @@ public class IiifImportDto {
             String sourceUrl,
             String sourceType,
             String sourceName,
+            String resourceType,
             String label,
             String provider,
             String thumbnailUrl,
-            String presentationVersion
+            String presentationVersion,
+            int manifestCount
     ) {}
 
     public record Conflict(
@@ -42,8 +44,10 @@ public class IiifImportDto {
             String pageName,
             boolean importable,
             String imageUrl,
+            String thumbnailUrl,
             Long estimatedBytes,
             List<String> warnings,
+            String sourceManifestLabel,
             Conflict conflict
     ) {}
 
@@ -58,6 +62,26 @@ public class IiifImportDto {
             List<CanvasPreview> canvases
     ) {}
 
+    public record PreviewJobResponse(
+            String id,
+            String status,
+            String phase,
+            String previewToken,
+            ManifestSummary manifest,
+            int totalCanvases,
+            int importableCanvasCount,
+            int processedCanvases,
+            int progressPercent,
+            long estimatedStorageBytes,
+            int unknownSizeCanvasCount,
+            List<String> warnings,
+            List<CanvasPreview> canvases,
+            String errorMessage,
+            LocalDateTime created,
+            LocalDateTime updated,
+            LocalDateTime completedAt
+    ) {}
+
     public record Resolution(
             @NotBlank(message = "Canvas id is required")
             String canvasId,
@@ -69,6 +93,7 @@ public class IiifImportDto {
     public record StartJobRequest(
             @NotBlank(message = "Preview token is required")
             String previewToken,
+            List<String> selectedCanvasIds,
             List<Resolution> resolutions
     ) {}
 

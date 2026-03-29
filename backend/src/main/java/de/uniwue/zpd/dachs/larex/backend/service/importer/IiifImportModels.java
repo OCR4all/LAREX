@@ -25,8 +25,12 @@ record IiifPreviewCanvas(
         String derivedPageName,
         boolean importable,
         String imageUrl,
+        String thumbnailUrl,
         Long estimatedBytes,
         List<String> warnings,
+        String sourceManifestId,
+        String sourceManifestLabel,
+        String sourceManifestUrl,
         String existingPageId,
         String existingPageName,
         boolean existingIiifImage
@@ -44,5 +48,9 @@ record IiifJobCanvasPayload(
         Long estimatedBytes,
         String targetPageId,
         String externalSourceUrl,
-        String externalSourceMetadataJson
+        String externalSourceMetadataJson,
+        String thumbnailUrl,
+        String sourceManifestId,
+        String sourceManifestLabel,
+        String sourceManifestUrl
 ) {}

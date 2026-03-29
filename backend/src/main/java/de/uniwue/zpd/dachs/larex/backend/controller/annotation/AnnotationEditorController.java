@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.annotation;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import org.slf4j.Logger;
@@ -29,6 +30,37 @@ public class AnnotationEditorController {
 
     public AnnotationEditorController(AnnotationProcessingService annotationProcessingService) {
         this.annotationProcessingService = annotationProcessingService;
+    }
+
+    /**
+     * Create the first PAGE XML annotation file for a page that currently has none.
+     */
+    @PostMapping
+    public ResponseEntity<Map<String, String>> createAnnotation(
+            @PathVariable String projectId,
+            @PathVariable String pageId,
+            @RequestBody PageDto pageDto,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        try {
+            log.info("Creating initial annotations for page {}", pageId);
+            PageXml xml = annotationProcessingService.createInitialAnnotationXml(projectId, pageId, pageDto, userId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "xmlId", xml.getId(),
+                    "fileName", xml.getFileName(),
+                    "schema", xml.getSchema().name(),
+                    "schemaVersion", xml.getSchemaVersion() == null ? "" : xml.getSchemaVersion()
+            ));
+        } catch (IllegalArgumentException e) {
+            log.warn("Not found when creating annotations: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (IOException e) {
+            log.error("IO error creating annotations for page {}: {}", pageId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        } catch (Exception e) {
+            log.error("Unexpected error creating annotations for page {}: {}", pageId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     /**

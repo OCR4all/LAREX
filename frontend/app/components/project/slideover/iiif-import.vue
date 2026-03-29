@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import { extractApiErrorMessage } from '@/utils/api-error'
 
 type PreviewConflict = {
@@ -18,8 +19,10 @@ type PreviewCanvas = {
   pageName: string
   importable: boolean
   imageUrl: string | null
+  thumbnailUrl: string | null
   estimatedBytes: number | null
   warnings: string[]
+  sourceManifestLabel: string | null
   conflict: PreviewConflict | null
 }
 
@@ -28,21 +31,32 @@ type ManifestSummary = {
   sourceUrl: string | null
   sourceType: string | null
   sourceName: string | null
+  resourceType: string | null
   label: string | null
   provider: string | null
   thumbnailUrl: string | null
   presentationVersion: string | null
+  manifestCount: number
 }
 
-type PreviewResponse = {
-  previewToken: string
-  manifest: ManifestSummary
+type PreviewJobResponse = {
+  id: string
+  status: string
+  phase: string | null
+  previewToken: string | null
+  manifest: ManifestSummary | null
   totalCanvases: number
   importableCanvasCount: number
+  processedCanvases: number
+  progressPercent: number
   estimatedStorageBytes: number
   unknownSizeCanvasCount: number
   warnings: string[]
   canvases: PreviewCanvas[]
+  errorMessage: string | null
+  created: string
+  updated: string
+  completedAt: string | null
 }
 
 type JobResult = {
@@ -90,15 +104,21 @@ const toast = useToast()
 const sourceMode = ref<'url' | 'file'>('url')
 const manifestUrl = ref('')
 const manifestFile = ref<File | null>(null)
-const preview = ref<PreviewResponse | null>(null)
+const preview = ref<PreviewJobResponse | null>(null)
 const job = ref<JobResponse | null>(null)
 const resolutions = ref<Record<string, ResolutionState>>({})
+const selectedCanvasIds = ref<string[]>([])
+const rangeStart = ref<number | null>(null)
+const rangeEnd = ref<number | null>(null)
 const isLoadingPreview = ref(false)
 const isStartingImport = ref(false)
 const isCancelling = ref(false)
+const isRetryingFailedImport = ref(false)
 const isRefreshingProjectData = ref(false)
 const pollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const previewPollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 const hasReportedJobFinished = ref(false)
+const previewScrollerRef = ref<HTMLElement | null>(null)
 
 const TERMINAL_JOB_STATUSES = ['COMPLETED', 'FAILED', 'CANCELLED'] as const
 
@@ -107,6 +127,15 @@ const currentStep = computed<'source' | 'preview' | 'running' | 'done'>(() => {
   if (job.value) return 'running'
   if (preview.value) return 'preview'
   return 'source'
+})
+const isPreviewReady = computed(() => preview.value?.status === 'COMPLETED')
+const isPreviewRunning = computed(() => preview.value?.status === 'PENDING' || preview.value?.status === 'RUNNING')
+const previewProgressValue = computed<number | null>(() => {
+  if (!preview.value) return 0
+  if (!isPreviewReady.value && preview.value.progressPercent <= 0) {
+    return null
+  }
+  return preview.value.progressPercent
 })
 
 const hasSuccessfulImports = computed(() => (job.value?.processedCanvases ?? 0) > 0)
@@ -163,6 +192,38 @@ const jobOutcomeDescription = computed(() => {
 const conflictCanvases = computed(() => (preview.value?.canvases ?? []).filter(canvas => canvas.conflict))
 const importableCanvases = computed(() => (preview.value?.canvases ?? []).filter(canvas => canvas.importable))
 const hasImportableCanvases = computed(() => importableCanvases.value.length > 0)
+const selectedConflictCanvases = computed(() => conflictCanvases.value.filter(canvas => selectedCanvasIds.value.includes(canvas.canvasId)))
+const selectedImportableCanvasCount = computed(() => selectedCanvasIds.value.length)
+const isCollectionPreview = computed(() => preview.value?.manifest?.resourceType === 'COLLECTION')
+const previewRowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => ({
+  count: preview.value?.canvases.length ?? 0,
+  getScrollElement: () => previewScrollerRef.value,
+  estimateSize: () => 116,
+  overscan: 3,
+  getItemKey: index => preview.value?.canvases[index]?.canvasId ?? index
+})))
+const virtualPreviewRows = computed<Array<{ item: VirtualItem, canvas: PreviewCanvas }>>(() => {
+  const canvases = preview.value?.canvases ?? []
+  return previewRowVirtualizer.value.getVirtualItems().flatMap((item) => {
+    const canvas = canvases[item.index]
+    return canvas ? [{ item, canvas }] : []
+  })
+})
+const totalPreviewSize = computed(() => previewRowVirtualizer.value.getTotalSize())
+
+watch(() => preview.value?.previewToken, (previewToken) => {
+  if (!previewToken) {
+    selectedCanvasIds.value = []
+    rangeStart.value = null
+    rangeEnd.value = null
+    return
+  }
+
+  const importable = (preview.value?.canvases ?? []).filter(canvas => canvas.importable)
+  selectedCanvasIds.value = importable.map(canvas => canvas.canvasId)
+  rangeStart.value = importable[0]?.index ?? null
+  rangeEnd.value = importable[importable.length - 1]?.index ?? null
+}, { immediate: true })
 
 watch(conflictCanvases, (items) => {
   const next: Record<string, ResolutionState> = {}
@@ -177,12 +238,20 @@ watch(conflictCanvases, (items) => {
 
 onBeforeUnmount(() => {
   stopPolling()
+  stopPreviewPolling()
 })
 
 function stopPolling() {
   if (pollTimer.value) {
     clearTimeout(pollTimer.value)
     pollTimer.value = null
+  }
+}
+
+function stopPreviewPolling() {
+  if (previewPollTimer.value) {
+    clearTimeout(previewPollTimer.value)
+    previewPollTimer.value = null
   }
 }
 
@@ -214,10 +283,11 @@ async function parseErrorResponse(response: Response, fallback: string): Promise
 
 async function requestPreview() {
   isLoadingPreview.value = true
+  stopPreviewPolling()
   try {
-    let data: PreviewResponse
+    let data: PreviewJobResponse
     if (sourceMode.value === 'url') {
-      data = await $fetch<PreviewResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/preview`, {
+      data = await $fetch<PreviewJobResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/preview-jobs`, {
         method: 'POST',
         body: { manifestUrl: manifestUrl.value.trim() }
       })
@@ -227,18 +297,21 @@ async function requestPreview() {
       }
       const form = new FormData()
       form.append('file', manifestFile.value)
-      const response = await fetch(`/api/upload-proxy/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/preview`, {
+      const response = await fetch(`/api/upload-proxy/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/preview-jobs`, {
         method: 'POST',
         body: form
       })
       if (!response.ok) {
         throw new Error(await parseErrorResponse(response, 'Failed to preview IIIF manifest'))
       }
-      data = await response.json() as PreviewResponse
+      data = await response.json() as PreviewJobResponse
     }
 
     preview.value = data
     job.value = null
+    if (isPreviewRunning.value) {
+      schedulePreviewPoll()
+    }
   } catch (error: unknown) {
     toast.add({
       title: 'Preview failed',
@@ -251,7 +324,7 @@ async function requestPreview() {
 }
 
 async function startImport() {
-  if (!preview.value) return
+  if (!preview.value || !preview.value.previewToken) return
   isStartingImport.value = true
   hasReportedJobFinished.value = false
   try {
@@ -259,7 +332,8 @@ async function startImport() {
       method: 'POST',
       body: {
         previewToken: preview.value.previewToken,
-        resolutions: conflictCanvases.value.map(canvas => ({
+        selectedCanvasIds: selectedCanvasIds.value,
+        resolutions: selectedConflictCanvases.value.map(canvas => ({
           canvasId: canvas.canvasId,
           action: resolutions.value[canvas.canvasId]?.action ?? 'KEEP_EXISTING',
           pageName: resolutions.value[canvas.canvasId]?.pageName ?? canvas.pageName
@@ -284,6 +358,32 @@ async function startImport() {
   }
 }
 
+async function retryFailedImport() {
+  if (!job.value) return
+  isRetryingFailedImport.value = true
+  hasReportedJobFinished.value = false
+  try {
+    const response = await $fetch<JobResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/jobs/${job.value.id}/retry-failed`, {
+      method: 'POST'
+    })
+    job.value = response
+    if (isTerminalJobStatus(response.status)) {
+      stopPolling()
+      await handleFinishedJob(response)
+    } else {
+      schedulePoll()
+    }
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Retry failed',
+      description: extractApiErrorMessage(error, 'Failed to retry failed IIIF canvases'),
+      color: 'error'
+    })
+  } finally {
+    isRetryingFailedImport.value = false
+  }
+}
+
 function schedulePoll() {
   stopPolling()
   if (!job.value || isTerminalJobStatus(job.value.status)) {
@@ -292,6 +392,16 @@ function schedulePoll() {
   pollTimer.value = setTimeout(() => {
     void refreshJob()
   }, 750)
+}
+
+function schedulePreviewPoll() {
+  stopPreviewPolling()
+  if (!preview.value || isPreviewReady.value || preview.value.status === 'FAILED') {
+    return
+  }
+  previewPollTimer.value = setTimeout(() => {
+    void refreshPreviewJob()
+  }, 500)
 }
 
 async function handleFinishedJob(latest: JobResponse) {
@@ -337,6 +447,30 @@ async function refreshJob() {
   }
 }
 
+async function refreshPreviewJob() {
+  if (!preview.value) return
+  try {
+    const latest = await $fetch<PreviewJobResponse>(`/api/workspaces/${props.workspaceId}/projects/${props.projectId}/iiif-import/preview-jobs/${preview.value.id}`)
+    preview.value = latest
+    if (latest.status === 'FAILED') {
+      stopPreviewPolling()
+      return
+    }
+    if (!isPreviewReady.value) {
+      schedulePreviewPoll()
+    } else {
+      stopPreviewPolling()
+    }
+  } catch (error: unknown) {
+    stopPreviewPolling()
+    toast.add({
+      title: 'Preview refresh failed',
+      description: extractApiErrorMessage(error, 'Failed to refresh IIIF preview status'),
+      color: 'error'
+    })
+  }
+}
+
 async function cancelImport() {
   if (!job.value) return
   isCancelling.value = true
@@ -362,8 +496,12 @@ async function cancelImport() {
 function resetPreview() {
   preview.value = null
   job.value = null
+  selectedCanvasIds.value = []
+  rangeStart.value = null
+  rangeEnd.value = null
   hasReportedJobFinished.value = false
   stopPolling()
+  stopPreviewPolling()
 }
 
 function handleFileChange(event: Event) {
@@ -373,6 +511,7 @@ function handleFileChange(event: Event) {
 
 async function close(imported: boolean) {
   stopPolling()
+  stopPreviewPolling()
   emit('close', imported)
 }
 
@@ -380,12 +519,62 @@ function shouldRefreshProjectPages(): boolean {
   if (!job.value) return false
   return job.value.processedCanvases > 0
 }
+
+function isCanvasSelected(canvasId: string): boolean {
+  return selectedCanvasIds.value.includes(canvasId)
+}
+
+function setCanvasSelected(canvasId: string, selected: boolean | 'indeterminate') {
+  if (selected === 'indeterminate') return
+  const next = new Set(selectedCanvasIds.value)
+  if (selected) {
+    next.add(canvasId)
+  } else {
+    next.delete(canvasId)
+  }
+  selectedCanvasIds.value = orderedSelectedCanvasIds(next)
+}
+
+function orderedSelectedCanvasIds(ids: Iterable<string>): string[] {
+  const selected = new Set(ids)
+  return importableCanvases.value
+    .filter(canvas => selected.has(canvas.canvasId))
+    .map(canvas => canvas.canvasId)
+}
+
+function selectAllImportableCanvases() {
+  selectedCanvasIds.value = importableCanvases.value.map(canvas => canvas.canvasId)
+  rangeStart.value = importableCanvases.value[0]?.index ?? null
+  rangeEnd.value = importableCanvases.value[importableCanvases.value.length - 1]?.index ?? null
+}
+
+function clearCanvasSelection() {
+  selectedCanvasIds.value = []
+}
+
+function applyCanvasRange() {
+  if (rangeStart.value == null || rangeEnd.value == null) {
+    toast.add({
+      title: 'Range required',
+      description: 'Choose a start and end canvas index first.',
+      color: 'warning'
+    })
+    return
+  }
+
+  const start = Math.min(rangeStart.value, rangeEnd.value)
+  const end = Math.max(rangeStart.value, rangeEnd.value)
+  selectedCanvasIds.value = importableCanvases.value
+    .filter(canvas => canvas.index >= start && canvas.index <= end)
+    .map(canvas => canvas.canvasId)
+}
 </script>
 
 <template>
   <USlideover
     side="right"
     title="Import IIIF"
+    :ui="{ content: 'w-full max-w-[96vw] sm:max-w-[92vw] xl:max-w-[1120px] flex flex-col' }"
     :close="{ onClick: () => close(shouldRefreshProjectPages()) }"
   >
     <template #body>
@@ -442,17 +631,49 @@ function shouldRefreshProjectPages(): boolean {
             icon="i-lucide-info"
             color="info"
             variant="subtle"
-            :title="preview.manifest.label || 'IIIF manifest'"
-            :description="preview.manifest.provider || undefined"
+            :title="preview.manifest?.label || 'IIIF manifest'"
+            :description="preview.manifest?.provider || preview.phase || undefined"
           />
 
+          <UAlert
+            v-if="preview.errorMessage"
+            icon="i-lucide-circle-alert"
+            color="error"
+            variant="subtle"
+            title="Preview failed"
+            :description="preview.errorMessage"
+          />
+
+          <div v-else-if="isPreviewRunning" class="space-y-2 rounded-sm border border-default p-3">
+            <div class="flex items-center justify-between gap-3 text-sm">
+              <div class="font-medium">
+                {{ preview.phase || 'Preparing preview' }}
+              </div>
+              <div class="text-muted">
+                {{ preview.processedCanvases }} / {{ preview.totalCanvases || '…' }}
+              </div>
+            </div>
+            <UProgress
+              :model-value="previewProgressValue"
+              :max="100"
+            />
+          </div>
+
           <div class="grid grid-cols-2 gap-3 text-sm">
+            <div class="rounded-sm border border-default p-3">
+              <div class="text-muted">
+                Resource
+              </div>
+              <div class="font-medium">
+                {{ preview.manifest?.resourceType === 'COLLECTION' ? 'Collection' : 'Manifest' }}
+              </div>
+            </div>
             <div class="rounded-sm border border-default p-3">
               <div class="text-muted">
                 Presentation
               </div>
               <div class="font-medium">
-                v{{ preview.manifest.presentationVersion || '?' }}
+                v{{ preview.manifest?.presentationVersion || '?' }}
               </div>
             </div>
             <div class="rounded-sm border border-default p-3">
@@ -479,6 +700,22 @@ function shouldRefreshProjectPages(): boolean {
                 {{ preview.importableCanvasCount }}
               </div>
             </div>
+            <div v-if="isCollectionPreview" class="rounded-sm border border-default p-3">
+              <div class="text-muted">
+                Manifests
+              </div>
+              <div class="font-medium">
+                {{ preview.manifest?.manifestCount ?? 0 }}
+              </div>
+            </div>
+            <div class="rounded-sm border border-default p-3">
+              <div class="text-muted">
+                Selected
+              </div>
+              <div class="font-medium">
+                {{ selectedImportableCanvasCount }}
+              </div>
+            </div>
           </div>
 
           <UAlert
@@ -490,12 +727,54 @@ function shouldRefreshProjectPages(): boolean {
             :description="preview.warnings.join(' ')"
           />
 
-          <div v-if="conflictCanvases.length > 0" class="space-y-3">
+          <div class="space-y-3 rounded-sm border border-default p-3">
             <div class="text-sm font-medium">
-              Resolve conflicts
+              Canvas selection
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                @click="selectAllImportableCanvases"
+              >
+                Select all
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                @click="clearCanvasSelection"
+              >
+                Clear
+              </UButton>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <UFormField label="Start canvas">
+                <UInput v-model="rangeStart" type="number" min="1" />
+              </UFormField>
+              <UFormField label="End canvas">
+                <UInput v-model="rangeEnd" type="number" min="1" />
+              </UFormField>
+              <UFormField label="Apply range">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  class="w-full justify-center"
+                  @click="applyCanvasRange"
+                >
+                  Select range
+                </UButton>
+              </UFormField>
+            </div>
+          </div>
+
+          <div v-if="selectedConflictCanvases.length > 0" class="space-y-3">
+            <div class="text-sm font-medium">
+              Resolve selected conflicts
             </div>
             <div
-              v-for="canvas in conflictCanvases"
+              v-for="canvas in selectedConflictCanvases"
               :key="canvas.canvasId"
               class="rounded-sm border border-default p-3 space-y-3"
             >
@@ -533,30 +812,52 @@ function shouldRefreshProjectPages(): boolean {
             <div class="text-sm font-medium">
               Canvas preview
             </div>
-            <div class="max-h-80 overflow-y-auto space-y-2">
+            <div ref="previewScrollerRef" class="max-h-[32rem] overflow-y-auto">
               <div
-                v-for="canvas in preview.canvases"
-                :key="canvas.canvasId"
-                class="rounded-sm border border-default p-3"
+                class="relative w-full"
+                :style="{ height: `${totalPreviewSize}px` }"
               >
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <div class="font-medium">
-                      {{ canvas.canvasLabel }}
+                <div
+                  v-for="{ item, canvas } in virtualPreviewRows"
+                  :key="String(item.key)"
+                  :data-index="item.index"
+                  class="absolute left-0 top-0 w-full pb-2"
+                  :style="{ transform: `translateY(${item.start}px)` }"
+                >
+                  <div class="rounded-sm border border-default p-3">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="flex items-start gap-3">
+                        <UCheckbox
+                          :model-value="isCanvasSelected(canvas.canvasId)"
+                          :disabled="!canvas.importable"
+                          @update:model-value="setCanvasSelected(canvas.canvasId, $event)"
+                        />
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <div class="font-medium">
+                          {{ canvas.canvasLabel }}
+                        </div>
+                        <div v-if="canvas.sourceManifestLabel" class="text-xs text-muted">
+                          Manifest: {{ canvas.sourceManifestLabel }}
+                        </div>
+                        <div class="text-xs text-muted">
+                          Page: {{ canvas.pageName }}
+                        </div>
+                        <div class="text-xs text-muted">
+                          Canvas: {{ canvas.index }}
+                        </div>
+                        <div class="text-xs text-muted">
+                          Size: {{ formatBytes(canvas.estimatedBytes) }}
+                        </div>
+                      </div>
+                      <UBadge :color="canvas.importable ? 'success' : 'warning'" variant="subtle">
+                        {{ canvas.importable ? 'Importable' : 'Skipped' }}
+                      </UBadge>
                     </div>
-                    <div class="text-xs text-muted">
-                      Page: {{ canvas.pageName }}
-                    </div>
-                    <div class="text-xs text-muted">
-                      Size: {{ formatBytes(canvas.estimatedBytes) }}
+                    <div v-if="canvas.warnings.length > 0" class="mt-2 text-xs text-warning">
+                      {{ canvas.warnings.join(' ') }}
                     </div>
                   </div>
-                  <UBadge :color="canvas.importable ? 'success' : 'warning'" variant="subtle">
-                    {{ canvas.importable ? 'Importable' : 'Skipped' }}
-                  </UBadge>
-                </div>
-                <div v-if="canvas.warnings.length > 0" class="mt-2 text-xs text-warning">
-                  {{ canvas.warnings.join(' ') }}
                 </div>
               </div>
             </div>
@@ -662,7 +963,7 @@ function shouldRefreshProjectPages(): boolean {
             <div class="text-sm font-medium">
               Results
             </div>
-            <div class="max-h-96 overflow-y-auto space-y-2">
+            <div class="h-full overflow-y-auto space-y-2">
               <div
                 v-for="result in job.results"
                 :key="`${result.canvasId}-${result.status}`"
@@ -725,6 +1026,16 @@ function shouldRefreshProjectPages(): boolean {
         </UButton>
 
         <UButton
+          v-if="currentStep === 'done' && (job?.failedCanvases ?? 0) > 0"
+          color="neutral"
+          variant="ghost"
+          :loading="isRetryingFailedImport"
+          @click="retryFailedImport"
+        >
+          Retry Failed
+        </UButton>
+
+        <UButton
           v-if="currentStep === 'done'"
           color="primary"
           variant="solid"
@@ -745,11 +1056,21 @@ function shouldRefreshProjectPages(): boolean {
         </UButton>
 
         <UButton
-          v-if="currentStep === 'preview'"
+          v-if="currentStep === 'preview' && isPreviewRunning"
+          color="primary"
+          variant="solid"
+          :loading="true"
+          disabled
+        >
+          Preparing Preview
+        </UButton>
+
+        <UButton
+          v-if="currentStep === 'preview' && isPreviewReady"
           color="primary"
           variant="solid"
           :loading="isStartingImport"
-          :disabled="!hasImportableCanvases"
+          :disabled="!hasImportableCanvases || selectedImportableCanvasCount === 0"
           @click="startImport"
         >
           Start Import

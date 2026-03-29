@@ -667,16 +667,6 @@ async function handleSaveDocument() {
     return false
   }
 
-  const canvas = editorStore.canvases[canvasId]
-  if (!canvas?.xmlFileId) {
-    toast.add({
-      title: 'Cannot save',
-      description: 'No XML file associated with this page. Create annotations first.',
-      color: 'warning'
-    })
-    return false
-  }
-
   try {
     const success = await editorStore.saveAnnotations(canvasId)
 

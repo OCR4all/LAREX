@@ -20,7 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,6 +50,7 @@ public class AsyncIiifImportProcessor {
     private static final TypeReference<List<IiifJobCanvasPayload>> JOB_PAYLOAD_LIST_TYPE = new TypeReference<>() {};
     private static final TypeReference<List<IiifImportDto.ItemResult>> ITEM_RESULT_LIST_TYPE = new TypeReference<>() {};
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
+    private static final int MAX_HTTP_ATTEMPTS = 3;
 
     private final IiifImportJobRepository iiifImportJobRepository;
     private final ProjectRepository projectRepository;
@@ -58,7 +60,9 @@ public class AsyncIiifImportProcessor {
     private final ThumbnailService thumbnailService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
     private final ObjectMapper objectMapper;
+    private final IiifRemoteRequestThrottler iiifRemoteRequestThrottler;
     private final HttpClient httpClient;
+    private final TransactionTemplate transactionTemplate;
 
     public AsyncIiifImportProcessor(IiifImportJobRepository iiifImportJobRepository,
                                     ProjectRepository projectRepository,
@@ -67,7 +71,9 @@ public class AsyncIiifImportProcessor {
                                     HierarchicalFileStorageService hierarchicalFileStorageService,
                                     ThumbnailService thumbnailService,
                                     WorkspaceQuotaGuardService workspaceQuotaGuardService,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper,
+                                    IiifRemoteRequestThrottler iiifRemoteRequestThrottler,
+                                    PlatformTransactionManager transactionManager) {
         this.iiifImportJobRepository = iiifImportJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -76,6 +82,8 @@ public class AsyncIiifImportProcessor {
         this.thumbnailService = thumbnailService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
         this.objectMapper = objectMapper;
+        this.iiifRemoteRequestThrottler = iiifRemoteRequestThrottler;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(HTTP_TIMEOUT)
@@ -83,7 +91,6 @@ public class AsyncIiifImportProcessor {
     }
 
     @Async("importTaskExecutor")
-    @Transactional
     public void processImportJob(String jobId) {
         try {
             doProcessImportJob(jobId);
@@ -94,35 +101,70 @@ public class AsyncIiifImportProcessor {
     }
 
     public void doProcessImportJob(String jobId) throws IOException {
-        IiifImportJob job = iiifImportJobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalStateException("IIIF import job not found: " + jobId));
+        IiifImportJob job = transactionTemplate.execute(status -> {
+            IiifImportJob currentJob = iiifImportJobRepository.findById(jobId)
+                    .orElseThrow(() -> new IllegalStateException("IIIF import job not found: " + jobId));
 
+            if (currentJob.getStatus() == IiifImportJob.Status.CANCELLED) {
+                return currentJob;
+            }
+
+            currentJob.setStatus(IiifImportJob.Status.IMPORTING);
+            currentJob.appendToLog("Started IIIF import");
+            return iiifImportJobRepository.save(currentJob);
+        });
+        if (job == null) {
+            throw new IllegalStateException("IIIF import job not found: " + jobId);
+        }
         if (job.getStatus() == IiifImportJob.Status.CANCELLED) {
             releaseReservationIfNeeded(job, true);
             return;
         }
 
-        final String projectId = job.getProjectId();
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new IllegalStateException("Project not found: " + projectId));
         List<IiifJobCanvasPayload> payloads = readPayloads(job.getCanvasPayloadJson());
-        List<IiifImportDto.ItemResult> results = readResults(job.getResultsJson());
-
-        job.setStatus(IiifImportJob.Status.IMPORTING);
-        job.appendToLog("Started IIIF import");
-        iiifImportJobRepository.save(job);
 
         for (IiifJobCanvasPayload payload : payloads) {
-            job = refreshJob(job.getId());
+            job = refreshJob(jobId);
             if (job.getStatus() == IiifImportJob.Status.CANCELLED) {
-                job.appendToLog("Import cancelled");
-                job.setResultsJson(writeJson(results));
-                iiifImportJobRepository.save(job);
+                transactionTemplate.executeWithoutResult(status -> {
+                    IiifImportJob cancelledJob = refreshJob(jobId);
+                    cancelledJob.appendToLog("Import cancelled");
+                    iiifImportJobRepository.save(cancelledJob);
+                });
                 releaseReservationIfNeeded(job, true);
                 return;
             }
 
+            processPayload(jobId, payload);
+        }
+
+        IiifImportJob completedJob = transactionTemplate.execute(status -> {
+            IiifImportJob currentJob = refreshJob(jobId);
+            if (currentJob.getStatus() == IiifImportJob.Status.CANCELLED) {
+                return currentJob;
+            }
+            currentJob.setStatus(IiifImportJob.Status.COMPLETED);
+            currentJob.setCompletedAt(LocalDateTime.now());
+            currentJob.appendToLog("IIIF import completed");
+            return iiifImportJobRepository.save(currentJob);
+        });
+        if (completedJob != null) {
+            releaseReservationIfNeeded(completedJob, true);
+        }
+    }
+
+    private void processPayload(String jobId, IiifJobCanvasPayload payload) {
+        transactionTemplate.executeWithoutResult(status -> {
+            IiifImportJob job = refreshJob(jobId);
+            List<IiifImportDto.ItemResult> results = readResults(job.getResultsJson());
+
+            if (job.getStatus() == IiifImportJob.Status.CANCELLED) {
+                return;
+            }
+
             try {
+                Project project = projectRepository.findById(job.getProjectId())
+                        .orElseThrow(() -> new IllegalStateException("Project not found: " + job.getProjectId()));
                 IiifImportDto.ItemResult result = importCanvas(project, payload, job.getCreatedByUserId());
                 results.add(result);
                 switch (result.status()) {
@@ -150,13 +192,7 @@ public class AsyncIiifImportProcessor {
 
             job.setResultsJson(writeJson(results));
             iiifImportJobRepository.save(job);
-        }
-
-        job.setStatus(IiifImportJob.Status.COMPLETED);
-        job.setCompletedAt(LocalDateTime.now());
-        job.appendToLog("IIIF import completed");
-        iiifImportJobRepository.save(job);
-        releaseReservationIfNeeded(job, true);
+        });
     }
 
     private IiifImportDto.ItemResult importCanvas(Project project, IiifJobCanvasPayload payload, String createdByUserId) throws IOException {
@@ -264,25 +300,35 @@ public class AsyncIiifImportProcessor {
 
     private DownloadedImage downloadImage(String imageUrl, String pageName) throws IOException {
         try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(new URI(imageUrl))
-                    .timeout(HTTP_TIMEOUT)
-                    .GET()
-                    .header("Accept", "image/*, */*;q=0.8")
-                    .header("User-Agent", "LAREX IIIF Import")
-                    .build();
-            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IOException(buildImageDownloadStatusMessage(response.statusCode()));
-            }
+            for (int attempt = 0; attempt < MAX_HTTP_ATTEMPTS; attempt++) {
+                iiifRemoteRequestThrottler.awaitRequestSlot(imageUrl);
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(new URI(imageUrl))
+                        .timeout(HTTP_TIMEOUT)
+                        .GET()
+                        .header("Accept", "image/*, */*;q=0.8")
+                        .header("User-Agent", "LAREX IIIF Import")
+                        .build();
+                HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    String mimeType = response.headers().firstValue("content-type").orElse("application/octet-stream");
+                    String extension = detectExtension(mimeType, imageUrl);
+                    Path tempFile = Files.createTempFile("larex-iiif-", "." + extension);
+                    try (InputStream bodyStream = response.body()) {
+                        Files.copy(bodyStream, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    return new DownloadedImage(tempFile, mimeType, extension);
+                }
 
-            String mimeType = response.headers().firstValue("content-type").orElse("application/octet-stream");
-            String extension = detectExtension(mimeType, imageUrl);
-            Path tempFile = Files.createTempFile("larex-iiif-", "." + extension);
-            try (InputStream bodyStream = response.body()) {
-                Files.copy(bodyStream, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                try (InputStream ignored = response.body()) {
+                    if (response.statusCode() == 429 && attempt < MAX_HTTP_ATTEMPTS - 1) {
+                        iiifRemoteRequestThrottler.deferAfterRateLimit(imageUrl, response.headers(), attempt);
+                        continue;
+                    }
+                    throw new IOException(buildImageDownloadStatusMessage(response.statusCode()));
+                }
             }
-            return new DownloadedImage(tempFile, mimeType, extension);
+            throw new IOException(buildImageDownloadStatusMessage(429));
         } catch (HttpTimeoutException e) {
             throw new IOException("Timed out while downloading the IIIF image for " + pageName + ".", e);
         } catch (ConnectException e) {
@@ -307,6 +353,7 @@ public class AsyncIiifImportProcessor {
             case 401 -> "Image download failed with HTTP 401. The IIIF image requires authentication.";
             case 403 -> "Image download failed with HTTP 403. The IIIF image is not publicly accessible.";
             case 404 -> "Image download failed with HTTP 404. The IIIF image URL could not be found.";
+            case 429 -> "Image download failed with HTTP 429. The IIIF server is rate limiting requests; retry later.";
             default -> "Image download failed with HTTP " + statusCode;
         };
     }
