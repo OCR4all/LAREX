@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceStorageQuota;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceStorageQuotaRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
@@ -31,6 +32,7 @@ public class WorkspaceStorageQuotaService {
     private final PageImageRepository pageImageRepository;
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlVersionRepository pageXmlVersionRepository;
+    private final DatasetItemCopyFileRepository datasetItemCopyFileRepository;
     private final PersonalWorkspaceRepository personalWorkspaceRepository;
     private final TeamWorkspaceRepository teamWorkspaceRepository;
 
@@ -43,12 +45,14 @@ public class WorkspaceStorageQuotaService {
             PageImageRepository pageImageRepository,
             PageXmlRepository pageXmlRepository,
             PageXmlVersionRepository pageXmlVersionRepository,
+            DatasetItemCopyFileRepository datasetItemCopyFileRepository,
             PersonalWorkspaceRepository personalWorkspaceRepository,
             TeamWorkspaceRepository teamWorkspaceRepository) {
         this.quotaRepository = quotaRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionRepository = pageXmlVersionRepository;
+        this.datasetItemCopyFileRepository = datasetItemCopyFileRepository;
         this.personalWorkspaceRepository = personalWorkspaceRepository;
         this.teamWorkspaceRepository = teamWorkspaceRepository;
     }
@@ -302,10 +306,12 @@ public class WorkspaceStorageQuotaService {
         Long imageBytes = pageImageRepository.sumFileSizeByWorkspaceId(workspaceId);
         Long xmlBytes = pageXmlRepository.sumFileSizeByWorkspaceId(workspaceId);
         Long versionBytes = pageXmlVersionRepository.sumFileSizeByWorkspaceId(workspaceId);
+        Long datasetCopyBytes = datasetItemCopyFileRepository.sumFileSizeByWorkspaceId(workspaceId);
         if (imageBytes == null) imageBytes = 0L;
         if (xmlBytes == null) xmlBytes = 0L;
         if (versionBytes == null) versionBytes = 0L;
-        return imageBytes + xmlBytes + versionBytes;
+        if (datasetCopyBytes == null) datasetCopyBytes = 0L;
+        return imageBytes + xmlBytes + versionBytes + datasetCopyBytes;
     }
 
     /**

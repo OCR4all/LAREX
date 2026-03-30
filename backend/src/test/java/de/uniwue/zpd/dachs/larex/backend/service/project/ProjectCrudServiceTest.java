@@ -8,8 +8,10 @@ import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceMemberRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.notification.NotificationService;
@@ -58,6 +60,10 @@ class ProjectCrudServiceTest {
 
     @Mock
     private TagSetRepository tagSetRepository;
+    @Mock
+    private NormalizationProfileRepository normalizationProfileRepository;
+    @Mock
+    private ValidationRulesetRepository validationRulesetRepository;
 
     @Mock
     private WorkspaceMemberRepository workspaceMemberRepository;
@@ -90,6 +96,8 @@ class ProjectCrudServiceTest {
                 dictionaryRepository,
                 labelSetRepository,
                 tagSetRepository,
+                normalizationProfileRepository,
+                validationRulesetRepository,
                 workspaceMemberRepository,
                 workspaceQueryService,
                 workspaceAccessService,
@@ -124,6 +132,8 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 USER_ID
         );
 
@@ -148,6 +158,8 @@ class ProjectCrudServiceTest {
                 WORKSPACE_ID,
                 PROJECT_NAME,
                 "desc",
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -187,6 +199,8 @@ class ProjectCrudServiceTest {
                 null,
                 null,
                 "labelset-explicit",
+                null,
+                null,
                 null,
                 null,
                 null,

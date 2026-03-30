@@ -1,5 +1,6 @@
 export * from './editor/rendering'
 export * from './capabilities'
+export * from './dataset'
 
 import type { TaskCapabilities } from './capabilities'
 

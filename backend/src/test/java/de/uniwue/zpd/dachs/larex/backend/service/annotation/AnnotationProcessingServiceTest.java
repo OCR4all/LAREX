@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
@@ -18,6 +19,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.Annotati
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.exporter.PageXmlWriteResult;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.AltoXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
+import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +52,8 @@ class AnnotationProcessingServiceTest {
     Path tempDir;
 
     @Mock
+    private PageRepository pageRepository;
+    @Mock
     private PageXmlRepository pageXmlRepository;
     @Mock
     private PageXmlToAnnotationParser pageXmlParser;
@@ -61,6 +65,8 @@ class AnnotationProcessingServiceTest {
     private AnnotationToAltoXmlExporter altoXmlExporter;
     @Mock
     private PageXmlVersionService pageXmlVersionService;
+    @Mock
+    private HierarchicalFileStorageService hierarchicalFileStorageService;
     @Mock
     private UserService userService;
     @Mock
@@ -130,12 +136,14 @@ class AnnotationProcessingServiceTest {
 
     private AnnotationProcessingService service() {
         AnnotationProcessingService service = new AnnotationProcessingService(
+                pageRepository,
                 pageXmlRepository,
                 pageXmlParser,
                 altoXmlParser,
                 pageXmlExporter,
                 altoXmlExporter,
                 pageXmlVersionService,
+                hierarchicalFileStorageService,
                 userService,
                 annotationReadCache,
                 applicationEventPublisher,

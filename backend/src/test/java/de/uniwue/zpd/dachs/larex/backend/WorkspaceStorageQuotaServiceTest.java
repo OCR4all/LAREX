@@ -2,6 +2,9 @@ package de.uniwue.zpd.dachs.larex.backend;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
@@ -43,6 +46,15 @@ class WorkspaceStorageQuotaServiceTest {
 
     @Autowired
     private PageXmlRepository pageXmlRepository;
+
+    @Autowired
+    private DatasetItemCopyFileRepository datasetItemCopyFileRepository;
+
+    @Autowired
+    private DatasetRepository datasetRepository;
+
+    @Autowired
+    private DatasetItemRepository datasetItemRepository;
 
     @Test
     void getOrCreateQuotaSeedsUsageFromWorkspaceFiles() {
@@ -141,5 +153,52 @@ class WorkspaceStorageQuotaServiceTest {
         assertEquals(250L, updated.getCurrentUsageBytes());
         assertEquals(0L, updated.getReservedBytes());
         assertEquals(750L, updated.getAvailableBytes());
+    }
+
+    @Test
+    void getOrCreateQuotaCountsDatasetCopyFiles() {
+        String workspaceId = "ws-dataset-copy-usage";
+
+        Dataset dataset = new Dataset();
+        dataset.setWorkspaceId(workspaceId);
+        dataset.setName("Training dataset");
+        dataset = datasetRepository.save(dataset);
+
+        DatasetItem item = new DatasetItem();
+        item.setDataset(dataset);
+        item.setSourceProjectId("project-1");
+        item.setSourceProjectName("Project");
+        item.setSourcePageId("page-1");
+        item.setSourcePageName("Page");
+        item.setMode(DatasetItem.Mode.COPY);
+        item.setSelectedSourceXmlId("xml-1");
+        item.setSelectedSourceXmlFileName("page.xml");
+        item = datasetItemRepository.save(item);
+
+        DatasetItemCopyFile xmlCopy = new DatasetItemCopyFile();
+        xmlCopy.setDatasetItem(item);
+        xmlCopy.setKind(DatasetItemCopyFile.Kind.XML);
+        xmlCopy.setSourceFileId("xml-1");
+        xmlCopy.setFileName("page.xml");
+        xmlCopy.setFilePath("/tmp/dataset/page.xml");
+        xmlCopy.setMimeType("application/xml");
+        xmlCopy.setFileSize(125L);
+        xmlCopy.setChecksumSha256("xml-checksum");
+
+        DatasetItemCopyFile imageCopy = new DatasetItemCopyFile();
+        imageCopy.setDatasetItem(item);
+        imageCopy.setKind(DatasetItemCopyFile.Kind.IMAGE);
+        imageCopy.setSourceFileId("img-1");
+        imageCopy.setFileName("page.png");
+        imageCopy.setFilePath("/tmp/dataset/page.png");
+        imageCopy.setMimeType("image/png");
+        imageCopy.setFileSize(375L);
+        imageCopy.setChecksumSha256("img-checksum");
+
+        datasetItemCopyFileRepository.save(xmlCopy);
+        datasetItemCopyFileRepository.save(imageCopy);
+
+        WorkspaceStorageQuota quota = quotaService.getOrCreateQuota(workspaceId);
+        assertEquals(500L, quota.getCurrentUsageBytes());
     }
 }

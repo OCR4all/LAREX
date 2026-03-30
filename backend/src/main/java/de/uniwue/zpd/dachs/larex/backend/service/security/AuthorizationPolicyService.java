@@ -170,6 +170,19 @@ public class AuthorizationPolicyService {
         );
     }
 
+    public AuthorizationCapabilitiesDto.DatasetCapabilities resolveDatasetCapabilities(String workspaceId, String userId) {
+        boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
+        boolean canManageProjects = canManageProjects(workspaceId, userId);
+
+        return new AuthorizationCapabilitiesDto.DatasetCapabilities(
+                canManageProjects,
+                canManageProjects,
+                canManageProjects,
+                canManageProjects,
+                canAccessWorkspace
+        );
+    }
+
     public AuthorizationCapabilitiesDto.TaskCapabilities resolveTaskCapabilities(Task task, String userId) {
         String workspaceId = task.getWorkspaceId();
         boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);

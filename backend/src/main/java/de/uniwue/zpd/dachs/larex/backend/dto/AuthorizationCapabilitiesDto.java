@@ -22,6 +22,14 @@ public class AuthorizationCapabilitiesDto {
             boolean canExportPackage
     ) {}
 
+    public record DatasetCapabilities(
+            boolean canEdit,
+            boolean canDelete,
+            boolean canManageItems,
+            boolean canGenerateSplit,
+            boolean canExportPackage
+    ) {}
+
     public record TaskCapabilities(
             boolean canEdit,
             boolean canDelete,

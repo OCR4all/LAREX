@@ -18,6 +18,14 @@ export interface ProjectCapabilities {
   canExportPackage: boolean
 }
 
+export interface DatasetCapabilities {
+  canEdit: boolean
+  canDelete: boolean
+  canManageItems: boolean
+  canGenerateSplit: boolean
+  canExportPackage: boolean
+}
+
 export interface TaskCapabilities {
   canEdit: boolean
   canDelete: boolean
@@ -47,6 +55,14 @@ export const DEFAULT_PROJECT_CAPABILITIES: ProjectCapabilities = {
   canDelete: false,
   canDeletePages: false,
   canUpload: false,
+  canExportPackage: false
+}
+
+export const DEFAULT_DATASET_CAPABILITIES: DatasetCapabilities = {
+  canEdit: false,
+  canDelete: false,
+  canManageItems: false,
+  canGenerateSplit: false,
   canExportPackage: false
 }
 

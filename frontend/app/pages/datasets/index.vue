@@ -1,0 +1,264 @@
+<script setup lang="ts">
+import { h, resolveComponent, type Component } from 'vue'
+import type { TableColumn } from '@nuxt/ui'
+import { LazyDatasetSlideoverCreate, LazyUiDeleteSlideover } from '#components'
+import type { DatasetSummary } from '@/types/dataset'
+import { wsKey } from '@/utils/fetch-keys'
+import { extractApiErrorMessage } from '@/utils/api-error'
+import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
+import { useResourceListPage } from '@/composables/use-resource-list-page'
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
+
+const UButton = resolveComponent('UButton') as Component
+const UBadge = resolveComponent('UBadge') as Component
+const UPopover = resolveComponent('UPopover') as Component
+const UDropdownMenu = resolveComponent('UDropdownMenu') as Component
+const NuxtLink = resolveComponent('NuxtLink') as Component
+
+const toast = useToast()
+const overlay = useOverlay()
+const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const createSlideover = overlay.create(LazyDatasetSlideoverCreate)
+const { allow, compactGroups } = useActionVisibility()
+
+const { selectedWorkspace } = await useWorkspaceBootstrap()
+const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
+const canManageDatasets = computed(() => allow(workspaceCapabilities.value.canManageProjects))
+const datasetsKey = computed(() =>
+  selectedWorkspace.value
+    ? wsKey(selectedWorkspace.value, 'datasets', 'list')
+    : 'pending:datasets:list'
+)
+
+const { data: datasets } = await useFetch<DatasetSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/datasets`, {
+  key: datasetsKey,
+  default: () => []
+})
+
+const datasetsSafe = computed(() => datasets.value ?? [])
+const {
+  sort,
+  globalFilter,
+  tagFilterOperator,
+  activeFilters,
+  resetAllFilters,
+  uniqueTags,
+  selectedTags,
+  tagOperatorOptions,
+  page,
+  itemsPerPage,
+  totalItems,
+  totalPages,
+  paginatedData
+} = useResourceListPage({
+  data: datasetsSafe,
+  defaultSort: { column: 'updated', direction: 'desc' }
+})
+
+const columns: TableColumn<DatasetSummary>[] = [
+  {
+    accessorKey: 'name',
+    header: createSortableHeader('Name', 'name', sort, UButton),
+    cell: ({ row }) => h(NuxtLink, { to: `/datasets/${row.original.id}`, class: 'font-medium hover:underline text-primary' }, () => row.getValue('name'))
+  },
+  {
+    accessorKey: 'description',
+    header: createSortableHeader('Description', 'description', sort, UButton),
+    cell: ({ row }) => renderTruncatedText(row.getValue('description') as string)
+  },
+  {
+    accessorKey: 'tags',
+    header: 'Tags',
+    cell: ({ row }) => renderSimpleTagCell(row.getValue('tags') as string[] | undefined, { UBadge, UButton, UPopover })
+  },
+  {
+    accessorKey: 'itemCount',
+    header: createSortableHeader('Items', 'itemCount', sort, UButton, { align: 'end' }),
+    cell: ({ row }) => h('div', { class: 'text-right tabular-nums' }, String(row.original.itemCount))
+  },
+  {
+    accessorKey: 'brokenItems',
+    header: createSortableHeader('Broken', 'brokenItems', sort, UButton, { align: 'end' }),
+    cell: ({ row }) => h('div', { class: 'text-right tabular-nums' }, String(row.original.stats?.brokenItems ?? 0))
+  },
+  {
+    accessorKey: 'lastValidationStatus',
+    header: createSortableHeader('Validation', 'lastValidationStatus', sort, UButton),
+    cell: ({ row }) => h(UBadge, {
+      color: row.original.lastValidationStatus === 'INVALID' ? 'error' : row.original.lastValidationStatus === 'VALID' ? 'success' : 'neutral',
+      variant: 'soft'
+    }, () => row.original.lastValidationStatus.replaceAll('_', ' '))
+  },
+  {
+    id: 'actions',
+    cell: ({ row }) => renderDropdownActionsCell(items(row.original), { UButton, UDropdownMenu })
+  }
+]
+
+async function openCreateDataset() {
+  const instance = createSlideover.open()
+  const createdId = await instance.result as string | null
+  if (!createdId) return
+
+  await refreshNuxtData(datasetsKey.value)
+  await navigateTo(`/datasets/${createdId}`)
+}
+
+async function handleDelete(row: DatasetSummary) {
+  if (!selectedWorkspace.value || !allow(row.capabilities?.canDelete)) return
+  const instance = deleteSlideover.open({
+    name: row.name,
+    entityType: 'Dataset',
+    warningMessage: 'This action cannot be undone. Frozen dataset copies will be deleted from storage.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  try {
+    await $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${row.id}`, { method: 'DELETE' })
+    toast.add({ title: 'Dataset deleted', color: 'success' })
+    await refreshNuxtData(datasetsKey.value)
+  } catch (error: unknown) {
+    toast.add({ title: 'Delete failed', description: extractApiErrorMessage(error, 'Failed to delete dataset'), color: 'error' })
+  }
+}
+
+const items = (row: DatasetSummary) => compactGroups([[
+  {
+    label: 'Open',
+    icon: 'i-lucide-arrow-right',
+    onSelect: () => navigateTo(`/datasets/${row.id}`)
+  },
+  allow(row.capabilities?.canDelete)
+    ? {
+        label: 'Delete',
+        icon: 'i-lucide-trash',
+        color: 'error',
+        onSelect: () => handleDelete(row)
+      }
+    : null
+].filter(Boolean) as Array<Record<string, unknown>>])
+
+const emptyStateActions = computed(() => {
+  const actions: Array<Record<string, unknown>> = [
+    {
+      icon: 'i-lucide-refresh-cw',
+      label: 'Refresh',
+      color: 'neutral',
+      variant: 'subtle',
+      onClick: () => refreshNuxtData(datasetsKey.value)
+    }
+  ]
+
+  if (canManageDatasets.value) {
+    actions.unshift({
+      icon: 'i-lucide-plus',
+      label: 'Create new',
+      variant: 'solid',
+      onClick: () => { void openCreateDataset() }
+    })
+  }
+
+  return actions
+})
+</script>
+
+<template>
+  <UDashboardPanel id="datasets">
+    <template #header>
+      <UDashboardNavbar title="Datasets">
+        <template #leading>
+          <LazyUDashboardSidebarCollapse />
+        </template>
+        <template #right>
+          <UButton
+            v-if="canManageDatasets"
+            label="New Dataset"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-plus"
+            @click="openCreateDataset"
+          />
+        </template>
+      </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #left>
+          <UInput
+            v-model="globalFilter"
+            placeholder="Search datasets..."
+            icon="i-lucide-search"
+            class="w-64"
+          />
+          <USelectMenu
+            v-model="selectedTags"
+            :items="uniqueTags"
+            value-key="value"
+            placeholder="Filter by tag"
+            multiple
+            searchable
+            clear-search-on-close
+            class="w-48"
+          />
+          <USelectMenu
+            v-if="selectedTags.length > 1"
+            v-model="tagFilterOperator"
+            :items="tagOperatorOptions"
+            value-key="value"
+            class="w-36"
+          />
+          <UButton
+            v-if="activeFilters.length > 0"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="resetAllFilters()"
+          >
+            Clear Filters
+          </UButton>
+        </template>
+      </UDashboardToolbar>
+    </template>
+
+    <template #body>
+      <UEmpty
+        v-if="datasets && datasets.length === 0"
+        variant="naked"
+        icon="i-lucide-database-zap"
+        title="No datasets found"
+        description="Workspace datasets collect curated page annotations and image variants for training and evaluation."
+        :actions="emptyStateActions"
+      />
+      <div v-else-if="datasets">
+        <UTable
+          :data="paginatedData"
+          :columns="columns"
+          class="flex-1"
+          :ui="{
+            base: 'table-fixed border-separate border-spacing-0',
+            thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+            tbody: '[&>tr]:last:[&>td]:border-b-0',
+            th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+            td: 'border-b border-default',
+            separator: 'h-0'
+          }"
+        />
+
+        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+          <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+            <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} datasets</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <USelect
+              v-model="itemsPerPage"
+              :items="[5, 10, 15, 20, 50, 100]"
+              class="w-32"
+              size="sm"
+            />
+            <UPagination v-model:page="page" :total="totalItems" :items-per-page="itemsPerPage" />
+          </div>
+        </div>
+      </div>
+    </template>
+  </UDashboardPanel>
+</template>

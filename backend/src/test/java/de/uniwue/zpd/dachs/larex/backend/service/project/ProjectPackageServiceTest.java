@@ -14,11 +14,13 @@ import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.backup.ArchiveIoService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
@@ -76,6 +78,10 @@ class ProjectPackageServiceTest {
     @Mock
     private TagSetRepository tagSetRepository;
     @Mock
+    private NormalizationProfileRepository normalizationProfileRepository;
+    @Mock
+    private ValidationRulesetRepository validationRulesetRepository;
+    @Mock
     private WorkspaceAccessService workspaceAccessService;
     @Mock
     private UtilityPackageService utilityPackageService;
@@ -110,6 +116,8 @@ class ProjectPackageServiceTest {
                 dictionaryRepository,
                 labelSetRepository,
                 tagSetRepository,
+                normalizationProfileRepository,
+                validationRulesetRepository,
                 workspaceAccessService,
                 archiveIoService,
                 utilityPackageService,
@@ -145,7 +153,7 @@ class ProjectPackageServiceTest {
                 .thenReturn(false);
         when(pageXmlConversionService.convertFileToVersion(xmlPath, PageXmlConversionService.PRIMARY_PAGE_VERSION))
                 .thenReturn("<PcGts/>".getBytes());
-        when(utilityPackageService.buildProjectUtilitySnapshot("ws-1", null, null, null, null))
+        when(utilityPackageService.buildProjectUtilitySnapshot("ws-1", null, null, null, null, null, null))
                 .thenReturn(new UtilityPackageDto.UtilityPackage(
                         new UtilityPackageDto.PackageMeta("1.0", LocalDateTime.now(), "ws-1", "Workspace"),
                         List.of()

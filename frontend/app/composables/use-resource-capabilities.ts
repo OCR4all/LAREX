@@ -1,18 +1,22 @@
 import type {
+  DatasetCapabilities,
   ProjectCapabilities,
   ResourceCapabilities,
   TaskCapabilities
 } from '@/types/capabilities'
 import {
+  DEFAULT_DATASET_CAPABILITIES,
   DEFAULT_PROJECT_CAPABILITIES,
   DEFAULT_RESOURCE_CAPABILITIES,
   DEFAULT_TASK_CAPABILITIES
 } from '@/types/capabilities'
 
-type CapabilityKind = 'project' | 'task' | 'resource'
+type CapabilityKind = 'dataset' | 'project' | 'task' | 'resource'
 
 type CapabilityByKind<T extends CapabilityKind> =
-  T extends 'project'
+  T extends 'dataset'
+    ? DatasetCapabilities
+    : T extends 'project'
     ? ProjectCapabilities
     : T extends 'task'
       ? TaskCapabilities
@@ -28,6 +32,8 @@ export function useResourceCapabilities<T extends CapabilityKind>(
 ) {
   const defaults = (() => {
     switch (kind) {
+      case 'dataset':
+        return DEFAULT_DATASET_CAPABILITIES
       case 'project':
         return DEFAULT_PROJECT_CAPABILITIES
       case 'task':

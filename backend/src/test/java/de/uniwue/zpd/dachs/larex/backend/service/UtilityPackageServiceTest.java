@@ -11,15 +11,19 @@ import de.uniwue.zpd.dachs.larex.backend.repository.board.BoardThemeRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import de.uniwue.zpd.dachs.larex.backend.service.board.BoardThemeService;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
 import de.uniwue.zpd.dachs.larex.backend.service.dictionary.DictionaryService;
 import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetService;
+import de.uniwue.zpd.dachs.larex.backend.service.normalization.NormalizationProfileService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagSetService;
 import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.validation.ValidationRulesetService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +64,10 @@ class UtilityPackageServiceTest {
 
     @Mock
     private TagSetRepository tagSetRepository;
+    @Mock
+    private NormalizationProfileRepository normalizationProfileRepository;
+    @Mock
+    private ValidationRulesetRepository validationRulesetRepository;
 
     @Mock
     private VirtualKeyboardRepository virtualKeyboardRepository;
@@ -77,6 +85,10 @@ class UtilityPackageServiceTest {
 
     @Mock
     private TagSetService tagSetService;
+    @Mock
+    private NormalizationProfileService normalizationProfileService;
+    @Mock
+    private ValidationRulesetService validationRulesetService;
 
     @Mock
     private VirtualKeyboardService virtualKeyboardService;
@@ -98,12 +110,16 @@ class UtilityPackageServiceTest {
                 dictionaryRepository,
                 labelSetRepository,
                 tagSetRepository,
+                normalizationProfileRepository,
+                validationRulesetRepository,
                 virtualKeyboardRepository,
                 boardThemeRepository,
                 codecService,
                 dictionaryService,
                 labelSetService,
                 tagSetService,
+                normalizationProfileService,
+                validationRulesetService,
                 virtualKeyboardService,
                 boardThemeService,
                 objectMapper

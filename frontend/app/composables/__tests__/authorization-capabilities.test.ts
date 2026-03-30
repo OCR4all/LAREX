@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref, toValue } from 'vue'
 
-;(globalThis as any).computed = computed
-;(globalThis as any).toValue = toValue
+type GlobalWithVueHelpers = typeof globalThis & {
+  computed: typeof computed
+  toValue: typeof toValue
+}
+
+;(globalThis as GlobalWithVueHelpers).computed = computed
+;(globalThis as GlobalWithVueHelpers).toValue = toValue
 
 describe('authorization composables', () => {
   beforeEach(() => {
@@ -50,5 +55,19 @@ describe('authorization composables', () => {
     expect(caps.value.canEdit).toBe(false)
     expect(caps.value.canDelete).toBe(false)
     expect(caps.value.canAssignOthers).toBe(false)
+  })
+
+  it('useResourceCapabilities applies dataset defaults conservatively', async () => {
+    const { useResourceCapabilities } = await import('../use-resource-capabilities')
+
+    const dataset = ref<{ capabilities?: { canExportPackage?: boolean } } | null>({
+      capabilities: { canExportPackage: true }
+    })
+
+    const caps = useResourceCapabilities(dataset, 'dataset')
+    expect(caps.value.canExportPackage).toBe(true)
+    expect(caps.value.canEdit).toBe(false)
+    expect(caps.value.canManageItems).toBe(false)
+    expect(caps.value.canGenerateSplit).toBe(false)
   })
 })
