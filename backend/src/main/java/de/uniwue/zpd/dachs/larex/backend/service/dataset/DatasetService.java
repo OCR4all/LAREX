@@ -7,6 +7,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.DatasetDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItemCopyFile;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetRelease;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
@@ -14,6 +15,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetReleaseRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -63,6 +65,7 @@ public class DatasetService {
     private final DatasetRepository datasetRepository;
     private final DatasetItemRepository datasetItemRepository;
     private final DatasetItemCopyFileRepository datasetItemCopyFileRepository;
+    private final DatasetReleaseRepository datasetReleaseRepository;
     private final ProjectRepository projectRepository;
     private final PageRepository pageRepository;
     private final PageXmlRepository pageXmlRepository;
@@ -80,6 +83,7 @@ public class DatasetService {
     public DatasetService(DatasetRepository datasetRepository,
                           DatasetItemRepository datasetItemRepository,
                           DatasetItemCopyFileRepository datasetItemCopyFileRepository,
+                          DatasetReleaseRepository datasetReleaseRepository,
                           ProjectRepository projectRepository,
                           PageRepository pageRepository,
                           PageXmlRepository pageXmlRepository,
@@ -93,6 +97,7 @@ public class DatasetService {
         this.datasetRepository = datasetRepository;
         this.datasetItemRepository = datasetItemRepository;
         this.datasetItemCopyFileRepository = datasetItemCopyFileRepository;
+        this.datasetReleaseRepository = datasetReleaseRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -314,33 +319,8 @@ public class DatasetService {
             throw new IllegalStateException("Dataset contains broken items and cannot be exported.");
         }
 
-        ExportSnapshot exportSnapshot = buildExportSnapshot(dataset, items, validationSnapshot.warnings());
-
-        byte[] zipBytes = archiveIoService.createZip(zipOut -> {
-            archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportSnapshot.manifest());
-            archiveIoService.writeJsonEntry(zipOut, "stats.json", exportSnapshot.stats());
-
-            for (Map.Entry<DatasetItem.Split, List<Map<String, Object>>> entry : exportSnapshot.jsonlRowsBySplit().entrySet()) {
-                if (entry.getValue().isEmpty()) {
-                    continue;
-                }
-                String content = entry.getValue().stream()
-                        .map(row -> {
-                            try {
-                                return objectMapper.writeValueAsString(row);
-                            } catch (IOException e) {
-                                throw new IllegalStateException("Failed to serialize JSONL row", e);
-                            }
-                        })
-                        .collect(Collectors.joining("\n")) + "\n";
-                String splitName = entry.getKey().name().toLowerCase(Locale.ROOT);
-                archiveIoService.writeBytesEntry(zipOut, "splits/" + splitName + ".jsonl", content.getBytes());
-            }
-
-            for (ExportFile exportFile : exportSnapshot.files()) {
-                archiveIoService.writeFileEntry(zipOut, exportFile.archivePath(), exportFile.absolutePath());
-            }
-        });
+        ExportSnapshot exportSnapshot = buildExportSnapshot(dataset, items, validationSnapshot.warnings(), null, LocalDateTime.now());
+        byte[] zipBytes = createPackageBytes(exportSnapshot);
 
         dataset.setLastExportStatus(Dataset.ExportStatus.READY);
         dataset.setLastExportedAt(LocalDateTime.now());
@@ -348,9 +328,123 @@ public class DatasetService {
         return zipBytes;
     }
 
+    public List<DatasetDto.ReleaseSummaryResponse> listReleases(String workspaceId, String datasetId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        requireDataset(workspaceId, datasetId);
+        return datasetReleaseRepository.findByDatasetIdOrderByVersionNumberDesc(datasetId).stream()
+                .map(this::toReleaseSummaryResponse)
+                .toList();
+    }
+
+    public DatasetDto.ReleaseSummaryResponse createRelease(String workspaceId,
+                                                           String datasetId,
+                                                           DatasetDto.CreateReleaseRequest request,
+                                                           String userId) throws IOException {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        Dataset dataset = requireDataset(workspaceId, datasetId);
+        List<DatasetItem> items = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(datasetId);
+
+        ValidationSnapshot validationSnapshot = validateItems(dataset, items, true);
+        if (validationSnapshot.status() == Dataset.ValidationStatus.INVALID) {
+            dataset.setLastExportStatus(Dataset.ExportStatus.FAILED);
+            datasetRepository.save(dataset);
+            throw new IllegalStateException("Dataset contains broken items and cannot be released.");
+        }
+
+        int nextVersionNumber = defaultInt(datasetReleaseRepository.findMaxVersionNumberByDatasetId(datasetId)) + 1;
+        String versionTag = normalizeReleaseTag(request == null ? null : request.versionTag(), nextVersionNumber, datasetId);
+
+        DatasetRelease release = new DatasetRelease();
+        release.setDataset(dataset);
+        release.setVersionNumber(nextVersionNumber);
+        release.setVersionTag(versionTag);
+        release.setNotes(request == null ? null : normalizeNullableText(request.notes()));
+        release.setCreatedByUserId(userId);
+        release.setStatus(DatasetRelease.Status.CREATING);
+        release.setValidationStatus(validationSnapshot.status());
+        release.setItemCount((long) items.size());
+        release.setSourceDatasetUpdatedAt(dataset.getUpdated());
+        release = datasetReleaseRepository.save(release);
+
+        Path releaseRoot = datasetReleaseRoot(workspaceId, datasetId, release.getId());
+        long reservedBytes = 0L;
+
+        try {
+            LocalDateTime releasedAt = LocalDateTime.now();
+            ExportSnapshot exportSnapshot = buildExportSnapshot(dataset, items, validationSnapshot.warnings(), release, releasedAt);
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    workspaceId,
+                    estimatePackageBytes(exportSnapshot),
+                    "dataset-release"
+            );
+
+            byte[] zipBytes = createPackageBytes(exportSnapshot);
+            Files.createDirectories(releaseRoot);
+
+            String fileName = sanitizeSegment(dataset.getName()) + "-" + sanitizeSegment(versionTag) + ".larex-dataset.zip";
+            Path packagePath = releaseRoot.resolve(fileName);
+            Files.write(packagePath, zipBytes);
+
+            String manifestJson = objectMapper.writeValueAsString(exportSnapshot.manifest());
+            String statsJson = objectMapper.writeValueAsString(exportSnapshot.stats());
+
+            release.setStatus(DatasetRelease.Status.READY);
+            release.setFailureReason(null);
+            release.setPackageFileName(fileName);
+            release.setPackageFilePath(relativeToUploadRoot(packagePath));
+            release.setPackageFileSize(Files.size(packagePath));
+            release.setPackageChecksumSha256(computeSha256(packagePath));
+            release.setManifestChecksumSha256(computeSha256(manifestJson.getBytes()));
+            release.setManifestJson(manifestJson);
+            release.setStatsJson(statsJson);
+            release.setWarningsJson(writeWarnings(validationSnapshot.warnings()));
+            datasetReleaseRepository.save(release);
+
+            dataset.setLastExportStatus(Dataset.ExportStatus.READY);
+            dataset.setLastExportedAt(releasedAt);
+            datasetRepository.save(dataset);
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
+            return toReleaseSummaryResponse(release);
+        } catch (IOException | RuntimeException e) {
+            deleteRecursively(releaseRoot);
+            datasetReleaseRepository.deleteById(release.getId());
+            if (reservedBytes > 0) {
+                workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
+            }
+            dataset.setLastExportStatus(Dataset.ExportStatus.FAILED);
+            datasetRepository.save(dataset);
+            throw e;
+        }
+    }
+
+    public ReleaseDownload downloadReleasePackage(String workspaceId,
+                                                  String datasetId,
+                                                  String releaseId,
+                                                  String userId) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        requireDataset(workspaceId, datasetId);
+        DatasetRelease release = requireRelease(datasetId, releaseId);
+        if (release.getPackageFilePath() == null || release.getPackageFilePath().isBlank()) {
+            throw new IllegalStateException("Release package is not available.");
+        }
+        Path packagePath = resolveStoragePath(release.getPackageFilePath());
+        if (!Files.exists(packagePath)) {
+            throw new IllegalStateException("Release package file is missing.");
+        }
+        return new ReleaseDownload(
+                release.getPackageFileName() == null ? ("dataset-release-" + releaseId + ".zip") : release.getPackageFileName(),
+                Files.readAllBytes(packagePath)
+        );
+    }
+
     private Dataset requireDataset(String workspaceId, String datasetId) {
         return datasetRepository.findByIdAndWorkspaceId(datasetId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dataset", datasetId));
+    }
+
+    private DatasetRelease requireRelease(String datasetId, String releaseId) {
+        return datasetReleaseRepository.findByIdAndDatasetId(releaseId, datasetId)
+                .orElseThrow(() -> new ResourceNotFoundException("Dataset release", releaseId));
     }
 
     private Page requirePageInWorkspace(String pageId, String workspaceId) {
@@ -742,7 +836,9 @@ public class DatasetService {
 
     private ExportSnapshot buildExportSnapshot(Dataset dataset,
                                               List<DatasetItem> items,
-                                              List<String> validationWarnings) throws IOException {
+                                              List<String> validationWarnings,
+                                              DatasetRelease release,
+                                              LocalDateTime exportedAt) throws IOException {
         Map<DatasetItem.Split, List<Map<String, Object>>> jsonlRows = new EnumMap<>(DatasetItem.Split.class);
         for (DatasetItem.Split split : DatasetItem.Split.values()) {
             jsonlRows.put(split, new ArrayList<>());
@@ -806,21 +902,31 @@ public class DatasetService {
 
         Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("schemaVersion", "1.0");
-        manifest.put("exportedAt", LocalDateTime.now());
+        manifest.put("exportedAt", exportedAt);
         manifest.put("workspaceId", dataset.getWorkspaceId());
         Map<String, Object> datasetManifest = new LinkedHashMap<>();
         datasetManifest.put("id", dataset.getId());
         datasetManifest.put("name", dataset.getName());
         datasetManifest.put("description", dataset.getDescription());
-        datasetManifest.put("tags", dataset.getTags());
+        datasetManifest.put("tags", defaultList(dataset.getTags()));
         datasetManifest.put("splitTemplate", dataset.getSplitTemplate().name());
         datasetManifest.put("splitAlgorithm", dataset.getSplitAlgorithm().name());
         datasetManifest.put("splitSeed", dataset.getSplitSeed());
         datasetManifest.put("trainPercentage", dataset.getTrainPercentage());
         datasetManifest.put("valPercentage", dataset.getValPercentage());
         datasetManifest.put("testPercentage", dataset.getTestPercentage());
-        datasetManifest.put("stratifyTagIds", dataset.getStratifyTagIds());
+        datasetManifest.put("stratifyTagIds", defaultList(dataset.getStratifyTagIds()));
         manifest.put("dataset", datasetManifest);
+        if (release != null) {
+            Map<String, Object> releaseManifest = new LinkedHashMap<>();
+            releaseManifest.put("id", release.getId());
+            releaseManifest.put("versionNumber", release.getVersionNumber());
+            releaseManifest.put("versionTag", release.getVersionTag());
+            releaseManifest.put("notes", release.getNotes());
+            releaseManifest.put("createdByUserId", release.getCreatedByUserId());
+            releaseManifest.put("immutable", true);
+            manifest.put("release", releaseManifest);
+        }
         manifest.put("warnings", validationWarnings);
         manifest.put("items", manifestItems);
 
@@ -895,6 +1001,9 @@ public class DatasetService {
                 warnings,
                 stats,
                 items.stream().map(this::toItemResponse).toList(),
+                datasetReleaseRepository.findByDatasetIdOrderByVersionNumberDesc(dataset.getId()).stream()
+                        .map(this::toReleaseSummaryResponse)
+                        .toList(),
                 capabilities
         );
     }
@@ -940,6 +1049,27 @@ public class DatasetService {
                 item.getCopiedAt(),
                 item.getCreated(),
                 item.getUpdated()
+        );
+    }
+
+    private DatasetDto.ReleaseSummaryResponse toReleaseSummaryResponse(DatasetRelease release) {
+        return new DatasetDto.ReleaseSummaryResponse(
+                release.getId(),
+                release.getVersionNumber(),
+                release.getVersionTag(),
+                release.getNotes(),
+                DatasetDto.DatasetReleaseStatus.valueOf(release.getStatus().name()),
+                release.getValidationStatus(),
+                release.getFailureReason(),
+                release.getItemCount() == null ? 0L : release.getItemCount(),
+                release.getPackageFileName(),
+                release.getPackageFileSize(),
+                release.getPackageChecksumSha256(),
+                release.getManifestChecksumSha256(),
+                release.getCreatedByUserId(),
+                release.getSourceDatasetUpdatedAt(),
+                release.getCreated(),
+                release.getUpdated()
         );
     }
 
@@ -1165,8 +1295,16 @@ public class DatasetService {
         return value == null ? 0 : value;
     }
 
+    private String normalizeNullableText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isBlank() ? null : normalized;
+    }
+
     private List<String> defaultList(List<String> values) {
-        return values == null ? List.of() : values;
+        return values == null ? List.of() : new ArrayList<>(values);
     }
 
     private String sanitizeSegment(String value) {
@@ -1174,6 +1312,19 @@ public class DatasetService {
             return "unknown";
         }
         return value.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private String normalizeReleaseTag(String requestedTag, int versionNumber, String datasetId) {
+        String candidate = normalizeNullableText(requestedTag);
+        if (candidate == null) {
+            candidate = "v" + versionNumber;
+        }
+        String normalized = candidate.trim();
+        if (datasetReleaseRepository.findByDatasetIdOrderByVersionNumberDesc(datasetId).stream()
+                .anyMatch(release -> release.getVersionTag() != null && release.getVersionTag().equalsIgnoreCase(normalized))) {
+            throw new IllegalArgumentException("Release tag already exists in this dataset");
+        }
+        return normalized;
     }
 
     private String fileExtension(String fileName) {
@@ -1204,6 +1355,66 @@ public class DatasetService {
         }
     }
 
+    private String computeSha256(byte[] bytes) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(bytes);
+            byte[] hash = digest.digest();
+            StringBuilder builder = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                builder.append(String.format("%02x", b));
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 digest unavailable", e);
+        }
+    }
+
+    private long estimatePackageBytes(ExportSnapshot exportSnapshot) {
+        long fileBytes = exportSnapshot.files().stream().mapToLong(file -> {
+            try {
+                return Files.size(file.absolutePath());
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to read export file size", e);
+            }
+        }).sum();
+        return fileBytes + 1_048_576L;
+    }
+
+    private byte[] createPackageBytes(ExportSnapshot exportSnapshot) throws IOException {
+        return archiveIoService.createZip(zipOut -> {
+            archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportSnapshot.manifest());
+            archiveIoService.writeJsonEntry(zipOut, "stats.json", exportSnapshot.stats());
+
+            for (Map.Entry<DatasetItem.Split, List<Map<String, Object>>> entry : exportSnapshot.jsonlRowsBySplit().entrySet()) {
+                if (entry.getValue().isEmpty()) {
+                    continue;
+                }
+                String content = entry.getValue().stream()
+                        .map(row -> {
+                            try {
+                                return objectMapper.writeValueAsString(row);
+                            } catch (IOException e) {
+                                throw new IllegalStateException("Failed to serialize JSONL row", e);
+                            }
+                        })
+                        .collect(Collectors.joining("\n")) + "\n";
+                String splitName = entry.getKey().name().toLowerCase(Locale.ROOT);
+                archiveIoService.writeBytesEntry(zipOut, "splits/" + splitName + ".jsonl", content.getBytes());
+            }
+
+            for (ExportFile exportFile : exportSnapshot.files()) {
+                archiveIoService.writeFileEntry(zipOut, exportFile.archivePath(), exportFile.absolutePath());
+            }
+        });
+    }
+
+    private Path datasetReleaseRoot(String workspaceId, String datasetId, String releaseId) {
+        return datasetRoot(workspaceId, datasetId, null)
+                .resolve("releases")
+                .resolve(sanitizeSegment(releaseId));
+    }
+
     private record PendingItem(Page page, PageXml xml, List<PageImage> images, DatasetItem.Mode mode) {
     }
 
@@ -1226,5 +1437,8 @@ public class DatasetService {
                                   DatasetDto.StatsResponse stats,
                                   Map<DatasetItem.Split, List<Map<String, Object>>> jsonlRowsBySplit,
                                   List<ExportFile> files) {
+    }
+
+    public record ReleaseDownload(String fileName, byte[] bytes) {
     }
 }

@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DatasetDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.DatasetRelease;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
@@ -193,6 +194,55 @@ class DatasetServiceIntegrationTest {
                 () -> datasetService.exportDatasetPackage(source.workspaceId(), dataset.id(), "user-1")
         );
         assertTrue(thrown.getMessage().contains("broken items"));
+    }
+
+    @Test
+    void createReleaseFreezesCurrentDatasetPackageAndListsReleaseMetadata() throws Exception {
+        TestSourcePage source = createSourcePage("ws-release", "release-page", "xml-release-v1", "img-release-v1");
+        DatasetDto.DetailResponse dataset = createDataset(source.workspaceId(), "Release dataset");
+
+        datasetService.addItems(
+                source.workspaceId(),
+                dataset.id(),
+                new DatasetDto.AddItemsRequest(new ArrayList<>(List.of(new DatasetDto.AddItemRequest(
+                        source.project().getId(),
+                        source.page().getId(),
+                        DatasetItem.Mode.LINK,
+                        source.xml().getId(),
+                        new ArrayList<>(List.of(source.image().getId()))
+                )))),
+                "user-1"
+        );
+
+        DatasetDto.ReleaseSummaryResponse release = datasetService.createRelease(
+                source.workspaceId(),
+                dataset.id(),
+                new DatasetDto.CreateReleaseRequest(null, "First frozen release"),
+                "user-1"
+        );
+
+        assertEquals(1, release.versionNumber());
+        assertEquals("v1", release.versionTag());
+        assertEquals(DatasetDto.DatasetReleaseStatus.READY, release.status());
+        assertNotNull(release.packageChecksumSha256());
+
+        Files.writeString(source.xmlPath(), "xml-release-v2", StandardCharsets.UTF_8);
+        Files.writeString(source.imagePath(), "img-release-v2", StandardCharsets.UTF_8);
+
+        DatasetService.ReleaseDownload download = datasetService.downloadReleasePackage(
+                source.workspaceId(),
+                dataset.id(),
+                release.id(),
+                "user-1"
+        );
+        Path extracted = archiveIoService.extractZipToTempDir(new ByteArrayInputStream(download.bytes()), "dataset-release-download");
+
+        assertEquals("xml-release-v1", Files.readString(findSingleFile(extracted, "files/xml")));
+        assertEquals("img-release-v1", Files.readString(findSingleFile(extracted, "files/images")));
+
+        DatasetDto.DetailResponse refreshedDataset = datasetService.getDataset(source.workspaceId(), dataset.id(), "user-1");
+        assertEquals(1, refreshedDataset.releases().size());
+        assertEquals(release.id(), refreshedDataset.releases().getFirst().id());
     }
 
     private DatasetDto.DetailResponse createDataset(String workspaceId, String name) {

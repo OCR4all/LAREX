@@ -131,4 +131,36 @@ public class DatasetController {
                 .build());
         return ResponseEntity.ok().headers(headers).body(packageBytes);
     }
+
+    @GetMapping("/{datasetId}/releases")
+    public ResponseEntity<List<DatasetDto.ReleaseSummaryResponse>> listReleases(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(datasetService.listReleases(workspaceId, datasetId, userId));
+    }
+
+    @PostMapping("/{datasetId}/releases")
+    public ResponseEntity<DatasetDto.ReleaseSummaryResponse> createRelease(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @Valid @RequestBody(required = false) DatasetDto.CreateReleaseRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+        return ResponseEntity.status(HttpStatus.CREATED).body(datasetService.createRelease(workspaceId, datasetId, request, userId));
+    }
+
+    @GetMapping("/{datasetId}/releases/{releaseId}/download")
+    public ResponseEntity<byte[]> downloadRelease(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @PathVariable String releaseId,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+        DatasetService.ReleaseDownload releaseDownload = datasetService.downloadReleasePackage(workspaceId, datasetId, releaseId, userId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(releaseDownload.fileName())
+                .build());
+        return ResponseEntity.ok().headers(headers).body(releaseDownload.bytes());
+    }
 }

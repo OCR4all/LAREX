@@ -62,6 +62,13 @@ public class DatasetDto {
             List<String> stratifyTagIds
     ) {}
 
+    public record CreateReleaseRequest(
+            @Size(max = 128, message = "Release tag must not exceed 128 characters")
+            String versionTag,
+            @Size(max = 4000, message = "Release notes must not exceed 4000 characters")
+            String notes
+    ) {}
+
     public record SummaryResponse(
             String id,
             String workspaceId,
@@ -101,6 +108,7 @@ public class DatasetDto {
             List<String> lastValidationWarnings,
             StatsResponse stats,
             List<ItemResponse> items,
+            List<ReleaseSummaryResponse> releases,
             AuthorizationCapabilitiesDto.DatasetCapabilities capabilities
     ) {}
 
@@ -137,6 +145,31 @@ public class DatasetDto {
             List<String> warnings,
             List<ValidationIssue> issues
     ) {}
+
+    public record ReleaseSummaryResponse(
+            String id,
+            Integer versionNumber,
+            String versionTag,
+            String notes,
+            DatasetReleaseStatus status,
+            Dataset.ValidationStatus validationStatus,
+            String failureReason,
+            long itemCount,
+            String packageFileName,
+            Long packageFileSize,
+            String packageChecksumSha256,
+            String manifestChecksumSha256,
+            String createdByUserId,
+            LocalDateTime sourceDatasetUpdatedAt,
+            LocalDateTime created,
+            LocalDateTime updated
+    ) {}
+
+    public enum DatasetReleaseStatus {
+        CREATING,
+        READY,
+        FAILED
+    }
 
     public record StatsResponse(
             long totalItems,

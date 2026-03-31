@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetReleaseRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
@@ -55,6 +56,9 @@ class WorkspaceStorageQuotaServiceTest {
 
     @Autowired
     private DatasetItemRepository datasetItemRepository;
+
+    @Autowired
+    private DatasetReleaseRepository datasetReleaseRepository;
 
     @Test
     void getOrCreateQuotaSeedsUsageFromWorkspaceFiles() {
@@ -200,5 +204,33 @@ class WorkspaceStorageQuotaServiceTest {
 
         WorkspaceStorageQuota quota = quotaService.getOrCreateQuota(workspaceId);
         assertEquals(500L, quota.getCurrentUsageBytes());
+    }
+
+    @Test
+    void getOrCreateQuotaCountsDatasetReleasePackages() {
+        String workspaceId = "ws-dataset-release-usage";
+
+        Dataset dataset = new Dataset();
+        dataset.setWorkspaceId(workspaceId);
+        dataset.setName("Released dataset");
+        dataset = datasetRepository.save(dataset);
+
+        DatasetRelease release = new DatasetRelease();
+        release.setDataset(dataset);
+        release.setVersionNumber(1);
+        release.setVersionTag("v1");
+        release.setCreatedByUserId("user-1");
+        release.setStatus(DatasetRelease.Status.READY);
+        release.setValidationStatus(Dataset.ValidationStatus.VALID);
+        release.setItemCount(3L);
+        release.setPackageFileName("dataset-v1.zip");
+        release.setPackageFilePath("/tmp/dataset/releases/v1.zip");
+        release.setPackageFileSize(2048L);
+        release.setPackageChecksumSha256("release-checksum");
+        release.setManifestChecksumSha256("manifest-checksum");
+        datasetReleaseRepository.save(release);
+
+        WorkspaceStorageQuota quota = quotaService.getOrCreateQuota(workspaceId);
+        assertEquals(2048L, quota.getCurrentUsageBytes());
     }
 }

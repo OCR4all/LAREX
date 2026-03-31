@@ -7,6 +7,7 @@ export type DatasetItemSplit = 'TRAIN' | 'VAL' | 'TEST'
 export type DatasetValidationStatus = 'NOT_VALIDATED' | 'VALID' | 'INVALID'
 export type DatasetExportStatus = 'NEVER_EXPORTED' | 'READY' | 'FAILED'
 export type DatasetItemStatus = 'READY' | 'BROKEN'
+export type DatasetReleaseStatus = 'CREATING' | 'READY' | 'FAILED'
 
 export interface DatasetStats {
   totalItems: number
@@ -67,6 +68,7 @@ export interface DatasetDetail extends DatasetSummary {
   stratifyTagIds: string[]
   lastValidationWarnings: string[]
   items: DatasetItem[]
+  releases: DatasetRelease[]
 }
 
 export interface DatasetCreateOrUpdateRequest {
@@ -94,6 +96,30 @@ export interface DatasetValidateIssue {
   itemId: string
   sourcePageName: string
   reason: string
+}
+
+export interface DatasetRelease {
+  id: string
+  versionNumber: number
+  versionTag: string
+  notes?: string | null
+  status: DatasetReleaseStatus
+  validationStatus: DatasetValidationStatus
+  failureReason?: string | null
+  itemCount: number
+  packageFileName?: string | null
+  packageFileSize?: number | null
+  packageChecksumSha256?: string | null
+  manifestChecksumSha256?: string | null
+  createdByUserId: string
+  sourceDatasetUpdatedAt?: string | null
+  created: string
+  updated: string
+}
+
+export interface DatasetCreateReleaseRequest {
+  versionTag?: string | null
+  notes?: string | null
 }
 
 export interface DatasetValidationResult {

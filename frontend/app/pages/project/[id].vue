@@ -4,6 +4,7 @@ import {
   LazyPageSlideoverEdit,
   LazyPageModalImages,
   LazyProjectModalConflictResolution,
+  LazyProjectSlideoverAddToDataset,
   LazyProjectSlideoverPdfPrefix,
   LazyProjectSlideoverEdit,
   LazyProjectSlideoverExportTarget,
@@ -18,7 +19,6 @@ import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import type { Subtask } from '~/types/index'
-import type { DatasetCreateOrUpdateRequest, DatasetItemMode, DatasetSummary } from '@/types/dataset'
 import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { createPageXmlLabelSet } from '@/models/editor'
@@ -139,31 +139,6 @@ type Page = {
   imageCount: number
   thumbnailUrl?: string | null
   indexingStatus?: PageIndexingStatus
-}
-
-type DatasetPageImageOption = {
-  id: string
-  fileName: string
-  variant: string
-  baseName: string
-}
-
-type DatasetPageXmlOption = {
-  id: string
-  fileName: string
-  schema: string
-  schemaVersion?: string
-  variant?: string
-}
-
-type DatasetSelectionEntry = {
-  pageId: string
-  pageName: string
-  xmlOptions: DatasetPageXmlOption[]
-  imageOptions: DatasetPageImageOption[]
-  selectedXmlId: string
-  selectedImageIds: string[]
-  error: string | null
 }
 
 const { data: project, error: projectError, pending: projectPending, refresh: refreshProject } = await useFetch<ProjectData>(() => `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`, {
@@ -536,6 +511,7 @@ const projectShareSlideover = overlay.create(LazyShareSlideover, {
   }
 } as unknown as { onTransferred(): Promise<void> })
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
+const addToDatasetSlideover = overlay.create(LazyProjectSlideoverAddToDataset)
 const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePages)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
 const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
@@ -1195,50 +1171,6 @@ const {
 const selectedPageIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedPageIds.value.size > 0)
 
-const NEW_DATASET_TARGET = '__new__'
-const addToDatasetModalOpen = ref(false)
-const isAddToDatasetLoading = ref(false)
-const isAddToDatasetSubmitting = ref(false)
-const addToDatasetMode = ref<DatasetItemMode>('LINK')
-const addToDatasetTargetId = ref<string>(NEW_DATASET_TARGET)
-const availableDatasets = ref<Array<Pick<DatasetSummary, 'id' | 'name' | 'tags'>>>([])
-const datasetSelectionEntries = ref<DatasetSelectionEntry[]>([])
-const newDatasetName = ref('')
-const newDatasetDescription = ref('')
-const newDatasetTags = ref('')
-
-const datasetTargetOptions = computed(() => [
-  ...availableDatasets.value.map(dataset => ({
-    label: dataset.name,
-    value: dataset.id
-  })),
-  {
-    label: 'Create new dataset',
-    value: NEW_DATASET_TARGET
-  }
-])
-
-const datasetModeOptions = [
-  { label: 'Link to latest annotation state', value: 'LINK' },
-  { label: 'Copy and freeze current page state', value: 'COPY' }
-] as const
-
-const invalidDatasetSelectionEntries = computed(() =>
-  datasetSelectionEntries.value.filter(entry =>
-    !!entry.error || !entry.selectedXmlId || entry.selectedImageIds.length === 0
-  )
-)
-
-const canSubmitAddToDataset = computed(() =>
-  canManageDatasets.value
-  && hasSelection.value
-  && !isAddToDatasetLoading.value
-  && !isAddToDatasetSubmitting.value
-  && datasetSelectionEntries.value.length > 0
-  && invalidDatasetSelectionEntries.value.length === 0
-  && (addToDatasetTargetId.value !== NEW_DATASET_TARGET || !!newDatasetName.value.trim())
-)
-
 function togglePageSelection(pageId: string) {
   const newSet = new Set(selectedPageIds.value)
   if (newSet.has(pageId)) {
@@ -1261,205 +1193,6 @@ function clearSelection() {
   selectedPageIds.value = new Set()
 }
 
-function resetAddToDatasetState() {
-  addToDatasetMode.value = 'LINK'
-  addToDatasetTargetId.value = NEW_DATASET_TARGET
-  availableDatasets.value = []
-  datasetSelectionEntries.value = []
-  newDatasetName.value = project.value?.name ? `${project.value.name} Dataset` : 'New Dataset'
-  newDatasetDescription.value = project.value?.name ? `Selected pages from project ${project.value.name}` : ''
-  newDatasetTags.value = project.value?.tags?.join(', ') ?? ''
-}
-
-function preferredDatasetXmlId(options: DatasetPageXmlOption[]): string {
-  const pageXml = options.find(option => option.schema === 'PAGE_XML')
-  return (pageXml ?? options[0])?.id ?? ''
-}
-
-function formatDatasetXmlLabel(option: DatasetPageXmlOption): string {
-  const parts = [
-    option.variant?.trim(),
-    option.schema?.trim(),
-    option.fileName?.trim()
-  ].filter(Boolean)
-  return parts.join(' · ')
-}
-
-function formatDatasetImageLabel(option: DatasetPageImageOption): string {
-  const parts = [
-    option.variant?.trim(),
-    option.baseName?.trim(),
-    option.fileName?.trim()
-  ].filter(Boolean)
-  return parts.join(' · ')
-}
-
-async function loadDatasetSelectionEntry(pageId: string): Promise<DatasetSelectionEntry> {
-  const pageMeta = pages.value?.find(page => page.id === pageId)
-  const pageName = pageMeta?.name ?? pageId
-
-  try {
-    const [xmlOptions, imageOptions] = await Promise.all([
-      $fetch<DatasetPageXmlOption[]>(`/api/projects/${projectId}/pages/${pageId}/xml`),
-      $fetch<DatasetPageImageOption[]>(`/api/projects/${projectId}/pages/${pageId}/images`)
-    ])
-
-    if (!xmlOptions.length) {
-      return {
-        pageId,
-        pageName,
-        xmlOptions,
-        imageOptions,
-        selectedXmlId: '',
-        selectedImageIds: [],
-        error: 'This page has no XML annotation variants.'
-      }
-    }
-
-    if (!imageOptions.length) {
-      return {
-        pageId,
-        pageName,
-        xmlOptions,
-        imageOptions,
-        selectedXmlId: preferredDatasetXmlId(xmlOptions),
-        selectedImageIds: [],
-        error: 'This page has no image variants.'
-      }
-    }
-
-    return {
-      pageId,
-      pageName,
-      xmlOptions,
-      imageOptions,
-      selectedXmlId: preferredDatasetXmlId(xmlOptions),
-      selectedImageIds: imageOptions.map(image => image.id),
-      error: null
-    }
-  } catch (error) {
-    return {
-      pageId,
-      pageName,
-      xmlOptions: [],
-      imageOptions: [],
-      selectedXmlId: '',
-      selectedImageIds: [],
-      error: getErrorMessage(error, 'Failed to load XML and image variants for this page.')
-    }
-  }
-}
-
-async function openAddToDatasetModal() {
-  if (!selectedWorkspace.value || !hasSelection.value || !canManageDatasets.value) return
-
-  resetAddToDatasetState()
-  addToDatasetModalOpen.value = true
-  isAddToDatasetLoading.value = true
-
-  try {
-    const pageIds = Array.from(selectedPageIds.value)
-    const [datasets, entries] = await Promise.all([
-      $fetch<Array<Pick<DatasetSummary, 'id' | 'name' | 'tags'>>>(`/api/workspaces/${selectedWorkspace.value}/datasets`),
-      Promise.all(pageIds.map(pageId => loadDatasetSelectionEntry(pageId)))
-    ])
-
-    availableDatasets.value = datasets
-      .map(dataset => ({ id: dataset.id, name: dataset.name, tags: dataset.tags ?? [] }))
-      .sort((left, right) => left.name.localeCompare(right.name))
-    datasetSelectionEntries.value = entries
-    addToDatasetTargetId.value = availableDatasets.value[0]?.id ?? NEW_DATASET_TARGET
-  } catch (error) {
-    toast.add({
-      title: 'Failed to load dataset options',
-      description: getErrorMessage(error, 'Could not load datasets or page variants for the selected pages.'),
-      color: 'error'
-    })
-  } finally {
-    isAddToDatasetLoading.value = false
-  }
-}
-
-function buildDatasetCreatePayload(): DatasetCreateOrUpdateRequest {
-  return {
-    name: newDatasetName.value.trim(),
-    description: newDatasetDescription.value.trim() || null,
-    tags: parseCsv(newDatasetTags.value),
-    splitTemplate: 'TRAIN_VAL_TEST',
-    splitAlgorithm: 'RANDOM_SEEDED',
-    splitSeed: 42,
-    trainPercentage: 70,
-    valPercentage: 15,
-    testPercentage: 15,
-    stratifyTagIds: []
-  }
-}
-
-async function createDatasetForSelectionFlow(): Promise<string> {
-  if (!selectedWorkspace.value) {
-    throw new Error('No workspace selected.')
-  }
-
-  const created = await $fetch<Pick<DatasetSummary, 'id' | 'name' | 'tags'>>(
-    `/api/workspaces/${selectedWorkspace.value}/datasets`,
-    {
-      method: 'POST',
-      body: buildDatasetCreatePayload()
-    }
-  )
-
-  availableDatasets.value = [
-    ...availableDatasets.value,
-    { id: created.id, name: created.name, tags: created.tags ?? [] }
-  ].sort((left, right) => left.name.localeCompare(right.name))
-
-  await refreshNuxtData(wsKey(selectedWorkspace.value, 'datasets', 'list'))
-  return created.id
-}
-
-async function submitAddToDataset() {
-  if (!selectedWorkspace.value || !canSubmitAddToDataset.value) return
-
-  isAddToDatasetSubmitting.value = true
-
-  try {
-    let targetDatasetId = addToDatasetTargetId.value
-    if (targetDatasetId === NEW_DATASET_TARGET) {
-      targetDatasetId = await createDatasetForSelectionFlow()
-    }
-
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${targetDatasetId}/items`, {
-      method: 'POST',
-      body: {
-        items: datasetSelectionEntries.value.map(entry => ({
-          sourceProjectId: projectId,
-          sourcePageId: entry.pageId,
-          mode: addToDatasetMode.value,
-          sourceXmlId: entry.selectedXmlId,
-          sourceImageIds: entry.selectedImageIds
-        }))
-      }
-    })
-
-    toast.add({
-      title: 'Dataset updated',
-      description: `${datasetSelectionEntries.value.length} selected ${datasetSelectionEntries.value.length === 1 ? 'page was' : 'pages were'} added to the dataset.`,
-      color: 'success'
-    })
-
-    addToDatasetModalOpen.value = false
-    await refreshNuxtData(wsKey(selectedWorkspace.value, 'datasets', 'list'))
-  } catch (error) {
-    toast.add({
-      title: 'Add to dataset failed',
-      description: getErrorMessage(error, 'Could not add the selected pages to the dataset.'),
-      color: 'error'
-    })
-  } finally {
-    isAddToDatasetSubmitting.value = false
-  }
-}
-
 const page = ref(1)
 const itemsPerPage = ref(25)
 const totalItems = computed(() => filteredPages.value.length)
@@ -1468,6 +1201,29 @@ const paginatedPages = computed(() => {
   const start = (page.value - 1) * itemsPerPage.value
   return filteredPages.value.slice(start, start + itemsPerPage.value)
 })
+
+async function openAddToDatasetSlideover() {
+  if (!hasSelection.value || !canManageDatasets.value) return
+
+  const selectedPages = Array.from(selectedPageIds.value).map((pageId) => {
+    const sourcePage = pages.value?.find(page => page.id === pageId)
+    return {
+      id: pageId,
+      name: sourcePage?.name || pageId
+    }
+  })
+
+  const instance = addToDatasetSlideover.open({
+    projectId,
+    projectName: project.value?.name ?? 'Project',
+    projectTags: project.value?.tags ?? [],
+    pages: selectedPages
+  })
+  const result = await instance.result as { datasetId: string, addedCount: number, skippedCount: number } | null
+  if (!result) return
+
+  clearSelection()
+}
 
 async function openBulkDeleteSlideover() {
   if (!allow(projectCapabilities.value.canDeletePages)) return
@@ -2604,7 +2360,7 @@ useHead({
                 variant="soft"
                 size="sm"
                 :disabled="!hasSelection"
-                @click="openAddToDatasetModal"
+                @click="openAddToDatasetSlideover"
               >
                 Add To Dataset
               </UButton>
@@ -2745,152 +2501,6 @@ useHead({
       </div>
     </template>
   </UDashboardPanel>
-
-  <UModal
-    v-model:open="addToDatasetModalOpen"
-    title="Add Selected Pages To Dataset"
-    :ui="{ content: 'sm:max-w-5xl' }"
-  >
-    <template #body>
-      <div v-if="isAddToDatasetLoading" class="space-y-4">
-        <USkeleton class="h-20 w-full rounded-lg" />
-        <USkeleton class="h-32 w-full rounded-lg" />
-        <USkeleton class="h-32 w-full rounded-lg" />
-      </div>
-      <div v-else class="space-y-4">
-        <UAlert
-          color="neutral"
-          variant="subtle"
-          title="Selected dataset pages"
-          :description="`Choose one XML annotation source and one or more image variants for each of the ${datasetSelectionEntries.length} selected pages.`"
-        />
-
-        <div class="grid gap-4 lg:grid-cols-2">
-          <UFormField label="Target dataset">
-            <USelect
-              v-model="addToDatasetTargetId"
-              :items="datasetTargetOptions"
-              value-key="value"
-            />
-          </UFormField>
-          <UFormField label="Storage mode">
-            <USelect
-              v-model="addToDatasetMode"
-              :items="datasetModeOptions"
-              value-key="value"
-            />
-          </UFormField>
-        </div>
-
-        <div v-if="addToDatasetTargetId === NEW_DATASET_TARGET" class="space-y-4 rounded-lg border border-default p-4">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-sm font-medium">
-                New dataset metadata
-              </p>
-              <p class="text-xs text-muted">
-                The new dataset starts with a seeded 70/15/15 random split. You can refine split settings on the dataset detail page afterward.
-              </p>
-            </div>
-          </div>
-          <div class="grid gap-4 lg:grid-cols-2">
-            <UFormField label="Name" required>
-              <UInput v-model="newDatasetName" placeholder="Dataset name" />
-            </UFormField>
-            <UFormField label="Tags">
-              <UInput v-model="newDatasetTags" placeholder="comma,separated,tags" />
-            </UFormField>
-          </div>
-          <UFormField label="Description">
-            <UTextarea v-model="newDatasetDescription" :rows="3" placeholder="Optional description" />
-          </UFormField>
-        </div>
-
-        <UAlert
-          v-if="invalidDatasetSelectionEntries.length > 0"
-          color="warning"
-          variant="subtle"
-          title="Some selected pages cannot be added yet"
-          :description="`${invalidDatasetSelectionEntries.length} selected ${invalidDatasetSelectionEntries.length === 1 ? 'page is' : 'pages are'} missing a required XML or image selection.`"
-        />
-
-        <div class="max-h-[55vh] space-y-3 overflow-y-auto pr-1">
-          <UCard
-            v-for="entry in datasetSelectionEntries"
-            :key="entry.pageId"
-          >
-            <template #header>
-              <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="font-medium truncate">
-                    {{ entry.pageName }}
-                  </p>
-                  <p class="text-xs text-muted">
-                    {{ entry.pageId }}
-                  </p>
-                </div>
-                <UBadge :color="entry.error ? 'warning' : 'success'" variant="soft">
-                  {{ entry.error ? 'Needs attention' : 'Ready' }}
-                </UBadge>
-              </div>
-            </template>
-
-            <UAlert
-              v-if="entry.error"
-              color="warning"
-              variant="subtle"
-              :title="entry.pageName"
-              :description="entry.error"
-            />
-
-            <div v-else class="grid gap-4 lg:grid-cols-2">
-              <UFormField label="XML annotation source" required>
-                <USelect
-                  v-model="entry.selectedXmlId"
-                  :items="entry.xmlOptions.map(option => ({ label: formatDatasetXmlLabel(option), value: option.id }))"
-                  value-key="value"
-                />
-              </UFormField>
-              <UFormField
-                label="Image variants"
-                required
-                :help="entry.selectedImageIds.length > 0 ? `${entry.selectedImageIds.length} selected` : 'Select one or more image variants.'"
-              >
-                <USelectMenu
-                  v-model="entry.selectedImageIds"
-                  :items="entry.imageOptions.map(option => ({ label: formatDatasetImageLabel(option), value: option.id }))"
-                  value-key="value"
-                  multiple
-                  searchable
-                  clear-search-on-close
-                />
-              </UFormField>
-            </div>
-          </UCard>
-        </div>
-      </div>
-    </template>
-    <template #footer>
-      <div class="flex w-full items-center justify-between gap-3">
-        <p class="text-xs text-muted">
-          `LINK` resolves the latest page state at export time. `COPY` freezes the selected XML and image variants immediately.
-        </p>
-        <div class="flex items-center gap-2">
-          <UButton color="neutral" variant="ghost" @click="addToDatasetModalOpen = false">
-            Cancel
-          </UButton>
-          <UButton
-            color="primary"
-            :loading="isAddToDatasetSubmitting"
-            :disabled="!canSubmitAddToDataset"
-            @click="submitAddToDataset"
-          >
-            Add Pages
-          </UButton>
-        </div>
-      </div>
-    </template>
-  </UModal>
 
   <UModal v-model:open="isDictionaryValidationModalOpen" title="Dictionary Validation">
     <template #body>

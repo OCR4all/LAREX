@@ -125,6 +125,9 @@ public class Dataset {
     @OneToMany(mappedBy = "dataset", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<DatasetItem> items = new ArrayList<>();
 
+    @OneToMany(mappedBy = "dataset", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<DatasetRelease> releases = new ArrayList<>();
+
     public String getId() {
         return id;
     }
@@ -275,5 +278,13 @@ public class Dataset {
 
     public void setItems(List<DatasetItem> items) {
         this.items = items;
+    }
+
+    public List<DatasetRelease> getReleases() {
+        return releases;
+    }
+
+    public void setReleases(List<DatasetRelease> releases) {
+        this.releases = releases;
     }
 }
