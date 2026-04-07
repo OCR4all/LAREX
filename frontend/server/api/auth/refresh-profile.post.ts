@@ -1,5 +1,5 @@
-import { buildSessionUser } from '../../utils/session-profile'
-import { refreshTokenIfExpired } from '../../utils/auth'
+import { buildSessionUser } from '#server/utils/session-profile'
+import { refreshTokenIfExpired } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   try {

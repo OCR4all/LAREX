@@ -45,6 +45,8 @@ onMounted(async () => {
 
 <template>
   <div v-if="canvasId" class="h-full w-full">
+    <EditorCollaborationHost :canvas-id="canvasId" />
+
     <Editor
       v-if="uiMode === 'layout' && !!src"
       class="h-full w-full"

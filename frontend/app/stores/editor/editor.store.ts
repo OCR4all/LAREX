@@ -17,6 +17,7 @@ import { createScopedLogger } from '@/services/editor/logger-service'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto, type PageDto } from '@/services/editor/page-conversion.service'
 import { LRUCache } from '@/utils/lru-cache'
 import { loadSinglePageData, type PageResponse } from '@/services/editor/project-loader'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 
 const log = createScopedLogger('EditorStore')
 
@@ -1310,6 +1311,11 @@ export const useEditorStore = defineStore('editor', () => {
       const cacheKey = `${projectId}:${pageId}:${xmlFileId}`
       annotationCache.set(cacheKey, pageDto)
       resetCanvasHistoryBaseline(targetCanvasId)
+
+      if (import.meta.client) {
+        const collaboration = useEditorCollaboration()
+        await collaboration.acceptCurrentRevisionForCanvas(targetCanvasId)
+      }
 
       return true
     } catch (error) {

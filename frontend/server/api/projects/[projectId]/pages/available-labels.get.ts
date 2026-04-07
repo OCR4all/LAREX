@@ -1,6 +1,6 @@
 /**
  * GET /api/projects/{projectId}/pages/available-labels
- * 
+ *
  * Get available labels with page counts for filter dropdown.
  */
 export default defineEventHandler(async (event) => {
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { refreshTokenIfExpired } = await import('../../../../utils/auth')
+    const { refreshTokenIfExpired } = await import('#server/utils/auth')
     await refreshTokenIfExpired(event, { user, secure })
   } catch {
     throw createError({
@@ -37,15 +37,14 @@ export default defineEventHandler(async (event) => {
 
   const backendUrl = `${config.apiBaseInternal}/projects/${projectId}/pages/available-labels`
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${accessToken}`
+    Authorization: `Bearer ${accessToken}`
   }
 
   try {
-    const data = await $fetch(backendUrl, {
+    return await $fetch(backendUrl, {
       method: 'GET',
       headers
     })
-    return data
   } catch (error: any) {
     throw createError({
       statusCode: error.statusCode || 500,

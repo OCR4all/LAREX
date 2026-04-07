@@ -38,5 +38,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <EditorTextView v-if="canvasId" class="h-full w-full" :canvas-id="canvasId" />
+  <div v-if="canvasId" class="h-full w-full">
+    <EditorCollaborationHost :canvas-id="canvasId" />
+    <EditorTextView class="h-full w-full" :canvas-id="canvasId" />
+  </div>
 </template>

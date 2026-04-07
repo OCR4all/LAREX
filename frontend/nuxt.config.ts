@@ -20,6 +20,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   runtimeConfig: {
+    collaborationSecret: process.env.NUXT_COLLABORATION_SECRET || 'larex-collaboration-dev-secret',
     oauth: {
       keycloak: {
         serverUrl: 'http://keycloak.localhost',

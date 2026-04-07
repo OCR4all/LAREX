@@ -468,7 +468,8 @@ public class PageController {
                 xml.getBaseName(),
                 xml.getSchema().name(),
                 xml.getSchemaVersion(),
-                xml.getCreated()
+                xml.getCreated(),
+                xml.getUpdated()
         );
     }
 

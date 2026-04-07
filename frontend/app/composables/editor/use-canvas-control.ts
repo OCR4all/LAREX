@@ -1,6 +1,7 @@
 import { Commander } from '@/commands'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import type { Command, CommandContext } from '@/commands/editor/types'
 import { PolygonType } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
@@ -52,6 +53,8 @@ export function useCanvasControl(canvasId: string) {
   const commander = new Commander()
   const editorStore = useEditorStore()
   const editorUiStore = useEditorUiStore()
+  const collaboration = useEditorCollaboration()
+  const isCanvasEditable = computed(() => collaboration.canEditCanvas(canvasId))
 
   function getCommandContext(): CommandContext | undefined {
     const session = getEditorSession(canvasId)
@@ -95,24 +98,28 @@ export function useCanvasControl(canvasId: string) {
   const rawJumpToHistory = commander.jumpToHistory.bind(commander)
 
   commander.execute = (command: Command, ctx?: CommandContext) => {
+    if (!isCanvasEditable.value) return false
     const result = rawExecute(command, ctx)
     updateHistoryState()
     return result
   }
 
   commander.undo = (ctx?: CommandContext) => {
+    if (!isCanvasEditable.value) return false
     const result = rawUndo(ctx)
     updateHistoryState()
     return result
   }
 
   commander.redo = (ctx?: CommandContext) => {
+    if (!isCanvasEditable.value) return false
     const result = rawRedo(ctx)
     updateHistoryState()
     return result
   }
 
   commander.jumpToHistory = (targetIndex: number, ctx?: CommandContext) => {
+    if (!isCanvasEditable.value) return false
     const result = rawJumpToHistory(targetIndex, ctx)
     updateHistoryState()
     return result
@@ -123,30 +130,37 @@ export function useCanvasControl(canvasId: string) {
   }
 
   const toggleMoveMode = (): void => {
+    if (!isCanvasEditable.value) return
     drawingMode.value = DRAWING_MODES.MOVE
   }
 
   const togglePolygonMode = (): void => {
+    if (!isCanvasEditable.value) return
     drawingMode.value = DRAWING_MODES.POLYGON
   }
 
   const toggleRectangleMode = (): void => {
+    if (!isCanvasEditable.value) return
     drawingMode.value = DRAWING_MODES.RECTANGLE
   }
 
   const togglePolylineMode = (): void => {
+    if (!isCanvasEditable.value) return
     drawingMode.value = DRAWING_MODES.POLYLINE
   }
 
   const toggleCutLineMode = (): void => {
+    if (!isCanvasEditable.value) return
     drawingMode.value = DRAWING_MODES.CUT_LINE
   }
 
   const toggleCutPolygonMode = (): void => {
+    if (!isCanvasEditable.value) return
     drawingMode.value = DRAWING_MODES.CUT_POLYGON
   }
 
   const toggleCutRectangleMode = (): void => {
+    if (!isCanvasEditable.value) return
     drawingMode.value = DRAWING_MODES.CUT_RECTANGLE
   }
 
@@ -162,8 +176,12 @@ export function useCanvasControl(canvasId: string) {
     return commander.jumpToHistory(targetIndex, getCommandContext())
   }
 
-  const canUndo: ComputedRef<boolean> = computed(() => historyState.canUndo)
-  const canRedo: ComputedRef<boolean> = computed(() => historyState.canRedo)
+  const canUndo: ComputedRef<boolean> = computed(() => {
+    return isCanvasEditable.value && historyState.canUndo
+  })
+  const canRedo: ComputedRef<boolean> = computed(() => {
+    return isCanvasEditable.value && historyState.canRedo
+  })
 
   const setConstrainToImage = (value: boolean): void => {
     constrainToImage.value = value
@@ -229,6 +247,7 @@ export function useCanvasControl(canvasId: string) {
 
   const controls = {
     commander,
+    isCanvasEditable,
 
     drawingMode,
     selectedPolygonIndex,

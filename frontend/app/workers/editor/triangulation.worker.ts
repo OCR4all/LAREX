@@ -3,7 +3,7 @@
  * This prevents UI jank when processing large or complex polygons.
  */
 
-import { triangulatePolygonPoints, isPointInPolygon } from '@/utils/editor/hit-detection'
+import { triangulatePolygonPoints } from '@/utils/editor/hit-detection'
 
 export interface TriangulationRequest {
   id: string
@@ -51,7 +51,6 @@ function isBatchRequest(request: WorkerRequest): request is BatchTriangulationRe
  * Process a single triangulation request
  */
 function processTriangulation(
-  polygonId: string,
   points: Array<{ x: number, y: number }>
 ): { indices: number[], error?: string } {
   try {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TabPartInitParameters } from 'dockview-core'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorCloseRequests } from '@/composables/use-editor-close-requests'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { parsePagePanelId } from '@/stores/editor/editor.keys'
@@ -7,6 +8,7 @@ import { parsePagePanelId } from '@/stores/editor/editor.keys'
 const props = defineProps<{ params: TabPartInitParameters }>()
 
 const editorStore = useEditorStore()
+const collaboration = useEditorCollaboration()
 const closeRequests = useEditorCloseRequests()
 
 const title = ref(props.params.api.title ?? '')
@@ -24,6 +26,11 @@ const hasUnsavedChanges = computed(() => {
   const id = pageId.value
   if (!id) return false
   return editorStore.hasUnsavedChangesForPage(id, projectId.value ?? undefined)
+})
+const collaborators = computed(() => {
+  const id = pageId.value
+  if (!id) return []
+  return collaboration.getPageCollaborators(id, projectId.value)
 })
 
 let titleDisposable: { dispose: () => void } | null = null
@@ -56,6 +63,11 @@ function requestClose(ev: MouseEvent) {
     <div class="dv-default-tab-content">
       <span class="truncate">{{ title }}</span>
       <span v-if="hasUnsavedChanges" class="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
+      <span
+        v-if="collaborators.length > 0"
+        class="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-sky-400"
+        title="Collaboration active on this page"
+      />
     </div>
     <div class="dv-default-tab-action" @pointerdown.prevent @click="requestClose">
       <Icon name="i-lucide-x" class="h-3.5 w-3.5" />

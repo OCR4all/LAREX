@@ -6,6 +6,7 @@ import com.maxnth.page4j.basic.labels.LabelImpl;
 import com.maxnth.page4j.basic.labels.LabelGroup;
 import com.maxnth.page4j.basic.labels.Labels;
 import com.maxnth.page4j.basic.variable.BooleanVariable;
+import com.maxnth.page4j.basic.variable.IntegerVariable;
 import com.maxnth.page4j.basic.variable.StringValue;
 import com.maxnth.page4j.basic.variable.StringVariable;
 import com.maxnth.page4j.basic.variable.Variable;
@@ -550,7 +551,10 @@ public class DtoToPage4jMapper {
             removeAttribute(tc.getAttributes(), DefaultXmlNames.ATTR_index);
             return;
         }
-        if (indexVar == null) return;
+        if (indexVar == null) {
+            indexVar = new IntegerVariable(DefaultXmlNames.ATTR_index);
+            tc.getAttributes().add(indexVar);
+        }
         try {
             indexVar.setValue(VariableValue.of(index));
         } catch (Variable.WrongVariableTypeException ignored) {

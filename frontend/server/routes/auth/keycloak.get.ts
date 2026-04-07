@@ -1,4 +1,4 @@
-import { buildSessionUser } from '../../utils/session-profile'
+import { buildSessionUser } from '#server/utils/session-profile'
 
 export default defineOAuthKeycloakEventHandler({
   async onSuccess(event, { user, tokens }) {

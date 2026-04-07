@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.ErrorResponseDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ErrorEventCaptureRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.StorageQuotaErrorResponseDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.AnnotationCollaborationDto;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.ErrorEventContextResolver;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.ErrorEventService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -48,6 +49,25 @@ public class GlobalExceptionHandler {
         this.errorEventService = errorEventService;
         this.errorEventContextResolver = errorEventContextResolver;
         this.objectMapper = objectMapper;
+    }
+
+    /**
+     * Handle locked annotation lease conflicts.
+     */
+    @ExceptionHandler(AnnotationLeaseLockedException.class)
+    public ResponseEntity<AnnotationCollaborationDto.LockErrorResponse> handleAnnotationLeaseLockedException(
+            AnnotationLeaseLockedException ex, HttpServletRequest request) {
+
+        AnnotationCollaborationDto.LockErrorResponse errorResponse = new AnnotationCollaborationDto.LockErrorResponse(
+                HttpStatus.LOCKED.value(),
+                "Annotation Locked",
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.getOwner(),
+                ex.getReason()
+        );
+
+        return ResponseEntity.status(HttpStatus.LOCKED).body(errorResponse);
     }
 
     /**

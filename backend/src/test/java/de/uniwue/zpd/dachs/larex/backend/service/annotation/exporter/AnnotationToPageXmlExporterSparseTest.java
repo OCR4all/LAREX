@@ -64,6 +64,21 @@ class AnnotationToPageXmlExporterSparseTest {
     }
 
     @Test
+    void export_writesTextEquivIndexForNewlyAddedIndexedVariants() throws Exception {
+        AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
+        RegionDto region = textRegion("paragraph", null, null, null, null, List.of(
+            new TextContentVariantDto("GT", null, 0),
+            new TextContentVariantDto("OCR", null, 1)
+        ));
+        PageDto dto = createPageDto(region);
+
+        String xml = exporter.export(dto, null);
+
+        assertTrue(xml.contains("<TextEquiv index=\"0\""));
+        assertTrue(xml.contains("<TextEquiv index=\"1\""));
+    }
+
+    @Test
     void export_writesBaselineForNewTextLineWhenProvided() throws Exception {
         AnnotationToPageXmlExporter exporter = new AnnotationToPageXmlExporter(new DtoToPage4jMapper());
         TextLineDto textLine = new TextLineDto(

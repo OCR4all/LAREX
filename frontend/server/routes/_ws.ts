@@ -1,4 +1,4 @@
-import { websocketUtils, startHealthBroadcast } from '../utils/websocket'
+import { websocketUtils, startHealthBroadcast } from '#server/utils/websocket'
 import type { Peer } from 'crossws'
 
 function sendJson(peer: Peer, data: unknown) {

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
 import { triangulatePolygon } from '@/utils/editor/hit-detection'
-import { pixelsToWorld } from '@/utils/editor/coordinates'
-import { parseCanvasId } from '@/stores/editor/editor.keys'
+import { clipToWorldCoords, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
+import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
@@ -13,6 +14,9 @@ import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { CreateRelationCommand, UpdateRelationCommand } from '@/commands'
 import type { Relation } from '@/models/editor'
+import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
+import { getCollaborationColor } from '@/types/collaboration'
+import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 const ReadingOrderNumbersOverlay = LazyEditorReadingOrderNumbersOverlay
 const RelationsLabelsOverlay = LazyEditorRelationsLabelsOverlay
@@ -24,7 +28,9 @@ const props = defineProps({
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
+const collaboration = useEditorCollaboration()
 const session = useEditorSession(props.canvasId)
+const toast = useToast()
 
 const colorMode = useColorMode()
 
@@ -62,8 +68,124 @@ const pageId = computed(() => {
   return props.canvasId
 })
 
+const projectId = computed(() => {
+  const fromStore = editorStore.canvases?.[props.canvasId]?.projectId
+  if (fromStore) return fromStore
+  return parseCanvasId(props.canvasId)?.projectId ?? null
+})
+
+const canvasState = computed(() => editorStore.canvases?.[props.canvasId] ?? null)
+const xmlFileId = computed(() => canvasState.value?.xmlFileId ?? null)
+const selectedRegionId = computed(() => canvasState.value?.selectedRegionId ?? null)
+const selectedBaselineId = computed(() => canvasState.value?.selectedBaselineId ?? null)
+const remoteCollaborators = computed(() => collaboration.getCanvasCollaborators(props.canvasId))
+const canvasEditor = computed(() => collaboration.getCanvasEditor(props.canvasId))
+const isCanvasEditable = computed(() => collaboration.canEditCanvas(props.canvasId))
+const isCollaborationResyncRequired = computed(() => collaboration.isCanvasResyncRequired(props.canvasId))
+const pendingTakeover = computed(() => collaboration.getCanvasPendingTakeover(props.canvasId))
+const canForceTakeover = computed(() => !isCanvasEditable.value && collaboration.canForceTakeoverCanvas(props.canvasId))
+const collaborationSyncSuspended = ref(false)
+const collaboratorsPopoverOpen = ref(false)
+
 const hiddenPolygonIds = computed(() => usePageVisibilityState(pageId.value).value?.hiddenPolygonIds ?? [])
 const hiddenPolylineIds = computed(() => usePageVisibilityState(pageId.value).value?.hiddenPolylineIds ?? [])
+
+interface CollaborationDisplayParticipant {
+  key: string
+  user: CollaborationUserIdentity
+  presence: CollaborationPresence | null
+  role: 'editing' | 'viewing'
+  isCurrentUser: boolean
+}
+
+function latestMember(current: CollaborationRoomMember | undefined, next: CollaborationRoomMember): CollaborationRoomMember {
+  if (!current) return next
+  return new Date(next.lastSeenAt).getTime() >= new Date(current.lastSeenAt).getTime() ? next : current
+}
+
+function avatarSrc(user: CollaborationUserIdentity): string | undefined {
+  return resolveManagedProfileAvatarSrc(user.avatar)
+}
+
+function avatarFallback(user: CollaborationUserIdentity): string {
+  return getAvatarInitials({
+    name: user.displayName,
+    username: user.username
+  })
+}
+
+function collaborationAvatarStyle(userId: string): Record<string, string> {
+  const color = getCollaborationColor(userId)
+  return {
+    backgroundColor: hexToRgba(color, 0.18),
+    color,
+    borderColor: hexToRgba(color, 0.4)
+  }
+}
+
+function collaboratorActivityLabel(participant: CollaborationDisplayParticipant): string {
+  const modeLabel = participant.presence?.uiMode === 'text' ? ' in text view' : ''
+  if (participant.role === 'editing') {
+    return participant.presence?.active ? `Editing${modeLabel}` : 'Idle'
+  }
+
+  return `Viewing${modeLabel}`
+}
+
+function collaboratorStatus(participant: CollaborationDisplayParticipant): { label: string, color: 'primary' | 'neutral' } | null {
+  if (participant.role !== 'editing') return null
+
+  return participant.presence?.active
+    ? { label: 'Live', color: 'primary' }
+    : { label: 'Idle', color: 'neutral' }
+}
+
+const collaborationRoom = computed(() => collaboration.getRoomForCanvas(props.canvasId))
+
+const collaborationParticipants = computed<CollaborationDisplayParticipant[]>(() => {
+  const room = collaborationRoom.value
+  if (!room) return []
+
+  const dedupedMembers = room.members.reduce((members, member) => {
+    members.set(member.user.id, latestMember(members.get(member.user.id), member))
+    return members
+  }, new Map<string, CollaborationRoomMember>())
+
+  if (!dedupedMembers.has(room.user.id)) {
+    dedupedMembers.set(room.user.id, {
+      peerId: `self:${room.user.id}`,
+      user: room.user,
+      presence: null,
+      joinedAt: new Date().toISOString(),
+      lastSeenAt: new Date().toISOString()
+    })
+  }
+
+  const editorId = room.editor?.user.id ?? null
+
+  return [...dedupedMembers.values()]
+    .map(member => ({
+      key: member.user.id,
+      user: member.user,
+      presence: member.presence,
+      role: member.user.id === editorId ? 'editing' : 'viewing',
+      isCurrentUser: member.user.id === room.user.id
+    }))
+    .sort((left, right) => {
+      if (left.role !== right.role) return left.role === 'editing' ? -1 : 1
+      if (left.isCurrentUser !== right.isCurrentUser) return left.isCurrentUser ? -1 : 1
+      return left.user.displayName.localeCompare(right.user.displayName)
+    })
+})
+
+const collaborationVisibleParticipants = computed(() => collaborationParticipants.value.slice(0, 3))
+const editingParticipants = computed(() => collaborationParticipants.value.filter(participant => participant.role === 'editing'))
+const viewingParticipants = computed(() => collaborationParticipants.value.filter(participant => participant.role === 'viewing'))
+const collaborationSummaryLabel = computed(() => {
+  const count = collaborationParticipants.value.length
+  return `${count} collaborator${count === 1 ? '' : 's'}`
+})
+const showCollaboratorsPopover = computed(() => collaborationParticipants.value.length > 1)
 
 const activateEditor = () => editorStore.setActiveCanvas(props.canvasId)
 
@@ -122,6 +244,66 @@ const { isDrawingMode, isMoveMode, isPolygonMode, isRectangleMode, isPolylineMod
 
 const mouseInteraction = useMouseInteraction()
 const view = mouseInteraction.view
+
+const emitPresence = useThrottleFn(() => {
+  const targetProjectId = projectId.value
+  const targetPageId = pageId.value
+  const targetXmlId = xmlFileId.value
+  if (!targetProjectId || !targetPageId || !targetXmlId) return
+
+  if (!isCanvasEditable.value) {
+    collaboration.updatePresence(props.canvasId, {
+      projectId: targetProjectId,
+      pageId: targetPageId,
+      xmlId: targetXmlId,
+      panelId: getPagePanelId(targetProjectId, targetPageId),
+      canvasId: props.canvasId,
+      variantId: canvasState.value?.imageVariantId ?? null,
+      active: editorStore.activeCanvasId === props.canvasId
+    })
+    return
+  }
+
+  if (collaborationSyncSuspended.value) {
+    return
+  }
+
+  let cursor = null as { x: number, y: number } | null
+  const canvasElement = canvas.value as HTMLCanvasElement | null
+  const position = mouseInteraction.actionState.position
+  if (canvasElement && Number.isFinite(position.x) && Number.isFinite(position.y)) {
+    const rect = canvasElement.getBoundingClientRect()
+    const withinCanvas = position.x >= rect.left
+      && position.x <= rect.right
+      && position.y >= rect.top
+      && position.y <= rect.bottom
+
+    if (withinCanvas && canvasElement.clientWidth > 0 && canvasElement.clientHeight > 0) {
+      const clipX = ((position.x - rect.left) / canvasElement.clientWidth) * 2 - 1
+      const clipY = -(((position.y - rect.top) / canvasElement.clientHeight) * 2 - 1)
+      cursor = clipToWorldCoords({ x: clipX, y: clipY }, view, aspectRatioScale.value)
+    }
+  }
+
+  collaboration.updatePresence(props.canvasId, {
+    projectId: targetProjectId,
+    pageId: targetPageId,
+    xmlId: targetXmlId,
+    panelId: getPagePanelId(targetProjectId, targetPageId),
+    canvasId: props.canvasId,
+    variantId: canvasState.value?.imageVariantId ?? null,
+    uiMode: editorStore.effectiveUiMode(props.canvasId),
+    selectionId: selectedRegionId.value ?? selectedBaselineId.value,
+    selectionKind: selectedRegionId.value ? 'region' : (selectedBaselineId.value ? 'baseline' : null),
+    viewport: {
+      zoom: view.zoom,
+      offsetX: view.offsetX,
+      offsetY: view.offsetY
+    },
+    cursor,
+    active: editorStore.activeCanvasId === props.canvasId
+  })
+}, 200, true, true)
 
 const aspectRatioScale = computed(() => {
   const gl = webglRenderer.gl()
@@ -212,6 +394,17 @@ const moveInteraction = useMoveInteraction(
   moveWithChildren, canvasControls.commander, props.canvasId,
   hiddenPolygonIds, hiddenPolylineIds, canvasControls.viewMode
 )
+
+const isCollaborationHeavyInteraction = computed(() => {
+  if (!isCanvasEditable.value) return false
+
+  return mouseInteraction.actionState.action === 'drag'
+    || mouseInteraction.actionState.action === 'panning'
+    || mouseInteraction.actionState.action === 'scrolling'
+    || polygonEditing.draggedNodeInfo.isDragging
+    || polylineEditing.draggedNodeInfo.isDragging
+    || moveInteraction.state.isMoving
+})
 
 const editorCommands = useEditorCommand(
   canvasControls.commander,
@@ -589,6 +782,220 @@ function detachInteractions() {
   interactionsAttached = false
 }
 
+function toScreenPoint(point: { x: number, y: number }): { x: number, y: number } | null {
+  const imageSize = webglRenderer.imageSize.value
+  if (!imageSize.width || !imageSize.height || !canvasDimensions.value.width || !canvasDimensions.value.height) {
+    return null
+  }
+
+  const worldPoint = imageToWorld(point, imageSize)
+  const clipPoint = worldToClipCoords(worldPoint, view, aspectRatioScale.value)
+
+  return {
+    x: ((clipPoint.x + 1) / 2) * canvasDimensions.value.width,
+    y: ((1 - clipPoint.y) / 2) * canvasDimensions.value.height
+  }
+}
+
+function buildOverlayPath(points: { x: number, y: number }[], closed: boolean): { path: string, label: { x: number, y: number } } | null {
+  const screenPoints = points
+    .map(point => toScreenPoint(point))
+    .filter((point): point is { x: number, y: number } => point !== null)
+
+  if (screenPoints.length === 0) return null
+
+  const path = screenPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+  const closedPath = closed ? `${path} Z` : path
+  const anchor = screenPoints[0] ?? { x: 0, y: 0 }
+
+  return {
+    path: closedPath,
+    label: {
+      x: anchor.x,
+      y: anchor.y
+    }
+  }
+}
+
+const remoteSelectionOverlays = computed(() => {
+  const editorId = canvasEditor.value?.user.id
+  if (!editorId) return []
+
+  return remoteCollaborators.value.flatMap((member) => {
+    if (member.user.id !== editorId) return []
+
+    const selectionId = member.presence?.selectionId
+    const selectionKind = member.presence?.selectionKind
+    if (!selectionId || !selectionKind) return []
+
+    const color = getCollaborationColor(member.user.id)
+    const label = member.user.displayName
+
+    if (selectionKind === 'region') {
+      const polygon = polygons.find(item => item.id === selectionId)
+      if (!polygon) return []
+
+      const overlay = buildOverlayPath(polygon.points, true)
+      if (!overlay) return []
+
+      return [{
+        key: `${member.user.id}:${selectionId}`,
+        color,
+        label,
+        path: overlay.path,
+        labelX: overlay.label.x,
+        labelY: overlay.label.y
+      }]
+    }
+
+    const polyline = polylines.find(item => item.id === selectionId)
+    if (!polyline) return []
+
+    const overlay = buildOverlayPath(polyline.points, false)
+    if (!overlay) return []
+
+    return [{
+      key: `${member.user.id}:${selectionId}`,
+      color,
+      label,
+      path: overlay.path,
+      labelX: overlay.label.x,
+      labelY: overlay.label.y
+    }]
+  })
+})
+
+const remoteCursorOverlays = computed(() => {
+  if (!isCanvasEditable.value) return []
+
+  return remoteCollaborators.value.flatMap((member) => {
+    if (canvasEditor.value?.user.id !== member.user.id) return []
+
+    const cursor = member.presence?.cursor
+    if (!cursor || typeof cursor.x !== 'number' || typeof cursor.y !== 'number') return []
+
+    const clipPoint = worldToClipCoords(cursor, view, aspectRatioScale.value)
+    const screenPoint = {
+      x: ((clipPoint.x + 1) / 2) * canvasDimensions.value.width,
+      y: ((1 - clipPoint.y) / 2) * canvasDimensions.value.height
+    }
+
+    if (
+      !Number.isFinite(screenPoint.x)
+      || !Number.isFinite(screenPoint.y)
+      || screenPoint.x < 0
+      || screenPoint.y < 0
+      || screenPoint.x > canvasDimensions.value.width
+      || screenPoint.y > canvasDimensions.value.height
+    ) {
+      return []
+    }
+
+    return [{
+      key: `${member.user.id}:cursor`,
+      color: getCollaborationColor(member.user.id),
+      label: member.user.displayName,
+      x: screenPoint.x,
+      y: screenPoint.y
+    }]
+  })
+})
+
+async function handleRequestTakeover(force = false) {
+  const sent = await collaboration.requestTakeover(props.canvasId, force)
+  if (!sent) {
+    toast.add({
+      title: 'Request failed',
+      description: 'Could not send the edit transfer request.',
+      color: 'error'
+    })
+    return
+  }
+
+  toast.add({
+    title: force ? 'Force takeover requested' : 'Edit request sent',
+    description: force
+      ? 'The edit lock will transfer as soon as the current lease updates.'
+      : 'The current editor has been notified.',
+    color: force ? 'warning' : 'info'
+  })
+}
+
+async function handleRespondToTakeover(decision: 'accept' | 'decline', handoffMode: 'save' | 'discard' = 'save') {
+  const canvas = canvasState.value
+  if (!canvas) return
+
+  if (decision === 'accept') {
+    if (handoffMode === 'save') {
+      await editorStore.saveAnnotations(props.canvasId)
+    } else if (canvas.projectId && canvas.pageId) {
+      await editorStore.loadPageIntoCanvas(
+        props.canvasId,
+        canvas.projectId,
+        canvas.pageId,
+        canvas.imageVariantId ?? undefined
+      )
+    }
+  }
+
+  await collaboration.respondToTakeover(props.canvasId, decision, handoffMode)
+}
+
+async function handleResyncRoom() {
+  await collaboration.reloadRoomForCanvas(props.canvasId)
+  emitPresence()
+}
+
+watch(
+  () => isCollaborationHeavyInteraction.value,
+  (busy) => {
+    collaborationSyncSuspended.value = busy
+    collaboration.setCanvasSyncSuspended(props.canvasId, busy)
+
+    if (!busy) {
+      emitPresence()
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => collaboration.isCollaborativeCanvas(props.canvasId),
+  (ready) => {
+    if (ready) {
+      emitPresence()
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => isCanvasEditable.value
+    ? [
+        view.zoom,
+        view.offsetX,
+        view.offsetY,
+        mouseInteraction.actionState.position.x,
+        mouseInteraction.actionState.position.y,
+        mouseInteraction.actionState.action,
+        selectedRegionId.value,
+        selectedBaselineId.value,
+        canvasState.value?.imageVariantId ?? null,
+        editorStore.activeCanvasId === props.canvasId,
+        effectiveUiMode.value
+      ]
+    : [
+        canvasState.value?.imageVariantId ?? null,
+        editorStore.activeCanvasId === props.canvasId,
+        projectId.value,
+        pageId.value,
+        xmlFileId.value
+      ],
+  () => {
+    emitPresence()
+  }
+)
+
 onMounted(() => {
   editorStore.registerCanvas(props.canvasId)
 
@@ -615,11 +1022,14 @@ onMounted(() => {
   editorRenderer.setupReadingOrderAnimationWatch()
 
   stopUiModeWatch = watch(
-    () => effectiveUiMode.value,
-    (mode) => {
-      if (mode === 'text') {
+    () => [effectiveUiMode.value, isCanvasEditable.value] as const,
+    ([mode, editable]) => {
+      if (mode === 'text' || !editable) {
         detachInteractions()
         webglRenderer.stopRenderLoop()
+        stateActions.setHoveredPolygonId(null)
+        editorUiStore.setTemporaryHoverPolygonId(null)
+        editorUiStore.setTemporaryHoverPolylineId(null)
         return
       }
 
@@ -641,6 +1051,7 @@ onBeforeUnmount(() => {
   webglRenderer.cleanup()
 
   detachInteractions()
+  collaboration.setCanvasSyncSuspended(props.canvasId, false)
 
   unregisterGeometryCacheManager(props.canvasId)
 
@@ -659,117 +1070,437 @@ watch(() => props.src, (newSrc) => {
 </script>
 
 <template>
-  <div class="w-full h-full relative" :class="{ 'editor-checkerboard': showCheckerboard }">
-    <div class="absolute inset-0 pointer-events-none" :style="{ backgroundColor: editorBackgroundColor }" />
-    <UContextMenu
-      v-model:open="contextMenuOpen"
-      :items="contextMenuItems"
-    >
-      <template #default>
-        <canvas
-          ref="canvas"
-          class="block w-full h-full cursor-grab bg-transparent relative z-10"
-          @contextmenu="editorInteractions.handleCanvasContextMenu"
-        />
-      </template>
-      <template #item-leading="{ item }">
-        <div class="mr-2 flex items-center gap-1 shrink-0">
-          <span v-if="item.dotColor" class="h-2.5 w-2.5 rounded-sm border border-neutral-300" :style="{ backgroundColor: item.dotColor }" />
-          <Icon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
-          <span v-else class="w-4" />
-        </div>
-      </template>
-    </UContextMenu>
-
-    <Transition name="fade">
-      <div
-        v-if="isLoadingAnnotations"
-        class="absolute inset-0 z-[999] flex items-center justify-center backdrop-blur-md bg-black/30"
-      >
-        <div class="flex items-center gap-3 px-5 py-3 rounded-xl bg-black/50 shadow-xl ring-1 ring-white/10">
-          <Icon name="i-lucide-loader-2" class="h-5 w-5 text-white animate-spin" />
-          <span class="text-sm font-medium text-white drop-shadow-md">Loading annotations...</span>
-        </div>
-      </div>
-    </Transition>
-
-    <ReadingOrderNumbersOverlay
-      v-if="showReadingOrderOverlay && readingOrderOverlaySettings.showOrderNumbers"
-      :order-numbers="readingOrderRenderData.orderNumbers"
-      :group-bounds="readingOrderRenderData.groupBounds"
-      :view="view"
-      :aspect-ratio-scale="aspectRatioScale"
-      :canvas-dimensions="canvasDimensions"
-      :visible="true"
-      :show-labels="readingOrderOverlaySettings.showLabels"
-    />
-
-    <RelationsLabelsOverlay
-      v-if="showRelationsOverlay"
-      :labels="relationRenderData.labels"
-      :view="view"
-      :aspect-ratio-scale="aspectRatioScale"
-      :canvas-dimensions="canvasDimensions"
-      :visible="true"
-      :show-labels="relationsOverlaySettings.showLabels"
-    />
-
+  <div class="w-full h-full flex flex-col min-h-0">
     <div
-      v-if="editorInteractions.isMarqueeSelecting.value && editorInteractions.marqueeRectPx.value"
-      class="absolute border border-primary/50 bg-primary/10 pointer-events-none z-[900]"
-      :style="{
-        left: editorInteractions.marqueeRectPx.value.x + 'px',
-        top: editorInteractions.marqueeRectPx.value.y + 'px',
-        width: editorInteractions.marqueeRectPx.value.width + 'px',
-        height: editorInteractions.marqueeRectPx.value.height + 'px'
-      }"
-    />
+      v-if="!isCanvasEditable && canvasEditor"
+      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+    >
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+          <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+        </div>
+        <p class="truncate text-[13px] text-amber-50/90">
+          <span class="text-amber-50/70">Read-only view.</span>
+          {{ canvasEditor.user.displayName }} currently holds the edit lock.
+        </p>
+      </div>
 
-    <div v-if="showRenderStats && editorRenderer.renderStats" class="absolute top-2.5 right-2.5 bg-black/80 text-green-500 p-3 rounded-sm font-mono text-xs leading-relaxed min-w-[200px] pointer-events-none z-[1000]">
-      <div class="font-bold mb-2 text-white border-b border-green-500 pb-1">
-        Render Performance (Ctrl+Shift+R)
-      </div>
-      <div class="flex justify-between mb-1">
-        <span class="text-neutral-400">FPS:</span>
-        <span class="font-bold">{{ editorRenderer.renderStats.rendersPerSecond }}</span>
-      </div>
-      <div class="flex justify-between mb-1">
-        <span class="text-neutral-400">Avg Frame:</span>
-        <span class="font-bold">{{ editorRenderer.renderStats.averageFrameTime.toFixed(2) }}ms</span>
-      </div>
-      <div class="flex justify-between mb-1">
-        <span class="text-neutral-400">Max Frame:</span>
-        <span class="font-bold">{{ editorRenderer.renderStats.maxFrameTime.toFixed(2) }}ms</span>
-      </div>
-      <div class="flex justify-between mb-1">
-        <span class="text-neutral-400">Total Renders:</span>
-        <span class="font-bold">{{ editorRenderer.renderStats.totalRenders }}</span>
-      </div>
-      <div class="flex justify-between mb-1">
-        <span class="text-neutral-400">Batched:</span>
-        <span class="font-bold">{{ editorRenderer.renderStats.batchedRenders }}</span>
+      <div class="flex shrink-0 items-center gap-2">
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="soft"
+          class="h-7 px-2.5 text-[11px]"
+          label="Request Edit"
+          @click="handleRequestTakeover(false)"
+        />
+        <UButton
+          v-if="canForceTakeover"
+          size="xs"
+          color="error"
+          icon="i-lucide-octagon-alert"
+          variant="soft"
+          class="h-7 px-2.5 text-[11px]"
+          label="Force Takeover"
+          @click="handleRequestTakeover(true)"
+        />
       </div>
     </div>
 
-    <LazyEditorSlideoverBufferPolygon
-      v-if="editorCommands.pendingBufferPolygon.value"
-      ref="bufferSlideoverRef"
-      :polygon="editorCommands.pendingBufferPolygon.value"
-      :polygons="polygons"
-      :constrain-to-image="constrainToImage"
-      :constrain-to-parent="constrainToParent"
-      @close="handleBufferClose"
-    />
+    <div
+      v-if="isCanvasEditable && pendingTakeover"
+      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+    >
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+          <Icon name="i-lucide-arrow-right-left" class="h-3.5 w-3.5" />
+        </div>
+        <p class="truncate text-[13px] text-amber-50/90">
+          {{ pendingTakeover.requester.displayName }} requested edit access for this page.
+        </p>
+      </div>
 
-    <LazyEditorSlideoverProperties
-      v-if="editorCommands.pendingPropertiesTarget.value"
-      :target="editorCommands.pendingPropertiesTarget.value"
-      :in-reading-order="propertiesInReadingOrder"
-      @close="handlePropertiesClose"
-      @delete="handlePropertiesDelete"
-      @duplicate="handlePropertiesDuplicate"
-      @toggle-reading-order="handlePropertiesToggleReadingOrder"
-    />
+      <div class="flex shrink-0 items-center gap-2">
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="soft"
+          class="h-7 px-2.5 text-[11px]"
+          label="Decline"
+          @click="handleRespondToTakeover('decline')"
+        />
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="soft"
+          class="h-7 px-2.5 text-[11px]"
+          label="Discard + Transfer"
+          @click="handleRespondToTakeover('accept', 'discard')"
+        />
+        <UButton
+          size="xs"
+          color="primary"
+          variant="soft"
+          class="h-7 px-2.5 text-[11px]"
+          label="Save + Transfer"
+          @click="handleRespondToTakeover('accept', 'save')"
+        />
+      </div>
+    </div>
+
+    <div
+      v-if="isCollaborationResyncRequired"
+      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+    >
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+          <Icon name="i-lucide-alert-triangle" class="h-3.5 w-3.5" />
+        </div>
+        <p class="truncate text-[13px] text-amber-50/90">
+          Collaboration state is stale. Another save or restore changed the persisted XML revision.
+        </p>
+      </div>
+
+      <div class="flex shrink-0 items-center gap-2">
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="soft"
+          class="h-7 px-2.5 text-[11px]"
+          @click="handleResyncRoom"
+        >
+          Resync
+        </UButton>
+      </div>
+    </div>
+
+    <div class="relative flex-1 min-h-0" :class="{ 'editor-checkerboard': showCheckerboard }">
+      <div class="absolute inset-0 pointer-events-none" :style="{ backgroundColor: editorBackgroundColor }" />
+      <UContextMenu
+        v-model:open="contextMenuOpen"
+        :items="contextMenuItems"
+      >
+        <template #default>
+          <canvas
+            ref="canvas"
+            class="block w-full h-full bg-transparent relative z-10"
+            :class="isCanvasEditable ? 'cursor-grab' : 'cursor-default pointer-events-none'"
+            @contextmenu="(event) => { if (isCanvasEditable) editorInteractions.handleCanvasContextMenu(event) }"
+          />
+        </template>
+        <template #item-leading="{ item }">
+          <div class="mr-2 flex items-center gap-1 shrink-0">
+            <span v-if="item.dotColor" class="h-2.5 w-2.5 rounded-sm border border-neutral-300" :style="{ backgroundColor: item.dotColor }" />
+            <Icon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
+            <span v-else class="w-4" />
+          </div>
+        </template>
+      </UContextMenu>
+
+      <Transition name="fade">
+        <div
+          v-if="isLoadingAnnotations"
+          class="absolute inset-0 z-[999] flex items-center justify-center backdrop-blur-md bg-black/30"
+        >
+          <div class="flex items-center gap-3 px-5 py-3 rounded-xl bg-black/50 shadow-xl ring-1 ring-white/10">
+            <Icon name="i-lucide-loader-2" class="h-5 w-5 text-white animate-spin" />
+            <span class="text-sm font-medium text-white drop-shadow-md">Loading annotations...</span>
+          </div>
+        </div>
+      </Transition>
+
+      <UPopover
+        v-if="showCollaboratorsPopover"
+        v-model:open="collaboratorsPopoverOpen"
+        :content="{
+          side: 'bottom',
+          align: 'start',
+          sideOffset: 8
+        }"
+      >
+        <UButton
+          color="neutral"
+          variant="outline"
+          class="absolute top-2.5 left-2.5 z-[950] h-7 rounded border-neutral-700/50 bg-neutral-900/90 px-2 text-neutral-200 shadow-sm backdrop-blur-sm hover:bg-neutral-900"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="flex items-center -space-x-1">
+              <div
+                v-for="participant in collaborationVisibleParticipants"
+                :key="participant.key"
+                class="relative"
+              >
+                <UAvatar
+                  :src="avatarSrc(participant.user)"
+                  :alt="participant.user.displayName"
+                  :text="avatarFallback(participant.user)"
+                  size="xs"
+                  class="h-5 w-5 border text-[9px] font-medium"
+                  :style="collaborationAvatarStyle(participant.user.id)"
+                />
+                <span
+                  class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950"
+                  :class="participant.role === 'editing' ? 'bg-primary-500' : 'bg-emerald-500'"
+                />
+              </div>
+            </div>
+
+            <span class="text-[11px] font-medium text-neutral-200 truncate">
+              {{ collaborationSummaryLabel }}
+            </span>
+
+            <Icon
+              :name="collaboratorsPopoverOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              class="h-3 w-3 shrink-0 text-neutral-500"
+            />
+          </div>
+        </UButton>
+
+        <template #content>
+          <div class="w-60 rounded border border-neutral-700/60 bg-neutral-900/95 text-neutral-100 shadow-lg backdrop-blur-sm">
+            <div class="flex items-center gap-2 px-2.5 py-2">
+              <Icon name="i-lucide-users" class="h-3.5 w-3.5 text-neutral-300" />
+              <span class="text-xs font-medium">Active collaborators</span>
+            </div>
+
+            <div class="border-t border-neutral-700/60" />
+
+            <div class="space-y-3 p-2.5">
+              <div v-if="editingParticipants.length > 0" class="space-y-2">
+                <div class="text-[10px] font-medium uppercase tracking-[0.18em] text-neutral-500">
+                  Editing
+                </div>
+
+                <div
+                  v-for="participant in editingParticipants"
+                  :key="`${participant.key}:editing`"
+                  class="flex items-center justify-between gap-2"
+                >
+                  <div class="flex items-center gap-2 min-w-0">
+                    <div class="relative">
+                      <UAvatar
+                        :src="avatarSrc(participant.user)"
+                        :alt="participant.user.displayName"
+                        :text="avatarFallback(participant.user)"
+                        size="xs"
+                        class="h-6 w-6 border text-[9px] font-medium"
+                        :style="collaborationAvatarStyle(participant.user.id)"
+                      />
+                      <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950 bg-primary-500" />
+                    </div>
+
+                    <div class="min-w-0">
+                      <div class="truncate text-xs font-medium text-neutral-100">
+                        {{ participant.user.displayName }}
+                      </div>
+                      <div class="flex items-center gap-1 text-[11px] text-neutral-400">
+                        <Icon :name="participant.presence?.active ? 'i-lucide-pencil-line' : 'i-lucide-pause'" class="h-3 w-3" />
+                        <span class="truncate">{{ collaboratorActivityLabel(participant) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <UBadge
+                    v-if="collaboratorStatus(participant)"
+                    :color="collaboratorStatus(participant)!.color"
+                    variant="subtle"
+                    size="xs"
+                  >
+                    {{ collaboratorStatus(participant)!.label }}
+                  </UBadge>
+                </div>
+              </div>
+
+              <div v-if="viewingParticipants.length > 0" class="space-y-2">
+                <div class="text-[10px] font-medium uppercase tracking-[0.18em] text-neutral-500">
+                  Viewing
+                </div>
+
+                <div
+                  v-for="participant in viewingParticipants"
+                  :key="`${participant.key}:viewing`"
+                  class="flex items-center gap-2"
+                >
+                  <div class="relative">
+                    <UAvatar
+                      :src="avatarSrc(participant.user)"
+                      :alt="participant.user.displayName"
+                      :text="avatarFallback(participant.user)"
+                      size="xs"
+                      class="h-6 w-6 border text-[9px] font-medium"
+                      :style="collaborationAvatarStyle(participant.user.id)"
+                    />
+                    <span class="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-neutral-950 bg-emerald-500" />
+                  </div>
+
+                  <div class="min-w-0">
+                    <div class="truncate text-xs font-medium text-neutral-100">
+                      {{ participant.user.displayName }}
+                    </div>
+                    <div class="flex items-center gap-1 text-[11px] text-neutral-400">
+                      <Icon name="i-lucide-eye" class="h-3 w-3" />
+                      <span class="truncate">{{ collaboratorActivityLabel(participant) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </UPopover>
+
+      <ReadingOrderNumbersOverlay
+        v-if="showReadingOrderOverlay && readingOrderOverlaySettings.showOrderNumbers"
+        :order-numbers="readingOrderRenderData.orderNumbers"
+        :group-bounds="readingOrderRenderData.groupBounds"
+        :view="view"
+        :aspect-ratio-scale="aspectRatioScale"
+        :canvas-dimensions="canvasDimensions"
+        :visible="true"
+        :show-labels="readingOrderOverlaySettings.showLabels"
+      />
+
+      <RelationsLabelsOverlay
+        v-if="showRelationsOverlay"
+        :labels="relationRenderData.labels"
+        :view="view"
+        :aspect-ratio-scale="aspectRatioScale"
+        :canvas-dimensions="canvasDimensions"
+        :visible="true"
+        :show-labels="relationsOverlaySettings.showLabels"
+      />
+
+      <div
+        v-if="editorInteractions.isMarqueeSelecting.value && editorInteractions.marqueeRectPx.value"
+        class="absolute border border-primary/50 bg-primary/10 pointer-events-none z-[900]"
+        :style="{
+          left: editorInteractions.marqueeRectPx.value.x + 'px',
+          top: editorInteractions.marqueeRectPx.value.y + 'px',
+          width: editorInteractions.marqueeRectPx.value.width + 'px',
+          height: editorInteractions.marqueeRectPx.value.height + 'px'
+        }"
+      />
+
+      <svg
+        v-if="remoteSelectionOverlays.length > 0 || remoteCursorOverlays.length > 0"
+        class="absolute inset-0 z-[940] pointer-events-none"
+        :width="canvasDimensions.width"
+        :height="canvasDimensions.height"
+      >
+        <g v-for="overlay in remoteSelectionOverlays" :key="overlay.key">
+          <path
+            :d="overlay.path"
+            fill="none"
+            :stroke="overlay.color"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-dasharray="8 5"
+          />
+          <rect
+            :x="overlay.labelX"
+            :y="overlay.labelY - 18"
+            width="88"
+            height="18"
+            rx="4"
+            :fill="overlay.color"
+            fill-opacity="0.9"
+          />
+          <text
+            :x="overlay.labelX + 6"
+            :y="overlay.labelY - 5"
+            fill="#ffffff"
+            font-size="11"
+            font-weight="600"
+          >
+            {{ overlay.label }}
+          </text>
+        </g>
+
+        <g v-for="cursor in remoteCursorOverlays" :key="cursor.key">
+          <circle
+            :cx="cursor.x"
+            :cy="cursor.y"
+            r="5"
+            :fill="cursor.color"
+            fill-opacity="0.95"
+          />
+          <circle
+            :cx="cursor.x"
+            :cy="cursor.y"
+            r="11"
+            :stroke="cursor.color"
+            stroke-width="1.5"
+            stroke-opacity="0.45"
+            fill="none"
+          />
+          <rect
+            :x="cursor.x + 10"
+            :y="cursor.y - 18"
+            width="88"
+            height="18"
+            rx="4"
+            :fill="cursor.color"
+            fill-opacity="0.9"
+          />
+          <text
+            :x="cursor.x + 16"
+            :y="cursor.y - 5"
+            fill="#ffffff"
+            font-size="11"
+            font-weight="600"
+          >
+            {{ cursor.label }}
+          </text>
+        </g>
+      </svg>
+
+      <div v-if="showRenderStats && editorRenderer.renderStats" class="absolute top-2.5 right-2.5 bg-black/80 text-green-500 p-3 rounded-sm font-mono text-xs leading-relaxed min-w-[200px] pointer-events-none z-[1000]">
+        <div class="font-bold mb-2 text-white border-b border-green-500 pb-1">
+          Render Performance (Ctrl+Shift+R)
+        </div>
+        <div class="flex justify-between mb-1">
+          <span class="text-neutral-400">FPS:</span>
+          <span class="font-bold">{{ editorRenderer.renderStats.rendersPerSecond }}</span>
+        </div>
+        <div class="flex justify-between mb-1">
+          <span class="text-neutral-400">Avg Frame:</span>
+          <span class="font-bold">{{ editorRenderer.renderStats.averageFrameTime.toFixed(2) }}ms</span>
+        </div>
+        <div class="flex justify-between mb-1">
+          <span class="text-neutral-400">Max Frame:</span>
+          <span class="font-bold">{{ editorRenderer.renderStats.maxFrameTime.toFixed(2) }}ms</span>
+        </div>
+        <div class="flex justify-between mb-1">
+          <span class="text-neutral-400">Total Renders:</span>
+          <span class="font-bold">{{ editorRenderer.renderStats.totalRenders }}</span>
+        </div>
+        <div class="flex justify-between mb-1">
+          <span class="text-neutral-400">Batched:</span>
+          <span class="font-bold">{{ editorRenderer.renderStats.batchedRenders }}</span>
+        </div>
+      </div>
+
+      <LazyEditorSlideoverBufferPolygon
+        v-if="editorCommands.pendingBufferPolygon.value"
+        ref="bufferSlideoverRef"
+        :polygon="editorCommands.pendingBufferPolygon.value"
+        :polygons="polygons"
+        :constrain-to-image="constrainToImage"
+        :constrain-to-parent="constrainToParent"
+        @close="handleBufferClose"
+      />
+
+      <LazyEditorSlideoverProperties
+        v-if="editorCommands.pendingPropertiesTarget.value"
+        :target="editorCommands.pendingPropertiesTarget.value"
+        :in-reading-order="propertiesInReadingOrder"
+        @close="handlePropertiesClose"
+        @delete="handlePropertiesDelete"
+        @duplicate="handlePropertiesDuplicate"
+        @toggle-reading-order="handlePropertiesToggleReadingOrder"
+      />
+    </div>
   </div>
 </template>
 

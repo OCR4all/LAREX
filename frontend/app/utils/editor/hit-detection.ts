@@ -1,4 +1,3 @@
-
 import earcut from 'earcut'
 import { visibilityService } from '@/services/editor/visibility-service'
 import type { Polygon, Polyline } from '@/services/editor/visibility-service'
@@ -39,6 +38,8 @@ export function isPointInPolygon(point: Point, polygon: Point[]): boolean {
  * @param point - Point to check
  * @param selectedPolygonIndex - Index of currently selected polygon (-1 if none)
  * @param spatialIndex - Optional spatial index for performance optimization
+ * @param viewMode
+ * @param hiddenPolygonIds
  * @returns Index of visible polygon at point, or -1 if none
  */
 export function getVisiblePolygonAtPoint(
@@ -84,7 +85,12 @@ export function getVisiblePolygonAtPoint(
  * @param polygons - Array of all polygons
  * @param point - Point to check
  * @param selectedPolygonIndex - Index of currently selected polygon (-1 if none)
+ * @param selectedPolylineIndex
+ * @param polylines
  * @param spatialIndex - Optional spatial index for performance optimization
+ * @param viewMode
+ * @param hiddenPolygonIds
+ * @param hiddenPolylineIds
  * @returns Index of hoverable polygon at point, or -1 if none
  */
 export function getHoverablePolygonAtPoint(

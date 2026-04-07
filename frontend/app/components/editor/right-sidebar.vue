@@ -3,9 +3,10 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 
-const props = defineProps<{
+defineProps<{
   rightRailWidthPx: number
   isSavingActiveCanvas: boolean
+  canEditActiveCanvas: boolean
   canCompleteActivePageSubtasks: boolean
   isCompletingOpenSubtasks: boolean
   isActivePageLocked: boolean
@@ -13,7 +14,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  save: []
+  'save': []
   'open-history': []
   'save-and-complete': []
 }>()
@@ -48,7 +49,7 @@ const editorUiStore = useEditorUiStore()
             aria-label="Save"
             :loading="isSavingActiveCanvas"
             loading-icon="i-lucide-loader"
-            :disabled="isSavingActiveCanvas"
+            :disabled="isSavingActiveCanvas || !canEditActiveCanvas"
             @click="emit('save')"
           />
         </UTooltip>
@@ -80,7 +81,7 @@ const editorUiStore = useEditorUiStore()
             label="Save"
             :loading="isSavingActiveCanvas"
             loading-icon="i-lucide-loader"
-            :disabled="isSavingActiveCanvas"
+            :disabled="isSavingActiveCanvas || !canEditActiveCanvas"
             @click="emit('save')"
           />
         </UTooltip>
@@ -102,7 +103,7 @@ const editorUiStore = useEditorUiStore()
           label="Save + Complete"
           :loading="isSavingActiveCanvas || isCompletingOpenSubtasks"
           loading-icon="i-lucide-loader"
-          :disabled="isSavingActiveCanvas || isCompletingOpenSubtasks || isActivePageLocked"
+          :disabled="isSavingActiveCanvas || isCompletingOpenSubtasks || isActivePageLocked || !canEditActiveCanvas"
           @click="emit('save-and-complete')"
         />
 

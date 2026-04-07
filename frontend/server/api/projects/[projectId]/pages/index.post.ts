@@ -1,8 +1,8 @@
-import { pageCacheUtils } from '../../../../utils/page-cache'
+import { pageCacheUtils } from '#server/utils/page-cache'
 
 /**
  * POST /api/projects/{projectId}/pages
- * 
+ *
  * Creates a new page and invalidates the page list cache.
  */
 export default defineEventHandler(async (event) => {
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { refreshTokenIfExpired } = await import('../../../../utils/auth')
+    const { refreshTokenIfExpired } = await import('#server/utils/auth')
     await refreshTokenIfExpired(event, { user, secure })
   } catch {
     throw createError({

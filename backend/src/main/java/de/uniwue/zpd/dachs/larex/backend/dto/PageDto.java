@@ -66,7 +66,8 @@ public class PageDto {
             String baseName,
             String schema,
             String schemaVersion,
-            LocalDateTime created
+            LocalDateTime created,
+            LocalDateTime updated
     ) {}
 
     // ============================================================================

@@ -4,15 +4,15 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType } from '@/models/editor'
 import type { TextContentVariantData } from '@/models/editor'
-import type { RenderablePolygon } from '@/types/editor/rendering'
 import type { Point } from '@/models/editor/types'
 import { worldToImage } from '@/utils/editor/coordinates'
 import { getRegionColor } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 import type { RegionKind } from '@/models/editor/region'
-import { CompoundCommand, DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextContentVariantsCommand } from '@/commands'
+import { DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextContentVariantsCommand } from '@/commands'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
 import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { usePageFilter } from '@/composables/use-page-filter'
@@ -50,6 +50,7 @@ const editorStore = useEditorStore()
 const uiStore = useEditorUiStore()
 const sessionStore = useEditorSessionStore()
 const workspaceStore = useWorkspaceStore()
+const collaboration = useEditorCollaboration()
 const toast = useToast()
 
 const projectId = computed(() => sessionStore.projectId ?? undefined)
@@ -89,7 +90,17 @@ const selectedTextlineId = ref<string | null>(null)
 const matchingTextLineIds = ref<Set<string>>(new Set())
 const isLoadingMatchingTextLines = ref(false)
 
-const dragEnabled = computed(() => sortOrder.value === 'asc' && filterMode.value === 'all' && searchQuery.value.trim().length === 0)
+const isCanvasEditable = computed(() => {
+  const canvasId = effectiveCanvasId.value
+  return canvasId ? collaboration.canEditCanvas(canvasId) : true
+})
+
+const dragEnabled = computed(() => {
+  return isCanvasEditable.value
+    && sortOrder.value === 'asc'
+    && filterMode.value === 'all'
+    && searchQuery.value.trim().length === 0
+})
 
 const sortableOptions = computed(() => ({
   animation: 150,
@@ -154,7 +165,7 @@ const canQuickAddToDictionary = computed(() => Boolean(editorStore.projectDictio
 const canCheckDictionaryTokens = computed(() => {
   return Boolean(
     selectedWorkspaceId.value
-      && editorStore.projectDictionaryId
+    && editorStore.projectDictionaryId
   )
 })
 
@@ -236,6 +247,7 @@ function toImagePoints(points: Point[]): Point[] {
 }
 
 function triggerCreateGtForSelectedTextline(): boolean {
+  if (!isCanvasEditable.value) return false
   const selectedId = selectedTextlineId.value
   if (!selectedId) return false
 
@@ -381,6 +393,7 @@ function handleSelectTextline(textlineId: string): void {
 }
 
 function persistRegionOrder(regionId: string, orderedTextLineIds: string[]): void {
+  if (!isCanvasEditable.value) return
   if (regionId === '__unassigned__') return
 
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
@@ -396,6 +409,7 @@ function persistRegionOrder(regionId: string, orderedTextLineIds: string[]): voi
 }
 
 async function handleDeleteTextline(textlineId: string): Promise<void> {
+  if (!isCanvasEditable.value) return
   const instance = confirmModal.open({
     title: 'Delete Textline?',
     description: `Are you sure you want to delete "${textlineId}"? This action cannot be undone.`,
@@ -426,6 +440,7 @@ function handleRegionReorder(regionId: string, event: SortableUpdateEvent): void
 }
 
 function commitTextContentVariants(textlineId: string, nextTextContentVariants: TextContentVariantData[] | undefined): void {
+  if (!isCanvasEditable.value) return
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return
 
@@ -437,6 +452,7 @@ function commitTextContentVariants(textlineId: string, nextTextContentVariants: 
 }
 
 function handleAddTextContentVariant(textlineId: string): void {
+  if (!isCanvasEditable.value) return
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
@@ -451,6 +467,7 @@ function handleAddTextContentVariant(textlineId: string): void {
 }
 
 function handleRemoveTextContentVariant(textlineId: string, arrayPos: number): void {
+  if (!isCanvasEditable.value) return
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
@@ -464,6 +481,7 @@ function handleRemoveTextContentVariant(textlineId: string, arrayPos: number): v
 }
 
 function handleCommitTextContentVariant(textlineId: string, pos: number, text: string): void {
+  if (!isCanvasEditable.value) return
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
@@ -479,6 +497,7 @@ function handleCommitTextContentVariant(textlineId: string, pos: number, text: s
 }
 
 function handleCreateGtFromRecognition(textlineId: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }) {
+  if (!isCanvasEditable.value) return
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
@@ -638,6 +657,7 @@ function handleOpenKeyboardEditor() {
 }
 
 function handleCommitTextContentVariantIndex(textlineId: string, pos: number, toIndex: number | undefined): void {
+  if (!isCanvasEditable.value) return
   if (toIndex !== undefined && (!Number.isInteger(toIndex) || toIndex < 0)) return
 
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
@@ -710,7 +730,7 @@ const textlines = computed(() => {
 
     const lineConfidence = getMinVariantConfidence(visibleTextContentVariants)
     const matchesVariantFilter = !variantFilterState.hasVariantFilter || filteredTextContentVariants.length > 0
-    const matchesAssignedVisibility = visibleTextContentVariants.length > 0
+    const matchesAssignedVisibility = !variantFilterState.hasVariantFilter || visibleTextContentVariants.length > 0
     const hasGtVariant = allTextContentVariants.some(te => te.index === gtIndexModel.value)
     const recognitionCandidates = recognitionIndicesModel.value.flatMap((idx: number) => {
       if (idx === -1) {
@@ -726,6 +746,7 @@ const textlines = computed(() => {
       points: toImagePoints(tl.points),
       readingDirection: textLineReadingDirectionById.value[tl.id],
       textContentVariants: visibleTextContentVariants,
+      allTextContentVariants,
       hasAnyText: allTextContentVariants.some(te => te.text.trim().length > 0),
       hasGtVariant,
       recognitionCandidates,
@@ -1258,6 +1279,7 @@ const sectionMenuItems = computed(() => {
                       :project-dictionary-unicode-normalization="editorStore.projectDictionaryUnicodeNormalization"
                       :selected-keyboard-id="selectedKeyboardId"
                       :has-virtual-keyboard="Boolean(selectedLayout)"
+                      :read-only="!isCanvasEditable"
                       @select-textline="handleSelectTextline"
                       @delete-textline="handleDeleteTextline"
                       @add-text-content-variant="handleAddTextContentVariant"

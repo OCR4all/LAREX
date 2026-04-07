@@ -1,6 +1,6 @@
 /**
  * POST /api/projects/{projectId}/pages/rebuild-index
- * 
+ *
  * Rebuild the search index for all pages in a project.
  */
 export default defineEventHandler(async (event) => {
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { refreshTokenIfExpired } = await import('../../../../utils/auth')
+    const { refreshTokenIfExpired } = await import('#server/utils/auth')
     await refreshTokenIfExpired(event, { user, secure })
   } catch {
     throw createError({
@@ -37,15 +37,14 @@ export default defineEventHandler(async (event) => {
 
   const backendUrl = `${config.apiBaseInternal}/projects/${projectId}/pages/rebuild-index`
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${accessToken}`
+    Authorization: `Bearer ${accessToken}`
   }
 
   try {
-    const data = await $fetch(backendUrl, {
+    return await $fetch(backendUrl, {
       method: 'POST',
       headers
     })
-    return data
   } catch (error: any) {
     throw createError({
       statusCode: error.statusCode || 500,
