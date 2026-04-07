@@ -93,6 +93,11 @@ larex:
       core-pool-size: ${LAREX_ANNOTATION_POST_SAVE_CORE_POOL:1}
       max-pool-size: ${LAREX_ANNOTATION_POST_SAVE_MAX_POOL:2}
       queue-capacity: ${LAREX_ANNOTATION_POST_SAVE_QUEUE:200}
+  notifications:
+    bridge:
+      enabled: ${LAREX_NOTIFICATIONS_BRIDGE_ENABLED:true}
+      url: ${LAREX_NOTIFICATIONS_BRIDGE_URL:http://frontend:3000/api/notifications/broadcast}
+      secret: ${LAREX_NOTIFICATIONS_BRIDGE_SECRET:larex-notification-bridge-dev-secret}
   # Chunked upload configuration
   upload:
     # Chunk size in bytes (default: 5MB = 5242880 bytes)

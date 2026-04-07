@@ -10,6 +10,7 @@ import {
   type CollaborationPageSnapshot
 } from '@/utils/editor/collaboration-page-doc'
 import type {
+  CollaborationLeaseState,
   CollaborationLeaseResponse,
   CollaborationLeaseOwner,
   CollaborationPresence,
@@ -17,7 +18,7 @@ import type {
   CollaborationRevisionResponse,
   CollaborationRoomBootstrap,
   CollaborationRoomMember,
-  CollaborationRoomState,
+  CollaborationRoomSession,
   CollaborationRoomStateMessage,
   CollaborationTakeoverRequest
 } from '@/types/collaboration'
@@ -25,7 +26,6 @@ import type {
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
 
 const revisionPollers = new Map<string, ReturnType<typeof setInterval>>()
-const roomReady = new Set<string>()
 const roomSnapshots = new Map<string, CollaborationPageSnapshot>()
 const roomSnapshotVersions = new Map<string, number>()
 const roomCanvasIds = new Map<string, Set<string>>()
@@ -42,11 +42,14 @@ const roomBroadcastChannels = new Map<string, BroadcastChannel>()
 const roomBroadcastIntervals = new Map<string, ReturnType<typeof setInterval>>()
 const roomKnownInstances = new Map<string, Map<string, number>>()
 const roomLeaderInstances = new Map<string, string | null>()
+const leaseWarningTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
+const leaseWarningShownForExpiry = new Map<string, string>()
 const pendingInitialXmlCreations = new Map<string, Promise<string | null>>()
 
 const INSTANCE_ALIVE_INTERVAL_MS = 5000
 const INSTANCE_STALE_AFTER_MS = 15000
 const LEASE_HEARTBEAT_INTERVAL_MS = 10000
+const LEASE_EXPIRY_WARNING_MS = 15000
 
 function getBrowserInstanceId(): string {
   if (import.meta.server) return ''
@@ -63,22 +66,37 @@ function getBrowserInstanceId(): string {
   return next
 }
 
-function cloneRooms(value: Record<string, CollaborationRoomState>): Record<string, CollaborationRoomState> {
-  return Object.fromEntries(Object.entries(value).map(([key, room]) => [key, {
-    ...room,
-    members: [...room.members],
-    editor: room.editor
+function cloneLeaseState(lease: CollaborationLeaseState): CollaborationLeaseState {
+  return {
+    ...lease,
+    editor: lease.editor
       ? {
-          ...room.editor,
-          user: { ...room.editor.user }
+          ...lease.editor,
+          user: { ...lease.editor.user }
         }
       : null,
-    pendingTakeover: room.pendingTakeover
+    pendingTakeover: lease.pendingTakeover
       ? {
-          ...room.pendingTakeover,
-          requester: { ...room.pendingTakeover.requester }
+          ...lease.pendingTakeover,
+          requester: { ...lease.pendingTakeover.requester }
         }
       : null
+  }
+}
+
+function cloneRooms(value: Record<string, CollaborationRoomSession>): Record<string, CollaborationRoomSession> {
+  return Object.fromEntries(Object.entries(value).map(([key, room]) => [key, {
+    identity: {
+      ...room.identity,
+      user: { ...room.identity.user }
+    },
+    lease: cloneLeaseState(room.lease),
+    presence: {
+      members: [...room.presence.members]
+    },
+    viewerSync: {
+      ...room.viewerSync
+    }
   }]))
 }
 
@@ -102,28 +120,28 @@ function dedupeMembers(members: CollaborationRoomMember[], currentUserId?: strin
 }
 
 function updateRoomState(
-  currentRooms: Record<string, CollaborationRoomState>,
+  currentRooms: Record<string, CollaborationRoomSession>,
   roomKey: string,
-  updater: (room: CollaborationRoomState) => CollaborationRoomState
-): Record<string, CollaborationRoomState> {
+  updater: (room: CollaborationRoomSession) => CollaborationRoomSession
+): Record<string, CollaborationRoomSession> {
   const existing = currentRooms[roomKey]
   if (!existing) return currentRooms
 
   return {
     ...currentRooms,
-    [roomKey]: updater(existing)
-  }
-}
-
-function closeActiveConnection(ws: WebSocket | null, code = 1000, reason = 'client disconnect') {
-  if (!ws) return
-
-  try {
-    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-      ws.close(code, reason)
-    }
-  } catch {
-    // Ignore browser teardown edge cases.
+    [roomKey]: updater({
+      identity: {
+        ...existing.identity,
+        user: { ...existing.identity.user }
+      },
+      lease: cloneLeaseState(existing.lease),
+      presence: {
+        members: [...existing.presence.members]
+      },
+      viewerSync: {
+        ...existing.viewerSync
+      }
+    })
   }
 }
 
@@ -148,15 +166,16 @@ export function useEditorCollaboration() {
   const { user, loggedIn } = useUserSession()
   const editorStore = useEditorStore()
   const toast = import.meta.client ? useToast() : null
+  const realtime = useRealtimeSocket()
 
-  const wsConnection = useState<WebSocket | null>('editor-collaboration.ws', () => null)
   const connectionStatus = useState<ConnectionStatus>('editor-collaboration.status', () => 'idle')
-  const reconnectTimeout = useState<ReturnType<typeof setTimeout> | null>('editor-collaboration.reconnectTimeout', () => null)
-  const shouldReconnect = useState<boolean>('editor-collaboration.shouldReconnect', () => true)
-  const rooms = useState<Record<string, CollaborationRoomState>>('editor-collaboration.rooms', () => ({}))
+  const rooms = useState<Record<string, CollaborationRoomSession>>('editor-collaboration.rooms', () => ({}))
   const canvasRooms = useState<Record<string, string>>('editor-collaboration.canvas-rooms', () => ({}))
+  const roomLeaseWarnings = useState<Record<string, boolean>>('editor-collaboration.lease-warnings', () => ({}))
   const currentInstanceId = useState<string>('editor-collaboration.instance-id', () => getBrowserInstanceId())
   const unloadHandlerRegistered = useState<boolean>('editor-collaboration.unload-handler-registered', () => false)
+  const messageHandlerRegistered = useState<boolean>('editor-collaboration.message-handler-registered', () => false)
+  const statusWatcherRegistered = useState<boolean>('editor-collaboration.status-watcher-registered', () => false)
 
   const ensureInstanceId = (): string => {
     if (currentInstanceId.value) {
@@ -177,10 +196,10 @@ export function useEditorCollaboration() {
     return value?.id ?? value?.sub ?? null
   })
 
-  const pageLabel = (room: CollaborationRoomState) => {
-    const page = editorStore.getPage(room.pageId, room.projectId)
-    const resolvedProjectLabel = page?.projectName?.trim() || room.projectId
-    const resolvedPageLabel = page?.label?.trim() || room.pageId
+  const pageLabel = (room: CollaborationRoomSession) => {
+    const page = editorStore.getPage(room.identity.pageId, room.identity.projectId)
+    const resolvedProjectLabel = page?.projectName?.trim() || room.identity.projectId
+    const resolvedPageLabel = page?.label?.trim() || room.identity.pageId
     return `${resolvedProjectLabel} / ${resolvedPageLabel}`
   }
 
@@ -195,7 +214,7 @@ export function useEditorCollaboration() {
   }
 
   const notifyLeaseTransition = (
-    room: CollaborationRoomState,
+    room: CollaborationRoomSession,
     previousEditor: CollaborationLeaseOwner | null,
     nextEditor: CollaborationLeaseOwner | null,
     previousTakeover: CollaborationTakeoverRequest | null,
@@ -261,13 +280,6 @@ export function useEditorCollaboration() {
     }
   }
 
-  const clearReconnectTimeout = () => {
-    if (reconnectTimeout.value) {
-      clearTimeout(reconnectTimeout.value)
-      reconnectTimeout.value = null
-    }
-  }
-
   const roomChannelName = (roomKey: string): string => {
     return `editor-collaboration:${currentUserId.value ?? 'anonymous'}:${roomKey}`
   }
@@ -300,19 +312,91 @@ export function useEditorCollaboration() {
     }
   }
 
+  const setLeaseExpiringSoon = (roomKey: string, expiringSoon: boolean) => {
+    if (roomLeaseWarnings.value[roomKey] === expiringSoon) {
+      return
+    }
+
+    roomLeaseWarnings.value = expiringSoon
+      ? {
+          ...roomLeaseWarnings.value,
+          [roomKey]: true
+        }
+      : Object.fromEntries(Object.entries(roomLeaseWarnings.value).filter(([key]) => key !== roomKey))
+  }
+
+  const clearLeaseWarningTimer = (roomKey: string) => {
+    const timer = leaseWarningTimeouts.get(roomKey)
+    if (timer) {
+      clearTimeout(timer)
+      leaseWarningTimeouts.delete(roomKey)
+    }
+  }
+
+  const isLocalRoomLeader = (roomKey: string): boolean => {
+    return roomLeaderInstances.get(roomKey) === ensureInstanceId()
+  }
+
+  const syncLeaseExpiryWarning = (roomKey: string) => {
+    clearLeaseWarningTimer(roomKey)
+
+    const room = rooms.value[roomKey]
+    const expiresAt = room?.lease.expiresAt ?? null
+    if (
+      !room
+      || !expiresAt
+      || room.lease.editor?.user.id !== currentUserId.value
+      || !isLocalRoomLeader(roomKey)
+    ) {
+      setLeaseExpiringSoon(roomKey, false)
+      return
+    }
+
+    const expiresAtMs = new Date(expiresAt).getTime()
+    if (!Number.isFinite(expiresAtMs)) {
+      setLeaseExpiringSoon(roomKey, false)
+      return
+    }
+
+    const warnInMs = expiresAtMs - Date.now() - LEASE_EXPIRY_WARNING_MS
+    if (warnInMs <= 0) {
+      setLeaseExpiringSoon(roomKey, true)
+
+      if (toast && leaseWarningShownForExpiry.get(roomKey) !== expiresAt) {
+        toast.add({
+          title: 'Edit lock expiring soon',
+          description: `Your edit lock for ${pageLabel(room)} will expire soon unless the lease heartbeat resumes.`,
+          color: 'warning'
+        })
+        leaseWarningShownForExpiry.set(roomKey, expiresAt)
+      }
+      return
+    }
+
+    setLeaseExpiringSoon(roomKey, false)
+    leaseWarningTimeouts.set(roomKey, setTimeout(() => {
+      syncLeaseExpiryWarning(roomKey)
+    }, warnInMs))
+  }
+
   const applyLeaseState = (
     roomKey: string,
     lease: CollaborationRoomBootstrap['lease'] | CollaborationLeaseResponse['lease']
   ) => {
     const previousRoom = rooms.value[roomKey] ?? null
-    const previousEditor = previousRoom?.editor ?? null
-    const previousTakeover = previousRoom?.pendingTakeover ?? null
+    const previousEditor = previousRoom?.lease.editor ?? null
+    const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
 
     rooms.value = updateRoomState(rooms.value, roomKey, room => ({
       ...room,
-      editor: lease.editor,
-      pendingTakeover: lease.pendingTakeover,
-      leaseEpoch: lease.leaseEpoch
+      lease: {
+        ...room.lease,
+        editor: lease.editor,
+        pendingTakeover: lease.pendingTakeover,
+        leaseEpoch: lease.leaseEpoch,
+        leaseOwner: lease.leaseOwner,
+        expiresAt: lease.expiresAt ?? null
+      }
     }))
 
     const nextRoom = rooms.value[roomKey] ?? null
@@ -320,24 +404,25 @@ export function useEditorCollaboration() {
       notifyLeaseTransition(
         nextRoom,
         previousEditor,
-        lease.editor,
+        nextRoom.lease.editor,
         previousTakeover,
-        lease.pendingTakeover
+        nextRoom.lease.pendingTakeover
       )
     }
     reconcileRoomHeartbeat(roomKey)
+    syncLeaseExpiryWarning(roomKey)
   }
 
   const heartbeatLease = async (roomKey: string) => {
     const room = rooms.value[roomKey]
-    if (!room || !room.canEdit || room.editor?.user.id !== currentUserId.value) {
+    if (!room || !room.identity.canEdit || !isLocalRoomLeader(roomKey)) {
       stopLeaseHeartbeat(roomKey)
       return
     }
 
     try {
       const lease = await $fetch<CollaborationLeaseResponse>(
-        `/api/projects/${room.projectId}/pages/${room.pageId}/annotations/${room.xmlId}/collaboration/lease/heartbeat`,
+        `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/heartbeat`,
         {
           method: 'POST',
           body: { instanceId: ensureInstanceId() }
@@ -418,12 +503,14 @@ export function useEditorCollaboration() {
 
   async function releaseLeaseForRoom(roomKey: string, keepalive = false) {
     const room = rooms.value[roomKey]
-    if (!room || !room.canEdit) return
+    if (!room || !room.identity.canEdit) return
 
     stopLeaseHeartbeat(roomKey)
+    clearLeaseWarningTimer(roomKey)
+    setLeaseExpiringSoon(roomKey, false)
     teardownRoomBroadcastChannel(roomKey, true)
 
-    const url = `/api/projects/${room.projectId}/pages/${room.pageId}/annotations/${room.xmlId}/collaboration/lease/release`
+    const url = `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/release`
     const payload = JSON.stringify({ instanceId: ensureInstanceId() })
 
     if (keepalive && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
@@ -444,8 +531,9 @@ export function useEditorCollaboration() {
 
   const reconcileRoomHeartbeat = (roomKey: string) => {
     const room = rooms.value[roomKey]
-    if (!room?.canEdit) {
+    if (!room?.identity.canEdit) {
       stopLeaseHeartbeat(roomKey)
+      syncLeaseExpiryWarning(roomKey)
       return
     }
 
@@ -461,10 +549,12 @@ export function useEditorCollaboration() {
 
     if (leaderInstance === ensureInstanceId()) {
       startLeaseHeartbeat(roomKey)
+      syncLeaseExpiryWarning(roomKey)
       return
     }
 
     stopLeaseHeartbeat(roomKey)
+    syncLeaseExpiryWarning(roomKey)
   }
 
   if (import.meta.client && !unloadHandlerRegistered.value) {
@@ -479,19 +569,27 @@ export function useEditorCollaboration() {
     unloadHandlerRegistered.value = true
   }
 
-  const sendMessage = (type: string, payload: Record<string, unknown>) => {
-    const ws = wsConnection.value
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false
+  if (!statusWatcherRegistered.value) {
+    watch(() => realtime.connectionStatus.value, (status) => {
+      connectionStatus.value = Object.keys(rooms.value).length === 0 && status === 'connected'
+        ? 'idle'
+        : status
+      if (status === 'connected') {
+        rejoinOpenRooms()
+      }
+    }, { immediate: true })
+    statusWatcherRegistered.value = true
+  }
 
-    ws.send(JSON.stringify({ type, payload }))
-    return true
+  const sendMessage = (type: string, payload: Record<string, unknown>) => {
+    return realtime.send({ type, payload })
   }
 
   const getRoomKeyForCanvas = (canvasId: string): string | null => {
     return canvasRooms.value[canvasId] ?? null
   }
 
-  const getRoomForCanvas = (canvasId: string): CollaborationRoomState | null => {
+  const getRoomForCanvas = (canvasId: string): CollaborationRoomSession | null => {
     const roomKey = canvasRooms.value[canvasId]
     return roomKey ? rooms.value[roomKey] ?? null : null
   }
@@ -499,16 +597,16 @@ export function useEditorCollaboration() {
   const canEditCanvas = (canvasId: string): boolean => {
     const room = getRoomForCanvas(canvasId)
     if (!room) return true
-    if (!room.canEdit) return false
-    if (!room.editor) return false
-    return room.editor.user.id === currentUserId.value
+    if (!room.identity.canEdit) return false
+    if (!room.lease.editor) return false
+    return room.lease.editor.user.id === currentUserId.value
   }
 
   const roomHasOtherViewers = (roomKey: string): boolean => {
     const room = rooms.value[roomKey]
     if (!room) return false
     const distinctRemoteUsers = new Set(
-      room.members
+      room.presence.members
         .map(member => member.user?.id)
         .filter((userId): userId is string => Boolean(userId) && userId !== currentUserId.value)
     )
@@ -523,28 +621,28 @@ export function useEditorCollaboration() {
     }
   }
 
-  const startRevisionPolling = (room: CollaborationRoomState) => {
-    if (import.meta.server || revisionPollers.has(room.roomKey)) return
+  const startRevisionPolling = (room: CollaborationRoomSession) => {
+    if (import.meta.server || revisionPollers.has(room.identity.roomKey)) return
 
     const poll = async () => {
-      const currentRoom = rooms.value[room.roomKey]
+      const currentRoom = rooms.value[room.identity.roomKey]
       if (!currentRoom) {
-        stopRevisionPolling(room.roomKey)
+        stopRevisionPolling(room.identity.roomKey)
         return
       }
 
       try {
         const revision = await $fetch<CollaborationRevisionResponse>(
-          `/api/projects/${currentRoom.projectId}/pages/${currentRoom.pageId}/annotations/${currentRoom.xmlId}/collaboration/revision`
+          `/api/projects/${currentRoom.identity.projectId}/pages/${currentRoom.identity.pageId}/annotations/${currentRoom.identity.xmlId}/collaboration/revision`
         )
 
         const nextRooms = cloneRooms(rooms.value)
-        const targetRoom = nextRooms[room.roomKey]
+        const targetRoom = nextRooms[room.identity.roomKey]
         if (!targetRoom) return
 
-        if (revision.persistedRevision !== targetRoom.persistedRevision) {
-          targetRoom.latestPersistedRevision = revision.persistedRevision
-          targetRoom.resyncRequired = true
+        if (revision.persistedRevision !== targetRoom.viewerSync.persistedRevision) {
+          targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
+          targetRoom.viewerSync.resyncRequired = true
         }
 
         rooms.value = nextRooms
@@ -553,7 +651,7 @@ export function useEditorCollaboration() {
       }
     }
 
-    revisionPollers.set(room.roomKey, setInterval(() => {
+    revisionPollers.set(room.identity.roomKey, setInterval(() => {
       void poll()
     }, 15000))
   }
@@ -592,7 +690,8 @@ export function useEditorCollaboration() {
 
   const trySeedRoomFromCanvas = (canvasId: string) => {
     const roomKey = getRoomKeyForCanvas(canvasId)
-    if (!roomKey || !roomReady.has(roomKey) || !canEditCanvas(canvasId)) return false
+    const room = roomKey ? rooms.value[roomKey] : null
+    if (!roomKey || !room?.viewerSync.snapshotReady || !canEditCanvas(canvasId)) return false
 
     const session = canvasSessions.get(canvasId)
     const canvas = editorStore.canvases?.[canvasId]
@@ -613,12 +712,12 @@ export function useEditorCollaboration() {
   const flushCanvasToRoom = (canvasId: string) => {
     const roomKey = getRoomKeyForCanvas(canvasId)
     const session = canvasSessions.get(canvasId)
-    if (!roomKey || !session?.document.value || canvasRemoteApply.has(canvasId) || !roomReady.has(roomKey)) {
+    const room = roomKey ? rooms.value[roomKey] : null
+    if (!roomKey || !session?.document.value || canvasRemoteApply.has(canvasId) || !room?.viewerSync.snapshotReady) {
       return
     }
 
-    const room = rooms.value[roomKey]
-    if (!room || room.resyncRequired || !canEditCanvas(canvasId)) {
+    if (!room || room.viewerSync.resyncRequired || !canEditCanvas(canvasId)) {
       canvasPendingSync.delete(canvasId)
       return
     }
@@ -707,14 +806,23 @@ export function useEditorCollaboration() {
 
   const handleRoomState = (payload: CollaborationRoomStateMessage) => {
     const previousRoom = rooms.value[payload.roomKey] ?? null
-    const previousEditor = previousRoom?.editor ?? null
-    const previousTakeover = previousRoom?.pendingTakeover ?? null
+    const previousEditor = previousRoom?.lease.editor ?? null
+    const previousTakeover = previousRoom?.lease.pendingTakeover ?? null
 
     rooms.value = updateRoomState(rooms.value, payload.roomKey, room => ({
       ...room,
-      members: payload.members,
-      editor: payload.editor,
-      pendingTakeover: payload.pendingTakeover
+      presence: {
+        ...room.presence,
+        members: payload.members
+      },
+      lease: {
+        ...room.lease,
+        editor: payload.lease.editor,
+        pendingTakeover: payload.lease.pendingTakeover,
+        leaseOwner: payload.lease.leaseOwner,
+        leaseEpoch: payload.lease.leaseEpoch,
+        expiresAt: payload.lease.expiresAt ?? null
+      }
     }))
 
     const nextRoom = rooms.value[payload.roomKey] ?? null
@@ -722,20 +830,21 @@ export function useEditorCollaboration() {
       notifyLeaseTransition(
         nextRoom,
         previousEditor,
-        payload.editor,
+        nextRoom.lease.editor,
         previousTakeover,
-        payload.pendingTakeover
+        nextRoom.lease.pendingTakeover
       )
     }
     reconcileRoomHeartbeat(payload.roomKey)
+    syncLeaseExpiryWarning(payload.roomKey)
   }
 
   const handlePresenceUpdate = (payload: CollaborationPresenceMessage) => {
     rooms.value = updateRoomState(rooms.value, payload.roomKey, (room) => {
-      const memberIndex = room.members.findIndex(member => member.peerId === payload.peerId)
+      const memberIndex = room.presence.members.findIndex(member => member.peerId === payload.peerId)
       if (memberIndex < 0) return room
 
-      const nextMembers = [...room.members]
+      const nextMembers = [...room.presence.members]
       nextMembers[memberIndex] = {
         ...nextMembers[memberIndex]!,
         lastSeenAt: payload.lastSeenAt,
@@ -744,7 +853,10 @@ export function useEditorCollaboration() {
 
       return {
         ...room,
-        members: nextMembers
+        presence: {
+          ...room.presence,
+          members: nextMembers
+        }
       }
     })
   }
@@ -775,7 +887,13 @@ export function useEditorCollaboration() {
     if (!rawSnapshot || typeof rawSnapshot !== 'object') return
 
     const snapshot = rawSnapshot as CollaborationPageSnapshot
-    roomReady.add(roomKey)
+    rooms.value = updateRoomState(rooms.value, roomKey, room => ({
+      ...room,
+      viewerSync: {
+        ...room.viewerSync,
+        snapshotReady: true
+      }
+    }))
 
     if (!hasSnapshotAnnotationPayload(snapshot)) {
       if (hasSnapshotAnnotationPayload(roomSnapshots.get(roomKey))) {
@@ -785,7 +903,7 @@ export function useEditorCollaboration() {
       const seedCandidate = Array.from(roomCanvasIds.get(roomKey) ?? [])
         .find((canvasId) => {
           const canvas = editorStore.canvases?.[canvasId]
-          return canEditCanvas(canvasId) && Boolean(canvas?.xmlFileId) && canvas.isLoadingAnnotations !== true
+          return canEditCanvas(canvasId) && Boolean(canvas?.xmlFileId) && canvas?.isLoadingAnnotations !== true
         })
 
       if (seedCandidate && trySeedRoomFromCanvas(seedCandidate)) {
@@ -805,121 +923,87 @@ export function useEditorCollaboration() {
     await reloadBoundCanvasesForRoom(roomKey)
 
     const revision = await $fetch<CollaborationRevisionResponse>(
-      `/api/projects/${room.projectId}/pages/${room.pageId}/annotations/${room.xmlId}/collaboration/revision`
+      `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/revision`
     )
 
     const nextRooms = cloneRooms(rooms.value)
     const targetRoom = nextRooms[roomKey]
     if (!targetRoom) return
 
-    targetRoom.persistedRevision = revision.persistedRevision
-    targetRoom.latestPersistedRevision = revision.persistedRevision
-    targetRoom.resyncRequired = false
+    targetRoom.viewerSync.persistedRevision = revision.persistedRevision
+    targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
+    targetRoom.viewerSync.resyncRequired = false
     rooms.value = nextRooms
   }
 
-  const rejoinOpenRooms = () => {
+  function rejoinOpenRooms() {
     for (const room of Object.values(rooms.value)) {
-      sendMessage('JOIN_ROOM', { token: room.token })
+      sendMessage('JOIN_ROOM', { token: room.identity.token })
     }
   }
 
   const connect = () => {
     if (import.meta.server || !loggedIn.value) return
-
-    const existing = wsConnection.value
-    if (existing?.readyState === WebSocket.OPEN || existing?.readyState === WebSocket.CONNECTING) {
-      return
+    if (!messageHandlerRegistered.value) {
+      realtime.subscribe((message) => {
+        try {
+          switch (message.type) {
+            case 'COLLAB_ROOM_STATE':
+              handleRoomState(message.payload as CollaborationRoomStateMessage)
+              break
+            case 'COLLAB_MEMBER_PRESENCE':
+              handlePresenceUpdate(message.payload as unknown as CollaborationPresenceMessage)
+              break
+            case 'COLLAB_SNAPSHOT_SYNC':
+            case 'COLLAB_SNAPSHOT_UPDATE': {
+              const payload = message.payload as Record<string, unknown> | undefined
+              const roomKey = typeof payload?.roomKey === 'string' ? payload.roomKey : null
+              const snapshot = payload?.snapshot
+              if (roomKey) {
+                handleSnapshotUpdate(roomKey, snapshot ?? createEmptySnapshot())
+              }
+              break
+            }
+            case 'COLLAB_RELOAD_REQUIRED': {
+              const payload = message.payload as Record<string, unknown> | undefined
+              const roomKey = typeof payload?.roomKey === 'string' ? payload.roomKey : null
+              if (roomKey) {
+                void handleReloadRequired(roomKey)
+              }
+              break
+            }
+            case 'COLLAB_CONNECTED':
+            case 'COLLAB_JOINED':
+            case 'CONNECTED':
+            case 'AUTH_ACK':
+            case 'PONG':
+              break
+            case 'COLLAB_ERROR': {
+              const payload = message.payload as Record<string, unknown> | undefined
+              console.warn('[editor-collaboration]', typeof payload?.message === 'string' ? payload.message : 'Collaboration error')
+              break
+            }
+            default:
+              break
+          }
+        } catch (error) {
+          console.error('[editor-collaboration] Failed to process message:', error)
+        }
+      })
+      messageHandlerRegistered.value = true
     }
 
-    shouldReconnect.value = true
-    clearReconnectTimeout()
-    connectionStatus.value = 'connecting'
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/collaboration/_ws`
-    const ws = new WebSocket(wsUrl)
-
-    ws.onopen = () => {
-      connectionStatus.value = 'connected'
+    realtime.connect()
+    if (realtime.connectionStatus.value === 'connected') {
       rejoinOpenRooms()
     }
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data) as {
-          type?: string
-          payload?: CollaborationRoomStateMessage | Record<string, unknown>
-        }
-
-        switch (message.type) {
-          case 'COLLAB_ROOM_STATE':
-            handleRoomState(message.payload as CollaborationRoomStateMessage)
-            break
-          case 'COLLAB_MEMBER_PRESENCE':
-            handlePresenceUpdate(message.payload as CollaborationPresenceMessage)
-            break
-          case 'COLLAB_SNAPSHOT_SYNC':
-          case 'COLLAB_SNAPSHOT_UPDATE': {
-            const roomKey = typeof message.payload?.roomKey === 'string' ? message.payload.roomKey : null
-            const snapshot = message.payload?.snapshot
-            if (roomKey) {
-              handleSnapshotUpdate(roomKey, snapshot ?? createEmptySnapshot())
-            }
-            break
-          }
-          case 'COLLAB_RELOAD_REQUIRED': {
-            const roomKey = typeof message.payload?.roomKey === 'string' ? message.payload.roomKey : null
-            if (roomKey) {
-              void handleReloadRequired(roomKey)
-            }
-            break
-          }
-          case 'COLLAB_CONNECTED':
-          case 'COLLAB_JOINED':
-          case 'PONG':
-            break
-          case 'COLLAB_ERROR':
-            console.warn('[editor-collaboration]', message.payload?.message ?? 'Collaboration error')
-            break
-          default:
-            break
-        }
-      } catch (error) {
-        console.error('[editor-collaboration] Failed to parse message:', error)
-      }
-    }
-
-    ws.onclose = () => {
-      connectionStatus.value = 'disconnected'
-      if (wsConnection.value === ws) {
-        wsConnection.value = null
-      }
-
-      if (!shouldReconnect.value || Object.keys(rooms.value).length === 0) {
-        return
-      }
-
-      reconnectTimeout.value = setTimeout(() => {
-        reconnectTimeout.value = null
-        connect()
-      }, 5000)
-    }
-
-    ws.onerror = () => {
-      connectionStatus.value = 'error'
-    }
-
-    wsConnection.value = ws
   }
 
   const disconnect = () => {
-    shouldReconnect.value = false
-    clearReconnectTimeout()
-    closeActiveConnection(wsConnection.value)
-    wsConnection.value = null
     for (const roomKey of roomHeartbeatTimers.keys()) {
       stopLeaseHeartbeat(roomKey)
+      clearLeaseWarningTimer(roomKey)
+      setLeaseExpiringSoon(roomKey, false)
     }
     connectionStatus.value = 'idle'
   }
@@ -929,7 +1013,7 @@ export function useEditorCollaboration() {
     pageId: string,
     xmlId: string,
     canvasId: string
-  ): Promise<CollaborationRoomState | null> => {
+  ): Promise<CollaborationRoomSession | null> => {
     if (import.meta.server) return null
 
     const bootstrap = await $fetch<CollaborationRoomBootstrap>(
@@ -947,25 +1031,34 @@ export function useEditorCollaboration() {
 
     const nextRooms = cloneRooms(rooms.value)
     nextRooms[bootstrap.roomKey] = {
-      roomKey: bootstrap.roomKey,
-      workspaceId: bootstrap.workspaceId,
-      projectId: bootstrap.projectId,
-      pageId: bootstrap.pageId,
-      xmlId: bootstrap.xmlId,
-      token: bootstrap.token,
-      persistedRevision: bootstrap.persistedRevision,
-      latestPersistedRevision: null,
-      canEdit: bootstrap.canEdit,
-      canForceTakeover: bootstrap.canForceTakeover,
-      leaseEpoch: lease.lease.leaseEpoch,
-      user: bootstrap.user,
-      members: nextRooms[bootstrap.roomKey]?.members ?? [],
-      editor: lease.lease.editor,
-      pendingTakeover: lease.lease.pendingTakeover,
-      resyncRequired: false
+      identity: {
+        roomKey: bootstrap.roomKey,
+        workspaceId: bootstrap.workspaceId,
+        projectId: bootstrap.projectId,
+        pageId: bootstrap.pageId,
+        xmlId: bootstrap.xmlId,
+        token: bootstrap.token,
+        canEdit: bootstrap.canEdit,
+        canForceTakeover: bootstrap.canForceTakeover,
+        user: bootstrap.user
+      },
+      lease: {
+        ...lease.lease,
+        expiresAt: lease.lease.expiresAt ?? null
+      },
+      presence: {
+        members: nextRooms[bootstrap.roomKey]?.presence.members ?? []
+      },
+      viewerSync: {
+        persistedRevision: bootstrap.persistedRevision,
+        latestPersistedRevision: null,
+        resyncRequired: false,
+        snapshotReady: false
+      }
     }
     rooms.value = nextRooms
     reconcileRoomHeartbeat(bootstrap.roomKey)
+    syncLeaseExpiryWarning(bootstrap.roomKey)
 
     canvasRooms.value = {
       ...canvasRooms.value,
@@ -1064,7 +1157,7 @@ export function useEditorCollaboration() {
     return creation
   }
 
-  const ensureCanvasRoom = async (canvasId: string): Promise<CollaborationRoomState | null> => {
+  const ensureCanvasRoom = async (canvasId: string): Promise<CollaborationRoomSession | null> => {
     const canvas = editorStore.getCanvas(canvasId)
     if (!canvas?.projectId || !canvas.pageId || canvas.isLoadingAnnotations) {
       return null
@@ -1105,8 +1198,10 @@ export function useEditorCollaboration() {
       rooms.value = nextRooms
       stopRevisionPolling(roomKey)
       stopLeaseHeartbeat(roomKey)
+      clearLeaseWarningTimer(roomKey)
+      setLeaseExpiringSoon(roomKey, false)
       teardownRoomBroadcastChannel(roomKey, false)
-      roomReady.delete(roomKey)
+      leaseWarningShownForExpiry.delete(roomKey)
       roomSnapshots.delete(roomKey)
       roomSnapshotVersions.delete(roomKey)
       roomCanvasIds.delete(roomKey)
@@ -1137,25 +1232,27 @@ export function useEditorCollaboration() {
 
   const acceptCurrentRevisionForCanvas = async (canvasId: string) => {
     const roomKey = canvasRooms.value[canvasId]
+    if (!roomKey) return
     const room = roomKey ? rooms.value[roomKey] : null
     if (!room) return
 
     const revision = await $fetch<CollaborationRevisionResponse>(
-      `/api/projects/${room.projectId}/pages/${room.pageId}/annotations/${room.xmlId}/collaboration/revision`
+      `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/revision`
     )
 
     const nextRooms = cloneRooms(rooms.value)
     const targetRoom = nextRooms[roomKey]
     if (!targetRoom) return
 
-    targetRoom.persistedRevision = revision.persistedRevision
-    targetRoom.latestPersistedRevision = revision.persistedRevision
-    targetRoom.resyncRequired = false
+    targetRoom.viewerSync.persistedRevision = revision.persistedRevision
+    targetRoom.viewerSync.latestPersistedRevision = revision.persistedRevision
+    targetRoom.viewerSync.resyncRequired = false
     rooms.value = nextRooms
   }
 
   const reloadRoomForCanvas = async (canvasId: string) => {
     const roomKey = canvasRooms.value[canvasId]
+    if (!roomKey) return null
     const room = roomKey ? rooms.value[roomKey] : null
     if (!room) return null
 
@@ -1167,38 +1264,42 @@ export function useEditorCollaboration() {
   const getCanvasCollaborators = (canvasId: string): CollaborationRoomMember[] => {
     const room = getRoomForCanvas(canvasId)
     if (!room) return []
-    return dedupeMembers(room.members, currentUserId.value)
+    return dedupeMembers(room.presence.members, currentUserId.value)
   }
 
   const getPageCollaborators = (pageId: string | null | undefined, projectId?: string | null): CollaborationRoomMember[] => {
     if (!pageId) return []
 
     const matches = Object.values(rooms.value)
-      .filter(room => room.pageId === pageId && (!projectId || room.projectId === projectId))
-      .flatMap(room => room.members)
+      .filter(room => room.identity.pageId === pageId && (!projectId || room.identity.projectId === projectId))
+      .flatMap(room => room.presence.members)
 
     return dedupeMembers(matches, currentUserId.value)
   }
 
   const isCanvasResyncRequired = (canvasId: string): boolean => {
-    return getRoomForCanvas(canvasId)?.resyncRequired === true
+    return getRoomForCanvas(canvasId)?.viewerSync.resyncRequired === true
   }
 
   const isCollaborativeCanvas = (canvasId: string): boolean => {
-    const roomKey = getRoomKeyForCanvas(canvasId)
-    return Boolean(roomKey && roomReady.has(roomKey))
+    return getRoomForCanvas(canvasId)?.viewerSync.snapshotReady === true
   }
 
   const getCanvasEditor = (canvasId: string): CollaborationLeaseOwner | null => {
-    return getRoomForCanvas(canvasId)?.editor ?? null
+    return getRoomForCanvas(canvasId)?.lease.editor ?? null
   }
 
   const getCanvasPendingTakeover = (canvasId: string): CollaborationTakeoverRequest | null => {
-    return getRoomForCanvas(canvasId)?.pendingTakeover ?? null
+    return getRoomForCanvas(canvasId)?.lease.pendingTakeover ?? null
   }
 
   const canForceTakeoverCanvas = (canvasId: string): boolean => {
-    return getRoomForCanvas(canvasId)?.canForceTakeover === true
+    return getRoomForCanvas(canvasId)?.identity.canForceTakeover === true
+  }
+
+  const isCanvasLeaseExpiringSoon = (canvasId: string): boolean => {
+    const roomKey = getRoomKeyForCanvas(canvasId)
+    return roomKey ? roomLeaseWarnings.value[roomKey] === true : false
   }
 
   const requestTakeover = async (canvasId: string, force = false): Promise<boolean> => {
@@ -1208,7 +1309,7 @@ export function useEditorCollaboration() {
 
     try {
       const response = await $fetch<CollaborationLeaseResponse>(
-        `/api/projects/${room.projectId}/pages/${room.pageId}/annotations/${room.xmlId}/collaboration/lease/request`,
+        `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/request`,
         {
           method: 'POST',
           body: { force }
@@ -1234,7 +1335,7 @@ export function useEditorCollaboration() {
 
     try {
       const response = await $fetch<CollaborationLeaseResponse>(
-        `/api/projects/${room.projectId}/pages/${room.pageId}/annotations/${room.xmlId}/collaboration/lease/respond`,
+        `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/respond`,
         {
           method: 'POST',
           body: { decision, handoffMode }
@@ -1267,6 +1368,7 @@ export function useEditorCollaboration() {
     getPageCollaborators,
     isCanvasResyncRequired,
     isCollaborativeCanvas,
+    isCanvasLeaseExpiringSoon,
     canEditCanvas,
     canForceTakeoverCanvas,
     getCanvasEditor,

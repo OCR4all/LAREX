@@ -51,11 +51,42 @@ export interface CollaborationTakeoverRequest {
   force: boolean
 }
 
+export interface CollaborationRoomIdentity {
+  roomKey: string
+  workspaceId: string
+  projectId: string
+  pageId: string
+  xmlId: string
+  token: string
+  canEdit: boolean
+  canForceTakeover: boolean
+  user: CollaborationUserIdentity
+}
+
 export interface CollaborationLeaseState {
   editor: CollaborationLeaseOwner | null
   pendingTakeover: CollaborationTakeoverRequest | null
   leaseOwner: boolean
   leaseEpoch: number
+  expiresAt?: string | null
+}
+
+export interface CollaborationPresenceState {
+  members: CollaborationRoomMember[]
+}
+
+export interface CollaborationViewerSyncState {
+  persistedRevision: string
+  latestPersistedRevision?: string | null
+  resyncRequired: boolean
+  snapshotReady: boolean
+}
+
+export interface CollaborationRoomSession {
+  identity: CollaborationRoomIdentity
+  lease: CollaborationLeaseState
+  presence: CollaborationPresenceState
+  viewerSync: CollaborationViewerSyncState
 }
 
 export interface CollaborationRoomBootstrap {
@@ -86,30 +117,10 @@ export interface CollaborationRevisionResponse {
   updated: string | null
 }
 
-export interface CollaborationRoomState {
-  roomKey: string
-  workspaceId: string
-  projectId: string
-  pageId: string
-  xmlId: string
-  token: string
-  persistedRevision: string
-  latestPersistedRevision?: string | null
-  canEdit: boolean
-  canForceTakeover: boolean
-  leaseEpoch: number
-  user: CollaborationUserIdentity
-  members: CollaborationRoomMember[]
-  editor: CollaborationLeaseOwner | null
-  pendingTakeover: CollaborationTakeoverRequest | null
-  resyncRequired: boolean
-}
-
 export interface CollaborationRoomStateMessage {
   roomKey: string
   members: CollaborationRoomMember[]
-  editor: CollaborationLeaseOwner | null
-  pendingTakeover: CollaborationTakeoverRequest | null
+  lease: CollaborationLeaseState
 }
 
 export interface CollaborationPresenceMessage {

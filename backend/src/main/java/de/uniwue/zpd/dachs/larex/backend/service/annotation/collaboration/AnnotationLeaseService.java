@@ -515,7 +515,7 @@ public class AnnotationLeaseService {
     }
 
     private AnnotationCollaborationDto.LeaseState emptyLeaseState(String currentUserId) {
-        return new AnnotationCollaborationDto.LeaseState(null, null, false, 0);
+        return new AnnotationCollaborationDto.LeaseState(null, null, false, 0, null);
     }
 
     private AnnotationCollaborationDto.LeaseState toLeaseState(LeaseRecord record, String currentUserId) {
@@ -539,7 +539,8 @@ public class AnnotationLeaseService {
                 owner,
                 pendingTakeover,
                 owner != null && owner.user() != null && owner.user().id().equals(currentUserId),
-                record.epoch
+                record.epoch,
+                record.expiresAt == null ? null : record.expiresAt.toString()
         );
     }
 

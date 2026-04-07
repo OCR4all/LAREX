@@ -38,6 +38,7 @@ type BackendBootstrapResponse = {
     } | null
     leaseOwner: boolean
     leaseEpoch: number
+    expiresAt?: string | null
   }
 }
 

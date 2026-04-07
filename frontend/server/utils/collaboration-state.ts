@@ -17,21 +17,9 @@ type RoomMember = {
   presence: Record<string, unknown> | null
 }
 
-type RoomTakeoverRequest = {
-  requester: CollaborationUser
-  requestedAt: string
-  force: boolean
-}
-
-type RoomLeaseOwner = {
-  user: CollaborationUser
-  acquiredAt: string
-}
-
 type RoomRecord = {
   members: Map<string, RoomMember>
-  editor: RoomLeaseOwner | null
-  pendingTakeover: RoomTakeoverRequest | null
+  lease: CollaborationLeaseState
 }
 
 type RoomStateMessage = {
@@ -45,8 +33,7 @@ type RoomStateMessage = {
       user: CollaborationUser
       presence: Record<string, unknown> | null
     }>
-    editor: RoomLeaseOwner | null
-    pendingTakeover: RoomTakeoverRequest | null
+    lease: CollaborationLeaseState
   }
 }
 
@@ -87,14 +74,23 @@ function toUser(token: CollaborationRoomTokenPayload): CollaborationUser {
   }
 }
 
+function emptyLeaseState(): CollaborationLeaseState {
+  return {
+    editor: null,
+    pendingTakeover: null,
+    leaseOwner: false,
+    leaseEpoch: 0,
+    expiresAt: null
+  }
+}
+
 function getOrCreateRoom(roomKey: string): RoomRecord {
   let room = rooms.get(roomKey)
   if (room) return room
 
   room = {
     members: new Map<string, RoomMember>(),
-    editor: null,
-    pendingTakeover: null
+    lease: emptyLeaseState()
   }
   rooms.set(roomKey, room)
   return room
@@ -116,8 +112,7 @@ function toRoomState(roomKey: string): RoomStateMessage {
             presence: member.presence
           }))
         : [],
-      editor: room?.editor ?? null,
-      pendingTakeover: room?.pendingTakeover ?? null
+      lease: room?.lease ?? emptyLeaseState()
     }
   }
 }
@@ -287,7 +282,7 @@ export const collaborationState = {
     const room = rooms.get(roomKey)
     const member = room?.members.get(peerId)
     if (!room || !member) return
-    if (room.editor?.user.id !== member.token.sub) return
+    if (room.lease.editor?.user.id !== member.token.sub) return
 
     roomSnapshots.set(roomKey, snapshot)
 
@@ -307,11 +302,16 @@ export const collaborationState = {
 
   syncLeaseState(roomKey: string, lease: CollaborationLeaseState, reason = 'lease-updated') {
     const room = getOrCreateRoom(roomKey)
-    const previousEditorId = room.editor?.user.id ?? null
+    const previousEditorId = room.lease.editor?.user.id ?? null
     const nextEditorId = lease.editor?.user.id ?? null
 
-    room.editor = lease.editor ?? null
-    room.pendingTakeover = lease.pendingTakeover ?? null
+    room.lease = {
+      editor: lease.editor ?? null,
+      pendingTakeover: lease.pendingTakeover ?? null,
+      leaseOwner: lease.leaseOwner ?? false,
+      leaseEpoch: lease.leaseEpoch ?? 0,
+      expiresAt: lease.expiresAt ?? null
+    }
 
     if (previousEditorId !== nextEditorId) {
       roomSnapshots.delete(roomKey)
@@ -330,6 +330,6 @@ export const collaborationState = {
     if (!room) return
 
     roomSnapshots.delete(roomKey)
-    broadcastReload(roomKey, reason, room.editor?.user.id ?? null, room.editor?.user.id ?? null)
+    broadcastReload(roomKey, reason, room.lease.editor?.user.id ?? null, room.lease.editor?.user.id ?? null)
   }
 }

@@ -5,16 +5,27 @@ type CollaborationLeaseResponse = {
   roomKey: string
   lease: {
     editor: {
-      user: { id: string }
+      user: {
+        id: string
+        username: string
+        displayName: string
+        avatar?: string | null
+      }
       acquiredAt: string
     } | null
     pendingTakeover: {
-      requester: { id: string }
+      requester: {
+        id: string
+        username: string
+        displayName: string
+        avatar?: string | null
+      }
       requestedAt: string
       force: boolean
     } | null
     leaseOwner: boolean
     leaseEpoch: number
+    expiresAt?: string | null
   }
 }
 

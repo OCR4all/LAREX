@@ -82,6 +82,7 @@ const remoteCollaborators = computed(() => collaboration.getCanvasCollaborators(
 const canvasEditor = computed(() => collaboration.getCanvasEditor(props.canvasId))
 const isCanvasEditable = computed(() => collaboration.canEditCanvas(props.canvasId))
 const isCollaborationResyncRequired = computed(() => collaboration.isCanvasResyncRequired(props.canvasId))
+const isCanvasLeaseExpiringSoon = computed(() => collaboration.isCanvasLeaseExpiringSoon(props.canvasId))
 const pendingTakeover = computed(() => collaboration.getCanvasPendingTakeover(props.canvasId))
 const canForceTakeover = computed(() => !isCanvasEditable.value && collaboration.canForceTakeoverCanvas(props.canvasId))
 const collaborationSyncSuspended = ref(false)
@@ -146,22 +147,22 @@ const collaborationParticipants = computed<CollaborationDisplayParticipant[]>(()
   const room = collaborationRoom.value
   if (!room) return []
 
-  const dedupedMembers = room.members.reduce((members, member) => {
-    members.set(member.user.id, latestMember(members.get(member.user.id), member))
-    return members
-  }, new Map<string, CollaborationRoomMember>())
+  const dedupedMembers = new Map<string, CollaborationRoomMember>()
+  for (const member of room.presence.members) {
+    dedupedMembers.set(member.user.id, latestMember(dedupedMembers.get(member.user.id), member))
+  }
 
-  if (!dedupedMembers.has(room.user.id)) {
-    dedupedMembers.set(room.user.id, {
-      peerId: `self:${room.user.id}`,
-      user: room.user,
+  if (!dedupedMembers.has(room.identity.user.id)) {
+    dedupedMembers.set(room.identity.user.id, {
+      peerId: `self:${room.identity.user.id}`,
+      user: room.identity.user,
       presence: null,
       joinedAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString()
     })
   }
 
-  const editorId = room.editor?.user.id ?? null
+  const editorId = room.lease.editor?.user.id ?? null
 
   return [...dedupedMembers.values()]
     .map(member => ({
@@ -169,7 +170,7 @@ const collaborationParticipants = computed<CollaborationDisplayParticipant[]>(()
       user: member.user,
       presence: member.presence,
       role: member.user.id === editorId ? 'editing' : 'viewing',
-      isCurrentUser: member.user.id === room.user.id
+      isCurrentUser: member.user.id === room.identity.user.id
     }))
     .sort((left, right) => {
       if (left.role !== right.role) return left.role === 'editing' ? -1 : 1
@@ -1104,6 +1105,20 @@ watch(() => props.src, (newSrc) => {
           label="Force Takeover"
           @click="handleRequestTakeover(true)"
         />
+      </div>
+    </div>
+
+    <div
+      v-if="isCanvasEditable && isCanvasLeaseExpiringSoon"
+      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+    >
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+          <Icon name="i-lucide-clock-3" class="h-3.5 w-3.5" />
+        </div>
+        <p class="truncate text-[13px] text-amber-50/90">
+          Your edit lock will expire soon unless the collaboration heartbeat resumes.
+        </p>
       </div>
     </div>
 

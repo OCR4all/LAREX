@@ -5,6 +5,8 @@ import de.uniwue.zpd.dachs.larex.backend.repository.notification.NotificationRep
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,13 +18,16 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
     private final EmailService emailService;
+    private final NotificationBridgeClient notificationBridgeClient;
 
     public NotificationService(NotificationRepository notificationRepository,
                                NotificationPreferenceService preferenceService,
-                               @Lazy EmailService emailService) {
+                               @Lazy EmailService emailService,
+                               NotificationBridgeClient notificationBridgeClient) {
         this.notificationRepository = notificationRepository;
         this.preferenceService = preferenceService;
         this.emailService = emailService;
+        this.notificationBridgeClient = notificationBridgeClient;
     }
 
     public List<Notification> getUserNotifications(String userId) {
@@ -46,20 +51,15 @@ public class NotificationService {
     }
 
     public Notification createNotification(String userId, String title, String message, Notification.NotificationType type) {
-        // Check if in-app notifications are enabled for this type
         if (!preferenceService.isInAppEnabledForType(userId, type)) {
-            // Still might want to send email even if in-app is disabled
             Notification tempNotification = new Notification(userId, title, message, type);
             emailService.sendNotificationEmailIfEnabled(userId, tempNotification);
             return null;
         }
-        
+
         Notification notification = new Notification(userId, title, message, type);
         Notification saved = notificationRepository.save(notification);
-        
-        // Send email notification if enabled
-        emailService.sendNotificationEmailIfEnabled(userId, saved);
-        
+        dispatchSavedNotification(saved);
         return saved;
     }
 
@@ -68,21 +68,35 @@ public class NotificationService {
     }
 
     public Notification createNotification(String userId, String title, String message, Notification.NotificationType type, String relatedEntityId, String relatedEntityType, String link) {
-        // Check if in-app notifications are enabled for this type
         if (!preferenceService.isInAppEnabledForType(userId, type)) {
-            // Still might want to send email even if in-app is disabled
             Notification tempNotification = new Notification(userId, title, message, type, relatedEntityId, relatedEntityType, link);
             emailService.sendNotificationEmailIfEnabled(userId, tempNotification);
             return null;
         }
-        
+
         Notification notification = new Notification(userId, title, message, type, relatedEntityId, relatedEntityType, link);
         Notification saved = notificationRepository.save(notification);
-        
-        // Send email notification if enabled
-        emailService.sendNotificationEmailIfEnabled(userId, saved);
-        
+        dispatchSavedNotification(saved);
         return saved;
+    }
+
+    private void dispatchSavedNotification(Notification saved) {
+        Runnable dispatch = () -> {
+            emailService.sendNotificationEmailIfEnabled(saved.getUserId(), saved);
+            notificationBridgeClient.pushNotification(saved, "notification-service");
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    dispatch.run();
+                }
+            });
+            return;
+        }
+
+        dispatch.run();
     }
 
     public void createWorkspaceInvitationNotification(String userId, String workspaceName, String workspaceId) {

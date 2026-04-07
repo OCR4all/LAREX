@@ -21,6 +21,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     collaborationSecret: process.env.NUXT_COLLABORATION_SECRET || 'larex-collaboration-dev-secret',
+    notificationBridgeSecret: process.env.NUXT_NOTIFICATION_BRIDGE_SECRET || 'larex-notification-bridge-dev-secret',
     oauth: {
       keycloak: {
         serverUrl: 'http://keycloak.localhost',
@@ -75,7 +76,7 @@ export default defineNuxtConfig({
         '@codemirror/lint',
         '@codemirror/search',
         '@codemirror/language',
-        '@lezer/highlight',
+        '@lezer/highlight'
       ]
     }
   },

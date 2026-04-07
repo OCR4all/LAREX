@@ -71,12 +71,15 @@ export const websocketUtils = {
   },
 
   sendToUser(userId: string, message: Partial<WebSocketMessage>) {
+    let sentCount = 0
     for (const [peerId, storedUserId] of peerToUser.entries()) {
       if (storedUserId === userId) {
-        return this.sendToPeer(peerId, message)
+        if (this.sendToPeer(peerId, message)) {
+          sentCount++
+        }
       }
     }
-    return false
+    return sentCount
   },
 
   broadcast(message: Partial<WebSocketMessage>) {
