@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
 import type { PageData } from '@/stores/editor/types'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { copyTextToClipboard } from '@/utils/clipboard'
+import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 type VariantItem = { label: string, value: string }
 
@@ -49,7 +50,7 @@ const emit = defineEmits<{
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
-const collaboration = useEditorCollaboration()
+const pageSummaries = useCollaborationPageSummary()
 const toast = useToast()
 const router = useRouter()
 
@@ -94,7 +95,43 @@ const displayTags = computed(() => {
 const maxVisibleTagDots = 4
 const visibleTagDots = computed(() => displayTags.value.slice(0, maxVisibleTagDots))
 const hiddenTagDotCount = computed(() => Math.max(0, displayTags.value.length - maxVisibleTagDots))
-const collaborators = computed(() => collaboration.getPageCollaborators(props.page.id, props.page.projectId))
+const collaborationSummary = computed(() => pageSummaries.getPageSummary(props.page.id, props.page.projectId))
+const collaborationEditor = computed(() => collaborationSummary.value?.editor ?? null)
+const collaborationAvatarRingClass = computed(() => {
+  const summary = collaborationSummary.value
+  if (!summary?.editor) return ''
+  return summary.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'
+})
+
+const collaborationTooltip = computed(() => {
+  const summary = collaborationSummary.value
+  if (!summary) return ''
+
+  if (summary.editor) {
+    const activity = summary.isLive ? 'Live' : 'Idle'
+    const viewers = summary.viewerCount > 0 ? `, ${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'}` : ''
+    const pending = summary.hasPendingTakeover ? ', pending request' : ''
+    return `${summary.editor.user.displayName} editing (${activity}${viewers}${pending})`
+  }
+
+  return `${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'} watching`
+})
+
+function collaborationAvatarText() {
+  const editor = collaborationEditor.value?.user
+  if (!editor) return 'U'
+
+  return getAvatarInitials({
+    name: editor.displayName,
+    username: editor.username
+  })
+}
+
+watch(() => props.page.projectId, (value) => {
+  if (value) {
+    void pageSummaries.ensureProjectSummary(value)
+  }
+}, { immediate: true })
 
 const selectUi = {
   base: 'h-7 w-full text-[11px] px-2 bg-neutral-800/80 border border-neutral-700/50 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600 focus:ring-1 focus:ring-primary-500/50 focus:border-primary-500/50 backdrop-blur-sm',
@@ -266,13 +303,35 @@ async function handleCopyPageId() {
           </span>
 
           <div class="flex items-center gap-1">
-            <EditorCollaboratorsStrip
-              v-if="collaborators.length > 0"
-              :collaborators="collaborators"
-              :max-visible="2"
-              :show-count="false"
-              size="xs"
-            />
+            <UTooltip
+              v-if="collaborationEditor"
+              :text="collaborationTooltip"
+              :content="{ side: 'right' }"
+              :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+            >
+              <UAvatar
+                :src="resolveManagedProfileAvatarSrc(collaborationEditor.user.avatar)"
+                :alt="collaborationEditor.user.displayName"
+                :text="collaborationAvatarText()"
+                size="xs"
+                :class="['ring-2', collaborationAvatarRingClass]"
+              />
+            </UTooltip>
+            <UTooltip
+              v-else-if="collaborationSummary?.viewerCount"
+              :text="collaborationTooltip"
+              :content="{ side: 'right' }"
+              :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+            >
+              <UBadge
+                color="info"
+                variant="subtle"
+                size="xs"
+                icon="i-lucide-eye"
+              >
+                Watching
+              </UBadge>
+            </UTooltip>
             <UPopover
               v-if="displayTags.length > 0"
               mode="hover"

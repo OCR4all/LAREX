@@ -172,10 +172,13 @@ export function useEditorCollaboration() {
   const rooms = useState<Record<string, CollaborationRoomSession>>('editor-collaboration.rooms', () => ({}))
   const canvasRooms = useState<Record<string, string>>('editor-collaboration.canvas-rooms', () => ({}))
   const roomLeaseWarnings = useState<Record<string, boolean>>('editor-collaboration.lease-warnings', () => ({}))
+  const roomLocallyExpired = useState<Record<string, boolean>>('editor-collaboration.lease-locally-expired', () => ({}))
+  const leaseNow = useState<number>('editor-collaboration.lease-now', () => Date.now())
   const currentInstanceId = useState<string>('editor-collaboration.instance-id', () => getBrowserInstanceId())
   const unloadHandlerRegistered = useState<boolean>('editor-collaboration.unload-handler-registered', () => false)
   const messageHandlerRegistered = useState<boolean>('editor-collaboration.message-handler-registered', () => false)
   const statusWatcherRegistered = useState<boolean>('editor-collaboration.status-watcher-registered', () => false)
+  const leaseTickerRegistered = useState<boolean>('editor-collaboration.lease-ticker-registered', () => false)
 
   const ensureInstanceId = (): string => {
     if (currentInstanceId.value) {
@@ -196,6 +199,13 @@ export function useEditorCollaboration() {
     return value?.id ?? value?.sub ?? null
   })
 
+  if (import.meta.client && !leaseTickerRegistered.value) {
+    setInterval(() => {
+      leaseNow.value = Date.now()
+    }, 1000)
+    leaseTickerRegistered.value = true
+  }
+
   const pageLabel = (room: CollaborationRoomSession) => {
     const page = editorStore.getPage(room.identity.pageId, room.identity.projectId)
     const resolvedProjectLabel = page?.projectName?.trim() || room.identity.projectId
@@ -213,6 +223,19 @@ export function useEditorCollaboration() {
       && (left?.force ?? false) === (right?.force ?? false)
   }
 
+  const setLocallyExpired = (roomKey: string, expired: boolean) => {
+    if (roomLocallyExpired.value[roomKey] === expired) {
+      return
+    }
+
+    roomLocallyExpired.value = expired
+      ? {
+          ...roomLocallyExpired.value,
+          [roomKey]: true
+        }
+      : Object.fromEntries(Object.entries(roomLocallyExpired.value).filter(([key]) => key !== roomKey))
+  }
+
   const notifyLeaseTransition = (
     room: CollaborationRoomSession,
     previousEditor: CollaborationLeaseOwner | null,
@@ -224,6 +247,12 @@ export function useEditorCollaboration() {
 
     const currentId = currentUserId.value
     const roomPageLabel = pageLabel(room)
+
+    if (nextEditor?.user.id === currentId) {
+      setLocallyExpired(room.identity.roomKey, false)
+    } else if (previousEditor?.user.id === currentId && nextEditor?.user.id !== currentId) {
+      setLocallyExpired(room.identity.roomKey, true)
+    }
 
     if (!sameTakeover(previousTakeover, nextTakeover) && nextTakeover && previousEditor?.user.id === currentId) {
       toast.add({
@@ -1205,6 +1234,7 @@ export function useEditorCollaboration() {
       roomSnapshots.delete(roomKey)
       roomSnapshotVersions.delete(roomKey)
       roomCanvasIds.delete(roomKey)
+      setLocallyExpired(roomKey, false)
     }
 
     if (Object.keys(nextCanvasRooms).length === 0) {
@@ -1302,6 +1332,50 @@ export function useEditorCollaboration() {
     return roomKey ? roomLeaseWarnings.value[roomKey] === true : false
   }
 
+  const getCanvasLeaseExpiresAt = (canvasId: string): string | null => {
+    return getRoomForCanvas(canvasId)?.lease.expiresAt ?? null
+  }
+
+  const getCanvasSecondsUntilExpiry = (canvasId: string): number | null => {
+    const room = getRoomForCanvas(canvasId)
+    if (!room?.lease.expiresAt || room.lease.editor?.user.id !== currentUserId.value) {
+      return null
+    }
+
+    const expiresAtMs = new Date(room.lease.expiresAt).getTime()
+    if (!Number.isFinite(expiresAtMs)) {
+      return null
+    }
+
+    return Math.max(0, Math.ceil((expiresAtMs - leaseNow.value) / 1000))
+  }
+
+  const hasCanvasLeaseExpiredLocally = (canvasId: string): boolean => {
+    const roomKey = getRoomKeyForCanvas(canvasId)
+    return roomKey ? roomLocallyExpired.value[roomKey] === true : false
+  }
+
+  const canReclaimCanvasEdit = (canvasId: string): boolean => {
+    const room = getRoomForCanvas(canvasId)
+    const roomKey = getRoomKeyForCanvas(canvasId)
+    if (!room || !roomKey) return false
+
+    return room.identity.canEdit
+      && !room.lease.editor
+      && roomLocallyExpired.value[roomKey] === true
+  }
+
+  const reclaimCanvasEdit = async (canvasId: string): Promise<boolean> => {
+    const reclaimed = await requestTakeover(canvasId, false)
+    if (reclaimed) {
+      const roomKey = getRoomKeyForCanvas(canvasId)
+      if (roomKey) {
+        setLocallyExpired(roomKey, false)
+      }
+    }
+    return reclaimed
+  }
+
   const requestTakeover = async (canvasId: string, force = false): Promise<boolean> => {
     const roomKey = getRoomKeyForCanvas(canvasId)
     const room = roomKey ? rooms.value[roomKey] : null
@@ -1369,10 +1443,15 @@ export function useEditorCollaboration() {
     isCanvasResyncRequired,
     isCollaborativeCanvas,
     isCanvasLeaseExpiringSoon,
+    getCanvasLeaseExpiresAt,
+    getCanvasSecondsUntilExpiry,
+    hasCanvasLeaseExpiredLocally,
+    canReclaimCanvasEdit,
     canEditCanvas,
     canForceTakeoverCanvas,
     getCanvasEditor,
     getCanvasPendingTakeover,
+    reclaimCanvasEdit,
     requestTakeover,
     respondToTakeover
   }

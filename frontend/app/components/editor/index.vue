@@ -83,6 +83,9 @@ const canvasEditor = computed(() => collaboration.getCanvasEditor(props.canvasId
 const isCanvasEditable = computed(() => collaboration.canEditCanvas(props.canvasId))
 const isCollaborationResyncRequired = computed(() => collaboration.isCanvasResyncRequired(props.canvasId))
 const isCanvasLeaseExpiringSoon = computed(() => collaboration.isCanvasLeaseExpiringSoon(props.canvasId))
+const canvasLeaseSecondsUntilExpiry = computed(() => collaboration.getCanvasSecondsUntilExpiry(props.canvasId))
+const hasCanvasLeaseExpiredLocally = computed(() => collaboration.hasCanvasLeaseExpiredLocally(props.canvasId))
+const canReclaimCanvasEdit = computed(() => collaboration.canReclaimCanvasEdit(props.canvasId))
 const pendingTakeover = computed(() => collaboration.getCanvasPendingTakeover(props.canvasId))
 const canForceTakeover = computed(() => !isCanvasEditable.value && collaboration.canForceTakeoverCanvas(props.canvasId))
 const collaborationSyncSuspended = ref(false)
@@ -947,6 +950,24 @@ async function handleResyncRoom() {
   emitPresence()
 }
 
+async function handleReclaimEdit() {
+  const reclaimed = await collaboration.reclaimCanvasEdit(props.canvasId)
+  if (!reclaimed) {
+    toast.add({
+      title: 'Reclaim failed',
+      description: 'Could not reclaim the edit lock for this page.',
+      color: 'error'
+    })
+    return
+  }
+
+  toast.add({
+    title: 'Edit lock reclaimed',
+    description: 'You can edit this page again.',
+    color: 'success'
+  })
+}
+
 watch(
   () => isCollaborationHeavyInteraction.value,
   (busy) => {
@@ -1073,7 +1094,32 @@ watch(() => props.src, (newSrc) => {
 <template>
   <div class="w-full h-full flex flex-col min-h-0">
     <div
-      v-if="!isCanvasEditable && canvasEditor"
+      v-if="!isCanvasEditable && hasCanvasLeaseExpiredLocally && canReclaimCanvasEdit"
+      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+    >
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+          <Icon name="i-lucide-rotate-ccw" class="h-3.5 w-3.5" />
+        </div>
+        <p class="truncate text-[13px] text-amber-50/90">
+          Your edit lock expired locally. This page is free again and you can reclaim edit access.
+        </p>
+      </div>
+
+      <div class="flex shrink-0 items-center gap-2">
+        <UButton
+          size="xs"
+          color="primary"
+          variant="soft"
+          class="h-7 px-2.5 text-[11px]"
+          label="Reclaim Edit"
+          @click="handleReclaimEdit"
+        />
+      </div>
+    </div>
+
+    <div
+      v-else-if="!isCanvasEditable && canvasEditor"
       class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
     >
       <div class="flex min-w-0 items-center gap-2.5">
@@ -1117,7 +1163,7 @@ watch(() => props.src, (newSrc) => {
           <Icon name="i-lucide-clock-3" class="h-3.5 w-3.5" />
         </div>
         <p class="truncate text-[13px] text-amber-50/90">
-          Your edit lock will expire soon unless the collaboration heartbeat resumes.
+          Your edit lock expires in {{ canvasLeaseSecondsUntilExpiry ?? 0 }}s unless the heartbeat resumes.
         </p>
       </div>
     </div>

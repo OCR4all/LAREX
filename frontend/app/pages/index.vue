@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import { LazyCodecSlideoverAction, LazyLibrarySlideoverCreate, LazyShareSlideover, LazyProjectSlideoverEdit, LazyUiDeleteSlideover } from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
@@ -10,7 +10,9 @@ import { globalKey, wsKey } from '@/utils/fetch-keys'
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
+import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
 import { createSortableHeader, renderDropdownActionsCell, renderTruncatedText } from '@/utils/resource-list-columns'
+import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
@@ -18,6 +20,7 @@ const UPopover = resolveComponent('UPopover')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 const NuxtTime = resolveComponent('NuxtTime')
 const NuxtLink = resolveComponent('NuxtLink')
+const UAvatar = resolveComponent('UAvatar')
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -36,6 +39,7 @@ const libraryKey = computed(() => {
 
 const overlay = useOverlay()
 const toast = useToast()
+const collaborationPageSummary = useCollaborationPageSummary()
 
 const librarySlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
@@ -189,13 +193,73 @@ watch(data, (projects) => {
   const validIds = new Set((projects ?? []).map(project => project.id))
   const filtered = Array.from(selectedProjectIds.value).filter(id => validIds.has(id))
   selectedProjectIds.value = new Set(filtered)
-}, { deep: true })
+
+  for (const project of projects ?? []) {
+    void collaborationPageSummary.ensureProjectSummary(project.id)
+  }
+}, { deep: true, immediate: true })
 
 onMounted(() => {
   if (isStarredFilter.value) {
     setColumnFilter('isStarred', true)
   }
 })
+
+function renderProjectEditorsCell(project: LibraryProject) {
+  const editors = collaborationPageSummary.getProjectEditors(project.id)
+  if (editors.length === 0) {
+    return null
+  }
+
+  const visibleEditors = editors.slice(0, 4)
+  const hiddenCount = Math.max(0, editors.length - visibleEditors.length)
+
+  return h(UPopover, {
+    mode: 'hover',
+    content: { side: 'top' }
+  }, {
+    default: () => h('div', { class: 'flex items-center' }, [
+      ...visibleEditors.map((entry, index) => h(UAvatar, {
+        key: entry.editor.user.id,
+        src: resolveManagedProfileAvatarSrc(entry.editor.user.avatar),
+        alt: entry.editor.user.displayName,
+        text: getAvatarInitials({
+          name: entry.editor.user.displayName,
+          username: entry.editor.user.username
+        }),
+        size: 'sm',
+        class: `${index > 0 ? '-ml-2' : ''} ring-2 ${entry.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'}`
+      })),
+      hiddenCount > 0
+        ? h('span', {
+            class: 'ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'
+          }, `+${hiddenCount}`)
+        : null
+    ]),
+    content: () => h('div', { class: 'p-3 w-64 space-y-2' }, [
+      h('p', { class: 'text-xs font-medium text-highlighted' }, 'Active editors'),
+      ...editors.map(entry => h('div', {
+        key: entry.editor.user.id,
+        class: 'flex items-start gap-2'
+      }, [
+        h(UAvatar, {
+          src: resolveManagedProfileAvatarSrc(entry.editor.user.avatar),
+          alt: entry.editor.user.displayName,
+          text: getAvatarInitials({
+            name: entry.editor.user.displayName,
+            username: entry.editor.user.username
+          }),
+          size: 'xs',
+          class: `mt-0.5 ring-2 ${entry.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'}`
+        }),
+        h('div', { class: 'min-w-0' }, [
+          h('p', { class: 'text-xs font-medium text-highlighted truncate' }, entry.editor.user.displayName),
+          h('p', { class: 'text-xs text-muted truncate' }, `${entry.isLive ? 'Live' : 'Idle'} on ${entry.pageIds.length} page${entry.pageIds.length === 1 ? '' : 's'}`)
+        ])
+      ]))
+    ])
+  })
+}
 
 const columns: TableColumn<LibraryProject>[] = [
   {
@@ -284,6 +348,11 @@ const columns: TableColumn<LibraryProject>[] = [
     accessorKey: 'pageCount',
     header: createSortableHeader('Pages', 'pageCount', sort, UButton, { align: 'end' }),
     cell: ({ row }) => h('div', { class: 'text-right font-medium' }, row.getValue('pageCount'))
+  },
+  {
+    id: 'editing',
+    header: 'Editing',
+    cell: ({ row }) => renderProjectEditorsCell(row.original)
   },
   {
     accessorKey: 'storageUsedBytes',
@@ -409,7 +478,7 @@ async function openEditProjectSlideover(project: LibraryProject) {
   const capabilities = getProjectCapabilities(project)
   if (!allow(capabilities.canEdit)) return
 
-  const instance = editSlideover.open({ project: project as any })
+  const instance = editSlideover.open({ project })
   const updated = await instance.result
   if (!updated) return
 
@@ -435,7 +504,7 @@ async function openShareSlideover(project: LibraryProject) {
 
 function getRowItems(row: Row<LibraryProject>) {
   const capabilities = getProjectCapabilities(row.original)
-  const groups: any[][] = [[
+  const groups: DropdownMenuItem[][] = [[
     {
       type: 'label',
       label: 'Actions'
@@ -449,7 +518,7 @@ function getRowItems(row: Row<LibraryProject>) {
     }
   ]]
 
-  const mutationActions: any[] = []
+  const mutationActions: DropdownMenuItem[] = []
   if (allow(capabilities.canEdit) && !row.original.locked) {
     mutationActions.push({
       label: 'Edit',

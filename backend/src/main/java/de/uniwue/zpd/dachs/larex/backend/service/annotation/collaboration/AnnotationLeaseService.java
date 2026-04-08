@@ -10,16 +10,22 @@ import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicySer
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AnnotationLeaseService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AnnotationLeaseService.class);
 
     private final PageService pageService;
     private final AuthorizationPolicyService authorizationPolicyService;
@@ -85,18 +91,24 @@ public class AnnotationLeaseService {
     }
 
     public AnnotationCollaborationDto.LeaseState getLeaseState(RoomAccessContext context) {
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
-            LeaseRecord record = getActiveRecord(context.roomKey());
+            LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             refreshRecordMetadata(record, context);
-            return toLeaseState(record, context.user().id());
+            leaseState = toLeaseState(record, context.user().id());
         }
+        dispatchNotifications(notifications);
+        return leaseState;
     }
 
     public AnnotationCollaborationDto.LeaseState joinLease(RoomAccessContext context, String instanceId) {
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
-            expireIfNeeded(context.roomKey(), record);
+            expireIfNeeded(context.roomKey(), record, notifications);
             record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
             touchParticipant(record, context.user(), instanceId);
@@ -107,15 +119,19 @@ public class AnnotationLeaseService {
                 assignOwner(record, context.user(), instanceId);
             }
 
-            return toLeaseState(record, context.user().id());
+            leaseState = toLeaseState(record, context.user().id());
         }
+        dispatchNotifications(notifications);
+        return leaseState;
     }
 
     public AnnotationCollaborationDto.LeaseState heartbeat(RoomAccessContext context, String instanceId) {
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
-            expireIfNeeded(context.roomKey(), record);
+            expireIfNeeded(context.roomKey(), record, notifications);
             record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
             touchParticipant(record, context.user(), instanceId);
@@ -126,153 +142,165 @@ public class AnnotationLeaseService {
                 assignOwner(record, context.user(), instanceId);
             }
 
-            return toLeaseState(record, context.user().id());
+            leaseState = toLeaseState(record, context.user().id());
         }
+        dispatchNotifications(notifications);
+        return leaseState;
     }
 
     public AnnotationCollaborationDto.LeaseState requestTakeover(RoomAccessContext context, boolean force) {
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
-            expireIfNeeded(context.roomKey(), record);
+            expireIfNeeded(context.roomKey(), record, notifications);
             record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
 
             if (!context.canEdit()) {
-                return toLeaseState(record, context.user().id());
-            }
-            if (record.owner == null) {
+                leaseState = toLeaseState(record, context.user().id());
+            } else if (record.owner == null) {
                 assignOwner(record, context.user(), null);
-                return toLeaseState(record, context.user().id());
-            }
-            if (isOwner(record, context.user().id())) {
-                return toLeaseState(record, context.user().id());
-            }
-
-            if (force) {
+                leaseState = toLeaseState(record, context.user().id());
+            } else if (isOwner(record, context.user().id())) {
+                leaseState = toLeaseState(record, context.user().id());
+            } else if (force) {
                 if (!context.canForceTakeover()) {
-                    return toLeaseState(record, context.user().id());
+                    leaseState = toLeaseState(record, context.user().id());
+                } else {
+                    AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
+                    assignOwner(record, context.user(), null);
+                    if (previousEditor != null && !previousEditor.id().equals(context.user().id())) {
+                        queueNotification(notifications, "takeover-forced", () -> notificationService.createCollaborationTakeoverForcedNotification(
+                                previousEditor.id(),
+                                context.projectId(),
+                                context.projectLabel(),
+                                context.pageId(),
+                                context.pageLabel(),
+                                displayName(context.user())
+                        ));
+                    }
+                    leaseState = toLeaseState(record, context.user().id());
                 }
-                AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
-                assignOwner(record, context.user(), null);
-                if (previousEditor != null && !previousEditor.id().equals(context.user().id())) {
-                    notificationService.createCollaborationTakeoverForcedNotification(
-                            previousEditor.id(),
+            } else {
+                record.pendingTakeover = new PendingTakeoverRecord(context.user(), Instant.now().toString(), false);
+                record.epoch++;
+                if (record.owner != null
+                        && record.owner.user != null
+                        && !record.owner.user.id().equals(context.user().id())) {
+                    String ownerUserId = record.owner.user.id();
+                    queueNotification(notifications, "takeover-requested", () -> notificationService.createCollaborationTakeoverRequestedNotification(
+                            ownerUserId,
                             context.projectId(),
                             context.projectLabel(),
                             context.pageId(),
                             context.pageLabel(),
                             displayName(context.user())
-                    );
+                    ));
                 }
-                return toLeaseState(record, context.user().id());
+                leaseState = toLeaseState(record, context.user().id());
             }
-
-            record.pendingTakeover = new PendingTakeoverRecord(context.user(), Instant.now().toString(), false);
-            record.epoch++;
-            if (record.owner != null
-                    && record.owner.user != null
-                    && !record.owner.user.id().equals(context.user().id())) {
-                notificationService.createCollaborationTakeoverRequestedNotification(
-                        record.owner.user.id(),
-                        context.projectId(),
-                        context.projectLabel(),
-                        context.pageId(),
-                        context.pageLabel(),
-                        displayName(context.user())
-                );
-            }
-            return toLeaseState(record, context.user().id());
         }
+        dispatchNotifications(notifications);
+        return leaseState;
     }
 
     public AnnotationCollaborationDto.LeaseState respondToTakeover(RoomAccessContext context,
                                                                    String decision,
                                                                    String handoffMode) {
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
             LeaseRecord record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
-            expireIfNeeded(context.roomKey(), record);
+            expireIfNeeded(context.roomKey(), record, notifications);
             record = getOrCreateRecord(context.roomKey());
             refreshRecordMetadata(record, context);
 
             if (!isOwner(record, context.user().id()) || record.pendingTakeover == null) {
-                return toLeaseState(record, context.user().id());
-            }
+                leaseState = toLeaseState(record, context.user().id());
+            } else {
+                PendingTakeoverRecord pending = record.pendingTakeover;
+                AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
+                record.pendingTakeover = null;
+                record.epoch++;
 
-            PendingTakeoverRecord pending = record.pendingTakeover;
-            AnnotationCollaborationDto.UserSummary previousEditor = record.owner == null ? null : record.owner.user;
-            record.pendingTakeover = null;
-            record.epoch++;
+                boolean accepted = "accept".equalsIgnoreCase(decision);
 
-            boolean accepted = "accept".equalsIgnoreCase(decision);
-
-            if (!accepted) {
-                if (pending.requester != null && !pending.requester.id().equals(context.user().id())) {
-                    notificationService.createCollaborationTakeoverDeclinedNotification(
-                            pending.requester.id(),
-                            context.projectId(),
-                            context.projectLabel(),
-                            context.pageId(),
-                            context.pageLabel(),
-                            displayName(context.user())
-                    );
+                if (!accepted) {
+                    if (pending.requester != null && !pending.requester.id().equals(context.user().id())) {
+                        queueNotification(notifications, "takeover-declined", () -> notificationService.createCollaborationTakeoverDeclinedNotification(
+                                pending.requester.id(),
+                                context.projectId(),
+                                context.projectLabel(),
+                                context.pageId(),
+                                context.pageLabel(),
+                                displayName(context.user())
+                        ));
+                    }
+                    leaseState = toLeaseState(record, context.user().id());
+                } else if (pending.requester == null) {
+                    leaseState = toLeaseState(record, context.user().id());
+                } else {
+                    assignOwner(record, pending.requester, null);
+                    if (!pending.requester.id().equals(context.user().id())) {
+                        queueNotification(notifications, "takeover-granted", () -> notificationService.createCollaborationTakeoverGrantedNotification(
+                                pending.requester.id(),
+                                context.projectId(),
+                                context.projectLabel(),
+                                context.pageId(),
+                                context.pageLabel(),
+                                displayName(context.user())
+                        ));
+                    }
+                    if (previousEditor != null
+                            && !previousEditor.id().equals(pending.requester.id())
+                            && !previousEditor.id().equals(context.user().id())) {
+                        queueNotification(notifications, "takeover-transferred", () -> notificationService.createCollaborationTakeoverForcedNotification(
+                                previousEditor.id(),
+                                context.projectId(),
+                                context.projectLabel(),
+                                context.pageId(),
+                                context.pageLabel(),
+                                displayName(pending.requester)
+                        ));
+                    }
+                    leaseState = toLeaseState(record, context.user().id());
                 }
-                return toLeaseState(record, context.user().id());
             }
-            if (pending.requester == null) {
-                return toLeaseState(record, context.user().id());
-            }
-
-            assignOwner(record, pending.requester, null);
-            if (!pending.requester.id().equals(context.user().id())) {
-                notificationService.createCollaborationTakeoverGrantedNotification(
-                        pending.requester.id(),
-                        context.projectId(),
-                        context.projectLabel(),
-                        context.pageId(),
-                        context.pageLabel(),
-                        displayName(context.user())
-                );
-            }
-            if (previousEditor != null
-                    && !previousEditor.id().equals(pending.requester.id())
-                    && !previousEditor.id().equals(context.user().id())) {
-                notificationService.createCollaborationTakeoverForcedNotification(
-                        previousEditor.id(),
-                        context.projectId(),
-                        context.projectLabel(),
-                        context.pageId(),
-                        context.pageLabel(),
-                        displayName(pending.requester)
-                );
-            }
-            return toLeaseState(record, context.user().id());
         }
+        dispatchNotifications(notifications);
+        return leaseState;
     }
 
     public AnnotationCollaborationDto.LeaseState releaseLease(RoomAccessContext context, String instanceId) {
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationCollaborationDto.LeaseState leaseState;
         synchronized (leases) {
-            LeaseRecord record = getActiveRecord(context.roomKey());
+            LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             refreshRecordMetadata(record, context);
             if (record == null) {
-                return emptyLeaseState(context.user().id());
-            }
-            if (instanceId != null && !instanceId.isBlank()) {
-                record.participantInstances.remove(instanceId);
-            }
-            if (isOwner(record, context.user().id())) {
+                leaseState = emptyLeaseState(context.user().id());
+            } else {
                 if (instanceId != null && !instanceId.isBlank()) {
-                    record.activeInstances.remove(instanceId);
+                    record.participantInstances.remove(instanceId);
                 }
-                if (record.activeInstances.isEmpty()) {
-                    transferOwnershipAfterOwnerDeparture(record, context.user().id());
-                } else {
-                    updateExpiry(record);
+                if (isOwner(record, context.user().id())) {
+                    if (instanceId != null && !instanceId.isBlank()) {
+                        record.activeInstances.remove(instanceId);
+                    }
+                    if (record.activeInstances.isEmpty()) {
+                        transferOwnershipAfterOwnerDeparture(record, context.user().id());
+                    } else {
+                        updateExpiry(record);
+                    }
                 }
+                leaseState = toLeaseState(record, context.user().id());
             }
-            return toLeaseState(record, context.user().id());
         }
+        dispatchNotifications(notifications);
+        return leaseState;
     }
 
     public void assertWriteAccess(String projectId, String pageId, String xmlId, String userId) {
@@ -284,51 +312,61 @@ public class AnnotationLeaseService {
                     "editing-disabled"
             );
         }
+        List<NotificationIntent> notifications = new ArrayList<>();
+        AnnotationLeaseLockedException lockedException = null;
+        boolean writable = false;
         synchronized (leases) {
-            LeaseRecord record = getActiveRecord(context.roomKey());
+            LeaseRecord record = getActiveRecord(context.roomKey(), notifications);
             if (record == null || record.owner == null || isOwner(record, userId)) {
-                return;
+                writable = true;
+            } else {
+                lockedException = new AnnotationLeaseLockedException(
+                        (record.owner.user.displayName() != null ? record.owner.user.displayName() : "Another editor")
+                                + " currently holds the edit lock for this page.",
+                        record.owner.user,
+                        "lease-held-by-other-user"
+                );
             }
-
-            throw new AnnotationLeaseLockedException(
-                    (record.owner.user.displayName() != null ? record.owner.user.displayName() : "Another editor")
-                            + " currently holds the edit lock for this page.",
-                    record.owner.user,
-                    "lease-held-by-other-user"
-            );
         }
+        dispatchNotifications(notifications);
+        if (writable) {
+            return;
+        }
+        throw lockedException;
     }
 
     @Scheduled(fixedDelayString = "${larex.collaboration.lease-cleanup-ms:10000}")
     public void pruneExpiredLeases() {
+        List<NotificationIntent> notifications = new ArrayList<>();
         synchronized (leases) {
             for (String roomKey : leases.keySet()) {
                 LeaseRecord record = leases.get(roomKey);
                 if (record == null) {
                     continue;
                 }
-                expireIfNeeded(roomKey, record);
+                expireIfNeeded(roomKey, record, notifications);
                 if (record.owner == null && record.pendingTakeover == null) {
                     leases.remove(roomKey, record);
                 }
             }
         }
+        dispatchNotifications(notifications);
     }
 
     private LeaseRecord getOrCreateRecord(String roomKey) {
         return leases.computeIfAbsent(roomKey, ignored -> new LeaseRecord());
     }
 
-    private LeaseRecord getActiveRecord(String roomKey) {
+    private LeaseRecord getActiveRecord(String roomKey, List<NotificationIntent> notifications) {
         LeaseRecord record = leases.get(roomKey);
         if (record == null) {
             return null;
         }
-        expireIfNeeded(roomKey, record);
+        expireIfNeeded(roomKey, record, notifications);
         return leases.get(roomKey);
     }
 
-    private void expireIfNeeded(String roomKey, LeaseRecord record) {
+    private void expireIfNeeded(String roomKey, LeaseRecord record, List<NotificationIntent> notifications) {
         if (record.owner == null) {
             return;
         }
@@ -344,47 +382,47 @@ public class AnnotationLeaseService {
         if (pending != null && pending.requester != null) {
             assignOwner(record, pending.requester, null);
             if (pending.requester.id() != null && !pending.requester.id().equals(expiredEditor.id())) {
-                notificationService.createCollaborationTakeoverGrantedNotification(
+                queueNotification(notifications, "lease-expired-granted", () -> notificationService.createCollaborationTakeoverGrantedNotification(
                         pending.requester.id(),
                         record.projectId,
                         record.projectLabel,
                         record.pageId,
                         record.pageLabel,
                         displayName(expiredEditor)
-                );
+                ));
             }
             if (expiredEditor != null && expiredEditor.id() != null) {
-                notificationService.createCollaborationLeaseExpiredNotification(
+                queueNotification(notifications, "lease-expired-previous-editor", () -> notificationService.createCollaborationLeaseExpiredNotification(
                         expiredEditor.id(),
                         record.projectId,
                         record.projectLabel,
                         record.pageId,
                         record.pageLabel
-                );
+                ));
             }
             return;
         }
 
         if (transferOwnershipAfterOwnerDeparture(record, expiredEditor == null ? null : expiredEditor.id())) {
             if (expiredEditor != null && expiredEditor.id() != null) {
-                notificationService.createCollaborationLeaseExpiredNotification(
+                queueNotification(notifications, "lease-expired-transfer", () -> notificationService.createCollaborationLeaseExpiredNotification(
                         expiredEditor.id(),
                         record.projectId,
                         record.projectLabel,
                         record.pageId,
                         record.pageLabel
-                );
+                ));
             }
             return;
         }
         if (expiredEditor != null && expiredEditor.id() != null) {
-            notificationService.createCollaborationLeaseExpiredNotification(
+            queueNotification(notifications, "lease-expired-release", () -> notificationService.createCollaborationLeaseExpiredNotification(
                     expiredEditor.id(),
                     record.projectId,
                     record.projectLabel,
                     record.pageId,
                     record.pageLabel
-            );
+            ));
         }
         if (record.owner == null && record.pendingTakeover == null) {
           leases.remove(roomKey, record);
@@ -514,6 +552,27 @@ public class AnnotationLeaseService {
                 && record.owner.user.id().equals(userId);
     }
 
+    private void queueNotification(List<NotificationIntent> notifications, String action, Runnable dispatch) {
+        if (notifications == null) {
+            return;
+        }
+        notifications.add(new NotificationIntent(action, dispatch));
+    }
+
+    private void dispatchNotifications(List<NotificationIntent> notifications) {
+        if (notifications == null || notifications.isEmpty()) {
+            return;
+        }
+
+        for (NotificationIntent notification : notifications) {
+            try {
+                notification.dispatch().run();
+            } catch (RuntimeException exception) {
+                logger.warn("Collaboration notification dispatch failed for action {}", notification.action(), exception);
+            }
+        }
+    }
+
     private AnnotationCollaborationDto.LeaseState emptyLeaseState(String currentUserId) {
         return new AnnotationCollaborationDto.LeaseState(null, null, false, 0, null);
     }
@@ -629,4 +688,6 @@ public class AnnotationLeaseService {
             this.lastHeartbeatAt = lastHeartbeatAt;
         }
     }
+
+    private record NotificationIntent(String action, Runnable dispatch) {}
 }

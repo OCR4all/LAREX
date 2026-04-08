@@ -53,7 +53,7 @@ Local dev routes through Traefik:
 ### Local production-like
 
 ```bash
-cp deployment/env/.env.prod.local.example .env.prod.local
+./scripts/bootstrap-env-secrets.sh prod-local
 docker compose --env-file .env.prod.local \
   -f compose.prod.base.yaml \
   -f compose.prod.auth.bundled-keycloak.yaml \
@@ -72,7 +72,7 @@ docker compose --env-file .env.prod.local \
 ### Opinionated production
 
 ```bash
-cp deployment/env/.env.prod.example .env.prod
+./scripts/bootstrap-env-secrets.sh prod
 docker compose --env-file .env.prod \
   -f compose.prod.base.yaml \
   -f compose.prod.auth.bundled-keycloak.yaml \
@@ -100,9 +100,13 @@ task docker:up
 task docker:up:docs
 task docker:prod:up
 task docker:prod:up:docs
+task docker:prod:init-env
 task docker:prod:local:up
 task docker:prod:local:up:docs
+task docker:prod:local:init-env
 ```
+
+The bootstrap script copies the appropriate example env file if needed and seeds all required secrets, including database passwords, Keycloak client secrets, the Nuxt session secret, collaboration token secret, and notification bridge secret. Rerunning it keeps existing non-placeholder values intact.
 
 ## Documentation
 

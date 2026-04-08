@@ -89,6 +89,19 @@ export interface CollaborationRoomSession {
   viewerSync: CollaborationViewerSyncState
 }
 
+export interface CollaborationPageSummary {
+  projectId: string
+  pageId: string
+  editor: CollaborationLeaseOwner | null
+  viewerCount: number
+  collaboratorCount: number
+  hasPendingTakeover: boolean
+  isLive: boolean
+  isIdle: boolean
+}
+
+export type CollaborationProjectSummaryState = Record<string, Record<string, CollaborationPageSummary>>
+
 export interface CollaborationRoomBootstrap {
   token: string
   roomKey: string

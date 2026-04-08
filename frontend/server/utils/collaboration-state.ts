@@ -1,5 +1,6 @@
 import type { Peer } from 'crossws'
-import type { CollaborationLeaseState } from '../../app/types/collaboration'
+import { websocketUtils } from './websocket'
+import type { CollaborationLeaseState, CollaborationPageSummary } from '../../app/types/collaboration'
 import type { CollaborationRoomTokenPayload } from './collaboration-token'
 
 type CollaborationUser = {
@@ -82,6 +83,14 @@ function emptyLeaseState(): CollaborationLeaseState {
     leaseEpoch: 0,
     expiresAt: null
   }
+}
+
+function parseRoomKey(roomKey: string): { projectId: string, pageId: string, xmlId: string } | null {
+  const [projectId, pageId, xmlId] = roomKey.split(':')
+  if (!projectId || !pageId || !xmlId) {
+    return null
+  }
+  return { projectId, pageId, xmlId }
 }
 
 function getOrCreateRoom(roomKey: string): RoomRecord {
@@ -170,6 +179,73 @@ function broadcastReload(roomKey: string, reason: string, previousEditorId: stri
   }
 }
 
+function buildPageSummary(projectId: string, pageId: string): CollaborationPageSummary | null {
+  const matchingRooms = Array.from(rooms.entries())
+    .filter(([roomKey]) => {
+      const parsed = parseRoomKey(roomKey)
+      return parsed?.projectId === projectId && parsed.pageId === pageId
+    })
+    .map(([, room]) => room)
+
+  if (matchingRooms.length === 0) {
+    return null
+  }
+
+  let editor = null as CollaborationPageSummary['editor']
+  let hasPendingTakeover = false
+  let isLive = false
+  const collaboratorIds = new Set<string>()
+  const viewerIds = new Set<string>()
+
+  for (const room of matchingRooms) {
+    if (room.lease.editor && !editor) {
+      editor = room.lease.editor
+    }
+    hasPendingTakeover ||= Boolean(room.lease.pendingTakeover)
+
+    const editorId = room.lease.editor?.user.id ?? null
+    if (editorId) {
+      collaboratorIds.add(editorId)
+    }
+
+    for (const member of room.members.values()) {
+      collaboratorIds.add(member.token.sub)
+      if (!editorId || member.token.sub !== editorId) {
+        viewerIds.add(member.token.sub)
+      }
+      if (editorId && member.token.sub === editorId && member.presence?.active === true) {
+        isLive = true
+      }
+    }
+  }
+
+  if (!editor && viewerIds.size === 0 && !hasPendingTakeover) {
+    return null
+  }
+
+  return {
+    projectId,
+    pageId,
+    editor,
+    viewerCount: viewerIds.size,
+    collaboratorCount: collaboratorIds.size,
+    hasPendingTakeover,
+    isLive,
+    isIdle: Boolean(editor) && !isLive
+  }
+}
+
+function broadcastPageSummary(projectId: string, pageId: string) {
+  websocketUtils.broadcast({
+    type: 'COLLAB_PAGE_SUMMARY_UPDATED',
+    payload: {
+      projectId,
+      pageId,
+      summary: buildPageSummary(projectId, pageId)
+    }
+  })
+}
+
 export const collaborationState = {
   registerPeer(peer: Peer) {
     peers.set(peer.id, peer)
@@ -227,6 +303,7 @@ export const collaborationState = {
     })
 
     broadcastRoom(token.roomKey)
+    broadcastPageSummary(token.projectId, token.pageId)
   },
 
   updatePresence(peerId: string, roomKey: string, presence: Record<string, unknown>) {
@@ -246,6 +323,7 @@ export const collaborationState = {
     member.lastSeenAt = timestamp
 
     broadcastPresence(roomKey, peerId, member)
+    broadcastPageSummary(member.token.projectId, member.token.pageId)
   },
 
   leaveRoom(peerId: string, roomKey: string) {
@@ -253,6 +331,7 @@ export const collaborationState = {
     if (!room) return
 
     const member = room.members.get(peerId) ?? null
+    const parsedRoom = parseRoomKey(roomKey)
     room.members.delete(peerId)
 
     const joinedRooms = peerRooms.get(peerId)
@@ -266,16 +345,21 @@ export const collaborationState = {
         rooms.delete(roomKey)
         roomSnapshots.delete(roomKey)
       }
+      if (parsedRoom) {
+        broadcastPageSummary(parsedRoom.projectId, parsedRoom.pageId)
+      }
       return
     }
 
     if (room.members.size === 0) {
       rooms.delete(roomKey)
       roomSnapshots.delete(roomKey)
+      broadcastPageSummary(member.token.projectId, member.token.pageId)
       return
     }
 
     broadcastRoom(roomKey)
+    broadcastPageSummary(member.token.projectId, member.token.pageId)
   },
 
   applySnapshotUpdate(peerId: string, roomKey: string, snapshot: unknown) {
@@ -304,6 +388,7 @@ export const collaborationState = {
     const room = getOrCreateRoom(roomKey)
     const previousEditorId = room.lease.editor?.user.id ?? null
     const nextEditorId = lease.editor?.user.id ?? null
+    const parsedRoom = parseRoomKey(roomKey)
 
     room.lease = {
       editor: lease.editor ?? null,
@@ -311,6 +396,19 @@ export const collaborationState = {
       leaseOwner: lease.leaseOwner ?? false,
       leaseEpoch: lease.leaseEpoch ?? 0,
       expiresAt: lease.expiresAt ?? null
+    }
+
+    if (
+      room.members.size === 0
+      && !room.lease.editor
+      && !room.lease.pendingTakeover
+    ) {
+      rooms.delete(roomKey)
+      roomSnapshots.delete(roomKey)
+      if (parsedRoom) {
+        broadcastPageSummary(parsedRoom.projectId, parsedRoom.pageId)
+      }
+      return
     }
 
     if (previousEditorId !== nextEditorId) {
@@ -323,6 +421,9 @@ export const collaborationState = {
         broadcastReload(roomKey, reason, previousEditorId, nextEditorId)
       }
     }
+    if (parsedRoom) {
+      broadcastPageSummary(parsedRoom.projectId, parsedRoom.pageId)
+    }
   },
 
   markPersistedReloadRequired(roomKey: string, reason = 'persisted-change') {
@@ -331,5 +432,19 @@ export const collaborationState = {
 
     roomSnapshots.delete(roomKey)
     broadcastReload(roomKey, reason, room.lease.editor?.user.id ?? null, room.lease.editor?.user.id ?? null)
+  },
+
+  getProjectPageSummaries(projectId: string): CollaborationPageSummary[] {
+    const pageIds = new Set<string>()
+    for (const roomKey of rooms.keys()) {
+      const parsed = parseRoomKey(roomKey)
+      if (parsed?.projectId === projectId) {
+        pageIds.add(parsed.pageId)
+      }
+    }
+
+    return Array.from(pageIds)
+      .map(pageId => buildPageSummary(projectId, pageId))
+      .filter((summary): summary is CollaborationPageSummary => Boolean(summary))
   }
 }

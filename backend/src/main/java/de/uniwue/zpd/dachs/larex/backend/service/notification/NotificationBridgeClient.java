@@ -8,7 +8,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,27 +57,51 @@ public class NotificationBridgeClient {
                     notification,
                     source
             ));
+            String timestamp = Long.toString(Instant.now().toEpochMilli());
+            String signature = signPayload(timestamp, payload);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(bridgeUrl))
                     .timeout(Duration.ofSeconds(5))
                     .header("Content-Type", "application/json")
-                    .header("X-Larex-Notification-Bridge-Secret", bridgeSecret)
+                    .header("X-Larex-Notification-Bridge-Timestamp", timestamp)
+                    .header("X-Larex-Notification-Bridge-Signature", signature)
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
 
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             if (response.statusCode() >= 400) {
-                logger.warn("Notification bridge rejected push with status {}", response.statusCode());
+                logger.warn("Notification bridge rejected push from source {} with status {}", source, response.statusCode());
             }
         } catch (JsonProcessingException error) {
-            logger.warn("Failed to serialize notification bridge payload", error);
+            logger.warn("Failed to serialize notification bridge payload from source {}", source, error);
+        } catch (IllegalStateException error) {
+            logger.warn("Failed to sign notification bridge payload from source {}", source, error);
         } catch (IOException | InterruptedException error) {
             if (error instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            logger.warn("Failed to push notification to Nuxt bridge", error);
+            logger.warn("Failed to push notification to Nuxt bridge from source {}", source, error);
         }
+    }
+
+    private String signPayload(String timestamp, String payload) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(bridgeSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] digest = mac.doFinal((timestamp + "." + payload).getBytes(StandardCharsets.UTF_8));
+            return toHex(digest);
+        } catch (Exception error) {
+            throw new IllegalStateException("Unable to sign notification bridge payload", error);
+        }
+    }
+
+    private String toHex(byte[] bytes) {
+        StringBuilder builder = new StringBuilder(bytes.length * 2);
+        for (byte current : bytes) {
+            builder.append(String.format("%02x", current));
+        }
+        return builder.toString();
     }
 
     private record NotificationBridgePayload(

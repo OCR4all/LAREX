@@ -5,6 +5,7 @@ import type { MouseInteraction, PolygonDrawing, PolylineDrawing, RectangleDrawin
 import type { CutDrawing } from './editor-interactions/types'
 import type { WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
+import type { RenderStats } from './use-render-queue'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 
 export type TriangulateFunction = (points: Point[]) => number[]
@@ -20,9 +21,19 @@ export interface WebGLRenderer {
   invalidateMultipleGeometry: (ids: string[]) => void
   clearGeometryCache: () => void
   pruneGeometryCache: (activePolygonIds: string[]) => void
-  getGeometryCacheStats: () => any
+  getGeometryCacheStats: () => unknown
   startReadingOrderAnimation: () => void
   stopReadingOrderAnimation: () => void
+}
+
+export interface UseEditorRendererReturn {
+  render: () => void
+  setupRenderWatches: () => void
+  setupCursorWatches: () => void
+  setupReadingOrderAnimationWatch: () => void
+  startReadingOrderAnimation: () => void
+  stopReadingOrderAnimation: () => void
+  renderStats: Ref<RenderStats | null>
 }
 
 /**
@@ -69,8 +80,9 @@ export function useEditorRenderer(
   isCutRectangleMode?: Ref<boolean>,
   moveInteraction?: { isMoving: () => boolean, state: { isInvalid: boolean, elementId: string | null } },
   bufferPreview?: Ref<{ polygonId: string, points: Point[] } | null>
-) {
+): UseEditorRendererReturn {
   const editorUiStore = useEditorUiStore()
+  const renderStats = ref<RenderStats | null>(null)
 
   const isInvalidPosition = computed(() => (
     polygonEditing.isInvalidPosition.value
@@ -366,6 +378,7 @@ export function useEditorRenderer(
     setupCursorWatches,
     setupReadingOrderAnimationWatch,
     startReadingOrderAnimation,
-    stopReadingOrderAnimation
+    stopReadingOrderAnimation,
+    renderStats
   }
 }

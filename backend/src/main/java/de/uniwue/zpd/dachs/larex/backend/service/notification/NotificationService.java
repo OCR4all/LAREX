@@ -2,6 +2,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.notification;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Notification;
 import de.uniwue.zpd.dachs.larex.backend.repository.notification.NotificationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,8 @@ import java.util.List;
 @Service
 @Transactional
 public class NotificationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
@@ -82,8 +86,17 @@ public class NotificationService {
 
     private void dispatchSavedNotification(Notification saved) {
         Runnable dispatch = () -> {
-            emailService.sendNotificationEmailIfEnabled(saved.getUserId(), saved);
-            notificationBridgeClient.pushNotification(saved, "notification-service");
+            try {
+                emailService.sendNotificationEmailIfEnabled(saved.getUserId(), saved);
+            } catch (RuntimeException exception) {
+                logger.warn("Failed to send notification email for type {}", saved.getType(), exception);
+            }
+
+            try {
+                notificationBridgeClient.pushNotification(saved, "notification-service");
+            } catch (RuntimeException exception) {
+                logger.warn("Failed to push notification bridge event for type {}", saved.getType(), exception);
+            }
         };
 
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
