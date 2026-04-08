@@ -1,6 +1,6 @@
 /**
  * POST /api/projects/{projectId}/pages/filter
- * 
+ *
  * Filter pages by multiple criteria with AND/OR logic.
  * Returns only the IDs of matching pages.
  */
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { refreshTokenIfExpired } = await import('../../../../utils/auth')
+    const { refreshTokenIfExpired } = await import('#server/utils/auth')
     await refreshTokenIfExpired(event, { user, secure })
   } catch {
     throw createError({
@@ -45,12 +45,11 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const data = await $fetch(backendUrl, {
+    return await $fetch(backendUrl, {
       method: 'POST',
       headers,
       body
     })
-    return data
   } catch (error: any) {
     throw createError({
       statusCode: error.statusCode || 500,

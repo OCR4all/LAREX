@@ -136,6 +136,11 @@ tasks:
     cmds:
       - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} up -d
 
+  docker:prod:init-env:
+    desc: Create .env.prod from template and seed required secrets
+    cmds:
+      - ./scripts/bootstrap-env-secrets.sh prod
+
   docker:prod:up:docs:
     desc: Start opinionated production services with self-hosted docs
     cmds:
@@ -165,6 +170,11 @@ tasks:
     desc: Start production-like local stack (Traefik + local hostnames + Mailpit)
     cmds:
       - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} up -d
+
+  docker:prod:local:init-env:
+    desc: Create .env.prod.local from template and seed required secrets
+    cmds:
+      - ./scripts/bootstrap-env-secrets.sh prod-local
 
   docker:prod:local:up:docs:
     desc: Start production-like local stack with self-hosted docs

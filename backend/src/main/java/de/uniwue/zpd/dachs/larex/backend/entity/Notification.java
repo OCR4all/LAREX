@@ -36,6 +36,9 @@ public class Notification {
 
     private String relatedEntityType;
 
+    @Column(columnDefinition = "TEXT")
+    private String link;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime created;
@@ -65,7 +68,12 @@ public class Notification {
         UPLOAD_COMPLETED,
         UPLOAD_FAILED,
         IMPORT_COMPLETED,
-        IMPORT_FAILED
+        IMPORT_FAILED,
+        COLLAB_TAKEOVER_REQUESTED,
+        COLLAB_TAKEOVER_GRANTED,
+        COLLAB_TAKEOVER_DECLINED,
+        COLLAB_TAKEOVER_FORCED,
+        COLLAB_LEASE_EXPIRED
     }
 
     public Notification() {}
@@ -84,6 +92,16 @@ public class Notification {
         this.type = type;
         this.relatedEntityId = relatedEntityId;
         this.relatedEntityType = relatedEntityType;
+    }
+
+    public Notification(String userId, String title, String message, NotificationType type, String relatedEntityId, String relatedEntityType, String link) {
+        this.userId = userId;
+        this.title = title;
+        this.message = message;
+        this.type = type;
+        this.relatedEntityId = relatedEntityId;
+        this.relatedEntityType = relatedEntityType;
+        this.link = link;
     }
 
     public String getId() {
@@ -148,6 +166,14 @@ public class Notification {
 
     public void setRelatedEntityType(String relatedEntityType) {
         this.relatedEntityType = relatedEntityType;
+    }
+
+    public String getLink() {
+        return link;
+    }
+
+    public void setLink(String link) {
+        this.link = link;
     }
 
     public LocalDateTime getCreated() {

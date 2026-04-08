@@ -1,8 +1,8 @@
-import { pageCacheUtils } from '../../../../utils/page-cache'
+import { pageCacheUtils } from '#server/utils/page-cache'
 
 /**
  * POST /api/projects/{projectId}/pages/invalidate-cache
- * 
+ *
  * Invalidates the server-side page list cache for a project.
  * Should be called when pages are modified outside of the regular CRUD endpoints
  * (e.g., after bulk upload completes).

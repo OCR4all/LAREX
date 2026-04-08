@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,9 +28,12 @@ public class AnnotationEditorController {
     private static final Logger log = LoggerFactory.getLogger(AnnotationEditorController.class);
 
     private final AnnotationProcessingService annotationProcessingService;
+    private final AnnotationLeaseService annotationLeaseService;
 
-    public AnnotationEditorController(AnnotationProcessingService annotationProcessingService) {
+    public AnnotationEditorController(AnnotationProcessingService annotationProcessingService,
+                                      AnnotationLeaseService annotationLeaseService) {
         this.annotationProcessingService = annotationProcessingService;
+        this.annotationLeaseService = annotationLeaseService;
     }
 
     /**
@@ -118,6 +122,7 @@ public class AnnotationEditorController {
 
         try {
             log.info("Saving annotations for page {} with xmlId {}", pageId, xmlId);
+            annotationLeaseService.assertWriteAccess(projectId, pageId, xmlId, userId);
             annotationProcessingService.saveAnnotationToXml(xmlId, pageDto, userId);
             log.info("Successfully saved annotations for page {}", pageId);
             return ResponseEntity.ok().build();

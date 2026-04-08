@@ -2,6 +2,7 @@ import type { Notification, NotificationGroup, WorkspaceInvitation, Notification
 import { getNotificationLink } from '~/utils/notifications'
 
 const GROUPING_WINDOW_MS = 2 * 60 * 1000 // 2 minutes
+let notificationRealtimeUnsubscribe: (() => void) | null = null
 
 interface TransferRequest {
   id: string
@@ -44,15 +45,12 @@ export const useNotifications = () => {
   }))
 
   const isLoading = useState<boolean>('notifications.loading', () => false)
-  const wsConnection = useState<WebSocket | null>('notifications.ws', () => null)
-  const reconnectTimeout = useState<ReturnType<typeof setTimeout> | null>('notifications.reconnectTimeout', () => null)
-  const shouldReconnect = useState<boolean>('notifications.shouldReconnect', () => true)
-  const lifecycleBound = useState<boolean>('notifications.lifecycleBound', () => false)
   const hasFetchedInitialNotifications = useState<boolean>('notifications.hasFetchedInitialNotifications', () => false)
   const hasFetchedInitialInvitations = useState<boolean>('notifications.hasFetchedInitialInvitations', () => false)
   const hasLoadedInitialData = useState<boolean>('notifications.hasLoadedInitialData', () => false)
   const shownToastKeys = useState<Set<string>>('notifications.shownToastKeys', () => new Set())
   const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+  const realtime = useRealtimeSocket()
 
   const rememberShownToast = (key: string) => {
     const next = new Set(shownToastKeys.value)
@@ -124,47 +122,6 @@ export const useNotifications = () => {
       `You've been invited to join "${invitation.workspaceName}"`,
       'WORKSPACE_INVITATION'
     )
-  }
-
-  const clearReconnectTimeout = () => {
-    if (reconnectTimeout.value) {
-      clearTimeout(reconnectTimeout.value)
-      reconnectTimeout.value = null
-    }
-  }
-
-  const closeActiveConnection = (code = 1000, reason = 'client disconnect') => {
-    const ws = wsConnection.value
-    if (!ws) return
-
-    try {
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        ws.close(code, reason)
-      }
-    } catch {
-      // Browser may already be tearing down the socket during unload.
-    } finally {
-      wsConnection.value = null
-      state.value.isConnected = false
-    }
-  }
-
-  const bindLifecycleHandlers = () => {
-    if (import.meta.server || lifecycleBound.value) return
-
-    const handlePageHide = () => {
-      shouldReconnect.value = false
-      clearReconnectTimeout()
-      closeActiveConnection(1001, 'page unload')
-    }
-
-    const handlePageShow = () => {
-      shouldReconnect.value = true
-    }
-
-    window.addEventListener('pagehide', handlePageHide)
-    window.addEventListener('pageshow', handlePageShow)
-    lifecycleBound.value = true
   }
 
   /**
@@ -277,76 +234,14 @@ export const useNotifications = () => {
    */
   const connectWebSocket = () => {
     if (import.meta.server) return
-    bindLifecycleHandlers()
-    if (wsConnection.value?.readyState === WebSocket.OPEN || wsConnection.value?.readyState === WebSocket.CONNECTING) return
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}/_ws`
-
-    try {
-      shouldReconnect.value = true
-      clearReconnectTimeout()
-      const ws = new WebSocket(wsUrl)
-
-      ws.onopen = () => {
-        console.log('Notifications WebSocket connected')
-        state.value.isConnected = true
-
-        const { user } = useUserSession()
-        if (user.value?.id) {
-          ws.send(JSON.stringify({
-            type: 'AUTH',
-            payload: { userId: user.value.id }
-          }))
-        }
-      }
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data)
-          handleWebSocketMessage(message)
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
-        }
-      }
-
-      ws.onclose = () => {
-        console.log('Notifications WebSocket disconnected')
-        state.value.isConnected = false
-        if (wsConnection.value === ws) {
-          wsConnection.value = null
-        }
-
-        if (!shouldReconnect.value) {
-          return
-        }
-
-        reconnectTimeout.value = setTimeout(() => {
-          reconnectTimeout.value = null
-          const { loggedIn } = useUserSession()
-          if (loggedIn.value) {
-            connectWebSocket()
-          }
-        }, 5000)
-      }
-
-      ws.onerror = (error) => {
-        console.error('Notifications WebSocket error:', error)
-      }
-
-      wsConnection.value = ws
-    } catch (error) {
-      console.error('Failed to connect WebSocket:', error)
-    }
+    realtime.connect()
   }
 
   /**
-   * Disconnect WebSocket
+   * Legacy no-op for API compatibility. The shared realtime socket is app-scoped.
    */
   const disconnectWebSocket = () => {
-    shouldReconnect.value = false
-    clearReconnectTimeout()
-    closeActiveConnection()
+    return
   }
 
   /**
@@ -453,6 +348,17 @@ export const useNotifications = () => {
     connectWebSocket()
 
     startPolling()
+  }
+
+  watch(() => realtime.connectionStatus.value, (status) => {
+    state.value.isConnected = status === 'connected'
+  }, { immediate: true })
+
+  if (import.meta.client && !notificationRealtimeUnsubscribe) {
+    notificationRealtimeUnsubscribe = realtime.subscribe((message) => {
+      if (!message.type) return
+      handleWebSocketMessage(message as { type: string, payload: unknown })
+    })
   }
 
   let pollingInterval: ReturnType<typeof setInterval> | null = null

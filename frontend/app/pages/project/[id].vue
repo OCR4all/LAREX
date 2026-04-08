@@ -22,6 +22,7 @@ import type { Subtask } from '~/types/index'
 import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { createPageXmlLabelSet } from '@/models/editor'
+import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { usePagePrefetch } from '@/composables/use-page-prefetch'
@@ -32,22 +33,29 @@ import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/t
 import UiColorTag from '@/components/ui/color-tag.vue'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useIndexStatusPolling } from '@/composables/use-index-status-polling'
+import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 const NuxtTime = resolveComponent('NuxtTime')
 const UPopover = resolveComponent('UPopover')
+const UAvatar = resolveComponent('UAvatar')
 
 const route = useRoute()
 const toast = useToast()
 const editorStore = useEditorStore()
+const collaborationPageSummary = useCollaborationPageSummary()
 const pagePrefetch = usePagePrefetch()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const { allow } = useActionVisibility()
 
 const projectId = route.params.id as string
+
+if (import.meta.client) {
+  void collaborationPageSummary.ensureProjectSummary(projectId)
+}
 
 const projectKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId))
 const projectPagesKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'pages'))
@@ -139,6 +147,10 @@ type Page = {
   imageCount: number
   thumbnailUrl?: string | null
   indexingStatus?: PageIndexingStatus
+}
+
+function getPageCollaborationSummary(pageId: string) {
+  return collaborationPageSummary.getPageSummary(pageId, projectId)
 }
 
 const { data: project, error: projectError, pending: projectPending, refresh: refreshProject } = await useFetch<ProjectData>(() => `/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`, {
@@ -1764,6 +1776,62 @@ function renderIndexingStatusBadge(status?: PageIndexingStatus) {
   return h(UBadge, { color: 'neutral', variant: 'soft', size: 'sm' }, () => 'Empty')
 }
 
+function renderCollaborationSummaryCell(page: Page) {
+  const summary = getPageCollaborationSummary(page.id)
+  if (!summary) return null
+
+  const detailLines = [
+    summary.editor
+      ? `${summary.editor.user.displayName} editing (${summary.isLive ? 'Live' : 'Idle'})`
+      : null,
+    summary.viewerCount > 0
+      ? `${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'}`
+      : null,
+    summary.hasPendingTakeover ? 'Pending request' : null
+  ].filter((value): value is string => Boolean(value))
+
+  if (!summary.editor) {
+    return h(UPopover, {
+      mode: 'hover',
+      content: { side: 'top' }
+    }, {
+      default: () => h(UBadge, {
+        color: 'info',
+        variant: 'soft',
+        size: 'sm'
+      }, () => 'Watching'),
+      content: () => h('div', { class: 'p-3 w-56 space-y-1.5' }, [
+        h('p', { class: 'text-xs font-medium text-highlighted' }, 'Page activity'),
+        ...detailLines.map(line => h('p', { class: 'text-xs text-muted' }, line))
+      ])
+    })
+  }
+
+  const avatarRingClass = summary.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'
+
+  return h(UPopover, {
+    mode: 'hover',
+    content: { side: 'top' }
+  }, {
+    default: () => h('div', { class: 'flex items-center justify-center' }, [
+      h(UAvatar, {
+        src: resolveManagedProfileAvatarSrc(summary.editor.user.avatar),
+        alt: summary.editor.user.displayName,
+        text: getAvatarInitials({
+          name: summary.editor.user.displayName,
+          username: summary.editor.user.username
+        }),
+        size: 'sm',
+        class: `ring-2 ${avatarRingClass}`
+      })
+    ]),
+    content: () => h('div', { class: 'p-3 w-56 space-y-1.5' }, [
+      h('p', { class: 'text-xs font-medium text-highlighted' }, 'Page activity'),
+      ...detailLines.map(line => h('p', { class: 'text-xs text-muted' }, line))
+    ])
+  })
+}
+
 const pageColumns = [
   {
     id: 'select',
@@ -1913,6 +1981,11 @@ const pageColumns = [
         ])
       })
     }
+  },
+  {
+    id: 'collaboration',
+    header: 'Editing',
+    cell: ({ row }: { row: { original: Page } }) => renderCollaborationSummaryCell(row.original)
   },
   {
     accessorKey: 'updated',

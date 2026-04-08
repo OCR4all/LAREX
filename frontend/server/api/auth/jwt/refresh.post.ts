@@ -1,5 +1,5 @@
 export default defineEventHandler(async (event) => {
-  const { refreshAccessToken } = await import('../../../utils/auth')
+  const { refreshAccessToken } = await import('#server/utils/auth')
   const { user, secure } = await getUserSession(event)
 
   if (!user || !secure?.refreshToken) {

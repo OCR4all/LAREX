@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.page;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlVersionDto;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.collaboration.AnnotationLeaseService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,12 @@ public class PageXmlVersionController {
     private static final Logger log = LoggerFactory.getLogger(PageXmlVersionController.class);
 
     private final PageXmlVersionService versionService;
+    private final AnnotationLeaseService annotationLeaseService;
 
-    public PageXmlVersionController(PageXmlVersionService versionService) {
+    public PageXmlVersionController(PageXmlVersionService versionService,
+                                    AnnotationLeaseService annotationLeaseService) {
         this.versionService = versionService;
+        this.annotationLeaseService = annotationLeaseService;
     }
 
     @GetMapping
@@ -66,6 +70,7 @@ public class PageXmlVersionController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         try {
+            annotationLeaseService.assertWriteAccess(projectId, pageId, xmlId, userId);
             versionService.restoreVersion(versionId, userId);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {

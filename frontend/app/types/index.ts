@@ -1,8 +1,8 @@
+import type { TaskCapabilities } from './capabilities'
+
 export * from './editor/rendering'
 export * from './capabilities'
 export * from './dataset'
-
-import type { TaskCapabilities } from './capabilities'
 
 export type WorkspaceMemberRole = 'CURATOR' | 'EDITOR' | 'ADMINISTRATOR' | 'MEMBER'
 
@@ -108,6 +108,11 @@ export type NotificationType
     | 'UPLOAD_FAILED'
     | 'IMPORT_COMPLETED'
     | 'IMPORT_FAILED'
+    | 'COLLAB_TAKEOVER_REQUESTED'
+    | 'COLLAB_TAKEOVER_GRANTED'
+    | 'COLLAB_TAKEOVER_DECLINED'
+    | 'COLLAB_TAKEOVER_FORCED'
+    | 'COLLAB_LEASE_EXPIRED'
 
 export interface Notification {
   id: string
@@ -118,6 +123,7 @@ export interface Notification {
   read: boolean
   relatedEntityId?: string
   relatedEntityType?: string
+  link?: string
   created: string
   updated: string
   readAt?: string
@@ -178,22 +184,22 @@ export interface Task {
   capabilities?: TaskCapabilities
 }
 
-export type TaskActivityType =
-  | 'CREATED'
-  | 'TITLE_CHANGED'
-  | 'DESCRIPTION_CHANGED'
-  | 'STATUS_CHANGED'
-  | 'PRIORITY_CHANGED'
-  | 'DUE_DATE_CHANGED'
-  | 'ASSIGNEES_CHANGED'
-  | 'COMMENT_ADDED'
-  | 'COMMENT_UPDATED'
-  | 'COMMENT_DELETED'
-  | 'SUBTASK_ADDED'
-  | 'SUBTASK_COMPLETED'
-  | 'SUBTASK_DELETED'
-  | 'LINK_ADDED'
-  | 'LINK_REMOVED'
+export type TaskActivityType
+  = | 'CREATED'
+    | 'TITLE_CHANGED'
+    | 'DESCRIPTION_CHANGED'
+    | 'STATUS_CHANGED'
+    | 'PRIORITY_CHANGED'
+    | 'DUE_DATE_CHANGED'
+    | 'ASSIGNEES_CHANGED'
+    | 'COMMENT_ADDED'
+    | 'COMMENT_UPDATED'
+    | 'COMMENT_DELETED'
+    | 'SUBTASK_ADDED'
+    | 'SUBTASK_COMPLETED'
+    | 'SUBTASK_DELETED'
+    | 'LINK_ADDED'
+    | 'LINK_REMOVED'
 
 export interface TaskActivityLog {
   id: string

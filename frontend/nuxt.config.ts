@@ -20,6 +20,11 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   runtimeConfig: {
+    collaborationSecret: process.env.NUXT_COLLABORATION_SECRET || 'larex-collaboration-dev-secret',
+    notificationBridgeSecret: process.env.NUXT_NOTIFICATION_BRIDGE_SECRET || 'larex-notification-bridge-dev-secret',
+    notificationBridgeMaxSkewMs: Number(process.env.NUXT_NOTIFICATION_BRIDGE_MAX_SKEW_MS || 60000),
+    notificationBridgeRequirePrivateIp: process.env.NUXT_NOTIFICATION_BRIDGE_REQUIRE_PRIVATE_IP !== 'false',
+    notificationBridgeAllowedIps: process.env.NUXT_NOTIFICATION_BRIDGE_ALLOWED_IPS || '',
     oauth: {
       keycloak: {
         serverUrl: 'http://keycloak.localhost',
@@ -74,7 +79,7 @@ export default defineNuxtConfig({
         '@codemirror/lint',
         '@codemirror/search',
         '@codemirror/language',
-        '@lezer/highlight',
+        '@lezer/highlight'
       ]
     }
   },

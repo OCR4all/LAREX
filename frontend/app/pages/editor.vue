@@ -52,6 +52,7 @@ import { useEditorMetadataApply } from '@/composables/editor/use-editor-metadata
 import { useEditorSidebarState } from '@/composables/editor/use-editor-sidebar-state'
 import { useEditorSessionRestore } from '@/composables/editor/use-editor-session-restore'
 import { useEditorTaskState } from '@/composables/editor/use-editor-task-state'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
 
@@ -195,6 +196,7 @@ const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
 const imageLoader = useEditorImageLoader()
 const sessionStore = useEditorSessionStore()
+const collaboration = useEditorCollaboration()
 const projectDockviewRegistry = useProjectDockviewRegistry()
 const projectTabCloseState = useProjectTabCloseState()
 const toast = useToast()
@@ -667,6 +669,15 @@ async function handleSaveDocument() {
     return false
   }
 
+  if (!collaboration.canEditCanvas(canvasId)) {
+    toast.add({
+      title: 'Page is locked',
+      description: 'You are currently in read-only mode for this page.',
+      color: 'warning'
+    })
+    return false
+  }
+
   try {
     const success = await editorStore.saveAnnotations(canvasId)
 
@@ -699,6 +710,15 @@ async function openVersionHistory() {
   if (!canvasId) return
   const canvas = editorStore.canvases[canvasId]
   if (!canvas?.xmlFileId || !canvas?.pageId || !canvas?.projectId) return
+
+  if (!collaboration.canEditCanvas(canvasId)) {
+    toast.add({
+      title: 'Page is locked',
+      description: 'Only the current editor can restore versions.',
+      color: 'warning'
+    })
+    return
+  }
 
   const instance = versionHistorySlideover.open({
     projectId: canvas.projectId,
@@ -1265,6 +1285,30 @@ const activePageSummary = computed<StatusPageSummary | null>(() => {
     tableRegions: counts.tableRegions,
     otherRegions: counts.otherRegions
   }
+})
+
+const activeCollaborators = computed(() => {
+  const canvasId = activeCanvasId.value
+  if (!canvasId) return []
+  return collaboration.getCanvasCollaborators(canvasId)
+})
+
+const activeCanvasEditor = computed(() => {
+  const canvasId = activeCanvasId.value
+  if (!canvasId) return null
+  return collaboration.getCanvasEditor(canvasId)
+})
+
+const activePendingTakeover = computed(() => {
+  const canvasId = activeCanvasId.value
+  if (!canvasId) return null
+  return collaboration.getCanvasPendingTakeover(canvasId)
+})
+
+const activeCanvasCanEdit = computed(() => {
+  const canvasId = activeCanvasId.value
+  if (!canvasId) return true
+  return collaboration.canEditCanvas(canvasId)
 })
 
 const activeSelectedPolygonIds = computed(() => activeControls.value?.selectedPolygonIds?.value ?? [])
@@ -2207,7 +2251,7 @@ const {
 } = useEditorSessionRestore({
   route,
   selectedWorkspace,
-  dockviewApi: dockviewApi as any,
+  dockviewApi,
   loadPreferences: () => editorUiStore.loadPreferences(),
   clearSession: () => sessionStore.clearSession({ preserveTextViewSettings: true }),
   resetEditorState: () => editorStore.resetEditorState(),
@@ -2344,6 +2388,10 @@ const onReady = (event: DockviewReadyEvent) => {
         :hovered-entity="activeHoveredEntity"
         :selected-entity="activeSelectedEntity"
         :page-summary="activePageSummary"
+        :collaborators="activeCollaborators"
+        :editor="activeCanvasEditor"
+        :pending-takeover="activePendingTakeover"
+        :can-edit="activeCanvasCanEdit"
       />
 
       <EditorEmpty v-if="!activeCanvasId" class="absolute inset-0 z-10" />
@@ -2372,6 +2420,7 @@ const onReady = (event: DockviewReadyEvent) => {
     <EditorRightSidebar
       :right-rail-width-px="RIGHT_RAIL_WIDTH_PX"
       :is-saving-active-canvas="isSavingActiveCanvas"
+      :can-edit-active-canvas="activeCanvasCanEdit"
       :can-complete-active-page-subtasks="canCompleteActivePageSubtasks"
       :is-completing-open-subtasks="isCompletingOpenSubtasks"
       :is-active-page-locked="isActivePageLocked"

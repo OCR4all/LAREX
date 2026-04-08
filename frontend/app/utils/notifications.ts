@@ -1,6 +1,7 @@
 import type { Notification } from '~/types'
 
 export function getNotificationLink(notification: Notification): string | undefined {
+  if (notification.link) return notification.link
   if (!notification.relatedEntityId) return undefined
   if (notification.type === 'PROJECT_DELETED') return undefined
 

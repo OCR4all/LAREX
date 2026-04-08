@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { refreshTokenIfExpired } = await import('../utils/auth')
+    const { refreshTokenIfExpired } = await import('#server/utils/auth')
     await refreshTokenIfExpired(event, { user, secure })
   } catch {
     throw createError({

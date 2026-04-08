@@ -1,6 +1,6 @@
 /**
  * POST /api/admin/rebuild-search-index
- * 
+ *
  * Rebuild the global search index for all pages across all projects.
  * Admin only operation.
  */
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const { refreshTokenIfExpired } = await import('../../utils/auth')
+    const { refreshTokenIfExpired } = await import('#server/utils/auth')
     await refreshTokenIfExpired(event, { user, secure })
   } catch {
     throw createError({
@@ -30,15 +30,14 @@ export default defineEventHandler(async (event) => {
 
   const backendUrl = `${config.apiBaseInternal}/admin/rebuild-search-index`
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${accessToken}`
+    Authorization: `Bearer ${accessToken}`
   }
 
   try {
-    const data = await $fetch(backendUrl, {
+    return await $fetch(backendUrl, {
       method: 'POST',
       headers
     })
-    return data
   } catch (error: any) {
     throw createError({
       statusCode: error.statusCode || 500,

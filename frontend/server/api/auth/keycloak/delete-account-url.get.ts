@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'openid',
-    kc_action: 'deleteq_account'
+    kc_action: 'delete_account'
   })
 
   return `${baseUrl}/realms/${realm}/protocol/openid-connect/auth?${params.toString()}`

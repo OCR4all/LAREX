@@ -164,7 +164,12 @@ public class NotificationPreferenceController {
             new NotificationTypeInfo("PAGE_CREATED", "Page Created", "Notifications when new pages are added to projects"),
             new NotificationTypeInfo("PAGE_DELETED", "Page Deleted", "Notifications when pages are removed from projects"),
             new NotificationTypeInfo("WORKSPACE_WATCH", "Workspace Updates", "Notifications for workspaces you are watching"),
-            new NotificationTypeInfo("PROJECT_WATCH", "Project Updates", "Notifications for projects you are watching")
+            new NotificationTypeInfo("PROJECT_WATCH", "Project Updates", "Notifications for projects you are watching"),
+            new NotificationTypeInfo("COLLAB_TAKEOVER_REQUESTED", "Edit Requests", "Notifications when someone requests edit access to a page you are editing"),
+            new NotificationTypeInfo("COLLAB_TAKEOVER_GRANTED", "Edit Access Granted", "Notifications when your request to edit a page is accepted"),
+            new NotificationTypeInfo("COLLAB_TAKEOVER_DECLINED", "Edit Access Declined", "Notifications when your request to edit a page is declined"),
+            new NotificationTypeInfo("COLLAB_TAKEOVER_FORCED", "Forced Takeover", "Notifications when another user forcibly takes over a page you were editing"),
+            new NotificationTypeInfo("COLLAB_LEASE_EXPIRED", "Edit Lock Expired", "Notifications when your edit lock expires after you stop heartbeating")
         );
         return ResponseEntity.ok(types);
     }

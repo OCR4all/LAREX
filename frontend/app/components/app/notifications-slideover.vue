@@ -47,6 +47,12 @@ function getNotificationIcon(type: string) {
     case 'PROJECT_DELETED': return 'i-lucide-folder'
     case 'PAGE_CREATED':
     case 'PAGE_DELETED': return 'i-lucide-file'
+    case 'COLLAB_TAKEOVER_REQUESTED':
+    case 'COLLAB_TAKEOVER_GRANTED':
+    case 'COLLAB_TAKEOVER_DECLINED':
+    case 'COLLAB_TAKEOVER_FORCED':
+    case 'COLLAB_LEASE_EXPIRED':
+      return 'i-lucide-lock'
     default: return 'i-lucide-bell'
   }
 }
@@ -60,7 +66,12 @@ function getGroupTitle(group: NotificationGroup): string {
     PROJECT_CREATED: 'projects created',
     PROJECT_DELETED: 'projects deleted',
     TASK_ASSIGNED: 'tasks assigned',
-    TASK_COMPLETED: 'tasks completed'
+    TASK_COMPLETED: 'tasks completed',
+    COLLAB_TAKEOVER_REQUESTED: 'edit requests',
+    COLLAB_TAKEOVER_GRANTED: 'edit access grants',
+    COLLAB_TAKEOVER_DECLINED: 'edit access declines',
+    COLLAB_TAKEOVER_FORCED: 'forced takeovers',
+    COLLAB_LEASE_EXPIRED: 'expired edit locks'
   }
   return `${count} ${typeLabels[group.type] || 'notifications'}`
 }

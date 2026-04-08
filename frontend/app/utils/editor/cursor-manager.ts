@@ -88,8 +88,7 @@ export function getCursorType(state: CursorState): CursorType {
 export function setCursor(element: HTMLElement | null, state: CursorState): void {
   if (!element) return
 
-  const cursorType = getCursorType(state)
-  element.style.cursor = cursorType
+  element.style.cursor = getCursorType(state)
 }
 
 /**

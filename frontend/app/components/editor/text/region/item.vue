@@ -4,6 +4,7 @@ import type { TextItemLayout } from '@/stores/editor/types'
 import type { ReadingDirection } from '../line/reading-direction'
 
 interface TextContentVariantData {
+  pos: number
   index?: number
   text: string
   confidence?: number
@@ -16,6 +17,7 @@ interface Props {
     points: Point[]
     readingDirection?: ReadingDirection
     textContentVariants: TextContentVariantData[]
+    allTextContentVariants?: TextContentVariantData[]
     hasGtVariant?: boolean
     recognitionCandidates?: Array<{ index?: number, text: string }>
   }
@@ -40,6 +42,7 @@ interface Props {
   projectDictionaryUnicodeNormalization?: string
   selectedKeyboardId?: string | number | null
   hasVirtualKeyboard?: boolean
+  readOnly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -58,7 +61,8 @@ const props = withDefaults(defineProps<Props>(), {
   projectDictionaryCaseSensitive: false,
   projectDictionaryUnicodeNormalization: 'NFC',
   selectedKeyboardId: null,
-  hasVirtualKeyboard: false
+  hasVirtualKeyboard: false,
+  readOnly: false
 })
 
 const emit = defineEmits<{
@@ -106,6 +110,7 @@ const lineItemModel = computed(() => ({
     :project-dictionary-unicode-normalization="props.projectDictionaryUnicodeNormalization"
     :selected-keyboard-id="props.selectedKeyboardId"
     :has-virtual-keyboard="props.hasVirtualKeyboard"
+    :read-only="props.readOnly"
     :allow-multiline="true"
     :show-drag-handle="false"
     :show-delete-button="false"

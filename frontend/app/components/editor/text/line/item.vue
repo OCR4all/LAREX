@@ -23,8 +23,10 @@ import {
   normalizeReadingDirection,
   type ReadingDirection
 } from './reading-direction'
+import { getTextContentVariantRenderKey } from './variant-render-key'
 
 interface TextContentVariantData {
+  pos: number
   index?: number
   text: string
   confidence?: number
@@ -38,6 +40,7 @@ interface Props {
     points: Point[]
     readingDirection?: ReadingDirection
     textContentVariants: TextContentVariantData[]
+    allTextContentVariants?: TextContentVariantData[]
     hasGtVariant?: boolean
     recognitionCandidates?: Array<{ index?: number, text: string }>
   }
@@ -66,6 +69,7 @@ interface Props {
   showDragHandle?: boolean
   showDeleteButton?: boolean
   cutoutMaxHeightClass?: string | null
+  readOnly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -88,7 +92,8 @@ const props = withDefaults(defineProps<Props>(), {
   allowMultiline: false,
   showDragHandle: true,
   showDeleteButton: true,
-  cutoutMaxHeightClass: null
+  cutoutMaxHeightClass: null,
+  readOnly: false
 })
 const emit = defineEmits<{
   updateTextContentVariant: [id: string, arrayPos: number, text: string]
@@ -135,6 +140,7 @@ const cutoutLoadFailed = ref(false)
 let cutoutRequestId = 0
 
 const isVertical = computed(() => props.layout === 'vertical')
+const canMutateAnnotation = computed(() => !props.readOnly)
 const effectiveCutoutMaxHeightClass = computed(() => {
   if (props.cutoutMaxHeightClass) return props.cutoutMaxHeightClass
   return isVertical.value ? 'max-h-56' : 'max-h-40'
@@ -152,6 +158,7 @@ const textDirectionAttributes = computed(() => getReadingDirectionTextAttributes
 const textDirectionStyle = computed(() => textDirectionAttributes.value.style)
 const textDirectionDir = computed(() => textDirectionAttributes.value.dir)
 const normalizedTextHighlightQuery = computed(() => props.textHighlightQuery?.trim() ?? '')
+const editableTextContentVariants = computed(() => props.textline.allTextContentVariants ?? props.textline.textContentVariants)
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
   if (typeof index === 'number' && index === props.gtIndex) return 'gt'
@@ -227,16 +234,17 @@ const editingUnindexed = ref(true)
 const editingIndexValue = ref<number>(0)
 
 function hasIndexConflict(pos: number, newIndex: number | undefined): boolean {
+  const variants = editableTextContentVariants.value
   if (newIndex === undefined) {
-    for (let i = 0; i < props.textline.textContentVariants.length; i++) {
-      if (i === pos) continue
-      if (props.textline.textContentVariants[i]?.index === undefined) return true
+    for (const variant of variants) {
+      if (variant.pos === pos) continue
+      if (variant.index === undefined) return true
     }
     return false
   }
-  for (let i = 0; i < props.textline.textContentVariants.length; i++) {
-    if (i === pos) continue
-    if (props.textline.textContentVariants[i]?.index === newIndex) return true
+  for (const variant of variants) {
+    if (variant.pos === pos) continue
+    if (variant.index === newIndex) return true
   }
   return false
 }
@@ -280,24 +288,23 @@ async function saveIndex(pos: number) {
 
 const gtText = computed(() => {
   if (!props.showDiff) return ''
-  const gt = props.textline.textContentVariants.find(te => te.index === props.gtIndex)
+  const gt = localTextContentVariants.value.find(te => te.index === props.gtIndex)
   return gt?.text ?? ''
 })
 
 const textContentVariantsWithDiff = computed(() => {
   if (!props.showDiff) {
-    return props.textline.textContentVariants.map((te, pos) => ({ ...te, pos }))
+    return localTextContentVariants.value.map(te => ({ ...te }))
   }
 
   const dmp = getDmp()
   const gt = gtText.value
 
-  return props.textline.textContentVariants.map((te, pos) => {
+  return localTextContentVariants.value.map((te) => {
     const diffs = dmp.diff_main(gt, te.text)
     dmp.diff_cleanupSemantic(diffs)
     return {
       ...te,
-      pos,
       diffs
     }
   })
@@ -524,19 +531,23 @@ const addTextContentVariant = () => {
 }
 
 const removeTextContentVariant = (arrayPos: number) => {
-  localTextContentVariants.value = localTextContentVariants.value.filter((_, pos) => pos !== arrayPos)
+  localTextContentVariants.value = localTextContentVariants.value.filter(variant => variant.pos !== arrayPos)
   emit('removeTextContentVariant', props.textline.id, arrayPos)
 }
 
+function getLocalTextContentVariant(arrayPos: number): TextContentVariantData | undefined {
+  return localTextContentVariants.value.find(variant => variant.pos === arrayPos)
+}
+
 const updateText = (arrayPos: number, text: string) => {
-  const textEquiv = localTextContentVariants.value[arrayPos]
+  const textEquiv = getLocalTextContentVariant(arrayPos)
   if (!textEquiv) return
   textEquiv.text = text
   emit('updateTextContentVariant', props.textline.id, arrayPos, text)
 }
 
 const replaceTextRange = (arrayPos: number, start: number, end: number, replacement: string) => {
-  const textEquiv = localTextContentVariants.value[arrayPos]
+  const textEquiv = getLocalTextContentVariant(arrayPos)
   if (!textEquiv || !isEditableVariant(textEquiv.index)) return
   const nextText = `${textEquiv.text.slice(0, start)}${replacement}${textEquiv.text.slice(end)}`
   updateText(arrayPos, nextText)
@@ -603,8 +614,8 @@ type UnknownDictionaryTokenDetail = {
 const canCheckDictionaryTokens = computed(() => {
   return Boolean(
     props.highlightUnknownDictionaryTokens
-      && props.projectDictionaryId
-      && workspaceStore.selectedWorkspaceId
+    && props.projectDictionaryId
+    && workspaceStore.selectedWorkspaceId
   )
 })
 
@@ -918,7 +929,7 @@ onBeforeUnmount(() => {
     :style="{ '--text-font-size': fontSize + 'px' }"
     class="@container group relative flex rounded-sm border bg-card transition-all duration-200"
     :class="[
-      props.isSelected ? 'border-primary border-rounded-sm ring-2 ring-primary shadow-md' : 'border-border/60 hover:border-border hover:shadow-sm',
+      props.isSelected ? 'border-primary border-rounded-sm ring-2 ring-primary shadow-md' : 'border-border/60 hover:border-border hover:shadow-sm'
     ]"
     @click="emit('selectTextline', props.textline.id)"
   >
@@ -986,6 +997,7 @@ onBeforeUnmount(() => {
                 variant="soft"
                 size="sm"
                 class="h-6 px-2 text-xs"
+                :disabled="!canMutateAnnotation"
                 @click.stop="createGtFromRecognition"
               >
                 <Icon name="i-lucide-copy-plus" class="h-3 w-3 mr-1" />
@@ -996,6 +1008,7 @@ onBeforeUnmount(() => {
                 variant="ghost"
                 size="sm"
                 class="h-6 px-2 text-xs text-muted hover:text-foreground"
+                :disabled="!canMutateAnnotation"
                 @click.stop="addTextContentVariant"
               >
                 <Icon name="i-lucide-plus" class="h-3 w-3 mr-1" />
@@ -1007,7 +1020,7 @@ onBeforeUnmount(() => {
           <div class="flex flex-col gap-2">
             <div
               v-for="textEquiv in textContentVariantsWithDiff"
-              :key="textEquiv.pos"
+              :key="getTextContentVariantRenderKey(textEquiv)"
               class="flex items-center gap-1.5 group/input"
             >
               <UPopover :content="{ side: 'left', align: 'center' }" @update:open="(open: boolean) => { if (!open) closeIndexEditor() }">
@@ -1018,6 +1031,7 @@ onBeforeUnmount(() => {
                   class="relative shrink-0 min-w-5 h-5 p-0 text-[10px] inline-flex items-center justify-center"
                   :class="typeof textEquiv.index === 'number' ? 'text-muted/60 hover:text-primary' : 'text-muted/40 italic hover:text-primary'"
                   title="Change index"
+                  :disabled="!canMutateAnnotation"
                   @click.stop="openIndexEditor(textEquiv.pos, textEquiv.index)"
                 >
                   {{ typeof textEquiv.index === 'number' ? textEquiv.index : '–' }}
@@ -1025,7 +1039,7 @@ onBeforeUnmount(() => {
                 <template #content>
                   <div v-if="editingIndexPos === textEquiv.pos" class="p-3 flex flex-col gap-2 w-52" @click.stop>
                     <span class="text-xs font-medium text-muted">Change Index</span>
-                    <UCheckbox v-model="editingUnindexed" label="Unindexed" />
+                    <UCheckbox v-model="editingUnindexed" label="Unindexed" :disabled="!canMutateAnnotation" />
                     <UInput
                       v-if="!editingUnindexed"
                       v-model.number="editingIndexValue"
@@ -1033,6 +1047,7 @@ onBeforeUnmount(() => {
                       :min="0"
                       size="sm"
                       placeholder="Index"
+                      :disabled="!canMutateAnnotation"
                       :color="hasIndexConflict(textEquiv.pos, editingEffectiveIndex) ? 'error' : undefined"
                       @keydown.enter.stop="saveIndex(textEquiv.pos)"
                       @keydown.escape.stop="closeIndexEditor"
@@ -1041,10 +1056,20 @@ onBeforeUnmount(() => {
                       {{ editingEffectiveIndex === undefined ? 'Another variant already has no index' : `Index ${editingEffectiveIndex} is already in use` }} (will swap)
                     </p>
                     <div class="flex justify-end gap-1">
-                      <UButton size="xs" color="neutral" variant="ghost" @click.stop="closeIndexEditor">
+                      <UButton
+                        size="xs"
+                        color="neutral"
+                        variant="ghost"
+                        @click.stop="closeIndexEditor"
+                      >
                         Cancel
                       </UButton>
-                      <UButton size="xs" color="primary" @click.stop="saveIndex(textEquiv.pos)">
+                      <UButton
+                        size="xs"
+                        color="primary"
+                        :disabled="!canMutateAnnotation"
+                        @click.stop="saveIndex(textEquiv.pos)"
+                      >
                         Save
                       </UButton>
                     </div>
@@ -1074,8 +1099,8 @@ onBeforeUnmount(() => {
                     :dir="textDirectionDir"
                     :style="textDirectionStyle"
                     :ui="hasHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
-                    :readonly="variantRole(textEquiv.index) === 'recognition'"
-                    :disabled="variantRole(textEquiv.index) === 'nonAssigned'"
+                    :readonly="props.readOnly || variantRole(textEquiv.index) === 'recognition'"
+                    :disabled="props.readOnly || variantRole(textEquiv.index) === 'nonAssigned'"
                     :data-textline-id="props.textline.id"
                     :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
                     :data-textequiv-pos="String(textEquiv.pos)"
@@ -1118,6 +1143,7 @@ onBeforeUnmount(() => {
                     size="xs"
                     class="shrink-0 h-6 w-6 p-0 opacity-0 group-hover/input:opacity-100 transition-opacity text-muted hover:text-destructive"
                     title="Remove this TextContentVariant"
+                    :disabled="!canMutateAnnotation"
                     @click.stop="removeTextContentVariant(textEquiv.pos)"
                   >
                     <Icon name="i-lucide-x" class="h-3 w-3" />
@@ -1193,10 +1219,22 @@ onBeforeUnmount(() => {
                                 >
                                   Add to Keyboard
                                 </UButton>
-                                <UButton size="xs" color="neutral" variant="ghost" :disabled="!projectCodecId" @click.stop="emit('openCodecEditor')">
+                                <UButton
+                                  size="xs"
+                                  color="neutral"
+                                  variant="ghost"
+                                  :disabled="!projectCodecId"
+                                  @click.stop="emit('openCodecEditor')"
+                                >
                                   Open Codec
                                 </UButton>
-                                <UButton size="xs" color="neutral" variant="ghost" :disabled="!hasVirtualKeyboard" @click.stop="emit('openKeyboardEditor')">
+                                <UButton
+                                  size="xs"
+                                  color="neutral"
+                                  variant="ghost"
+                                  :disabled="!hasVirtualKeyboard"
+                                  @click.stop="emit('openKeyboardEditor')"
+                                >
                                   Open Keyboard
                                 </UButton>
                               </div>
@@ -1237,7 +1275,12 @@ onBeforeUnmount(() => {
                     <USkeleton class="h-5 w-full" />
                     <USkeleton class="h-5 w-3/4" />
                   </div>
-                  <div v-else class="font-junicode break-words" :dir="textDirectionDir" :style="[codecPreviewStyle, textDirectionStyle]">
+                  <div
+                    v-else
+                    class="font-junicode break-words"
+                    :dir="textDirectionDir"
+                    :style="[codecPreviewStyle, textDirectionStyle]"
+                  >
                     <template v-for="(segment, segmentIndex) in getUnknownDictionaryTokenSegmentsFromLookup(textEquiv.text)" :key="`dict_seg_${textEquiv.pos}_${segmentIndex}`">
                       <UPopover
                         v-if="segment.unknown"
@@ -1336,6 +1379,7 @@ onBeforeUnmount(() => {
           variant="ghost"
           size="sm"
           class="h-7 w-7 p-0 text-muted hover:text-destructive hover:bg-destructive/10"
+          :disabled="!canMutateAnnotation"
           @click.stop="emit('deleteTextline', props.textline.id)"
         >
           <Icon name="i-lucide-x" class="h-3.5 w-3.5" />
@@ -1354,7 +1398,7 @@ onBeforeUnmount(() => {
           width: LENS_SIZE + 'px',
           height: LENS_SIZE + 'px',
           left: (lensX - LENS_SIZE / 2) + 'px',
-          top: (lensY - LENS_SIZE / 2) + 'px',
+          top: (lensY - LENS_SIZE / 2) + 'px'
         }"
       />
     </Teleport>

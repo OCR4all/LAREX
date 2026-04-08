@@ -2,9 +2,13 @@ package de.uniwue.zpd.dachs.larex.backend.service.notification;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Notification;
 import de.uniwue.zpd.dachs.larex.backend.repository.notification.NotificationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -13,16 +17,21 @@ import java.util.List;
 @Transactional
 public class NotificationService {
 
+    private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
+
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
     private final EmailService emailService;
+    private final NotificationBridgeClient notificationBridgeClient;
 
     public NotificationService(NotificationRepository notificationRepository,
                                NotificationPreferenceService preferenceService,
-                               @Lazy EmailService emailService) {
+                               @Lazy EmailService emailService,
+                               NotificationBridgeClient notificationBridgeClient) {
         this.notificationRepository = notificationRepository;
         this.preferenceService = preferenceService;
         this.emailService = emailService;
+        this.notificationBridgeClient = notificationBridgeClient;
     }
 
     public List<Notification> getUserNotifications(String userId) {
@@ -46,39 +55,61 @@ public class NotificationService {
     }
 
     public Notification createNotification(String userId, String title, String message, Notification.NotificationType type) {
-        // Check if in-app notifications are enabled for this type
         if (!preferenceService.isInAppEnabledForType(userId, type)) {
-            // Still might want to send email even if in-app is disabled
             Notification tempNotification = new Notification(userId, title, message, type);
             emailService.sendNotificationEmailIfEnabled(userId, tempNotification);
             return null;
         }
-        
+
         Notification notification = new Notification(userId, title, message, type);
         Notification saved = notificationRepository.save(notification);
-        
-        // Send email notification if enabled
-        emailService.sendNotificationEmailIfEnabled(userId, saved);
-        
+        dispatchSavedNotification(saved);
         return saved;
     }
 
     public Notification createNotification(String userId, String title, String message, Notification.NotificationType type, String relatedEntityId, String relatedEntityType) {
-        // Check if in-app notifications are enabled for this type
+        return createNotification(userId, title, message, type, relatedEntityId, relatedEntityType, null);
+    }
+
+    public Notification createNotification(String userId, String title, String message, Notification.NotificationType type, String relatedEntityId, String relatedEntityType, String link) {
         if (!preferenceService.isInAppEnabledForType(userId, type)) {
-            // Still might want to send email even if in-app is disabled
-            Notification tempNotification = new Notification(userId, title, message, type, relatedEntityId, relatedEntityType);
+            Notification tempNotification = new Notification(userId, title, message, type, relatedEntityId, relatedEntityType, link);
             emailService.sendNotificationEmailIfEnabled(userId, tempNotification);
             return null;
         }
-        
-        Notification notification = new Notification(userId, title, message, type, relatedEntityId, relatedEntityType);
+
+        Notification notification = new Notification(userId, title, message, type, relatedEntityId, relatedEntityType, link);
         Notification saved = notificationRepository.save(notification);
-        
-        // Send email notification if enabled
-        emailService.sendNotificationEmailIfEnabled(userId, saved);
-        
+        dispatchSavedNotification(saved);
         return saved;
+    }
+
+    private void dispatchSavedNotification(Notification saved) {
+        Runnable dispatch = () -> {
+            try {
+                emailService.sendNotificationEmailIfEnabled(saved.getUserId(), saved);
+            } catch (RuntimeException exception) {
+                logger.warn("Failed to send notification email for type {}", saved.getType(), exception);
+            }
+
+            try {
+                notificationBridgeClient.pushNotification(saved, "notification-service");
+            } catch (RuntimeException exception) {
+                logger.warn("Failed to push notification bridge event for type {}", saved.getType(), exception);
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    dispatch.run();
+                }
+            });
+            return;
+        }
+
+        dispatch.run();
     }
 
     public void createWorkspaceInvitationNotification(String userId, String workspaceName, String workspaceId) {
@@ -272,5 +303,107 @@ public class NotificationService {
                 projectId,
                 "Project"
         );
+    }
+
+    public void createCollaborationTakeoverRequestedNotification(
+            String userId,
+            String projectId,
+            String projectName,
+            String pageId,
+            String pageName,
+            String requesterDisplayName
+    ) {
+        createNotification(
+                userId,
+                "Edit access requested",
+                requesterDisplayName + " requested edit access for " + formatPageLabel(projectName, pageName) + ".",
+                Notification.NotificationType.COLLAB_TAKEOVER_REQUESTED,
+                pageId,
+                "Page",
+                buildEditorLink(projectId, pageId)
+        );
+    }
+
+    public void createCollaborationTakeoverGrantedNotification(
+            String userId,
+            String projectId,
+            String projectName,
+            String pageId,
+            String pageName,
+            String editorDisplayName
+    ) {
+        createNotification(
+                userId,
+                "Edit access granted",
+                editorDisplayName + " granted you edit access for " + formatPageLabel(projectName, pageName) + ".",
+                Notification.NotificationType.COLLAB_TAKEOVER_GRANTED,
+                pageId,
+                "Page",
+                buildEditorLink(projectId, pageId)
+        );
+    }
+
+    public void createCollaborationTakeoverDeclinedNotification(
+            String userId,
+            String projectId,
+            String projectName,
+            String pageId,
+            String pageName,
+            String editorDisplayName
+    ) {
+        createNotification(
+                userId,
+                "Edit access declined",
+                editorDisplayName + " declined your edit request for " + formatPageLabel(projectName, pageName) + ".",
+                Notification.NotificationType.COLLAB_TAKEOVER_DECLINED,
+                pageId,
+                "Page",
+                buildEditorLink(projectId, pageId)
+        );
+    }
+
+    public void createCollaborationTakeoverForcedNotification(
+            String userId,
+            String projectId,
+            String projectName,
+            String pageId,
+            String pageName,
+            String newEditorDisplayName
+    ) {
+        createNotification(
+                userId,
+                "Edit lock taken over",
+                newEditorDisplayName + " forcibly took over editing for " + formatPageLabel(projectName, pageName) + ".",
+                Notification.NotificationType.COLLAB_TAKEOVER_FORCED,
+                pageId,
+                "Page",
+                buildEditorLink(projectId, pageId)
+        );
+    }
+
+    public void createCollaborationLeaseExpiredNotification(
+            String userId,
+            String projectId,
+            String projectName,
+            String pageId,
+            String pageName
+    ) {
+        createNotification(
+                userId,
+                "Edit lock expired",
+                "Your edit lock for " + formatPageLabel(projectName, pageName) + " expired after the collaboration heartbeat stopped.",
+                Notification.NotificationType.COLLAB_LEASE_EXPIRED,
+                pageId,
+                "Page",
+                buildEditorLink(projectId, pageId)
+        );
+    }
+
+    private String buildEditorLink(String projectId, String pageId) {
+        return "/editor?projectId=" + projectId + "&pageId=" + pageId;
+    }
+
+    private String formatPageLabel(String projectName, String pageName) {
+        return "\"" + projectName + " / " + pageName + "\"";
     }
 }

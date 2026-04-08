@@ -59,6 +59,7 @@ services:
       LAREX_UPLOAD_DIR: ${LAREX_UPLOAD_DIR:-/mnt/data/uploads}
       LAREX_UPLOAD_TEMP_DIR: ${LAREX_UPLOAD_TEMP_DIR:-/mnt/data/uploads/temp}
       LAREX_UPLOAD_STARTUP_FAIL_FAST: ${LAREX_UPLOAD_STARTUP_FAIL_FAST:-true}
+      LAREX_NOTIFICATIONS_BRIDGE_SECRET: ${LAREX_NOTIFICATIONS_BRIDGE_SECRET:-change-me}
     volumes:
       - app_data:/mnt/data
     networks:
@@ -97,6 +98,8 @@ services:
       NUXT_OAUTH_KEYCLOAK_CLIENT_ID: ${NUXT_OAUTH_KEYCLOAK_CLIENT_ID:-larex-frontend}
       NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET: ${NUXT_OAUTH_KEYCLOAK_CLIENT_SECRET:-change-me}
       NUXT_OAUTH_KEYCLOAK_REDIRECT_URL: ${NUXT_OAUTH_KEYCLOAK_REDIRECT_URL:-https://${LAREX_PUBLIC_HOST:-app.example.org}/auth/keycloak}
+      NUXT_NOTIFICATION_BRIDGE_SECRET: ${NUXT_NOTIFICATION_BRIDGE_SECRET:-change-me}
+      NUXT_COLLABORATION_SECRET: ${NUXT_COLLABORATION_SECRET:-change-me}
     networks:
       - backend
     depends_on:

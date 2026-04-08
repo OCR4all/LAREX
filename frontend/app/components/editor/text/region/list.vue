@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { LazyDictionarySlideoverBrowser } from '#components'
-import type { TextRegion } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType, isTextRegion, type TextContentVariantData } from '@/models/editor'
-import type { RenderablePolygon } from '@/types/editor/rendering'
 import type { Point } from '@/models/editor/types'
 import { worldToImage } from '@/utils/editor/coordinates'
 import { getRegionColor } from '@/utils/editor/region-colors'
@@ -12,6 +10,7 @@ import type { RegionKind } from '@/models/editor/region'
 import type { LabelDefinition } from '@/types/label-set'
 import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
 import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { usePageFilter } from '@/composables/use-page-filter'
@@ -49,6 +48,7 @@ const editorStore = useEditorStore()
 const uiStore = useEditorUiStore()
 const sessionStore = useEditorSessionStore()
 const workspaceStore = useWorkspaceStore()
+const collaboration = useEditorCollaboration()
 const toast = useToast()
 const overlay = useOverlay()
 const dictionaryBrowserSlideover = overlay.create(LazyDictionarySlideoverBrowser)
@@ -86,6 +86,10 @@ const { keyboards, selectedLayout, selectedTheme, selectedKeyboardId } = useVirt
 const selectedWorkspaceId = computed(() => workspaceStore.selectedWorkspaceId as string | null)
 
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
+const isCanvasEditable = computed(() => {
+  const canvasId = effectiveCanvasId.value
+  return canvasId ? collaboration.canEditCanvas(canvasId) : true
+})
 const isLoadingAnnotations = computed(() => {
   const canvasId = effectiveCanvasId.value
   if (!canvasId) return false
@@ -132,7 +136,7 @@ const canQuickAddToDictionary = computed(() => Boolean(editorStore.projectDictio
 const canCheckDictionaryTokens = computed(() => {
   return Boolean(
     selectedWorkspaceId.value
-      && editorStore.projectDictionaryId
+    && editorStore.projectDictionaryId
   )
 })
 
@@ -350,8 +354,9 @@ const regions = computed(() => {
       id: region.id,
       label: renderable?.label ?? region.type ?? region.id,
       points: toImagePoints(renderable?.points ?? []),
-      readingDirection: region.readingDirection as any,
+      readingDirection: region.readingDirection as ReadingDirection | undefined,
       textContentVariants: visibleTextContentVariants,
+      allTextContentVariants,
       hasAnyText: allTextContentVariants.some(variant => variant.text.trim().length > 0),
       hasGtVariant,
       recognitionCandidates,
@@ -489,6 +494,7 @@ function handleSelectRegion(regionId: string): void {
 }
 
 function commitTextContentVariants(regionId: string, nextTextContentVariants: TextContentVariantData[] | undefined): void {
+  if (!isCanvasEditable.value) return
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return
 
@@ -500,6 +506,7 @@ function commitTextContentVariants(regionId: string, nextTextContentVariants: Te
 }
 
 function handleAddTextContentVariant(regionId: string): void {
+  if (!isCanvasEditable.value) return
   const region = displayRegions.value.find(item => item.id === regionId)
   if (!region) return
 
@@ -510,6 +517,7 @@ function handleAddTextContentVariant(regionId: string): void {
 }
 
 function handleRemoveTextContentVariant(regionId: string, arrayPos: number): void {
+  if (!isCanvasEditable.value) return
   const region = displayRegions.value.find(item => item.id === regionId)
   if (!region) return
 
@@ -520,6 +528,7 @@ function handleRemoveTextContentVariant(regionId: string, arrayPos: number): voi
 }
 
 function handleCommitTextContentVariant(regionId: string, pos: number, text: string): void {
+  if (!isCanvasEditable.value) return
   const region = displayRegions.value.find(item => item.id === regionId)
   if (!region) return
 
@@ -532,6 +541,7 @@ function handleCommitTextContentVariant(regionId: string, pos: number, text: str
 }
 
 function handleCreateGtFromRecognition(regionId: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }) {
+  if (!isCanvasEditable.value) return
   const region = displayRegions.value.find(item => item.id === regionId)
   if (!region) return
 
@@ -550,6 +560,7 @@ function handleCreateGtFromRecognition(regionId: string, payload: { gtIndex: num
 }
 
 function handleCommitTextContentVariantIndex(regionId: string, pos: number, toIndex: number | undefined): void {
+  if (!isCanvasEditable.value) return
   if (toIndex !== undefined && (!Number.isInteger(toIndex) || toIndex < 0)) return
 
   const region = displayRegions.value.find(item => item.id === regionId)
@@ -597,6 +608,7 @@ function buildRegionSyncCommand(regionId: string): UpdateTextContentVariantsComm
 }
 
 function syncRegionGtFromTextLines(regionId: string): boolean {
+  if (!isCanvasEditable.value) return false
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return false
   const command = buildRegionSyncCommand(regionId)
@@ -606,6 +618,7 @@ function syncRegionGtFromTextLines(regionId: string): boolean {
 }
 
 function syncVisibleRegionsFromTextLines(): boolean {
+  if (!isCanvasEditable.value) return false
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   if (!runtime?.commander) return false
 
@@ -623,6 +636,7 @@ function syncVisibleRegionsFromTextLines(): boolean {
 }
 
 function triggerCreateGtForSelectedRegion(): boolean {
+  if (!isCanvasEditable.value) return false
   const selectedId = selectedRegionId.value
   if (!selectedId) return false
 
@@ -904,7 +918,12 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
               Regions
             </h2>
           </div>
-          <UBadge variant="solid" color="neutral" size="sm" class="shrink-0 font-mono">
+          <UBadge
+            variant="solid"
+            color="neutral"
+            size="sm"
+            class="shrink-0 font-mono"
+          >
             {{ displayRegions.length }}/{{ totalRegionCount }}
           </UBadge>
         </div>
@@ -990,7 +1009,12 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
             <div class="flex-1 min-w-0 flex items-center gap-2">
               <Icon name="i-lucide-map-pin" class="h-4 w-4 text-muted shrink-0" />
               <span class="font-medium text-sm truncate">{{ region.label }}</span>
-              <UBadge variant="solid" color="neutral" size="xs" class="font-mono shrink-0">
+              <UBadge
+                variant="solid"
+                color="neutral"
+                size="xs"
+                class="font-mono shrink-0"
+              >
                 {{ region.textLineCount }} lines
               </UBadge>
               <span v-if="region.regionSubtype || region.regionKind" class="text-xs text-muted capitalize truncate">
@@ -1002,6 +1026,7 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
               variant="soft"
               size="xs"
               icon="i-lucide-refresh-cw"
+              :disabled="!isCanvasEditable"
               @click="syncRegionGtFromTextLines(region.id)"
             >
               Sync GT From Textlines
@@ -1031,6 +1056,7 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
             :project-dictionary-unicode-normalization="editorStore.projectDictionaryUnicodeNormalization"
             :selected-keyboard-id="selectedKeyboardId"
             :has-virtual-keyboard="Boolean(selectedLayout)"
+            :read-only="!isCanvasEditable"
             @select-region="handleSelectRegion"
             @add-text-content-variant="handleAddTextContentVariant"
             @remove-text-content-variant="handleRemoveTextContentVariant"

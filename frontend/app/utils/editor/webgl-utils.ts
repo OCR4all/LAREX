@@ -102,8 +102,6 @@ export function isValidScale(scale: Scale | null | undefined): scale is Scale {
   return (
     scale !== null
     && scale !== undefined
-    && typeof scale.scaleX === 'number'
-    && typeof scale.scaleY === 'number'
     && scale.scaleX !== 0
     && scale.scaleY !== 0
     && isFinite(scale.scaleX)

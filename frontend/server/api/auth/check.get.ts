@@ -34,7 +34,7 @@ export default defineEventHandler(async (event): Promise<AuthCheckResponse> => {
     const bufferTime = 5 * 60
     if (expiresIn <= bufferTime) {
       try {
-        const { refreshTokenIfExpired } = await import('../../utils/auth')
+        const { refreshTokenIfExpired } = await import('#server/utils/auth')
         await refreshTokenIfExpired(event, { user: session.user, secure: session.secure })
 
         const updatedSession = await getUserSession(event)
