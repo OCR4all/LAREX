@@ -141,11 +141,11 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
       const stored = sessionStorage.getItem(`page-filter-${newProjectId}`)
       if (stored) {
         try {
-          const parsed = JSON.parse(stored)
+          const parsed = JSON.parse(stored) as Record<string, unknown>
           globalFilterState.value = {
             labelIds: normalizeLegacyLabelFilterValues(parsed.labelIds),
             textContent: typeof parsed.textContent === 'string' ? parsed.textContent : '',
-            tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0) : [],
+            tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag: unknown): tag is string => typeof tag === 'string' && tag.trim().length > 0) : [],
             filterOperator: parsed.filterOperator === 'and' ? 'and' : 'or',
             confidenceRange: normalizeConfidenceRange(parsed.confidenceRange),
             confidenceElementTypes: normalizeConfidenceElementTypes(parsed.confidenceElementTypes),

@@ -5,6 +5,11 @@ interface Props {
   collapsed?: boolean
 }
 
+interface StarredProject {
+  projectId: string
+  projectName: string
+}
+
 defineProps<Props>()
 
 const workspace = useWorkspaceStore()
@@ -15,14 +20,22 @@ const starredKey = computed(() => {
   return wsKey(selectedWorkspace.value, 'projects', 'starred')
 })
 
-const { data: starredProjects } = useFetch<any[]>(() =>
-  selectedWorkspace.value ? `/api/stars/workspace/${selectedWorkspace.value}` : null,
+const { data: starredProjects, refresh: refreshStarredProjects } = await useFetch<StarredProject[]>(() =>
+  `/api/stars/workspace/${selectedWorkspace.value as string}`,
 {
   key: starredKey,
   watch: [selectedWorkspace],
-  default: () => []
-}
-)
+  default: () => [],
+  immediate: false
+})
+
+watch(selectedWorkspace, (workspaceId) => {
+  if (workspaceId) {
+    void refreshStarredProjects()
+  } else {
+    starredProjects.value = []
+  }
+}, { immediate: true })
 
 const displayedProjects = computed(() => {
   if (!starredProjects.value) return []

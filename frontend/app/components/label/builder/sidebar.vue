@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useLabelBuilder } from '../../../composables/use-label-builder'
+import {
+  isGroupMeta,
+  type EditableLabelDefinition,
+  type GroupMeta
+} from '../../../composables/use-label-builder'
 
 const { isSystem = false } = defineProps<{
   isSystem?: boolean
@@ -27,13 +31,14 @@ const {
 const groupNameInput = ref('')
 const showGroupDialog = ref(false)
 const expandedGroups = ref<Set<string>>(new Set())
+type LabelGroup = { groupMeta: GroupMeta, labels: EditableLabelDefinition[] }
 
-const labelsWithGroups = computed(() => {
-  const groupMetas = labels.value.filter(l => l.isGroup)
-  const groupedLabels = new Map<string, typeof filteredLabels.value>()
+const labelsWithGroups = computed<{ grouped: LabelGroup[], ungrouped: EditableLabelDefinition[] }>(() => {
+  const groupMetas = labels.value.filter(isGroupMeta)
+  const visibleLabels = filteredLabels.value.filter((entry): entry is EditableLabelDefinition => !isGroupMeta(entry))
+  const groupedLabels = new Map<string, EditableLabelDefinition[]>()
 
-  for (const label of filteredLabels.value) {
-    if (label.isGroup) continue
+  for (const label of visibleLabels) {
     if (label.group) {
       if (!groupedLabels.has(label.group)) {
         groupedLabels.set(label.group, [])
@@ -42,7 +47,7 @@ const labelsWithGroups = computed(() => {
     }
   }
 
-  const result = []
+  const result: LabelGroup[] = []
   for (const groupMeta of groupMetas) {
     const groupLabels = groupedLabels.get(groupMeta.id) || []
     result.push({ groupMeta, labels: groupLabels })
@@ -50,7 +55,7 @@ const labelsWithGroups = computed(() => {
 
   return {
     grouped: result,
-    ungrouped: filteredLabels.value.filter(l => !l.isGroup && !l.group)
+    ungrouped: visibleLabels.filter(label => !label.group)
   }
 })
 

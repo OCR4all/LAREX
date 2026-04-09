@@ -1,4 +1,12 @@
-import type { AltoBlockType, LabelDefinition, LabelMapping, LabelScope, PageRegionType, PageTextType } from '~/types/label-set'
+import type {
+  AltoBlockType,
+  AltoRole,
+  LabelDefinition,
+  LabelMapping,
+  LabelScope,
+  PageRegionType,
+  PageTextType
+} from '~/types/label-set'
 import { createCanonicalRegionMappingSignatureFromLabel } from '@/utils/editor/page-label-mapping'
 
 const PRESET_COLORS = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#64748b']
@@ -8,17 +16,69 @@ const ALTO_BLOCK_TYPES = ['TextBlock', 'Illustration', 'GraphicalElement', 'Comp
 
 const meta = reactive({ name: 'My Custom Label Set', description: 'Optimized for historical document layout analysis', tags: [] as string[], altoEnabled: false, isSystem: false })
 const filters = reactive({ region: true, line: true })
-type GroupMeta = { id: string, name: string, isGroup: true }
-type BuilderEntry = LabelDefinition | GroupMeta
+type EditableLabelMapping = {
+  altoXml: {
+    role: AltoRole
+    tag: string
+    blockType?: AltoBlockType
+  }
+  pageXml: {
+    regionType?: PageRegionType
+    textType?: PageTextType
+    customSubType: string
+    customKey: string
+    customData: string
+  }
+}
 
-function isGroupMeta(entry: BuilderEntry): entry is GroupMeta {
+export interface EditableLabelDefinition extends Omit<LabelDefinition, 'description' | 'group' | 'mapping'> {
+  description: string
+  group: string | null
+  mapping: EditableLabelMapping
+}
+
+export interface GroupMeta {
+  id: string
+  name: string
+  isGroup: true
+}
+
+export type BuilderEntry = EditableLabelDefinition | GroupMeta
+
+export function isGroupMeta(entry: BuilderEntry): entry is GroupMeta {
   return 'isGroup' in entry && entry.isGroup === true
 }
 
+export function isEditableLabelDefinition(entry: BuilderEntry): entry is EditableLabelDefinition {
+  return !isGroupMeta(entry)
+}
+
 const labels = ref<BuilderEntry[]>([])
-const activeLabel = ref<LabelDefinition | null>(null)
+const activeLabel = ref<EditableLabelDefinition | null>(null)
 const searchQuery = ref('')
 const selectedLabelIds = ref<Set<string>>(new Set())
+
+function normalizeEditableLabel(label: LabelDefinition): EditableLabelDefinition {
+  return {
+    ...label,
+    description: label.description ?? '',
+    group: label.group ?? null,
+    mapping: {
+      altoXml: {
+        role: label.mapping.altoXml.role,
+        tag: label.mapping.altoXml.tag ?? '',
+        ...(label.mapping.altoXml.blockType ? { blockType: label.mapping.altoXml.blockType } : {})
+      },
+      pageXml: {
+        ...(label.mapping.pageXml.regionType ? { regionType: label.mapping.pageXml.regionType } : {}),
+        ...(label.mapping.pageXml.textType ? { textType: label.mapping.pageXml.textType } : {}),
+        customSubType: label.mapping.pageXml.customSubType ?? '',
+        customKey: label.mapping.pageXml.customKey,
+        customData: label.mapping.pageXml.customData ?? ''
+      }
+    }
+  }
+}
 
 const createMapping = (name = '', scope: LabelScope = 'region'): LabelMapping => {
   const lowerName = name.toLowerCase()
@@ -66,8 +126,8 @@ const createMapping = (name = '', scope: LabelScope = 'region'): LabelMapping =>
 
 if (labels.value.length === 0) {
   labels.value = [
-    { id: '1', scope: 'region', name: 'Paragraph', description: 'Body text', color: '#3b82f6', hasText: true, isContainer: false, group: null, mapping: createMapping('Paragraph') },
-    { id: '2', scope: 'line', name: 'Drop Cap Line', description: 'Line with drop capital', color: '#f43f5e', hasText: true, isContainer: false, group: null, mapping: createMapping('DropCapLine', 'line') }
+    normalizeEditableLabel({ id: '1', scope: 'region', name: 'Paragraph', description: 'Body text', color: '#3b82f6', hasText: true, isContainer: false, group: null, mapping: createMapping('Paragraph') }),
+    normalizeEditableLabel({ id: '2', scope: 'line', name: 'Drop Cap Line', description: 'Line with drop capital', color: '#f43f5e', hasText: true, isContainer: false, group: null, mapping: createMapping('DropCapLine', 'line') })
   ]
 }
 
@@ -85,7 +145,7 @@ export const useLabelBuilder = () => {
   }
 
   const selectedLabels = computed(() => {
-    return labels.value.filter((l): l is LabelDefinition => !isGroupMeta(l) && selectedLabelIds.value.has(l.id))
+    return labels.value.filter((l): l is EditableLabelDefinition => isEditableLabelDefinition(l) && selectedLabelIds.value.has(l.id))
   })
 
   const canGroup = computed(() => {
@@ -165,7 +225,7 @@ export const useLabelBuilder = () => {
 
   const createLabel = () => {
     const labelName = getUniqueLabelName('New Label')
-    const newLabel: LabelDefinition = {
+    const newLabel = normalizeEditableLabel({
       id: Date.now().toString(),
       scope: 'region',
       name: labelName,
@@ -175,7 +235,7 @@ export const useLabelBuilder = () => {
       isContainer: false,
       group: null,
       mapping: createMapping(labelName)
-    }
+    })
     labels.value.push(newLabel)
     activeLabel.value = newLabel
   }
@@ -209,12 +269,12 @@ export const useLabelBuilder = () => {
     }
   }
 
-  const duplicateLabel = (l: LabelDefinition) => {
-    const c = JSON.parse(JSON.stringify(l)) as LabelDefinition
-    c.id = Date.now().toString()
-    c.name = getUniqueLabelName(`${c.name} (Copy)`)
-    labels.value.push(c)
-    activeLabel.value = c
+  const duplicateLabel = (label: EditableLabelDefinition) => {
+    const copy = normalizeEditableLabel(structuredClone(label))
+    copy.id = Date.now().toString()
+    copy.name = getUniqueLabelName(`${copy.name} (Copy)`)
+    labels.value.push(copy)
+    activeLabel.value = copy
   }
 
   const deleteLabel = (id: string) => {
@@ -243,7 +303,7 @@ export const useLabelBuilder = () => {
     for (const entry of labels.value) {
       if (isGroupMeta(entry)) continue
       if (entry.scope !== 'region') continue
-      const signature = createCanonicalRegionMappingSignatureFromLabel(entry as any)
+      const signature = createCanonicalRegionMappingSignatureFromLabel(entry)
       if (!signature) continue
       counts.set(signature, (counts.get(signature) || 0) + 1)
     }
@@ -266,7 +326,7 @@ export const useLabelBuilder = () => {
 
     if (label.scope === 'region') {
       const pageXml = label.mapping.pageXml
-      const signature = createCanonicalRegionMappingSignatureFromLabel(label as any)
+      const signature = createCanonicalRegionMappingSignatureFromLabel(label)
       if (signature && (regionMappingSignatureCounts.value.get(signature) || 0) > 1) {
         errors.push({
           code: 'duplicatePageMapping',
@@ -303,12 +363,12 @@ export const useLabelBuilder = () => {
 
   const hasError = (l: BuilderEntry | null | undefined, c: string) => getErrors(l).some(e => e.code === c)
   const totalErrors = computed(() => labels.value
-    .filter((l): l is LabelDefinition => !isGroupMeta(l))
+    .filter((l): l is EditableLabelDefinition => isEditableLabelDefinition(l))
     .reduce((acc, l) => acc + getErrors(l).length, 0))
 
   const filteredLabels = computed(() => {
     const groupMetas = labels.value.filter(isGroupMeta)
-    let res = labels.value.filter((l): l is LabelDefinition => !isGroupMeta(l))
+    let res = labels.value.filter((l): l is EditableLabelDefinition => isEditableLabelDefinition(l))
     if (!filters.region) res = res.filter(l => l.scope !== 'region')
     if (!filters.line) res = res.filter(l => l.scope !== 'line')
     if (searchQuery.value) {

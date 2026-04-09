@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { globalKey } from '@/utils/fetch-keys'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -40,6 +41,7 @@ const { sort, globalFilter, filteredAndSortedData } = useTableFilters(workspaces
 
 const page = ref(1)
 const itemsPerPage = ref(25)
+const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
@@ -85,7 +87,7 @@ function getRowActions(workspace: AdminWorkspace) {
   }]
 }
 
-const columns = [
+const columns: TableColumn<AdminWorkspace>[] = [
   {
     accessorKey: 'name',
     header: () => h('div', { class: 'flex items-center gap-2' }, [
@@ -139,9 +141,9 @@ const columns = [
 ]
 
 const contextMenuWorkspace = ref<AdminWorkspace | null>(null)
-const contextMenuItems = computed(() => {
+const contextMenuItems = computed<DropdownMenuItem[][]>(() => {
   if (!contextMenuWorkspace.value) return []
-  return getRowActions(contextMenuWorkspace.value)
+  return [getRowActions(contextMenuWorkspace.value)]
 })
 
 function handleRowContextMenu(_event: Event, row: { original: AdminWorkspace }) {
@@ -239,7 +241,7 @@ function clearFilters() {
       </div>
 
       <div>
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             :data="paginatedRows"
             :columns="columns"
@@ -257,14 +259,11 @@ function clearFilters() {
           <div class="flex items-center gap-4">
             <USelect
               v-model="itemsPerPage"
-              :items="[10, 25, 50, 100]"
+              :items="itemsPerPageOptions"
+              value-key="value"
               class="w-32"
               size="sm"
-            >
-              <template #label>
-                {{ itemsPerPage }} per page
-              </template>
-            </USelect>
+            />
 
             <UPagination
               v-model:page="page"

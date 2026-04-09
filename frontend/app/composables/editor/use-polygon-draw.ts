@@ -8,9 +8,10 @@ import { wouldNewVertexSelfIntersect, isClosedPolygonSelfIntersecting } from '@/
 import { isPointWithinImageBounds, clampToWorldBounds, getImageBounds } from '@/utils/editor/coordinates'
 import { findParentPolygon, isPointWithinParentBounds } from '@/utils/editor/parent-constraint-utils'
 import { validatePolygonParent } from '@/utils/editor/hierarchy-validation'
-import type { MouseInteraction } from '@/composables/editor/use-editor-interactions'
+import type { MouseInteraction } from '@/composables/editor/editor-interactions/types'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import type { HierarchyItem } from '@/utils/editor/hierarchy-validation'
 
 const log = createScopedLogger('PolygonDraw')
 
@@ -35,12 +36,20 @@ export function usePolygonDraw(
   viewMode?: Ref<string>
 ) {
   const dialogs = useOverlayDialogs()
-  const currentPolygonPoints: UnwrapNestedRefs<Point[]> = reactive([])
-  const previewPoint: UnwrapNestedRefs<PreviewPoint> = reactive({ x: null, y: null })
+  const currentPolygonPoints = reactive<Point[]>([])
+  const previewPoint = reactive<PreviewPoint>({ x: null, y: null })
   const isInvalidPosition = ref<boolean>(false)
 
   const creationHistory = ref<Point[]>([])
   const creationHistoryIndex = ref<number>(-1)
+
+  function getHierarchyPolygons(): HierarchyItem[] {
+    return allPolygons.map(polygon => ({
+      id: polygon.id,
+      type: polygon.type ?? PolygonType.REGION,
+      parentId: polygon.parentId
+    }))
+  }
 
   /**
    * Add a point to the current polygon being drawn.
@@ -142,7 +151,11 @@ export function usePolygonDraw(
     }
 
     const currentType = regionType?.value || PolygonType.REGION
-    log.debug('Creating polygon with type:', currentType, 'regionType?.value:', regionType?.value, 'viewMode:', viewMode?.value)
+    log.debug('Creating polygon', {
+      currentType,
+      regionType: regionType?.value,
+      viewMode: viewMode?.value
+    })
 
     const isTextlineViewMode = viewMode?.value === 'textline'
     const isCreatingTextline = currentType === PolygonType.TEXTLINE
@@ -174,7 +187,7 @@ export function usePolygonDraw(
       const selectedPolygon = polygons[selectedPolygonIndex.value]
 
       if (selectedPolygon) {
-        const validation = validatePolygonParent(currentType, selectedPolygon.id, allPolygons)
+        const validation = validatePolygonParent(currentType, selectedPolygon.id, getHierarchyPolygons())
 
         if (validation.valid) {
           parentId = selectedPolygon.id
@@ -188,7 +201,7 @@ export function usePolygonDraw(
         }
       }
     } else {
-      const validation = validatePolygonParent(currentType, undefined, allPolygons)
+      const validation = validatePolygonParent(currentType, undefined, getHierarchyPolygons())
 
       if (!validation.valid) {
         log.warn(`Cannot create ${currentType} without parent: ${validation.error}`)
@@ -307,9 +320,11 @@ export function usePolygonDraw(
   function handleMouseDown(
     e: MouseEvent,
     getWorldCoordsFromEvent: (e: MouseEvent, canvas: HTMLCanvasElement, view: View, aspectRatioScale: AspectRatioScale) => Point,
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ): boolean {
+    if (!canvas) return false
+
     const currentAction = mouseInteraction.getCurrentAction()
     if (currentAction === 'panning' || currentAction === 'drag') {
       return false
@@ -330,9 +345,11 @@ export function usePolygonDraw(
   function handleMouseMove(
     e: MouseEvent,
     getWorldCoordsFromEvent: (e: MouseEvent, canvas: HTMLCanvasElement, view: View, aspectRatioScale: AspectRatioScale) => Point,
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ): void {
+    if (!canvas) return
+
     if (currentPolygonPoints.length > 0) {
       const { x, y } = getWorldCoordsFromEvent(e, canvas, view, aspectRatioScale)
       updatePreview({ x, y })

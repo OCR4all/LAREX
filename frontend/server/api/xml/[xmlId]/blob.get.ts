@@ -63,7 +63,10 @@ export default defineEventHandler(async (event) => {
       setHeader(event, 'Content-Disposition', contentDisposition)
     }
     if (contentLength) {
-      setHeader(event, 'Content-Length', contentLength)
+      const parsedContentLength = Number.parseInt(contentLength, 10)
+      if (Number.isFinite(parsedContentLength)) {
+        setHeader(event, 'Content-Length', parsedContentLength)
+      }
     }
 
     await sendStream(event, response.body!)

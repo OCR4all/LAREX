@@ -13,6 +13,7 @@ type MartinezPosition = [number, number]
 type MartinezRing = MartinezPosition[]
 type MartinezPolygon = MartinezRing[]
 type MartinezMultiPolygon = MartinezPolygon[]
+type MartinezGeometry = MartinezPolygon | MartinezMultiPolygon
 
 /**
  * Point representation
@@ -422,9 +423,7 @@ export {
   subtractPolygon,
   isPointInPolygon,
   doPolygonsIntersect,
-  clipPolylineToPolygon,
-  type CutResult,
-  type SubtractResult
+  clipPolylineToPolygon
 }
 
 /**
@@ -640,26 +639,46 @@ export interface SubtractResult {
 function toMartinezPolygon(polygon: Polygon): MartinezPolygon {
   if (!polygon || polygon.length < 3) return []
   const ring: MartinezRing = polygon.map(p => [p.x, p.y] as MartinezPosition)
-  if (ring.length > 0 && ring[0] && ring[ring.length - 1]) {
-    const first = ring[0]
-    const last = ring[ring.length - 1]
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      ring.push([...first] as MartinezPosition)
-    }
+  const first = ring[0]
+  const last = ring[ring.length - 1]
+  if (first && last && (first[0] !== last[0] || first[1] !== last[1])) {
+    ring.push([...first] as MartinezPosition)
   }
   return [ring]
+}
+
+function isMartinezPosition(value: unknown): value is MartinezPosition {
+  return Array.isArray(value)
+    && value.length === 2
+    && typeof value[0] === 'number'
+    && typeof value[1] === 'number'
+}
+
+function isMartinezRing(value: unknown): value is MartinezRing {
+  return Array.isArray(value) && value.every(isMartinezPosition)
+}
+
+function isMartinezPolygon(value: unknown): value is MartinezPolygon {
+  return Array.isArray(value) && value.every(isMartinezRing)
+}
+
+function normalizeMartinezGeometry(value: unknown): MartinezMultiPolygon {
+  if (!Array.isArray(value) || value.length === 0) return []
+  if (isMartinezPolygon(value)) return [value]
+  return value.filter(isMartinezPolygon)
 }
 
 /**
  * Convert martinez-polygon-clipping result back to our Point[] format.
  * Martinez returns MultiPolygon format: [[ring1], [ring2], ...]
  */
-function fromMartinezResult(result: MartinezMultiPolygon): Polygon[] {
-  if (!result || result.length === 0) return []
+function fromMartinezResult(result: unknown): Polygon[] {
+  const geometry = normalizeMartinezGeometry(result)
+  if (geometry.length === 0) return []
 
   const polygons: Polygon[] = []
 
-  for (const polygon of result) {
+  for (const polygon of geometry) {
     if (!polygon || polygon.length === 0) continue
 
     const outerRing = polygon[0]
@@ -1189,20 +1208,21 @@ export function unionPolygons(polygons: Polygon[]): Polygon | null {
   if (validPolygons.length === 1) return validPolygons[0] ?? null
 
   try {
-    let currentResult = toMartinezPolygon(validPolygons[0]!)
+    let currentResult: MartinezMultiPolygon = [toMartinezPolygon(validPolygons[0]!)]
     for (let i = 1; i < validPolygons.length; i++) {
-      const next = toMartinezPolygon(validPolygons[i]!)
+      const next: MartinezMultiPolygon = [toMartinezPolygon(validPolygons[i]!)]
       const unionResult = martinezUnion(currentResult, next)
-      if (unionResult && unionResult.length > 0) {
-        if (unionResult.length === 1) {
-          currentResult = unionResult[0]!
+      const normalizedUnion = normalizeMartinezGeometry(unionResult)
+      if (normalizedUnion.length > 0) {
+        if (normalizedUnion.length === 1) {
+          currentResult = normalizedUnion
         } else {
           return createBoundingBoxFromAllPolygons(validPolygons)
         }
       }
     }
 
-    const resultPolygons = fromMartinezResult([currentResult])
+    const resultPolygons = fromMartinezResult(currentResult)
     return resultPolygons[0] ?? null
   } catch (e) {
     console.error('unionPolygons failed:', e)

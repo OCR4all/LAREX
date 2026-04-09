@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LazyDictionarySlideoverBrowser } from '#components'
 import { getEditorSession } from '@/session/editor/editor-session'
-import { PolygonType, isTextRegion, type TextContentVariantData } from '@/models/editor'
+import { PolygonType, isTextRegion, type TextContentVariantData, type TextRegion } from '@/models/editor'
 import type { Point } from '@/models/editor/types'
 import { worldToImage } from '@/utils/editor/coordinates'
 import { getRegionColor } from '@/utils/editor/region-colors'
@@ -30,6 +30,7 @@ import {
   focusNextSameIndex,
   focusTextContentVariantAtOffset
 } from '../shared/text-field-navigation'
+import type { ReadingDirection } from '../line/reading-direction'
 import {
   createTextViewCommandContext,
   getRequestErrorMessage,

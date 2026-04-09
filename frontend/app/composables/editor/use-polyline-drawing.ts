@@ -9,6 +9,7 @@ import { validatePolylineParent, validateBaselineForTextline } from '@/utils/edi
 import { getEditorSession } from '@/session/editor/editor-session'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import type { HierarchyItem } from '@/utils/editor/hierarchy-validation'
 
 const log = createScopedLogger('PolylineDrawing')
 
@@ -35,6 +36,14 @@ export function usePolylineDrawing(
   const currentPolylinePoints = reactive<Point[]>([])
   const previewPoint = reactive<PreviewPoint>({ x: null, y: null })
   const isInvalidPosition = ref(false)
+
+  function getHierarchyPolygons(): HierarchyItem[] {
+    return polygons.map(polygon => ({
+      id: polygon.id,
+      type: polygon.type ?? PolygonType.REGION,
+      parentId: polygon.parentId
+    }))
+  }
 
   /**
    * Add a point to the current polyline being drawn.
@@ -155,7 +164,7 @@ export function usePolylineDrawing(
       const selectedPolygon = polygons[selectedPolygonIndex.value]
 
       if (selectedPolygon) {
-        const parentValidation = validatePolylineParent(selectedPolygon.id, polygons)
+        const parentValidation = validatePolylineParent(selectedPolygon.id, getHierarchyPolygons())
 
         if (!parentValidation.valid) {
           log.warn(`Cannot create baseline: ${parentValidation.error}`)
@@ -244,9 +253,11 @@ export function usePolylineDrawing(
   function handleMouseDown(
     e: MouseEvent,
     getWorldCoordsFromEvent: (e: MouseEvent, canvas: HTMLCanvasElement, view: View, scale: AspectRatioScale) => Point,
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ): boolean {
+    if (!canvas) return false
+
     const point = getWorldCoordsFromEvent(e, canvas, view, aspectRatioScale)
     return addPoint(point)
   }
@@ -262,9 +273,11 @@ export function usePolylineDrawing(
   function handleMouseMove(
     e: MouseEvent,
     getWorldCoordsFromEvent: (e: MouseEvent, canvas: HTMLCanvasElement, view: View, scale: AspectRatioScale) => Point,
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ): void {
+    if (!canvas) return
+
     if (currentPolylinePoints.length > 0) {
       const { x, y } = getWorldCoordsFromEvent(e, canvas, view, aspectRatioScale)
       updatePreview({ x, y })

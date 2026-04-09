@@ -8,6 +8,9 @@ import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { TabsItem } from '@nuxt/ui'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
+import type { Commander } from '@/commands/editor/commander'
+import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
+import type { VirtualKeyboardMode } from '@/stores/editor/types'
 
 const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()
@@ -15,6 +18,36 @@ const sessionStore = useEditorSessionStore()
 const emit = defineEmits<{
   merge: []
 }>()
+
+type HistoryItem = ReturnType<Commander['getDetailedHistory']>[number]
+type ToolbarTabItem = TabsItem & {
+  icon?: string
+  label?: string
+  tooltip?: {
+    text?: string
+    kbds?: string[]
+  }
+}
+
+function isToolbarTabItem(item: unknown): item is ToolbarTabItem {
+  return typeof item === 'object' && item !== null
+}
+
+function getTabTooltipText(item: unknown): string | undefined {
+  return isToolbarTabItem(item) ? item.tooltip?.text : undefined
+}
+
+function getTabTooltipKbds(item: unknown): string[] | undefined {
+  return isToolbarTabItem(item) ? item.tooltip?.kbds : undefined
+}
+
+function getTabIcon(item: unknown): string | undefined {
+  return isToolbarTabItem(item) ? item.icon : undefined
+}
+
+function getTabLabel(item: unknown): string | undefined {
+  return isToolbarTabItem(item) ? item.label : undefined
+}
 
 const editorModeItems = computed<TabsItem[]>(() =>
   [
@@ -177,7 +210,7 @@ const perPanelUiModeModel = computed({
   set: next => editorStore.setUiModeScope(next ? 'per-canvas' : 'global')
 })
 
-const currentCanvasState = computed(() => {
+const currentCanvasState = computed<EditorCanvasControls | undefined>(() => {
   const id = currentCanvasId.value
   if (!id) return undefined
   if (import.meta.client) {
@@ -207,7 +240,7 @@ const selectedViewMode = computed({
   }
 })
 
-const historyItems = ref([])
+const historyItems = ref<HistoryItem[]>([])
 
 const historyDropdownItems = computed(() => {
   const currentIndex = currentCanvasState.value?.historyState?.currentIndex ?? -1
@@ -236,7 +269,7 @@ const updateHistoryItems = () => {
   historyItems.value = commander ? commander.getDetailedHistory() : []
 }
 
-const handleHistoryItemClick = (targetIndex) => {
+const handleHistoryItemClick = (targetIndex: number) => {
   if (currentCanvasState.value?.jumpToHistory) {
     currentCanvasState.value.jumpToHistory(targetIndex)
     updateHistoryItems()
@@ -263,7 +296,7 @@ const isTextUiMode = computed(() => effectiveUiMode.value === 'text')
 const editorModeModel = computed({
   get: () => effectiveUiMode.value,
   set: (mode: 'layout' | 'text') => {
-    editorStore.setUiMode(mode, currentCanvasId.value)
+    uiStore.setUiMode(mode, currentCanvasId.value)
   }
 })
 
@@ -457,10 +490,13 @@ const vkModeIcon = computed(() => {
 })
 
 const cycleVirtualKeyboardMode = () => {
-  const modes: Array<'off' | 'floating' | 'slideover'> = ['off', 'floating', 'slideover']
-  const currentIndex = modes.indexOf(virtualKeyboardMode.value)
-  const nextIndex = (currentIndex + 1) % modes.length
-  uiStore.setVirtualKeyboardMode(modes[nextIndex])
+  const modes: VirtualKeyboardMode[] = ['off', 'floating', 'slideover']
+  const currentMode = virtualKeyboardMode.value ?? 'off'
+  const currentIndex = modes.indexOf(currentMode)
+  const nextMode: VirtualKeyboardMode = currentIndex >= 0
+    ? (modes[(currentIndex + 1) % modes.length] ?? 'off')
+    : 'off'
+  uiStore.setVirtualKeyboardMode(nextMode)
 }
 
 const vkDropdownItems = computed(() => [
@@ -682,10 +718,10 @@ const moreOptionsDropdownItems = computed(() => [
             :items="textViewModeItems"
           >
             <template #item="{ item }">
-              <UTooltip :delay-duration="0" :text="item.tooltip?.text">
+              <UTooltip :delay-duration="0" :text="getTabTooltipText(item)">
                 <div class="flex items-center gap-1.5">
-                  <Icon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                  <span v-if="item.label">{{ item.label }}</span>
+                  <Icon v-if="getTabIcon(item)" :name="getTabIcon(item) ?? ''" class="size-4 shrink-0" />
+                  <span v-if="getTabLabel(item)">{{ getTabLabel(item) }}</span>
                 </div>
               </UTooltip>
             </template>
@@ -1028,10 +1064,10 @@ const moreOptionsDropdownItems = computed(() => [
             :items="viewModeItems"
           >
             <template #item="{ item }">
-              <UTooltip :delay-duration="0" :text="item.tooltip?.text" :kbds="item.tooltip?.kbds">
+              <UTooltip :delay-duration="0" :text="getTabTooltipText(item)" :kbds="getTabTooltipKbds(item)">
                 <div class="flex items-center gap-1.5">
-                  <Icon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                  <span v-if="item.label">{{ item.label }}</span>
+                  <Icon v-if="getTabIcon(item)" :name="getTabIcon(item) ?? ''" class="size-4 shrink-0" />
+                  <span v-if="getTabLabel(item)">{{ getTabLabel(item) }}</span>
                 </div>
               </UTooltip>
             </template>
@@ -1115,10 +1151,10 @@ const moreOptionsDropdownItems = computed(() => [
           :items="editorModeItems"
         >
           <template #item="{ item }">
-            <UTooltip :delay-duration="0" :text="item.tooltip?.text" :kbds="item.tooltip?.kbds">
+            <UTooltip :delay-duration="0" :text="getTabTooltipText(item)" :kbds="getTabTooltipKbds(item)">
               <div class="flex items-center gap-1.5">
-                <Icon v-if="item.icon" :name="item.icon" class="size-4 shrink-0" />
-                <span v-if="item.label && !isCompact">{{ item.label }}</span>
+                <Icon v-if="getTabIcon(item)" :name="getTabIcon(item) ?? ''" class="size-4 shrink-0" />
+                <span v-if="getTabLabel(item) && !isCompact">{{ getTabLabel(item) }}</span>
               </div>
             </UTooltip>
           </template>

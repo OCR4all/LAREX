@@ -337,7 +337,7 @@ const removeImage = async () => {
                 </UButton>
                 <UButton
                   v-if="avatarSrc"
-                  color="red"
+                  color="error"
                   variant="outline"
                   :loading="isUploadingImage"
                   @click="removeImage"

@@ -42,14 +42,14 @@ export function usePolylineEditing(
   imageSize: Ref<ImageSize> | undefined,
   polygons: RenderablePolygon[] | undefined,
   constrainToParent: Ref<boolean> | undefined,
-  spatialIndex?: SpatialIndexService,
-  externalSelectedPolygonIndex?: Ref<number>,
-  externalSelectedPolylineIndex?: Ref<number>,
-  viewMode?: Ref<string>,
+  spatialIndex: SpatialIndexService | undefined,
+  externalSelectedPolygonIndex: Ref<number> | undefined,
+  externalSelectedPolylineIndex: Ref<number> | undefined,
+  viewMode: Ref<string> | undefined,
   commander: Commander,
   canvasId: string,
-  hiddenPolygonIds?: Ref<string[]>,
-  hiddenPolylineIds?: Ref<string[]>
+  hiddenPolygonIds: Ref<string[]> | undefined,
+  hiddenPolylineIds: Ref<string[]> | undefined
 ) {
   const getCommandContext = () => {
     const session = getEditorSession(canvasId)
@@ -183,7 +183,7 @@ export function usePolylineEditing(
   /**
    * Handle mouse down for polyline editing.
    */
-  function handleMouseDown(point: Point, selectedPolygonIndex: Ref<number>, _canvas: HTMLCanvasElement): boolean {
+  function handleMouseDown(point: Point, selectedPolygonIndex: Ref<number>, _canvas: HTMLCanvasElement | null): boolean {
     if (!polygons) return false // Skip if polygons not provided
 
     if (hoveredNodeIndex.value >= 0 && hoveredPolylineIndex.value >= 0) {
@@ -292,7 +292,7 @@ export function usePolylineEditing(
   /**
    * Handle mouse up to finish dragging.
    */
-  function handleMouseUp(_canvas: HTMLCanvasElement): void {
+  function handleMouseUp(_canvas: HTMLElement | null): void {
     if (!draggedNodeInfo.isDragging) return
 
     const polyline = polylines[draggedNodeInfo.polylineIndex]

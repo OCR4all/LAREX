@@ -23,7 +23,7 @@ import type {
  * Orchestrates interactions between different drawing and editing modes.
  */
 export function useEditorInteractions(
-  canvas: Ref<HTMLElement | null>,
+  canvas: Ref<HTMLCanvasElement | null>,
   view: View,
   aspectRatioScale: Ref<AspectRatioScale>,
   polygons: RenderablePolygon[],
@@ -103,8 +103,7 @@ export function useEditorInteractions(
 
   function startMarqueeFromStartPoint(startClient: { x: number, y: number }): void {
     if (!canvas.value) return
-    const el = canvas.value as HTMLElement
-    const rect = el.getBoundingClientRect()
+    const rect = canvas.value.getBoundingClientRect()
     marqueeStartClient = { x: startClient.x, y: startClient.y }
     isMarqueeSelecting.value = true
     marqueeRectPx.value = { x: startClient.x - rect.left, y: startClient.y - rect.top, width: 0, height: 0 }
@@ -125,8 +124,7 @@ export function useEditorInteractions(
 
   function updateMarquee(e: MouseEvent): void {
     if (!isMarqueeSelecting.value || !canvas.value || !marqueeStartClient) return
-    const el = canvas.value as HTMLElement
-    const rect = el.getBoundingClientRect()
+    const rect = canvas.value.getBoundingClientRect()
     const x1 = marqueeStartClient.x - rect.left
     const y1 = marqueeStartClient.y - rect.top
     const x2 = e.clientX - rect.left
@@ -347,6 +345,7 @@ export function useEditorInteractions(
     stateActions?.setHoveredPolylineId(null)
 
     if (canvasControls.isCutMode?.value && canvasControls.cutDrawing) {
+      if (!canvas.value) return
       const cutMode = canvasControls.isCutLineMode?.value
         ? 'line'
         : canvasControls.isCutPolygonMode?.value
@@ -355,7 +354,7 @@ export function useEditorInteractions(
       canvasControls.cutDrawing.handleMouseDown(
         e,
         getWorldCoordsFromEvent,
-        canvas.value as HTMLCanvasElement,
+        canvas.value,
         aspectRatioScale.value,
         cutMode
       )
@@ -373,7 +372,7 @@ export function useEditorInteractions(
       if (!pointAdded) return // Prevent further processing if point was invalid
     } else if (isMoveMode.value && moveInteraction) {
       if (!canvas.value) return
-      const point = getWorldCoordsFromEvent(e, canvas.value as HTMLCanvasElement, view, aspectRatioScale.value)
+      const point = getWorldCoordsFromEvent(e, canvas.value, view, aspectRatioScale.value)
       const moveStarted = moveInteraction.handleMouseDown(point, selectedPolygonIndex, selectedPolylineIndex)
       if (moveStarted) return
     } else {
@@ -391,7 +390,7 @@ export function useEditorInteractions(
 
       clearSelectionSetOnly()
 
-      const point = getWorldCoordsFromEvent(e, canvas.value as HTMLCanvasElement, view, aspectRatioScale.value)
+      const point = getWorldCoordsFromEvent(e, canvas.value, view, aspectRatioScale.value)
 
       const polylineEditingStarted = polylineEditing.handleMouseDown(point, selectedPolygonIndex, canvas.value)
       if (polylineEditingStarted) return
@@ -422,6 +421,7 @@ export function useEditorInteractions(
     }
 
     if (canvasControls.isCutMode?.value && canvasControls.cutDrawing) {
+      if (!canvas.value) return
       const cutMode = canvasControls.isCutLineMode?.value
         ? 'line'
         : canvasControls.isCutPolygonMode?.value
@@ -430,7 +430,7 @@ export function useEditorInteractions(
       canvasControls.cutDrawing.handleMouseMove(
         e,
         getWorldCoordsFromEvent,
-        canvas.value as HTMLCanvasElement,
+        canvas.value,
         aspectRatioScale.value,
         cutMode
       )
@@ -453,7 +453,7 @@ export function useEditorInteractions(
       stateActions?.setHoveredPolylineId(null)
     } else if (isMoveMode.value && moveInteraction?.isMoving()) {
       if (!canvas.value) return
-      const point = getWorldCoordsFromEvent(e, canvas.value as HTMLCanvasElement, view, aspectRatioScale.value)
+      const point = getWorldCoordsFromEvent(e, canvas.value, view, aspectRatioScale.value)
       moveInteraction.handleMouseMove(point)
       stateActions?.setHoveredPolygonId(null)
       stateActions?.setHoveredPolylineId(null)
@@ -526,7 +526,7 @@ export function useEditorInteractions(
 
       const point = getWorldCoordsFromEvent(
         e,
-        canvas.value as HTMLCanvasElement,
+        canvas.value,
         view,
         aspectRatioScale.value
       )
@@ -613,7 +613,7 @@ export function useEditorInteractions(
 
       const point = getWorldCoordsFromEvent(
         mouseEvent,
-        canvas.value as HTMLCanvasElement,
+        canvas.value,
         view,
         aspectRatioScale.value
       )
@@ -724,7 +724,7 @@ export function useEditorInteractions(
     mouseInteraction.handleContextMenu(event, { preventDefault: false })
 
     if (!canvas.value) return
-    const point = getWorldCoordsFromEvent(event, canvas.value as HTMLCanvasElement, view, aspectRatioScale.value)
+    const point = getWorldCoordsFromEvent(event, canvas.value, view, aspectRatioScale.value)
 
     const rawViewMode = canvasControls.viewMode?.value
     const normalizedViewMode: ViewMode | undefined = normalizeViewMode(rawViewMode)

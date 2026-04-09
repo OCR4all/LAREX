@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { globalKey } from '@/utils/fetch-keys'
 import { showApiErrorToast } from '@/utils/error-toast'
 
@@ -75,11 +75,12 @@ const selectedFiles = ref<Set<string>>(new Set())
 const isDeleting = ref(false)
 const isDeletingAll = ref(false)
 
-const typeFilter = ref<string | null>(null)
+const typeFilter = ref<string | undefined>(undefined)
 const searchQuery = ref('')
 
 const page = ref(1)
 const itemsPerPage = ref(25)
+const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
 
 const typeOptions = [
   { value: 'image', label: 'Images' },
@@ -194,7 +195,7 @@ function clearSelection() {
 }
 
 function clearFilters() {
-  typeFilter.value = null
+  typeFilter.value = undefined
   searchQuery.value = ''
   page.value = 1
 }
@@ -402,9 +403,9 @@ function getRowActions(file: OrphanedFile) {
 }
 
 const contextMenuFile = ref<OrphanedFile | null>(null)
-const contextMenuItems = computed(() => {
+const contextMenuItems = computed<DropdownMenuItem[][]>(() => {
   if (!contextMenuFile.value) return []
-  return getRowActions(contextMenuFile.value)
+  return [getRowActions(contextMenuFile.value)]
 })
 
 function handleRowContextMenu(_event: Event, row: { original: OrphanedFile }) {
@@ -469,12 +470,7 @@ async function refreshAll() {
             placeholder="All types"
             class="w-full sm:w-40"
             value-key="value"
-          >
-            <template #label>
-              <span v-if="typeFilter">{{ typeOptions.find(option => option.value === typeFilter)?.label }}</span>
-              <span v-else class="text-muted">All types</span>
-            </template>
-          </USelectMenu>
+          />
 
           <UButton
             v-if="hasActiveFilters"
@@ -642,7 +638,7 @@ async function refreshAll() {
         </div>
 
         <template v-else>
-          <UContextMenu :items="contextMenuItems as any">
+          <UContextMenu :items="contextMenuItems">
             <UTable
               :columns="columns"
               :data="currentPageFiles"
@@ -661,14 +657,11 @@ async function refreshAll() {
           <div class="flex items-center gap-4">
             <USelect
               v-model="itemsPerPage"
-              :items="[10, 25, 50, 100]"
+              :items="itemsPerPageOptions"
+              value-key="value"
               class="w-32"
               size="sm"
-            >
-              <template #label>
-                {{ itemsPerPage }} per page
-              </template>
-            </USelect>
+            />
 
             <UPagination
               v-model:page="page"

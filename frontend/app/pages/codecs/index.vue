@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import { h } from 'vue'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { Row } from '@tanstack/vue-table'
 import type { CodecSummary } from '@/types/codec'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover } from '#components'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UPopover = resolveComponent('UPopover')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const NuxtLink = resolveComponent('NuxtLink')
+const UButton = resolveUiComponent('UButton')
+const UBadge = resolveUiComponent('UBadge')
+const UPopover = resolveUiComponent('UPopover')
+const UDropdownMenu = resolveUiComponent('UDropdownMenu')
+const NuxtLink = resolveUiComponent('NuxtLink')
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -20,11 +21,12 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
-const codecsKey = computed(() => wsKey(selectedWorkspace.value, 'codecs', 'list'))
+const codecsKey = computed(() => wsKey(workspaceId.value, 'codecs', 'list'))
 
-const { data: codecs } = await useFetch<CodecSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/codecs`, {
+const { data: codecs } = await useFetch<CodecSummary[]>(() => `/api/workspaces/${workspaceId.value}/codecs`, {
   key: codecsKey,
   default: () => []
 })
@@ -92,7 +94,7 @@ const handleDelete = async (row: CodecSummary) => {
   if (!confirmed) return
 
   try {
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/codecs/${row.id}`, { method: 'DELETE' })
+    await $fetch(`/api/workspaces/${workspaceId.value}/codecs/${row.id}`, { method: 'DELETE' })
     toast.add({ title: 'Codec deleted', color: 'success' })
     await refreshNuxtData(codecsKey.value)
   } catch {
@@ -100,8 +102,8 @@ const handleDelete = async (row: CodecSummary) => {
   }
 }
 
-const items = (row: CodecSummary) => {
-  const actions: any[] = []
+const items = (row: CodecSummary): DropdownMenuItem[][] => {
+  const actions: DropdownMenuItem[] = []
 
   if (allow(row.capabilities?.canEdit)) {
     actions.push({
@@ -124,13 +126,13 @@ const items = (row: CodecSummary) => {
 }
 
 const contextMenuCodec = ref<CodecSummary | null>(null)
-const contextMenuItems = computed(() => {
+const contextMenuItems = computed<DropdownMenuItem[][]>(() => {
   if (!contextMenuCodec.value) return []
   return items(contextMenuCodec.value)
 })
 
-function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
-  contextMenuCodec.value = row.original as unknown as CodecSummary
+function handleRowContextMenu(_event: Event, row: Row<CodecSummary>) {
+  contextMenuCodec.value = row.original
 }
 
 const emptyStateActions = computed(() => {
@@ -288,7 +290,7 @@ const emptyStateActions = computed(() => {
         :actions="emptyStateActions"
       />
       <div v-else-if="codecs">
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             :data="paginatedData"
             :columns="columns"

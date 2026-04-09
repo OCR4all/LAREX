@@ -148,8 +148,6 @@ function findLabelDefinitionForItem(item: TreeItemData): LabelDefinition | null 
 function getItemIconName(item: TreeItemData): string {
   const normalizedType = item.type?.toUpperCase()
   if (normalizedType === 'REGION') {
-    const labelDef = findLabelDefinitionForItem(item)
-    if (labelDef?.icon) return labelDef.icon
     const { kind } = resolveRegionForItem(item)
     if (kind) return getRegionKindIcon(kind as RegionKind)
   }

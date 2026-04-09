@@ -257,7 +257,7 @@ const permissionColor = computed(() => {
                   >
                     <USwitch
                       :model-value="getDesktopValue(typeInfo.type)"
-                      :disabled="isSaving || desktopPermission !== 'granted'"
+                      :disabled="true"
                       @update:model-value="onDesktopToggle(typeInfo.type, $event)"
                     />
                   </UTooltip>

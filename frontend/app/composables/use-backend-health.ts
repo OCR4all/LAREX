@@ -64,11 +64,6 @@ export const useBackendHealth = () => {
 
     isChecking.value = true
     const success = await checkHealth()
-
-    if (success) {
-      await refreshCookie()
-    }
-
     return success
   }
 

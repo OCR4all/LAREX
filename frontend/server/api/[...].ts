@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
   const backendUrl = `${config.apiBaseInternal}/${path}`
 
   try {
-    const isBlobRequest = path.includes('/blob') || path.includes('/export')
+    const isBlobRequest = path.includes('/blob') || path.includes('/export') || path.includes('/download')
     const acceptHeader = event.node.req.headers.accept || ''
     const isSseRequest = typeof acceptHeader === 'string' && acceptHeader.includes('text/event-stream')
 

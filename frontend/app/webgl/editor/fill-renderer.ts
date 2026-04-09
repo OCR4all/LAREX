@@ -1,13 +1,13 @@
 import type { ResourcePool } from './resource-pool'
 import type { Point, View } from '@/models/editor'
 import type { Scale } from '@/utils/editor/webgl-utils'
-import { RENDER_COLORS } from '@/utils/editor/editor-constants'
+import { RENDER_COLORS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_BATCH, WEBGL_BUFFER_LAYOUT, WEBGL_FILL_GEOMETRY, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 
 interface PolygonFillData {
   polygon: Point[]
-  color: [number, number, number, number]
-  triangleIndices: number[]
+  color: RGBA
+  triangleIndices: readonly number[]
 }
 
 export class FillRenderer {
@@ -65,8 +65,8 @@ export class FillRenderer {
      */
   drawFill(
     polygonPoints: Point[],
-    triangleIndices: number[],
-    color: [number, number, number, number],
+    triangleIndices: readonly number[],
+    color: RGBA,
     scale: Scale,
     view: View
   ): void {
@@ -112,8 +112,8 @@ export class FillRenderer {
      */
   addToBatch(
     polygonPoints: Point[],
-    triangleIndices: number[],
-    color: [number, number, number, number]
+    triangleIndices: readonly number[],
+    color: RGBA
   ): void {
     if (triangleIndices.length < WEBGL_GEOMETRY.MIN_TRIANGLE_INDEX_COUNT) return
 
@@ -198,7 +198,7 @@ export class FillRenderer {
     this.drawFill(
       polygonPoints,
       triangleIndices,
-      RENDER_COLORS.HOVER_FILL_YELLOW as [number, number, number, number],
+      RENDER_COLORS.HOVER_FILL_YELLOW,
       scale,
       view
     )
@@ -211,10 +211,10 @@ export class FillRenderer {
      */
   drawInvalidFill(
     polygonPoints: Point[],
-    triangleIndices: number[],
+    triangleIndices: readonly number[],
     scale: Scale,
     view: View,
-    color: [number, number, number, number] = RENDER_COLORS.INVALID_FILL_RED as [number, number, number, number]
+    color: RGBA = RENDER_COLORS.INVALID_FILL_RED
   ): void {
     this.gl.enable(this.gl.BLEND)
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA)

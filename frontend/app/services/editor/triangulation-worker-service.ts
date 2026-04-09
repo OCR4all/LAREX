@@ -145,8 +145,8 @@ export class TriangulationWorkerService {
     await this.readyPromise
 
     if (!this.worker) {
-      const { triangulatePolygonPoints } = await import('@/utils/editor/hit-detection')
-      return triangulatePolygonPoints(points)
+      const { triangulatePolygon } = await import('@/utils/editor/hit-detection')
+      return triangulatePolygon(points)
     }
 
     const id = this.generateId()
@@ -175,10 +175,10 @@ export class TriangulationWorkerService {
     await this.readyPromise
 
     if (!this.worker) {
-      const { triangulatePolygonPoints } = await import('@/utils/editor/hit-detection')
+      const { triangulatePolygon } = await import('@/utils/editor/hit-detection')
       return polygons.map(({ polygonId, points }) => {
         try {
-          const indices = triangulatePolygonPoints(points)
+          const indices = triangulatePolygon(points)
           return { polygonId, indices }
         } catch (err) {
           return {

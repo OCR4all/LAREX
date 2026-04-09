@@ -86,7 +86,7 @@ const deleteSelectedTheme = async () => {
   const theme = selectedTheme.value
   const instance = confirmModal.open({
     title: 'Delete Theme?',
-    message: `Are you sure you want to delete "${theme?.name || 'this theme'}"?`,
+    description: `Are you sure you want to delete "${theme?.name || 'this theme'}"?`,
     confirmLabel: 'Delete',
     confirmColor: 'error'
   })

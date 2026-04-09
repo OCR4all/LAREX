@@ -291,7 +291,7 @@ function statusColor(status: BackupJobSummary['status']) {
                 color="neutral"
                 variant="ghost"
                 icon="i-lucide-refresh-cw"
-                @click="refreshJobs"
+                @click="() => refreshJobs()"
               />
             </div>
           </template>

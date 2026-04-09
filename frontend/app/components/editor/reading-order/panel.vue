@@ -237,7 +237,7 @@ function handleRootElementsUpdate(newElements: ReadingOrderNode[]): void {
   }
 
   updated.root.elements = dedupe(updated.root.elements)
-  log.debug('Updated:', updated.root.elements.length, 'elements')
+  log.debug(`Updated: ${updated.root.elements.length} elements`)
   emit('update:modelValue', updated)
 }
 

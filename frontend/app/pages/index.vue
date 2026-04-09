@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
+import { h } from 'vue'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import { LazyCodecSlideoverAction, LazyLibrarySlideoverCreate, LazyShareSlideover, LazyProjectSlideoverEdit, LazyUiDeleteSlideover } from '#components'
@@ -11,16 +11,17 @@ import UiColorTag from '@/components/ui/color-tag.vue'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
 import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
-import { createSortableHeader, renderDropdownActionsCell, renderTruncatedText } from '@/utils/resource-list-columns'
+import { createSortableHeader, renderDropdownActionsCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
 import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UPopover = resolveComponent('UPopover')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const NuxtTime = resolveComponent('NuxtTime')
-const NuxtLink = resolveComponent('NuxtLink')
-const UAvatar = resolveComponent('UAvatar')
+const UButton = resolveUiComponent('UButton')
+const UBadge = resolveUiComponent('UBadge')
+const UPopover = resolveUiComponent('UPopover')
+const UDropdownMenu = resolveUiComponent('UDropdownMenu')
+const NuxtTime = resolveUiComponent('NuxtTime')
+const NuxtLink = resolveUiComponent('NuxtLink')
+const UAvatar = resolveUiComponent('UAvatar')
+const UIcon = resolveUiComponent('UIcon')
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -138,6 +139,7 @@ const {
   tagFilterOperator,
   activeFilters,
   setColumnFilter,
+  clearColumnFilter,
   resetAllFilters,
   filteredAndSortedData,
   uniqueTags,
@@ -283,7 +285,7 @@ const columns: TableColumn<LibraryProject>[] = [
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
     cell: ({ row }) => h('div', { class: 'flex items-center gap-2' }, [
-      row.original.locked ? h('span', { class: 'text-amber-500', title: row.original.lockedReason || 'Locked' }, h(resolveComponent('UIcon'), { name: 'i-lucide-lock', class: 'w-4 h-4' })) : null,
+      row.original.locked ? h('span', { class: 'text-amber-500', title: row.original.lockedReason || 'Locked' }, h(UIcon, { name: 'i-lucide-lock', class: 'w-4 h-4' })) : null,
       h(NuxtLink, { to: `/project/${row.original.id}`, class: 'font-medium hover:underline text-primary' }, () => row.getValue('name'))
     ])
   },
@@ -386,6 +388,13 @@ function getProjectCapabilities(project: LibraryProject) {
   }
 }
 
+function toEditableProject(project: LibraryProject) {
+  return {
+    ...project,
+    tagSetId: project.tagSetId ?? undefined
+  }
+}
+
 async function handleDeleteProject(project: LibraryProject) {
   const capabilities = getProjectCapabilities(project)
   if (!allow(capabilities.canDelete)) return
@@ -478,7 +487,7 @@ async function openEditProjectSlideover(project: LibraryProject) {
   const capabilities = getProjectCapabilities(project)
   if (!allow(capabilities.canEdit)) return
 
-  const instance = editSlideover.open({ project })
+  const instance = editSlideover.open({ project: toEditableProject(project) })
   const updated = await instance.result
   if (!updated) return
 

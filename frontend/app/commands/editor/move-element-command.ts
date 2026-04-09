@@ -1,11 +1,12 @@
 import type { Command, CommandContext } from './types'
-import { PcGts } from '@/models/editor'
-import type { Point, TextRegion } from '@/models/editor'
+import { PcGts, isTextRegion } from '@/models/editor'
+import type { Point, Region } from '@/models/editor'
 import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   findRegionRecursive,
   findTextLineRecursive,
+  type TextLineHit,
   rebuildSpatialIndexFromPcGts,
   baselineIdForTextLineId
 } from '@/utils/editor/pcgts-editor-primitives'
@@ -72,7 +73,7 @@ export class MoveElementCommand implements Command {
     }
   }
 
-  private saveAndMoveRegion(region: TextRegion): void {
+  private saveAndMoveRegion(region: Region): void {
     this.savedPoints.push({
       id: region.id,
       type: 'region',
@@ -81,7 +82,7 @@ export class MoveElementCommand implements Command {
     region.coords.points = this.applyDelta(region.coords.points)
   }
 
-  private saveAndMoveTextLine(hit: any): void {
+  private saveAndMoveTextLine(hit: TextLineHit): void {
     this.savedPoints.push({
       id: hit.textLine.id,
       type: 'textline',
@@ -99,7 +100,7 @@ export class MoveElementCommand implements Command {
     }
   }
 
-  private moveRegionChildren(region: TextRegion): void {
+  private moveRegionChildren(region: Region): void {
     if (region.regions) {
       for (const child of region.regions) {
         this.saveAndMoveRegion(child)
@@ -107,7 +108,7 @@ export class MoveElementCommand implements Command {
       }
     }
 
-    if (region.textLines) {
+    if (isTextRegion(region) && region.textLines) {
       for (const tl of region.textLines) {
         this.savedPoints.push({
           id: tl.id,

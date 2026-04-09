@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
+import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
@@ -16,12 +16,13 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const confirmModal = overlay.create(LazyUiConfirmModal)
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 
 const id = route.params.id as string
 const isNew = id === 'new'
 
-const labelSetsKey = computed(() => wsKey(selectedWorkspace.value, 'label-sets', 'list'))
-const labelSetKey = computed(() => wsKey(selectedWorkspace.value, 'label-sets', id))
+const labelSetsKey = computed(() => wsKey(workspaceId.value, 'label-sets', 'list'))
+const labelSetKey = computed(() => wsKey(workspaceId.value, 'label-sets', id))
 const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const breadcrumbItems = computed(() => [
@@ -55,6 +56,21 @@ const getString = (value: unknown, fallback = ''): string => {
   if (value === null || value === undefined) return fallback
   return String(value)
 }
+
+const toEditableMapping = (mapping: LabelMapping) => ({
+  altoXml: {
+    role: mapping.altoXml.role,
+    tag: mapping.altoXml.tag ?? '',
+    ...(mapping.altoXml.blockType ? { blockType: mapping.altoXml.blockType } : {})
+  },
+  pageXml: {
+    ...(mapping.pageXml.regionType ? { regionType: mapping.pageXml.regionType } : {}),
+    ...(mapping.pageXml.textType ? { textType: mapping.pageXml.textType } : {}),
+    customSubType: mapping.pageXml.customSubType ?? '',
+    customKey: mapping.pageXml.customKey,
+    customData: mapping.pageXml.customData ?? ''
+  }
+})
 
 const stripUiFields = (labelList: typeof labels.value): LabelSetCreateOrUpdateRequest['labels'] => {
   const groupNameById = new Map<string, string>()
@@ -384,7 +400,7 @@ const handleScopeSwitch = async (targetScope: LabelScope) => {
 
   if (confirmed) {
     activeLabel.value.scope = targetScope
-    activeLabel.value.mapping = createMapping(activeLabel.value.name, targetScope)
+    activeLabel.value.mapping = toEditableMapping(createMapping(activeLabel.value.name, targetScope))
     activeLabel.value.hasText = true
     activeLabel.value.isContainer = false
   }
@@ -472,7 +488,7 @@ const openSettings = () => {
                 color="neutral"
                 variant="soft"
                 icon="i-lucide-share-2"
-                @click="shareSlideover.open({ resourceId: id, resourceName: meta.name, resourceType: 'LABEL_SET', currentWorkspaceId: selectedWorkspace })"
+                @click="shareSlideover.open({ resourceId: id, resourceName: meta.name, resourceType: 'LABEL_SET', currentWorkspaceId: workspaceId })"
               />
               <UButton
                 v-if="canDeleteLabelSet"
@@ -497,3 +513,17 @@ const openSettings = () => {
     </template>
   </UDashboardPanel>
 </template>
+const toEditableMapping = (mapping: LabelMapping) => ({
+  altoXml: {
+    role: mapping.altoXml.role,
+    tag: mapping.altoXml.tag ?? '',
+    ...(mapping.altoXml.blockType ? { blockType: mapping.altoXml.blockType } : {})
+  },
+  pageXml: {
+    ...(mapping.pageXml.regionType ? { regionType: mapping.pageXml.regionType } : {}),
+    ...(mapping.pageXml.textType ? { textType: mapping.pageXml.textType } : {}),
+    customSubType: mapping.pageXml.customSubType ?? '',
+    customKey: mapping.pageXml.customKey,
+    customData: mapping.pageXml.customData ?? ''
+  }
+})

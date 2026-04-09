@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import { h } from 'vue'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { Row } from '@tanstack/vue-table'
 import type { NormalizationProfileSummary } from '@/types/normalization-profile'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover } from '#components'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UPopover = resolveComponent('UPopover')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const NuxtLink = resolveComponent('NuxtLink')
+const UButton = resolveUiComponent('UButton')
+const UBadge = resolveUiComponent('UBadge')
+const UPopover = resolveUiComponent('UPopover')
+const UDropdownMenu = resolveUiComponent('UDropdownMenu')
+const NuxtLink = resolveUiComponent('NuxtLink')
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -20,11 +21,12 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
-const profilesKey = computed(() => wsKey(selectedWorkspace.value, 'normalization-profiles', 'list'))
+const profilesKey = computed(() => wsKey(workspaceId.value, 'normalization-profiles', 'list'))
 
-const { data: profiles } = await useFetch<NormalizationProfileSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/normalization-profiles`, {
+const { data: profiles } = await useFetch<NormalizationProfileSummary[]>(() => `/api/workspaces/${workspaceId.value}/normalization-profiles`, {
   key: profilesKey,
   default: () => []
 })
@@ -88,7 +90,7 @@ const handleDelete = async (row: NormalizationProfileSummary) => {
   if (!confirmed) return
 
   try {
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/normalization-profiles/${row.id}`, { method: 'DELETE' })
+    await $fetch(`/api/workspaces/${workspaceId.value}/normalization-profiles/${row.id}`, { method: 'DELETE' })
     toast.add({ title: 'Normalization profile deleted', color: 'success' })
     await refreshNuxtData(profilesKey.value)
   } catch {
@@ -96,20 +98,22 @@ const handleDelete = async (row: NormalizationProfileSummary) => {
   }
 }
 
-const items = (row: NormalizationProfileSummary) => compactGroups([[
-  allow(row.capabilities?.canEdit)
-    ? { label: 'Edit', icon: 'i-lucide-edit', onSelect: () => navigateTo(`/normalization-profiles/${row.id}`) }
-    : null,
-  allow(row.capabilities?.canDelete)
-    ? { label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => handleDelete(row) }
-    : null
-].filter(Boolean) as Array<Record<string, unknown>>])
+const items = (row: NormalizationProfileSummary): DropdownMenuItem[][] => {
+  const actions: DropdownMenuItem[] = []
+  if (allow(row.capabilities?.canEdit)) {
+    actions.push({ label: 'Edit', icon: 'i-lucide-edit', onSelect: () => navigateTo(`/normalization-profiles/${row.id}`) })
+  }
+  if (allow(row.capabilities?.canDelete)) {
+    actions.push({ label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => handleDelete(row) })
+  }
+  return compactGroups([actions])
+}
 
 const contextMenuProfile = ref<NormalizationProfileSummary | null>(null)
 const contextMenuItems = computed(() => contextMenuProfile.value ? items(contextMenuProfile.value) : [])
 
-function handleRowContextMenu(_event: Event, row: { original: NormalizationProfileSummary }) {
-  contextMenuProfile.value = row.original as NormalizationProfileSummary
+function handleRowContextMenu(_event: Event, row: Row<NormalizationProfileSummary>) {
+  contextMenuProfile.value = row.original
 }
 
 const emptyStateActions = computed(() => {
@@ -192,7 +196,7 @@ const emptyStateActions = computed(() => {
         :actions="emptyStateActions"
       />
       <div v-else-if="profiles">
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             :data="paginatedData"
             :columns="columns"

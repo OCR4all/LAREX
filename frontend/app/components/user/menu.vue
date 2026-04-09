@@ -48,27 +48,29 @@ const displayRole = computed(() => {
 })
 
 const items = computed<DropdownMenuItem[][]>(() => {
+  const settingsItems: DropdownMenuItem[] = [{
+    label: 'Settings',
+    icon: 'i-lucide-settings',
+    to: '/settings'
+  }]
+
   const menuItems: DropdownMenuItem[][] = [[{
     type: 'label',
     label: displayName.value,
     avatar: {
       src: avatarSrc.value,
       alt: displayName.value,
-      fallback: avatarFallback.value
+      text: avatarFallback.value
     },
     slot: 'user-label'
   }], [{
     label: 'Notifications',
     icon: 'i-lucide-bell',
     onSelect() { isNotificationsSlideoverOpen.value = true }
-  }], [{
-    label: 'Settings',
-    icon: 'i-lucide-settings',
-    to: '/settings'
-  }]]
+  }], settingsItems]
 
   if (hasAdminRole.value) {
-    menuItems[2].push({
+    settingsItems.push({
       label: 'Admin Panel',
       icon: 'i-lucide-shield-check',
       to: '/admin'
@@ -133,7 +135,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
         avatar: {
           src: avatarSrc,
           alt: displayName,
-          fallback: avatarFallback,
+          text: avatarFallback,
           chip: unreadCount > 0 ? { text: String(unreadCount), color: 'error', size: 'xl' } : false
         },
         label: collapsed ? undefined : displayName,
@@ -148,14 +150,6 @@ const items = computed<DropdownMenuItem[][]>(() => {
         trailingIcon: 'text-dimmed'
       }"
     />
-
-    <template #user-label-label="{ item }">
-      <div class="flex flex-col">
-        <span>{{ item.label }}</span>
-        <span v-if="displayRole" class="text-xs text-muted font-normal">{{ displayRole }}</span>
-      </div>
-    </template>
-
     <template #chip-leading="{ item }">
       <span
         :style="{

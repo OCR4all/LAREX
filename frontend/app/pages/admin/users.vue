@@ -71,6 +71,7 @@ const statusOptions: { label: string, value: AdminUserStatusFilter }[] = [
 
 const page = ref(1)
 const itemsPerPage = ref(25)
+const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
 const statusFilter = ref<AdminUserStatusFilter>('ALL')
 const searchInput = ref('')
 const debouncedSearch = ref('')
@@ -774,14 +775,11 @@ async function submitGlobalRoleAction() {
 
             <USelect
               v-model="itemsPerPage"
-              :items="[10, 25, 50, 100]"
+              :items="itemsPerPageOptions"
+              value-key="value"
               class="w-32"
               size="sm"
-            >
-              <template #label>
-                {{ itemsPerPage }} per page
-              </template>
-            </USelect>
+            />
 
             <UPagination
               v-model:page="page"

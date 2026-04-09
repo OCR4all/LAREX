@@ -20,12 +20,13 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 
 const id = route.params.id as string
 const isNew = id === 'new'
 
-const tagSetsKey = computed(() => wsKey(selectedWorkspace.value, 'tag-sets', 'list'))
-const tagSetKey = computed(() => wsKey(selectedWorkspace.value, 'tag-sets', id))
+const tagSetsKey = computed(() => wsKey(workspaceId.value, 'tag-sets', 'list'))
+const tagSetKey = computed(() => wsKey(workspaceId.value, 'tag-sets', id))
 const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const breadcrumbItems = computed(() => [

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h, resolveComponent, type Component } from 'vue'
-import { LazyDatasetSlideoverRelease } from '#components'
+import { LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui'
 import type {
   DatasetCreateOrUpdateRequest,
@@ -31,6 +31,7 @@ const toast = useToast()
 const overlay = useOverlay()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const createReleaseSlideover = overlay.create(LazyDatasetSlideoverRelease)
+const releaseShareSlideover = overlay.create(LazyDatasetSlideoverReleaseShare)
 
 const datasetId = route.params.id as string
 const datasetKey = computed(() => wsKey(selectedWorkspace.value as string, 'datasets', datasetId))
@@ -200,7 +201,8 @@ const splitSliderValue = computed<number[]>({
     : [trainPercentage.value, trainPercentage.value + valPercentage.value],
   set: (value) => {
     const values = Array.isArray(value) ? value.map(entry => Number(entry)) : [Number(value)]
-    const firstThumb = Math.min(95, Math.max(5, Number.isFinite(values[0]) ? values[0] : 70))
+    const firstValue = values[0] ?? Number.NaN
+    const firstThumb = Math.min(95, Math.max(5, Number.isFinite(firstValue) ? firstValue : 70))
 
     if (formSplitTemplate.value === 'TRAIN_VAL') {
       trainPercentage.value = firstThumb
@@ -208,7 +210,8 @@ const splitSliderValue = computed<number[]>({
       return
     }
 
-    const secondThumb = Math.min(95, Math.max(firstThumb + 5, Number.isFinite(values[1]) ? values[1] : firstThumb + 15))
+    const secondValue = values[1] ?? Number.NaN
+    const secondThumb = Math.min(95, Math.max(firstThumb + 5, Number.isFinite(secondValue) ? secondValue : firstThumb + 15))
     trainPercentage.value = firstThumb
     valPercentage.value = secondThumb - firstThumb
   }
@@ -262,10 +265,10 @@ const selectedTags = computed<string[]>({
   }
 })
 
-const selectedSplits = computed<string[]>({
+const selectedSplits = computed<DatasetItemSplit[]>({
   get: () => {
     const splits = columnFilters.value.split
-    return Array.isArray(splits) ? splits : []
+    return Array.isArray(splits) ? splits.filter((value): value is DatasetItemSplit => typeof value === 'string') : []
   },
   set: (value) => {
     if (value.length === 0) {
@@ -276,10 +279,10 @@ const selectedSplits = computed<string[]>({
   }
 })
 
-const selectedModes = computed<string[]>({
+const selectedModes = computed<DatasetItemMode[]>({
   get: () => {
     const modes = columnFilters.value.mode
-    return Array.isArray(modes) ? modes : []
+    return Array.isArray(modes) ? modes.filter((value): value is DatasetItemMode => value === 'LINK' || value === 'COPY') : []
   },
   set: (value) => {
     if (value.length === 0) {
@@ -475,7 +478,7 @@ const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
   {
     id: 'split',
     header: createSortableHeader('Split', 'splitLabel', sort, UButton),
-    cell: ({ row }) => datasetCapabilities.canManageItems
+    cell: ({ row }) => datasetCapabilities.value.canManageItems
       ? h(USelect, {
           'modelValue': row.original.split,
           'items': visibleSplitOptions.value,
@@ -513,7 +516,7 @@ const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
   {
     id: 'pinned',
     header: createSortableHeader('Pinned', 'pinned', sort, UButton),
-    cell: ({ row }) => datasetCapabilities.canManageItems
+    cell: ({ row }) => datasetCapabilities.value.canManageItems
       ? h(UButton, {
           color: 'neutral',
           variant: row.original.pinned ? 'soft' : 'ghost',
@@ -528,7 +531,7 @@ const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
   {
     id: 'actions',
     header: '',
-    cell: ({ row }) => datasetCapabilities.canManageItems
+    cell: ({ row }) => datasetCapabilities.value.canManageItems
       ? h(UButton, {
           color: 'error',
           variant: 'ghost',
@@ -577,6 +580,20 @@ const releaseColumns = computed<TableColumn<DatasetReleaseRow>[]>(() => [
     ])
   },
   {
+    id: 'share',
+    header: 'External access',
+    cell: ({ row }) => h('div', { class: 'space-y-1 py-1 text-sm' }, [
+      h(UBadge, {
+        color: row.original.shareEnabled ? 'success' : 'neutral',
+        variant: 'soft'
+      }, () => row.original.shareEnabled ? 'Enabled' : 'Disabled'),
+      h('div', { class: 'text-xs text-muted' }, row.original.shareEnabled
+        ? `Expires ${formatDateTime(row.original.shareExpiresAt)}`
+        : 'No share secret active'),
+      h('div', { class: 'text-xs text-muted' }, `Downloads ${row.original.shareDownloadCount ?? 0}`)
+    ])
+  },
+  {
     accessorKey: 'packageChecksumSha256',
     header: 'Checksum',
     cell: ({ row }) => h('code', { class: 'block max-w-40 truncate py-1 text-xs text-muted' }, shortChecksum(row.original.packageChecksumSha256))
@@ -592,14 +609,26 @@ const releaseColumns = computed<TableColumn<DatasetReleaseRow>[]>(() => [
   {
     id: 'actions',
     header: '',
-    cell: ({ row }) => h(UButton, {
-      color: 'neutral',
-      variant: 'ghost',
-      size: 'sm',
-      icon: 'i-lucide-download',
-      disabled: row.original.status !== 'READY',
-      onClick: () => downloadReleasePackage(row.original)
-    }, () => 'Download')
+    cell: ({ row }) => h('div', { class: 'flex flex-wrap justify-end gap-2 py-1' }, [
+      datasetCapabilities.value.canEdit
+        ? h(UButton, {
+            color: 'neutral',
+            variant: 'outline',
+            size: 'sm',
+            icon: 'i-lucide-key-round',
+            disabled: row.original.status !== 'READY',
+            onClick: () => openReleaseShare(row.original)
+          }, () => 'Share')
+        : null,
+      h(UButton, {
+        color: 'neutral',
+        variant: 'ghost',
+        size: 'sm',
+        icon: 'i-lucide-download',
+        disabled: row.original.status !== 'READY',
+        onClick: () => downloadReleasePackage(row.original)
+      }, () => 'Download')
+    ])
   }
 ])
 
@@ -757,6 +786,19 @@ async function openCreateRelease() {
   const createdReleaseId = await instance.result as string | null
   if (!createdReleaseId) return
   await refresh()
+}
+
+async function openReleaseShare(release: DatasetRelease) {
+  if (!dataset.value) return
+
+  const instance = releaseShareSlideover.open({
+    datasetId: dataset.value.id,
+    release
+  })
+  const shouldRefresh = await instance.result as boolean | null
+  if (shouldRefresh) {
+    await refresh()
+  }
 }
 
 async function downloadReleasePackage(release: DatasetRelease) {

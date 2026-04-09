@@ -118,6 +118,144 @@ export type TextStyleFormState = z.infer<typeof textStyleSchema>
 export type MetadataItemFormState = z.infer<typeof metadataItemSchema>
 export type TableCellRoleFormState = z.infer<typeof tableCellRoleSchema>
 export type GridRowFormState = z.infer<typeof gridRowSchema>
+type LanguageValue = typeof LANGUAGE_SIMPLE_TYPE_VALUES[number]
+type ScriptValue = typeof SCRIPT_SIMPLE_TYPE_VALUES[number]
+
+export function createEmptyTextStyleFormState(): TextStyleFormState {
+  return {
+    fontFamily: undefined,
+    serif: undefined,
+    monospace: undefined,
+    fontSize: undefined,
+    xHeight: undefined,
+    kerning: undefined,
+    textColour: undefined,
+    textColourRgb: undefined,
+    bgColour: undefined,
+    bgColourRgb: undefined,
+    reverseVideo: undefined,
+    bold: undefined,
+    italic: undefined,
+    underlined: undefined,
+    underlineStyle: undefined,
+    subscript: undefined,
+    superscript: undefined,
+    strikethrough: undefined,
+    smallCaps: undefined,
+    letterSpaced: undefined
+  }
+}
+
+export function createEmptyTableCellRoleFormState(): TableCellRoleFormState {
+  return {
+    rowIndex: undefined,
+    columnIndex: undefined,
+    rowSpan: undefined,
+    colSpan: undefined,
+    header: undefined
+  }
+}
+
+function normalizeLanguageValue(value: string | undefined): LanguageValue | undefined {
+  if (!value) return undefined
+  return LANGUAGE_SIMPLE_TYPE_VALUES.includes(value as LanguageValue) ? value as LanguageValue : undefined
+}
+
+function normalizeScriptValue(value: string | undefined): ScriptValue | undefined {
+  if (!value) return undefined
+  return SCRIPT_SIMPLE_TYPE_VALUES.includes(value as ScriptValue) ? value as ScriptValue : undefined
+}
+
+function createTextStyleFormState(textStyle?: Partial<TextStyleFormState>): TextStyleFormState {
+  return {
+    ...createEmptyTextStyleFormState(),
+    ...textStyle
+  }
+}
+
+function createAlternativeImageFormState(image?: {
+  filename?: string
+  comments?: string
+  confidence?: number
+}): AlternativeImageFormState {
+  return {
+    filename: image?.filename ?? '',
+    comments: image?.comments ?? '',
+    confidence: image?.confidence
+  }
+}
+
+function createLabelFormState(label?: {
+  value?: string
+  type?: string
+  comments?: string
+}): LabelFormState {
+  return {
+    value: label?.value ?? '',
+    type: label?.type ?? '',
+    comments: label?.comments ?? ''
+  }
+}
+
+function createLabelsFormState(group?: {
+  externalModel?: string
+  externalId?: string
+  prefix?: string
+  comments?: string
+  labels?: Array<{
+    value?: string
+    type?: string
+    comments?: string
+  }>
+}): LabelsFormState {
+  return {
+    externalModel: group?.externalModel ?? '',
+    externalId: group?.externalId ?? '',
+    prefix: group?.prefix ?? '',
+    comments: group?.comments ?? '',
+    labels: (group?.labels ?? []).map(createLabelFormState)
+  }
+}
+
+function createUserAttributeFormState(attribute?: {
+  name?: string
+  description?: string
+  type?: 'xsd:string' | 'xsd:integer' | 'xsd:boolean' | 'xsd:float'
+  value?: string
+}): UserAttributeFormState {
+  return {
+    name: attribute?.name ?? '',
+    description: attribute?.description ?? '',
+    type: attribute?.type,
+    value: attribute?.value ?? ''
+  }
+}
+
+function createMetadataItemFormState(item?: {
+  type?: 'author' | 'imageProperties' | 'processingStep' | 'other'
+  name?: string
+  value?: string
+  date?: string
+  labels?: Array<{
+    externalModel?: string
+    externalId?: string
+    prefix?: string
+    comments?: string
+    labels?: Array<{
+      value?: string
+      type?: string
+      comments?: string
+    }>
+  }>
+}): MetadataItemFormState {
+  return {
+    type: item?.type,
+    name: item?.name ?? '',
+    value: item?.value ?? '',
+    date: item?.date ?? '',
+    labels: (item?.labels ?? []).map(createLabelsFormState)
+  }
+}
 
 /**
  * Schema for document-level Metadata (MetadataType)
@@ -157,7 +295,7 @@ export const pageMetadataSchema = z.object({
   alternativeImages: z.array(alternativeImageSchema).default([]),
   labels: z.array(labelsSchema).default([]),
   userDefinedAttributes: z.array(userAttributeSchema).default([]),
-  textStyle: textStyleSchema.default({})
+  textStyle: textStyleSchema.default(createEmptyTextStyleFormState())
 })
 
 export type PageMetadataFormState = z.infer<typeof pageMetadataSchema>
@@ -187,7 +325,7 @@ export const textRegionMetadataSchema = z.object({
   alternativeImages: z.array(alternativeImageSchema).default([]),
   labels: z.array(labelsSchema).default([]),
   userDefinedAttributes: z.array(userAttributeSchema).default([]),
-  textStyle: textStyleSchema.default({})
+  textStyle: textStyleSchema.default(createEmptyTextStyleFormState())
 })
 
 export type TextRegionMetadataFormState = z.infer<typeof textRegionMetadataSchema>
@@ -216,12 +354,12 @@ export const genericRegionMetadataSchema = z.object({
   borderPresent: optionalBoolean,
   textColourRgb: optionalNumber,
   bgColourRgb: optionalNumber,
-  tableCellRole: tableCellRoleSchema.default({}),
+  tableCellRole: tableCellRoleSchema.default(createEmptyTableCellRoleFormState()),
   gridRows: z.array(gridRowSchema).default([]),
   alternativeImages: z.array(alternativeImageSchema).default([]),
   labels: z.array(labelsSchema).default([]),
   userDefinedAttributes: z.array(userAttributeSchema).default([]),
-  textStyle: textStyleSchema.default({})
+  textStyle: textStyleSchema.default(createEmptyTextStyleFormState())
 })
 
 export type GenericRegionMetadataFormState = z.infer<typeof genericRegionMetadataSchema>
@@ -242,7 +380,7 @@ export const textLineMetadataSchema = z.object({
   alternativeImages: z.array(alternativeImageSchema).default([]),
   labels: z.array(labelsSchema).default([]),
   userDefinedAttributes: z.array(userAttributeSchema).default([]),
-  textStyle: textStyleSchema.default({})
+  textStyle: textStyleSchema.default(createEmptyTextStyleFormState())
 })
 
 export type TextLineMetadataFormState = z.infer<typeof textLineMetadataSchema>
@@ -294,29 +432,8 @@ export function createDocumentMetadataFormState(metadata: {
     lastChange: metadata.lastChange ?? '',
     comments: metadata.comments ?? '',
     externalRef: metadata.externalRef ?? '',
-    userDefinedAttributes: (metadata.userDefined?.attributes ?? []).map(attr => ({
-      name: attr.name ?? '',
-      description: attr.description ?? '',
-      type: attr.type,
-      value: attr.value ?? ''
-    })),
-    items: (metadata.items ?? []).map(item => ({
-      type: item.type,
-      name: item.name ?? '',
-      value: item.value ?? '',
-      date: item.date ?? '',
-      labels: (item.labels ?? []).map(group => ({
-        externalModel: group.externalModel ?? '',
-        externalId: group.externalId ?? '',
-        prefix: group.prefix ?? '',
-        comments: group.comments ?? '',
-        labels: (group.labels ?? []).map(label => ({
-          value: label.value ?? '',
-          type: label.type ?? '',
-          comments: label.comments ?? ''
-        }))
-      }))
-    }))
+    userDefinedAttributes: (metadata.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
+    items: (metadata.items ?? []).map(item => createMetadataItemFormState(item))
   }
 }
 
@@ -394,57 +511,17 @@ export function createPageMetadataFormState(page: {
     custom: page.custom ?? '',
     orientation: page.orientation,
     type: page.type,
-    primaryLanguage: page.primaryLanguage,
-    secondaryLanguage: page.secondaryLanguage,
-    primaryScript: page.primaryScript,
-    secondaryScript: page.secondaryScript,
+    primaryLanguage: normalizeLanguageValue(page.primaryLanguage),
+    secondaryLanguage: normalizeLanguageValue(page.secondaryLanguage),
+    primaryScript: normalizeScriptValue(page.primaryScript),
+    secondaryScript: normalizeScriptValue(page.secondaryScript),
     readingDirection: page.readingDirection,
     textLineOrder: page.textLineOrder,
     conf: page.conf,
-    alternativeImages: (page.alternativeImages ?? []).map(img => ({
-      filename: img.filename ?? '',
-      comments: img.comments ?? '',
-      confidence: img.confidence
-    })),
-    labels: (page.labels ?? []).map(group => ({
-      externalModel: group.externalModel ?? '',
-      externalId: group.externalId ?? '',
-      prefix: group.prefix ?? '',
-      comments: group.comments ?? '',
-      labels: (group.labels ?? []).map(label => ({
-        value: label.value ?? '',
-        type: label.type ?? '',
-        comments: label.comments ?? ''
-      }))
-    })),
-    userDefinedAttributes: (page.userDefined?.attributes ?? []).map(attr => ({
-      name: attr.name ?? '',
-      description: attr.description ?? '',
-      type: attr.type,
-      value: attr.value ?? ''
-    })),
-    textStyle: {
-      fontFamily: page.textStyle?.fontFamily,
-      serif: page.textStyle?.serif,
-      monospace: page.textStyle?.monospace,
-      fontSize: page.textStyle?.fontSize,
-      xHeight: page.textStyle?.xHeight,
-      kerning: page.textStyle?.kerning,
-      textColour: page.textStyle?.textColour,
-      textColourRgb: page.textStyle?.textColourRgb,
-      bgColour: page.textStyle?.bgColour,
-      bgColourRgb: page.textStyle?.bgColourRgb,
-      reverseVideo: page.textStyle?.reverseVideo,
-      bold: page.textStyle?.bold,
-      italic: page.textStyle?.italic,
-      underlined: page.textStyle?.underlined,
-      underlineStyle: page.textStyle?.underlineStyle,
-      subscript: page.textStyle?.subscript,
-      superscript: page.textStyle?.superscript,
-      strikethrough: page.textStyle?.strikethrough,
-      smallCaps: page.textStyle?.smallCaps,
-      letterSpaced: page.textStyle?.letterSpaced
-    }
+    alternativeImages: (page.alternativeImages ?? []).map(image => createAlternativeImageFormState(image)),
+    labels: (page.labels ?? []).map(group => createLabelsFormState(group)),
+    userDefinedAttributes: (page.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
+    textStyle: createTextStyleFormState(page.textStyle)
   }
 }
 
@@ -528,55 +605,15 @@ export function createTextRegionMetadataFormState(region: {
     readingOrientation: region.readingOrientation,
     indented: region.indented,
     align: region.align as TextRegionMetadataFormState['align'],
-    primaryLanguage: region.primaryLanguage,
-    secondaryLanguage: region.secondaryLanguage,
-    primaryScript: region.primaryScript,
-    secondaryScript: region.secondaryScript,
+    primaryLanguage: normalizeLanguageValue(region.primaryLanguage),
+    secondaryLanguage: normalizeLanguageValue(region.secondaryLanguage),
+    primaryScript: normalizeScriptValue(region.primaryScript),
+    secondaryScript: normalizeScriptValue(region.secondaryScript),
     production: region.production as TextRegionMetadataFormState['production'],
-    alternativeImages: (region.alternativeImages ?? []).map(img => ({
-      filename: img.filename ?? '',
-      comments: img.comments ?? '',
-      confidence: img.confidence
-    })),
-    labels: (region.labels ?? []).map(group => ({
-      externalModel: group.externalModel ?? '',
-      externalId: group.externalId ?? '',
-      prefix: group.prefix ?? '',
-      comments: group.comments ?? '',
-      labels: (group.labels ?? []).map(label => ({
-        value: label.value ?? '',
-        type: label.type ?? '',
-        comments: label.comments ?? ''
-      }))
-    })),
-    userDefinedAttributes: (region.userDefined?.attributes ?? []).map(attr => ({
-      name: attr.name ?? '',
-      description: attr.description ?? '',
-      type: attr.type,
-      value: attr.value ?? ''
-    })),
-    textStyle: {
-      fontFamily: region.textStyle?.fontFamily,
-      serif: region.textStyle?.serif,
-      monospace: region.textStyle?.monospace,
-      fontSize: region.textStyle?.fontSize,
-      xHeight: region.textStyle?.xHeight,
-      kerning: region.textStyle?.kerning,
-      textColour: region.textStyle?.textColour,
-      textColourRgb: region.textStyle?.textColourRgb,
-      bgColour: region.textStyle?.bgColour,
-      bgColourRgb: region.textStyle?.bgColourRgb,
-      reverseVideo: region.textStyle?.reverseVideo,
-      bold: region.textStyle?.bold,
-      italic: region.textStyle?.italic,
-      underlined: region.textStyle?.underlined,
-      underlineStyle: region.textStyle?.underlineStyle,
-      subscript: region.textStyle?.subscript,
-      superscript: region.textStyle?.superscript,
-      strikethrough: region.textStyle?.strikethrough,
-      smallCaps: region.textStyle?.smallCaps,
-      letterSpaced: region.textStyle?.letterSpaced
-    }
+    alternativeImages: (region.alternativeImages ?? []).map(image => createAlternativeImageFormState(image)),
+    labels: (region.labels ?? []).map(group => createLabelsFormState(group)),
+    userDefinedAttributes: (region.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
+    textStyle: createTextStyleFormState(region.textStyle)
   }
 }
 
@@ -664,10 +701,19 @@ export function createGenericRegionMetadataFormState(region: {
     letterSpaced?: boolean
   }
 }): GenericRegionMetadataFormState {
-  const gridRows = region.grid?.rows?.map(row => ({
+  const gridRows = region.grid?.rows?.map<GridRowFormState>(row => ({
     index: row.index,
     points: row.points?.points?.map(point => `${point[0]},${point[1]}`).join(' ')
   })) ?? []
+
+  const tableCellRole: TableCellRoleFormState = {
+    ...createEmptyTableCellRoleFormState(),
+    rowIndex: region.roles?.tableCellRole?.rowIndex,
+    columnIndex: region.roles?.tableCellRole?.columnIndex,
+    rowSpan: region.roles?.tableCellRole?.rowSpan,
+    colSpan: region.roles?.tableCellRole?.colSpan,
+    header: region.roles?.tableCellRole?.header
+  }
 
   return {
     id: region.id,
@@ -689,58 +735,12 @@ export function createGenericRegionMetadataFormState(region: {
     borderPresent: region.borderPresent,
     textColourRgb: region.textColourRgb,
     bgColourRgb: region.bgColourRgb,
-    tableCellRole: {
-      rowIndex: region.roles?.tableCellRole?.rowIndex,
-      columnIndex: region.roles?.tableCellRole?.columnIndex,
-      rowSpan: region.roles?.tableCellRole?.rowSpan,
-      colSpan: region.roles?.tableCellRole?.colSpan,
-      header: region.roles?.tableCellRole?.header
-    },
+    tableCellRole,
     gridRows,
-    alternativeImages: (region.alternativeImages ?? []).map(img => ({
-      filename: img.filename ?? '',
-      comments: img.comments ?? '',
-      confidence: img.confidence
-    })),
-    labels: (region.labels ?? []).map(group => ({
-      externalModel: group.externalModel ?? '',
-      externalId: group.externalId ?? '',
-      prefix: group.prefix ?? '',
-      comments: group.comments ?? '',
-      labels: (group.labels ?? []).map(label => ({
-        value: label.value ?? '',
-        type: label.type ?? '',
-        comments: label.comments ?? ''
-      }))
-    })),
-    userDefinedAttributes: (region.userDefined?.attributes ?? []).map(attr => ({
-      name: attr.name ?? '',
-      description: attr.description ?? '',
-      type: attr.type,
-      value: attr.value ?? ''
-    })),
-    textStyle: {
-      fontFamily: region.textStyle?.fontFamily,
-      serif: region.textStyle?.serif,
-      monospace: region.textStyle?.monospace,
-      fontSize: region.textStyle?.fontSize,
-      xHeight: region.textStyle?.xHeight,
-      kerning: region.textStyle?.kerning,
-      textColour: region.textStyle?.textColour,
-      textColourRgb: region.textStyle?.textColourRgb,
-      bgColour: region.textStyle?.bgColour,
-      bgColourRgb: region.textStyle?.bgColourRgb,
-      reverseVideo: region.textStyle?.reverseVideo,
-      bold: region.textStyle?.bold,
-      italic: region.textStyle?.italic,
-      underlined: region.textStyle?.underlined,
-      underlineStyle: region.textStyle?.underlineStyle,
-      subscript: region.textStyle?.subscript,
-      superscript: region.textStyle?.superscript,
-      strikethrough: region.textStyle?.strikethrough,
-      smallCaps: region.textStyle?.smallCaps,
-      letterSpaced: region.textStyle?.letterSpaced
-    }
+    alternativeImages: (region.alternativeImages ?? []).map(image => createAlternativeImageFormState(image)),
+    labels: (region.labels ?? []).map(group => createLabelsFormState(group)),
+    userDefinedAttributes: (region.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
+    textStyle: createTextStyleFormState(region.textStyle)
   }
 }
 
@@ -803,58 +803,18 @@ export function createTextLineMetadataFormState(textLine: {
 }): TextLineMetadataFormState {
   return {
     id: textLine.id,
-    primaryLanguage: textLine.primaryLanguage,
-    primaryScript: textLine.primaryScript,
-    secondaryScript: textLine.secondaryScript,
+    primaryLanguage: normalizeLanguageValue(textLine.primaryLanguage),
+    primaryScript: normalizeScriptValue(textLine.primaryScript),
+    secondaryScript: normalizeScriptValue(textLine.secondaryScript),
     readingDirection: textLine.readingDirection as TextLineMetadataFormState['readingDirection'],
     production: textLine.production as TextLineMetadataFormState['production'],
     custom: textLine.custom ?? '',
     comments: textLine.comments ?? '',
     index: textLine.index,
-    alternativeImages: (textLine.alternativeImages ?? []).map(img => ({
-      filename: img.filename ?? '',
-      comments: img.comments ?? '',
-      confidence: img.confidence
-    })),
-    labels: (textLine.labels ?? []).map(group => ({
-      externalModel: group.externalModel ?? '',
-      externalId: group.externalId ?? '',
-      prefix: group.prefix ?? '',
-      comments: group.comments ?? '',
-      labels: (group.labels ?? []).map(label => ({
-        value: label.value ?? '',
-        type: label.type ?? '',
-        comments: label.comments ?? ''
-      }))
-    })),
-    userDefinedAttributes: (textLine.userDefined?.attributes ?? []).map(attr => ({
-      name: attr.name ?? '',
-      description: attr.description ?? '',
-      type: attr.type,
-      value: attr.value ?? ''
-    })),
-    textStyle: {
-      fontFamily: textLine.textStyle?.fontFamily,
-      serif: textLine.textStyle?.serif,
-      monospace: textLine.textStyle?.monospace,
-      fontSize: textLine.textStyle?.fontSize,
-      xHeight: textLine.textStyle?.xHeight,
-      kerning: textLine.textStyle?.kerning,
-      textColour: textLine.textStyle?.textColour,
-      textColourRgb: textLine.textStyle?.textColourRgb,
-      bgColour: textLine.textStyle?.bgColour,
-      bgColourRgb: textLine.textStyle?.bgColourRgb,
-      reverseVideo: textLine.textStyle?.reverseVideo,
-      bold: textLine.textStyle?.bold,
-      italic: textLine.textStyle?.italic,
-      underlined: textLine.textStyle?.underlined,
-      underlineStyle: textLine.textStyle?.underlineStyle,
-      subscript: textLine.textStyle?.subscript,
-      superscript: textLine.textStyle?.superscript,
-      strikethrough: textLine.textStyle?.strikethrough,
-      smallCaps: textLine.textStyle?.smallCaps,
-      letterSpaced: textLine.textStyle?.letterSpaced
-    }
+    alternativeImages: (textLine.alternativeImages ?? []).map(image => createAlternativeImageFormState(image)),
+    labels: (textLine.labels ?? []).map(group => createLabelsFormState(group)),
+    userDefinedAttributes: (textLine.userDefined?.attributes ?? []).map(attribute => createUserAttributeFormState(attribute)),
+    textStyle: createTextStyleFormState(textLine.textStyle)
   }
 }
 

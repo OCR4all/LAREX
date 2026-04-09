@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { LazyUiConfirmModal } from '#components'
 import type { FormSubmitEvent } from '@nuxt/ui'
+import type { input as ZodInput } from 'zod'
 import MetadataAlternativeImagesForm from './metadata/alternative-images-form.vue'
 import MetadataItemsForm from './metadata/items-form.vue'
 import MetadataLabelGroupsForm from './metadata/label-groups-form.vue'
@@ -27,6 +28,8 @@ import {
   createGenericRegionMetadataFormState,
   createTextLineMetadataFormState,
   createBaselineMetadataFormState,
+  createEmptyTextStyleFormState,
+  createEmptyTableCellRoleFormState,
   type DocumentMetadataFormState,
   type PageMetadataFormState,
   type TextRegionMetadataFormState,
@@ -64,101 +67,32 @@ const documentFormState = reactive<DocumentMetadataFormState>({
   items: []
 })
 
-const pageFormState = reactive<PageMetadataFormState>({
+const pageFormState = reactive(createPageMetadataFormState({
   imageFilename: '',
   imageWidth: 0,
-  imageHeight: 0,
-  imageXResolution: undefined,
-  imageYResolution: undefined,
-  imageResolutionUnit: undefined,
-  custom: '',
-  orientation: undefined,
-  type: undefined,
-  primaryLanguage: undefined,
-  secondaryLanguage: undefined,
-  primaryScript: undefined,
-  secondaryScript: undefined,
-  readingDirection: undefined,
-  textLineOrder: undefined,
-  conf: undefined,
-  alternativeImages: [],
-  labels: [],
-  userDefinedAttributes: [],
-  textStyle: {}
-})
+  imageHeight: 0
+}))
 
-const textRegionFormState = reactive<TextRegionMetadataFormState>({
+const textRegionFormState = reactive(createTextRegionMetadataFormState({
   id: '',
-  kind: '',
-  custom: '',
-  comments: '',
-  continuation: undefined,
-  orientation: undefined,
-  type: '',
-  leading: undefined,
-  readingDirection: undefined,
-  textLineOrder: undefined,
-  readingOrientation: undefined,
-  indented: undefined,
-  align: undefined,
-  primaryLanguage: undefined,
-  secondaryLanguage: undefined,
-  primaryScript: undefined,
-  secondaryScript: undefined,
-  production: undefined,
-  alternativeImages: [],
-  labels: [],
-  userDefinedAttributes: [],
-  textStyle: {}
-})
+  kind: ''
+}))
 
-const genericRegionFormState = reactive<GenericRegionMetadataFormState>({
+const genericRegionFormState = reactive(createGenericRegionMetadataFormState({
   id: '',
-  kind: '',
-  type: '',
-  custom: '',
-  comments: '',
-  continuation: undefined,
-  orientation: undefined,
-  numColours: undefined,
-  embText: undefined,
-  colourDepth: '',
-  lineColour: '',
-  lineSeparators: undefined,
-  rows: undefined,
-  columns: undefined,
-  colour: '',
-  penColour: '',
-  borderPresent: undefined,
-  textColourRgb: undefined,
-  bgColourRgb: undefined,
-  tableCellRole: {},
-  gridRows: [],
-  alternativeImages: [],
-  labels: [],
-  userDefinedAttributes: [],
-  textStyle: {}
-})
+  kind: ''
+}))
 
-const textLineFormState = reactive<TextLineMetadataFormState>({
-  id: '',
-  primaryLanguage: undefined,
-  primaryScript: undefined,
-  secondaryScript: undefined,
-  readingDirection: undefined,
-  production: undefined,
-  custom: '',
-  comments: '',
-  index: undefined,
-  alternativeImages: [],
-  labels: [],
-  userDefinedAttributes: [],
-  textStyle: {}
-})
+const textLineFormState = reactive(createTextLineMetadataFormState({
+  id: ''
+}))
 
-const baselineFormState = reactive<BaselineMetadataFormState>({
-  conf: undefined
-})
+const baselineFormState = reactive(createBaselineMetadataFormState({ conf: undefined }))
+
+const pageFormModel = computed<Partial<ZodInput<typeof pageMetadataSchema>>>(() => pageFormState as Partial<ZodInput<typeof pageMetadataSchema>>)
+const textRegionFormModel = computed<Partial<ZodInput<typeof textRegionMetadataSchema>>>(() => textRegionFormState as Partial<ZodInput<typeof textRegionMetadataSchema>>)
+const genericRegionFormModel = computed<Partial<ZodInput<typeof genericRegionMetadataSchema>>>(() => genericRegionFormState as Partial<ZodInput<typeof genericRegionMetadataSchema>>)
+const textLineFormModel = computed<Partial<ZodInput<typeof textLineMetadataSchema>>>(() => textLineFormState as Partial<ZodInput<typeof textLineMetadataSchema>>)
 
 function isRegionElement(element: unknown): element is Region {
   return !!element && typeof element === 'object' && 'kind' in element && 'coords' in element
@@ -553,7 +487,7 @@ watch(() => props.selectedElement, () => {
           <UForm
             v-else-if="editContext === 'page' && page"
             :schema="pageMetadataSchema"
-            :state="pageFormState"
+            :state="pageFormModel"
             class="space-y-4"
             @submit="onSubmitPage"
           >
@@ -756,7 +690,7 @@ watch(() => props.selectedElement, () => {
           <UForm
             v-else-if="editContext === 'textRegion'"
             :schema="textRegionMetadataSchema"
-            :state="textRegionFormState"
+            :state="textRegionFormModel"
             class="space-y-4"
             @submit="onSubmitTextRegion"
           >
@@ -957,7 +891,7 @@ watch(() => props.selectedElement, () => {
           <UForm
             v-else-if="editContext === 'genericRegion'"
             :schema="genericRegionMetadataSchema"
-            :state="genericRegionFormState"
+            :state="genericRegionFormModel"
             class="space-y-4"
             @submit="onSubmitGenericRegion"
           >
@@ -1184,7 +1118,7 @@ watch(() => props.selectedElement, () => {
           <UForm
             v-else-if="editContext === 'textLine'"
             :schema="textLineMetadataSchema"
-            :state="textLineFormState"
+            :state="textLineFormModel"
             class="space-y-4"
             @submit="onSubmitTextLine"
           >

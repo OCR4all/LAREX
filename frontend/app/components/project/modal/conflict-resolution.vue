@@ -105,9 +105,10 @@ async function resolveConflicts() {
     isResolving.value = true
 
     const conflictResolutions: ConflictResolution[] = props.conflicts.map(conflict => ({
+      ...(resolutions.value[conflict.conflictId] ?? { action: 'KEEP_EXISTING' as const, newFileName: conflict.newFileName }),
       conflictId: conflict.conflictId,
-      action: resolutions.value[conflict.conflictId].action,
-      newFileName: resolutions.value[conflict.conflictId].newFileName
+      action: resolutions.value[conflict.conflictId]?.action ?? 'KEEP_EXISTING',
+      newFileName: resolutions.value[conflict.conflictId]?.newFileName ?? conflict.newFileName
     }))
 
     await $fetch(`/api/workspaces/${selectedWorkspace.value}/projects/${props.projectId}/conflicts/resolve`, {
@@ -213,7 +214,7 @@ const successfulUploads = computed(() => {
                   {{ conflict.details?.newFileSize ? formatFileSize(Number(conflict.details.newFileSize)) : '' }}
                 </p>
               </div>
-              <UBadge color="amber" variant="solid">
+              <UBadge color="warning" variant="solid">
                 Conflict
               </UBadge>
             </div>
@@ -263,7 +264,7 @@ const successfulUploads = computed(() => {
                 </div>
                 <div v-if="resolutions[conflict.conflictId]?.action === 'RENAME'" class="ml-6">
                   <UInput
-                    v-model="resolutions[conflict.conflictId].newFileName"
+                    v-model="resolutions[conflict.conflictId]!.newFileName"
                     placeholder="Enter new filename"
                     size="md"
                   />

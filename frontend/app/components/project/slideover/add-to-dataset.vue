@@ -77,10 +77,10 @@ const datasetTargetOptions = computed<DatasetTargetOption[]>(() => [
   }
 ])
 
-const datasetModeOptions = [
+const datasetModeOptions: Array<{ label: string, value: DatasetItemMode }> = [
   { label: 'Link to latest annotation state', value: 'LINK' },
   { label: 'Copy and freeze current page state', value: 'COPY' }
-] as const
+]
 
 const globalImageVariantOptions = computed<VariantOption[]>(() => {
   const variants = new Set<string>()

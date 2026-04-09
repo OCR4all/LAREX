@@ -50,7 +50,7 @@ const { data: projects, status: projectsStatus } = await useFetch<Project[]>(
   }
 )
 
-const selectedProjectId = ref<string | null>(null)
+const selectedProjectId = ref<string | undefined>(undefined)
 const linkAllPages = ref(true)
 const searchQuery = ref('')
 const selectedPageIds = ref<Set<string>>(new Set())

@@ -8,7 +8,7 @@ import { glslFloatLiteral } from '@/webgl/editor/glsl-utils'
 
 export interface LineData {
   points: Point[]
-  color: number[]
+  color: readonly number[]
   thickness: number
   isClosed: boolean
 }
@@ -196,7 +196,7 @@ export class ThickLineRenderer {
    */
   drawThickLine(
     points: Point[],
-    color: number[],
+    color: readonly number[],
     thickness: number,
     isClosed: boolean,
     aspectRatioScale: Scale,

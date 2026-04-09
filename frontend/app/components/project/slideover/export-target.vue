@@ -48,16 +48,16 @@ const versionOptions = [
   { label: 'PAGE XML 2019-07-15', value: '2019-07-15' }
 ]
 
-const pageFormatOptions = [
+const pageFormatOptions: Array<{ label: string, value: ExportFormat }> = [
   { label: 'PAGE XML', value: 'PAGE_XML' },
   { label: 'ALTO XML (.alto.xml)', value: 'ALTO_XML' },
   { label: 'Text (.txt)', value: 'TXT' },
   { label: 'PDF (.pdf)', value: 'PDF' },
   { label: 'DOCX (.docx)', value: 'DOCX' },
   { label: 'TEI (.tei.xml)', value: 'TEI' }
-] as const
+]
 
-const projectFormatOptions = [
+const projectFormatOptions: Array<{ label: string, value: Exclude<ExportFormat, 'PAGE_XML'> }> = [
   { label: 'ALTO XML (.alto.zip)', value: 'ALTO_XML' },
   { label: 'Text (.txt)', value: 'TXT' },
   { label: 'PDF (.pdf)', value: 'PDF' },
@@ -65,31 +65,31 @@ const projectFormatOptions = [
   { label: 'TEI (.tei.xml)', value: 'TEI' },
   { label: 'CSV (.csv / .zip)', value: 'CSV' },
   { label: 'XLSX (.xlsx / .zip)', value: 'XLSX' }
-] as const
+]
 
-const textLevelOptions = [
+const textLevelOptions: Array<{ label: string, value: TextLevel }> = [
   { label: 'Page', value: 'PAGE' },
   { label: 'Region', value: 'REGION' },
   { label: 'Text line', value: 'TEXT_LINE' }
-] as const
+]
 
-const pdfProfileOptions = [
+const pdfProfileOptions: Array<{ label: string, value: PdfProfile }> = [
   { label: 'Searchable', value: 'SEARCHABLE' },
   { label: 'Images only', value: 'IMAGES_ONLY' },
   { label: 'Text pages', value: 'TEXT_PAGES' },
   { label: 'PDF/A searchable', value: 'PDFA_SEARCHABLE' }
-] as const
+]
 
-const teiProfileOptions = [
+const teiProfileOptions: Array<{ label: string, value: TeiProfile }> = [
   { label: 'Standard', value: 'STANDARD' },
   { label: 'Layout-aware', value: 'LAYOUT' }
-] as const
+]
 
-const spreadsheetProfileOptions = [
+const spreadsheetProfileOptions: Array<{ label: string, value: SpreadsheetProfile }> = [
   { label: 'Page metadata', value: 'PAGE_METADATA' },
   { label: 'Tags', value: 'TAGS' },
   { label: 'Regions', value: 'REGIONS' }
-] as const
+]
 
 const props = withDefaults(defineProps<{
   title?: string
@@ -139,10 +139,10 @@ const emit = defineEmits<{
 }>()
 
 const formatOptions = computed(() => props.mode === 'page' ? pageFormatOptions : projectFormatOptions)
-const selectedFormat = ref<ExportFormat | null>(
+const selectedFormat = ref<ExportFormat | undefined>(
   props.mode === 'package'
-    ? null
-    : (props.initialFormat ?? (formatOptions.value[0]?.value ?? null))
+    ? undefined
+    : (props.initialFormat ?? formatOptions.value[0]?.value)
 )
 const targetVersion = ref(props.initialTargetVersion)
 const includePageDelimiters = ref(Boolean(props.initialIncludePageDelimiters))
@@ -258,7 +258,7 @@ function closeWithResult() {
   }
 
   emit('close', {
-    format: props.mode === 'package' ? null : selectedFormat.value,
+    format: props.mode === 'package' ? null : (selectedFormat.value ?? null),
     targetPageXmlVersion: targetVersion.value,
     includePageDelimiters: includePageDelimiters.value,
     textLevel: textLevel.value,

@@ -3,6 +3,7 @@ import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon } from '@/types/editor/rendering'
+import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 
 const editorUiStore = useEditorUiStore()
 const editorStore = useEditorStore()
@@ -28,7 +29,7 @@ function getRenderablePolygonsForActiveCanvas(): RenderablePolygon[] {
   if (!canvasId) return []
 
   const session = getEditorSession(canvasId)
-  const controls = session?.controls.value as { polygons?: RenderablePolygon[] } | null
+  const controls: EditorCanvasControls | null | undefined = session?.controls.value
   return controls?.polygons ?? editorStore.regionsByCanvasId(canvasId)
 }
 

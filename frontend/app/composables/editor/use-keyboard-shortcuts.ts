@@ -13,6 +13,7 @@ import {
 } from '@/composables/editor/shortcut-registry'
 import { getTooltipProps } from '@/composables/editor/use-shortcut-bindings'
 import { getEditorSession } from '@/session/editor/editor-session'
+import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 
 export { SHORTCUT_DEFINITIONS, SHORTCUT_HELP_GROUPS, getTooltipProps }
 export type {
@@ -166,7 +167,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     const id = canvasId.value
     if (!id) return undefined
     const session = getEditorSession(id)
-    const controls = session?.controls.value as { commander?: Commander } | null | undefined
+    const controls: EditorCanvasControls | null | undefined = session?.controls.value
     return controls?.commander
   }
 

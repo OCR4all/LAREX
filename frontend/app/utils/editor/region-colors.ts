@@ -3,6 +3,7 @@
  * Provides distinct colors for visual differentiation in the editor.
  */
 
+import type { RGBA } from '@/utils/editor/editor-constants'
 import type { RegionKind, TextRegionSubtype, GraphicRegionSubtype, ChartRegionSubtype } from '@/models/editor/region'
 
 /** Default colors for each PAGE XML region kind */
@@ -104,7 +105,7 @@ export function getRegionColorRGBA(
   kind: RegionKind,
   subtype?: string,
   alpha: number = 0.3
-): [number, number, number, number] {
+): RGBA {
   const hex = getRegionColor(kind, subtype)
   return hexToRgba(hex, alpha)
 }
@@ -115,7 +116,7 @@ export function getRegionColorRGBA(
  * @param alpha Alpha value (0-1)
  * @returns RGBA array [r, g, b, a] normalized to 0-1
  */
-export function hexToRgba(hex: string, alpha: number = 1.0): [number, number, number, number] {
+export function hexToRgba(hex: string, alpha: number = 1.0): RGBA {
   hex = hex.replace(/^#/, '')
 
   const r = parseInt(hex.substring(0, 2), 16) / 255

@@ -1,3 +1,4 @@
+import type { UnwrapNestedRefs } from 'vue'
 import type { Commander } from '@/commands'
 import { UpdatePolygonCommand } from '@/commands'
 import type { Point, View, AspectRatioScale, ImageSize } from '@/models/editor'
@@ -48,13 +49,13 @@ export function usePolygonEditing(
   constrainToImage: Ref<boolean> | undefined,
   imageSize: Ref<ImageSize> | undefined,
   constrainToParent: Ref<boolean> | undefined,
-  spatialIndex?: SpatialIndexService,
-  externalSelectedPolylineIndex?: Ref<number>,
-  viewMode?: Ref<string>,
+  spatialIndex: SpatialIndexService | undefined,
+  externalSelectedPolylineIndex: Ref<number> | undefined,
+  viewMode: Ref<string> | undefined,
   commander: Commander,
   canvasId: string,
-  hiddenPolygonIds?: Ref<string[]>,
-  hiddenPolylineIds?: Ref<string[]>
+  hiddenPolygonIds: Ref<string[]> | undefined,
+  hiddenPolylineIds: Ref<string[]> | undefined
 ) {
   const getCommandContext = () => {
     const session = getEditorSession(canvasId)
@@ -170,7 +171,7 @@ export function usePolygonEditing(
    * @param canvas - Canvas element
    * @returns True if an editing operation was initiated
    */
-  function handleMouseDown(point: Point, selectedPolygonIndex: Ref<number>, _canvas: HTMLCanvasElement): boolean {
+  function handleMouseDown(point: Point, selectedPolygonIndex: Ref<number>, _canvas: HTMLCanvasElement | null): boolean {
     if (externalSelectedPolylineIndex && externalSelectedPolylineIndex.value >= 0) {
       return false
     }
@@ -287,7 +288,7 @@ export function usePolygonEditing(
    *
    * @param canvas - Canvas element
    */
-  function handleMouseUp(_canvas: HTMLCanvasElement): void {
+  function handleMouseUp(_canvas: HTMLElement | null): void {
     if (draggedNodeInfo.isDragging) {
       if (dragOriginalPosition.value && !isInvalidPosition.value) {
         const polygon = polygons[draggedNodeInfo.polygonIndex]

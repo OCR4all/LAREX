@@ -30,14 +30,16 @@ const clusteredActivity = computed<ActivityGroup[]>(() => {
 
   for (const log of props.activity) {
     const lastGroup = groups[groups.length - 1]
+    const lastLog = lastGroup?.logs[lastGroup.logs.length - 1]
     const shouldCluster =
       lastGroup &&
+      lastLog &&
       clusterableTypes.has(log.activityType) &&
       lastGroup.activityType === log.activityType &&
       lastGroup.userId === log.userId &&
       Math.abs(
         differenceInMinutes(
-          parseISO(lastGroup.logs[lastGroup.logs.length - 1].created),
+          parseISO(lastLog.created),
           parseISO(log.created)
         )
       ) <= 10
@@ -185,11 +187,16 @@ function getActivityDescription(log: TaskActivityLog): string {
 }
 
 function getGroupedDescription(group: ActivityGroup): string {
-  if (group.count <= 1) {
-    return getActivityDescription(group.logs[0])
+  const firstLog = group.logs[0]
+  if (!firstLog) {
+    return 'Unknown activity'
   }
 
-  const name = getDisplayName(group.logs[0])
+  if (group.count <= 1) {
+    return getActivityDescription(firstLog)
+  }
+
+  const name = getDisplayName(firstLog)
 
   switch (group.activityType) {
     case 'SUBTASK_ADDED':

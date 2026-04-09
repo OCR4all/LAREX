@@ -166,8 +166,7 @@ export const useUploadStore = defineStore('upload', () => {
             file: currentFile.file
           }
         } else {
-          const updatesWithoutFile = { ...updates }
-          delete updatesWithoutFile.file
+          const { file: _ignoredFile, ...updatesWithoutFile } = updates
           mergedFile = {
             ...currentFile,
             ...updatesWithoutFile,

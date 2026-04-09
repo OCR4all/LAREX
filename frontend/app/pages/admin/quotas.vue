@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { LazyAdminSlideoverEditQuota } from '#components'
 import { globalKey } from '@/utils/fetch-keys'
 import { showApiErrorToast } from '@/utils/error-toast'
@@ -208,7 +208,7 @@ const getActions = (quota: AdminQuotaRow) => [
 ]
 
 const contextMenuQuota = ref<AdminQuotaRow | null>(null)
-const contextMenuItems = computed(() => {
+const contextMenuItems = computed<DropdownMenuItem[][]>(() => {
   if (!contextMenuQuota.value) return []
   return [getActions(contextMenuQuota.value)]
 })
@@ -264,6 +264,37 @@ const { data: exceededQuotas } = await useFetch<AdminQuota[]>('/api/storage/quot
 
 const statusOptions = [{ value: 'true', label: 'Exceeded' }, { value: 'false', label: 'OK' }]
 const customOptions = [{ value: 'true', label: 'Custom' }, { value: 'false', label: 'Default' }]
+const itemsPerPageOptions = [10, 25, 50, 100].map(value => ({ label: `${value} per page`, value }))
+const quotaExceededFilter = computed<string | undefined>({
+  get: () => typeof columnFilters.value.isQuotaExceeded === 'string' ? columnFilters.value.isQuotaExceeded : undefined,
+  set: (value) => {
+    if (!value) {
+      const { isQuotaExceeded: _removed, ...rest } = columnFilters.value
+      columnFilters.value = rest
+      return
+    }
+
+    columnFilters.value = {
+      ...columnFilters.value,
+      isQuotaExceeded: value
+    }
+  }
+})
+const customQuotaFilter = computed<string | undefined>({
+  get: () => typeof columnFilters.value.isCustom === 'string' ? columnFilters.value.isCustom : undefined,
+  set: (value) => {
+    if (!value) {
+      const { isCustom: _removed, ...rest } = columnFilters.value
+      columnFilters.value = rest
+      return
+    }
+
+    columnFilters.value = {
+      ...columnFilters.value,
+      isCustom: value
+    }
+  }
+})
 
 function formatBytes(bytes: number) {
   if (bytes === 0) return '0 B'
@@ -320,30 +351,20 @@ function formatBytes(bytes: number) {
           </UInput>
 
           <USelectMenu
-            v-model="columnFilters['isQuotaExceeded']"
+            v-model="quotaExceededFilter"
             :items="statusOptions"
             value-key="value"
             placeholder="All statuses"
             class="w-full sm:w-40"
-          >
-            <template #label>
-              <span v-if="columnFilters['isQuotaExceeded']">{{ columnFilters['isQuotaExceeded'] === 'true' ? 'Exceeded' : 'OK' }}</span>
-              <span v-else class="text-muted">All Statuses</span>
-            </template>
-          </USelectMenu>
+          />
 
           <USelectMenu
-            v-model="columnFilters['isCustom']"
+            v-model="customQuotaFilter"
             :items="customOptions"
             value-key="value"
             placeholder="All types"
             class="w-full sm:w-40"
-          >
-            <template #label>
-              <span v-if="columnFilters['isCustom']">{{ columnFilters['isCustom'] === 'true' ? 'Custom' : 'Default' }}</span>
-              <span v-else class="text-muted">All Types</span>
-            </template>
-          </USelectMenu>
+          />
 
           <UButton
             v-if="activeFilters.length > 0"
@@ -422,7 +443,7 @@ function formatBytes(bytes: number) {
       </div>
 
       <div>
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             :data="paginatedRows"
             :columns="columns"
@@ -440,14 +461,11 @@ function formatBytes(bytes: number) {
           <div class="flex items-center gap-4">
             <USelect
               v-model="itemsPerPage"
-              :items="[10, 25, 50, 100]"
+              :items="itemsPerPageOptions"
+              value-key="value"
               class="w-32"
               size="sm"
-            >
-              <template #label>
-                {{ itemsPerPage }} per page
-              </template>
-            </USelect>
+            />
 
             <UPagination
               v-model:page="page"

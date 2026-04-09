@@ -7,14 +7,20 @@ defineProps<{
   collapsed?: boolean
 }>()
 
+interface WorkspaceOption {
+  id: string
+  name: string
+  label: string
+}
+
 const overlay = useOverlay()
 const workspaceCreateModal = overlay.create(LazyWorkspaceSlideoverCreate)
 const workspaceStore = useWorkspaceStore()
 const { user } = useUserSession()
 
-const { data: workspaces } = await useFetch('/api/workspaces', {
+const { data: workspaces } = await useFetch<WorkspaceOption[]>('/api/workspaces', {
   key: globalKey('workspaces', 'list'),
-  transform: workspaces => workspaces.map(workspace => ({ ...workspace, label: workspace.name }))
+  transform: (entries: WorkspaceOption[]) => entries.map(workspace => ({ ...workspace, label: workspace.name }))
 })
 
 const isAdminMode = computed(() => workspaceStore.isAdminMode)
@@ -79,7 +85,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
     variant="ghost"
     :class="isAdminMode ? 'bg-warning/20' : ''"
     :ui="{
-      base: collapsed ? 'pe-2 px-2' : 'justify-end max-w-fit truncate max-w-8/11',
+      base: collapsed ? 'pe-2 px-2' : 'justify-end max-w-full truncate',
       trailing: collapsed ? 'absolute inset-y-0 end-0 flex items-center pe-0' : '',
       content: 'w-[20rem]'
     }"

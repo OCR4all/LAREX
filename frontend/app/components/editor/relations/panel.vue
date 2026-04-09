@@ -11,6 +11,7 @@ import {
   createEmptyRelationDraft,
   getRelationDisplayLabel,
   getRelationTypeOptions,
+  normalizeRelation,
   normalizeOptionalRelationString,
   relationToDraft,
   type RelationDraftState
@@ -108,7 +109,7 @@ function createRelationFromDraft(): void {
   const ctx = getCommandContext()
   const result = props.commander.execute(
     new CreateRelationCommand({
-      relation: draft.value
+      relation: normalizeRelation(draft.value)
     }),
     ctx
   )
@@ -129,10 +130,10 @@ function saveSelectedRelation(): void {
   const result = props.commander.execute(
     new UpdateRelationCommand({
       relationId: selectedRelation.value.id,
-      relation: {
+      relation: normalizeRelation({
         ...selectedRelation.value,
         ...selectedDraft.value
-      } as Relation
+      })
     }),
     ctx
   )

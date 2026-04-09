@@ -107,6 +107,18 @@ const manifestFile = ref<File | null>(null)
 const preview = ref<PreviewJobResponse | null>(null)
 const job = ref<JobResponse | null>(null)
 const resolutions = ref<Record<string, ResolutionState>>({})
+
+function ensureResolutionState(canvasId: string): ResolutionState {
+  const existing = resolutions.value[canvasId]
+  if (existing) return existing
+
+  const nextState: ResolutionState = {
+    action: 'KEEP_EXISTING',
+    pageName: ''
+  }
+  resolutions.value[canvasId] = nextState
+  return nextState
+}
 const selectedCanvasIds = ref<string[]>([])
 const rangeStart = ref<number | null>(null)
 const rangeEnd = ref<number | null>(null)
@@ -791,7 +803,7 @@ function applyCanvasRange() {
               </div>
 
               <URadioGroup
-                v-model="resolutions[canvas.canvasId].action"
+                v-model="ensureResolutionState(canvas.canvasId).action"
                 :items="[
                   { label: 'Skip', value: 'KEEP_EXISTING' },
                   { label: 'Rename', value: 'RENAME' },
@@ -803,7 +815,7 @@ function applyCanvasRange() {
                 v-if="resolutions[canvas.canvasId]?.action === 'RENAME'"
                 label="New page name"
               >
-                <UInput v-model="resolutions[canvas.canvasId].pageName" />
+                <UInput v-model="ensureResolutionState(canvas.canvasId).pageName" />
               </UFormField>
             </div>
           </div>

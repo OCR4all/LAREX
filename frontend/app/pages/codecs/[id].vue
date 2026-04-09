@@ -13,12 +13,13 @@ const toast = useToast()
 const { allow } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
-const codecListKey = computed(() => wsKey(selectedWorkspace.value, 'codecs', 'list'))
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
+const codecListKey = computed(() => wsKey(workspaceId.value, 'codecs', 'list'))
 
 const id = route.params.id as string
 const isNew = id === 'new'
 
-const codecKey = computed(() => wsKey(selectedWorkspace.value, 'codecs', id))
+const codecKey = computed(() => wsKey(workspaceId.value, 'codecs', id))
 const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const defaultCodec: Codec = {
@@ -424,7 +425,7 @@ const handleGenerateFromSources = async () => {
   if (!canEditCodec.value) return
   const instance = codecActionSlideover.open({
     mode: 'generate',
-    workspaceId: selectedWorkspace.value,
+    workspaceId: workspaceId.value,
     sources: [],
     allowSourceEditing: true
   })
@@ -448,7 +449,7 @@ const handleGenerateFromSources = async () => {
 const handleValidateAgainstSources = async () => {
   const instance = codecActionSlideover.open({
     mode: 'validate',
-    workspaceId: selectedWorkspace.value,
+    workspaceId: workspaceId.value,
     sources: [],
     defaultCodecId: isNew ? null : id,
     allowSourceEditing: true
@@ -489,7 +490,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       items.push({
         label: 'Share codec',
         icon: 'i-lucide-share-2',
-        onSelect: () => shareSlideover.open({ resourceId: id, resourceName: name.value, resourceType: 'CODEC', currentWorkspaceId: selectedWorkspace.value })
+        onSelect: () => shareSlideover.open({ resourceId: id, resourceName: name.value, resourceType: 'CODEC', currentWorkspaceId: workspaceId.value })
       })
     }
     if (canDeleteCodec.value) {

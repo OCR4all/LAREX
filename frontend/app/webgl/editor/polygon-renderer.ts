@@ -41,7 +41,7 @@ export class PolygonRenderer {
     hoveredNodeIndex: number,
     draggedNodeInfo: any,
     isInvalidPosition: boolean,
-    nodeColor?: number[] // Optional custom color for nodes
+    nodeColor?: readonly number[] // Optional custom color for nodes
   ): void {
     if (selectedIndex < 0 || selectedIndex >= polygons.length) return
 

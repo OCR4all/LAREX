@@ -17,6 +17,12 @@ interface InvitedUser {
   role: 'CURATOR' | 'EDITOR'
 }
 
+function getAsyncDataErrorMessage(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const candidate = error as { data?: { message?: string }, message?: string }
+  return candidate.data?.message || candidate.message
+}
+
 const emit = defineEmits<{ close: [boolean] }>()
 
 const workspaceStore = useWorkspaceStore()
@@ -118,7 +124,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     }))
 
     if (error.value) {
-      const errorMessage = error.value.data?.message || error.value.message || 'An error occurred'
+      const errorMessage = getAsyncDataErrorMessage(error.value) || 'An error occurred'
       toast.add({
         title: 'Error',
         description: errorMessage,

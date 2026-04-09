@@ -1,8 +1,15 @@
 import { setCursor } from '@/utils/editor/cursor-manager'
 import { computeAutoParentPreview } from '@/utils/editor/auto-parent-utils'
 import type { View, AspectRatioScale, Point } from '@/models/editor'
-import type { MouseInteraction, PolygonDrawing, PolylineDrawing, RectangleDrawing, PolygonEditing, PolylineEditing } from './use-editor-interactions'
-import type { CutDrawing } from './editor-interactions/types'
+import type {
+  MouseInteraction,
+  PolygonDrawing,
+  PolylineDrawing,
+  RectangleDrawing,
+  PolygonEditing,
+  PolylineEditing,
+  CutDrawing
+} from './editor-interactions/types'
 import type { WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 import type { RenderStats } from './use-render-queue'
@@ -13,14 +20,14 @@ export type TriangulateFunction = (points: Point[]) => number[]
 export interface WebGLRenderer {
   renderFrame: (renderState: WebGLRenderState, aspectRatioScale: Ref<AspectRatioScale>, view: View, triangulatePolygon: TriangulateFunction) => void
   initGL: (triangulatePolygon: TriangulateFunction) => void
-  loadAndRender: (src: string) => void
+  loadAndRender: (src: string) => Promise<void>
   cleanup: () => void
-  gl: () => WebGLRenderingContext | null
+  gl: () => WebGL2RenderingContext | null
   imageSize: Ref<{ width: number, height: number }>
   invalidateGeometry: (id: string) => void
   invalidateMultipleGeometry: (ids: string[]) => void
   clearGeometryCache: () => void
-  pruneGeometryCache: (activePolygonIds: string[]) => void
+  pruneGeometryCache: (activePolygonIds: Set<string>) => void
   getGeometryCacheStats: () => unknown
   startReadingOrderAnimation: () => void
   stopReadingOrderAnimation: () => void
@@ -41,7 +48,7 @@ export interface UseEditorRendererReturn {
  * Handles WebGL rendering, watches for state changes, and cursor updates.
  */
 export function useEditorRenderer(
-  canvas: Ref<HTMLElement | null>,
+  canvas: Ref<HTMLCanvasElement | null>,
   polygons: WebGLRenderState['polygons'],
   polylines: WebGLRenderState['polylines'],
   selectedPolygonIndex: Ref<number>,
@@ -213,7 +220,7 @@ export function useEditorRenderer(
       () => cutDrawing?.rectPreviewPoints,
       () => cutDrawing?.isRectDrawing,
       () => cutDrawing?.isInvalidPosition,
-      () => moveInteraction?.state.isMoving,
+      () => moveInteraction?.isMoving(),
       () => moveInteraction?.state.isInvalid,
       bufferPreview,
       view,

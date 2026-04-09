@@ -2,6 +2,18 @@
 import type { TaskLinks, TaskPageLink } from '~/types/index'
 import { LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks } from '#components'
 
+type ProjectPageGroup = {
+  projectId: string
+  projectName: string
+  pages: TaskPageLink[]
+}
+
+type ProjectAccordionItem = {
+  value: string
+  label: string
+  icon: string
+}
+
 const props = defineProps<{
   taskId: string
   workspaceId: string
@@ -22,8 +34,8 @@ const convertToSubtasksModal = overlay.create(LazyTaskModalConvertToSubtasks)
 
 const linkedPageIds = computed(() => props.links.pageLinks.map(l => l.pageId))
 
-const pagesByProject = computed(() => {
-  const groups = new Map<string, { projectId: string; projectName: string; pages: TaskPageLink[] }>()
+const pagesByProject = computed<ProjectPageGroup[]>(() => {
+  const groups = new Map<string, ProjectPageGroup>()
 
   for (const link of props.links.pageLinks) {
     const projectId = link.projectId || 'unknown'
@@ -42,6 +54,18 @@ const pagesByProject = computed(() => {
       pages: group.pages.slice().sort((a, b) => a.pageName.localeCompare(b.pageName))
     }))
 })
+
+const accordionItems = computed<ProjectAccordionItem[]>(() =>
+  pagesByProject.value.map(group => ({
+    value: group.projectId,
+    label: group.projectName,
+    icon: 'i-lucide-folder'
+  }))
+)
+
+function getProjectGroup(projectId: string): ProjectPageGroup | undefined {
+  return pagesByProject.value.find(group => group.projectId === projectId)
+}
 
 const openProjects = ref<string[]>([])
 
@@ -126,12 +150,7 @@ async function unlinkAllPagesFromProject(projectId: string) {
       <UAccordion
         v-model="openProjects"
         type="multiple"
-        :items="pagesByProject.map(group => ({
-          value: group.projectId,
-          label: group.projectName,
-          icon: 'i-lucide-folder',
-          content: group
-        }))"
+        :items="accordionItems"
         :ui="{
           item: 'border border-default rounded-sm mb-2 last:mb-0 overflow-hidden'
         }"
@@ -143,11 +162,11 @@ async function unlinkAllPagesFromProject(projectId: string) {
         </template>
 
         <template #default="{ item }">
-          <div class="flex items-center justify-between flex-1">
+          <div v-if="getProjectGroup(item.value)" class="flex items-center justify-between flex-1">
             <div class="flex items-center gap-2">
               <span class="font-medium">{{ item.label }}</span>
               <UBadge size="xs" color="neutral" variant="subtle">
-                {{ item.content.pages.length }} page{{ item.content.pages.length !== 1 ? 's' : '' }}
+                {{ getProjectGroup(item.value)?.pages.length }} page{{ (getProjectGroup(item.value)?.pages.length ?? 0) !== 1 ? 's' : '' }}
               </UBadge>
             </div>
             <UButton
@@ -156,15 +175,15 @@ async function unlinkAllPagesFromProject(projectId: string) {
               color="neutral"
               variant="ghost"
               title="Unlink all pages from this project"
-              @click.stop="unlinkAllPagesFromProject(item.content.projectId)"
+              @click.stop="unlinkAllPagesFromProject(item.value)"
             />
           </div>
         </template>
 
         <template #body="{ item }">
-          <div class="space-y-1 p-2 bg-elevated/30">
+          <div v-if="getProjectGroup(item.value)" class="space-y-1 p-2 bg-elevated/30">
             <div
-              v-for="page in item.content.pages"
+              v-for="page in getProjectGroup(item.value)?.pages"
               :key="page.id"
               class="flex items-center justify-between gap-2 p-2 rounded-sm hover:bg-default transition-colors"
             >

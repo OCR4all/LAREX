@@ -163,11 +163,11 @@ describe('useEditorCommandCenter', () => {
     expect(shortcuts.meta_k).toBeTruthy()
     expect(shortcuts.ctrl_k).toBeTruthy()
 
-    shortcuts.meta_k.handler()
+    shortcuts.meta_k!.handler()
     expect(api.open.value).toBe(true)
 
     api.closeCommandCenter()
-    shortcuts.ctrl_k.handler()
+    shortcuts.ctrl_k!.handler()
     expect(api.open.value).toBe(true)
   })
 })

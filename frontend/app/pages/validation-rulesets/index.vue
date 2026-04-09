@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import { h } from 'vue'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { Row } from '@tanstack/vue-table'
 import type { ValidationRulesetSummary } from '@/types/validation-ruleset'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover } from '#components'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UPopover = resolveComponent('UPopover')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const NuxtLink = resolveComponent('NuxtLink')
+const UButton = resolveUiComponent('UButton')
+const UBadge = resolveUiComponent('UBadge')
+const UPopover = resolveUiComponent('UPopover')
+const UDropdownMenu = resolveUiComponent('UDropdownMenu')
+const NuxtLink = resolveUiComponent('NuxtLink')
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -20,11 +21,12 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
-const rulesetsKey = computed(() => wsKey(selectedWorkspace.value, 'validation-rulesets', 'list'))
+const rulesetsKey = computed(() => wsKey(workspaceId.value, 'validation-rulesets', 'list'))
 
-const { data: rulesets } = await useFetch<ValidationRulesetSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/validation-rulesets`, {
+const { data: rulesets } = await useFetch<ValidationRulesetSummary[]>(() => `/api/workspaces/${workspaceId.value}/validation-rulesets`, {
   key: rulesetsKey,
   default: () => []
 })
@@ -88,7 +90,7 @@ const handleDelete = async (row: ValidationRulesetSummary) => {
   if (!confirmed) return
 
   try {
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/validation-rulesets/${row.id}`, { method: 'DELETE' })
+    await $fetch(`/api/workspaces/${workspaceId.value}/validation-rulesets/${row.id}`, { method: 'DELETE' })
     toast.add({ title: 'Validation ruleset deleted', color: 'success' })
     await refreshNuxtData(rulesetsKey.value)
   } catch {
@@ -96,20 +98,22 @@ const handleDelete = async (row: ValidationRulesetSummary) => {
   }
 }
 
-const items = (row: ValidationRulesetSummary) => compactGroups([[
-  allow(row.capabilities?.canEdit)
-    ? { label: 'Edit', icon: 'i-lucide-edit', onSelect: () => navigateTo(`/validation-rulesets/${row.id}`) }
-    : null,
-  allow(row.capabilities?.canDelete)
-    ? { label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => handleDelete(row) }
-    : null
-].filter(Boolean) as Array<Record<string, unknown>>])
+const items = (row: ValidationRulesetSummary): DropdownMenuItem[][] => {
+  const actions: DropdownMenuItem[] = []
+  if (allow(row.capabilities?.canEdit)) {
+    actions.push({ label: 'Edit', icon: 'i-lucide-edit', onSelect: () => navigateTo(`/validation-rulesets/${row.id}`) })
+  }
+  if (allow(row.capabilities?.canDelete)) {
+    actions.push({ label: 'Delete', icon: 'i-lucide-trash', color: 'error', onSelect: () => handleDelete(row) })
+  }
+  return compactGroups([actions])
+}
 
 const contextMenuRuleset = ref<ValidationRulesetSummary | null>(null)
 const contextMenuItems = computed(() => contextMenuRuleset.value ? items(contextMenuRuleset.value) : [])
 
-function handleRowContextMenu(_event: Event, row: { original: ValidationRulesetSummary }) {
-  contextMenuRuleset.value = row.original as ValidationRulesetSummary
+function handleRowContextMenu(_event: Event, row: Row<ValidationRulesetSummary>) {
+  contextMenuRuleset.value = row.original
 }
 
 const emptyStateActions = computed(() => {
@@ -191,7 +195,7 @@ const emptyStateActions = computed(() => {
         :actions="emptyStateActions"
       />
       <div v-else-if="rulesets">
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             :data="paginatedData"
             :columns="columns"

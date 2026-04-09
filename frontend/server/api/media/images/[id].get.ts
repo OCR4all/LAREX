@@ -51,7 +51,10 @@ export default defineEventHandler(async (event) => {
     setHeader(event, 'Content-Type', contentType)
   }
   if (contentLength) {
-    setHeader(event, 'Content-Length', contentLength)
+    const parsedContentLength = Number.parseInt(contentLength, 10)
+    if (Number.isFinite(parsedContentLength)) {
+      setHeader(event, 'Content-Length', parsedContentLength)
+    }
   }
 
   try {

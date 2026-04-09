@@ -38,12 +38,9 @@ function stableStringify(value: unknown): string {
 }
 
 function toRegionNode(region: RegionDto): CollaborativeRegionNode {
+  const { nestedRegions: _nestedRegions, textLines: _textLines, ...regionData } = structuredClone(region)
   return {
-    data: {
-      ...structuredClone(region),
-      nestedRegions: undefined,
-      textLines: undefined
-    },
+    data: regionData,
     childRegionIds: (region.nestedRegions ?? []).map(child => child.id),
     textLineIds: (region.textLines ?? []).map(line => line.id)
   }
@@ -106,13 +103,15 @@ export function isSnapshotEmpty(snapshot: CollaborationPageSnapshot | null | und
 }
 
 export function snapshotFromPageDto(page: PageDto): CollaborationPageSnapshot {
+  const {
+    regions: _regions,
+    relations: _relations,
+    readingOrder: _readingOrder,
+    ...pageData
+  } = structuredClone(page)
+
   const snapshot: CollaborationPageSnapshot = {
-    page: {
-      ...structuredClone(page),
-      regions: undefined,
-      relations: undefined,
-      readingOrder: undefined
-    },
+    page: pageData,
     rootRegionIds: (page.regions ?? []).map(region => region.id),
     regions: {},
     textLines: {},

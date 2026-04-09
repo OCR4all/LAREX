@@ -1,5 +1,8 @@
 import type { Point } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import { watch, type WatchOptions, type WatchSource } from 'vue'
+
+type SimpleWatchCallback<T> = (newVal: T, oldVal: T) => void
 
 /**
  * Custom equality checker for points
@@ -149,7 +152,7 @@ export function shallowCopyPolylineArray(polylines: RenderablePolyline[]): Rende
  */
 export function watchPolygonArray(
   source: WatchSource<RenderablePolygon[]>,
-  callback: WatchCallback<RenderablePolygon[], RenderablePolygon[]>,
+  callback: SimpleWatchCallback<RenderablePolygon[]>,
   options?: Omit<WatchOptions, 'deep'>
 ) {
   let previousCopy: RenderablePolygon[] | null = null
@@ -165,7 +168,7 @@ export function watchPolygonArray(
 
       const previousVal = previousCopy || (oldVal ?? [])
       previousCopy = newCopy
-      callback(newVal, previousVal, () => {})
+      callback(newVal, previousVal)
     },
     { ...options, deep: true }
   )
@@ -176,7 +179,7 @@ export function watchPolygonArray(
  */
 export function watchPolylineArray(
   source: WatchSource<RenderablePolyline[]>,
-  callback: WatchCallback<RenderablePolyline[], RenderablePolyline[]>,
+  callback: SimpleWatchCallback<RenderablePolyline[]>,
   options?: Omit<WatchOptions, 'deep'>
 ) {
   let previousCopy: RenderablePolyline[] | null = null
@@ -192,7 +195,7 @@ export function watchPolylineArray(
 
       const previousVal = previousCopy || (oldVal ?? [])
       previousCopy = newCopy
-      callback(newVal, previousVal, () => {})
+      callback(newVal, previousVal)
     },
     { ...options, deep: true }
   )
@@ -219,7 +222,7 @@ export function watchPolylineArray(
  */
 export function watchWithEquality<T>(
   source: WatchSource<T>,
-  callback: WatchCallback<T, T>,
+  callback: SimpleWatchCallback<T>,
   equalityFn: (a: T, b: T) => boolean,
   options?: WatchOptions
 ) {
@@ -232,9 +235,9 @@ export function watchWithEquality<T>(
         return
       }
 
-      const previousVal = (previousValue ?? oldVal) as T
+      const previousVal = previousValue ?? oldVal ?? newVal
       previousValue = newVal
-      callback(newVal, previousVal, () => {})
+      callback(newVal, previousVal)
     },
     options
   )
@@ -260,8 +263,8 @@ export function watchWithEquality<T>(
  * );
  * ```
  */
-export function batchWatch<T extends readonly unknown[]>(
-  sources: [...T],
+export function batchWatch(
+  sources: ReadonlyArray<WatchSource<unknown>>,
   callback: () => void,
   debounceMs = 0
 ): () => void {
@@ -290,7 +293,7 @@ export function batchWatch<T extends readonly unknown[]>(
   }
 
   const stopHandles = sources.map(source =>
-    watch(source as WatchSource, scheduleCallback, { deep: true })
+    watch(source, scheduleCallback, { deep: true })
   )
 
   return () => {
@@ -321,7 +324,7 @@ export function batchWatch<T extends readonly unknown[]>(
  */
 export function watchThrottled<T>(
   source: WatchSource<T>,
-  callback: WatchCallback<T, T>,
+  callback: SimpleWatchCallback<T>,
   throttleMs: number,
   options?: WatchOptions
 ) {
@@ -332,7 +335,7 @@ export function watchThrottled<T>(
   const executeCallback = () => {
     if (pendingArgs) {
       lastCallTime = Date.now()
-      callback(pendingArgs.newVal, pendingArgs.oldVal, () => {})
+      callback(pendingArgs.newVal, pendingArgs.oldVal)
       pendingArgs = null
       timeoutId = null
     }
@@ -344,7 +347,7 @@ export function watchThrottled<T>(
       const now = Date.now()
       const timeSinceLastCall = now - lastCallTime
 
-      pendingArgs = { newVal, oldVal: oldVal as T }
+      pendingArgs = { newVal, oldVal: oldVal ?? newVal }
 
       if (timeSinceLastCall >= throttleMs) {
         executeCallback()

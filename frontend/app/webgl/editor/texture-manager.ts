@@ -41,7 +41,7 @@ export class TextureManager {
       return cached.slot
     }
 
-    let availableSlot = WEBGL_TEXTURE.SLOT_NOT_FOUND
+    let availableSlot: number = WEBGL_TEXTURE.SLOT_NOT_FOUND
     for (let i = WEBGL_TEXTURE.FIRST_DYNAMIC_SLOT; i < this.maxTextureSlots; i++) { // Start from 1 (0 is reserved)
       if (!this.textureSlots.has(i)) {
         availableSlot = i
@@ -114,7 +114,7 @@ export class TextureManager {
      * Evict least recently used texture
      */
   private evictLRU(): number {
-    let oldestSlot = WEBGL_TEXTURE.SLOT_NOT_FOUND
+    let oldestSlot: number = WEBGL_TEXTURE.SLOT_NOT_FOUND
     let oldestTime = Date.now()
 
     for (const [slot, data] of this.textureSlots) {

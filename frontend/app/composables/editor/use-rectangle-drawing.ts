@@ -9,6 +9,7 @@ import { findParentPolygon, areAllPointsWithinParentBounds } from '@/utils/edito
 import { validatePolygonParent } from '@/utils/editor/hierarchy-validation'
 import { createScopedLogger } from '@/services/editor/logger-service'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
+import type { HierarchyItem } from '@/utils/editor/hierarchy-validation'
 
 const log = createScopedLogger('RectangleDrawing')
 
@@ -43,6 +44,14 @@ export function useRectangleDrawing(
   const previewPoints = reactive<Point[]>([])
   const isDrawing = ref<boolean>(false)
   const isInvalidPosition = ref<boolean>(false)
+
+  function getHierarchyPolygons(): HierarchyItem[] {
+    return (allPolygons ?? []).map(polygon => ({
+      id: polygon.id,
+      type: polygon.type ?? PolygonType.REGION,
+      parentId: polygon.parentId
+    }))
+  }
 
   /**
    * Start drawing a rectangle from the given point.
@@ -144,7 +153,11 @@ export function useRectangleDrawing(
     if (!isDrawing.value) return false
 
     const currentType = regionType?.value || PolygonType.REGION
-    log.debug('Creating rectangle with type:', currentType, 'regionType?.value:', regionType?.value, 'viewMode:', viewMode?.value)
+    log.debug('Creating rectangle', {
+      currentType,
+      regionType: regionType?.value,
+      viewMode: viewMode?.value
+    })
 
     const isTextlineViewMode = viewMode?.value === 'textline'
     const isCreatingTextline = currentType === PolygonType.TEXTLINE
@@ -177,7 +190,7 @@ export function useRectangleDrawing(
 
       if (!selectedPolygon) return false
 
-      const validation = validatePolygonParent(currentType, selectedPolygon.id, allPolygons || [])
+      const validation = validatePolygonParent(currentType, selectedPolygon.id, getHierarchyPolygons())
 
       if (validation.valid) {
         parentId = selectedPolygon.id
@@ -191,7 +204,7 @@ export function useRectangleDrawing(
         return false
       }
     } else {
-      const validation = validatePolygonParent(currentType, undefined, allPolygons || [])
+      const validation = validatePolygonParent(currentType, undefined, getHierarchyPolygons())
 
       if (!validation.valid) {
         log.warn(`Cannot create ${currentType} without parent: ${validation.error}`)
@@ -268,10 +281,12 @@ export function useRectangleDrawing(
   function handleMouseDown(
     _e: MouseEvent,
     getWorldCoordsFromEvent: (e: MouseEvent, canvas: HTMLCanvasElement, view: View, aspectRatioScale: AspectRatioScale) => Point,
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     view: View,
     aspectRatioScale: AspectRatioScale
   ): boolean {
+    if (!canvas) return false
+
     if (isDrawing.value) {
       return finishRectangle()
     } else {
@@ -293,11 +308,11 @@ export function useRectangleDrawing(
   function handleMouseMove(
     e: MouseEvent,
     getWorldCoordsFromEvent: (e: MouseEvent, canvas: HTMLCanvasElement, view: View, aspectRatioScale: AspectRatioScale) => Point,
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     view: View,
     aspectRatioScale: AspectRatioScale
   ): void {
-    if (!isDrawing.value) return
+    if (!isDrawing.value || !canvas) return
 
     const point = getWorldCoordsFromEvent(e, canvas, view, aspectRatioScale)
     updateRectangle(point)

@@ -118,10 +118,10 @@ const isLoading = computed(() => tagSetStatus.value === 'pending')
       multiple
       clear-search-on-close
     >
-      <template #item="{ item, selected }">
+      <template #item="{ item }">
         <div class="flex items-center gap-2 w-full">
           <UIcon
-            v-if="selected"
+            v-if="props.modelValue.includes(item.value)"
             name="i-lucide-check"
             class="w-4 h-4 text-primary-500 shrink-0"
           />

@@ -5,6 +5,7 @@ import { useEditorCollaboration } from '@/composables/editor/use-editor-collabor
 import type { Command, CommandContext } from '@/commands/editor/types'
 import { PolygonType } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
+import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 
 export const DRAWING_MODES = {
   SELECT: 'select',
@@ -38,18 +39,7 @@ export interface DrawingModeState {
   value: DrawingMode
 }
 
-type ViewModeSelectionRuntime = {
-  selectedPolygonIndex?: Ref<number>
-  selectedPolylineIndex?: Ref<number>
-  selectedPolygonIds?: Ref<string[]>
-  selectedPolylineIds?: Ref<string[]>
-  selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-  selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-  unhoverPolygon?: () => void
-  unhoverPolyline?: () => void
-}
-
-export function useCanvasControl(canvasId: string) {
+export function useCanvasControl(canvasId: string): EditorCanvasControls {
   const commander = new Commander()
   const editorStore = useEditorStore()
   const editorUiStore = useEditorUiStore()
@@ -97,8 +87,10 @@ export function useCanvasControl(canvasId: string) {
   const rawRedo = commander.redo.bind(commander)
   const rawJumpToHistory = commander.jumpToHistory.bind(commander)
 
-  commander.execute = (command: Command, ctx?: CommandContext) => {
-    if (!isCanvasEditable.value) return false
+  commander.execute = <TResult>(command: Command<TResult>, ctx?: CommandContext): TResult => {
+    if (!isCanvasEditable.value) {
+      throw new Error(`Canvas "${canvasId}" is not editable.`)
+    }
     const result = rawExecute(command, ctx)
     updateHistoryState()
     return result
@@ -200,7 +192,7 @@ export function useCanvasControl(canvasId: string) {
   }
 
   const clearSelectionForViewModeChange = (): void => {
-    const runtime = controls as typeof controls & ViewModeSelectionRuntime
+    const runtime = controls
 
     runtime.selectPolygonById?.(null, { zoomToFit: false })
     runtime.selectPolylineById?.(null, { zoomToFit: false })
@@ -245,7 +237,7 @@ export function useCanvasControl(canvasId: string) {
     return `Mode: ${drawingMode.value.charAt(0).toUpperCase() + drawingMode.value.slice(1)}`
   })
 
-  const controls = {
+  const controls: EditorCanvasControls = {
     commander,
     isCanvasEditable,
 
@@ -287,7 +279,26 @@ export function useCanvasControl(canvasId: string) {
 
     canUndo,
     canRedo,
-    selectionInfo
+    selectionInfo,
+
+    polygons: undefined,
+    polylines: undefined,
+    spatialIndex: undefined,
+    selectedPolylineIndex: undefined,
+    selectedPolygonIds: undefined,
+    selectedPolylineIds: undefined,
+    hiddenPolygonIds: undefined,
+    hiddenPolylineIds: undefined,
+    pageId: undefined,
+    hoveredPolygonId: undefined,
+    hoveredPolylineId: undefined,
+    cutDrawing: undefined,
+    selectPolygonById: undefined,
+    selectPolylineById: undefined,
+    hoverPolygonById: undefined,
+    hoverPolylineById: undefined,
+    unhoverPolygon: undefined,
+    unhoverPolyline: undefined
   }
 
   return controls

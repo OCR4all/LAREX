@@ -79,7 +79,8 @@ const splitSliderValue = computed<number[]>({
     : [trainPercentage.value, trainPercentage.value + valPercentage.value],
   set: (value) => {
     const values = Array.isArray(value) ? value.map(entry => Number(entry)) : [Number(value)]
-    const firstThumb = Math.min(95, Math.max(5, Number.isFinite(values[0]) ? values[0] : 70))
+    const firstValue = values[0] ?? Number.NaN
+    const firstThumb = Math.min(95, Math.max(5, Number.isFinite(firstValue) ? firstValue : 70))
 
     if (state.splitTemplate === 'TRAIN_VAL') {
       trainPercentage.value = firstThumb
@@ -87,7 +88,8 @@ const splitSliderValue = computed<number[]>({
       return
     }
 
-    const secondThumb = Math.min(95, Math.max(firstThumb + 5, Number.isFinite(values[1]) ? values[1] : firstThumb + 15))
+    const secondValue = values[1] ?? Number.NaN
+    const secondThumb = Math.min(95, Math.max(firstThumb + 5, Number.isFinite(secondValue) ? secondValue : firstThumb + 15))
     trainPercentage.value = firstThumb
     valPercentage.value = secondThumb - firstThumb
   }

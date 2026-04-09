@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import { h } from 'vue'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { Row } from '@tanstack/vue-table'
 import type { LabelSet, LabelSetSummary } from '@/types/label-set'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover } from '#components'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UPopover = resolveComponent('UPopover')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const NuxtLink = resolveComponent('NuxtLink')
+const UButton = resolveUiComponent('UButton')
+const UBadge = resolveUiComponent('UBadge')
+const UPopover = resolveUiComponent('UPopover')
+const UDropdownMenu = resolveUiComponent('UDropdownMenu')
+const NuxtLink = resolveUiComponent('NuxtLink')
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -20,11 +21,12 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
-const labelSetsKey = computed(() => wsKey(selectedWorkspace.value, 'label-sets', 'list'))
+const labelSetsKey = computed(() => wsKey(workspaceId.value, 'label-sets', 'list'))
 
-const { data: labelSets } = await useFetch<LabelSetSummary[]>(() => `/api/workspaces/${selectedWorkspace.value}/label-sets`, {
+const { data: labelSets } = await useFetch<LabelSetSummary[]>(() => `/api/workspaces/${workspaceId.value}/label-sets`, {
   key: labelSetsKey,
   default: () => []
 })
@@ -115,7 +117,7 @@ const handleDelete = async (row: LabelSetRow) => {
   if (!confirmed) return
 
   try {
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/label-sets/${row.id}`, { method: 'DELETE' })
+    await $fetch(`/api/workspaces/${workspaceId.value}/label-sets/${row.id}`, { method: 'DELETE' })
     toast.add({ title: 'Label set deleted', color: 'success' })
     await refreshNuxtData(labelSetsKey.value)
   } catch {
@@ -138,7 +140,7 @@ const getDuplicateName = (baseName: string) => {
 const handleDuplicate = async (row: LabelSetRow) => {
   if (!allow(row.capabilities?.canEdit)) return
   try {
-    const source = await $fetch<LabelSet>(`/api/workspaces/${selectedWorkspace.value}/label-sets/${row.id}`)
+    const source = await $fetch<LabelSet>(`/api/workspaces/${workspaceId.value}/label-sets/${row.id}`)
     const name = getDuplicateName(source.meta?.name ?? row.name)
     const payload = {
       meta: {
@@ -149,7 +151,7 @@ const handleDuplicate = async (row: LabelSetRow) => {
       },
       labels: source.labels ?? []
     }
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/label-sets`, {
+    await $fetch(`/api/workspaces/${workspaceId.value}/label-sets`, {
       method: 'POST',
       body: payload
     })
@@ -160,10 +162,10 @@ const handleDuplicate = async (row: LabelSetRow) => {
   }
 }
 
-const items = (row: LabelSetRow) => {
+const items = (row: LabelSetRow): DropdownMenuItem[][] => {
   const canEdit = allow(row.capabilities?.canEdit)
   const canDelete = allow(row.capabilities?.canDelete)
-  const actions: any[] = []
+  const actions: DropdownMenuItem[] = []
 
   if (canEdit) {
     actions.push({
@@ -191,13 +193,13 @@ const items = (row: LabelSetRow) => {
 }
 
 const contextMenuLabelSet = ref<LabelSetRow | null>(null)
-const contextMenuItems = computed(() => {
+const contextMenuItems = computed<DropdownMenuItem[][]>(() => {
   if (!contextMenuLabelSet.value) return []
   return items(contextMenuLabelSet.value)
 })
 
-function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
-  contextMenuLabelSet.value = row.original as unknown as LabelSetRow
+function handleRowContextMenu(_event: Event, row: Row<LabelSetRow>) {
+  contextMenuLabelSet.value = row.original
 }
 
 const emptyStateActions = computed(() => {
@@ -355,7 +357,7 @@ const emptyStateActions = computed(() => {
         :actions="emptyStateActions"
       />
       <div v-else-if="labelSets">
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             data-tour="labels-table"
             :data="paginatedData"

@@ -30,7 +30,7 @@
           <UButton
             :loading="isChecking"
             size="xs"
-            color="white"
+            color="neutral"
             variant="outline"
             @click="retry"
           >

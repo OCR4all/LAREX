@@ -15,8 +15,8 @@ const scanResults = ref<ScanResults | null>(null)
 const isScanning = ref(false)
 const scanError = ref<string | null>(null)
 
-const selectedProjectId = ref<string | null>(null)
-const selectedWorkspaceId = ref<string | null>(null)
+const selectedProjectId = ref<string | undefined>(undefined)
+const selectedWorkspaceId = ref<string | undefined>(undefined)
 const overwriteExisting = ref(false)
 const isImporting = ref(false)
 
@@ -76,7 +76,7 @@ const { data: importJobs, refresh: refreshJobs } = await useFetch<ImportJob[]>('
 })
 
 watch(selectedWorkspaceId, () => {
-  selectedProjectId.value = null
+      selectedProjectId.value = undefined
   if (selectedWorkspaceId.value) {
     refreshProjects()
   }
@@ -179,7 +179,7 @@ async function startImport() {
     pathInput.value = ''
     pathValid.value = null
     scanResults.value = null
-    selectedProjectId.value = null
+    selectedProjectId.value = undefined
     overwriteExisting.value = false
 
     await refreshJobs()
@@ -220,7 +220,7 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
 }
 
-function getStatusColor(status: string): string {
+function getStatusColor(status: string): 'success' | 'error' | 'neutral' | 'primary' | 'warning' {
   switch (status) {
     case 'COMPLETED': return 'success'
     case 'FAILED': return 'error'
@@ -386,7 +386,7 @@ function getStatusColor(status: string): string {
                 variant="ghost"
                 size="xs"
                 icon="i-lucide-refresh-cw"
-                @click="refreshJobs"
+                @click="() => refreshJobs()"
               >
                 Refresh
               </UButton>

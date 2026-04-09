@@ -59,7 +59,8 @@ function getNotificationIcon(type: string) {
 
 function getGroupTitle(group: NotificationGroup): string {
   const count = group.items.length
-  if (count === 1) return group.items[0].title
+  const firstItem = group.items[0]
+  if (count === 1 && firstItem) return firstItem.title
   const typeLabels: Record<string, string> = {
     PAGE_CREATED: 'pages created',
     PAGE_DELETED: 'pages deleted',
@@ -74,6 +75,14 @@ function getGroupTitle(group: NotificationGroup): string {
     COLLAB_LEASE_EXPIRED: 'expired edit locks'
   }
   return `${count} ${typeLabels[group.type] || 'notifications'}`
+}
+
+function getSingleNotification(group: NotificationGroup): Notification {
+  const notification = group.items[0]
+  if (!notification) {
+    throw new Error(`Expected a single notification for group ${group.id}`)
+  }
+  return notification
 }
 
 async function acceptInvite(invitation: WorkspaceInvitation) {
@@ -298,23 +307,23 @@ async function handleArchiveAllRead() {
               <div
                 v-if="group.items.length === 1"
                 class="px-3 py-2.5 rounded-sm hover:bg-elevated/50 flex items-start gap-3 cursor-pointer"
-                :class="{ 'opacity-60': group.items[0].read }"
-                @click="handleNotificationClick(group.items[0])"
+                :class="{ 'opacity-60': getSingleNotification(group).read }"
+                @click="handleNotificationClick(getSingleNotification(group))"
               >
-                <UChip color="error" :show="!group.items[0].read" inset>
+                <UChip color="error" :show="!getSingleNotification(group).read" inset>
                   <div class="w-8 h-8 bg-muted/10 rounded-sm flex items-center justify-center">
                     <UIcon :name="getNotificationIcon(group.type)" class="w-4 h-4 text-muted" />
                   </div>
                 </UChip>
                 <div class="text-sm flex-1 min-w-0">
                   <p class="flex items-center justify-between gap-2">
-                    <span class="text-highlighted font-medium truncate">{{ group.items[0].title }}</span>
-                    <NuxtTime :datetime="group.items[0].created" relative class="text-muted text-xs shrink-0" />
+                    <span class="text-highlighted font-medium truncate">{{ getSingleNotification(group).title }}</span>
+                    <NuxtTime :datetime="getSingleNotification(group).created" relative class="text-muted text-xs shrink-0" />
                   </p>
                   <p class="text-dimmed truncate">
-                    {{ group.items[0].message }}
+                    {{ getSingleNotification(group).message }}
                   </p>
-                  <p v-if="getNotificationLink(group.items[0])" class="text-xs text-primary mt-1">
+                  <p v-if="getNotificationLink(getSingleNotification(group))" class="text-xs text-primary mt-1">
                     Click to view →
                   </p>
                 </div>

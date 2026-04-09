@@ -485,7 +485,7 @@ function handleEntryStats(payload: { totalEntries: number }) {
   entryCount.value = Number(payload.totalEntries ?? 0)
 }
 
-const emptyStateActions = computed(() => {
+const emptyStateActions = computed<Array<{ label: string, icon: string, color: 'neutral', variant: 'solid', onClick: () => void }>>(() => {
   if (!canEditDictionary.value || isBusy.value) return []
 
   return [{

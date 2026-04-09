@@ -21,7 +21,7 @@ const emit = defineEmits<{
 }>()
 
 const isOpen = ref(false)
-const selectedDate = ref<DateValue | undefined>(undefined)
+const selectedDate = ref<CalendarDate | undefined>(undefined)
 const selectedHour = ref('09')
 const selectedMinute = ref('00')
 
@@ -80,7 +80,7 @@ function applyModelToDraft(value: string) {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
   if (!match) return
 
-  const [, year, month, day, hour, minute] = match
+  const [, year = '0', month = '1', day = '1', hour = '09', minute = '00'] = match
   selectedDate.value = new CalendarDate(Number(year), Number(month), Number(day))
   selectedHour.value = hour
   selectedMinute.value = minute
@@ -109,6 +109,21 @@ function clearSelection() {
     emit('update:modelValue', '')
   }
 }
+
+const calendarModelValue = computed<DateValue | null>(() => {
+  const value = selectedDate.value
+  if (!value) return null
+  return value as DateValue
+})
+
+function handleCalendarChange(value: unknown) {
+  if (value && typeof value === 'object' && 'year' in value && 'month' in value && 'day' in value) {
+    selectedDate.value = new CalendarDate(Number(value.year), Number(value.month), Number(value.day))
+    return
+  }
+
+  selectedDate.value = undefined
+}
 </script>
 
 <template>
@@ -132,7 +147,8 @@ function clearSelection() {
     <template #content>
       <div class="w-[19rem] space-y-3 p-3">
         <UCalendar
-          v-model="selectedDate"
+          :model-value="calendarModelValue"
+          @update:model-value="handleCalendarChange"
           :month-controls="true"
           :year-controls="true"
         />

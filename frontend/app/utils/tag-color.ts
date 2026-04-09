@@ -30,7 +30,8 @@ function normalizeHex(hex: string): string {
 function hexToRgb(hex: string): RGB {
   let value = hex.replace(/^#/, '')
   if (value.length === 3) {
-    value = value[0] + value[0] + value[1] + value[1] + value[2] + value[2]
+    const [r = '0', g = '0', b = '0'] = value
+    value = r + r + g + g + b + b
   }
   const n = Number.parseInt(value, 16)
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
@@ -117,10 +118,13 @@ function hslToRgb({ h, s, l }: HSL): RGB {
 }
 
 function relativeLuminance({ r, g, b }: RGB): number {
-  const [rs, gs, bs] = [r, g, b].map((c) => {
+  const channels = [r, g, b].map((c) => {
     const s = c / 255
     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
   })
+  const rs = channels[0] ?? 0
+  const gs = channels[1] ?? 0
+  const bs = channels[2] ?? 0
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs
 }
 

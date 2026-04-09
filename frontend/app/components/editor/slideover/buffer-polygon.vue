@@ -61,7 +61,10 @@ watch([distance, previewPoints], () => {
 }, { immediate: true })
 
 const canSave = computed(() => distance.value !== 0 && !validationError.value)
-const save = () => canSave.value && emit('close', { distance: distance.value })
+const save = (): void => {
+  if (!canSave.value) return
+  emit('close', { distance: distance.value })
+}
 const cancel = () => emit('close', null)
 </script>
 

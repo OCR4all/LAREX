@@ -508,9 +508,6 @@ export function useEditorCommand(
         const polygon = target.element as RenderablePolygon
 
         const parts = item.id.replace('region-type-', '').split('-')
-        const newKind: RegionKind = kindParts.join('') as RegionKind
-        let newSubtype: string | undefined
-
         const kindParts: string[] = []
         const subtypeParts: string[] = []
         let foundRegion = false
@@ -526,6 +523,8 @@ export function useEditorCommand(
           }
         }
 
+        const newKind: RegionKind = kindParts.join('') as RegionKind
+        let newSubtype: string | undefined
         if (subtypeParts.length > 0) {
           newSubtype = subtypeParts.join('-')
         }

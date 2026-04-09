@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import { h } from 'vue'
+import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { Row } from '@tanstack/vue-table'
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover } from '#components'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
 
-const UButton = resolveComponent('UButton')
-const UBadge = resolveComponent('UBadge')
-const UPopover = resolveComponent('UPopover')
-const UDropdownMenu = resolveComponent('UDropdownMenu')
-const NuxtLink = resolveComponent('NuxtLink')
+const UButton = resolveUiComponent('UButton')
+const UBadge = resolveUiComponent('UBadge')
+const UPopover = resolveUiComponent('UPopover')
+const UDropdownMenu = resolveUiComponent('UDropdownMenu')
+const NuxtLink = resolveUiComponent('NuxtLink')
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -20,11 +21,12 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
-const keyboardsKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', 'list'))
+const keyboardsKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', 'list'))
 
-const { data: keyboards } = await useFetch<KeyboardLayout[]>(() => `/api/workspaces/${selectedWorkspace.value}/virtual-keyboards`, {
+const { data: keyboards } = await useFetch<KeyboardLayout[]>(() => `/api/workspaces/${workspaceId.value}/virtual-keyboards`, {
   key: keyboardsKey,
   default: () => []
 })
@@ -86,7 +88,7 @@ const handleDelete = async (row: KeyboardLayout) => {
   if (!confirmed) return
 
   try {
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/virtual-keyboards/${row.id}`, {
+    await $fetch(`/api/workspaces/${workspaceId.value}/virtual-keyboards/${row.id}`, {
       method: 'DELETE'
     })
     toast.add({ title: 'Keyboard deleted', color: 'success' })
@@ -96,8 +98,8 @@ const handleDelete = async (row: KeyboardLayout) => {
   }
 }
 
-const items = (row: KeyboardLayout) => {
-  const actions: any[] = []
+const items = (row: KeyboardLayout): DropdownMenuItem[][] => {
+  const actions: DropdownMenuItem[] = []
 
   if (allow(row.capabilities?.canEdit)) {
     actions.push({
@@ -120,13 +122,13 @@ const items = (row: KeyboardLayout) => {
 }
 
 const contextMenuKeyboard = ref<KeyboardLayout | null>(null)
-const contextMenuItems = computed(() => {
+const contextMenuItems = computed<DropdownMenuItem[][]>(() => {
   if (!contextMenuKeyboard.value) return []
   return items(contextMenuKeyboard.value)
 })
 
-function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
-  contextMenuKeyboard.value = row.original as unknown as KeyboardLayout
+function handleRowContextMenu(_event: Event, row: Row<KeyboardLayout>) {
+  contextMenuKeyboard.value = row.original
 }
 
 const emptyStateActions = computed(() => {
@@ -282,7 +284,7 @@ const emptyStateActions = computed(() => {
         :actions="emptyStateActions"
       />
       <div v-else-if="keyboards">
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             :data="paginatedData"
             :columns="columns"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import ImageItem from './item.vue'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -120,9 +121,15 @@ const virtualPageRows = computed<Array<{ item: VirtualItem, page: PageData }>>((
     })
 })
 
-function measureVirtualRow(el: Element | null) {
-  if (el instanceof HTMLElement) {
-    rowVirtualizer.value.measureElement(el)
+function measureVirtualRow(el: Element | ComponentPublicInstance | null) {
+  const element = el instanceof HTMLElement
+    ? el
+    : el && '$el' in el && el.$el instanceof HTMLElement
+      ? el.$el
+      : null
+
+  if (element) {
+    rowVirtualizer.value.measureElement(element)
   }
 }
 
@@ -234,7 +241,7 @@ function handlePageUnload(page: PageData) {
     <div v-else class="relative w-full" :style="{ height: `${totalSize}px` }">
       <div
         v-for="row in virtualPageRows"
-        :key="row.item.key"
+        :key="String(row.item.key)"
         :ref="measureVirtualRow"
         :data-index="row.item.index"
         :data-page-id="row.page.id"

@@ -70,6 +70,9 @@
     "unimport": "4.1.1"
   },
   "pnpm": {
+    "overrides": {
+      "vue-router": "5.0.3"
+    },
     "ignoredBuiltDependencies": [
       "@parcel/watcher",
       "esbuild",

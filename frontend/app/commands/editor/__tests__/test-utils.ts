@@ -12,6 +12,7 @@ import type { ReadingOrder } from '@/models/editor/reading-order'
 import type { TextRegion, Region } from '@/models/editor/region'
 import type { Relation } from '@/models/editor/page'
 import { createSpatialIndex } from '@/services/editor/spatial-index-service'
+import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import { shallowRef } from 'vue'
 
 /**
@@ -78,7 +79,7 @@ export function createMockSession(initialDocument?: PcGts): {
   const doc = initialDocument ?? createTestDocument()
   const documentRef = shallowRef<PcGts | null>(doc)
   const spatialIndex = createSpatialIndex()
-  const controlsRef = shallowRef<unknown | null>(null)
+  const controlsRef = shallowRef<EditorCanvasControls | null>(null)
   const textViewSettingsRef = shallowRef({
     mode: 'textline' as const,
     gtIndex: 0,

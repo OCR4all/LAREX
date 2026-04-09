@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Ref } from 'vue'
 import 'dockview-vue/dist/styles/dockview.css'
 import {
   LazyEditorModalOpenProjectPages,
@@ -55,6 +56,7 @@ import { useEditorTaskState } from '@/composables/editor/use-editor-task-state'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
+import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 
 definePageMeta({ layout: 'editor' })
 
@@ -961,36 +963,6 @@ function navigateImage(direction: 'next' | 'prev') {
   }
 }
 
-type EditorControls = {
-  polygons?: RenderablePolygon[]
-  polylines?: RenderablePolyline[]
-  selectedPolygonIndex?: { value: number }
-  selectedPolylineIndex?: { value: number }
-  selectedPolygonIds?: { value: string[] }
-  selectedPolylineIds?: { value: string[] }
-  hiddenPolygonIds?: { value: string[] }
-  hiddenPolylineIds?: { value: string[] }
-  pageId?: { value: string | null }
-  hoveredPolygonId?: { value: string | null }
-  hoveredPolylineId?: { value: string | null }
-  drawingMode?: { value: DrawingMode }
-  viewMode?: { value: ViewMode }
-  setViewMode?: (mode: ViewMode) => void
-  regionType?: { value: PolygonType }
-  commander?: Commander | null
-  handleUndo?: () => void
-  handleRedo?: () => void
-  toggleCutLineMode?: () => void
-  toggleCutPolygonMode?: () => void
-  toggleCutRectangleMode?: () => void
-  selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-  selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-  hoverPolygonById?: (id: string | null) => void
-  hoverPolylineById?: (id: string | null) => void
-  unhoverPolygon?: () => void
-  unhoverPolyline?: () => void
-}
-
 const activeCanvasId = computed(() => editorStore.activeCanvasId)
 const isSavingActiveCanvas = computed(() => {
   const id = activeCanvasId.value
@@ -1004,10 +976,10 @@ watch(activeUiMode, (mode) => {
   void maybeAutoStartContextTour('/editor', { editorMode: 'text' })
 })
 
-const activeControls = computed<EditorControls | null>(() => {
+const activeControls = computed<EditorCanvasControls | null>(() => {
   const id = activeCanvasId.value
   if (!id) return null
-  return (getEditorSession(id)?.controls.value as EditorControls | null) ?? null
+  return getEditorSession(id)?.controls.value ?? null
 })
 
 const activeSelectedPolygonId = computed(() => {
@@ -2251,7 +2223,7 @@ const {
 } = useEditorSessionRestore({
   route,
   selectedWorkspace,
-  dockviewApi,
+  dockviewApi: dockviewApi as unknown as Ref<DockviewReadyEvent['api'] | null>,
   loadPreferences: () => editorUiStore.loadPreferences(),
   clearSession: () => sessionStore.clearSession({ preserveTextViewSettings: true }),
   resetEditorState: () => editorStore.resetEditorState(),

@@ -215,7 +215,10 @@ async function addSubtask() {
 async function toggleSubtask(subtask: Subtask) {
   const index = localSubtasks.value.findIndex(s => s.id === subtask.id)
   if (index !== -1) {
-    localSubtasks.value[index] = { ...localSubtasks.value[index], completed: !localSubtasks.value[index].completed }
+    const current = localSubtasks.value[index]
+    if (current) {
+      localSubtasks.value[index] = { ...current, completed: !current.completed }
+    }
   }
 
   try {
@@ -225,7 +228,10 @@ async function toggleSubtask(subtask: Subtask) {
     emit('refresh')
   } catch (err: any) {
     if (index !== -1) {
-      localSubtasks.value[index] = { ...localSubtasks.value[index], completed: !localSubtasks.value[index].completed }
+      const current = localSubtasks.value[index]
+      if (current) {
+        localSubtasks.value[index] = { ...current, completed: !current.completed }
+      }
     }
     toast.add({ title: 'Failed to toggle subtask', description: err?.data?.message, color: 'error' })
   }
@@ -415,7 +421,7 @@ async function onDragEnd() {
       v-model="localSubtasks"
       item-key="id"
       handle=".drag-handle"
-      animation="150"
+      :animation="150"
       ghost-class="opacity-50"
       :disabled="selectionMode"
       @end="onDragEnd"

@@ -539,15 +539,15 @@ function convertTextStyleToDto(style?: TextStyleAttributes): TextStyleDto | unde
 }
 
 function convertTextContentVariantFromDto(dto: TextContentVariantDto): TextContentVariant {
-  return {
-    unicode: dto.unicode ?? '',
-    plainText: dto.plainText,
-    index: dto.index,
-    confidence: dto.confidence,
-    comments: dto.comments,
-    dataType: dto.dataType,
-    dataTypeDetails: dto.dataTypeDetails
-  }
+  return new TextContentVariant(
+    dto.unicode ?? '',
+    dto.plainText,
+    dto.confidence,
+    dto.index,
+    dto.dataType,
+    dto.dataTypeDetails,
+    dto.comments
+  )
 }
 
 function convertTextContentVariantToDto(te: TextContentVariant): TextContentVariantDto {

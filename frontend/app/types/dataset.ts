@@ -113,6 +113,13 @@ export interface DatasetRelease {
   manifestChecksumSha256?: string | null
   createdByUserId: string
   sourceDatasetUpdatedAt?: string | null
+  shareEnabled: boolean
+  shareSecretPrefix?: string | null
+  shareCreatedAt?: string | null
+  shareExpiresAt?: string | null
+  shareRevokedAt?: string | null
+  shareLastUsedAt?: string | null
+  shareDownloadCount: number
   created: string
   updated: string
 }
@@ -120,6 +127,17 @@ export interface DatasetRelease {
 export interface DatasetCreateReleaseRequest {
   versionTag?: string | null
   notes?: string | null
+}
+
+export interface DatasetReleaseShareRequest {
+  expiresAt: string
+}
+
+export interface DatasetReleaseShareResponse {
+  downloadUrl: string
+  secret: string
+  expiresAt: string
+  createdAt: string
 }
 
 export interface DatasetValidationResult {

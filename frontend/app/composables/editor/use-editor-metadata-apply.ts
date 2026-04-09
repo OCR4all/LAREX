@@ -91,13 +91,17 @@ export function useEditorMetadataApply(options: EditorMetadataApplyOptions) {
 
   function normalizeAlternativeImagesFromForm(images?: Array<{ filename?: string, comments?: string, confidence?: number }>): AlternativeImage[] | undefined {
     if (!images?.length) return undefined
-    const normalized = images
-      .map(image => ({
-        filename: normalizeOptionalMetadataString(image.filename),
+    const normalized = images.reduce<AlternativeImage[]>((acc, image) => {
+      const filename = normalizeOptionalMetadataString(image.filename)
+      if (!filename) return acc
+
+      acc.push({
+        filename,
         comments: normalizeOptionalMetadataString(image.comments),
         confidence: image.confidence
-      }))
-      .filter((image): image is AlternativeImage => typeof image.filename === 'string' && image.filename.length > 0)
+      })
+      return acc
+    }, [])
     return normalized.length > 0 ? normalized : undefined
   }
 

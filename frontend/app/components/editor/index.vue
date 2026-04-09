@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { WatchStopHandle } from 'vue'
 import { LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
 import { triangulatePolygon } from '@/utils/editor/hit-detection'
 import { clipToWorldCoords, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
@@ -6,6 +7,7 @@ import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { normalizeRelation } from '@/utils/editor/relations'
 import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
 import { useReadingOrderVisualization } from '@/composables/editor/use-reading-order-visualization'
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
@@ -168,7 +170,7 @@ const collaborationParticipants = computed<CollaborationDisplayParticipant[]>(()
   const editorId = room.lease.editor?.user.id ?? null
 
   return [...dedupedMembers.values()]
-    .map(member => ({
+    .map<CollaborationDisplayParticipant>(member => ({
       key: member.user.id,
       user: member.user,
       presence: member.presence,
@@ -205,7 +207,7 @@ const currentImageSrc = ref(props.src)
 
 const canvasControls = useCanvasControl(props.canvasId)
 
-const canvas = ref(null)
+const canvas = ref<HTMLCanvasElement | null>(null)
 const webglRenderer = useWebglRenderer(canvas)
 
 const editorState = useEditorState(session.spatialIndex)
@@ -317,8 +319,9 @@ const aspectRatioScale = computed(() => {
   const radians = -orientationDegrees * (Math.PI / 180)
   const rotationCos = Math.cos(radians)
   const rotationSin = Math.sin(radians)
-  const canvasWidth = canvasDimensions.value.width || gl?.canvas.clientWidth || 0
-  const canvasHeight = canvasDimensions.value.height || gl?.canvas.clientHeight || 0
+  const glCanvas = gl?.canvas instanceof HTMLCanvasElement ? gl.canvas : null
+  const canvasWidth = canvasDimensions.value.width || glCanvas?.clientWidth || 0
+  const canvasHeight = canvasDimensions.value.height || glCanvas?.clientHeight || 0
   const rotationAspect = (canvasWidth > 0 && canvasHeight > 0) ? (canvasWidth / canvasHeight) : 1
 
   if (!gl) {
@@ -453,8 +456,8 @@ watch(contextMenuOpen, (open) => {
   }
 })
 
-const bufferSlideoverRef = ref<{ previewPoints: ComputedRef<{ x: number, y: number }[] | null> } | null>(null)
-const bufferPreviewPoints = computed(() => bufferSlideoverRef.value?.previewPoints?.value ?? null)
+const bufferSlideoverRef = ref<{ previewPoints: { x: number, y: number }[] | null } | null>(null)
+const bufferPreviewPoints = computed(() => bufferSlideoverRef.value?.previewPoints ?? null)
 const bufferPreviewPolygonId = computed(() => editorCommands.pendingBufferPolygon.value?.id ?? null)
 
 const propertiesTarget = computed(() => editorCommands.pendingPropertiesTarget.value)
@@ -581,6 +584,7 @@ const editorRenderer = useEditorRenderer(
   moveInteraction,
   bufferPreviewForRenderer
 )
+const renderStats = computed(() => editorRenderer.renderStats.value)
 
 function getCommandContext() {
   return { canvasId: props.canvasId, session }
@@ -589,7 +593,7 @@ function getCommandContext() {
 function executeCreateRelationFromDraft() {
   const result = canvasControls.commander.execute(
     new CreateRelationCommand({
-      relation: editorUiStore.relationsEditor.draft
+      relation: normalizeRelation(editorUiStore.relationsEditor.draft)
     }),
     getCommandContext()
   )
@@ -666,7 +670,7 @@ watch(
 
 const showRenderStats = ref(false)
 if (import.meta.env.DEV) {
-  const toggleStats = (e) => {
+  const toggleStats = (e: KeyboardEvent) => {
     if (e.ctrlKey && e.shiftKey && e.key === 'R') {
       showRenderStats.value = !showRenderStats.value
     }
@@ -693,21 +697,35 @@ watch(() => editorUiStore.temporaryHoverPolylineId, () => {
   }
 })
 
-function handleSelectPolygon(polygonId, options = { zoomToFit: true }) {
+function handleSelectPolygon(polygonId: string | null, options?: { zoomToFit?: boolean }) {
+  if (!polygonId) {
+    stateActions.clearSelection()
+    return
+  }
   const index = stateActions.selectPolygonById(polygonId)
-  if (index >= 0 && options.zoomToFit) {
-    editorInteractions.centerViewOnPolygon(polygons[index])
+  if (index >= 0 && options?.zoomToFit !== false) {
+    const polygon = polygons[index]
+    if (polygon) {
+      editorInteractions.centerViewOnPolygon(polygon)
+    }
   }
 }
 
-function handleSelectPolyline(polylineId, options = { zoomToFit: true }) {
+function handleSelectPolyline(polylineId: string | null, options?: { zoomToFit?: boolean }) {
+  if (!polylineId) {
+    stateActions.clearSelection()
+    return
+  }
   const index = stateActions.selectPolylineById(polylineId)
-  if (index >= 0 && options.zoomToFit) {
-    editorInteractions.centerViewOnPolyline(polylines[index])
+  if (index >= 0 && options?.zoomToFit !== false) {
+    const polyline = polylines[index]
+    if (polyline) {
+      editorInteractions.centerViewOnPolyline(polyline)
+    }
   }
 }
 
-function handleHoverPolygon(polygonId) {
+function handleHoverPolygon(polygonId: string | null) {
   stateActions.setHoveredPolygonId(polygonId)
   const index = polygons.findIndex(p => p.id === polygonId)
   polygonEditing.hoveredPolygonIndex.value = index >= 0 ? index : -1
@@ -720,11 +738,13 @@ function handleUnhoverPolygon() {
   editorUiStore.setTemporaryHoverPolygonId(null)
 }
 
-function handleHoverPolyline(polylineId) {
+function handleHoverPolyline(polylineId: string | null) {
+  stateActions.setHoveredPolylineId(polylineId)
   editorUiStore.setTemporaryHoverPolylineId(polylineId)
 }
 
 function handleUnhoverPolyline() {
+  stateActions.setHoveredPolylineId(null)
   editorUiStore.setTemporaryHoverPolylineId(null)
 }
 
@@ -749,7 +769,7 @@ useResizeObserver(canvas, (width, height) => {
 })
 
 let interactionsAttached = false
-let stopUiModeWatch = null
+let stopUiModeWatch: WatchStopHandle | null = null
 
 function attachInteractions() {
   if (interactionsAttached) return
@@ -1516,29 +1536,29 @@ watch(() => props.src, (newSrc) => {
         </g>
       </svg>
 
-      <div v-if="showRenderStats && editorRenderer.renderStats" class="absolute top-2.5 right-2.5 bg-black/80 text-green-500 p-3 rounded-sm font-mono text-xs leading-relaxed min-w-[200px] pointer-events-none z-[1000]">
+      <div v-if="showRenderStats && renderStats" class="absolute top-2.5 right-2.5 bg-black/80 text-green-500 p-3 rounded-sm font-mono text-xs leading-relaxed min-w-[200px] pointer-events-none z-[1000]">
         <div class="font-bold mb-2 text-white border-b border-green-500 pb-1">
           Render Performance (Ctrl+Shift+R)
         </div>
         <div class="flex justify-between mb-1">
           <span class="text-neutral-400">FPS:</span>
-          <span class="font-bold">{{ editorRenderer.renderStats.rendersPerSecond }}</span>
+          <span class="font-bold">{{ renderStats.rendersPerSecond }}</span>
         </div>
         <div class="flex justify-between mb-1">
           <span class="text-neutral-400">Avg Frame:</span>
-          <span class="font-bold">{{ editorRenderer.renderStats.averageFrameTime.toFixed(2) }}ms</span>
+          <span class="font-bold">{{ renderStats.averageFrameTime.toFixed(2) }}ms</span>
         </div>
         <div class="flex justify-between mb-1">
           <span class="text-neutral-400">Max Frame:</span>
-          <span class="font-bold">{{ editorRenderer.renderStats.maxFrameTime.toFixed(2) }}ms</span>
+          <span class="font-bold">{{ renderStats.maxFrameTime.toFixed(2) }}ms</span>
         </div>
         <div class="flex justify-between mb-1">
           <span class="text-neutral-400">Total Renders:</span>
-          <span class="font-bold">{{ editorRenderer.renderStats.totalRenders }}</span>
+          <span class="font-bold">{{ renderStats.totalRenders }}</span>
         </div>
         <div class="flex justify-between mb-1">
           <span class="text-neutral-400">Batched:</span>
-          <span class="font-bold">{{ editorRenderer.renderStats.batchedRenders }}</span>
+          <span class="font-bold">{{ renderStats.batchedRenders }}</span>
         </div>
       </div>
 

@@ -3,7 +3,7 @@
  * This prevents UI jank when processing large or complex polygons.
  */
 
-import { triangulatePolygonPoints } from '@/utils/editor/hit-detection'
+import { triangulatePolygon } from '@/utils/editor/hit-detection'
 
 export interface TriangulationRequest {
   id: string
@@ -58,7 +58,7 @@ function processTriangulation(
       return { indices: [], error: 'Polygon must have at least 3 points' }
     }
 
-    const indices = triangulatePolygonPoints(points)
+    const indices = triangulatePolygon(points)
     return { indices }
   } catch (err) {
     return {
@@ -76,7 +76,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 
   if (isBatchRequest(request)) {
     const results = request.polygons.map(({ polygonId, points }) => {
-      const result = processTriangulation(polygonId, points)
+      const result = processTriangulation(points)
       return {
         polygonId,
         ...result
@@ -90,7 +90,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
 
     self.postMessage(response)
   } else {
-    const result = processTriangulation(request.polygonId, request.points)
+    const result = processTriangulation(request.points)
 
     const response: TriangulationResponse = {
       id: request.id,

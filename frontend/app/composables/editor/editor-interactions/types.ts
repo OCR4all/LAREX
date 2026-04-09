@@ -47,13 +47,13 @@ export interface PolygonDrawing {
   handleMouseDown: (
     e: MouseEvent,
     getWorldCoords: GetWorldCoordsFunction,
-    canvas: HTMLElement | null,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ) => boolean
   handleMouseMove: (
     e: MouseEvent,
     getWorldCoords: GetWorldCoordsFunction,
-    canvas: HTMLElement | null,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ) => void
   handleDoubleClick: (e: MouseEvent) => void
@@ -71,13 +71,13 @@ export interface PolylineDrawing {
   handleMouseDown: (
     e: MouseEvent,
     getWorldCoords: GetWorldCoordsFunction,
-    canvas: HTMLElement | null,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ) => boolean
   handleMouseMove: (
     e: MouseEvent,
     getWorldCoords: GetWorldCoordsFunction,
-    canvas: HTMLElement | null,
+    canvas: HTMLCanvasElement | null,
     aspectRatioScale: AspectRatioScale
   ) => void
   handleDoubleClick: (e: MouseEvent) => void
@@ -92,14 +92,14 @@ export interface RectangleDrawing {
   handleMouseDown: (
     e: MouseEvent,
     getWorldCoords: GetWorldCoordsFunction,
-    canvas: HTMLElement | null,
+    canvas: HTMLCanvasElement | null,
     view: View,
     aspectRatioScale: AspectRatioScale
   ) => boolean
   handleMouseMove: (
     e: MouseEvent,
     getWorldCoords: GetWorldCoordsFunction,
-    canvas: HTMLElement | null,
+    canvas: HTMLCanvasElement | null,
     view: View,
     aspectRatioScale: AspectRatioScale
   ) => void
@@ -110,7 +110,7 @@ export interface RectangleDrawing {
 }
 
 export interface PolygonEditing {
-  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLElement | null) => boolean
+  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLCanvasElement | null) => boolean
   handleMouseMove: (point: { x: number, y: number }) => void
   handleMouseUp: (canvas: HTMLElement | null) => void
   updateHoverStates: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>) => void
@@ -128,7 +128,7 @@ export interface PolygonEditing {
 }
 
 export interface PolylineEditing {
-  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLElement | null) => boolean
+  handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, canvas: HTMLCanvasElement | null) => boolean
   handleMouseMove: (point: { x: number, y: number }) => void
   handleMouseUp: (canvas: HTMLElement | null) => void
   updateHoverStates: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>) => void

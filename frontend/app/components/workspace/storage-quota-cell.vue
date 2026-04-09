@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { wsKey } from '@/utils/fetch-keys'
-import { getStorageQuotaAlertState, getStorageQuotaProgressValue } from '@/utils/storage-quota'
+import { getStorageQuotaAlertState, getStorageQuotaProgressValue, type StorageQuotaLike } from '@/utils/storage-quota'
+
+interface WorkspaceStorageQuota extends StorageQuotaLike {
+  currentUsageFormatted: string
+  reservedBytes: number
+  reservedBytesFormatted: string
+}
 
 interface Props {
   workspaceId: string
@@ -8,17 +14,17 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const { data: quota, pending, error } = await useFetch(`/api/storage/quotas/workspace/${props.workspaceId}`, {
+const { data: quota, pending, error } = await useFetch<WorkspaceStorageQuota | null>(`/api/storage/quotas/workspace/${props.workspaceId}`, {
   key: wsKey(props.workspaceId, 'storage', 'quota', 'cell'),
   default: () => null
 })
 
-const progressColor = computed(() => {
+const progressColor = computed<'primary' | 'warning' | 'error'>(() => {
   if (!quota.value) return 'primary'
 
   const state = getStorageQuotaAlertState(quota.value)
-  if (state === 'exceeded') return 'red'
-  if (state === 'warning') return 'orange'
+  if (state === 'exceeded') return 'error'
+  if (state === 'warning') return 'warning'
   return 'primary'
 })
 
@@ -36,18 +42,18 @@ const statusText = computed(() => {
   return 'OK'
 })
 
-const statusColor = computed(() => {
+const statusColor = computed<'neutral' | 'success' | 'warning' | 'error'>(() => {
   if (!quota.value) return 'neutral'
 
   if (getStorageQuotaAlertState(quota.value) === 'exceeded') {
-    return 'red'
+    return 'error'
   }
 
   const percentage = quota.value.usagePercentage
-  if (percentage >= 90) return 'orange'
-  if (percentage >= 80) return 'yellow'
+  if (percentage >= 90) return 'warning'
+  if (percentage >= 80) return 'warning'
 
-  return 'green'
+  return 'success'
 })
 
 const progressValue = computed(() => getStorageQuotaProgressValue(quota.value?.usagePercentage ?? 0))
@@ -70,7 +76,6 @@ const progressValue = computed(() => getStorageQuotaProgressValue(quota.value?.u
         :max="100"
         :color="progressColor"
         size="xs"
-        :animation="false"
       />
 
       <div class="flex justify-between items-center text-xs">

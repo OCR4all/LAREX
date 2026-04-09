@@ -17,7 +17,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel } from '@/models/editor'
-import { RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, BACKGROUND_ELEMENT, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS } from '@/utils/editor/editor-constants'
+import { RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, BACKGROUND_ELEMENT, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 import type { RenderablePolygon, RenderablePolyline, WebGLRenderState, ViewMode } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -55,8 +55,10 @@ export interface UseWebGLRendererReturn {
   invalidateGeometry: (polygonId: string) => void
   invalidateMultipleGeometry: (polygonIds: string[]) => void
   clearGeometryCache: () => void
-  pruneGeometryCache: (activePolygonIds: string[]) => void
+  pruneGeometryCache: (activePolygonIds: Set<string>) => void
   getGeometryCacheStats: () => GeometryCacheStats | null
+  startReadingOrderAnimation: () => void
+  stopReadingOrderAnimation: () => void
 
   cleanup: () => void
 }
@@ -64,7 +66,7 @@ export interface UseWebGLRendererReturn {
 /**
  * Main WebGL renderer composable - orchestrates all rendering components
  */
-export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRendererReturn {
+export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseWebGLRendererReturn {
   const editorUiStore = useEditorUiStore()
 
   let gl: WebGL2RenderingContext | null = null
@@ -146,7 +148,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
    */
   function initGL(triangulatePolygon?: (points: Point[]) => number[]): void {
     try {
-      const context = canvasRef.value.getContext('webgl2', { stencil: true, alpha: true })
+      const canvas = canvasRef.value
+      if (!canvas) throw new Error('Canvas element is not available')
+      const context = canvas.getContext('webgl2', { stencil: true, alpha: true })
       if (!context) throw new Error('WebGL 2 not supported')
       gl = context
 
@@ -361,7 +365,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
    */
   function drawThickLine(
     points: Point[],
-    color: number[],
+    color: readonly number[],
     thickness: number,
     isClosed: boolean,
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
@@ -383,6 +387,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
       return geometryCache.getTriangulation(polygon.id, polygon.points)
     }
     return triangulatePolygon(polygon.points)
+  }
+
+  function getGlCanvasElement(): HTMLCanvasElement | null {
+    if (!gl) return null
+    return gl.canvas instanceof HTMLCanvasElement ? gl.canvas : null
   }
 
   /**
@@ -499,6 +508,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     view: View
   ): void {
     if (!dashedLineRenderer) return
+    const localDashedLineRenderer = dashedLineRenderer
 
     const viewMode = normalizeViewMode(renderState.viewMode)
     if (!viewMode || viewMode === 'default') return
@@ -531,7 +541,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
 
       const isClosed = true
 
-      dashedLineRenderer.drawDashedLine(
+      localDashedLineRenderer.drawDashedLine(
         polygon.points,
         color,
         getLineWidth() * 0.7,
@@ -570,7 +580,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
         fillRenderer.drawFill(
           parentPoints,
           triangleIndices,
-          AUTO_PARENT_INDICATOR.EXISTING_PARENT_FILL as [number, number, number, number],
+          AUTO_PARENT_INDICATOR.EXISTING_PARENT_FILL,
           scale,
           view
         )
@@ -578,7 +588,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
 
       dashedLineRenderer.drawDashedLine(
         parentPoints,
-        AUTO_PARENT_INDICATOR.EXISTING_PARENT_OUTLINE as number[],
+        AUTO_PARENT_INDICATOR.EXISTING_PARENT_OUTLINE,
         AUTO_PARENT_INDICATOR.LINE_THICKNESS,
         true, // closed polygon
         AUTO_PARENT_INDICATOR.DASH_LENGTH,
@@ -596,7 +606,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
         fillRenderer.drawFill(
           helperPoints,
           triangleIndices,
-          AUTO_PARENT_INDICATOR.NEW_PARENT_FILL as [number, number, number, number],
+          AUTO_PARENT_INDICATOR.NEW_PARENT_FILL,
           scale,
           view
         )
@@ -604,7 +614,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
 
       dashedLineRenderer.drawDashedLine(
         helperPoints,
-        AUTO_PARENT_INDICATOR.NEW_PARENT_OUTLINE as number[],
+        AUTO_PARENT_INDICATOR.NEW_PARENT_OUTLINE,
         AUTO_PARENT_INDICATOR.LINE_THICKNESS,
         true, // closed polygon
         AUTO_PARENT_INDICATOR.DASH_LENGTH,
@@ -619,7 +629,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
 
       dashedLineRenderer.drawDashedLine(
         textlinePoints,
-        AUTO_PARENT_INDICATOR.NEW_TEXTLINE_OUTLINE as number[],
+        AUTO_PARENT_INDICATOR.NEW_TEXTLINE_OUTLINE,
         AUTO_PARENT_INDICATOR.LINE_THICKNESS,
         true, // closed polygon
         AUTO_PARENT_INDICATOR.DASH_LENGTH,
@@ -781,6 +791,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     triangulatePolygon: (points: Point[]) => number[]
   ): void {
     if (!fillRenderer || !renderState.selectedPolygonIds.value.length) return
+    const localFillRenderer = fillRenderer
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const document = getActiveDocument()
@@ -812,11 +823,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
       }
 
       const labelColor = getColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype, polygon.regionCustom)
-      const color: [number, number, number, number] = [labelColor[0], labelColor[1], labelColor[2], RENDER_ALPHA.FILL_MULTI_SELECTED]
+      const color: RGBA = [labelColor[0], labelColor[1], labelColor[2], RENDER_ALPHA.FILL_MULTI_SELECTED]
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
 
       if (triangleIndices.length >= 3) {
-        fillRenderer.drawFill(polygon.points, triangleIndices, color, scale, view)
+        localFillRenderer.drawFill(polygon.points, triangleIndices, color, scale, view)
       }
     })
   }
@@ -855,7 +866,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
       }
 
       const labelColor = getStrokeColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype)
-      const color: [number, number, number, number] = [labelColor[0], labelColor[1], labelColor[2], 1.0]
+      const color: RGBA = [labelColor[0], labelColor[1], labelColor[2], 1.0]
       const isClosed = polygon.type !== PolygonType.BASELINE
       drawThickLine(polygon.points, color, getLineWidth() * 1.4, isClosed, aspectRatioScale, view)
     })
@@ -903,9 +914,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
           && renderState.moveState.elementId === selectedPolygon.id
         const document = getActiveDocument()
         const labelColor = getColorForLabel(selectedPolygon.label, document, getActiveLabelSet(), selectedPolygon.regionKind, selectedPolygon.regionSubtype, selectedPolygon.regionCustom)
-        const color = isMovingInvalid
-          ? [1.0, 0.2, 0.2, 1.0] as [number, number, number, number]
-          : [labelColor[0], labelColor[1], labelColor[2], 1.0] as [number, number, number, number]
+        const color: RGBA = isMovingInvalid
+          ? [1.0, 0.2, 0.2, 1.0]
+          : [labelColor[0], labelColor[1], labelColor[2], 1.0]
         const isClosed = selectedPolygon.type !== PolygonType.BASELINE
         drawThickLine(selectedPolygon.points, color, getLineWidth(), isClosed, aspectRatioScale, view)
 
@@ -1003,7 +1014,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
 
     if (renderState.currentPolylinePoints && renderState.currentPolylinePoints.length > 0) {
-      let color: [number, number, number, number]
+      let color: RGBA
       if (renderState.isInvalidPosition.value) {
         color = RENDER_COLORS.INVALID_RED
       } else {
@@ -1069,13 +1080,13 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
         return
       }
 
-      let color: [number, number, number, number]
+      let color: RGBA
       const isMultiSelected = renderState.selectedPolylineIds.value.includes(polyline.id)
       const isMovingInvalid = renderState.moveState?.isMoving
         && renderState.moveState.isInvalid
         && renderState.moveState.elementId === polyline.id
       if (isMovingInvalid) {
-        color = [1.0, 0.2, 0.2, 1.0] as [number, number, number, number]
+        color = [1.0, 0.2, 0.2, 1.0]
       } else if (index === renderState.selectedPolylineIndex.value || isMultiSelected) {
         color = RENDER_COLORS.SELECTED_BLUE
       } else if (shouldHeatmapBaselines) {
@@ -1362,7 +1373,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     view: View
   ): void {
     if (renderState.currentPolygonPoints.length > 0) {
-      let color: [number, number, number, number]
+      let color: RGBA
       if (renderState.isInvalidPosition.value) {
         color = RENDER_COLORS.INVALID_RED
       } else {
@@ -1390,7 +1401,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     }
 
     if (renderState.rectanglePreviewPoints && renderState.rectanglePreviewPoints.length > 0) {
-      let color: [number, number, number, number]
+      let color: RGBA
       if (renderState.isInvalidPosition.value) {
         color = RENDER_COLORS.POLYGON_PREVIEW_INVALID_RED
       } else {
@@ -1486,7 +1497,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     if (!gl) return
 
     const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
-    const canvas = gl.canvas as HTMLCanvasElement
+    const canvas = getGlCanvasElement()
+    if (!canvas) return
     const { clientWidth, clientHeight } = canvas
     const displayWidth = Math.round(clientWidth * dpr)
     const displayHeight = Math.round(clientHeight * dpr)
@@ -1637,7 +1649,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
     if (!gl) return
 
     const dpr = window.devicePixelRatio || WEBGL_CORE.DEFAULT_DEVICE_PIXEL_RATIO
-    const canvas = gl.canvas as HTMLCanvasElement
+    const canvas = getGlCanvasElement()
+    if (!canvas) return
     const { clientWidth, clientHeight } = canvas
     const displayWidth = Math.round(clientWidth * dpr)
     const displayHeight = Math.round(clientHeight * dpr)
@@ -1770,9 +1783,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement>): UseWebGLRen
         geometryCache.clear()
       }
     },
-    pruneGeometryCache: (activePolygonIds: string[]) => {
+    pruneGeometryCache: (activePolygonIds: Set<string>) => {
       if (geometryCache) {
-        geometryCache.pruneStaleEntries(new Set(activePolygonIds))
+        geometryCache.pruneStaleEntries(activePolygonIds)
       }
     },
     getGeometryCacheStats: () => {

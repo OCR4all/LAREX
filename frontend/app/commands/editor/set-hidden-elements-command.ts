@@ -40,7 +40,7 @@ export class SetHiddenElementsCommand implements Command {
     const stateRef = usePageVisibilityState(this.pageId)
 
     if (!this.before) {
-      const current = stateRef.value
+      const current = stateRef.value ?? { hiddenPolygonIds: [], hiddenPolylineIds: [] }
       this.before = {
         hiddenPolygonIds: [...(current.hiddenPolygonIds ?? [])],
         hiddenPolylineIds: [...(current.hiddenPolylineIds ?? [])]

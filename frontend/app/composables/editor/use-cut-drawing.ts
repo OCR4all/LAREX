@@ -1,4 +1,4 @@
-import type { Commander, type CutMode } from '@/commands'
+import type { Commander, CutMode } from '@/commands'
 import { CutElementsCommand } from '@/commands'
 import type { Point, ImageSize, View, AspectRatioScale } from '@/models/editor'
 import type { RenderablePolygon, PreviewPoint } from '@/types/editor/rendering'

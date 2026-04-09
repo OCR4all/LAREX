@@ -15,13 +15,14 @@ const shareSlideover = overlay.create(LazyShareSlideover)
 const { allow } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
+const workspaceId = computed(() => selectedWorkspace.value ?? '')
 
 const id = route.params.id as string
 const isNew = id === 'new'
 
-const keyboardsKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', 'list'))
-const keyboardKey = computed(() => wsKey(selectedWorkspace.value, 'virtual-keyboards', id))
-const themesKey = computed(() => wsKey(selectedWorkspace.value, 'board-themes', 'list'))
+const keyboardsKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', 'list'))
+const keyboardKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', id))
+const themesKey = computed(() => wsKey(workspaceId.value, 'board-themes', 'list'))
 const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const breadcrumbItems = computed(() => [
@@ -290,7 +291,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       items.push({
         label: 'Share keyboard',
         icon: 'i-lucide-share-2',
-        onSelect: () => shareSlideover.open({ resourceId: id, resourceName: builderState.layoutName.value, resourceType: 'VIRTUAL_KEYBOARD', currentWorkspaceId: selectedWorkspace.value })
+        onSelect: () => shareSlideover.open({ resourceId: id, resourceName: builderState.layoutName.value, resourceType: 'VIRTUAL_KEYBOARD', currentWorkspaceId: workspaceId.value })
       })
     }
     if (canDeleteKeyboard.value) {

@@ -8,7 +8,7 @@ import { glslFloatLiteral } from '@/webgl/editor/glsl-utils'
 
 export interface DashedLineData {
   points: Point[]
-  color: number[]
+  color: readonly number[]
   thickness: number
   isClosed: boolean
 }
@@ -252,7 +252,7 @@ export class DashedLineRenderer {
    */
   drawDashedLine(
     points: Point[],
-    color: number[],
+    color: readonly number[],
     thickness: number,
     isClosed: boolean,
     dashLength: number,

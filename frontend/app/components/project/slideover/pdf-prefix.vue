@@ -45,6 +45,19 @@ const hasInvalidPrefix = computed(() => {
   }
   return false
 })
+
+function ensureFileState(fileName: string): PdfPrefixState {
+  const existing = stateByFileName.value[fileName]
+  if (existing) return existing
+
+  const file = props.files.find(entry => entry.fileName === fileName)
+  const nextState: PdfPrefixState = {
+    useFileName: true,
+    customPrefix: file?.defaultPrefix ?? ''
+  }
+  stateByFileName.value[fileName] = nextState
+  return nextState
+}
 </script>
 
 <template>
@@ -73,14 +86,14 @@ const hasInvalidPrefix = computed(() => {
               <div class="text-sm">
                 Use file name
               </div>
-              <USwitch v-model="stateByFileName[f.fileName].useFileName" />
+              <USwitch v-model="ensureFileState(f.fileName).useFileName" />
             </div>
 
-            <div v-if="!stateByFileName[f.fileName].useFileName" class="space-y-1">
+            <div v-if="!ensureFileState(f.fileName).useFileName" class="space-y-1">
               <div class="text-sm text-muted">
                 Prefix
               </div>
-              <UInput v-model="stateByFileName[f.fileName].customPrefix" placeholder="Enter prefix..." />
+              <UInput v-model="ensureFileState(f.fileName).customPrefix" placeholder="Enter prefix..." />
             </div>
 
             <div class="text-xs text-muted">

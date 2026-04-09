@@ -31,7 +31,7 @@ const { data: project } = await useFetch<{ tagSetId: string | null }>(
 const schema = z.object({
   name: z.string().trim().min(1, { error: 'Name is required' }),
   description: z.string().optional(),
-  tags: z.array(z.string()).optional()
+  tags: z.array(z.string()).default([])
 })
 
 type Schema = z.output<typeof schema>

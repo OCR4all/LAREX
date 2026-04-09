@@ -1,4 +1,5 @@
-import { h, type Component, type Ref } from 'vue'
+import { h, resolveComponent, type Component, type Ref } from 'vue'
+import type { DropdownMenuItem } from '@nuxt/ui'
 
 type SortState = Ref<{ column: string, direction: 'asc' | 'desc' }>
 
@@ -17,6 +18,14 @@ type SimpleTagComponents = {
 type DropdownComponents = {
   UButton: Component
   UDropdownMenu: Component
+}
+
+export function resolveUiComponent(name: string): Component {
+  const component = resolveComponent(name)
+  if (typeof component === 'string') {
+    throw new Error(`Expected component "${name}" to be globally registered.`)
+  }
+  return component
 }
 
 export function createSortableHeader(
@@ -112,7 +121,7 @@ export function renderSimpleTagCell(
   ])
 }
 
-export function renderDropdownActionsCell(items: unknown[], components: DropdownComponents) {
+export function renderDropdownActionsCell(items: DropdownMenuItem[][], components: DropdownComponents) {
   if (items.length === 0) return null
 
   return h(

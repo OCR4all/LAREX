@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
-import { PcGts, TextLine } from '@/models/editor'
-import type { Point, TextRegion } from '@/models/editor'
+import { PcGts, TextLine, isTextRegion } from '@/models/editor'
+import type { Point, Region, TextRegion } from '@/models/editor'
 import { Polygon, Polyline } from '@/models/editor/geometry'
 import { toPlainPoints } from './utils'
 import { visibilityService } from '@/services/editor/visibility-service'
@@ -58,15 +58,23 @@ export class DuplicateElementCommand implements Command {
       regionHit.region.coords.points.map(([x, y]) => ({ x, y }))
     )
 
-    const newRegion: TextRegion = {
-      id: newId,
-      kind: regionHit.region.kind,
-      type: regionHit.region.type,
-      coords: new Polygon(offsetPoints.map(p => [p.x, p.y])),
-      regions: [],
-      textLines: [],
-      textContentVariants: []
-    }
+    const newRegion: Region = isTextRegion(regionHit.region)
+      ? {
+          id: newId,
+          kind: 'TextRegion',
+          type: regionHit.region.type,
+          coords: new Polygon(offsetPoints.map(p => [p.x, p.y])),
+          regions: [],
+          textLines: [],
+          textContentVariants: []
+        }
+      : {
+          id: newId,
+          kind: regionHit.region.kind,
+          type: regionHit.region.type,
+          coords: new Polygon(offsetPoints.map(p => [p.x, p.y])),
+          regions: []
+        }
 
     if (regionHit.parent) {
       regionHit.parent.regions = regionHit.parent.regions ?? []

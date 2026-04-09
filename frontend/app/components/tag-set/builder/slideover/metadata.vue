@@ -5,6 +5,12 @@ const emit = defineEmits<{ close: [] }>()
 const { meta, countTags } = useTagSetBuilder()
 
 const tagCount = computed(() => countTags())
+const descriptionModel = computed({
+  get: () => meta.description ?? '',
+  set: (value: string) => {
+    meta.description = value
+  }
+})
 
 const handleSave = () => {
   props.onSave?.()
@@ -24,7 +30,7 @@ const handleSave = () => {
 
         <UFormField label="Description">
           <UTextarea
-            v-model="meta.description"
+            v-model="descriptionModel"
             placeholder="Describe this tag set and its purpose..."
             :rows="3"
           />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { KeyboardItem, BoardTheme } from '@/types/keyboard'
+import type { KeyboardItem, BoardTheme } from '@/types/virtual-keyboard'
 
 const props = defineProps<{
   item: KeyboardItem

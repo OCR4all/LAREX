@@ -493,7 +493,7 @@ async function exportRuleset() {
                 </div>
 
                 <UFormField label="Description">
-                  <UInput v-model="rule.description" :disabled="!canEditRuleset || isSaving" />
+                  <UInput :model-value="rule.description ?? ''" :disabled="!canEditRuleset || isSaving" @update:model-value="rule.description = $event" />
                 </UFormField>
 
                 <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
@@ -501,15 +501,15 @@ async function exportRuleset() {
                     <UInput v-model="rule.pattern" :disabled="!canEditRuleset || isSaving" />
                   </UFormField>
                   <UFormField label="Severity">
-                    <USelect v-model="rule.severity" :items="['INFO', 'WARNING', 'ERROR']" :disabled="!canEditRuleset || isSaving" />
+                    <USelect :model-value="rule.severity ?? 'WARNING'" :items="['INFO', 'WARNING', 'ERROR']" :disabled="!canEditRuleset || isSaving" @update:model-value="rule.severity = $event as ValidationSeverity" />
                   </UFormField>
                   <UFormField label="Flags">
-                    <UInput v-model="rule.flags" placeholder="i, m, s, u, x" :disabled="!canEditRuleset || isSaving" />
+                    <UInput :model-value="rule.flags ?? ''" placeholder="i, m, s, u, x" :disabled="!canEditRuleset || isSaving" @update:model-value="rule.flags = $event" />
                   </UFormField>
                 </div>
 
                 <UFormField label="Result Message">
-                  <UInput v-model="rule.message" :disabled="!canEditRuleset || isSaving" />
+                  <UInput :model-value="rule.message ?? ''" :disabled="!canEditRuleset || isSaving" @update:model-value="rule.message = $event" />
                 </UFormField>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { createSpatialIndex, type SpatialIndexService } from '@/services/editor/spatial-index-service'
 import type { PcGts } from '@/models/editor'
+import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 
 export type PageVisibilityState = {
   hiddenPolygonIds: string[]
@@ -10,7 +11,7 @@ export interface EditorSession {
   canvasId: string
   document: ReturnType<typeof shallowRef<PcGts | null>>
   spatialIndex: SpatialIndexService
-  controls: ReturnType<typeof shallowRef<unknown | null>>
+  controls: ReturnType<typeof shallowRef<EditorCanvasControls | null>>
   textViewSettings: ReturnType<typeof shallowRef<TextViewSettings>>
   destroy: () => void
 }
@@ -70,7 +71,7 @@ export function clearPageVisibilityState(pageId: string): void {
 function createServerPlaceholderSession(canvasId: string): EditorSession {
   const spatialIndex = createSpatialIndex()
   const document = shallowRef<PcGts | null>(null)
-  const controls = shallowRef<unknown | null>(null)
+  const controls = shallowRef<EditorCanvasControls | null>(null)
   const textViewSettings = shallowRef<TextViewSettings>({
     mode: 'textline',
     gtIndex: 0,
@@ -105,7 +106,7 @@ export function ensureEditorSession(canvasId: string, initial?: { document?: PcG
 
   const spatialIndex = createSpatialIndex()
   const document = shallowRef<PcGts | null>(initial?.document ?? null)
-  const controls = shallowRef<unknown | null>(null)
+  const controls = shallowRef<EditorCanvasControls | null>(null)
   const textViewSettings = shallowRef<TextViewSettings>({
     mode: 'textline',
     gtIndex: 0,

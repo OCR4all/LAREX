@@ -5,6 +5,7 @@
 import type { LabelSet, LabelDefinition } from '@/models/editor/labels'
 import type { PcGts } from '@/models/editor/document'
 import type { RegionKind } from '@/models/editor/region'
+import type { RGBA } from '@/utils/editor/editor-constants'
 import { getRegionColor, hexToRgba } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 
@@ -44,7 +45,7 @@ export function getColorForLabel(
   regionKind?: RegionKind,
   regionSubtype?: string,
   regionCustom?: string
-): [number, number, number, number] {
+): RGBA {
   if (!label) {
     return [0.5, 0.5, 0.5, 0.3]
   }
@@ -87,7 +88,7 @@ export function getStrokeColorForLabel(
   regionKind?: RegionKind,
   regionSubtype?: string,
   regionCustom?: string
-): [number, number, number, number] {
+): RGBA {
   const fillColor = getColorForLabel(label, document, labelSet, regionKind, regionSubtype, regionCustom)
   return [fillColor[0], fillColor[1], fillColor[2], 1.0]
 }

@@ -48,31 +48,36 @@ describe('useCanvasControl', () => {
       selectedPolylineIndex: ReturnType<typeof ref<number>>
       selectedPolygonIds: ReturnType<typeof ref<string[]>>
       selectedPolylineIds: ReturnType<typeof ref<string[]>>
-      selectPolygonById: ReturnType<typeof vi.fn>
-      selectPolylineById: ReturnType<typeof vi.fn>
-      unhoverPolygon: ReturnType<typeof vi.fn>
-      unhoverPolyline: ReturnType<typeof vi.fn>
+      selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
+      selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
+      unhoverPolygon?: () => void
+      unhoverPolyline?: () => void
     }
+
+    const selectPolygonById = vi.fn<(id: string | null, options?: { zoomToFit?: boolean }) => void>()
+    const selectPolylineById = vi.fn<(id: string | null, options?: { zoomToFit?: boolean }) => void>()
+    const unhoverPolygon = vi.fn<() => void>()
+    const unhoverPolyline = vi.fn<() => void>()
 
     controls.selectedPolygonIndex = ref(4)
     controls.selectedPolylineIndex = ref(2)
     controls.selectedPolygonIds = ref(['region-1'])
     controls.selectedPolylineIds = ref(['baseline:line-1'])
-    controls.selectPolygonById = vi.fn()
-    controls.selectPolylineById = vi.fn()
-    controls.unhoverPolygon = vi.fn()
-    controls.unhoverPolyline = vi.fn()
+    controls.selectPolygonById = selectPolygonById
+    controls.selectPolylineById = selectPolylineById
+    controls.unhoverPolygon = unhoverPolygon
+    controls.unhoverPolyline = unhoverPolyline
 
     controls.setViewMode('textline')
 
-    expect(controls.selectPolygonById).toHaveBeenCalledWith(null, { zoomToFit: false })
-    expect(controls.selectPolylineById).toHaveBeenCalledWith(null, { zoomToFit: false })
+    expect(selectPolygonById).toHaveBeenCalledWith(null, { zoomToFit: false })
+    expect(selectPolylineById).toHaveBeenCalledWith(null, { zoomToFit: false })
     expect(controls.selectedPolygonIndex.value).toBe(-1)
     expect(controls.selectedPolylineIndex.value).toBe(-1)
     expect(controls.selectedPolygonIds.value).toEqual([])
     expect(controls.selectedPolylineIds.value).toEqual([])
-    expect(controls.unhoverPolygon).toHaveBeenCalledOnce()
-    expect(controls.unhoverPolyline).toHaveBeenCalledOnce()
+    expect(unhoverPolygon).toHaveBeenCalledOnce()
+    expect(unhoverPolyline).toHaveBeenCalledOnce()
     expect(editorUiStoreMock.setTemporaryHoverPolygonId).toHaveBeenCalledWith(null)
     expect(editorUiStoreMock.setTemporaryHoverPolylineId).toHaveBeenCalledWith(null)
     expect(editorStoreMock.clearCanvasSelection).toHaveBeenCalledWith('canvas-1')
