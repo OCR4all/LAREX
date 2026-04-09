@@ -3,8 +3,10 @@ package de.uniwue.zpd.dachs.larex.backend.dto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItem;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
@@ -67,6 +69,18 @@ public class DatasetDto {
             String versionTag,
             @Size(max = 4000, message = "Release notes must not exceed 4000 characters")
             String notes
+    ) {}
+
+    public record UpsertReleaseShareRequest(
+            @NotNull(message = "expiresAt is required")
+            @Future(message = "expiresAt must be in the future")
+            LocalDateTime expiresAt
+    ) {}
+
+    public record UpdateReleaseShareRequest(
+            @NotNull(message = "expiresAt is required")
+            @Future(message = "expiresAt must be in the future")
+            LocalDateTime expiresAt
     ) {}
 
     public record SummaryResponse(
@@ -161,8 +175,22 @@ public class DatasetDto {
             String manifestChecksumSha256,
             String createdByUserId,
             LocalDateTime sourceDatasetUpdatedAt,
+            boolean shareEnabled,
+            String shareSecretPrefix,
+            LocalDateTime shareCreatedAt,
+            LocalDateTime shareExpiresAt,
+            LocalDateTime shareRevokedAt,
+            LocalDateTime shareLastUsedAt,
+            long shareDownloadCount,
             LocalDateTime created,
             LocalDateTime updated
+    ) {}
+
+    public record ReleaseShareResponse(
+            String downloadUrl,
+            String secret,
+            LocalDateTime expiresAt,
+            LocalDateTime createdAt
     ) {}
 
     public enum DatasetReleaseStatus {

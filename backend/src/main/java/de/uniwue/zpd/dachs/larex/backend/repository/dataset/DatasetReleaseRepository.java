@@ -16,6 +16,8 @@ public interface DatasetReleaseRepository extends JpaRepository<DatasetRelease, 
 
     Optional<DatasetRelease> findByIdAndDatasetId(String id, String datasetId);
 
+    Optional<DatasetRelease> findBySharePublicId(String sharePublicId);
+
     @Query("""
             SELECT COALESCE(MAX(r.versionNumber), 0)
             FROM DatasetRelease r

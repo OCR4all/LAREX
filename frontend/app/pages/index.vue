@@ -2,7 +2,21 @@
 import { h } from 'vue'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
-import { LazyCodecSlideoverAction, LazyLibrarySlideoverCreate, LazyShareSlideover, LazyProjectSlideoverEdit, LazyUiDeleteSlideover } from '#components'
+import {
+  LazyCodecSlideoverAction,
+  LazyLibrarySlideoverCreate,
+  LazyShareSlideover,
+  LazyProjectSlideoverEdit,
+  LazyUiDeleteSlideover,
+  NuxtLink,
+  NuxtTime,
+  UAvatar,
+  UBadge,
+  UButton,
+  UDropdownMenu,
+  UIcon,
+  UPopover
+} from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
 import { extractApiErrorMessage, extractApiMessageFromPayload } from '@/utils/api-error'
@@ -11,17 +25,8 @@ import UiColorTag from '@/components/ui/color-tag.vue'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
 import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
-import { createSortableHeader, renderDropdownActionsCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
+import { createSortableHeader, renderDropdownActionsCell, renderTruncatedText } from '@/utils/resource-list-columns'
 import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
-
-const UButton = resolveUiComponent('UButton')
-const UBadge = resolveUiComponent('UBadge')
-const UPopover = resolveUiComponent('UPopover')
-const UDropdownMenu = resolveUiComponent('UDropdownMenu')
-const NuxtTime = resolveUiComponent('NuxtTime')
-const NuxtLink = resolveUiComponent('NuxtLink')
-const UAvatar = resolveUiComponent('UAvatar')
-const UIcon = resolveUiComponent('UIcon')
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -364,12 +369,12 @@ const columns: TableColumn<LibraryProject>[] = [
   {
     accessorKey: 'created',
     header: createSortableHeader('Created', 'created', sort, UButton),
-    cell: ({ row }) => h(NuxtTime, { datetime: row.getValue('created') })
+    cell: ({ row }) => h(NuxtTime, { datetime: row.original.created })
   },
   {
     accessorKey: 'updated',
     header: createSortableHeader('Updated', 'updated', sort, UButton),
-    cell: ({ row }) => h(NuxtTime, { datetime: row.getValue('updated') })
+    cell: ({ row }) => h(NuxtTime, { datetime: row.original.updated })
   },
   {
     id: 'actions',
@@ -785,7 +790,7 @@ const libraryCodecActionItems = computed(() => [[
           </USelectMenu>
 
           <UButton
-            :color="columnFilters['isStarred'] ? 'yellow' : 'neutral'"
+            :color="columnFilters['isStarred'] ? 'warning' : 'neutral'"
             :variant="columnFilters['isStarred'] ? 'soft' : 'ghost'"
             size="sm"
             :icon="columnFilters['isStarred'] ? 'i-prime-star-fill' : 'i-prime-star'"
@@ -838,7 +843,7 @@ const libraryCodecActionItems = computed(() => [[
               >
                 {{ filter.label }}
                 <UButton
-                  size="2xs"
+                  size="xs"
                   color="neutral"
                   variant="link"
                   icon="i-lucide-x"

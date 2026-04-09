@@ -1,19 +1,13 @@
 <script setup lang="ts">
-import { h, resolveComponent, type Component } from 'vue'
+import { h } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
-import { LazyDatasetSlideoverCreate, LazyUiDeleteSlideover } from '#components'
+import { LazyDatasetSlideoverCreate, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
 import type { DatasetSummary } from '@/types/dataset'
 import { wsKey } from '@/utils/fetch-keys'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
 import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
-
-const UButton = resolveComponent('UButton') as Component
-const UBadge = resolveComponent('UBadge') as Component
-const UPopover = resolveComponent('UPopover') as Component
-const UDropdownMenu = resolveComponent('UDropdownMenu') as Component
-const NuxtLink = resolveComponent('NuxtLink') as Component
 
 const toast = useToast()
 const overlay = useOverlay()

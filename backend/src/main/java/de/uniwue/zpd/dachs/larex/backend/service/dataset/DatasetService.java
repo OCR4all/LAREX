@@ -32,14 +32,17 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -62,6 +65,8 @@ import java.util.stream.Collectors;
 @Transactional
 public class DatasetService {
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private final DatasetRepository datasetRepository;
     private final DatasetItemRepository datasetItemRepository;
     private final DatasetItemCopyFileRepository datasetItemCopyFileRepository;
@@ -79,6 +84,9 @@ public class DatasetService {
 
     @Value("${file.upload-dir}")
     private String uploadDir;
+
+    @Value("${larex.dataset-releases.share-public-base-url}")
+    private String datasetReleaseSharePublicBaseUrl;
 
     public DatasetService(DatasetRepository datasetRepository,
                           DatasetItemRepository datasetItemRepository,
@@ -372,18 +380,15 @@ public class DatasetService {
         try {
             LocalDateTime releasedAt = LocalDateTime.now();
             ExportSnapshot exportSnapshot = buildExportSnapshot(dataset, items, validationSnapshot.warnings(), release, releasedAt);
+            String fileName = sanitizeSegment(dataset.getName()) + "-" + sanitizeSegment(versionTag) + ".larex-dataset.zip";
+            Path packagePath = releaseRoot.resolve(fileName);
             reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
                     workspaceId,
                     estimatePackageBytes(exportSnapshot),
                     "dataset-release"
             );
 
-            byte[] zipBytes = createPackageBytes(exportSnapshot);
-            Files.createDirectories(releaseRoot);
-
-            String fileName = sanitizeSegment(dataset.getName()) + "-" + sanitizeSegment(versionTag) + ".larex-dataset.zip";
-            Path packagePath = releaseRoot.resolve(fileName);
-            Files.write(packagePath, zipBytes);
+            writePackageZip(packagePath, exportSnapshot);
 
             String manifestJson = objectMapper.writeValueAsString(exportSnapshot.manifest());
             String statsJson = objectMapper.writeValueAsString(exportSnapshot.stats());
@@ -417,23 +422,98 @@ public class DatasetService {
         }
     }
 
-    public ReleaseDownload downloadReleasePackage(String workspaceId,
-                                                  String datasetId,
-                                                  String releaseId,
-                                                  String userId) throws IOException {
+    public DatasetDto.ReleaseShareResponse createOrRotateReleaseShare(String workspaceId,
+                                                                      String datasetId,
+                                                                      String releaseId,
+                                                                      DatasetDto.UpsertReleaseShareRequest request,
+                                                                      String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireDataset(workspaceId, datasetId);
+        DatasetRelease release = requireRelease(datasetId, releaseId);
+        requireShareableRelease(release);
+
+        LocalDateTime now = LocalDateTime.now();
+        String sharePublicId = generateOpaqueToken(18);
+        String shareSecret = generateOpaqueToken(32);
+
+        release.setSharePublicId(sharePublicId);
+        release.setShareSecretHash(computeSha256(shareSecret.getBytes(StandardCharsets.UTF_8)));
+        release.setShareSecretPrefix(shareSecret.substring(0, Math.min(8, shareSecret.length())));
+        release.setShareCreatedByUserId(userId);
+        release.setShareCreatedAt(now);
+        release.setShareExpiresAt(request.expiresAt());
+        release.setShareRevokedAt(null);
+        release.setShareLastUsedAt(null);
+        release.setShareDownloadCount(0L);
+        datasetReleaseRepository.save(release);
+
+        return new DatasetDto.ReleaseShareResponse(
+                buildShareDownloadUrl(sharePublicId),
+                shareSecret,
+                release.getShareExpiresAt(),
+                release.getShareCreatedAt()
+        );
+    }
+
+    public DatasetDto.ReleaseSummaryResponse updateReleaseShare(String workspaceId,
+                                                                String datasetId,
+                                                                String releaseId,
+                                                                DatasetDto.UpdateReleaseShareRequest request,
+                                                                String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireDataset(workspaceId, datasetId);
+        DatasetRelease release = requireRelease(datasetId, releaseId);
+        requireActiveShare(release);
+        release.setShareExpiresAt(request.expiresAt());
+        datasetReleaseRepository.save(release);
+        return toReleaseSummaryResponse(release);
+    }
+
+    public DatasetDto.ReleaseSummaryResponse revokeReleaseShare(String workspaceId,
+                                                                String datasetId,
+                                                                String releaseId,
+                                                                String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireDataset(workspaceId, datasetId);
+        DatasetRelease release = requireRelease(datasetId, releaseId);
+        requireActiveShare(release);
+        release.setShareRevokedAt(LocalDateTime.now());
+        datasetReleaseRepository.save(release);
+        return toReleaseSummaryResponse(release);
+    }
+
+    public ReleaseFileDownload downloadReleasePackage(String workspaceId,
+                                                      String datasetId,
+                                                      String releaseId,
+                                                      String userId) throws IOException {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         requireDataset(workspaceId, datasetId);
         DatasetRelease release = requireRelease(datasetId, releaseId);
-        if (release.getPackageFilePath() == null || release.getPackageFilePath().isBlank()) {
-            throw new IllegalStateException("Release package is not available.");
+        return resolveReleaseFileDownload(release, releaseId);
+    }
+
+    public SharedReleaseDownload downloadSharedReleasePackage(String sharePublicId,
+                                                              String authorizationHeader,
+                                                              boolean trackUsage) throws IOException {
+        DatasetRelease release = datasetReleaseRepository.findBySharePublicId(sharePublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Release package not found."));
+        requireActiveShare(release);
+        if (!matchesShareSecret(release.getShareSecretHash(), extractBearerToken(authorizationHeader))) {
+            throw new ResourceNotFoundException("Release package not found.");
         }
-        Path packagePath = resolveStoragePath(release.getPackageFilePath());
-        if (!Files.exists(packagePath)) {
-            throw new IllegalStateException("Release package file is missing.");
+
+        ReleaseFileDownload download = resolveReleaseFileDownload(release, release.getId());
+        if (trackUsage) {
+            release.setShareLastUsedAt(LocalDateTime.now());
+            release.setShareDownloadCount((release.getShareDownloadCount() == null ? 0L : release.getShareDownloadCount()) + 1L);
+            datasetReleaseRepository.save(release);
         }
-        return new ReleaseDownload(
-                release.getPackageFileName() == null ? ("dataset-release-" + releaseId + ".zip") : release.getPackageFileName(),
-                Files.readAllBytes(packagePath)
+
+        return new SharedReleaseDownload(
+                download.fileName(),
+                download.absolutePath(),
+                download.contentLength(),
+                download.checksumSha256()
         );
     }
 
@@ -445,6 +525,97 @@ public class DatasetService {
     private DatasetRelease requireRelease(String datasetId, String releaseId) {
         return datasetReleaseRepository.findByIdAndDatasetId(releaseId, datasetId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dataset release", releaseId));
+    }
+
+    private ReleaseFileDownload resolveReleaseFileDownload(DatasetRelease release, String releaseId) throws IOException {
+        if (release.getPackageFilePath() == null || release.getPackageFilePath().isBlank()) {
+            throw new ResourceNotFoundException("Release package not found.");
+        }
+        Path packagePath = resolveStoragePath(release.getPackageFilePath());
+        if (!Files.exists(packagePath)) {
+            throw new ResourceNotFoundException("Release package not found.");
+        }
+        return new ReleaseFileDownload(
+                release.getPackageFileName() == null ? ("dataset-release-" + releaseId + ".zip") : release.getPackageFileName(),
+                packagePath,
+                Files.size(packagePath),
+                release.getPackageChecksumSha256() == null ? computeSha256(packagePath) : release.getPackageChecksumSha256()
+        );
+    }
+
+    private void requireShareableRelease(DatasetRelease release) {
+        if (release.getStatus() != DatasetRelease.Status.READY) {
+            throw new IllegalStateException("Only ready releases can be shared.");
+        }
+        if (release.getPackageFilePath() == null || release.getPackageFilePath().isBlank()) {
+            throw new IllegalStateException("Release package is not available.");
+        }
+        Path packagePath = resolveStoragePath(release.getPackageFilePath());
+        if (!Files.exists(packagePath)) {
+            throw new IllegalStateException("Release package is not available.");
+        }
+    }
+
+    private void requireActiveShare(DatasetRelease release) {
+        if (release.getSharePublicId() == null || release.getSharePublicId().isBlank()
+                || release.getShareSecretHash() == null || release.getShareSecretHash().isBlank()) {
+            throw new ResourceNotFoundException("Release package not found.");
+        }
+        if (release.getShareRevokedAt() != null) {
+            throw new ResourceNotFoundException("Release package not found.");
+        }
+        if (release.getShareExpiresAt() == null || !release.getShareExpiresAt().isAfter(LocalDateTime.now())) {
+            throw new ResourceNotFoundException("Release package not found.");
+        }
+    }
+
+    private String buildShareDownloadUrl(String sharePublicId) {
+        String normalizedBase = datasetReleaseSharePublicBaseUrl == null
+                ? ""
+                : datasetReleaseSharePublicBaseUrl.replaceAll("/+$", "");
+        return normalizedBase + "/" + sharePublicId + "/download";
+    }
+
+    private String generateOpaqueToken(int byteLength) {
+        byte[] bytes = new byte[byteLength];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            return null;
+        }
+        if (!authorizationHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+        String token = authorizationHeader.substring(7).trim();
+        return token.isBlank() ? null : token;
+    }
+
+    private boolean matchesShareSecret(String expectedHash, String providedSecret) {
+        if (expectedHash == null || expectedHash.isBlank() || providedSecret == null || providedSecret.isBlank()) {
+            return false;
+        }
+        byte[] expectedBytes = decodeHex(expectedHash);
+        byte[] actualBytes = decodeHex(computeSha256(providedSecret.getBytes(StandardCharsets.UTF_8)));
+        return MessageDigest.isEqual(expectedBytes, actualBytes);
+    }
+
+    private byte[] decodeHex(String value) {
+        if (value == null || (value.length() % 2) != 0) {
+            return new byte[0];
+        }
+        byte[] bytes = new byte[value.length() / 2];
+        for (int i = 0; i < value.length(); i += 2) {
+            int high = Character.digit(value.charAt(i), 16);
+            int low = Character.digit(value.charAt(i + 1), 16);
+            if (high < 0 || low < 0) {
+                return new byte[0];
+            }
+            bytes[i / 2] = (byte) ((high << 4) + low);
+        }
+        return bytes;
     }
 
     private Page requirePageInWorkspace(String pageId, String workspaceId) {
@@ -1053,6 +1224,13 @@ public class DatasetService {
     }
 
     private DatasetDto.ReleaseSummaryResponse toReleaseSummaryResponse(DatasetRelease release) {
+        boolean shareEnabled = release.getSharePublicId() != null
+                && !release.getSharePublicId().isBlank()
+                && release.getShareSecretHash() != null
+                && !release.getShareSecretHash().isBlank()
+                && release.getShareRevokedAt() == null
+                && release.getShareExpiresAt() != null
+                && release.getShareExpiresAt().isAfter(LocalDateTime.now());
         return new DatasetDto.ReleaseSummaryResponse(
                 release.getId(),
                 release.getVersionNumber(),
@@ -1068,6 +1246,13 @@ public class DatasetService {
                 release.getManifestChecksumSha256(),
                 release.getCreatedByUserId(),
                 release.getSourceDatasetUpdatedAt(),
+                shareEnabled,
+                release.getShareSecretPrefix(),
+                release.getShareCreatedAt(),
+                release.getShareExpiresAt(),
+                release.getShareRevokedAt(),
+                release.getShareLastUsedAt(),
+                release.getShareDownloadCount() == null ? 0L : release.getShareDownloadCount(),
                 release.getCreated(),
                 release.getUpdated()
         );
@@ -1383,30 +1568,40 @@ public class DatasetService {
 
     private byte[] createPackageBytes(ExportSnapshot exportSnapshot) throws IOException {
         return archiveIoService.createZip(zipOut -> {
-            archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportSnapshot.manifest());
-            archiveIoService.writeJsonEntry(zipOut, "stats.json", exportSnapshot.stats());
-
-            for (Map.Entry<DatasetItem.Split, List<Map<String, Object>>> entry : exportSnapshot.jsonlRowsBySplit().entrySet()) {
-                if (entry.getValue().isEmpty()) {
-                    continue;
-                }
-                String content = entry.getValue().stream()
-                        .map(row -> {
-                            try {
-                                return objectMapper.writeValueAsString(row);
-                            } catch (IOException e) {
-                                throw new IllegalStateException("Failed to serialize JSONL row", e);
-                            }
-                        })
-                        .collect(Collectors.joining("\n")) + "\n";
-                String splitName = entry.getKey().name().toLowerCase(Locale.ROOT);
-                archiveIoService.writeBytesEntry(zipOut, "splits/" + splitName + ".jsonl", content.getBytes());
-            }
-
-            for (ExportFile exportFile : exportSnapshot.files()) {
-                archiveIoService.writeFileEntry(zipOut, exportFile.archivePath(), exportFile.absolutePath());
-            }
+            writePackageEntries(zipOut, exportSnapshot);
         });
+    }
+
+    private void writePackageZip(Path outputPath, ExportSnapshot exportSnapshot) throws IOException {
+        archiveIoService.writeZip(outputPath, zipOut -> {
+            writePackageEntries(zipOut, exportSnapshot);
+        });
+    }
+
+    private void writePackageEntries(java.util.zip.ZipOutputStream zipOut, ExportSnapshot exportSnapshot) throws IOException {
+        archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportSnapshot.manifest());
+        archiveIoService.writeJsonEntry(zipOut, "stats.json", exportSnapshot.stats());
+
+        for (Map.Entry<DatasetItem.Split, List<Map<String, Object>>> entry : exportSnapshot.jsonlRowsBySplit().entrySet()) {
+            if (entry.getValue().isEmpty()) {
+                continue;
+            }
+            String content = entry.getValue().stream()
+                    .map(row -> {
+                        try {
+                            return objectMapper.writeValueAsString(row);
+                        } catch (IOException e) {
+                            throw new IllegalStateException("Failed to serialize JSONL row", e);
+                        }
+                    })
+                    .collect(Collectors.joining("\n")) + "\n";
+            String splitName = entry.getKey().name().toLowerCase(Locale.ROOT);
+            archiveIoService.writeBytesEntry(zipOut, "splits/" + splitName + ".jsonl", content.getBytes());
+        }
+
+        for (ExportFile exportFile : exportSnapshot.files()) {
+            archiveIoService.writeFileEntry(zipOut, exportFile.archivePath(), exportFile.absolutePath());
+        }
     }
 
     private Path datasetReleaseRoot(String workspaceId, String datasetId, String releaseId) {
@@ -1439,6 +1634,9 @@ public class DatasetService {
                                   List<ExportFile> files) {
     }
 
-    public record ReleaseDownload(String fileName, byte[] bytes) {
+    public record ReleaseFileDownload(String fileName, Path absolutePath, long contentLength, String checksumSha256) {
+    }
+
+    public record SharedReleaseDownload(String fileName, Path absolutePath, long contentLength, String checksumSha256) {
     }
 }

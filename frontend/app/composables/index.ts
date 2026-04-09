@@ -1,5 +1,4 @@
 export * from './editor/use-canvas-control'
-export * from './editor/use-canvas-state'
 export * from './editor/use-cut-drawing'
 export * from './editor/use-editor-command'
 export * from './editor/use-editor-interactions'
@@ -16,7 +15,6 @@ export * from './editor/use-reading-order-visualization'
 export * from './editor/use-rectangle-drawing'
 export * from './editor/use-render-queue'
 export * from './editor/use-resize-observer'
-export * from './editor/use-toolbar'
 export * from './editor/use-webgl-renderer'
 
 export * from './editor/editor-interactions/types'

@@ -14,10 +14,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.ResponseEntity;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,5 +72,37 @@ class ProjectControllerExportTest {
         assertEquals("text/plain", response.getHeaders().getContentType().toString());
         assertEquals("attachment; filename=\"Project.txt\"", response.getHeaders().getFirst("Content-Disposition"));
         assertArrayEquals(body, response.getBody());
+    }
+
+    @Test
+    void downloadRelease_returnsAttachmentHeadersAndStreamingBody() throws Exception {
+        ProjectController controller = new ProjectController(
+                projectService,
+                projectTransferService,
+                projectReadService,
+                projectPackageService,
+                documentExportService,
+                iiifImportService,
+                unifiedUploadService,
+                uploadConflictService,
+                workspaceQuotaGuardService
+        );
+
+        Path archive = Files.createTempFile("project-release-", ".zip");
+        Files.writeString(archive, "release-body");
+        when(projectPackageService.downloadReleasePackage("ws-1", "project-1", "release-1", "user-1"))
+                .thenReturn(new ProjectPackageService.ReleaseFileDownload(
+                        "Project-v1.larex-project.zip",
+                        archive,
+                        Files.size(archive),
+                        "abc123"
+                ));
+
+        ResponseEntity<org.springframework.core.io.Resource> response = controller.downloadRelease("ws-1", "project-1", "release-1", "user-1");
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("attachment; filename=\"Project-v1.larex-project.zip\"", response.getHeaders().getFirst("Content-Disposition"));
+        assertEquals("abc123", response.getHeaders().getFirst("X-Checksum-Sha256"));
+        assertTrue(response.getBody() instanceof FileSystemResource);
     }
 }

@@ -4,16 +4,10 @@ import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import type { LabelSet, LabelSetSummary } from '@/types/label-set'
 import { wsKey } from '@/utils/fetch-keys'
-import { LazyUiDeleteSlideover } from '#components'
+import { LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
 import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText, resolveUiComponent } from '@/utils/resource-list-columns'
-
-const UButton = resolveUiComponent('UButton')
-const UBadge = resolveUiComponent('UBadge')
-const UPopover = resolveUiComponent('UPopover')
-const UDropdownMenu = resolveUiComponent('UDropdownMenu')
-const NuxtLink = resolveUiComponent('NuxtLink')
+import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
 
 const toast = useToast()
 const overlay = useOverlay()
@@ -334,7 +328,7 @@ const emptyStateActions = computed(() => {
               {{ filter.label }}
               <component
                 :is="UButton"
-                size="2xs"
+                size="xs"
                 color="neutral"
                 variant="link"
                 icon="i-lucide-x"

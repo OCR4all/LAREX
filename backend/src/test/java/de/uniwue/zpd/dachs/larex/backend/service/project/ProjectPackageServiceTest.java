@@ -18,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationP
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectPackageReleaseRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
@@ -61,6 +62,8 @@ class ProjectPackageServiceTest {
 
     @Mock
     private ProjectRepository projectRepository;
+    @Mock
+    private ProjectPackageReleaseRepository projectPackageReleaseRepository;
     @Mock
     private LibraryRepository libraryRepository;
     @Mock
@@ -108,6 +111,7 @@ class ProjectPackageServiceTest {
         ArchiveIoService archiveIoService = new ArchiveIoService(objectMapper);
         ProjectPackageService service = new ProjectPackageService(
                 projectRepository,
+                projectPackageReleaseRepository,
                 libraryRepository,
                 pageRepository,
                 pageXmlRepository,

@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.dto;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +23,26 @@ public class ProjectPackageDto {
         public ExportRequest(List<String> pageIds, String targetPageXmlVersion) {
             this(pageIds, targetPageXmlVersion, null);
         }
+    }
+
+    public record CreateReleaseRequest(
+            String versionTag,
+            String notes,
+            String targetPageXmlVersion,
+            List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs
+    ) {
+    }
+
+    public record UpsertReleaseShareRequest(
+            @Future(message = "Share expiry must be in the future")
+            LocalDateTime expiresAt
+    ) {
+    }
+
+    public record UpdateReleaseShareRequest(
+            @Future(message = "Share expiry must be in the future")
+            LocalDateTime expiresAt
+    ) {
     }
 
     public record ImportRequest(
@@ -133,5 +154,47 @@ public class ProjectPackageDto {
             List<String> warnings,
             Map<String, String> utilitySourceToTargetIds
     ) {
+    }
+
+    public record ReleaseSummaryResponse(
+            String id,
+            Integer versionNumber,
+            String versionTag,
+            String notes,
+            ProjectReleaseStatus status,
+            long pageCount,
+            String targetPageXmlVersion,
+            List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs,
+            String failureReason,
+            String packageFileName,
+            Long packageFileSize,
+            String packageChecksumSha256,
+            String manifestChecksumSha256,
+            String createdByUserId,
+            LocalDateTime sourceProjectUpdatedAt,
+            boolean shareEnabled,
+            String shareSecretPrefix,
+            LocalDateTime shareCreatedAt,
+            LocalDateTime shareExpiresAt,
+            LocalDateTime shareRevokedAt,
+            LocalDateTime shareLastUsedAt,
+            long shareDownloadCount,
+            LocalDateTime created,
+            LocalDateTime updated
+    ) {
+    }
+
+    public record ReleaseShareResponse(
+            String downloadUrl,
+            String secret,
+            LocalDateTime expiresAt,
+            LocalDateTime createdAt
+    ) {
+    }
+
+    public enum ProjectReleaseStatus {
+        CREATING,
+        READY,
+        FAILED
     }
 }

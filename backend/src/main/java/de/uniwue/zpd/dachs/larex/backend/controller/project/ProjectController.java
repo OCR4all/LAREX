@@ -27,6 +27,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -331,6 +333,69 @@ public class ProjectController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(packageBytes);
+    }
+
+    @GetMapping("/{projectId}/releases")
+    public ResponseEntity<List<ProjectPackageDto.ReleaseSummaryResponse>> listReleases(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(projectPackageService.listReleases(workspaceId, projectId, userId));
+    }
+
+    @PostMapping("/{projectId}/releases")
+    public ResponseEntity<ProjectPackageDto.ReleaseSummaryResponse> createRelease(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @Valid @RequestBody(required = false) ProjectPackageDto.CreateReleaseRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+        return ResponseEntity.status(HttpStatus.CREATED).body(projectPackageService.createRelease(workspaceId, projectId, request, userId));
+    }
+
+    @PostMapping("/{projectId}/releases/{releaseId}/share")
+    public ResponseEntity<ProjectPackageDto.ReleaseShareResponse> createOrRotateReleaseShare(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String releaseId,
+            @Valid @RequestBody ProjectPackageDto.UpsertReleaseShareRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(projectPackageService.createOrRotateReleaseShare(workspaceId, projectId, releaseId, request, userId));
+    }
+
+    @PatchMapping("/{projectId}/releases/{releaseId}/share")
+    public ResponseEntity<ProjectPackageDto.ReleaseSummaryResponse> updateReleaseShare(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String releaseId,
+            @Valid @RequestBody ProjectPackageDto.UpdateReleaseShareRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(projectPackageService.updateReleaseShare(workspaceId, projectId, releaseId, request, userId));
+    }
+
+    @DeleteMapping("/{projectId}/releases/{releaseId}/share")
+    public ResponseEntity<ProjectPackageDto.ReleaseSummaryResponse> revokeReleaseShare(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String releaseId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(projectPackageService.revokeReleaseShare(workspaceId, projectId, releaseId, userId));
+    }
+
+    @GetMapping("/{projectId}/releases/{releaseId}/download")
+    public ResponseEntity<Resource> downloadRelease(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String releaseId,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+        ProjectPackageService.ReleaseFileDownload releaseDownload = projectPackageService.downloadReleasePackage(workspaceId, projectId, releaseId, userId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentLength(releaseDownload.contentLength());
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(releaseDownload.fileName())
+                .build());
+        headers.set("X-Checksum-Sha256", releaseDownload.checksumSha256());
+        return ResponseEntity.ok().headers(headers).body(new FileSystemResource(releaseDownload.absolutePath()));
     }
 
     @PostMapping("/{projectId}/export")

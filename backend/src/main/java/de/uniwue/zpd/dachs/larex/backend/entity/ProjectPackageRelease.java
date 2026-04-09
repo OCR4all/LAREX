@@ -21,12 +21,12 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "dataset_releases", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"dataset_id", "version_number"}, name = "uk_dataset_release_version_number"),
-        @UniqueConstraint(columnNames = {"dataset_id", "version_tag"}, name = "uk_dataset_release_version_tag")
+@Table(name = "project_package_releases", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"project_id", "version_number"}, name = "uk_project_package_release_version_number"),
+        @UniqueConstraint(columnNames = {"project_id", "version_tag"}, name = "uk_project_package_release_version_tag")
 })
 @EntityListeners(AuditingEntityListener.class)
-public class DatasetRelease {
+public class ProjectPackageRelease {
 
     public enum Status {
         CREATING,
@@ -39,9 +39,9 @@ public class DatasetRelease {
     private String id;
 
     @ManyToOne
-    @JoinColumn(name = "dataset_id", nullable = false)
+    @JoinColumn(name = "project_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
-    private Dataset dataset;
+    private Project project;
 
     @Column(nullable = false, name = "version_number")
     private Integer versionNumber;
@@ -59,18 +59,20 @@ public class DatasetRelease {
     @Column(nullable = false, length = 32)
     private Status status = Status.CREATING;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, name = "validation_status", length = 32)
-    private Dataset.ValidationStatus validationStatus = Dataset.ValidationStatus.NOT_VALIDATED;
-
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
 
-    @Column(nullable = false, name = "item_count")
-    private Long itemCount = 0L;
+    @Column(nullable = false, name = "page_count")
+    private Long pageCount = 0L;
 
-    @Column(name = "source_dataset_updated_at")
-    private LocalDateTime sourceDatasetUpdatedAt;
+    @Column(name = "target_page_xml_version", length = 32)
+    private String targetPageXmlVersion;
+
+    @Column(name = "embedded_outputs_json", columnDefinition = "TEXT")
+    private String embeddedOutputsJson;
+
+    @Column(name = "source_project_updated_at")
+    private LocalDateTime sourceProjectUpdatedAt;
 
     @Column(name = "package_file_name")
     private String packageFileName;
@@ -86,15 +88,6 @@ public class DatasetRelease {
 
     @Column(name = "manifest_checksum_sha256", length = 64)
     private String manifestChecksumSha256;
-
-    @Column(name = "manifest_json", columnDefinition = "TEXT")
-    private String manifestJson;
-
-    @Column(name = "stats_json", columnDefinition = "TEXT")
-    private String statsJson;
-
-    @Column(name = "warnings_json", columnDefinition = "TEXT")
-    private String warningsJson;
 
     @Column(name = "share_public_id", length = 64, unique = true)
     private String sharePublicId;
@@ -139,12 +132,12 @@ public class DatasetRelease {
         this.id = id;
     }
 
-    public Dataset getDataset() {
-        return dataset;
+    public Project getProject() {
+        return project;
     }
 
-    public void setDataset(Dataset dataset) {
-        this.dataset = dataset;
+    public void setProject(Project project) {
+        this.project = project;
     }
 
     public Integer getVersionNumber() {
@@ -187,14 +180,6 @@ public class DatasetRelease {
         this.status = status;
     }
 
-    public Dataset.ValidationStatus getValidationStatus() {
-        return validationStatus;
-    }
-
-    public void setValidationStatus(Dataset.ValidationStatus validationStatus) {
-        this.validationStatus = validationStatus;
-    }
-
     public String getFailureReason() {
         return failureReason;
     }
@@ -203,20 +188,36 @@ public class DatasetRelease {
         this.failureReason = failureReason;
     }
 
-    public Long getItemCount() {
-        return itemCount;
+    public Long getPageCount() {
+        return pageCount;
     }
 
-    public void setItemCount(Long itemCount) {
-        this.itemCount = itemCount;
+    public void setPageCount(Long pageCount) {
+        this.pageCount = pageCount;
     }
 
-    public LocalDateTime getSourceDatasetUpdatedAt() {
-        return sourceDatasetUpdatedAt;
+    public String getTargetPageXmlVersion() {
+        return targetPageXmlVersion;
     }
 
-    public void setSourceDatasetUpdatedAt(LocalDateTime sourceDatasetUpdatedAt) {
-        this.sourceDatasetUpdatedAt = sourceDatasetUpdatedAt;
+    public void setTargetPageXmlVersion(String targetPageXmlVersion) {
+        this.targetPageXmlVersion = targetPageXmlVersion;
+    }
+
+    public String getEmbeddedOutputsJson() {
+        return embeddedOutputsJson;
+    }
+
+    public void setEmbeddedOutputsJson(String embeddedOutputsJson) {
+        this.embeddedOutputsJson = embeddedOutputsJson;
+    }
+
+    public LocalDateTime getSourceProjectUpdatedAt() {
+        return sourceProjectUpdatedAt;
+    }
+
+    public void setSourceProjectUpdatedAt(LocalDateTime sourceProjectUpdatedAt) {
+        this.sourceProjectUpdatedAt = sourceProjectUpdatedAt;
     }
 
     public String getPackageFileName() {
@@ -257,30 +258,6 @@ public class DatasetRelease {
 
     public void setManifestChecksumSha256(String manifestChecksumSha256) {
         this.manifestChecksumSha256 = manifestChecksumSha256;
-    }
-
-    public String getManifestJson() {
-        return manifestJson;
-    }
-
-    public void setManifestJson(String manifestJson) {
-        this.manifestJson = manifestJson;
-    }
-
-    public String getStatsJson() {
-        return statsJson;
-    }
-
-    public void setStatsJson(String statsJson) {
-        this.statsJson = statsJson;
-    }
-
-    public String getWarningsJson() {
-        return warningsJson;
-    }
-
-    public void setWarningsJson(String warningsJson) {
-        this.warningsJson = warningsJson;
     }
 
     public String getSharePublicId() {
@@ -359,7 +336,15 @@ public class DatasetRelease {
         return created;
     }
 
+    public void setCreated(LocalDateTime created) {
+        this.created = created;
+    }
+
     public LocalDateTime getUpdated() {
         return updated;
+    }
+
+    public void setUpdated(LocalDateTime updated) {
+        this.updated = updated;
     }
 }

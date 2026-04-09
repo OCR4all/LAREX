@@ -3,6 +3,8 @@ package de.uniwue.zpd.dachs.larex.backend.controller.dataset;
 import de.uniwue.zpd.dachs.larex.backend.dto.DatasetDto;
 import de.uniwue.zpd.dachs.larex.backend.service.dataset.DatasetService;
 import jakarta.validation.Valid;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -149,18 +151,49 @@ public class DatasetController {
         return ResponseEntity.status(HttpStatus.CREATED).body(datasetService.createRelease(workspaceId, datasetId, request, userId));
     }
 
+    @PostMapping("/{datasetId}/releases/{releaseId}/share")
+    public ResponseEntity<DatasetDto.ReleaseShareResponse> createOrRotateReleaseShare(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @PathVariable String releaseId,
+            @Valid @RequestBody DatasetDto.UpsertReleaseShareRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(datasetService.createOrRotateReleaseShare(workspaceId, datasetId, releaseId, request, userId));
+    }
+
+    @PatchMapping("/{datasetId}/releases/{releaseId}/share")
+    public ResponseEntity<DatasetDto.ReleaseSummaryResponse> updateReleaseShare(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @PathVariable String releaseId,
+            @Valid @RequestBody DatasetDto.UpdateReleaseShareRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(datasetService.updateReleaseShare(workspaceId, datasetId, releaseId, request, userId));
+    }
+
+    @DeleteMapping("/{datasetId}/releases/{releaseId}/share")
+    public ResponseEntity<DatasetDto.ReleaseSummaryResponse> revokeReleaseShare(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @PathVariable String releaseId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(datasetService.revokeReleaseShare(workspaceId, datasetId, releaseId, userId));
+    }
+
     @GetMapping("/{datasetId}/releases/{releaseId}/download")
-    public ResponseEntity<byte[]> downloadRelease(
+    public ResponseEntity<Resource> downloadRelease(
             @PathVariable String workspaceId,
             @PathVariable String datasetId,
             @PathVariable String releaseId,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
-        DatasetService.ReleaseDownload releaseDownload = datasetService.downloadReleasePackage(workspaceId, datasetId, releaseId, userId);
+        DatasetService.ReleaseFileDownload releaseDownload = datasetService.downloadReleasePackage(workspaceId, datasetId, releaseId, userId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentLength(releaseDownload.contentLength());
         headers.setContentDisposition(ContentDisposition.attachment()
                 .filename(releaseDownload.fileName())
                 .build());
-        return ResponseEntity.ok().headers(headers).body(releaseDownload.bytes());
+        headers.set("X-Checksum-Sha256", releaseDownload.checksumSha256());
+        return ResponseEntity.ok().headers(headers).body(new FileSystemResource(releaseDownload.absolutePath()));
     }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { h, resolveComponent, type Component } from 'vue'
-import { LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare } from '#components'
+import { h } from 'vue'
+import { LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover, USelect } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui'
 import type {
   DatasetCreateOrUpdateRequest,
@@ -18,13 +18,6 @@ import { wsKey } from '@/utils/fetch-keys'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { SIMPLE_TAG_OPERATOR_OPTIONS } from '@/composables/use-resource-list-page'
 import { createSortableHeader, renderSimpleTagCell } from '@/utils/resource-list-columns'
-
-const UBadge = resolveComponent('UBadge') as Component
-const UButton = resolveComponent('UButton') as Component
-const UDropdownMenu = resolveComponent('UDropdownMenu') as Component
-const UPopover = resolveComponent('UPopover') as Component
-const USelect = resolveComponent('USelect') as Component
-const NuxtLink = resolveComponent('NuxtLink') as Component
 
 const route = useRoute()
 const toast = useToast()

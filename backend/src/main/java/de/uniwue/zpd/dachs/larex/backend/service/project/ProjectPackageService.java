@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
@@ -13,9 +14,11 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.ProjectPackageRelease;
 import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
@@ -24,6 +27,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationP
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectPackageReleaseRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
@@ -47,16 +51,21 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -74,7 +83,10 @@ import org.w3c.dom.Element;
 @Transactional
 public class ProjectPackageService {
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private final ProjectRepository projectRepository;
+    private final ProjectPackageReleaseRepository projectPackageReleaseRepository;
     private final LibraryRepository libraryRepository;
     private final PageRepository pageRepository;
     private final PageXmlRepository pageXmlRepository;
@@ -100,7 +112,11 @@ public class ProjectPackageService {
     @Value("${file.upload-dir}")
     private String uploadDir;
 
+    @Value("${larex.project-releases.share-public-base-url}")
+    private String projectReleaseSharePublicBaseUrl;
+
     public ProjectPackageService(ProjectRepository projectRepository,
+                                 ProjectPackageReleaseRepository projectPackageReleaseRepository,
                                  LibraryRepository libraryRepository,
                                  PageRepository pageRepository,
                                  PageXmlRepository pageXmlRepository,
@@ -123,6 +139,7 @@ public class ProjectPackageService {
                                  DocumentExportService documentExportService,
                                  ObjectMapper objectMapper) {
         this.projectRepository = projectRepository;
+        this.projectPackageReleaseRepository = projectPackageReleaseRepository;
         this.libraryRepository = libraryRepository;
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -159,62 +176,185 @@ public class ProjectPackageService {
     public byte[] exportProjectPackageInternal(String workspaceId,
                                                String projectId,
                                                ProjectPackageDto.ExportRequest request) throws IOException {
-        Project project = projectRepository.findWithAssociationsById(projectId)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        Project project = requireProject(workspaceId, projectId);
+        List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
+        PackageSnapshot packageSnapshot = buildPackageSnapshot(
+                project,
+                pages,
+                request == null ? null : request.targetPageXmlVersion(),
+                request == null ? null : request.embeddedOutputs()
+        );
+        return createPackageBytes(packageSnapshot);
+    }
 
-        if (!workspaceId.equals(project.getLibrary().getWorkspaceId())) {
-            throw new IllegalArgumentException("Project does not belong to workspace");
-        }
+    public List<ProjectPackageDto.ReleaseSummaryResponse> listReleases(String workspaceId,
+                                                                       String projectId,
+                                                                       String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        requireProject(workspaceId, projectId);
+        return projectPackageReleaseRepository.findByProjectIdOrderByVersionNumberDesc(projectId).stream()
+                .map(this::toReleaseSummaryResponse)
+                .toList();
+    }
 
+    public ProjectPackageDto.ReleaseSummaryResponse createRelease(String workspaceId,
+                                                                  String projectId,
+                                                                  ProjectPackageDto.CreateReleaseRequest request,
+                                                                  String userId) throws IOException {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        Project project = requireProject(workspaceId, projectId);
+
+        int nextVersionNumber = defaultInt(projectPackageReleaseRepository.findMaxVersionNumberByProjectId(projectId)) + 1;
+        String versionTag = normalizeReleaseTag(request == null ? null : request.versionTag(), nextVersionNumber, projectId);
         String targetPageXmlVersion = pageXmlConversionService.normalizeTargetVersion(
                 request == null ? null : request.targetPageXmlVersion()
         );
-        boolean legacyTarget = pageXmlConversionService.isLegacyTargetVersion(targetPageXmlVersion);
-        List<Page> pages = resolvePagesForExport(projectId, request == null ? null : request.pageIds());
-        ExportBundle exportBundle = buildExportBundle(project, pages, targetPageXmlVersion, legacyTarget);
-        List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs = documentExportService.exportEmbeddedProjectOutputs(
-                project,
-                pages,
+        List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs = copyEmbeddedOutputs(
                 request == null ? null : request.embeddedOutputs()
         );
-        byte[] metsBytes = buildMetsXml(project, pages, exportBundle.manifest(), embeddedOutputs);
+        List<Page> pages = resolvePagesForExport(projectId, null);
 
-        return archiveIoService.createZip(zipOut -> {
-            archiveIoService.writeJsonEntry(zipOut, "manifest.json", exportBundle.manifest());
-            archiveIoService.writeBytesEntry(zipOut, "mets.xml", metsBytes);
+        ProjectPackageRelease release = new ProjectPackageRelease();
+        release.setProject(project);
+        release.setVersionNumber(nextVersionNumber);
+        release.setVersionTag(versionTag);
+        release.setNotes(normalizeNullableText(request == null ? null : request.notes()));
+        release.setCreatedByUserId(userId);
+        release.setStatus(ProjectPackageRelease.Status.CREATING);
+        release.setPageCount((long) pages.size());
+        release.setTargetPageXmlVersion(targetPageXmlVersion);
+        release.setEmbeddedOutputsJson(writeEmbeddedOutputsJson(embeddedOutputs));
+        release.setSourceProjectUpdatedAt(project.getUpdated());
+        release = projectPackageReleaseRepository.save(release);
 
-            for (ProjectPackageDto.FileEntry fileEntry : exportBundle.manifest().files()) {
-                Path source = resolveUploadPath(fileEntry.archivePath(), fileEntry.kind(), fileEntry.sourceId(), exportBundle);
-                if (fileEntry.kind() == ProjectPackageDto.FileKind.XML && fileEntry.xmlSchema() == XmlSchema.PAGE_XML) {
-                    byte[] convertedBytes = pageXmlConversionService.convertFileToVersion(source, targetPageXmlVersion);
-                    archiveIoService.writeBytesEntry(zipOut, fileEntry.archivePath(), convertedBytes);
-                } else {
-                    archiveIoService.writeFileEntry(zipOut, fileEntry.archivePath(), source);
-                }
+        Path releaseRoot = projectReleaseRoot(workspaceId, projectId, release.getId());
+        long reservedBytes = 0L;
 
-                if (fileEntry.thumbnailArchivePath() != null) {
-                    Path thumbnailPath = resolveThumbnailUploadPath(fileEntry.sourceId(), exportBundle);
-                    if (thumbnailPath != null && Files.exists(thumbnailPath)) {
-                        archiveIoService.writeFileEntry(zipOut, fileEntry.thumbnailArchivePath(), thumbnailPath);
-                    }
-                }
+        try {
+            PackageSnapshot packageSnapshot = buildPackageSnapshot(project, pages, targetPageXmlVersion, embeddedOutputs);
+            String fileName = sanitizeSegment(project.getName()) + "-" + sanitizeSegment(versionTag) + ".larex-project.zip";
+            Path packagePath = releaseRoot.resolve(fileName);
+            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
+                    workspaceId,
+                    estimatePackageBytes(packageSnapshot),
+                    "project-release"
+            );
+
+            writePackageZip(packagePath, packageSnapshot);
+
+            release.setStatus(ProjectPackageRelease.Status.READY);
+            release.setFailureReason(null);
+            release.setPackageFileName(fileName);
+            release.setPackageFilePath(relativeToUploadRoot(packagePath));
+            release.setPackageFileSize(Files.size(packagePath));
+            release.setPackageChecksumSha256(computeSha256(packagePath));
+            release.setManifestChecksumSha256(computeSha256(objectMapper.writeValueAsBytes(packageSnapshot.manifest())));
+            projectPackageReleaseRepository.save(release);
+            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
+            return toReleaseSummaryResponse(release);
+        } catch (IOException | RuntimeException e) {
+            deleteRecursively(releaseRoot);
+            projectPackageReleaseRepository.deleteById(release.getId());
+            if (reservedBytes > 0) {
+                workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
             }
+            throw e;
+        }
+    }
 
-            for (ProjectPackageDto.XmlVersionEntry versionEntry : exportBundle.manifest().xmlVersions()) {
-                Path sourcePath = exportBundle.versionPathByArchivePath().get(versionEntry.archivePath());
-                if (sourcePath != null && Files.exists(sourcePath)) {
-                    archiveIoService.writeFileEntry(zipOut, versionEntry.archivePath(), sourcePath);
-                }
-            }
+    public ProjectPackageDto.ReleaseShareResponse createOrRotateReleaseShare(String workspaceId,
+                                                                             String projectId,
+                                                                             String releaseId,
+                                                                             ProjectPackageDto.UpsertReleaseShareRequest request,
+                                                                             String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireProject(workspaceId, projectId);
+        ProjectPackageRelease release = requireRelease(projectId, releaseId);
+        requireShareableRelease(release);
 
-            for (Map.Entry<String, UtilityPackageDto.UtilityResource> entry : exportBundle.utilityResourceByPath().entrySet()) {
-                archiveIoService.writeJsonEntry(zipOut, entry.getKey(), entry.getValue());
-            }
+        LocalDateTime now = LocalDateTime.now();
+        String sharePublicId = generateOpaqueToken(18);
+        String shareSecret = generateOpaqueToken(32);
 
-            for (DocumentExportService.EmbeddedProjectOutput output : embeddedOutputs) {
-                archiveIoService.writeBytesEntry(zipOut, output.archivePath(), output.bytes());
-            }
-        });
+        release.setSharePublicId(sharePublicId);
+        release.setShareSecretHash(computeSha256(shareSecret.getBytes(StandardCharsets.UTF_8)));
+        release.setShareSecretPrefix(shareSecret.substring(0, Math.min(8, shareSecret.length())));
+        release.setShareCreatedByUserId(userId);
+        release.setShareCreatedAt(now);
+        release.setShareExpiresAt(request.expiresAt());
+        release.setShareRevokedAt(null);
+        release.setShareLastUsedAt(null);
+        release.setShareDownloadCount(0L);
+        projectPackageReleaseRepository.save(release);
+
+        return new ProjectPackageDto.ReleaseShareResponse(
+                buildShareDownloadUrl(sharePublicId),
+                shareSecret,
+                release.getShareExpiresAt(),
+                release.getShareCreatedAt()
+        );
+    }
+
+    public ProjectPackageDto.ReleaseSummaryResponse updateReleaseShare(String workspaceId,
+                                                                       String projectId,
+                                                                       String releaseId,
+                                                                       ProjectPackageDto.UpdateReleaseShareRequest request,
+                                                                       String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireProject(workspaceId, projectId);
+        ProjectPackageRelease release = requireRelease(projectId, releaseId);
+        requireActiveShare(release);
+        release.setShareExpiresAt(request.expiresAt());
+        projectPackageReleaseRepository.save(release);
+        return toReleaseSummaryResponse(release);
+    }
+
+    public ProjectPackageDto.ReleaseSummaryResponse revokeReleaseShare(String workspaceId,
+                                                                       String projectId,
+                                                                       String releaseId,
+                                                                       String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireProject(workspaceId, projectId);
+        ProjectPackageRelease release = requireRelease(projectId, releaseId);
+        requireActiveShare(release);
+        release.setShareRevokedAt(LocalDateTime.now());
+        projectPackageReleaseRepository.save(release);
+        return toReleaseSummaryResponse(release);
+    }
+
+    public ReleaseFileDownload downloadReleasePackage(String workspaceId,
+                                                      String projectId,
+                                                      String releaseId,
+                                                      String userId) throws IOException {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        requireProject(workspaceId, projectId);
+        ProjectPackageRelease release = requireRelease(projectId, releaseId);
+        return resolveReleaseFileDownload(release, releaseId);
+    }
+
+    public SharedReleaseDownload downloadSharedReleasePackage(String sharePublicId,
+                                                              String authorizationHeader,
+                                                              boolean trackUsage) throws IOException {
+        ProjectPackageRelease release = projectPackageReleaseRepository.findBySharePublicId(sharePublicId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project release package not found."));
+        requireActiveShare(release);
+        if (!matchesShareSecret(release.getShareSecretHash(), extractBearerToken(authorizationHeader))) {
+            throw new ResourceNotFoundException("Project release package not found.");
+        }
+
+        ReleaseFileDownload download = resolveReleaseFileDownload(release, release.getId());
+        if (trackUsage) {
+            release.setShareLastUsedAt(LocalDateTime.now());
+            release.setShareDownloadCount((release.getShareDownloadCount() == null ? 0L : release.getShareDownloadCount()) + 1L);
+            projectPackageReleaseRepository.save(release);
+        }
+
+        return new SharedReleaseDownload(
+                download.fileName(),
+                download.absolutePath(),
+                download.contentLength(),
+                download.checksumSha256()
+        );
     }
 
     public ProjectPackageDto.ImportResult importProjectPackage(String workspaceId,
@@ -349,6 +489,22 @@ public class ProjectPackageService {
 
         Path sourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(relativePath));
         return Files.exists(sourcePath) ? Files.size(sourcePath) : 0L;
+    }
+
+    private PackageSnapshot buildPackageSnapshot(Project project,
+                                                 List<Page> pages,
+                                                 String requestedTargetPageXmlVersion,
+                                                 List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputRequests) throws IOException {
+        String targetPageXmlVersion = pageXmlConversionService.normalizeTargetVersion(requestedTargetPageXmlVersion);
+        boolean legacyTarget = pageXmlConversionService.isLegacyTargetVersion(targetPageXmlVersion);
+        ExportBundle exportBundle = buildExportBundle(project, pages, targetPageXmlVersion, legacyTarget);
+        List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs = documentExportService.exportEmbeddedProjectOutputs(
+                project,
+                pages,
+                embeddedOutputRequests
+        );
+        byte[] metsBytes = buildMetsXml(project, pages, exportBundle.manifest(), embeddedOutputs);
+        return new PackageSnapshot(exportBundle, embeddedOutputs, metsBytes, targetPageXmlVersion);
     }
 
     private ExportBundle buildExportBundle(Project project,
@@ -833,6 +989,142 @@ public class ProjectPackageService {
         return normalizedBase + " (" + UUID.randomUUID() + ")";
     }
 
+    private Project requireProject(String workspaceId, String projectId) {
+        Project project = projectRepository.findWithAssociationsById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project", projectId));
+        if (project.getLibrary() == null || !workspaceId.equals(project.getLibrary().getWorkspaceId())) {
+            throw new ResourceNotFoundException("Project", projectId);
+        }
+        return project;
+    }
+
+    private ProjectPackageRelease requireRelease(String projectId, String releaseId) {
+        return projectPackageReleaseRepository.findByIdAndProjectId(releaseId, projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project release", releaseId));
+    }
+
+    private ReleaseFileDownload resolveReleaseFileDownload(ProjectPackageRelease release, String releaseId) throws IOException {
+        if (release.getPackageFilePath() == null || release.getPackageFilePath().isBlank()) {
+            throw new ResourceNotFoundException("Project release package not found.");
+        }
+        Path packagePath = resolveStoragePath(release.getPackageFilePath());
+        if (!Files.exists(packagePath)) {
+            throw new ResourceNotFoundException("Project release package not found.");
+        }
+        return new ReleaseFileDownload(
+                release.getPackageFileName() == null ? ("project-release-" + releaseId + ".zip") : release.getPackageFileName(),
+                packagePath,
+                Files.size(packagePath),
+                release.getPackageChecksumSha256() == null ? computeSha256(packagePath) : release.getPackageChecksumSha256()
+        );
+    }
+
+    private void requireShareableRelease(ProjectPackageRelease release) {
+        if (release.getStatus() != ProjectPackageRelease.Status.READY) {
+            throw new IllegalStateException("Only ready releases can be shared.");
+        }
+        if (release.getPackageFilePath() == null || release.getPackageFilePath().isBlank()) {
+            throw new IllegalStateException("Release package is not available.");
+        }
+        Path packagePath = resolveStoragePath(release.getPackageFilePath());
+        if (!Files.exists(packagePath)) {
+            throw new IllegalStateException("Release package is not available.");
+        }
+    }
+
+    private void requireActiveShare(ProjectPackageRelease release) {
+        if (release.getSharePublicId() == null || release.getSharePublicId().isBlank()
+                || release.getShareSecretHash() == null || release.getShareSecretHash().isBlank()) {
+            throw new ResourceNotFoundException("Project release package not found.");
+        }
+        if (release.getShareRevokedAt() != null) {
+            throw new ResourceNotFoundException("Project release package not found.");
+        }
+        if (release.getShareExpiresAt() == null || !release.getShareExpiresAt().isAfter(LocalDateTime.now())) {
+            throw new ResourceNotFoundException("Project release package not found.");
+        }
+    }
+
+    private ProjectPackageDto.ReleaseSummaryResponse toReleaseSummaryResponse(ProjectPackageRelease release) {
+        boolean shareEnabled = release.getSharePublicId() != null
+                && !release.getSharePublicId().isBlank()
+                && release.getShareSecretHash() != null
+                && !release.getShareSecretHash().isBlank()
+                && release.getShareRevokedAt() == null
+                && release.getShareExpiresAt() != null
+                && release.getShareExpiresAt().isAfter(LocalDateTime.now());
+        return new ProjectPackageDto.ReleaseSummaryResponse(
+                release.getId(),
+                release.getVersionNumber(),
+                release.getVersionTag(),
+                release.getNotes(),
+                ProjectPackageDto.ProjectReleaseStatus.valueOf(release.getStatus().name()),
+                release.getPageCount() == null ? 0L : release.getPageCount(),
+                release.getTargetPageXmlVersion(),
+                readEmbeddedOutputs(release.getEmbeddedOutputsJson()),
+                release.getFailureReason(),
+                release.getPackageFileName(),
+                release.getPackageFileSize(),
+                release.getPackageChecksumSha256(),
+                release.getManifestChecksumSha256(),
+                release.getCreatedByUserId(),
+                release.getSourceProjectUpdatedAt(),
+                shareEnabled,
+                release.getShareSecretPrefix(),
+                release.getShareCreatedAt(),
+                release.getShareExpiresAt(),
+                release.getShareRevokedAt(),
+                release.getShareLastUsedAt(),
+                release.getShareDownloadCount() == null ? 0L : release.getShareDownloadCount(),
+                release.getCreated(),
+                release.getUpdated()
+        );
+    }
+
+    private List<DocumentExportDto.EmbeddedProjectOutputRequest> copyEmbeddedOutputs(List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs) {
+        if (embeddedOutputs == null || embeddedOutputs.isEmpty()) {
+            return List.of();
+        }
+        return embeddedOutputs.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(output -> new DocumentExportDto.EmbeddedProjectOutputRequest(
+                        output.format(),
+                        output.includePageDelimiters(),
+                        output.textLevel(),
+                        output.textVariantIndex(),
+                        output.pdfProfile(),
+                        output.teiProfile(),
+                        output.spreadsheetProfiles() == null ? null : List.copyOf(output.spreadsheetProfiles()),
+                        output.docxOptions() == null ? null : new DocumentExportDto.DocxOptions(
+                                output.docxOptions().preserveLineBreaks(),
+                                output.docxOptions().forcePageBreaks(),
+                                output.docxOptions().includeImageNames(),
+                                output.docxOptions().markUnclearWords()
+                        )
+                ))
+                .toList();
+    }
+
+    private String writeEmbeddedOutputsJson(List<DocumentExportDto.EmbeddedProjectOutputRequest> embeddedOutputs) {
+        try {
+            return objectMapper.writeValueAsString(copyEmbeddedOutputs(embeddedOutputs));
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to serialize embedded outputs", e);
+        }
+    }
+
+    private List<DocumentExportDto.EmbeddedProjectOutputRequest> readEmbeddedOutputs(String embeddedOutputsJson) {
+        if (embeddedOutputsJson == null || embeddedOutputsJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readerForListOf(DocumentExportDto.EmbeddedProjectOutputRequest.class)
+                    .readValue(embeddedOutputsJson);
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to read embedded outputs", e);
+        }
+    }
+
     private String uniquePageName(String baseName, Collection<String> usedLowerCaseNames) {
         String normalizedBase = (baseName == null || baseName.isBlank()) ? "Imported Page" : baseName.trim();
         String lowerBase = normalizedBase.toLowerCase();
@@ -1044,6 +1336,243 @@ public class ProjectPackageService {
         return "application/octet-stream";
     }
 
+    private long estimatePackageBytes(PackageSnapshot packageSnapshot) {
+        long sourceBytes = packageSnapshot.exportBundle().manifest().files().stream().mapToLong(file -> {
+            try {
+                Path sourcePath = resolveUploadPath(file.archivePath(), file.kind(), file.sourceId(), packageSnapshot.exportBundle());
+                return Files.size(sourcePath);
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to estimate package file size", e);
+            }
+        }).sum();
+
+        long versionBytes = packageSnapshot.exportBundle().manifest().xmlVersions().stream().mapToLong(entry -> {
+            Path sourcePath = packageSnapshot.exportBundle().versionPathByArchivePath().get(entry.archivePath());
+            if (sourcePath == null) {
+                return 0L;
+            }
+            try {
+                return Files.exists(sourcePath) ? Files.size(sourcePath) : 0L;
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to estimate package version size", e);
+            }
+        }).sum();
+
+        long embeddedBytes = packageSnapshot.embeddedOutputs().stream()
+                .mapToLong(output -> output.bytes() == null ? 0L : output.bytes().length)
+                .sum();
+
+        return sourceBytes + versionBytes + embeddedBytes + packageSnapshot.metsBytes().length + 1_048_576L;
+    }
+
+    private byte[] createPackageBytes(PackageSnapshot packageSnapshot) throws IOException {
+        return archiveIoService.createZip(zipOut -> writePackageEntries(zipOut, packageSnapshot));
+    }
+
+    private void writePackageZip(Path outputPath, PackageSnapshot packageSnapshot) throws IOException {
+        archiveIoService.writeZip(outputPath, zipOut -> writePackageEntries(zipOut, packageSnapshot));
+    }
+
+    private void writePackageEntries(java.util.zip.ZipOutputStream zipOut, PackageSnapshot packageSnapshot) throws IOException {
+        archiveIoService.writeJsonEntry(zipOut, "manifest.json", packageSnapshot.manifest());
+        archiveIoService.writeBytesEntry(zipOut, "mets.xml", packageSnapshot.metsBytes());
+
+        for (ProjectPackageDto.FileEntry fileEntry : packageSnapshot.manifest().files()) {
+            Path source = resolveUploadPath(fileEntry.archivePath(), fileEntry.kind(), fileEntry.sourceId(), packageSnapshot.exportBundle());
+            if (fileEntry.kind() == ProjectPackageDto.FileKind.XML && fileEntry.xmlSchema() == XmlSchema.PAGE_XML) {
+                byte[] convertedBytes = pageXmlConversionService.convertFileToVersion(source, packageSnapshot.targetPageXmlVersion());
+                archiveIoService.writeBytesEntry(zipOut, fileEntry.archivePath(), convertedBytes);
+            } else {
+                archiveIoService.writeFileEntry(zipOut, fileEntry.archivePath(), source);
+            }
+
+            if (fileEntry.thumbnailArchivePath() != null) {
+                Path thumbnailPath = resolveThumbnailUploadPath(fileEntry.sourceId(), packageSnapshot.exportBundle());
+                if (thumbnailPath != null && Files.exists(thumbnailPath)) {
+                    archiveIoService.writeFileEntry(zipOut, fileEntry.thumbnailArchivePath(), thumbnailPath);
+                }
+            }
+        }
+
+        for (ProjectPackageDto.XmlVersionEntry versionEntry : packageSnapshot.manifest().xmlVersions()) {
+            Path sourcePath = packageSnapshot.exportBundle().versionPathByArchivePath().get(versionEntry.archivePath());
+            if (sourcePath != null && Files.exists(sourcePath)) {
+                archiveIoService.writeFileEntry(zipOut, versionEntry.archivePath(), sourcePath);
+            }
+        }
+
+        for (Map.Entry<String, UtilityPackageDto.UtilityResource> entry : packageSnapshot.exportBundle().utilityResourceByPath().entrySet()) {
+            archiveIoService.writeJsonEntry(zipOut, entry.getKey(), entry.getValue());
+        }
+
+        for (DocumentExportService.EmbeddedProjectOutput output : packageSnapshot.embeddedOutputs()) {
+            archiveIoService.writeBytesEntry(zipOut, output.archivePath(), output.bytes());
+        }
+    }
+
+    private String normalizeReleaseTag(String requestedTag, int versionNumber, String projectId) {
+        String candidate = normalizeNullableText(requestedTag);
+        if (candidate == null) {
+            candidate = "v" + versionNumber;
+        }
+        String normalized = candidate.trim();
+        if (projectPackageReleaseRepository.findByProjectIdOrderByVersionNumberDesc(projectId).stream()
+                .anyMatch(release -> release.getVersionTag() != null && release.getVersionTag().equalsIgnoreCase(normalized))) {
+            throw new IllegalArgumentException("Release tag already exists in this project");
+        }
+        return normalized;
+    }
+
+    private int defaultInt(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private String normalizeNullableText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    private String sanitizeSegment(String value) {
+        String normalized = normalizeNullableText(value);
+        if (normalized == null) {
+            return "release";
+        }
+        String sanitized = normalized
+                .replaceAll("[^A-Za-z0-9._-]+", "-")
+                .replaceAll("-{2,}", "-")
+                .replaceAll("(^[-.]+|[-.]+$)", "");
+        return sanitized.isBlank() ? "release" : sanitized;
+    }
+
+    private Path projectReleaseRoot(String workspaceId, String projectId, String releaseId) {
+        return Path.of(uploadDir)
+                .toAbsolutePath()
+                .normalize()
+                .resolve("project-releases")
+                .resolve(sanitizeSegment(workspaceId))
+                .resolve(sanitizeSegment(projectId))
+                .resolve(sanitizeSegment(releaseId));
+    }
+
+    private Path resolveStoragePath(String storedPath) {
+        Path root = Path.of(uploadDir).toAbsolutePath().normalize();
+        Path candidate = Path.of(storedPath);
+        if (candidate.isAbsolute()) {
+            return candidate.normalize();
+        }
+        return root.resolve(storedPath).normalize();
+    }
+
+    private String relativeToUploadRoot(Path path) {
+        Path root = Path.of(uploadDir).toAbsolutePath().normalize();
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        if (!normalizedPath.startsWith(root)) {
+            throw new IllegalArgumentException("Path is outside upload root: " + normalizedPath);
+        }
+        return root.relativize(normalizedPath).toString().replace('\\', '/');
+    }
+
+    private String computeSha256(Path file) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream inputStream = Files.newInputStream(file)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = inputStream.read(buffer)) >= 0) {
+                    digest.update(buffer, 0, read);
+                }
+            }
+            return hexDigest(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 digest unavailable", e);
+        }
+    }
+
+    private String computeSha256(byte[] bytes) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(bytes);
+            return hexDigest(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 digest unavailable", e);
+        }
+    }
+
+    private String hexDigest(byte[] digest) {
+        StringBuilder builder = new StringBuilder(digest.length * 2);
+        for (byte b : digest) {
+            builder.append(String.format(Locale.ROOT, "%02x", b));
+        }
+        return builder.toString();
+    }
+
+    private String buildShareDownloadUrl(String sharePublicId) {
+        String normalizedBase = projectReleaseSharePublicBaseUrl == null
+                ? ""
+                : projectReleaseSharePublicBaseUrl.replaceAll("/+$", "");
+        return normalizedBase + "/" + sharePublicId + "/download";
+    }
+
+    private String generateOpaqueToken(int byteLength) {
+        byte[] bytes = new byte[byteLength];
+        SECURE_RANDOM.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            return null;
+        }
+        if (!authorizationHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return null;
+        }
+        String token = authorizationHeader.substring(7).trim();
+        return token.isBlank() ? null : token;
+    }
+
+    private boolean matchesShareSecret(String expectedHash, String providedSecret) {
+        if (expectedHash == null || expectedHash.isBlank() || providedSecret == null || providedSecret.isBlank()) {
+            return false;
+        }
+        byte[] expectedBytes = decodeHex(expectedHash);
+        byte[] actualBytes = decodeHex(computeSha256(providedSecret.getBytes(StandardCharsets.UTF_8)));
+        return MessageDigest.isEqual(expectedBytes, actualBytes);
+    }
+
+    private byte[] decodeHex(String value) {
+        if (value == null || (value.length() % 2) != 0) {
+            return new byte[0];
+        }
+        byte[] bytes = new byte[value.length() / 2];
+        for (int i = 0; i < value.length(); i += 2) {
+            int high = Character.digit(value.charAt(i), 16);
+            int low = Character.digit(value.charAt(i + 1), 16);
+            if (high < 0 || low < 0) {
+                return new byte[0];
+            }
+            bytes[i / 2] = (byte) ((high << 4) + low);
+        }
+        return bytes;
+    }
+
+    private void deleteRecursively(Path path) {
+        if (path == null || !Files.exists(path)) {
+            return;
+        }
+        try (var walk = Files.walk(path)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(current -> {
+                try {
+                    Files.deleteIfExists(current);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException ignored) {
+        }
+    }
+
     private void deleteDirectoryQuietly(Path directory) {
         if (directory == null || !Files.exists(directory)) {
             return;
@@ -1068,5 +1597,22 @@ public class ProjectPackageService {
             Map<String, UtilityPackageDto.UtilityResource> utilityResourceByPath,
             Map<String, PageImage> imageBySourceId
     ) {
+    }
+
+    private record PackageSnapshot(
+            ExportBundle exportBundle,
+            List<DocumentExportService.EmbeddedProjectOutput> embeddedOutputs,
+            byte[] metsBytes,
+            String targetPageXmlVersion
+    ) {
+        private ProjectPackageDto.PackageManifest manifest() {
+            return exportBundle.manifest();
+        }
+    }
+
+    public record ReleaseFileDownload(String fileName, Path absolutePath, long contentLength, String checksumSha256) {
+    }
+
+    public record SharedReleaseDownload(String fileName, Path absolutePath, long contentLength, String checksumSha256) {
     }
 }

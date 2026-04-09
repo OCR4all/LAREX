@@ -16,7 +16,7 @@ import { Polygon, Polyline } from '@/models/editor/geometry'
 import { TextLine } from '@/models/editor/text'
 import type { ImageSize, Point } from '@/models/editor'
 import { PolygonType } from '@/models/editor'
-import { imageToWorld } from '~/utils'
+import { imageToWorld } from './coordinates'
 
 export type FlatPolygon = {
   id: string
