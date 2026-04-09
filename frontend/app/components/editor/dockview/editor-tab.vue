@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TabPartInitParameters } from 'dockview-core'
 import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
+import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorCloseRequests } from '@/composables/use-editor-close-requests'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { parsePagePanelId } from '@/stores/editor/editor.keys'
@@ -9,6 +10,7 @@ const props = defineProps<{ params: TabPartInitParameters }>()
 
 const editorStore = useEditorStore()
 const pageSummaries = useCollaborationPageSummary()
+const collaboration = useEditorCollaboration()
 const closeRequests = useEditorCloseRequests()
 
 const title = ref(props.params.api.title ?? '')
@@ -32,6 +34,13 @@ const collaborationSummary = computed(() => {
   if (!id) return null
   return pageSummaries.getPageSummary(id, projectId.value)
 })
+const showCollaborationDot = computed(() => {
+  const summary = collaborationSummary.value
+  const id = pageId.value
+  if (!summary || !id) return false
+
+  return summary.collaboratorCount > 1 || summary.hasPendingTakeover
+})
 
 const collaborationDotTitle = computed(() => {
   const summary = collaborationSummary.value
@@ -52,6 +61,9 @@ const collaborationDotTitle = computed(() => {
 const collaborationDotClass = computed(() => {
   const summary = collaborationSummary.value
   if (!summary) return ''
+  if (pageId.value && collaboration.isPageLeaseExpiringSoon(pageId.value, projectId.value)) {
+    return 'bg-amber-400 animate-pulse'
+  }
   if (summary.editor?.user.id) {
     return summary.isLive ? 'bg-sky-400' : 'bg-neutral-400'
   }
@@ -98,7 +110,7 @@ function requestClose(ev: MouseEvent) {
       <span class="truncate">{{ title }}</span>
       <span v-if="hasUnsavedChanges" class="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
       <span
-        v-if="collaborationSummary"
+        v-if="showCollaborationDot"
         :class="['ml-2 inline-flex h-1.5 w-1.5 rounded-full', collaborationDotClass]"
         :title="collaborationDotTitle"
       />

@@ -415,15 +415,6 @@ public class AnnotationLeaseService {
             }
             return;
         }
-        if (expiredEditor != null && expiredEditor.id() != null) {
-            queueNotification(notifications, "lease-expired-release", () -> notificationService.createCollaborationLeaseExpiredNotification(
-                    expiredEditor.id(),
-                    record.projectId,
-                    record.projectLabel,
-                    record.pageId,
-                    record.pageLabel
-            ));
-        }
         if (record.owner == null && record.pendingTakeover == null) {
           leases.remove(roomKey, record);
         }

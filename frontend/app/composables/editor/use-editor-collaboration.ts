@@ -162,6 +162,21 @@ function hasSnapshotAnnotationPayload(snapshot: CollaborationPageSnapshot | null
     || Boolean(snapshot.readingOrder)
 }
 
+function roomHasRemoteParticipants(
+  room: CollaborationRoomSession | null | undefined,
+  currentUserId?: string | null
+): boolean {
+  if (!room) return false
+
+  const distinctRemoteUsers = new Set(
+    room.presence.members
+      .map(member => member.user?.id)
+      .filter((userId): userId is string => Boolean(userId) && userId !== currentUserId)
+  )
+
+  return distinctRemoteUsers.size > 0
+}
+
 export function useEditorCollaboration() {
   const { user, loggedIn } = useUserSession()
   const editorStore = useEditorStore()
@@ -247,6 +262,7 @@ export function useEditorCollaboration() {
 
     const currentId = currentUserId.value
     const roomPageLabel = pageLabel(room)
+    const hasRemoteParticipants = roomHasRemoteParticipants(room, currentId)
 
     if (nextEditor?.user.id === currentId) {
       setLocallyExpired(room.identity.roomKey, false)
@@ -281,7 +297,7 @@ export function useEditorCollaboration() {
     }
 
     if (!sameEditor(previousEditor, nextEditor)) {
-      if (nextEditor?.user.id === currentId) {
+      if (nextEditor?.user.id === currentId && hasRemoteParticipants) {
         toast.add({
           title: 'Edit lock acquired',
           description: `You now hold the edit lock for ${roomPageLabel}.`,
@@ -299,7 +315,7 @@ export function useEditorCollaboration() {
         return
       }
 
-      if (previousEditor?.user.id === currentId && !nextEditor) {
+      if (previousEditor?.user.id === currentId && !nextEditor && hasRemoteParticipants) {
         toast.add({
           title: 'Edit lock expired',
           description: `Your edit lock for ${roomPageLabel} expired after the lease heartbeat stopped.`,
@@ -376,6 +392,7 @@ export function useEditorCollaboration() {
       || !expiresAt
       || room.lease.editor?.user.id !== currentUserId.value
       || !isLocalRoomLeader(roomKey)
+      || !roomHasRemoteParticipants(room, currentUserId.value)
     ) {
       setLeaseExpiringSoon(roomKey, false)
       return
@@ -633,13 +650,7 @@ export function useEditorCollaboration() {
 
   const roomHasOtherViewers = (roomKey: string): boolean => {
     const room = rooms.value[roomKey]
-    if (!room) return false
-    const distinctRemoteUsers = new Set(
-      room.presence.members
-        .map(member => member.user?.id)
-        .filter((userId): userId is string => Boolean(userId) && userId !== currentUserId.value)
-    )
-    return distinctRemoteUsers.size > 0
+    return roomHasRemoteParticipants(room, currentUserId.value)
   }
 
   const stopRevisionPolling = (roomKey: string) => {
@@ -1307,6 +1318,22 @@ export function useEditorCollaboration() {
     return dedupeMembers(matches, currentUserId.value)
   }
 
+  const getRoomForPage = (pageId: string | null | undefined, projectId?: string | null): CollaborationRoomSession | null => {
+    if (!pageId) return null
+
+    return Object.values(rooms.value).find(room => room.identity.pageId === pageId && (!projectId || room.identity.projectId === projectId)) ?? null
+  }
+
+  const pageHasRemoteParticipants = (pageId: string | null | undefined, projectId?: string | null): boolean => {
+    return roomHasRemoteParticipants(getRoomForPage(pageId, projectId), currentUserId.value)
+  }
+
+  const isPageLeaseExpiringSoon = (pageId: string | null | undefined, projectId?: string | null): boolean => {
+    const room = getRoomForPage(pageId, projectId)
+    if (!room) return false
+    return roomLeaseWarnings.value[room.identity.roomKey] === true
+  }
+
   const isCanvasResyncRequired = (canvasId: string): boolean => {
     return getRoomForCanvas(canvasId)?.viewerSync.resyncRequired === true
   }
@@ -1440,6 +1467,8 @@ export function useEditorCollaboration() {
     getRoomForCanvas,
     getCanvasCollaborators,
     getPageCollaborators,
+    pageHasRemoteParticipants,
+    isPageLeaseExpiringSoon,
     isCanvasResyncRequired,
     isCollaborativeCanvas,
     isCanvasLeaseExpiringSoon,
