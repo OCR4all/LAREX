@@ -94,6 +94,10 @@ export interface RelationsOverlaySettings {
   showLabels: boolean
 }
 
+export interface CommentsOverlaySettings {
+  visible: boolean
+}
+
 export interface RelationsEditorState {
   pickerMode: RelationPickerMode
   selectedRelationId: string | null

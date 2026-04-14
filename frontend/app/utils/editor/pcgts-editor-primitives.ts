@@ -35,15 +35,14 @@ function collectFromRegions(
   parentId?: string
 ): void {
   for (const region of regions) {
-    const regionSubtype = isTextRegion(region)
-      ? region.type
-      : (region.kind === 'GraphicRegion' || region.kind === 'ChartRegion') ? (region as any).type : undefined
+    const regionSubtype = region.type
 
     outPolygons.push({
       id: region.id,
       parentId,
       type: PolygonType.REGION,
       label: getRegionLabel(region),
+      comments: region.comments,
       points: tuplesToPoints(region.coords.points),
       regionKind: region.kind,
       regionSubtype,
@@ -59,6 +58,7 @@ function collectFromRegions(
           parentId: region.id,
           type: PolygonType.TEXTLINE,
           label: getTextLineLabel(textLine),
+          comments: textLine.comments,
           points: tuplesToPoints(textLine.coords.points),
           textContentVariants: textLine.textContentVariants,
           confidence: textLine.confidence

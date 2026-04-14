@@ -7,7 +7,7 @@ import { commander } from '@/commands'
 import { findRegionRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { buildMergedCustomForAppliedRegionLabel, createCanonicalRegionSignatureFromRuntimeRegion, findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 import { canContainTextLines } from '@/models/editor'
-import type { RegionKind } from '@/models/editor'
+import type { Region, RegionKind } from '@/models/editor'
 import type { LabelDefinition } from '@/models/editor/labels'
 import type { LineWidthPreset } from '@/stores/editor/types'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
@@ -65,7 +65,11 @@ const buildKeyFromRegion = (region: { kind: RegionKind, type?: string | null, cu
   return createCanonicalRegionSignatureFromRuntimeRegion(region)
 }
 
-const collectRegions = (regions: Array<{ id: string, kind: RegionKind, type?: string | null, regions?: any[] }>, out: any[]) => {
+type RuntimeRegionNode = Pick<Region, 'id' | 'kind' | 'type' | 'custom' | 'regions'> & {
+  regions?: RuntimeRegionNode[]
+}
+
+const collectRegions = (regions: RuntimeRegionNode[], out: RuntimeRegionNode[]) => {
   for (const region of regions) {
     out.push(region)
     if (region.regions && region.regions.length > 0) {
@@ -85,12 +89,12 @@ const scanConflicts = () => {
     return
   }
 
-  const allRegions: any[] = []
-  collectRegions(regions as any[], allRegions)
+  const allRegions: RuntimeRegionNode[] = []
+  collectRegions(regions as RuntimeRegionNode[], allRegions)
   const conflicts = new Map<string, ConflictItem>()
 
   for (const region of allRegions) {
-    const matchedLabel = findRegionLabelDefinitionForRegion(labelSet.labels as any, region)
+    const matchedLabel = findRegionLabelDefinitionForRegion(labelSet.labels, region)
     if (matchedLabel) continue
     const key = buildKeyFromRegion(region) ?? `${region.kind}:${region.type ?? ''}`
     if (ignoredConflictKeys.value.has(key)) continue
@@ -169,7 +173,7 @@ const applyReplacement = async (conflict: ConflictItem) => {
   for (const regionId of conflict.regionIds) {
     const hit = findRegionRecursive(document.page.regions, regionId)
     const currentCustom = hit?.region?.custom
-    const newCustom = buildMergedCustomForAppliedRegionLabel(currentCustom, labelDef as any)
+    const newCustom = buildMergedCustomForAppliedRegionLabel(currentCustom, labelDef)
     const command = new ChangeRegionKindCommand({
       regionId,
       newKind,
@@ -247,6 +251,13 @@ onBeforeUnmount(() => {
 <template>
   <div class="p-3 space-y-3">
     <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-sm">Comments Overlay</span>
+        <USwitch
+          :model-value="editorUiStore.commentsOverlay.visible"
+          @update:model-value="toggleSetting(() => editorUiStore.toggleCommentsOverlay())"
+        />
+      </div>
       <div class="flex items-center justify-between">
         <span class="text-sm">Image Bounds</span>
         <USwitch

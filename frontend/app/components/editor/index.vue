@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { WatchStopHandle } from 'vue'
-import { LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
+import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
 import { triangulatePolygon } from '@/utils/editor/hit-detection'
 import { clipToWorldCoords, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
 import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
@@ -16,10 +16,13 @@ import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { CreateRelationCommand, UpdateRelationCommand } from '@/commands'
 import type { Relation } from '@/models/editor'
+import type { CommentOverlayLabel } from '@/types/editor/rendering'
+import { visibilityService } from '@/services/editor/visibility-service'
 import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
 import { getCollaborationColor } from '@/types/collaboration'
 import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
+const CommentsLabelsOverlay = LazyEditorCommentsLabelsOverlay
 const ReadingOrderNumbersOverlay = LazyEditorReadingOrderNumbersOverlay
 const RelationsLabelsOverlay = LazyEditorRelationsLabelsOverlay
 
@@ -513,6 +516,7 @@ function handleBufferClose(result: { distance: number } | null) {
 
 const readingOrderOverlaySettings = computed(() => editorUiStore.readingOrderOverlay)
 const relationsOverlaySettings = computed(() => editorUiStore.relationsOverlay)
+const commentsOverlaySettings = computed(() => editorUiStore.commentsOverlay)
 
 const readingOrder = computed(() => {
   void editorUiStore.readingOrderVersion
@@ -547,6 +551,58 @@ const { renderData: relationRenderData } = useRelationsVisualization(
 const showRelationsOverlay = computed(() =>
   relationsOverlaySettings.value.visible || editorUiStore.relationsEditor.pickerMode !== 'idle'
 )
+const showCommentsOverlay = computed(() => commentsOverlaySettings.value.visible)
+
+function normalizeCommentText(value: string | undefined): string | null {
+  if (!value) return null
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function getPolygonLabelPosition(points: Array<{ x: number, y: number }>): { x: number, y: number } | null {
+  if (points.length === 0) return null
+  const totals = points.reduce(
+    (acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }),
+    { x: 0, y: 0 }
+  )
+  return {
+    x: totals.x / points.length,
+    y: totals.y / points.length
+  }
+}
+
+const commentOverlayLabels = computed<CommentOverlayLabel[]>(() => {
+  if (!showCommentsOverlay.value) return []
+
+  const labels: CommentOverlayLabel[] = []
+  const visibilityContext = {
+    selectedPolygonIndex: selectedPolygonIndex.value,
+    selectedPolylineIndex: selectedPolylineIndex.value,
+    allPolygons: polygons,
+    allPolylines: polylines,
+    viewMode: canvasControls.viewMode?.value,
+    hiddenPolygonIds: new Set(hiddenPolygonIds.value),
+    hiddenPolylineIds: new Set(hiddenPolylineIds.value),
+    temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId,
+    temporaryHoverPolylineId: editorUiStore.temporaryHoverPolylineId
+  }
+
+  for (const polygon of polygons) {
+    const text = normalizeCommentText(polygon.comments)
+    if (!text || !visibilityService.shouldShowPolygon(polygon, visibilityContext)) continue
+
+    const position = getPolygonLabelPosition(polygon.points)
+    if (!position) continue
+
+    labels.push({
+      id: polygon.id,
+      position,
+      text
+    })
+  }
+
+  return labels
+})
 
 const editorInteractions = useEditorInteractions(
   canvas, view, aspectRatioScale, polygons, polylines, selectedPolygonIndex, selectedPolylineIndex,
@@ -1449,6 +1505,15 @@ watch(() => props.src, (newSrc) => {
         :canvas-dimensions="canvasDimensions"
         :visible="true"
         :show-labels="relationsOverlaySettings.showLabels"
+      />
+
+      <CommentsLabelsOverlay
+        v-if="showCommentsOverlay"
+        :labels="commentOverlayLabels"
+        :view="view"
+        :aspect-ratio-scale="aspectRatioScale"
+        :canvas-dimensions="canvasDimensions"
+        :visible="true"
       />
 
       <div

@@ -10,6 +10,7 @@ function createPcGtsFixture(): PcGts {
   const textLine = new TextLine({
     id: 'tl-1',
     coords: new Polygon([[0, 0], [1, 0], [1, 0.1], [0, 0.1]]),
+    comments: 'line comment',
     baseline: {
       points: new Polyline([[0, 0.05], [1, 0.05]]),
       conf: 0.22
@@ -25,6 +26,7 @@ function createPcGtsFixture(): PcGts {
     id: 'r-1',
     kind: 'TextRegion',
     coords: new Polygon([[0, 0], [1, 0], [1, 1], [0, 1]]),
+    comments: 'region comment',
     confidence: 0.73,
     type: 'paragraph',
     textContentVariants: [new TextContentVariant('region', undefined, 0.8, 0)],
@@ -51,8 +53,10 @@ describe('pcgts-editor-primitives confidence extraction', () => {
     const textline = polygons.find(p => p.id === 'tl-1')
 
     expect(region?.confidence).toBe(0.73)
+    expect(region?.comments).toBe('region comment')
     expect(region?.textContentVariants?.[0]?.confidence).toBe(0.8)
     expect(textline?.confidence).toBe(0.41)
+    expect(textline?.comments).toBe('line comment')
     expect(textline?.textContentVariants?.length).toBe(2)
   })
 

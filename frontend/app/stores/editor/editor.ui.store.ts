@@ -6,6 +6,7 @@ import type {
   GlobalSettings,
   ReadingOrderOverlaySettings,
   RelationsOverlaySettings,
+  CommentsOverlaySettings,
   RelationsEditorState,
   VirtualKeyboardMode,
   LineWidthPreset,
@@ -58,6 +59,10 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const relationsOverlay = ref<RelationsOverlaySettings>({
     visible: false,
     showLabels: true
+  })
+
+  const commentsOverlay = ref<CommentsOverlaySettings>({
+    visible: false
   })
 
   const relationsEditor = ref<RelationsEditorState>({
@@ -261,6 +266,14 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function updateRelationsOverlaySettings(settings: Partial<RelationsOverlaySettings>) {
     relationsOverlay.value = { ...relationsOverlay.value, ...settings }
+  }
+
+  function setCommentsOverlayVisible(visible: boolean) {
+    commentsOverlay.value.visible = visible
+  }
+
+  function toggleCommentsOverlay() {
+    commentsOverlay.value.visible = !commentsOverlay.value.visible
   }
 
   function setRelationPickerMode(mode: RelationsEditorState['pickerMode']) {
@@ -507,6 +520,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     readingOrderOverlay,
     readingOrderVersion,
     relationsOverlay,
+    commentsOverlay,
     relationsEditor,
     temporaryHoverPolygonId,
     temporaryHoverPolylineId,
@@ -549,6 +563,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setRelationsOverlayVisible,
     toggleRelationsOverlay,
     updateRelationsOverlaySettings,
+    setCommentsOverlayVisible,
+    toggleCommentsOverlay,
     setRelationPickerMode,
     setSelectedRelationId,
     setRelationPickerRegionId,

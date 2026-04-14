@@ -6,6 +6,7 @@ export interface EditorPolygon {
   type?: string
   parentId?: string
   label?: string
+  comments?: string
 }
 
 export interface EditorPolyline {
@@ -15,6 +16,7 @@ export interface EditorPolyline {
   parentPolygonId?: string
   parentId?: string
   label?: string
+  comments?: string
 }
 
 export interface EditorState {

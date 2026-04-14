@@ -1,8 +1,7 @@
 import type { Point, TextContentVariantData } from '@/models/editor'
 import type { RegionKind } from '@/models/editor/region'
 import type { ConfidenceHeatmapSettings } from '@/stores/editor/types'
-import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
-import type { ArrowSegment } from '@/webgl/editor/reading-order-renderer'
+import type { ArrowSegment, ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 
 export interface DraggedNodeInfo {
   isDragging: boolean
@@ -28,6 +27,7 @@ export interface RenderablePolygon {
   parentId?: string
   label?: string
   type?: string
+  comments?: string
   /** PAGE XML region kind (TextRegion, ImageRegion, etc.) - only for regions */
   regionKind?: RegionKind
   /** Region subtype (paragraph, heading, etc.) - only for regions with subtypes */
@@ -46,8 +46,15 @@ export interface RenderablePolyline {
   parentId?: string
   label?: string
   type?: string
+  comments?: string
   /** Element-level confidence (PAGE @conf) */
   confidence?: number
+}
+
+export interface CommentOverlayLabel {
+  id: string
+  position: Point
+  text: string
 }
 
 export interface RelationOverlayLabel {
