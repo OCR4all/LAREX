@@ -355,6 +355,24 @@ export function usePolylineEditing(
     isInvalidPosition.value = false
   }
 
+  function cancelCurrentOperation(): void {
+    if (draggedNodeInfo.isDragging) {
+      const polyline = polylines[draggedNodeInfo.polylineIndex]
+      if (polyline) {
+        if (draggedNodeInfo.isNewlyInsertedNode && draggedNodeInfo.originalPoints) {
+          polyline.points = draggedNodeInfo.originalPoints.map(point => ({ ...point }))
+        } else if (draggedNodeInfo.originalPoint && draggedNodeInfo.nodeIndex >= 0) {
+          const restoredPoints = [...polyline.points]
+          restoredPoints[draggedNodeInfo.nodeIndex] = { ...draggedNodeInfo.originalPoint }
+          polyline.points = restoredPoints
+        }
+      }
+    }
+
+    resetDraggingState()
+    justFinishedDragging.value = false
+  }
+
   /**
    * Check if currently dragging.
    */
@@ -446,6 +464,7 @@ export function usePolylineEditing(
     handleMouseUp,
     handleSelection,
     isDragging,
+    cancelCurrentOperation,
     clearEditingState,
     resetDragCompletionFlag
   }

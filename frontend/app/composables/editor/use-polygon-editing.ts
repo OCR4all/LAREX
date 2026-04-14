@@ -317,6 +317,24 @@ export function usePolygonEditing(
     }
   }
 
+  function cancelCurrentOperation(): void {
+    if (draggedNodeInfo.isDragging && dragOriginalPosition.value) {
+      const polygon = polygons[draggedNodeInfo.polygonIndex]
+      if (polygon) {
+        polygon.points = dragOriginalPosition.value.originalPoints.map(point => ({ ...point }))
+      }
+    }
+
+    hoveredNodeIndex.value = -1
+    resetEdgeHover()
+    draggedNodeInfo.polygonIndex = -1
+    draggedNodeInfo.nodeIndex = -1
+    draggedNodeInfo.isDragging = false
+    isInvalidPosition.value = false
+    dragOriginalPosition.value = null
+    justFinishedDragging.value = false
+  }
+
   /**
    * Reset the drag completion flag.
    */
@@ -455,6 +473,7 @@ export function usePolygonEditing(
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    cancelCurrentOperation,
     resetDragCompletionFlag,
     handleSelection,
     clearEditingState

@@ -54,6 +54,7 @@ export function useEditorInteractions(
     handleMouseDown: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, selectedPolylineIndex: Ref<number>) => boolean
     handleMouseMove: (point: { x: number, y: number }) => void
     handleMouseUp: () => void
+    cancelCurrentOperation?: () => void
   },
   stateActions?: Pick<
     EditorStateActions,
@@ -799,32 +800,95 @@ export function useEditorInteractions(
     }
   }
 
+  function resetMarqueeState(): void {
+    isMarqueeSelecting.value = false
+    marqueeRectPx.value = null
+    marqueeStartClient = null
+    marqueeContext = null
+    pendingShiftMarquee = false
+    pendingShiftStartClient = null
+  }
+
+  function cancelActiveOperation(): boolean {
+    if (editorUiStore.relationsEditor.pickerMode !== 'idle') {
+      editorUiStore.cancelRelationPicking()
+      return true
+    }
+
+    if (isMarqueeSelecting.value || pendingShiftMarquee) {
+      resetMarqueeState()
+      mouseInteraction.endPanning()
+      mouseInteraction.resetActionState()
+      stateActions?.setHoveredPolygonId(null)
+      stateActions?.setHoveredPolylineId(null)
+      return true
+    }
+
+    if (moveInteraction?.isMoving()) {
+      moveInteraction.cancelCurrentOperation?.()
+      mouseInteraction.endPanning()
+      mouseInteraction.resetActionState()
+      stateActions?.setHoveredPolygonId(null)
+      stateActions?.setHoveredPolylineId(null)
+      return true
+    }
+
+    if (polygonEditing.isDragging()) {
+      polygonEditing.cancelCurrentOperation()
+      mouseInteraction.endPanning()
+      mouseInteraction.resetActionState()
+      stateActions?.setHoveredPolygonId(null)
+      stateActions?.setHoveredPolylineId(null)
+      return true
+    }
+
+    if (polylineEditing.isDragging()) {
+      polylineEditing.cancelCurrentOperation()
+      mouseInteraction.endPanning()
+      mouseInteraction.resetActionState()
+      stateActions?.setHoveredPolygonId(null)
+      stateActions?.setHoveredPolylineId(null)
+      return true
+    }
+
+    let cancelledDrawing = false
+
+    if (polygonDrawing.isActive()) {
+      polygonDrawing.cancelPolygonCreation()
+      cancelledDrawing = true
+    } else if (rectangleDrawing.isActive()) {
+      rectangleDrawing.clearDrawing()
+      cancelledDrawing = true
+    } else if (polylineDrawing.isActive()) {
+      polylineDrawing.clearDrawing()
+      cancelledDrawing = true
+    } else if (canvasControls.cutDrawing?.isActive()) {
+      canvasControls.cutDrawing.clearDrawing()
+      cancelledDrawing = true
+    }
+
+    if (cancelledDrawing) {
+      mouseInteraction.endPanning()
+      mouseInteraction.resetActionState()
+      stateActions?.setHoveredPolygonId(null)
+      stateActions?.setHoveredPolylineId(null)
+      return true
+    }
+
+    if (mouseInteraction.isPanning()) {
+      mouseInteraction.endPanning()
+      mouseInteraction.resetActionState()
+      return true
+    }
+
+    return false
+  }
+
   function onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       e.preventDefault()
 
-      if (editorUiStore.relationsEditor.pickerMode !== 'idle') {
-        editorUiStore.cancelRelationPicking()
-        return
-      }
-
-      if (polygonDrawing.isActive()) {
-        polygonDrawing.cancelPolygonCreation()
-        return
-      }
-
-      if (rectangleDrawing.isActive()) {
-        rectangleDrawing.clearDrawing()
-        return
-      }
-
-      if (polylineDrawing.isActive()) {
-        polylineDrawing.clearDrawing()
-        return
-      }
-
-      if (canvasControls.cutDrawing?.isActive()) {
-        canvasControls.cutDrawing.clearDrawing()
+      if (cancelActiveOperation()) {
         return
       }
 

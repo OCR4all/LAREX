@@ -115,6 +115,7 @@ export interface PolygonEditing {
   handleMouseUp: (canvas: HTMLElement | null) => void
   updateHoverStates: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>) => void
   handleSelection: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, isDrawingMode: boolean) => void
+  cancelCurrentOperation: () => void
   clearEditingState: () => void
   resetDragCompletionFlag: () => void
   isDragging: () => boolean
@@ -133,6 +134,7 @@ export interface PolylineEditing {
   handleMouseUp: (canvas: HTMLElement | null) => void
   updateHoverStates: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>) => void
   handleSelection: (point: { x: number, y: number }, selectedPolygonIndex: Ref<number>, isDrawingMode: boolean) => boolean
+  cancelCurrentOperation: () => void
   clearEditingState: () => void
   resetDragCompletionFlag: () => void
   isDragging: () => boolean
@@ -150,6 +152,7 @@ export interface CanvasControls {
   viewMode?: Ref<string>
   handleUndo: () => void
   handleRedo: () => void
+  toggleSelectMode?: () => void
   isCutLineMode?: Ref<boolean>
   isCutPolygonMode?: Ref<boolean>
   isCutRectangleMode?: Ref<boolean>

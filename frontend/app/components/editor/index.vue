@@ -783,7 +783,7 @@ function attachInteractions() {
   window.addEventListener('mousemove', editorInteractions.onMouseMove)
   window.addEventListener('mouseup', editorInteractions.onMouseUp)
   window.addEventListener('mouseleave', editorInteractions.onMouseLeave)
-  window.addEventListener('keydown', editorInteractions.onKeyDown)
+  window.addEventListener('keydown', editorInteractions.onKeyDown, true)
 
   interactionsAttached = true
 }
@@ -801,7 +801,7 @@ function detachInteractions() {
   window.removeEventListener('mousemove', editorInteractions.onMouseMove)
   window.removeEventListener('mouseup', editorInteractions.onMouseUp)
   window.removeEventListener('mouseleave', editorInteractions.onMouseLeave)
-  window.removeEventListener('keydown', editorInteractions.onKeyDown)
+  window.removeEventListener('keydown', editorInteractions.onKeyDown, true)
 
   interactionsAttached = false
 }

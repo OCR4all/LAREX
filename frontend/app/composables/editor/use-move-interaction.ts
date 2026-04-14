@@ -224,6 +224,39 @@ export function useMoveInteraction(
     resetState()
   }
 
+  function cancelCurrentOperation(): void {
+    if (!state.isMoving || !state.elementId || !state.elementType || !originalPoints) {
+      resetState()
+      return
+    }
+
+    if (state.elementType === 'polygon') {
+      const polygon = polygons.find(p => p.id === state.elementId)
+      if (polygon) {
+        polygon.points = originalPoints.map(point => ({ ...point }))
+      }
+      if (moveWithChildren?.value) {
+        for (const [childId, childPts] of childOriginalPoints) {
+          const childPolygon = polygons.find(p => p.id === childId)
+          if (childPolygon) {
+            childPolygon.points = childPts.map(point => ({ ...point }))
+          }
+          const childPolyline = polylines.find(p => p.id === childId)
+          if (childPolyline) {
+            childPolyline.points = childPts.map(point => ({ ...point }))
+          }
+        }
+      }
+    } else {
+      const polyline = polylines.find(p => p.id === state.elementId)
+      if (polyline) {
+        polyline.points = originalPoints.map(point => ({ ...point }))
+      }
+    }
+
+    resetState()
+  }
+
   function resetState(): void {
     state.isMoving = false
     state.elementId = null
@@ -266,6 +299,7 @@ export function useMoveInteraction(
     isMoving,
     handleMouseDown,
     handleMouseMove,
-    handleMouseUp
+    handleMouseUp,
+    cancelCurrentOperation
   }
 }
