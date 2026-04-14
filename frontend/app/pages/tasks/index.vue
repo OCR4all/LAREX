@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { Task, TaskStatus, TaskPriority, WorkspaceMember } from '~/types/index'
 import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
+import { extractApiErrorMessage } from '@/utils/api-error'
 import { wsKey, globalKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
 
@@ -51,7 +52,7 @@ const tasksKey = computed(() => {
 })
 
 const tasksQuery = computed(() => {
-  const query: Record<string, any> = { assignedToMe: assignedToMe.value }
+  const query: { assignedToMe: boolean, status?: TaskStatus } = { assignedToMe: assignedToMe.value }
   if (statusFilter.value !== 'ALL') query.status = statusFilter.value
   return query
 })
@@ -160,7 +161,7 @@ async function refreshCurrentTasksView() {
   await refreshNuxtData(tasksKey.value)
 }
 
-const statusOptions: { label: string; value: TaskStatus; icon: string }[] = [
+const statusOptions: Array<{ label: string, value: TaskStatus, icon: string }> = [
   { label: 'Open', value: 'OPEN', icon: 'i-lucide-circle' },
   { label: 'In Progress', value: 'IN_PROGRESS', icon: 'i-lucide-play' },
   { label: 'Completed', value: 'COMPLETED', icon: 'i-lucide-check-circle' },
@@ -172,7 +173,7 @@ const statusFilterOptions = [
   ...statusOptions.map(opt => ({ label: opt.label, value: opt.value }))
 ]
 
-const priorityOptions: { label: string; value: TaskPriority }[] = [
+const priorityOptions: Array<{ label: string, value: TaskPriority }> = [
   { label: 'Low', value: 'LOW' },
   { label: 'Medium', value: 'MEDIUM' },
   { label: 'High', value: 'HIGH' },
@@ -243,8 +244,12 @@ async function handleDeleteTask(task: Task) {
     await $fetch(`/api/tasks/${task.id}`, { method: 'DELETE' })
     toast.add({ title: 'Task deleted', color: 'success' })
     await refreshOverview()
-  } catch (err: any) {
-    toast.add({ title: 'Failed to delete task', description: err?.data?.message, color: 'error' })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Failed to delete task',
+      description: extractApiErrorMessage(error, 'Could not delete the task.'),
+      color: 'error'
+    })
   }
 }
 
@@ -279,14 +284,14 @@ const priorityColor = (priority: Task['priority']) => {
 
 function getRowActions(task: Task) {
   const capabilities = getTaskCapabilities(task)
-  const actions: any[][] = [
+  const actions: DropdownMenuItem[][] = [
     [
       {
         label: 'Open',
         icon: 'i-lucide-external-link',
         onSelect: () => navigateTo(`/tasks/${task.id}`)
       }
-    ],
+    ]
   ]
   if (allow(capabilities.canDelete)) {
     actions.push([
@@ -307,8 +312,8 @@ const contextMenuItems = computed(() => {
   return getRowActions(contextMenuTask.value)
 })
 
-function handleRowContextMenu(_event: Event, row: any) {
-  contextMenuTask.value = row.original as unknown as Task
+function handleRowContextMenu(_event: Event, row: TableRow<Task>) {
+  contextMenuTask.value = row.original
 }
 
 const columns: TableColumn<Task>[] = [
@@ -431,111 +436,29 @@ const viewModeItems = [
 
       <UDashboardToolbar>
         <template #left>
-          <template v-if="selectedTasks.length > 0">
-            <div class="flex items-center gap-2 pr-3 border-r border-default">
-              <span class="text-sm font-medium">{{ selectedTasks.length }} selected</span>
-              <UButton
-                icon="i-lucide-x"
-                color="neutral"
-                variant="ghost"
-                size="xs"
-                @click="clearSelection"
-              />
-            </div>
-
-            <UDropdownMenu
-              v-if="canBulkStatusSelected"
-              :items="statusOptions.map(opt => ({
-                label: opt.label,
-                icon: opt.icon,
-                onSelect: () => handleBulkStatusChange(opt.value)
-              }))"
-            >
-              <UButton
-                icon="i-lucide-circle-dot"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                :loading="bulkLoading"
-              >
-                Status
-              </UButton>
-            </UDropdownMenu>
-
-            <UDropdownMenu
-              v-if="canBulkPrioritySelected"
-              :items="priorityOptions.map(opt => ({
-                label: opt.label,
-                onSelect: () => handleBulkPriorityChange(opt.value)
-              }))"
-            >
-              <UButton
-                icon="i-lucide-flag"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                :loading="bulkLoading"
-              >
-                Priority
-              </UButton>
-            </UDropdownMenu>
-
-            <UDropdownMenu
-              v-if="acceptedMembers.length > 0 && canBulkAssignSelected"
-              :items="acceptedMembers.map(m => ({
-                label: m.displayName || m.username || m.userId,
-                onSelect: () => handleBulkAddAssignee(m.userId)
-              }))"
-            >
-              <UButton
-                icon="i-lucide-user-plus"
-                color="neutral"
-                variant="soft"
-                size="sm"
-                :loading="bulkLoading"
-              >
-                Assign
-              </UButton>
-            </UDropdownMenu>
-
-            <UButton
-              v-if="canBulkDeleteSelected"
-              icon="i-lucide-trash-2"
-              color="error"
-              variant="soft"
-              size="sm"
-              :loading="bulkLoading"
-              @click="handleBulkDelete"
-            >
-              Delete
-            </UButton>
-          </template>
-
-          <template v-else>
-            <UInput
-              data-tour="tasks-search"
-              v-model="q"
-              placeholder="Search tasks..."
-              icon="i-lucide-search"
-              class="w-64"
-            />
-            <USelect
-              v-if="viewMode === 'table'"
-              v-model="statusFilter"
-              :items="statusFilterOptions"
-              value-key="value"
-              class="w-40"
-            />
-            <UCheckbox
-              v-model="assignedToMe"
-              label="Assigned to me"
-            />
-          </template>
+          <UInput
+            v-model="q"
+            data-tour="tasks-search"
+            placeholder="Search tasks..."
+            icon="i-lucide-search"
+            class="w-64"
+          />
+          <USelect
+            v-if="viewMode === 'table'"
+            v-model="statusFilter"
+            :items="statusFilterOptions"
+            value-key="value"
+            class="w-40"
+          />
+          <UCheckbox
+            v-model="assignedToMe"
+            label="Assigned to me"
+          />
         </template>
         <template #right>
           <UTabs
-            data-tour="tasks-view-mode"
             v-model="viewMode"
+            data-tour="tasks-view-mode"
             size="sm"
             color="primary"
             :content="false"
@@ -586,6 +509,82 @@ const viewModeItems = [
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedTasks.length"
+          @clear="clearSelection"
+        >
+          <UDropdownMenu
+            v-if="canBulkStatusSelected"
+            :items="statusOptions.map(opt => ({
+              label: opt.label,
+              icon: opt.icon,
+              onSelect: () => handleBulkStatusChange(opt.value)
+            }))"
+          >
+            <UButton
+              icon="i-lucide-circle-dot"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-50 hover:bg-white/10"
+              :loading="bulkLoading"
+            >
+              Status
+            </UButton>
+          </UDropdownMenu>
+
+          <UDropdownMenu
+            v-if="canBulkPrioritySelected"
+            :items="priorityOptions.map(opt => ({
+              label: opt.label,
+              onSelect: () => handleBulkPriorityChange(opt.value)
+            }))"
+          >
+            <UButton
+              icon="i-lucide-flag"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-50 hover:bg-white/10"
+              :loading="bulkLoading"
+            >
+              Priority
+            </UButton>
+          </UDropdownMenu>
+
+          <UDropdownMenu
+            v-if="acceptedMembers.length > 0 && canBulkAssignSelected"
+            :items="acceptedMembers.map(m => ({
+              label: m.displayName || m.username || m.userId,
+              onSelect: () => handleBulkAddAssignee(m.userId)
+            }))"
+          >
+            <UButton
+              icon="i-lucide-user-plus"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-50 hover:bg-white/10"
+              :loading="bulkLoading"
+            >
+              Assign
+            </UButton>
+          </UDropdownMenu>
+
+          <UButton
+            v-if="canBulkDeleteSelected"
+            icon="i-lucide-trash-2"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :loading="bulkLoading"
+            @click="handleBulkDelete"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
       </div>
 
       <div v-else>

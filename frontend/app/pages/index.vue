@@ -196,6 +196,10 @@ function toggleAllFilteredSelection() {
   selectedProjectIds.value = new Set(filteredAndSortedData.value.map(project => project.id))
 }
 
+function clearSelection() {
+  selectedProjectIds.value = new Set()
+}
+
 watch(data, (projects) => {
   const validIds = new Set((projects ?? []).map(project => project.id))
   const filtered = Array.from(selectedProjectIds.value).filter(id => validIds.has(id))
@@ -665,33 +669,6 @@ async function handleProjectPackageImport(event: Event) {
     input.value = ''
   }
 }
-
-const libraryCodecActionItems = computed(() => [[
-  {
-    label: 'Generate Codec',
-    icon: 'i-lucide-wand-sparkles',
-    disabled: !hasSelection.value,
-    onSelect: () => {
-      void openCodecGenerateSlideover()
-    }
-  },
-  {
-    label: 'Validate Codec',
-    icon: 'i-lucide-badge-check',
-    disabled: !hasSelection.value,
-    onSelect: () => {
-      void openCodecValidateSlideover()
-    }
-  },
-  {
-    label: 'Import Project Package',
-    icon: 'i-lucide-file-up',
-    disabled: !selectedWorkspace.value,
-    onSelect: () => {
-      triggerProjectPackageImport()
-    }
-  }
-]])
 </script>
 
 <template>
@@ -718,13 +695,15 @@ const libraryCodecActionItems = computed(() => [[
               icon="i-lucide-package-plus"
               @click="librarySlideoverCreate.open()"
             />
-            <UDropdownMenu :items="libraryCodecActionItems" :content="{ align: 'end' }">
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-lucide-chevron-down"
-              />
-            </UDropdownMenu>
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-file-up"
+              :disabled="!selectedWorkspace"
+              @click="triggerProjectPackageImport"
+            >
+              Import Package
+            </UButton>
           </UFieldGroup>
         </template>
       </UDashboardNavbar>
@@ -823,14 +802,6 @@ const libraryCodecActionItems = computed(() => [[
         </template>
         <template #right>
           <div class="flex items-center gap-2">
-            <UBadge
-              v-if="hasSelection"
-              variant="soft"
-              color="primary"
-              size="sm"
-            >
-              {{ selectedProjectIds.size }} selected
-            </UBadge>
             <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
               <span class="text-xs text-neutral-500">Active filters:</span>
               <UBadge
@@ -940,6 +911,32 @@ const libraryCodecActionItems = computed(() => [[
           </div>
         </div>
       </div>
+
+      <UiFloatingSelectionMenu
+        :selected-count="selectedProjectIds.size"
+        @clear="clearSelection"
+      >
+        <UButton
+          icon="i-lucide-wand-sparkles"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          class="text-neutral-50 hover:bg-white/10"
+          @click="openCodecGenerateSlideover"
+        >
+          Generate Codec
+        </UButton>
+        <UButton
+          icon="i-lucide-badge-check"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          class="text-neutral-50 hover:bg-white/10"
+          @click="openCodecValidateSlideover"
+        >
+          Validate Codec
+        </UButton>
+      </UiFloatingSelectionMenu>
     </template>
   </UDashboardPanel>
 </template>

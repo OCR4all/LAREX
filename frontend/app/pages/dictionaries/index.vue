@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import type { TableColumn, TableRow } from '@nuxt/ui'
 import type { DictionarySummary } from '@/types/dictionary'
 import { wsKey } from '@/utils/fetch-keys'
 import { extractApiErrorMessage } from '@/utils/api-error'
@@ -50,7 +50,68 @@ const {
   defaultSort: { column: 'name', direction: 'asc' }
 })
 
+const selectedDictionaryIds = ref<Set<string>>(new Set())
+const selectedDictionaries = computed(() => dictionariesSafe.value.filter(dictionary => selectedDictionaryIds.value.has(dictionary.id)))
+const canDeleteSelected = computed(() =>
+  selectedDictionaries.value.length > 0
+  && selectedDictionaries.value.every(dictionary => allow(dictionary.capabilities?.canDelete))
+  && !selectedDictionaries.value.some(dictionary => deletingDictionaryIds.value.has(dictionary.id))
+)
+
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(dictionary => selectedDictionaryIds.value.has(dictionary.id))
+)
+
+const somePageSelected = computed(() =>
+  paginatedData.value.some(dictionary => selectedDictionaryIds.value.has(dictionary.id))
+  && !allPageSelected.value
+)
+
+function toggleDictionarySelection(dictionaryId: string) {
+  const next = new Set(selectedDictionaryIds.value)
+  if (next.has(dictionaryId)) next.delete(dictionaryId)
+  else next.add(dictionaryId)
+  selectedDictionaryIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedDictionaryIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(dictionary => next.delete(dictionary.id))
+  } else {
+    paginatedData.value.forEach(dictionary => next.add(dictionary.id))
+  }
+  selectedDictionaryIds.value = next
+}
+
+function clearSelection() {
+  selectedDictionaryIds.value = new Set()
+}
+
+watch(dictionariesSafe, (nextDictionaries) => {
+  const validIds = new Set(nextDictionaries.map(dictionary => dictionary.id))
+  selectedDictionaryIds.value = new Set(Array.from(selectedDictionaryIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<DictionarySummary>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedDictionaryIds.value.has(row.original.id),
+      onChange: () => toggleDictionarySelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -115,31 +176,83 @@ const handleDelete = async (row: DictionarySummary) => {
   }
 }
 
-const items = (row: DictionarySummary) => compactGroups([[
-  allow(row.capabilities?.canEdit) ? {
-    label: 'Edit',
-    icon: 'i-lucide-edit',
-    disabled: deletingDictionaryIds.value.has(row.id),
-    onSelect: () => navigateTo(`/dictionaries/${row.id}`)
-  } : null,
-  allow(row.capabilities?.canDelete) ? {
-    label: deletingDictionaryIds.value.has(row.id) ? 'Deleting...' : 'Delete',
-    icon: deletingDictionaryIds.value.has(row.id) ? 'i-lucide-loader-circle' : 'i-lucide-trash',
-    color: 'error',
-    disabled: deletingDictionaryIds.value.has(row.id),
-    onSelect: () => handleDelete(row)
-  } : null
-].filter(Boolean) as any[]])
+async function handleDeleteSelected() {
+  if (!selectedWorkspace.value || !canDeleteSelected.value) return
+
+  const count = selectedDictionaries.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} dictionar${count === 1 ? 'y' : 'ies'}`,
+    entityType: 'Dictionary',
+    warningMessage: 'This action cannot be undone. Projects using these dictionaries will lose the dictionary reference.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const ids = selectedDictionaries.value.map(dictionary => dictionary.id)
+  deletingDictionaryIds.value = new Set([...deletingDictionaryIds.value, ...ids])
+
+  const results = await Promise.allSettled(ids.map(id =>
+    $fetch(`/api/workspaces/${selectedWorkspace.value}/dictionaries/${id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({
+      title: deletedCount === 1 ? 'Dictionary deleted' : 'Dictionaries deleted',
+      description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`,
+      color: 'success'
+    })
+  }
+
+  if (failedCount > 0) {
+    toast.add({
+      title: 'Some deletions failed',
+      description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`,
+      color: 'warning'
+    })
+  }
+
+  clearSelection()
+  deletingDictionaryIds.value = new Set()
+  await refreshNuxtData(dictionariesKey.value)
+}
+
+const items = (row: DictionarySummary) => {
+  const actions: Array<Record<string, unknown>> = []
+
+  if (allow(row.capabilities?.canEdit)) {
+    actions.push({
+      label: 'Edit',
+      icon: 'i-lucide-edit',
+      disabled: deletingDictionaryIds.value.has(row.id),
+      onSelect: () => navigateTo(`/dictionaries/${row.id}`)
+    })
+  }
+
+  if (allow(row.capabilities?.canDelete)) {
+    actions.push({
+      label: deletingDictionaryIds.value.has(row.id) ? 'Deleting...' : 'Delete',
+      icon: deletingDictionaryIds.value.has(row.id) ? 'i-lucide-loader-circle' : 'i-lucide-trash',
+      color: 'error',
+      disabled: deletingDictionaryIds.value.has(row.id),
+      onSelect: () => handleDelete(row)
+    })
+  }
+
+  return compactGroups([actions])
+}
 
 const contextMenuDictionary = ref<DictionarySummary | null>(null)
 const contextMenuItems = computed(() => contextMenuDictionary.value ? items(contextMenuDictionary.value) : [])
 
-function handleRowContextMenu(_event: Event, row: any) {
-  contextMenuDictionary.value = row.original as DictionarySummary
+function handleRowContextMenu(_event: Event, row: TableRow<DictionarySummary>) {
+  contextMenuDictionary.value = row.original
 }
 
 const emptyStateActions = computed(() => {
-  const actions: Array<Record<string, any>> = [
+  const actions: Array<Record<string, unknown>> = [
     {
       icon: 'i-lucide-refresh-cw',
       label: 'Refresh',
@@ -206,7 +319,13 @@ const emptyStateActions = computed(() => {
             value-key="value"
             class="w-36"
           />
-          <UButton v-if="activeFilters.length > 0" color="neutral" variant="ghost" size="sm" @click="resetAllFilters()">
+          <UButton
+            v-if="activeFilters.length > 0"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="resetAllFilters()"
+          >
             Clear Filters
           </UButton>
         </template>
@@ -239,6 +358,23 @@ const emptyStateActions = computed(() => {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedDictionaryIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

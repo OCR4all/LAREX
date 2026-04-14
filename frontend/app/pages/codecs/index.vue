@@ -30,7 +30,6 @@ const codecsSafe = computed(() => codecs.value ?? [])
 const {
   sort,
   globalFilter,
-  columnFilters,
   tagFilterOperator,
   activeFilters,
   resetAllFilters,
@@ -47,7 +46,65 @@ const {
   defaultSort: { column: 'name', direction: 'asc' }
 })
 
+const selectedCodecIds = ref<Set<string>>(new Set())
+const selectedCodecs = computed(() => codecsSafe.value.filter(codec => selectedCodecIds.value.has(codec.id)))
+const canDeleteSelected = computed(() =>
+  selectedCodecs.value.length > 0
+  && selectedCodecs.value.every(codec => allow(codec.capabilities?.canDelete))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(codec => selectedCodecIds.value.has(codec.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(codec => selectedCodecIds.value.has(codec.id))
+  && !allPageSelected.value
+)
+
+function toggleCodecSelection(codecId: string) {
+  const next = new Set(selectedCodecIds.value)
+  if (next.has(codecId)) next.delete(codecId)
+  else next.add(codecId)
+  selectedCodecIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedCodecIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(codec => next.delete(codec.id))
+  } else {
+    paginatedData.value.forEach(codec => next.add(codec.id))
+  }
+  selectedCodecIds.value = next
+}
+
+function clearSelection() {
+  selectedCodecIds.value = new Set()
+}
+
+watch(codecsSafe, (nextCodecs) => {
+  const validIds = new Set(nextCodecs.map(codec => codec.id))
+  selectedCodecIds.value = new Set(Array.from(selectedCodecIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<CodecSummary>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedCodecIds.value.has(row.original.id),
+      onChange: () => toggleCodecSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -96,6 +153,36 @@ const handleDelete = async (row: CodecSummary) => {
   }
 }
 
+async function handleDeleteSelected() {
+  if (!canDeleteSelected.value) return
+
+  const count = selectedCodecs.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} codec${count === 1 ? '' : 's'}`,
+    entityType: 'Codec',
+    warningMessage: 'This action cannot be undone. All projects using these codecs will lose their codec reference.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedCodecs.value.map(codec =>
+    $fetch(`/api/workspaces/${workspaceId.value}/codecs/${codec.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Codec deleted' : 'Codecs deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refreshNuxtData(codecsKey.value)
+}
+
 const items = (row: CodecSummary): DropdownMenuItem[][] => {
   const actions: DropdownMenuItem[] = []
 
@@ -130,7 +217,7 @@ function handleRowContextMenu(_event: Event, row: Row<CodecSummary>) {
 }
 
 const emptyStateActions = computed(() => {
-  const actions: Array<Record<string, any>> = [
+  const actions: Array<Record<string, unknown>> = [
     {
       icon: 'i-lucide-refresh-cw',
       label: 'Refresh',
@@ -176,8 +263,8 @@ const emptyStateActions = computed(() => {
       <UDashboardToolbar>
         <template #left>
           <UInput
-            data-tour="codecs-search"
             v-model="globalFilter"
+            data-tour="codecs-search"
             placeholder="Search codecs..."
             icon="i-lucide-search"
             class="w-64"
@@ -300,6 +387,23 @@ const emptyStateActions = computed(() => {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedCodecIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

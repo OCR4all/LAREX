@@ -30,7 +30,6 @@ const keyboardsSafe = computed(() => keyboards.value ?? [])
 const {
   sort,
   globalFilter,
-  columnFilters,
   tagFilterOperator,
   activeFilters,
   resetAllFilters,
@@ -47,7 +46,65 @@ const {
   defaultSort: { column: 'name', direction: 'asc' }
 })
 
+const selectedKeyboardIds = ref<Set<string>>(new Set())
+const selectedKeyboards = computed(() => keyboardsSafe.value.filter(keyboard => selectedKeyboardIds.value.has(keyboard.id)))
+const canDeleteSelected = computed(() =>
+  selectedKeyboards.value.length > 0
+  && selectedKeyboards.value.every(keyboard => allow(keyboard.capabilities?.canDelete))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(keyboard => selectedKeyboardIds.value.has(keyboard.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(keyboard => selectedKeyboardIds.value.has(keyboard.id))
+  && !allPageSelected.value
+)
+
+function toggleKeyboardSelection(keyboardId: string) {
+  const next = new Set(selectedKeyboardIds.value)
+  if (next.has(keyboardId)) next.delete(keyboardId)
+  else next.add(keyboardId)
+  selectedKeyboardIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedKeyboardIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(keyboard => next.delete(keyboard.id))
+  } else {
+    paginatedData.value.forEach(keyboard => next.add(keyboard.id))
+  }
+  selectedKeyboardIds.value = next
+}
+
+function clearSelection() {
+  selectedKeyboardIds.value = new Set()
+}
+
+watch(keyboardsSafe, (nextKeyboards) => {
+  const validIds = new Set(nextKeyboards.map(keyboard => keyboard.id))
+  selectedKeyboardIds.value = new Set(Array.from(selectedKeyboardIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<KeyboardLayout>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedKeyboardIds.value.has(row.original.id),
+      onChange: () => toggleKeyboardSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -92,6 +149,35 @@ const handleDelete = async (row: KeyboardLayout) => {
   }
 }
 
+async function handleDeleteSelected() {
+  if (!canDeleteSelected.value) return
+
+  const count = selectedKeyboards.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} keyboard${count === 1 ? '' : 's'}`,
+    entityType: 'Keyboard'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedKeyboards.value.map(keyboard =>
+    $fetch(`/api/workspaces/${workspaceId.value}/virtual-keyboards/${keyboard.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Keyboard deleted' : 'Keyboards deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refreshNuxtData(keyboardsKey.value)
+}
+
 const items = (row: KeyboardLayout): DropdownMenuItem[][] => {
   const actions: DropdownMenuItem[] = []
 
@@ -126,7 +212,7 @@ function handleRowContextMenu(_event: Event, row: Row<KeyboardLayout>) {
 }
 
 const emptyStateActions = computed(() => {
-  const actions: Array<Record<string, any>> = [
+  const actions: Array<Record<string, unknown>> = [
     {
       icon: 'i-lucide-refresh-cw',
       label: 'Refresh',
@@ -171,8 +257,8 @@ const emptyStateActions = computed(() => {
       <UDashboardToolbar>
         <template #left>
           <UInput
-            data-tour="vk-search"
             v-model="globalFilter"
+            data-tour="vk-search"
             placeholder="Search virtual keyboards..."
             icon="i-lucide-search"
             class="w-64"
@@ -294,6 +380,23 @@ const emptyStateActions = computed(() => {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedKeyboardIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

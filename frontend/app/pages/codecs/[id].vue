@@ -259,6 +259,11 @@ const removeSelectedCharacters = async () => {
   selectAll.value = false
 }
 
+function clearCharacterSelection() {
+  selectedCharacters.value.clear()
+  selectAll.value = false
+}
+
 const onGlyphSelect = async () => {
   if (!canEditCodec.value) return
   const instance = glyphPickerSlideover.open({ title: 'Glyph Picker' })
@@ -587,10 +592,6 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
                   <span>Total Characters:</span>
                   <span class="font-medium">{{ characterCount }}</span>
                 </div>
-                <div class="flex justify-between mt-1">
-                  <span>Selected:</span>
-                  <span class="font-medium">{{ selectedCharacters.size }}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -603,14 +604,6 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
                 Characters
               </h2>
               <div class="flex items-center gap-2 ml-auto">
-                <UButton
-                  v-if="selectedCharacters.size > 0 && canEditCodec"
-                  label="Remove Selected"
-                  color="error"
-                  variant="solid"
-                  icon="i-lucide-trash"
-                  @click="removeSelectedCharacters"
-                />
                 <UButton
                   label="Pick Glyph"
                   color="neutral"
@@ -673,6 +666,23 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
                 />
               </UContextMenu>
             </div>
+
+            <UiFloatingSelectionMenu
+              :selected-count="selectedCharacters.size"
+              @clear="clearCharacterSelection"
+            >
+              <UButton
+                v-if="canEditCodec"
+                icon="i-lucide-trash"
+                color="error"
+                variant="ghost"
+                size="sm"
+                class="hover:bg-white/10"
+                @click="removeSelectedCharacters"
+              >
+                Remove Selected
+              </UButton>
+            </UiFloatingSelectionMenu>
           </div>
         </main>
       </div>

@@ -45,7 +45,6 @@ const rows = computed<LabelSetRow[]>(() => {
 const {
   sort,
   globalFilter,
-  columnFilters,
   tagFilterOperator,
   activeFilters,
   resetAllFilters,
@@ -62,7 +61,65 @@ const {
   defaultSort: { column: 'name', direction: 'asc' }
 })
 
+const selectedLabelSetIds = ref<Set<string>>(new Set())
+const selectedLabelSets = computed(() => rows.value.filter(labelSet => selectedLabelSetIds.value.has(labelSet.id)))
+const canDeleteSelected = computed(() =>
+  selectedLabelSets.value.length > 0
+  && selectedLabelSets.value.every(labelSet => allow(labelSet.capabilities?.canDelete))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(labelSet => selectedLabelSetIds.value.has(labelSet.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(labelSet => selectedLabelSetIds.value.has(labelSet.id))
+  && !allPageSelected.value
+)
+
+function toggleLabelSetSelection(labelSetId: string) {
+  const next = new Set(selectedLabelSetIds.value)
+  if (next.has(labelSetId)) next.delete(labelSetId)
+  else next.add(labelSetId)
+  selectedLabelSetIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedLabelSetIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(labelSet => next.delete(labelSet.id))
+  } else {
+    paginatedData.value.forEach(labelSet => next.add(labelSet.id))
+  }
+  selectedLabelSetIds.value = next
+}
+
+function clearSelection() {
+  selectedLabelSetIds.value = new Set()
+}
+
+watch(rows, (nextRows) => {
+  const validIds = new Set(nextRows.map(labelSet => labelSet.id))
+  selectedLabelSetIds.value = new Set(Array.from(selectedLabelSetIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<LabelSetRow>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedLabelSetIds.value.has(row.original.id),
+      onChange: () => toggleLabelSetSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -117,6 +174,36 @@ const handleDelete = async (row: LabelSetRow) => {
   } catch {
     toast.add({ title: 'Error deleting label set', color: 'error' })
   }
+}
+
+async function handleDeleteSelected() {
+  if (!canDeleteSelected.value) return
+
+  const count = selectedLabelSets.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} label set${count === 1 ? '' : 's'}`,
+    entityType: 'Label Set',
+    warningMessage: 'This action cannot be undone. All projects using these label sets will lose their label configuration.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedLabelSets.value.map(labelSet =>
+    $fetch(`/api/workspaces/${workspaceId.value}/label-sets/${labelSet.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Label set deleted' : 'Label sets deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refreshNuxtData(labelSetsKey.value)
 }
 
 const getDuplicateName = (baseName: string) => {
@@ -197,7 +284,7 @@ function handleRowContextMenu(_event: Event, row: Row<LabelSetRow>) {
 }
 
 const emptyStateActions = computed(() => {
-  const actions: Array<Record<string, any>> = [
+  const actions: Array<Record<string, unknown>> = [
     {
       icon: 'i-lucide-refresh-cw',
       label: 'Refresh',
@@ -243,8 +330,8 @@ const emptyStateActions = computed(() => {
       <UDashboardToolbar>
         <template #left>
           <UInput
-            data-tour="labels-search"
             v-model="globalFilter"
+            data-tour="labels-search"
             placeholder="Search label sets..."
             icon="i-lucide-search"
             class="w-64"
@@ -368,6 +455,23 @@ const emptyStateActions = computed(() => {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedLabelSetIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

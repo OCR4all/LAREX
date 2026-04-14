@@ -46,7 +46,65 @@ const {
   defaultSort: { column: 'name', direction: 'asc' }
 })
 
+const selectedProfileIds = ref<Set<string>>(new Set())
+const selectedProfiles = computed(() => profilesSafe.value.filter(profile => selectedProfileIds.value.has(profile.id)))
+const canDeleteSelected = computed(() =>
+  selectedProfiles.value.length > 0
+  && selectedProfiles.value.every(profile => allow(profile.capabilities?.canDelete))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(profile => selectedProfileIds.value.has(profile.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(profile => selectedProfileIds.value.has(profile.id))
+  && !allPageSelected.value
+)
+
+function toggleProfileSelection(profileId: string) {
+  const next = new Set(selectedProfileIds.value)
+  if (next.has(profileId)) next.delete(profileId)
+  else next.add(profileId)
+  selectedProfileIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedProfileIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(profile => next.delete(profile.id))
+  } else {
+    paginatedData.value.forEach(profile => next.add(profile.id))
+  }
+  selectedProfileIds.value = next
+}
+
+function clearSelection() {
+  selectedProfileIds.value = new Set()
+}
+
+watch(profilesSafe, (nextProfiles) => {
+  const validIds = new Set(nextProfiles.map(profile => profile.id))
+  selectedProfileIds.value = new Set(Array.from(selectedProfileIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<NormalizationProfileSummary>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedProfileIds.value.has(row.original.id),
+      onChange: () => toggleProfileSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -90,6 +148,36 @@ const handleDelete = async (row: NormalizationProfileSummary) => {
   } catch {
     toast.add({ title: 'Error deleting normalization profile', color: 'error' })
   }
+}
+
+async function handleDeleteSelected() {
+  if (!canDeleteSelected.value) return
+
+  const count = selectedProfiles.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} normalization profile${count === 1 ? '' : 's'}`,
+    entityType: 'Normalization Profile',
+    warningMessage: 'This action cannot be undone. Projects and workspaces using these profiles will lose the assignment.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedProfiles.value.map(profile =>
+    $fetch(`/api/workspaces/${workspaceId.value}/normalization-profiles/${profile.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Normalization profile deleted' : 'Normalization profiles deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refreshNuxtData(profilesKey.value)
 }
 
 const items = (row: NormalizationProfileSummary): DropdownMenuItem[][] => {
@@ -206,6 +294,23 @@ const emptyStateActions = computed(() => {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedProfileIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

@@ -499,33 +499,6 @@ async function refreshAll() {
             >
               {{ formatBytes(filteredTotalSize) }}
             </UBadge>
-            <UBadge
-              v-if="selectedFiles.size > 0"
-              color="warning"
-              variant="soft"
-            >
-              {{ selectedFiles.size }} selected
-            </UBadge>
-            <UButton
-              v-if="selectedFiles.size > 0"
-              color="error"
-              variant="soft"
-              size="sm"
-              icon="i-lucide-trash-2"
-              :loading="isDeleting"
-              @click="deleteSelectedFiles"
-            >
-              Delete Selected
-            </UButton>
-            <UButton
-              v-if="selectedFiles.size > 0"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="clearSelection"
-            >
-              Clear
-            </UButton>
           </div>
         </template>
       </UDashboardToolbar>
@@ -648,6 +621,23 @@ async function refreshAll() {
             />
           </UContextMenu>
         </template>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedFiles.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            color="error"
+            variant="ghost"
+            size="sm"
+            icon="i-lucide-trash-2"
+            class="hover:bg-white/10"
+            :loading="isDeleting"
+            @click="deleteSelectedFiles"
+          >
+            Delete Selected
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalItems > 0" class="mt-4 flex flex-col gap-4 border-t border-default pt-4 lg:flex-row lg:items-center lg:justify-between">
           <div class="text-sm text-muted">

@@ -46,7 +46,65 @@ const {
   defaultSort: { column: 'name', direction: 'asc' }
 })
 
+const selectedRulesetIds = ref<Set<string>>(new Set())
+const selectedRulesets = computed(() => rulesetsSafe.value.filter(ruleset => selectedRulesetIds.value.has(ruleset.id)))
+const canDeleteSelected = computed(() =>
+  selectedRulesets.value.length > 0
+  && selectedRulesets.value.every(ruleset => allow(ruleset.capabilities?.canDelete))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(ruleset => selectedRulesetIds.value.has(ruleset.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(ruleset => selectedRulesetIds.value.has(ruleset.id))
+  && !allPageSelected.value
+)
+
+function toggleRulesetSelection(rulesetId: string) {
+  const next = new Set(selectedRulesetIds.value)
+  if (next.has(rulesetId)) next.delete(rulesetId)
+  else next.add(rulesetId)
+  selectedRulesetIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedRulesetIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(ruleset => next.delete(ruleset.id))
+  } else {
+    paginatedData.value.forEach(ruleset => next.add(ruleset.id))
+  }
+  selectedRulesetIds.value = next
+}
+
+function clearSelection() {
+  selectedRulesetIds.value = new Set()
+}
+
+watch(rulesetsSafe, (nextRulesets) => {
+  const validIds = new Set(nextRulesets.map(ruleset => ruleset.id))
+  selectedRulesetIds.value = new Set(Array.from(selectedRulesetIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<ValidationRulesetSummary>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedRulesetIds.value.has(row.original.id),
+      onChange: () => toggleRulesetSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -90,6 +148,36 @@ const handleDelete = async (row: ValidationRulesetSummary) => {
   } catch {
     toast.add({ title: 'Error deleting validation ruleset', color: 'error' })
   }
+}
+
+async function handleDeleteSelected() {
+  if (!canDeleteSelected.value) return
+
+  const count = selectedRulesets.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} validation ruleset${count === 1 ? '' : 's'}`,
+    entityType: 'Validation Ruleset',
+    warningMessage: 'This action cannot be undone. Projects and workspaces using these rulesets will lose the assignment.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedRulesets.value.map(ruleset =>
+    $fetch(`/api/workspaces/${workspaceId.value}/validation-rulesets/${ruleset.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Validation ruleset deleted' : 'Validation rulesets deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refreshNuxtData(rulesetsKey.value)
 }
 
 const items = (row: ValidationRulesetSummary): DropdownMenuItem[][] => {
@@ -205,6 +293,24 @@ const emptyStateActions = computed(() => {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedRulesetIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
+
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
             <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} rulesets</span>

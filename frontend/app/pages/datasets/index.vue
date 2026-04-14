@@ -49,7 +49,65 @@ const {
   defaultSort: { column: 'updated', direction: 'desc' }
 })
 
+const selectedDatasetIds = ref<Set<string>>(new Set())
+const selectedDatasets = computed(() => datasetsSafe.value.filter(dataset => selectedDatasetIds.value.has(dataset.id)))
+const canDeleteSelected = computed(() =>
+  selectedDatasets.value.length > 0
+  && selectedDatasets.value.every(dataset => allow(dataset.capabilities?.canDelete))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(dataset => selectedDatasetIds.value.has(dataset.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(dataset => selectedDatasetIds.value.has(dataset.id))
+  && !allPageSelected.value
+)
+
+function toggleDatasetSelection(datasetId: string) {
+  const next = new Set(selectedDatasetIds.value)
+  if (next.has(datasetId)) next.delete(datasetId)
+  else next.add(datasetId)
+  selectedDatasetIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedDatasetIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(dataset => next.delete(dataset.id))
+  } else {
+    paginatedData.value.forEach(dataset => next.add(dataset.id))
+  }
+  selectedDatasetIds.value = next
+}
+
+function clearSelection() {
+  selectedDatasetIds.value = new Set()
+}
+
+watch(datasetsSafe, (nextDatasets) => {
+  const validIds = new Set(nextDatasets.map(dataset => dataset.id))
+  selectedDatasetIds.value = new Set(Array.from(selectedDatasetIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<DatasetSummary>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedDatasetIds.value.has(row.original.id),
+      onChange: () => toggleDatasetSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -115,6 +173,36 @@ async function handleDelete(row: DatasetSummary) {
   } catch (error: unknown) {
     toast.add({ title: 'Delete failed', description: extractApiErrorMessage(error, 'Failed to delete dataset'), color: 'error' })
   }
+}
+
+async function handleDeleteSelected() {
+  if (!selectedWorkspace.value || !canDeleteSelected.value) return
+
+  const count = selectedDatasets.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} dataset${count === 1 ? '' : 's'}`,
+    entityType: 'Dataset',
+    warningMessage: 'This action cannot be undone. Frozen dataset copies will be deleted from storage.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedDatasets.value.map(dataset =>
+    $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Dataset deleted' : 'Datasets deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refreshNuxtData(datasetsKey.value)
 }
 
 const items = (row: DatasetSummary) => compactGroups([[
@@ -237,6 +325,23 @@ const emptyStateActions = computed(() => {
             separator: 'h-0'
           }"
         />
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedDatasetIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

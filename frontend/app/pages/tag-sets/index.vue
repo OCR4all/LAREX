@@ -45,7 +45,6 @@ const rows = computed<TagSetRow[]>(() => {
 const {
   sort,
   globalFilter,
-  columnFilters,
   tagFilterOperator,
   activeFilters,
   resetAllFilters,
@@ -62,7 +61,65 @@ const {
   defaultSort: { column: 'name', direction: 'asc' }
 })
 
+const selectedTagSetIds = ref<Set<string>>(new Set())
+const selectedTagSets = computed(() => rows.value.filter(tagSet => selectedTagSetIds.value.has(tagSet.id)))
+const canDeleteSelected = computed(() =>
+  selectedTagSets.value.length > 0
+  && selectedTagSets.value.every(tagSet => allow(tagSet.capabilities?.canDelete))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(tagSet => selectedTagSetIds.value.has(tagSet.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(tagSet => selectedTagSetIds.value.has(tagSet.id))
+  && !allPageSelected.value
+)
+
+function toggleTagSetSelection(tagSetId: string) {
+  const next = new Set(selectedTagSetIds.value)
+  if (next.has(tagSetId)) next.delete(tagSetId)
+  else next.add(tagSetId)
+  selectedTagSetIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedTagSetIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(tagSet => next.delete(tagSet.id))
+  } else {
+    paginatedData.value.forEach(tagSet => next.add(tagSet.id))
+  }
+  selectedTagSetIds.value = next
+}
+
+function clearSelection() {
+  selectedTagSetIds.value = new Set()
+}
+
+watch(rows, (nextRows) => {
+  const validIds = new Set(nextRows.map(tagSet => tagSet.id))
+  selectedTagSetIds.value = new Set(Array.from(selectedTagSetIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const columns: TableColumn<TagSetRow>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedTagSetIds.value.has(row.original.id),
+      onChange: () => toggleTagSetSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
@@ -111,6 +168,36 @@ const handleDelete = async (row: TagSetRow) => {
   }
 }
 
+async function handleDeleteSelected() {
+  if (!canDeleteSelected.value) return
+
+  const count = selectedTagSets.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} tag set${count === 1 ? '' : 's'}`,
+    entityType: 'Tag Set',
+    warningMessage: 'This action cannot be undone. All projects using these tag sets will lose their tag structure reference.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedTagSets.value.map(tagSet =>
+    $fetch(`/api/workspaces/${workspaceId.value}/tag-sets/${tagSet.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Tag set deleted' : 'Tag sets deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refresh()
+}
+
 const items = (row: TagSetRow): DropdownMenuItem[][] => {
   const actions: DropdownMenuItem[] = []
 
@@ -145,7 +232,7 @@ function handleRowContextMenu(_event: Event, row: Row<TagSetRow>) {
 }
 
 const emptyStateActions = computed(() => {
-  const actions: Array<Record<string, any>> = [
+  const actions: Array<Record<string, unknown>> = [
     {
       icon: 'i-lucide-refresh-cw',
       label: 'Refresh',
@@ -191,8 +278,8 @@ const emptyStateActions = computed(() => {
       <UDashboardToolbar>
         <template #left>
           <UInput
-            data-tour="tag-sets-search"
             v-model="globalFilter"
+            data-tour="tag-sets-search"
             placeholder="Search tag sets..."
             icon="i-lucide-search"
             class="w-64"
@@ -315,6 +402,23 @@ const emptyStateActions = computed(() => {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedTagSetIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">

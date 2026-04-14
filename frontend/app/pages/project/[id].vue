@@ -2066,7 +2066,7 @@ function renderCollaborationSummaryCell(page: Page) {
     mode: 'hover',
     content: { side: 'top' }
   }, {
-      default: () => h('div', { class: 'flex items-center justify-center' }, [
+    default: () => h('div', { class: 'flex items-center justify-center' }, [
       h(UAvatar, {
         src: resolveManagedProfileAvatarSrc(editor.user.avatar),
         alt: editor.user.displayName,
@@ -2809,37 +2809,6 @@ useHead({
                 <UBadge color="neutral" variant="soft" size="sm">
                   {{ pages?.length || 0 }} page<span v-if="(pages?.length || 0) !== 1">s</span>
                 </UBadge>
-                <UBadge
-                  v-if="hasSelection"
-                  variant="soft"
-                  color="primary"
-                  size="sm"
-                >
-                  {{ selectedPageIds.size }} selected
-                </UBadge>
-              </div>
-              <div class="flex items-center gap-2">
-                <UButton
-                  v-if="canManageDatasets"
-                  icon="i-lucide-database-zap"
-                  color="primary"
-                  variant="soft"
-                  size="sm"
-                  :disabled="!hasSelection"
-                  @click="openAddToDatasetSlideover"
-                >
-                  Add To Dataset
-                </UButton>
-                <UButton
-                  v-if="allow(projectCapabilities.canDeletePages)"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="soft"
-                  size="sm"
-                  :disabled="!hasSelection"
-                  aria-label="Delete selected pages"
-                  @click="openBulkDeleteSlideover"
-                />
               </div>
             </div>
 
@@ -2964,6 +2933,35 @@ useHead({
               </div>
             </div>
           </div>
+
+          <UiFloatingSelectionMenu
+            :selected-count="selectedPageIds.size"
+            @clear="clearSelection"
+          >
+            <UButton
+              v-if="canManageDatasets"
+              icon="i-lucide-database-zap"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-neutral-50 hover:bg-white/10"
+              @click="openAddToDatasetSlideover"
+            >
+              Add To Dataset
+            </UButton>
+            <UButton
+              v-if="allow(projectCapabilities.canDeletePages)"
+              icon="i-lucide-trash-2"
+              color="error"
+              variant="ghost"
+              size="sm"
+              class="hover:bg-white/10"
+              aria-label="Delete selected pages"
+              @click="openBulkDeleteSlideover"
+            >
+              Delete
+            </UButton>
+          </UiFloatingSelectionMenu>
         </template>
       </div>
     </template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { h } from 'vue'
-import { LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover, USelect } from '#components'
+import { LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover, USelect } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui'
 import type {
   DatasetCreateOrUpdateRequest,
@@ -25,6 +25,7 @@ const overlay = useOverlay()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const createReleaseSlideover = overlay.create(LazyDatasetSlideoverRelease)
 const releaseShareSlideover = overlay.create(LazyDatasetSlideoverReleaseShare)
+const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const datasetId = route.params.id as string
 const datasetKey = computed(() => wsKey(selectedWorkspace.value as string, 'datasets', datasetId))
@@ -360,6 +361,48 @@ const paginatedRows = computed(() => {
   return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
 })
 
+const selectedItemIds = ref<Set<string>>(new Set())
+const selectedItems = computed(() => tableRows.value.filter(row => selectedItemIds.value.has(row.id)))
+const canDeleteSelectedItems = computed(() =>
+  datasetCapabilities.value.canManageItems
+  && selectedItems.value.length > 0
+  && !selectedItems.value.some(row => deletingItemIds.value.has(row.id))
+)
+const allPageItemsSelected = computed(() =>
+  paginatedRows.value.length > 0
+  && paginatedRows.value.every(row => selectedItemIds.value.has(row.id))
+)
+const somePageItemsSelected = computed(() =>
+  paginatedRows.value.some(row => selectedItemIds.value.has(row.id))
+  && !allPageItemsSelected.value
+)
+
+function toggleItemSelection(itemId: string) {
+  const next = new Set(selectedItemIds.value)
+  if (next.has(itemId)) next.delete(itemId)
+  else next.add(itemId)
+  selectedItemIds.value = next
+}
+
+function toggleCurrentItemPageSelection() {
+  const next = new Set(selectedItemIds.value)
+  if (allPageItemsSelected.value) {
+    paginatedRows.value.forEach(row => next.delete(row.id))
+  } else {
+    paginatedRows.value.forEach(row => next.add(row.id))
+  }
+  selectedItemIds.value = next
+}
+
+function clearItemSelection() {
+  selectedItemIds.value = new Set()
+}
+
+watch(tableRows, (nextRows) => {
+  const validIds = new Set(nextRows.map(row => row.id))
+  selectedItemIds.value = new Set(Array.from(selectedItemIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
 const hasActiveFilters = computed(() =>
   Boolean(globalFilter.value)
   || selectedTags.value.length > 0
@@ -434,6 +477,23 @@ watch([globalFilter, columnFilters], () => {
 }, { deep: true })
 
 const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageItemsSelected.value,
+      indeterminate: somePageItemsSelected.value,
+      onChange: toggleCurrentItemPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedItemIds.value.has(row.original.id),
+      onChange: () => toggleItemSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'sourcePageName',
     header: createSortableHeader('Page', 'sourcePageName', sort, UButton),
@@ -863,6 +923,42 @@ async function deleteItem(item: DatasetItem) {
   }
 }
 
+async function deleteSelectedItems() {
+  if (!selectedWorkspace.value || !dataset.value || !canDeleteSelectedItems.value) return
+
+  const count = selectedItems.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} dataset item${count === 1 ? '' : 's'}`,
+    entityType: 'Dataset Item',
+    warningMessage: 'This action cannot be undone. The selected items will be removed from the dataset.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const ids = selectedItems.value.map(row => row.item.id)
+  deletingItemIds.value = new Set([...deletingItemIds.value, ...ids])
+
+  const results = await Promise.allSettled(ids.map(id =>
+    $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value!.id}/items/${id}`, {
+      method: 'DELETE'
+    })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Item removed' : 'Items removed', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some removals failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be removed.`, color: 'warning' })
+  }
+
+  clearItemSelection()
+  deletingItemIds.value = new Set()
+  await refresh()
+}
+
 async function downloadBlobResponse(response: Response, fallbackName: string) {
   const blob = await response.blob()
   const contentDisposition = response.headers.get('content-disposition')
@@ -1259,6 +1355,23 @@ useHead({
                       separator: 'h-0'
                     }"
                   />
+
+                  <UiFloatingSelectionMenu
+                    :selected-count="selectedItemIds.size"
+                    @clear="clearItemSelection"
+                  >
+                    <UButton
+                      icon="i-lucide-trash"
+                      color="error"
+                      variant="ghost"
+                      size="sm"
+                      class="hover:bg-white/10"
+                      :disabled="!canDeleteSelectedItems"
+                      @click="deleteSelectedItems"
+                    >
+                      Delete
+                    </UButton>
+                  </UiFloatingSelectionMenu>
 
                   <div v-if="filteredAndSortedData.length > 0 && totalPages > 1" class="flex items-center justify-between border-t border-default pt-4">
                     <div class="text-sm text-muted">

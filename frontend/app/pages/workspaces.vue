@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
-import type { TableColumn } from '@nuxt/ui'
+import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { WorkspaceCapabilities } from '@/types/capabilities'
 import { globalKey } from '~/utils/fetch-keys'
 import { LazyWorkspaceSlideoverCreate, LazyUiDeleteSlideover } from '#components'
+import { extractApiErrorMessage } from '@/utils/api-error'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
@@ -69,9 +70,68 @@ const paginatedData = computed(() => {
   return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
 })
 
-watch(globalFilter, () => { page.value = 1 })
+const selectedWorkspaceIds = ref<Set<string>>(new Set())
+const selectedWorkspaces = computed(() => rows.value.filter(workspace => selectedWorkspaceIds.value.has(workspace.id)))
+const canDeleteSelected = computed(() =>
+  selectedWorkspaces.value.length > 0
+  && selectedWorkspaces.value.every(workspace => !workspace.isPersonal && allow(workspace.capabilities?.canAdminWorkspace))
+)
+const allPageSelected = computed(() =>
+  paginatedData.value.length > 0
+  && paginatedData.value.every(workspace => selectedWorkspaceIds.value.has(workspace.id))
+)
+const somePageSelected = computed(() =>
+  paginatedData.value.some(workspace => selectedWorkspaceIds.value.has(workspace.id))
+  && !allPageSelected.value
+)
 
-const columns: TableColumn<any>[] = [
+watch(globalFilter, () => {
+  page.value = 1
+})
+watch(rows, (nextRows) => {
+  const validIds = new Set(nextRows.map(workspace => workspace.id))
+  selectedWorkspaceIds.value = new Set(Array.from(selectedWorkspaceIds.value).filter(id => validIds.has(id)))
+}, { immediate: true })
+
+function toggleWorkspaceSelection(workspaceId: string) {
+  const next = new Set(selectedWorkspaceIds.value)
+  if (next.has(workspaceId)) next.delete(workspaceId)
+  else next.add(workspaceId)
+  selectedWorkspaceIds.value = next
+}
+
+function toggleCurrentPageSelection() {
+  const next = new Set(selectedWorkspaceIds.value)
+  if (allPageSelected.value) {
+    paginatedData.value.forEach(workspace => next.delete(workspace.id))
+  } else {
+    paginatedData.value.forEach(workspace => next.add(workspace.id))
+  }
+  selectedWorkspaceIds.value = next
+}
+
+function clearSelection() {
+  selectedWorkspaceIds.value = new Set()
+}
+
+const columns: TableColumn<WorkspaceRow>[] = [
+  {
+    id: 'select',
+    header: () => h('input', {
+      type: 'checkbox',
+      checked: allPageSelected.value,
+      indeterminate: somePageSelected.value,
+      onChange: toggleCurrentPageSelection,
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    }),
+    cell: ({ row }) => h('input', {
+      type: 'checkbox',
+      checked: selectedWorkspaceIds.value.has(row.original.id),
+      onChange: () => toggleWorkspaceSelection(row.original.id),
+      onClick: (event: Event) => event.stopPropagation(),
+      class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
+    })
+  },
   {
     accessorKey: 'name',
     header: () => h('div', { class: 'flex items-center gap-2' }, [
@@ -139,8 +199,8 @@ const columns: TableColumn<any>[] = [
   }
 ]
 
-function getActions(ws: WorkspaceRow) {
-  const actions: any[][] = [[
+function getActions(ws: WorkspaceRow): DropdownMenuItem[][] {
+  const actions: DropdownMenuItem[][] = [[
     {
       label: 'Select',
       icon: 'i-lucide-check-circle',
@@ -177,8 +237,8 @@ const contextMenuItems = computed(() => {
   return getActions(contextMenuWorkspace.value)
 })
 
-function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
-  contextMenuWorkspace.value = row.original as unknown as WorkspaceRow
+function handleRowContextMenu(_event: Event, row: TableRow<WorkspaceRow>) {
+  contextMenuWorkspace.value = row.original
 }
 
 async function openDeleteSlideover(ws: WorkspaceRow) {
@@ -194,9 +254,39 @@ async function openDeleteSlideover(ws: WorkspaceRow) {
     await $fetch(`/api/workspaces/${ws.id}`, { method: 'DELETE' })
     toast.add({ title: 'Workspace deleted', color: 'success' })
     await refreshWorkspaceList()
-  } catch (err: any) {
-    toast.add({ title: 'Failed to delete', description: err?.data?.message || 'An error occurred', color: 'error' })
+  } catch (error: unknown) {
+    toast.add({ title: 'Failed to delete', description: extractApiErrorMessage(error, 'An error occurred'), color: 'error' })
   }
+}
+
+async function handleDeleteSelected() {
+  if (!canDeleteSelected.value) return
+
+  const count = selectedWorkspaces.value.length
+  const instance = deleteSlideover.open({
+    name: `${count} workspace${count === 1 ? '' : 's'}`,
+    entityType: 'Workspace',
+    warningMessage: 'This action cannot be undone. This will permanently delete the selected workspaces, all projects, and remove all member associations.'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const results = await Promise.allSettled(selectedWorkspaces.value.map(workspace =>
+    $fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE' })
+  ))
+
+  const deletedCount = results.filter(result => result.status === 'fulfilled').length
+  const failedCount = results.length - deletedCount
+
+  if (deletedCount > 0) {
+    toast.add({ title: deletedCount === 1 ? 'Workspace deleted' : 'Workspaces deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+  }
+  if (failedCount > 0) {
+    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+  }
+
+  clearSelection()
+  await refreshWorkspaceList()
 }
 
 async function leaveWorkspace(ws: WorkspaceRow) {
@@ -286,6 +376,23 @@ async function leaveWorkspace(ws: WorkspaceRow) {
             @contextmenu="handleRowContextMenu"
           />
         </UContextMenu>
+
+        <UiFloatingSelectionMenu
+          :selected-count="selectedWorkspaceIds.size"
+          @clear="clearSelection"
+        >
+          <UButton
+            icon="i-lucide-trash"
+            color="error"
+            variant="ghost"
+            size="sm"
+            class="hover:bg-white/10"
+            :disabled="!canDeleteSelected"
+            @click="handleDeleteSelected"
+          >
+            Delete
+          </UButton>
+        </UiFloatingSelectionMenu>
 
         <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <span class="text-sm text-neutral-600 dark:text-neutral-400">
