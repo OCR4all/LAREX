@@ -522,17 +522,6 @@ const vkDropdownItems = computed(() => [
 const regionDropdownItems = computed(() => [
   [
     {
-      label: 'Polygon',
-      icon: 'i-lucide-pen-tool',
-      kbds: getTooltipProps('regionPolygon').kbds,
-      color: 'neutral',
-      active: isRegionTypeRegion.value && isPolygonMode.value,
-      activeColor: 'primary',
-      activeVariant: 'solid',
-      disabled: !currentCanvasState.value || !canCreateRegion.value,
-      onSelect: () => setEntryAndMode('region', 'polygon')
-    },
-    {
       label: 'Rectangle',
       icon: 'i-lucide-square',
       kbds: getTooltipProps('regionRectangle').kbds,
@@ -542,6 +531,17 @@ const regionDropdownItems = computed(() => [
       activeVariant: 'solid',
       disabled: !currentCanvasState.value || !canCreateRegion.value,
       onSelect: () => setEntryAndMode('region', 'rectangle')
+    },
+    {
+      label: 'Polygon',
+      icon: 'i-lucide-pen-tool',
+      kbds: getTooltipProps('regionPolygon').kbds,
+      color: 'neutral',
+      active: isRegionTypeRegion.value && isPolygonMode.value,
+      activeColor: 'primary',
+      activeVariant: 'solid',
+      disabled: !currentCanvasState.value || !canCreateRegion.value,
+      onSelect: () => setEntryAndMode('region', 'polygon')
     }
   ]
 ])
@@ -549,20 +549,20 @@ const regionDropdownItems = computed(() => [
 const textlineDropdownItems = computed(() => [
   [
     {
-      label: 'Polygon',
-      icon: 'i-lucide-pen-tool',
-      kbds: getTooltipProps('textlinePolygon').kbds,
-      disabled: !currentCanvasState.value || !canCreateTextline.value,
-      class: (isRegionTypeTextline.value && isPolygonMode.value) ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
-      onSelect: () => setEntryAndMode('textline', 'polygon')
-    },
-    {
       label: 'Rectangle',
       icon: 'i-lucide-square',
       kbds: getTooltipProps('textlineRectangle').kbds,
       disabled: !currentCanvasState.value || !canCreateTextline.value,
       class: (isRegionTypeTextline.value && isRectangleMode.value) ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
       onSelect: () => setEntryAndMode('textline', 'rectangle')
+    },
+    {
+      label: 'Polygon',
+      icon: 'i-lucide-pen-tool',
+      kbds: getTooltipProps('textlinePolygon').kbds,
+      disabled: !currentCanvasState.value || !canCreateTextline.value,
+      class: (isRegionTypeTextline.value && isPolygonMode.value) ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
+      onSelect: () => setEntryAndMode('textline', 'polygon')
     }
   ]
 ])
@@ -578,20 +578,20 @@ const cutDropdownItems = computed(() => [
       onSelect: () => handleToggleCutMode('line')
     },
     {
-      label: 'Cut Polygon',
-      icon: 'i-lucide-pen-tool',
-      kbds: getTooltipProps('cutPolygon').kbds,
-      disabled: !currentCanvasState.value,
-      class: isCutPolygonMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
-      onSelect: () => handleToggleCutMode('polygon')
-    },
-    {
       label: 'Cut Rectangle',
       icon: 'i-lucide-square-minus',
       kbds: getTooltipProps('cutRectangle').kbds,
       disabled: !currentCanvasState.value,
       class: isCutRectangleMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
       onSelect: () => handleToggleCutMode('rectangle')
+    },
+    {
+      label: 'Cut Polygon',
+      icon: 'i-lucide-pen-tool',
+      kbds: getTooltipProps('cutPolygon').kbds,
+      disabled: !currentCanvasState.value,
+      class: isCutPolygonMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
+      onSelect: () => handleToggleCutMode('polygon')
     }
   ]
 ])
@@ -791,20 +791,6 @@ const moreOptionsDropdownItems = computed(() => [
 
           <template v-if="!isFloating">
             <div v-if="showRegionTools" data-tour="region-tools" class="contents">
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('regionPolygon')">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-pen-tool"
-                  color="neutral"
-                  :active="isRegionTypeRegion && isPolygonMode"
-                  active-color="primary"
-                  active-variant="solid"
-                  :disabled="!currentCanvasState || !canCreateRegion"
-                  @click="setEntryAndMode('region', 'polygon')"
-                />
-              </UTooltip>
-
               <UTooltip :delay-duration="0" v-bind="getTooltipProps('regionRectangle')">
                 <UButton
                   variant="ghost"
@@ -818,6 +804,20 @@ const moreOptionsDropdownItems = computed(() => [
                   @click="setEntryAndMode('region', 'rectangle')"
                 />
               </UTooltip>
+
+              <UTooltip :delay-duration="0" v-bind="getTooltipProps('regionPolygon')">
+                <UButton
+                  variant="ghost"
+                  size="sm"
+                  icon="i-lucide-pen-tool"
+                  color="neutral"
+                  :active="isRegionTypeRegion && isPolygonMode"
+                  active-color="primary"
+                  active-variant="solid"
+                  :disabled="!currentCanvasState || !canCreateRegion"
+                  @click="setEntryAndMode('region', 'polygon')"
+                />
+              </UTooltip>
             </div>
 
             <USeparator
@@ -827,20 +827,6 @@ const moreOptionsDropdownItems = computed(() => [
             />
 
             <div v-if="showTextlineTools" data-tour="textline-tools" class="contents">
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('textlinePolygon')">
-                <UButton
-                  variant="ghost"
-                  size="sm"
-                  icon="i-lucide-pen-tool"
-                  color="neutral"
-                  :active="isRegionTypeTextline && isPolygonMode"
-                  active-color="primary"
-                  active-variant="solid"
-                  :disabled="!currentCanvasState || !canCreateTextline"
-                  @click="setEntryAndMode('textline', 'polygon')"
-                />
-              </UTooltip>
-
               <UTooltip :delay-duration="0" v-bind="getTooltipProps('textlineRectangle')">
                 <UButton
                   variant="ghost"
@@ -852,6 +838,20 @@ const moreOptionsDropdownItems = computed(() => [
                   active-variant="solid"
                   :disabled="!currentCanvasState || !canCreateTextline"
                   @click="setEntryAndMode('textline', 'rectangle')"
+                />
+              </UTooltip>
+
+              <UTooltip :delay-duration="0" v-bind="getTooltipProps('textlinePolygon')">
+                <UButton
+                  variant="ghost"
+                  size="sm"
+                  icon="i-lucide-pen-tool"
+                  color="neutral"
+                  :active="isRegionTypeTextline && isPolygonMode"
+                  active-color="primary"
+                  active-variant="solid"
+                  :disabled="!currentCanvasState || !canCreateTextline"
+                  @click="setEntryAndMode('textline', 'polygon')"
                 />
               </UTooltip>
             </div>
@@ -975,20 +975,6 @@ const moreOptionsDropdownItems = computed(() => [
               />
             </UTooltip>
 
-            <UTooltip :delay-duration="0" v-bind="getTooltipProps('cutPolygon')">
-              <UButton
-                variant="ghost"
-                size="sm"
-                icon="i-lucide-pen-tool"
-                color="neutral"
-                :active="isCutPolygonMode"
-                active-color="primary"
-                active-variant="solid"
-                :disabled="!currentCanvasState"
-                @click="handleToggleCutMode('polygon')"
-              />
-            </UTooltip>
-
             <UTooltip :delay-duration="0" v-bind="getTooltipProps('cutRectangle')">
               <UButton
                 variant="ghost"
@@ -1000,6 +986,20 @@ const moreOptionsDropdownItems = computed(() => [
                 active-variant="solid"
                 :disabled="!currentCanvasState"
                 @click="handleToggleCutMode('rectangle')"
+              />
+            </UTooltip>
+
+            <UTooltip :delay-duration="0" v-bind="getTooltipProps('cutPolygon')">
+              <UButton
+                variant="ghost"
+                size="sm"
+                icon="i-lucide-pen-tool"
+                color="neutral"
+                :active="isCutPolygonMode"
+                active-color="primary"
+                active-variant="solid"
+                :disabled="!currentCanvasState"
+                @click="handleToggleCutMode('polygon')"
               />
             </UTooltip>
           </div>
