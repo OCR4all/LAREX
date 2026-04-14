@@ -3,6 +3,8 @@ export interface PageXmlVersion {
   versionNumber: number
   fileSize: number
   userId: string
+  username?: string | null
+  userDisplayName?: string | null
   comment?: string
   created: string
 }

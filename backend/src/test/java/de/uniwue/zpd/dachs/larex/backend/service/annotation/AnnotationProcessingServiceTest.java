@@ -100,7 +100,7 @@ class AnnotationProcessingServiceTest {
 
         when(pageXmlRepository.findById("xml-1")).thenReturn(Optional.of(pageXml));
         org.mockito.Mockito.doThrow(new IOException("versioning failed"))
-                .when(pageXmlVersionService).createVersion("xml-1", "user-1", "Manual save");
+                .when(pageXmlVersionService).createVersion("xml-1", "user-1", "Saved from annotation editor");
 
         assertThrows(IOException.class, () -> service.saveAnnotationToXml("xml-1", pageDto(), "user-1"));
 

@@ -2401,7 +2401,11 @@ async function openXmlEditor(page: Page) {
       projectId,
       pageId: page.id,
       xmlId: pageXml.id,
-      pageName: page.name
+      pageName: page.name,
+      readOnly: Boolean(project.value?.locked),
+      readOnlyMessage: project.value?.locked
+        ? 'This project is locked, so the XML is currently view-only.'
+        : undefined
     })
   } catch {
     toast.add({

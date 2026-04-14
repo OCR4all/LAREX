@@ -7,8 +7,10 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ public class PageXmlRawEditService {
     private final PageFilterIndexService pageFilterIndexService;
     private final PageXmlValidationService pageXmlValidationService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -42,7 +45,8 @@ public class PageXmlRawEditService {
             AnnotationReadCache annotationReadCache,
             PageFilterIndexService pageFilterIndexService,
             PageXmlValidationService pageXmlValidationService,
-            WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
+            WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
+            AuthorizationPolicyService authorizationPolicyService) {
         this.pageService = pageService;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionService = pageXmlVersionService;
@@ -50,6 +54,7 @@ public class PageXmlRawEditService {
         this.pageFilterIndexService = pageFilterIndexService;
         this.pageXmlValidationService = pageXmlValidationService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
+        this.authorizationPolicyService = authorizationPolicyService;
     }
 
     public PageXmlTextDto.XmlTextResponse getXmlText(String projectId, String pageId, String xmlId, String userId) throws IOException {
@@ -88,6 +93,7 @@ public class PageXmlRawEditService {
             String userId) throws IOException {
 
         PageXml pageXml = resolvePageXml(projectId, pageId, xmlId, userId);
+        assertPageXmlEditable(pageXml, userId);
         Path xmlPath = resolveXmlPath(pageXml);
         if (!Files.exists(xmlPath)) {
             throw new IOException("XML file not found on disk: " + xmlPath);
@@ -148,16 +154,30 @@ public class PageXmlRawEditService {
         return pageXml;
     }
 
+    private void assertPageXmlEditable(PageXml pageXml, String userId) {
+        if (pageXml.getPage() == null || pageXml.getPage().getProject() == null || pageXml.getPage().getProject().getLibrary() == null) {
+            throw new AccessDeniedException("XML file is not attached to an editable page");
+        }
+
+        String workspaceId = pageXml.getPage().getProject().getLibrary().getWorkspaceId();
+        boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
+                && !pageXml.getPage().getProject().isLocked();
+
+        if (!canEdit) {
+            throw new AccessDeniedException("You do not have permission to edit this XML");
+        }
+    }
+
     private Path resolveXmlPath(PageXml pageXml) {
         return Paths.get(uploadDir, pageXml.getFilePath());
     }
 
     private String normalizeComment(String comment) {
         if (comment == null || comment.isBlank()) {
-            return "Manual raw XML save";
+            return "Saved from XML editor";
         }
         String trimmed = comment.trim();
-        return trimmed.isEmpty() ? "Manual raw XML save" : trimmed;
+        return trimmed.isEmpty() ? "Saved from XML editor" : trimmed;
     }
 
     private void replaceAtomically(Path tempPath, Path xmlPath) throws IOException {

@@ -10,6 +10,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
+import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.file.Files;
@@ -25,6 +27,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -52,6 +55,8 @@ class PageXmlRawEditServiceTest {
     private PageXmlValidationService pageXmlValidationService;
     @Mock
     private WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
+    @Mock
+    private AuthorizationPolicyService authorizationPolicyService;
 
     @Test
     void saveXmlText_blocksInvalidXmlWithoutPersistence() throws Exception {
@@ -60,6 +65,7 @@ class PageXmlRawEditServiceTest {
         Path file = prepareXmlPath(pageXml.getFilePath(), "<old/>");
 
         when(pageService.getXmlById("xml-1", "user-1")).thenReturn(pageXml);
+        when(authorizationPolicyService.canAccessWorkspace("ws-1", "user-1")).thenReturn(true);
         PageXmlTextDto.XmlValidationResult invalid = new PageXmlTextDto.XmlValidationResult(
                 false,
                 List.of(new PageXmlTextDto.XmlValidationError(3, 7, "error", "XSD_VALIDATION_ERROR", "invalid element")),
@@ -93,6 +99,7 @@ class PageXmlRawEditServiceTest {
 
         when(pageService.getXmlById("xml-1", "user-1")).thenReturn(pageXml);
         when(pageXmlRepository.save(pageXml)).thenReturn(pageXml);
+        when(authorizationPolicyService.canAccessWorkspace("ws-1", "user-1")).thenReturn(true);
 
         PageXmlTextDto.XmlValidationResult valid = new PageXmlTextDto.XmlValidationResult(
                 true,
@@ -125,11 +132,35 @@ class PageXmlRawEditServiceTest {
         assertTrue(result.valid());
         assertEquals(xml, Files.readString(file));
         assertEquals("2013-07-15", pageXml.getSchemaVersion());
-        verify(pageXmlVersionService).createVersion("xml-1", "user-1", "Manual raw XML save");
+        verify(pageXmlVersionService).createVersion("xml-1", "user-1", "Saved from XML editor");
         verify(pageXmlRepository).save(pageXml);
         verify(annotationReadCache).evict("xml-1");
         verify(pageFilterIndexService).indexPageFromXml(eq(pageXml.getPage()));
         verify(workspaceQuotaRefreshService).scheduleUsageRefresh("ws-1");
+    }
+
+    @Test
+    void saveXmlText_blocksLockedProjects() throws Exception {
+        PageXmlRawEditService service = service();
+        PageXml pageXml = pageXml("annotations/page.xml");
+        pageXml.getPage().getProject().setLocked(true);
+        prepareXmlPath(pageXml.getFilePath(), "<old/>");
+
+        when(pageService.getXmlById("xml-1", "user-1")).thenReturn(pageXml);
+        when(authorizationPolicyService.canAccessWorkspace("ws-1", "user-1")).thenReturn(true);
+
+        assertThrows(AccessDeniedException.class, () -> service.saveXmlText(
+                "project-1",
+                "page-1",
+                "xml-1",
+                "<new/>",
+                null,
+                "user-1"
+        ));
+
+        verify(pageXmlValidationService, never()).validatePageXml(any());
+        verify(pageXmlVersionService, never()).createVersion(any(), any(), any());
+        verify(pageXmlRepository, never()).save(any());
     }
 
     private PageXmlRawEditService service() {
@@ -140,7 +171,8 @@ class PageXmlRawEditServiceTest {
                 annotationReadCache,
                 pageFilterIndexService,
                 pageXmlValidationService,
-                workspaceQuotaRefreshService
+                workspaceQuotaRefreshService,
+                authorizationPolicyService
         );
         ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
         return service;

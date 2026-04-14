@@ -6,6 +6,7 @@ import {
   LazyEditorSlideoverMergeSettings,
   LazyEditorSlideoverUnsavedProgress,
   LazyEditorVersionHistorySlideover,
+  LazyProjectSlideoverXmlEditor,
   LazyCodecSlideoverAction,
   LazyUiConfirmSlideover
 } from '#components'
@@ -285,6 +286,7 @@ const overlay = useOverlay()
 const mergeSettingsSlideover = overlay.create(LazyEditorSlideoverMergeSettings)
 const unsavedProgressSlideover = overlay.create(LazyEditorSlideoverUnsavedProgress)
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
+const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const openProjectPagesModal = overlay.create(LazyEditorModalOpenProjectPages)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
@@ -729,6 +731,42 @@ async function openVersionHistory() {
   })
   const result = await instance.result
   if (result === 'restored') {
+    editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
+    await editorStore.loadPageIntoCanvas(canvasId, canvas.projectId, canvas.pageId)
+  }
+}
+
+async function openXmlEditor() {
+  const canvasId = editorStore.activeCanvasId
+  if (!canvasId) return
+
+  const canvas = editorStore.canvases[canvasId]
+  if (!canvas?.xmlFileId || !canvas?.pageId || !canvas?.projectId) {
+    toast.add({
+      title: 'XML unavailable',
+      description: 'This page does not have a PAGE XML file yet.',
+      color: 'warning'
+    })
+    return
+  }
+
+  const room = collaboration.getRoomForCanvas(canvasId)
+  const canEditXml = room?.identity.canEdit ?? activeCanvasCanEdit.value
+  const pageName = editorStore.getPage(canvas.pageId, canvas.projectId)?.label ?? canvas.pageId
+
+  const instance = xmlEditorSlideover.open({
+    projectId: canvas.projectId,
+    pageId: canvas.pageId,
+    xmlId: canvas.xmlFileId,
+    pageName,
+    readOnly: !canEditXml,
+    readOnlyMessage: canEditXml
+      ? undefined
+      : 'You can view the XML, but only users with edit rights for this page can save changes.'
+  })
+
+  const result = await instance.result
+  if (result === 'saved') {
     editorStore.invalidateAnnotationCache(canvas.pageId, canvas.projectId)
     await editorStore.loadPageIntoCanvas(canvasId, canvas.projectId, canvas.pageId)
   }
@@ -1281,6 +1319,13 @@ const activeCanvasCanEdit = computed(() => {
   const canvasId = activeCanvasId.value
   if (!canvasId) return true
   return collaboration.canEditCanvas(canvasId)
+})
+
+const canOpenActiveCanvasXmlEditor = computed(() => {
+  const canvasId = activeCanvasId.value
+  if (!canvasId) return false
+  const canvas = editorStore.canvases[canvasId]
+  return Boolean(canvas?.projectId && canvas.pageId && canvas.xmlFileId)
 })
 
 const activeSelectedPolygonIds = computed(() => activeControls.value?.selectedPolygonIds?.value ?? [])
@@ -2393,12 +2438,14 @@ const onReady = (event: DockviewReadyEvent) => {
       :right-rail-width-px="RIGHT_RAIL_WIDTH_PX"
       :is-saving-active-canvas="isSavingActiveCanvas"
       :can-edit-active-canvas="activeCanvasCanEdit"
+      :can-open-active-canvas-xml-editor="canOpenActiveCanvasXmlEditor"
       :can-complete-active-page-subtasks="canCompleteActivePageSubtasks"
       :is-completing-open-subtasks="isCompletingOpenSubtasks"
       :is-active-page-locked="isActivePageLocked"
       :action-items="rightSidebarActionItems"
       @save="handleSaveDocument"
       @open-history="openVersionHistory"
+      @open-xml-editor="openXmlEditor"
       @save-and-complete="handleSaveAndCompleteOpenSubtasks"
     >
       <EditorSidebarPolygon

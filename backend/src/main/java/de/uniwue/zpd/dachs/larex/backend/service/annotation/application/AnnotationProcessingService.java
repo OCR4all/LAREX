@@ -194,7 +194,7 @@ public class AnnotationProcessingService {
         // Create a version snapshot of the current file before overwriting
         long versionStartedAt = System.nanoTime();
         try {
-            pageXmlVersionService.createVersion(xmlId, userId, "Manual save");
+            pageXmlVersionService.createVersion(xmlId, userId, "Saved from annotation editor");
         } catch (Exception e) {
             throw new IOException("Failed to create version before save for XML " + xmlId, e);
         }

@@ -1,11 +1,13 @@
 package de.uniwue.zpd.dachs.larex.backend.service.version;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlVersionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.events.PageXmlVersionCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,7 @@ public class PageXmlVersionService {
     private final PageXmlRepository pageXmlRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
+    private final UserService userService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
@@ -46,11 +49,13 @@ public class PageXmlVersionService {
     public PageXmlVersionService(PageXmlVersionRepository versionRepository,
                                  PageXmlRepository pageXmlRepository,
                                  ApplicationEventPublisher applicationEventPublisher,
-                                 WorkspaceQuotaRefreshService workspaceQuotaRefreshService) {
+                                 WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
+                                 UserService userService) {
         this.versionRepository = versionRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
+        this.userService = userService;
     }
 
     @Transactional
@@ -87,9 +92,18 @@ public class PageXmlVersionService {
 
     @Transactional(readOnly = true)
     public List<PageXmlVersionDto> listVersions(String pageXmlId) {
-        return versionRepository.findByPageXml_IdOrderByVersionNumberDesc(pageXmlId)
-                .stream()
-                .map(PageXmlVersionDto::fromEntity)
+        List<PageXmlVersion> versions = versionRepository.findByPageXml_IdOrderByVersionNumberDesc(pageXmlId);
+        List<String> userIds = versions.stream()
+                .map(PageXmlVersion::getUserId)
+                .filter(userId -> userId != null && !userId.isBlank())
+                .distinct()
+                .toList();
+        java.util.Map<String, UserDto> usersById = userIds.isEmpty()
+                ? java.util.Map.of()
+                : userService.getUsersByIds(userIds);
+
+        return versions.stream()
+                .map(version -> PageXmlVersionDto.fromEntity(version, usersById.get(version.getUserId())))
                 .toList();
     }
 

@@ -42,6 +42,22 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString()
 }
 
+function actorLabel(version: PageXmlVersion): string {
+  return version.userDisplayName || version.username || version.userId
+}
+
+function actorHandle(version: PageXmlVersion): string | null {
+  if (!version.username || version.username === actorLabel(version)) return null
+  return `@${version.username}`
+}
+
+function versionMessage(version: PageXmlVersion): string {
+  const base = version.comment?.trim()
+  const actor = actorLabel(version)
+  if (base && actor) return `${base} by ${actor}`
+  return base || actor
+}
+
 async function handleRestore(version: PageXmlVersion) {
   const confirmed = await confirm({
     title: `Restore to version ${version.versionNumber}?`,
@@ -126,12 +142,12 @@ async function handleRestore(version: PageXmlVersion) {
           </div>
 
           <div class="mt-1.5 flex flex-col gap-0.5">
-            <p v-if="version.comment" class="text-xs text-muted truncate">
-              {{ version.comment }}
+            <p v-if="versionMessage(version)" class="text-xs text-muted truncate">
+              {{ versionMessage(version) }}
             </p>
             <div class="flex items-center gap-3 text-xs text-dimmed">
               <span>{{ formatFileSize(version.fileSize) }}</span>
-              <span class="truncate">{{ version.userId }}</span>
+              <span v-if="actorHandle(version)" class="truncate">{{ actorHandle(version) }}</span>
             </div>
           </div>
         </div>

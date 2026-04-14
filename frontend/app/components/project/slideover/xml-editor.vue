@@ -41,6 +41,8 @@ const props = defineProps<{
   pageId: string
   xmlId: string
   pageName?: string
+  readOnly?: boolean
+  readOnlyMessage?: string
 }>()
 
 const emit = defineEmits<{
@@ -70,7 +72,9 @@ const xmlSearchKeymap = keymap.of([
 
 const currentXml = computed(() => editorView?.state.doc.toString() ?? '')
 const isDirty = computed(() => currentXml.value !== initialXml.value)
-const canSave = computed(() => isDirty.value && validation.value?.valid === true && !saving.value)
+const isReadOnly = computed(() => Boolean(props.readOnly))
+const title = computed(() => isReadOnly.value ? 'View PAGE XML' : 'View/Edit PAGE XML')
+const canSave = computed(() => !isReadOnly.value && isDirty.value && validation.value?.valid === true && !saving.value)
 const errorCount = computed(() => validation.value?.errors?.length ?? 0)
 
 const validateDebounced = useDebounceFn(async (xmlText: string) => {
@@ -138,6 +142,8 @@ function createEditor(content: string) {
         xmlSearchKeymap,
         xml(),
         lintGutter(),
+        EditorState.readOnly.of(isReadOnly.value),
+        EditorView.editable.of(!isReadOnly.value),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
           if (!update.docChanged || skipChangeValidation) return
@@ -254,7 +260,9 @@ async function saveXml() {
 
     toast.add({
       title: 'Save failed',
-      description: err.data?.message || err.message || 'Could not save XML.',
+      description: err.statusCode === 403
+        ? 'You do not have permission to edit this XML.'
+        : (err.data?.message || err.message || 'Could not save XML.'),
       color: 'error'
     })
   } finally {
@@ -281,7 +289,7 @@ async function closeWithGuard() {
   <USlideover
     side="right"
     :ui="{ content: 'max-w-7/8' }"
-    title="View/Edit PAGE XML"
+    :title="title"
     :close="{ onClick: closeWithGuard }"
   >
     <template #body>
@@ -316,6 +324,14 @@ async function closeWithGuard() {
             </UBadge>
           </div>
         </div>
+
+        <UAlert
+          v-if="isReadOnly"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-eye"
+          :title="props.readOnlyMessage || 'This XML is currently view-only.'"
+        />
 
         <div ref="searchAreaHost" class="flex flex-col gap-3">
           <div class="flex items-center justify-between gap-2 rounded-sm border border-default p-2">
@@ -372,6 +388,7 @@ async function closeWithGuard() {
           Close
         </UButton>
         <UButton
+          v-if="!isReadOnly"
           color="primary"
           icon="i-lucide-save"
           :loading="saving"

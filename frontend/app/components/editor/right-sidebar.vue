@@ -7,6 +7,7 @@ defineProps<{
   rightRailWidthPx: number
   isSavingActiveCanvas: boolean
   canEditActiveCanvas: boolean
+  canOpenActiveCanvasXmlEditor: boolean
   canCompleteActivePageSubtasks: boolean
   isCompletingOpenSubtasks: boolean
   isActivePageLocked: boolean
@@ -16,6 +17,7 @@ defineProps<{
 const emit = defineEmits<{
   'save': []
   'open-history': []
+  'open-xml-editor': []
   'save-and-complete': []
 }>()
 
@@ -62,6 +64,16 @@ const editorUiStore = useEditorUiStore()
             @click="emit('open-history')"
           />
         </UTooltip>
+        <UTooltip text="View/Edit XML" :content="{ side: 'left' }">
+          <UButton
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-file-pen-line"
+            size="sm"
+            :disabled="!canOpenActiveCanvasXmlEditor"
+            @click="emit('open-xml-editor')"
+          />
+        </UTooltip>
         <UDropdownMenu :items="actionItems">
           <UButton
             color="neutral"
@@ -92,6 +104,16 @@ const editorUiStore = useEditorUiStore()
             variant="outline"
             icon="i-lucide-history"
             @click="emit('open-history')"
+          />
+        </UTooltip>
+
+        <UTooltip text="View/Edit XML">
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-file-pen-line"
+            :disabled="!canOpenActiveCanvasXmlEditor"
+            @click="emit('open-xml-editor')"
           />
         </UTooltip>
 
