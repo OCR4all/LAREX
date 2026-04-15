@@ -24,7 +24,12 @@ const { data: members } = await useFetch<WorkspaceMember[]>(
     immediate: !!selectedWorkspace.value
   })
 
-const { data: currentWorkspace } = await useFetch<{ isPersonal: boolean } | null>(
+interface MembersWorkspaceSummary {
+  isPersonal: boolean
+  ownerUserId: string
+}
+
+const { data: currentWorkspace } = await useFetch<MembersWorkspaceSummary | null>(
   () => `/api/workspaces/${selectedWorkspace.value as string}`,
   {
     key: computed(() => selectedWorkspace.value
@@ -37,6 +42,7 @@ const { data: currentWorkspace } = await useFetch<{ isPersonal: boolean } | null
 )
 
 const canManageMembers = computed(() => allow(workspaceCapabilities.value.canManageMembers))
+const isCurrentUserOwner = computed(() => currentWorkspace.value?.ownerUserId === currentUserId.value)
 
 const q = ref('')
 
@@ -71,8 +77,8 @@ async function openInviteModal() {
       class="mb-4"
     >
       <UButton
-        data-tour="workspace-members-invite"
         v-if="canManageMembers && !currentWorkspace.isPersonal"
+        data-tour="workspace-members-invite"
         label="Invite people"
         color="primary"
         variant="solid"
@@ -103,8 +109,8 @@ async function openInviteModal() {
     >
       <template #header>
         <UInput
-          data-tour="workspace-members-search"
           v-model="q"
+          data-tour="workspace-members-search"
           icon="i-lucide-search"
           placeholder="Search members..."
           class="w-full"
@@ -115,7 +121,9 @@ async function openInviteModal() {
         :members="filteredMembers"
         :workspace-id="selectedWorkspace || ''"
         :is-current-user-admin="canManageMembers"
+        :is-current-user-owner="isCurrentUserOwner"
         :current-user-id="currentUserId"
+        :owner-user-id="currentWorkspace.ownerUserId"
       />
     </UPageCard>
   </div>

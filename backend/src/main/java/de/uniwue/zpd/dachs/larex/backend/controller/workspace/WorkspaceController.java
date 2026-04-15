@@ -332,6 +332,24 @@ public class WorkspaceController {
     }
 
     /**
+     * Transfer workspace ownership to another accepted member (team workspace only).
+     */
+    @PreAuthorize("@workspaceSecurity.isOwner(#workspaceId, authentication.name)")
+    @PutMapping("/{workspaceId}/owner")
+    public ResponseEntity<Void> transferOwnership(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody WorkspaceDto.TransferOwnerRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+
+        boolean transferred = workspaceService.transferOwnership(workspaceId, userId, request.userId());
+        if (!transferred) {
+            throw new IllegalArgumentException("Cannot transfer ownership. Target user must be an accepted member and different from the current owner.");
+        }
+
+        return ResponseEntity.ok().build();
+    }
+
+    /**
      * Leave workspace (user removes themselves from a team workspace)
      */
     @PostMapping("/{workspaceId}/leave")

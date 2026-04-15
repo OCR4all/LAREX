@@ -193,6 +193,11 @@ public class WorkspaceDto {
             String role
     ) {}
 
+    public record TransferOwnerRequest(
+            @NotBlank(message = "User ID is required")
+            String userId
+    ) {}
+
     public record InvitationResponse(
             String id,
             String workspaceId,

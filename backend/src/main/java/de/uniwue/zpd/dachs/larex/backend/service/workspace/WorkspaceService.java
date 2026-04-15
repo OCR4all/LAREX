@@ -231,6 +231,10 @@ public class WorkspaceService {
         return teamWorkspaceService.updateMemberRole(workspaceId, memberId, adminUserId, newRole);
     }
 
+    public boolean transferOwnership(String workspaceId, String actorUserId, String newOwnerUserId) {
+        return teamWorkspaceService.transferOwnership(workspaceId, actorUserId, newOwnerUserId);
+    }
+
     /**
      * Check if user has access to workspace
      */

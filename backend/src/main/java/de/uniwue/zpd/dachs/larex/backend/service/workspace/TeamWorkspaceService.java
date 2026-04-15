@@ -405,6 +405,59 @@ public class TeamWorkspaceService extends AbstractWorkspaceService {
     }
 
     /**
+     * Transfer workspace ownership to an accepted member.
+     */
+    public boolean transferOwnership(String workspaceId, String actorUserId, String newOwnerUserId) {
+        if (newOwnerUserId == null || newOwnerUserId.isBlank()) {
+            return false;
+        }
+
+        TeamWorkspace workspace = teamWorkspaceRepository.findById(workspaceId).orElse(null);
+        if (workspace == null) {
+            return false;
+        }
+
+        if (!workspaceAccessService.isWorkspaceOwner(workspaceId, actorUserId)) {
+            return false;
+        }
+
+        String currentOwnerUserId = workspace.getOwnerUserId();
+        if (newOwnerUserId.equals(currentOwnerUserId)) {
+            return false;
+        }
+
+        Optional<WorkspaceMember> newOwnerMemberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, newOwnerUserId);
+        if (newOwnerMemberOpt.isEmpty()
+                || newOwnerMemberOpt.get().getInvitationStatus() != WorkspaceMember.InvitationStatus.ACCEPTED) {
+            return false;
+        }
+
+        WorkspaceMember newOwnerMember = newOwnerMemberOpt.get();
+        newOwnerMember.setRole(WorkspaceMember.Role.CURATOR);
+        workspaceMemberRepository.save(newOwnerMember);
+
+        Optional<WorkspaceMember> previousOwnerMemberOpt = workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, currentOwnerUserId);
+        if (previousOwnerMemberOpt.isPresent()) {
+            WorkspaceMember previousOwnerMember = previousOwnerMemberOpt.get();
+            previousOwnerMember.setRole(WorkspaceMember.Role.CURATOR);
+            previousOwnerMember.setInvitationStatus(WorkspaceMember.InvitationStatus.ACCEPTED);
+            workspaceMemberRepository.save(previousOwnerMember);
+        } else {
+            WorkspaceMember previousOwnerMember = new WorkspaceMember(
+                    currentOwnerUserId,
+                    WorkspaceMember.Role.CURATOR,
+                    WorkspaceMember.InvitationStatus.ACCEPTED,
+                    workspaceId
+            );
+            workspaceMemberRepository.save(previousOwnerMember);
+        }
+
+        workspace.setOwnerUserId(newOwnerUserId);
+        teamWorkspaceRepository.save(workspace);
+        return true;
+    }
+
+    /**
      * Update member role
      */
     public boolean updateMemberRole(String workspaceId, String memberId, String adminUserId, WorkspaceMember.Role newRole) {
