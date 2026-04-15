@@ -123,10 +123,10 @@ const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaul
           <UiLogo
             v-show="!collapsed"
             size="32"
-            class="self-center cursor-pointer"
+            class="self-center shrink-0 cursor-pointer"
             @click="navigateTo('/')"
           />
-          <WorkspaceMenu :collapsed="collapsed" />
+          <WorkspaceMenu :collapsed="collapsed" :class="collapsed ? '' : 'ml-2 min-w-0 flex-1'" />
         </template>
       </div>
     </template>

@@ -85,17 +85,17 @@ const items = computed<DropdownMenuItem[][]>(() => {
     variant="ghost"
     :class="isAdminMode ? 'bg-warning/20' : ''"
     :ui="{
-      base: collapsed ? 'pe-2 px-2' : 'justify-end max-w-full truncate',
+      base: collapsed ? 'pe-2 px-2' : 'w-full max-w-full min-w-0 justify-between',
       trailing: collapsed ? 'absolute inset-y-0 end-0 flex items-center pe-0' : '',
       content: 'w-[20rem]'
     }"
   >
     <template #default="{ modelValue }">
       <UTooltip :text="isAdminMode ? `Admin: ${modelValue?.label}` : modelValue?.label">
-        <div class="flex items-center gap-2">
+        <div class="flex min-w-0 items-center gap-2 text-left">
           <UIcon v-if="isAdminMode" name="i-lucide-shield-alert" class="shrink-0" />
           <UiLogo v-else-if="collapsed" size="32" />
-          <span v-if="!collapsed" class="truncate font-medium">{{ modelValue?.label }}</span>
+          <span v-if="!collapsed" class="truncate font-medium text-left">{{ modelValue?.label }}</span>
         </div>
       </UTooltip>
     </template>

@@ -368,7 +368,7 @@ const tabItems = [
 <template>
   <UDashboardPanel id="task-detail">
     <template #header>
-      <UDashboardNavbar>
+      <UDashboardNavbar title="Edit Task">
         <template #leading>
           <LazyUDashboardSidebarCollapse />
         </template>
