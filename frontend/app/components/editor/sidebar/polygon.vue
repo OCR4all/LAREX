@@ -472,20 +472,22 @@ function handleRegionKindChange(payload: RegionKindChangePayload) {
   )
 }
 
-watch(() => props.polygons, (newPolygons) => {
-  let changed = false
-  newPolygons.forEach((polygon) => {
-    if (polygon.type === PolygonType.REGION || polygon.type === PolygonType.TEXTLINE) {
-      if (!expandedRegions.value.has(polygon.id)) {
-        expandedRegions.value.add(polygon.id)
-        changed = true
-      }
+watch(() => props.polygons.map(polygon => polygon.id), (polygonIds) => {
+  if (expandedRegions.value.size === 0) return
+
+  const validIds = new Set(polygonIds)
+  const nextExpanded = new Set<string>()
+
+  for (const id of expandedRegions.value) {
+    if (validIds.has(id)) {
+      nextExpanded.add(id)
     }
-  })
-  if (changed) {
-    expandedRegions.value = new Set(expandedRegions.value)
   }
-}, { deep: true })
+
+  if (nextExpanded.size !== expandedRegions.value.size) {
+    expandedRegions.value = nextExpanded
+  }
+}, { immediate: true })
 
 watch(() => props.selectedPolygonIds, (newIds) => {
   if (!newIds?.length) return
