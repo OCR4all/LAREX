@@ -25,7 +25,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const uiModeScope = ref<UiModeScope>('global')
   const uiModeByCanvasId = ref<Record<string, UiMode>>({})
 
-  const toolbarLayout = ref<ToolbarLayout>('docked-top')
+  const toolbarLayout = ref<ToolbarLayout>('floating')
   const toolbarCompact = ref(false)
 
   const globalSettings = ref<GlobalSettings>({
