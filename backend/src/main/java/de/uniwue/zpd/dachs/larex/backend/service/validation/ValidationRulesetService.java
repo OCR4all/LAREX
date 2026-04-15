@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.validation;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ValidationRulesetDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.NormalizationProfile;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
@@ -128,6 +129,37 @@ public class ValidationRulesetService {
         ValidationRuleset ruleset = requireRuleset(workspaceId, rulesetId);
         clearAssignments(workspaceId, rulesetId);
         validationRulesetRepository.delete(ruleset);
+    }
+
+    @Transactional
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteRulesets(String userId, String workspaceId, List<String> ids) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String rulesetId : new LinkedHashSet<>(ids)) {
+            if (rulesetId == null || rulesetId.isBlank()) {
+                failedIds.add(Objects.toString(rulesetId, "<null>"));
+                errors.add("Cannot delete validation ruleset with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteRuleset(userId, workspaceId, rulesetId);
+                deletedIds.add(rulesetId);
+            } catch (RuntimeException ex) {
+                failedIds.add(rulesetId);
+                errors.add("Failed to delete validation ruleset " + rulesetId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
     }
 
     @Transactional(readOnly = true)
@@ -498,5 +530,9 @@ public class ValidationRulesetService {
             this.pageRefs = pageRefs;
             this.occurrenceCount = occurrenceCount;
         }
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

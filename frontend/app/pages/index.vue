@@ -171,6 +171,14 @@ const {
 const selectedProjectIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedProjectIds.value.size > 0)
 const deletingProjectIds = ref<Set<string>>(new Set())
+const selectedProjects = computed(() => (data.value ?? []).filter(project => selectedProjectIds.value.has(project.id)))
+const canDeleteSelectedProjects = computed(() =>
+  selectedProjects.value.length > 0
+  && selectedProjects.value.every((project) => {
+    const capabilities = getProjectCapabilities(project)
+    return allow(capabilities.canDelete) && !project.locked && !deletingProjectIds.value.has(project.id)
+  })
+)
 
 const allFilteredSelected = computed(() => {
   if (filteredAndSortedData.value.length === 0) return false
@@ -404,10 +412,10 @@ function toEditableProject(project: LibraryProject) {
   }
 }
 
-async function handleDeleteProject(project: LibraryProject) {
+async function handleDeleteProject(project: LibraryProject): Promise<boolean> {
   const capabilities = getProjectCapabilities(project)
-  if (!allow(capabilities.canDelete)) return
-  if (deletingProjectIds.value.has(project.id)) return
+  if (!allow(capabilities.canDelete)) return false
+  if (deletingProjectIds.value.has(project.id)) return false
 
   const instance = deleteSlideover.open({
     name: project.name,
@@ -419,11 +427,11 @@ async function handleDeleteProject(project: LibraryProject) {
     ]
   })
   const confirmed = await instance.result
-  if (!confirmed) return
+  if (!confirmed) return false
 
   const projects = data.value ?? []
   const removedIndex = projects.findIndex(item => item.id === project.id)
-  if (removedIndex === -1) return
+  if (removedIndex === -1) return false
 
   const progressToast = toast.add({
     title: 'Deleting Project',
@@ -437,7 +445,7 @@ async function handleDeleteProject(project: LibraryProject) {
   })
 
   const removedProject = projects[removedIndex]
-  if (!removedProject) return
+  if (!removedProject) return false
   data.value = [
     ...projects.slice(0, removedIndex),
     ...projects.slice(removedIndex + 1)
@@ -461,6 +469,7 @@ async function handleDeleteProject(project: LibraryProject) {
       icon: 'i-lucide-trash-2'
     })
     void refreshNuxtData(libraryKey.value)
+    return true
   } catch (error: unknown) {
     const hasProject = (data.value ?? []).some(item => item.id === project.id)
     if (!hasProject) {
@@ -484,10 +493,70 @@ async function handleDeleteProject(project: LibraryProject) {
       description: message || 'Failed to delete project',
       color: 'error'
     })
+    return false
   } finally {
     toast.remove(progressToast.id)
     const nextDeleting = new Set(deletingProjectIds.value)
     nextDeleting.delete(project.id)
+    deletingProjectIds.value = nextDeleting
+  }
+}
+
+async function handleDeleteSelectedProjects() {
+  if (!selectedWorkspace.value || !canDeleteSelectedProjects.value) return
+
+  const projectsToDelete = [...selectedProjects.value]
+  const ids = projectsToDelete.map(project => project.id)
+  const count = projectsToDelete.length
+  const instance = deleteSlideover.open({
+    name: `${count} project${count === 1 ? '' : 's'}`,
+    entityType: 'Project',
+    warningDetails: [
+      'All associated images and XML files',
+      'All project history and annotations'
+    ]
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  deletingProjectIds.value = new Set([...deletingProjectIds.value, ...ids])
+
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${selectedWorkspace.value}/projects/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids }
+      }
+    )
+
+    if (response.successCount > 0) {
+      toast.add({
+        title: response.successCount === 1 ? 'Project deleted' : 'Projects deleted',
+        description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`,
+        color: 'success'
+      })
+    }
+
+    if (response.failedCount > 0) {
+      toast.add({
+        title: 'Some deletions failed',
+        description: `${response.failedCount} project${response.failedCount === 1 ? '' : 's'} could not be deleted.`,
+        color: 'warning'
+      })
+    }
+
+    clearSelection()
+    await refreshNuxtData(libraryKey.value)
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Delete failed',
+      description: extractApiErrorMessage(error, 'Failed to delete selected projects'),
+      color: 'error'
+    })
+  } finally {
+    const nextDeleting = new Set(deletingProjectIds.value)
+    ids.forEach(id => nextDeleting.delete(id))
     deletingProjectIds.value = nextDeleting
   }
 }
@@ -916,6 +985,17 @@ async function handleProjectPackageImport(event: Event) {
         :selected-count="selectedProjectIds.size"
         @clear="clearSelection"
       >
+        <UButton
+          icon="i-lucide-trash"
+          color="error"
+          variant="ghost"
+          size="sm"
+          class="hover:bg-white/10"
+          :disabled="!canDeleteSelectedProjects"
+          @click="handleDeleteSelectedProjects"
+        >
+          Delete
+        </UButton>
         <UButton
           icon="i-lucide-wand-sparkles"
           color="neutral"

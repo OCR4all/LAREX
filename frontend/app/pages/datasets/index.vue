@@ -187,22 +187,27 @@ async function handleDeleteSelected() {
   const confirmed = await instance.result
   if (!confirmed) return
 
-  const results = await Promise.allSettled(selectedDatasets.value.map(dataset =>
-    $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.id}`, { method: 'DELETE' })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${selectedWorkspace.value}/datasets/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids: selectedDatasets.value.map(dataset => dataset.id) }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({ title: response.successCount === 1 ? 'Dataset deleted' : 'Datasets deleted', description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    }
+    if (response.failedCount > 0) {
+      toast.add({ title: 'Some deletions failed', description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+    }
 
-  if (deletedCount > 0) {
-    toast.add({ title: deletedCount === 1 ? 'Dataset deleted' : 'Datasets deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    clearSelection()
+    await refreshNuxtData(datasetsKey.value)
+  } catch (error: unknown) {
+    toast.add({ title: 'Delete failed', description: extractApiErrorMessage(error, 'Failed to delete datasets'), color: 'error' })
   }
-  if (failedCount > 0) {
-    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
-  }
-
-  clearSelection()
-  await refreshNuxtData(datasetsKey.value)
 }
 
 const items = (row: DatasetSummary) => compactGroups([[

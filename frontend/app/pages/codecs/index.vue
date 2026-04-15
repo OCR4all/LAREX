@@ -165,22 +165,27 @@ async function handleDeleteSelected() {
   const confirmed = await instance.result
   if (!confirmed) return
 
-  const results = await Promise.allSettled(selectedCodecs.value.map(codec =>
-    $fetch(`/api/workspaces/${workspaceId.value}/codecs/${codec.id}`, { method: 'DELETE' })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${workspaceId.value}/codecs/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids: selectedCodecs.value.map(codec => codec.id) }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({ title: response.successCount === 1 ? 'Codec deleted' : 'Codecs deleted', description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    }
+    if (response.failedCount > 0) {
+      toast.add({ title: 'Some deletions failed', description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+    }
 
-  if (deletedCount > 0) {
-    toast.add({ title: deletedCount === 1 ? 'Codec deleted' : 'Codecs deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    clearSelection()
+    await refreshNuxtData(codecsKey.value)
+  } catch (error: unknown) {
+    toast.add({ title: 'Error deleting codecs', description: extractApiErrorMessage(error, 'Failed to delete codecs'), color: 'error' })
   }
-  if (failedCount > 0) {
-    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
-  }
-
-  clearSelection()
-  await refreshNuxtData(codecsKey.value)
 }
 
 const items = (row: CodecSummary): DropdownMenuItem[][] => {

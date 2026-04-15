@@ -20,7 +20,7 @@ import {
   LazyShareSlideover } from '#components'
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
-import type { DropdownMenuItem, BreadcrumbItem, TableColumn, TabsItem } from '@nuxt/ui'
+import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import type { Subtask } from '~/types/index'
 import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
@@ -132,6 +132,7 @@ type SpreadsheetProfile = 'PAGE_METADATA' | 'TAGS' | 'REGIONS'
 type PdfProfile = 'SEARCHABLE' | 'IMAGES_ONLY' | 'TEXT_PAGES' | 'PDFA_SEARCHABLE'
 type TeiProfile = 'STANDARD' | 'LAYOUT'
 type ExportDialogMode = 'page' | 'project' | 'package'
+type ProjectActionScope = 'all' | 'selection'
 type DocxOptions = {
   preserveLineBreaks: boolean
   forcePageBreaks: boolean
@@ -173,8 +174,6 @@ type Page = {
   thumbnailUrl?: string | null
   indexingStatus?: PageIndexingStatus
 }
-
-type ProjectReleaseRow = ProjectPackageRelease
 
 function getPageCollaborationSummary(pageId: string) {
   return collaborationPageSummary.getPageSummary(pageId, projectId)
@@ -708,15 +707,17 @@ async function handleDeleteProject() {
   }
 }
 
-async function exportProjectPackage() {
+async function exportProjectPackage(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value || !project.value) return
 
   const options = await requestExportOptions('package')
   if (!options) return
 
-  const payload = hasSelection.value
-    ? { pageIds: Array.from(selectedPageIds.value), targetPageXmlVersion: options.targetPageXmlVersion, embeddedOutputs: options.embeddedOutputs }
-    : { pageIds: null, targetPageXmlVersion: options.targetPageXmlVersion, embeddedOutputs: options.embeddedOutputs }
+  const payload = {
+    pageIds: getExportPageIds(scope),
+    targetPageXmlVersion: options.targetPageXmlVersion,
+    embeddedOutputs: options.embeddedOutputs
+  }
   const fallbackName = `${project.value.name.replace(/\\s+/g, '-').toLowerCase()}.larex-project.zip`
 
   try {
@@ -789,7 +790,30 @@ async function downloadProjectRelease(release: ProjectPackageRelease) {
   }
 }
 
-async function exportProjectOutput() {
+function getReleaseCardItems(release: ProjectPackageRelease): DropdownMenuItem[] {
+  const isReady = release.status === 'READY'
+  const items: DropdownMenuItem[] = [
+    {
+      label: 'Download',
+      icon: 'i-lucide-download',
+      disabled: !isReady,
+      onSelect: () => { void downloadProjectRelease(release) }
+    }
+  ]
+
+  if (allow(projectCapabilities.value.canEdit)) {
+    items.unshift({
+      label: 'Share',
+      icon: 'i-lucide-key-round',
+      disabled: !isReady,
+      onSelect: () => { void openReleaseShare(release) }
+    })
+  }
+
+  return items
+}
+
+async function exportProjectOutput(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value || !project.value) return
 
   const options = await requestExportOptions('project')
@@ -801,7 +825,7 @@ async function exportProjectOutput() {
   const fallbackName = `${project.value.name.replace(/\\s+/g, '-').toLowerCase()}.${formatExtension(format)}`
   const payload = {
     format,
-    pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : null,
+    pageIds: getExportPageIds(scope),
     includePageDelimiters: options.includePageDelimiters,
     textLevel: normalizeTextLevel(options.textLevel),
     textVariantIndex: Number.isFinite(options.textVariantIndex) ? options.textVariantIndex : 0,
@@ -1044,156 +1068,40 @@ const nextReleaseTag = computed(() => {
   return `v${maxVersion + 1}`
 })
 
-const activeContentTab = ref<'pages' | 'releases'>('pages')
-const releaseGlobalFilter = ref('')
+const isReleaseSidebarVisible = ref(false)
 
-const contentTabItems = computed<TabsItem[]>(() => [
-  {
-    label: 'Pages',
-    value: 'pages',
-    icon: 'i-lucide-files'
-  },
-  {
-    label: 'Releases',
-    value: 'releases',
-    icon: 'i-lucide-tag'
-  }
-])
+const releasesForSidebar = computed(() => {
+  const source = [...(releases.value ?? [])]
 
-const filteredReleases = computed(() => {
-  const search = releaseGlobalFilter.value.trim().toLowerCase()
-  const source = releases.value ?? []
+  return source.sort((a, b) => {
+    const versionDiff = (Number(b.versionNumber) || 0) - (Number(a.versionNumber) || 0)
+    if (versionDiff !== 0) return versionDiff
 
-  if (!search) {
-    return source
-  }
+    const createdDiff = new Date(b.created).getTime() - new Date(a.created).getTime()
+    if (createdDiff !== 0) return createdDiff
 
-  return source.filter((release) => {
-    const searchFields = [
-      release.versionTag,
-      String(release.versionNumber),
-      release.notes,
-      release.status,
-      release.targetPageXmlVersion,
-      release.packageFileName,
-      release.packageChecksumSha256,
-      release.manifestChecksumSha256,
-      formatEmbeddedOutputs(release.embeddedOutputs)
-    ]
-
-    return searchFields.some(field => typeof field === 'string' && field.toLowerCase().includes(search))
+    return new Date(b.updated).getTime() - new Date(a.updated).getTime()
   })
 })
 
-const releaseColumns = computed<TableColumn<ProjectReleaseRow>[]>(() => [
-  {
-    accessorKey: 'versionTag',
-    header: 'Version',
-    cell: ({ row }) => h('div', { class: 'space-y-1 py-1' }, [
-      h('div', { class: 'font-medium text-highlighted' }, row.original.versionTag),
-      h('div', { class: 'text-xs text-muted' }, `#${row.original.versionNumber}`)
-    ])
-  },
-  {
-    accessorKey: 'created',
-    header: 'Created',
-    cell: ({ row }) => h('div', { class: 'py-1 text-sm text-muted' }, formatDateTime(row.original.created))
-  },
-  {
-    accessorKey: 'pageCount',
-    header: 'Pages',
-    cell: ({ row }) => h('div', { class: 'py-1 tabular-nums' }, String(row.original.pageCount))
-  },
-  {
-    accessorKey: 'targetPageXmlVersion',
-    header: 'PAGE XML',
-    cell: ({ row }) => h('div', { class: 'py-1 text-sm text-muted' }, row.original.targetPageXmlVersion || '—')
-  },
-  {
-    accessorKey: 'embeddedOutputs',
-    header: 'Embedded outputs',
-    cell: ({ row }) => h('div', {
-      class: 'max-w-64 truncate py-1 text-sm text-muted',
-      title: formatEmbeddedOutputs(row.original.embeddedOutputs)
-    }, formatEmbeddedOutputs(row.original.embeddedOutputs))
-  },
-  {
-    accessorKey: 'packageFileSize',
-    header: 'Package',
-    cell: ({ row }) => h('div', { class: 'space-y-1 py-1 text-sm' }, [
-      h('div', { class: 'text-highlighted' }, row.original.packageFileName || '—'),
-      h('div', { class: 'text-muted' }, formatBytes(row.original.packageFileSize))
-    ])
-  },
-  {
-    id: 'share',
-    header: 'External access',
-    cell: ({ row }) => h('div', { class: 'space-y-1 py-1 text-sm' }, [
-      h(UBadge, {
-        color: row.original.shareEnabled ? 'success' : 'neutral',
-        variant: 'soft'
-      }, () => row.original.shareEnabled ? 'Enabled' : 'Disabled'),
-      h('div', { class: 'text-xs text-muted' }, row.original.shareEnabled
-        ? `Expires ${formatDateTime(row.original.shareExpiresAt)}`
-        : 'No share secret active'),
-      h('div', { class: 'text-xs text-muted' }, `Downloads ${row.original.shareDownloadCount ?? 0}`)
-    ])
-  },
-  {
-    accessorKey: 'packageChecksumSha256',
-    header: 'Checksum',
-    cell: ({ row }) => h('code', { class: 'block max-w-40 truncate py-1 text-xs text-muted' }, shortChecksum(row.original.packageChecksumSha256))
-  },
-  {
-    id: 'actions',
-    header: '',
-    cell: ({ row }) => h('div', { class: 'flex flex-wrap justify-end gap-2 py-1' }, [
-      allow(projectCapabilities.value.canEdit)
-        ? h(UButton, {
-            color: 'neutral',
-            variant: 'outline',
-            size: 'sm',
-            icon: 'i-lucide-key-round',
-            disabled: row.original.status !== 'READY',
-            onClick: () => openReleaseShare(row.original)
-          }, () => 'Share')
-        : null,
-      h(UButton, {
-        color: 'neutral',
-        variant: 'ghost',
-        size: 'sm',
-        icon: 'i-lucide-download',
-        disabled: row.original.status !== 'READY',
-        onClick: () => downloadProjectRelease(row.original)
-      }, () => 'Download')
-    ])
-  }
-])
+const latestReleaseId = computed(() => releasesForSidebar.value[0]?.id ?? null)
+const latestReleaseUpdatedAt = computed(() => releasesForSidebar.value[0]?.updated ?? releasesForSidebar.value[0]?.created ?? null)
+const releaseSidebarSummary = computed(() => {
+  const count = releasesForSidebar.value.length
+  const countLabel = `${count} ${count === 1 ? 'release' : 'releases'}`
 
-function formatDateTime(value?: string | null) {
+  if (!latestReleaseUpdatedAt.value) {
+    return countLabel
+  }
+
+  return `${countLabel} · Last updated ${formatDate(latestReleaseUpdatedAt.value)}`
+})
+
+function formatDate(value?: string | null) {
   if (!value) return '—'
   return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
+    dateStyle: 'medium'
   }).format(new Date(value))
-}
-
-function formatBytes(value?: number | null) {
-  if (!value || value <= 0) return '—'
-  if (value < 1024) return `${value} B`
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`
-  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`
-  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`
-}
-
-function shortChecksum(value?: string | null) {
-  if (!value) return '—'
-  return value.slice(0, 12)
-}
-
-function formatEmbeddedOutputs(outputs: ProjectPackageRelease['embeddedOutputs']) {
-  if (!outputs || outputs.length === 0) return 'None'
-  return outputs.map(output => output.format.replaceAll('_', ' ')).join(', ')
 }
 
 async function requestExportOptions(mode: ExportDialogMode): Promise<ExportDialogResult | null> {
@@ -1278,43 +1186,43 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       label: 'Utilities'
     },
     {
-      label: hasSelection.value ? 'Generate codec (selected pages)' : 'Generate codec (all pages)',
+      label: 'Generate codec (full project)',
       icon: 'i-lucide-wand-sparkles',
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => {
-        void openCodecGenerateSlideover()
+        void openCodecGenerateSlideover('all')
       }
     },
     {
-      label: hasSelection.value ? 'Validate codec (selected pages)' : 'Validate codec (all pages)',
+      label: 'Validate codec (full project)',
       icon: 'i-lucide-badge-check',
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => {
-        void openCodecValidateSlideover()
+        void openCodecValidateSlideover('all')
       }
     },
     {
-      label: hasSelection.value ? 'Validate dictionary (selected pages)' : 'Validate dictionary (all pages)',
+      label: 'Validate dictionary (full project)',
       icon: 'i-lucide-book-check',
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => {
-        void openDictionaryValidationModal()
+        void openDictionaryValidationModal('all')
       }
     },
     {
-      label: hasSelection.value ? 'Normalization (selected pages)' : 'Normalization (all pages)',
+      label: 'Normalization (full project)',
       icon: 'i-lucide-wand-sparkles',
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => {
-        void openNormalizationPreviewModal()
+        void openNormalizationPreviewModal('all')
       }
     },
     {
-      label: hasSelection.value ? 'Validate ruleset (selected pages)' : 'Validate ruleset (all pages)',
+      label: 'Validate ruleset (full project)',
       icon: 'i-lucide-shield-alert',
       disabled: (pages.value?.length ?? 0) === 0,
       onSelect: () => {
-        void openValidationRulesetModal()
+        void openValidationRulesetModal('all')
       }
     }
   ]
@@ -1325,19 +1233,19 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
       label: 'Export'
     },
     {
-      label: hasSelection.value ? 'Export output (selected pages)' : 'Export output (full project)',
+      label: 'Export output (full project)',
       icon: 'i-lucide-file-output',
       disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
       onSelect: () => {
-        void exportProjectOutput()
+        void exportProjectOutput('all')
       }
     },
     {
-      label: hasSelection.value ? 'Export package (selected pages)' : 'Export package (full project)',
+      label: 'Export package (full project)',
       icon: 'i-lucide-file-archive',
       disabled: (pages.value?.length ?? 0) === 0 || !allow(projectCapabilities.value.canExportPackage),
       onSelect: () => {
-        void exportProjectPackage()
+        void exportProjectPackage('all')
       }
     }
   ]
@@ -1434,6 +1342,9 @@ const {
 
 const selectedPageIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedPageIds.value.size > 0)
+const canBulkDeletePages = computed(() =>
+  allow(projectCapabilities.value.canDeletePages) && !project.value?.locked
+)
 
 function togglePageSelection(pageId: string) {
   const newSet = new Set(selectedPageIds.value)
@@ -1490,7 +1401,7 @@ async function openAddToDatasetSlideover() {
 }
 
 async function openBulkDeleteSlideover() {
-  if (!allow(projectCapabilities.value.canDeletePages)) return
+  if (!canBulkDeletePages.value) return
   if (!hasSelection.value) return
 
   const selectedPages = Array.from(selectedPageIds.value).map((pageId) => {
@@ -1515,23 +1426,29 @@ async function openBulkDeleteSlideover() {
   ])
 }
 
-const codecSources = computed<CodecProjectScope[]>(() => [{
-  projectId,
-  pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
-}])
+function getScopedPageIds(scope: ProjectActionScope): string[] {
+  return scope === 'selection' ? Array.from(selectedPageIds.value) : []
+}
 
-const dictionarySources = computed<DictionaryProjectScope[]>(() => [{
-  projectId,
-  pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
-}])
-const normalizationSources = computed<NormalizationProjectScope[]>(() => [{
-  projectId,
-  pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
-}])
-const validationSources = computed<ValidationProjectScope[]>(() => [{
-  projectId,
-  pageIds: hasSelection.value ? Array.from(selectedPageIds.value) : []
-}])
+function getExportPageIds(scope: ProjectActionScope): string[] | null {
+  return scope === 'selection' ? Array.from(selectedPageIds.value) : null
+}
+
+function getCodecSources(scope: ProjectActionScope): CodecProjectScope[] {
+  return [{ projectId, pageIds: getScopedPageIds(scope) }]
+}
+
+function getDictionarySources(scope: ProjectActionScope): DictionaryProjectScope[] {
+  return [{ projectId, pageIds: getScopedPageIds(scope) }]
+}
+
+function getNormalizationSources(scope: ProjectActionScope): NormalizationProjectScope[] {
+  return [{ projectId, pageIds: getScopedPageIds(scope) }]
+}
+
+function getValidationSources(scope: ProjectActionScope): ValidationProjectScope[] {
+  return [{ projectId, pageIds: getScopedPageIds(scope) }]
+}
 
 type NormalizationDiffSegment = {
   text: string
@@ -1557,6 +1474,7 @@ const activeNormalizationProfile = ref<NormalizationProfile | null>(null)
 const isNormalizationProfileLoading = ref(false)
 const normalizationProfileLoadError = ref<string | null>(null)
 const isNormalizationRulesSlideoverOpen = ref(false)
+const normalizationActionScope = ref<ProjectActionScope>('all')
 const normalizationVariantMode = ref<'PROJECT_GT' | 'CUSTOM'>('PROJECT_GT')
 const normalizationVariantIndexInput = ref<number>(0)
 const validationRulesetResult = ref<ValidateAgainstSourcesResponse | null>(null)
@@ -1666,7 +1584,7 @@ watch(defaultNormalizationVariantIndex, (value) => {
 
 function buildNormalizationRequestBody(targets?: NormalizeTarget[]) {
   return {
-    sources: normalizationSources.value,
+    sources: getNormalizationSources(normalizationActionScope.value),
     variantIndex: effectiveNormalizationVariantIndex.value,
     ...(targets && targets.length > 0 ? { targets } : {})
   }
@@ -1740,13 +1658,13 @@ async function loadNormalizationPreview(closeOnError = false) {
   }
 }
 
-async function openCodecGenerateSlideover() {
+async function openCodecGenerateSlideover(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value) return
 
   const instance = codecActionSlideover.open({
     mode: 'generate',
     workspaceId: selectedWorkspace.value,
-    sources: codecSources.value
+    sources: getCodecSources(scope)
   })
   const result = await instance.result as GenerateCodecFromSourcesResponse | null
   if (!result) return
@@ -1757,7 +1675,7 @@ async function openCodecGenerateSlideover() {
   ])
 }
 
-async function openCodecValidateSlideover() {
+async function openCodecValidateSlideover(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value || !project.value?.codecId) {
     toast.add({
       title: 'No project codec configured',
@@ -1770,13 +1688,13 @@ async function openCodecValidateSlideover() {
   const instance = codecActionSlideover.open({
     mode: 'validate',
     workspaceId: selectedWorkspace.value,
-    sources: codecSources.value,
+    sources: getCodecSources(scope),
     defaultCodecId: project.value.codecId
   })
   await instance.result as ValidateCodecAgainstSourcesResponse | null
 }
 
-async function openDictionaryValidationModal() {
+async function openDictionaryValidationModal(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value || !project.value?.dictionaryId) {
     toast.add({
       title: 'No project dictionary configured',
@@ -1795,7 +1713,7 @@ async function openDictionaryValidationModal() {
       {
         method: 'POST',
         body: {
-          sources: dictionarySources.value
+          sources: getDictionarySources(scope)
         }
       }
     )
@@ -1812,7 +1730,7 @@ async function openDictionaryValidationModal() {
   }
 }
 
-async function openNormalizationPreviewModal() {
+async function openNormalizationPreviewModal(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value || !project.value?.normalizationProfileId) {
     toast.add({
       title: 'No project normalization profile configured',
@@ -1822,6 +1740,7 @@ async function openNormalizationPreviewModal() {
     return
   }
 
+  normalizationActionScope.value = scope
   normalizationVariantIndexInput.value = defaultNormalizationVariantIndex.value
   isNormalizationPreviewSlideoverOpen.value = true
   await Promise.all([
@@ -1918,7 +1837,7 @@ async function applyNormalizationRow(preview: NormalizationPreviewRow) {
   })
 }
 
-async function openValidationRulesetModal() {
+async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value || !project.value?.validationRulesetId) {
     toast.add({
       title: 'No project validation ruleset configured',
@@ -1936,7 +1855,7 @@ async function openValidationRulesetModal() {
       `/api/workspaces/${selectedWorkspace.value}/validation-rulesets/${project.value.validationRulesetId}/validate-against-sources`,
       {
         method: 'POST',
-        body: { sources: validationSources.value }
+        body: { sources: getValidationSources(scope) }
       }
     )
   } catch (error) {
@@ -1978,6 +1897,80 @@ const resetFilters = () => {
   resetAllFilters()
   xmlStatusFilter.value = 'all'
 }
+
+const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
+  const exportItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Export'
+    },
+    {
+      label: 'Export Output (selected pages)',
+      icon: 'i-lucide-file-output',
+      disabled: !hasSelection.value || !allow(projectCapabilities.value.canExportPackage),
+      onSelect: () => {
+        void exportProjectOutput('selection')
+      }
+    },
+    {
+      label: 'Export package (selected pages)',
+      icon: 'i-lucide-file-archive',
+      disabled: !hasSelection.value || !allow(projectCapabilities.value.canExportPackage),
+      onSelect: () => {
+        void exportProjectPackage('selection')
+      }
+    }
+  ]
+
+  const utilityItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'Utilities'
+    },
+    {
+      label: 'Generate codec (selected pages)',
+      icon: 'i-lucide-wand-sparkles',
+      disabled: !hasSelection.value,
+      onSelect: () => {
+        void openCodecGenerateSlideover('selection')
+      }
+    },
+    {
+      label: 'Validate codec (selected pages)',
+      icon: 'i-lucide-badge-check',
+      disabled: !hasSelection.value,
+      onSelect: () => {
+        void openCodecValidateSlideover('selection')
+      }
+    },
+    {
+      label: 'Validate dictionary (selected pages)',
+      icon: 'i-lucide-book-check',
+      disabled: !hasSelection.value,
+      onSelect: () => {
+        void openDictionaryValidationModal('selection')
+      }
+    },
+    {
+      label: 'Normalization (selected pages)',
+      icon: 'i-lucide-wand-sparkles',
+      disabled: !hasSelection.value,
+      onSelect: () => {
+        void openNormalizationPreviewModal('selection')
+      }
+    },
+    {
+      label: 'Validate ruleset (selected pages)',
+      icon: 'i-lucide-shield-alert',
+      disabled: !hasSelection.value,
+      onSelect: () => {
+        void openValidationRulesetModal('selection')
+      }
+    }
+  ]
+
+  return [exportItems, utilityItems]
+})
 
 const uniqueTags = computed(() => {
   if (!pages.value) return []
@@ -2422,7 +2415,7 @@ useHead({
 </script>
 
 <template>
-  <UDashboardPanel :id="projectId">
+  <UDashboardPanel :id="projectId" :ui="{ body: 'p-0 sm:p-0' }">
     <template #header>
       <UDashboardNavbar>
         <template #leading>
@@ -2506,154 +2499,110 @@ useHead({
 
       <UDashboardToolbar v-if="project">
         <template #left>
-          <template v-if="activeContentTab === 'pages'">
-            <UInput
-              v-model="globalFilter"
-              icon="i-lucide-search"
-              placeholder="Search pages..."
-              class="w-64"
-              size="md"
-            >
-              <template v-if="globalFilter" #trailing>
-                <UButton
-                  color="neutral"
-                  variant="link"
-                  icon="i-lucide-x"
-                  :padded="false"
-                  @click="globalFilter = ''"
-                />
-              </template>
-            </UInput>
+          <UInput
+            v-model="globalFilter"
+            icon="i-lucide-search"
+            placeholder="Search pages..."
+            class="w-64"
+            size="md"
+          >
+            <template v-if="globalFilter" #trailing>
+              <UButton
+                color="neutral"
+                variant="link"
+                icon="i-lucide-x"
+                :padded="false"
+                @click="globalFilter = ''"
+              />
+            </template>
+          </UInput>
 
-            <USelectMenu
-              v-model="selectedTags"
-              :items="uniqueTags"
-              value-key="value"
-              placeholder="Filter by tag"
-              multiple
-              class="w-48"
-            >
-              <template #leading>
-                <UIcon name="i-lucide-tag" />
-              </template>
-              <template #item="{ item }">
-                <div class="flex items-center justify-between w-full gap-2">
-                  <div class="flex items-center gap-2">
-                    <UIcon
-                      v-if="selectedTags.includes(item.value)"
-                      name="i-lucide-check"
-                      class="text-primary w-4 h-4"
-                    />
-                    <span v-else class="w-4 h-4" />
-                    <span>{{ item.label }}</span>
-                  </div>
-                  <UBadge variant="solid" color="neutral" size="xs">
-                    {{ item.count }}
-                  </UBadge>
+          <USelectMenu
+            v-model="selectedTags"
+            :items="uniqueTags"
+            value-key="value"
+            placeholder="Filter by tag"
+            multiple
+            class="w-48"
+          >
+            <template #leading>
+              <UIcon name="i-lucide-tag" />
+            </template>
+            <template #item="{ item }">
+              <div class="flex items-center justify-between w-full gap-2">
+                <div class="flex items-center gap-2">
+                  <UIcon
+                    v-if="selectedTags.includes(item.value)"
+                    name="i-lucide-check"
+                    class="text-primary w-4 h-4"
+                  />
+                  <span v-else class="w-4 h-4" />
+                  <span>{{ item.label }}</span>
                 </div>
-              </template>
-            </USelectMenu>
+                <UBadge variant="solid" color="neutral" size="xs">
+                  {{ item.count }}
+                </UBadge>
+              </div>
+            </template>
+          </USelectMenu>
 
-            <USelectMenu
-              v-if="selectedTags.length > 1"
-              v-model="tagFilterOperator"
-              :items="tagOperatorOptions"
-              value-key="value"
-              class="w-36"
-            >
-              <template #leading>
-                <UIcon name="i-lucide-git-merge" />
-              </template>
-            </USelectMenu>
+          <USelectMenu
+            v-if="selectedTags.length > 1"
+            v-model="tagFilterOperator"
+            :items="tagOperatorOptions"
+            value-key="value"
+            class="w-36"
+          >
+            <template #leading>
+              <UIcon name="i-lucide-git-merge" />
+            </template>
+          </USelectMenu>
 
-            <USelectMenu
-              v-model="xmlStatusFilter"
-              :items="xmlStatusOptions"
-              value-key="value"
-              class="w-40"
-            >
-              <template #leading>
-                <UIcon name="i-lucide-file-text" />
-              </template>
-            </USelectMenu>
-          </template>
-
-          <template v-else>
-            <UInput
-              v-model="releaseGlobalFilter"
-              icon="i-lucide-search"
-              placeholder="Search releases..."
-              class="w-64"
-              size="md"
-            >
-              <template v-if="releaseGlobalFilter" #trailing>
-                <UButton
-                  color="neutral"
-                  variant="link"
-                  icon="i-lucide-x"
-                  :padded="false"
-                  @click="releaseGlobalFilter = ''"
-                />
-              </template>
-            </UInput>
-          </template>
+          <USelectMenu
+            v-model="xmlStatusFilter"
+            :items="xmlStatusOptions"
+            value-key="value"
+            class="w-40"
+          >
+            <template #leading>
+              <UIcon name="i-lucide-file-text" />
+            </template>
+          </USelectMenu>
         </template>
         <template #right>
-          <template v-if="activeContentTab === 'pages'">
-            <UButton
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :loading="isManualPagesRefresh"
-              @click="refreshPagesData({ manual: true })"
-            >
-              Refresh
-            </UButton>
+          <UButton
+            icon="i-lucide-refresh-cw"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            :loading="isManualPagesRefresh"
+            @click="refreshPagesData({ manual: true })"
+          >
+            Refresh
+          </UButton>
 
-            <UButton
-              icon="i-lucide-x"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="resetFilters"
-            >
-              Clear Filters
-            </UButton>
-          </template>
+          <UButton
+            icon="i-lucide-x"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            @click="resetFilters"
+          >
+            Clear Filters
+          </UButton>
 
-          <template v-else>
-            <UButton
-              icon="i-lucide-refresh-cw"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :loading="releasesPending"
-              @click="refreshReleases()"
-            >
-              Refresh
-            </UButton>
+          <USeparator orientation="vertical" class="h-4" />
 
-            <UButton
-              icon="i-lucide-x"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :disabled="!releaseGlobalFilter"
-              @click="releaseGlobalFilter = ''"
-            >
-              Clear Search
-            </UButton>
-
-            <UButton
-              v-if="allow(projectCapabilities.canExportPackage)"
-              color="primary"
-              icon="i-lucide-tag"
-              @click="openCreateRelease"
-            >
-              Create Release
-            </UButton>
-          </template>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            :icon="isReleaseSidebarVisible ? 'i-lucide-panel-right-close' : 'i-lucide-panel-right-open'"
+            :aria-label="isReleaseSidebarVisible ? 'Hide release sidebar' : 'Show release sidebar'"
+            @click="isReleaseSidebarVisible = !isReleaseSidebarVisible"
+          >
+            Releases
+          </UButton>
         </template>
       </UDashboardToolbar>
     </template>
@@ -2685,7 +2634,7 @@ useHead({
         <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading project...</span>
       </div>
 
-      <div v-else-if="project" class="space-y-4">
+      <div v-else-if="project" class="flex min-h-full flex-col gap-4">
         <div v-if="project.locked" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-sm p-4">
           <div class="flex items-start">
             <UIcon name="i-lucide-lock" class="text-amber-500 mt-0.5 mr-3" />
@@ -2726,92 +2675,8 @@ useHead({
           </div>
         </div>
 
-        <UTabs
-          v-model="activeContentTab"
-          :items="contentTabItems"
-          color="primary"
-          variant="link"
-          class="w-full"
-        />
-
-        <template v-if="activeContentTab === 'releases'">
-          <div class="flex items-center gap-2 text-xs text-muted">
-            <UBadge color="neutral" variant="soft">
-              {{ filteredReleases.length }} of {{ releases?.length || 0 }} release<span v-if="(releases?.length || 0) !== 1">s</span>
-            </UBadge>
-          </div>
-
-          <UAlert
-            color="neutral"
-            variant="soft"
-            icon="i-lucide-box"
-            title="Full-project snapshots only"
-            description="Releases ignore page selection. Use Export package if you need a one-off partial export."
-          />
-
-          <UAlert
-            v-if="releasesError"
-            color="error"
-            variant="soft"
-            icon="i-lucide-alert-circle"
-            :title="extractApiErrorMessage(releasesError, 'Failed to load releases')"
-          />
-
-          <div v-else-if="releasesPending" class="flex items-center justify-center py-8">
-            <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
-            <span class="ml-2 text-sm text-muted">Loading releases...</span>
-          </div>
-
-          <div v-else-if="!releases || releases.length === 0" class="py-12 text-center">
-            <UIcon name="i-lucide-tag" class="mx-auto mb-4 text-4xl text-neutral-400" />
-            <p class="mb-2 text-neutral-600 dark:text-neutral-400">
-              No releases yet.
-            </p>
-            <p class="mx-auto max-w-md text-sm text-muted">
-              Create one to freeze the current full-project package and optionally share it externally.
-            </p>
-          </div>
-
-          <div v-else-if="filteredReleases.length === 0" class="py-12 text-center">
-            <UIcon name="i-lucide-filter-x" class="mx-auto mb-4 text-4xl text-neutral-400" />
-            <p class="mb-4 text-neutral-600 dark:text-neutral-400">
-              No releases match your search.
-            </p>
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="releaseGlobalFilter = ''"
-            >
-              Clear search
-            </UButton>
-          </div>
-
-          <UTable
-            v-else
-            :columns="releaseColumns"
-            :data="filteredReleases"
-            :ui="{
-              base: 'table-fixed border-separate border-spacing-0',
-              thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-              tbody: '[&>tr]:last:[&>td]:border-b-0',
-              th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-              td: 'border-b border-default',
-              separator: 'h-0'
-            }"
-          />
-        </template>
-
-        <template v-else>
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <UBadge color="neutral" variant="soft" size="sm">
-                  {{ pages?.length || 0 }} page<span v-if="(pages?.length || 0) !== 1">s</span>
-                </UBadge>
-              </div>
-            </div>
-
+        <div class="flex flex-1 flex-col gap-0 xl:min-h-0 xl:flex-row xl:items-stretch">
+          <div class="min-w-0 flex-1 space-y-6 p-6">
             <div v-if="globalFilter || selectedTags.length > 0 || xmlStatusFilter !== 'all'" class="flex items-center gap-2 flex-wrap">
               <span class="text-xs text-neutral-500">Active filters:</span>
               <UBadge
@@ -2846,123 +2711,251 @@ useHead({
                 XML: {{ xmlStatusOptions.find(o => o.value === xmlStatusFilter)?.label }} ×
               </UBadge>
             </div>
-          </div>
 
-          <div v-if="pagesError" class="py-8 text-center">
-            <div class="flex items-center justify-center gap-2 text-red-600 dark:text-red-400">
-              <UIcon name="i-lucide-alert-circle" />
-              <p class="text-sm">
-                <strong>Error loading pages:</strong> {{ pagesError.message || pagesError }}
+            <div v-if="pagesError" class="py-8 text-center">
+              <div class="flex items-center justify-center gap-2 text-red-600 dark:text-red-400">
+                <UIcon name="i-lucide-alert-circle" />
+                <p class="text-sm">
+                  <strong>Error loading pages:</strong> {{ pagesError.message || pagesError }}
+                </p>
+              </div>
+            </div>
+
+            <div v-else-if="showPagesLoadingSpinner" class="py-8 text-center">
+              <div class="flex items-center justify-center">
+                <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
+                <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading pages...</span>
+              </div>
+            </div>
+
+            <div v-else-if="pages && pages.length === 0" class="py-12 text-center">
+              <UIcon name="i-lucide-file-text" class="mx-auto text-4xl text-neutral-400 mb-4" />
+              <p class="text-neutral-600 dark:text-neutral-400 mb-4">
+                No pages found in this project.
               </p>
-            </div>
-          </div>
-
-          <div v-else-if="showPagesLoadingSpinner" class="py-8 text-center">
-            <div class="flex items-center justify-center">
-              <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
-              <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading pages...</span>
-            </div>
-          </div>
-
-          <div v-else-if="pages && pages.length === 0" class="py-12 text-center">
-            <UIcon name="i-lucide-file-text" class="mx-auto text-4xl text-neutral-400 mb-4" />
-            <p class="text-neutral-600 dark:text-neutral-400 mb-4">
-              No pages found in this project.
-            </p>
-            <div class="text-sm text-neutral-500 dark:text-neutral-500 space-y-2 max-w-md mx-auto">
-              <p><strong>Upload Files:</strong> Upload images and XML files to create pages automatically.</p>
-              <p>Files are grouped by basename (everything before the first dot) to create organized pages.</p>
-            </div>
-          </div>
-
-          <div v-else-if="pages && filteredPages.length === 0" class="py-12 text-center">
-            <UIcon name="i-lucide-filter-x" class="mx-auto text-4xl text-neutral-400 mb-4" />
-            <p class="text-neutral-600 dark:text-neutral-400 mb-4">
-              No pages match your filters.
-            </p>
-            <UButton
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="resetFilters"
-            >
-              Clear all filters
-            </UButton>
-          </div>
-
-          <div v-else-if="pages">
-            <UContextMenu :items="contextMenuItems as any">
-              <UTable
-                v-if="paginatedPages.length > 0"
-                :columns="pageColumns"
-                :data="paginatedPages"
-                :loading="isManualPagesRefresh"
-                class="flex-1"
-                :ui="{
-                  base: 'table-fixed border-separate border-spacing-0',
-                  thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-                  tbody: '[&>tr]:last:[&>td]:border-b-0',
-                  th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-                  td: 'border-b border-default',
-                  separator: 'h-0'
-                }"
-                @contextmenu="handlePageRowContextMenu"
-              />
-            </UContextMenu>
-
-            <div v-if="totalPagesCount > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
-              <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-                <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} pages</span>
+              <div class="text-sm text-neutral-500 dark:text-neutral-500 space-y-2 max-w-md mx-auto">
+                <p><strong>Upload Files:</strong> Upload images and XML files to create pages automatically.</p>
+                <p>Files are grouped by basename (everything before the first dot) to create organized pages.</p>
               </div>
+            </div>
 
-              <div class="flex items-center gap-4">
-                <USelect
-                  v-model="itemsPerPage"
-                  :items="[10, 25, 50, 100]"
-                  class="w-32"
+            <div v-else-if="pages && filteredPages.length === 0" class="py-12 text-center">
+              <UIcon name="i-lucide-filter-x" class="mx-auto text-4xl text-neutral-400 mb-4" />
+              <p class="text-neutral-600 dark:text-neutral-400 mb-4">
+                No pages match your filters.
+              </p>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="resetFilters"
+              >
+                Clear all filters
+              </UButton>
+            </div>
+
+            <div v-else-if="pages">
+              <UContextMenu :items="contextMenuItems as any">
+                <UTable
+                  v-if="paginatedPages.length > 0"
+                  :columns="pageColumns"
+                  :data="paginatedPages"
+                  :loading="isManualPagesRefresh"
+                  class="flex-1"
+                  :ui="{
+                    base: 'table-fixed border-separate border-spacing-0',
+                    thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
+                    tbody: '[&>tr]:last:[&>td]:border-b-0',
+                    th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
+                    td: 'border-b border-default',
+                    separator: 'h-0'
+                  }"
+                  @contextmenu="handlePageRowContextMenu"
+                />
+              </UContextMenu>
+
+              <div v-if="totalPagesCount > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+                <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+                  <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} pages</span>
+                </div>
+
+                <div class="flex items-center gap-4">
+                  <USelect
+                    v-model="itemsPerPage"
+                    :items="[10, 25, 50, 100]"
+                    class="w-32"
+                    size="sm"
+                  />
+
+                  <UPagination
+                    v-model:page="page"
+                    :total="totalItems"
+                    :items-per-page="itemsPerPage"
+                    show-edges
+                    :sibling-count="1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <UiFloatingSelectionMenu
+              :selected-count="selectedPageIds.size"
+              @clear="clearSelection"
+            >
+              <UButton
+                icon="i-lucide-pencil"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="text-neutral-50 hover:bg-white/10"
+                :loading="isLoadingEditor"
+                :disabled="!pages || pages.length === 0 || project?.locked"
+                aria-label="Open selected pages in editor"
+                @click="handleOpenInEditor"
+              >
+                <span class="hidden sm:inline">Open in Editor</span>
+              </UButton>
+              <UButton
+                v-if="canManageDatasets"
+                icon="i-lucide-database-zap"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="text-neutral-50 hover:bg-white/10"
+                aria-label="Add selected pages to dataset"
+                @click="openAddToDatasetSlideover"
+              >
+                <span class="hidden sm:inline">Add To Dataset</span>
+              </UButton>
+              <UDropdownMenu :items="selectionMoreActionItems" :content="{ align: 'end' }">
+                <UButton
+                  icon="i-lucide-ellipsis"
+                  color="neutral"
+                  variant="ghost"
                   size="sm"
-                />
-
-                <UPagination
-                  v-model:page="page"
-                  :total="totalItems"
-                  :items-per-page="itemsPerPage"
-                  show-edges
-                  :sibling-count="1"
-                />
-              </div>
-            </div>
+                  class="text-neutral-50 hover:bg-white/10"
+                  aria-label="More selected page actions"
+                >
+                  <span class="hidden sm:inline">More</span>
+                </UButton>
+              </UDropdownMenu>
+              <UButton
+                v-if="canBulkDeletePages"
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                size="sm"
+                class="hover:bg-white/10"
+                aria-label="Delete selected pages"
+                @click="openBulkDeleteSlideover"
+              >
+                <span class="hidden sm:inline">Delete</span>
+              </UButton>
+            </UiFloatingSelectionMenu>
           </div>
 
-          <UiFloatingSelectionMenu
-            :selected-count="selectedPageIds.size"
-            @clear="clearSelection"
+          <aside
+            v-if="isReleaseSidebarVisible"
+            class="w-full shrink-0 border-t border-default bg-muted/40 xl:w-[340px] xl:self-stretch xl:border-l xl:border-t-0"
           >
-            <UButton
-              v-if="canManageDatasets"
-              icon="i-lucide-database-zap"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              class="text-neutral-50 hover:bg-white/10"
-              @click="openAddToDatasetSlideover"
-            >
-              Add To Dataset
-            </UButton>
-            <UButton
-              v-if="allow(projectCapabilities.canDeletePages)"
-              icon="i-lucide-trash-2"
-              color="error"
-              variant="ghost"
-              size="sm"
-              class="hover:bg-white/10"
-              aria-label="Delete selected pages"
-              @click="openBulkDeleteSlideover"
-            >
-              Delete
-            </UButton>
-          </UiFloatingSelectionMenu>
-        </template>
+            <div class="h-full space-y-5 p-4">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
+                  <UIcon name="i-lucide-box" class="size-4 text-muted" />
+                  <span>Releases</span>
+                </div>
+                <UButton
+                  v-if="allow(projectCapabilities.canExportPackage)"
+                  color="neutral"
+                  variant="solid"
+                  size="xs"
+                  icon="i-lucide-plus"
+                  @click="openCreateRelease"
+                >
+                  New Release
+                </UButton>
+              </div>
+
+              <p class="text-xs text-muted">
+                {{ releaseSidebarSummary }}
+              </p>
+
+              <USeparator />
+
+              <UAlert
+                v-if="releasesError"
+                color="error"
+                variant="soft"
+                icon="i-lucide-alert-circle"
+                :title="extractApiErrorMessage(releasesError, 'Failed to load releases')"
+              />
+
+              <div v-if="releasesPending && releasesForSidebar.length === 0" class="flex items-center gap-2 py-3 text-sm text-muted">
+                <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
+                <span>Loading releases...</span>
+              </div>
+
+              <div v-else-if="releasesForSidebar.length === 0" class="rounded-lg border border-dashed border-default p-4 text-sm text-muted">
+                No releases yet.
+              </div>
+
+              <div v-else class="space-y-2">
+                <div
+                  v-for="release in releasesForSidebar"
+                  :key="release.id"
+                  :class="[
+                    'px-3 py-3',
+                    release.id === latestReleaseId
+                      ? 'rounded-xl border border-default bg-default'
+                      : 'rounded-lg'
+                  ]"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0 flex items-center gap-2">
+                      <UIcon name="i-lucide-git-branch" class="size-4 text-muted" />
+                      <p class="truncate text-sm font-semibold text-highlighted">
+                        {{ release.versionTag }}
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <UBadge
+                        v-if="release.id === latestReleaseId"
+                        color="success"
+                        variant="soft"
+                        size="sm"
+                      >
+                        Latest
+                      </UBadge>
+
+                      <UDropdownMenu
+                        :items="getReleaseCardItems(release)"
+                        :content="{ align: 'end' }"
+                      >
+                        <UButton
+                          icon="i-lucide-ellipsis-vertical"
+                          color="neutral"
+                          variant="ghost"
+                          size="xs"
+                        />
+                      </UDropdownMenu>
+                    </div>
+                  </div>
+
+                  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                    <span class="inline-flex items-center gap-1">
+                      <UIcon name="i-lucide-clock-3" class="size-3.5" />
+                      {{ formatDate(release.created) }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <UIcon name="i-lucide-file-text" class="size-3.5" />
+                      {{ release.pageCount }} pages
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     </template>
   </UDashboardPanel>

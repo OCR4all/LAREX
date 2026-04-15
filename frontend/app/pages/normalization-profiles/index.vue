@@ -162,22 +162,27 @@ async function handleDeleteSelected() {
   const confirmed = await instance.result
   if (!confirmed) return
 
-  const results = await Promise.allSettled(selectedProfiles.value.map(profile =>
-    $fetch(`/api/workspaces/${workspaceId.value}/normalization-profiles/${profile.id}`, { method: 'DELETE' })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${workspaceId.value}/normalization-profiles/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids: selectedProfiles.value.map(profile => profile.id) }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({ title: response.successCount === 1 ? 'Normalization profile deleted' : 'Normalization profiles deleted', description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    }
+    if (response.failedCount > 0) {
+      toast.add({ title: 'Some deletions failed', description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+    }
 
-  if (deletedCount > 0) {
-    toast.add({ title: deletedCount === 1 ? 'Normalization profile deleted' : 'Normalization profiles deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    clearSelection()
+    await refreshNuxtData(profilesKey.value)
+  } catch (error: unknown) {
+    toast.add({ title: 'Error deleting normalization profiles', description: extractApiErrorMessage(error, 'Failed to delete normalization profiles'), color: 'error' })
   }
-  if (failedCount > 0) {
-    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
-  }
-
-  clearSelection()
-  await refreshNuxtData(profilesKey.value)
 }
 
 const items = (row: NormalizationProfileSummary): DropdownMenuItem[][] => {

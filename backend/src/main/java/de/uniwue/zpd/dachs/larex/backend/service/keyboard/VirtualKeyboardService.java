@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.keyboard;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.KeyboardItemDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.VirtualKeyboardDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.KeyboardItem;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -96,6 +98,37 @@ public class VirtualKeyboardService {
         virtualKeyboardRepository.delete(keyboard);
     }
 
+    @Transactional
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteKeyboards(String userId, String workspaceId, List<String> ids) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String id : new LinkedHashSet<>(ids)) {
+            if (id == null || id.isBlank()) {
+                failedIds.add(Objects.toString(id, "<null>"));
+                errors.add("Cannot delete keyboard with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteKeyboard(userId, workspaceId, id);
+                deletedIds.add(id);
+            } catch (RuntimeException ex) {
+                failedIds.add(id);
+                errors.add("Failed to delete keyboard " + id + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
+    }
+
     private VirtualKeyboardDto toDto(VirtualKeyboard keyboard, String userId) {
         VirtualKeyboardDto dto = new VirtualKeyboardDto(keyboard);
         dto.setCapabilities(authorizationPolicyService.resolveWorkspaceResourceCapabilities(keyboard.getWorkspaceId(), userId));
@@ -137,5 +170,9 @@ public class VirtualKeyboardService {
                 keyboard.addItem(item);
             }
         }
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

@@ -162,22 +162,27 @@ async function handleDeleteSelected() {
   const confirmed = await instance.result
   if (!confirmed) return
 
-  const results = await Promise.allSettled(selectedRulesets.value.map(ruleset =>
-    $fetch(`/api/workspaces/${workspaceId.value}/validation-rulesets/${ruleset.id}`, { method: 'DELETE' })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${workspaceId.value}/validation-rulesets/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids: selectedRulesets.value.map(ruleset => ruleset.id) }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({ title: response.successCount === 1 ? 'Validation ruleset deleted' : 'Validation rulesets deleted', description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    }
+    if (response.failedCount > 0) {
+      toast.add({ title: 'Some deletions failed', description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+    }
 
-  if (deletedCount > 0) {
-    toast.add({ title: deletedCount === 1 ? 'Validation ruleset deleted' : 'Validation rulesets deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    clearSelection()
+    await refreshNuxtData(rulesetsKey.value)
+  } catch (error: unknown) {
+    toast.add({ title: 'Error deleting validation rulesets', description: extractApiErrorMessage(error, 'Failed to delete validation rulesets'), color: 'error' })
   }
-  if (failedCount > 0) {
-    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
-  }
-
-  clearSelection()
-  await refreshNuxtData(rulesetsKey.value)
 }
 
 const items = (row: ValidationRulesetSummary): DropdownMenuItem[][] => {

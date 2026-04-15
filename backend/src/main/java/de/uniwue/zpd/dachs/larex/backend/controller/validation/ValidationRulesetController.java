@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.validation;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ValidationRulesetDto;
 import de.uniwue.zpd.dachs.larex.backend.service.validation.ValidationRulesetService;
 import jakarta.validation.Valid;
@@ -66,6 +67,14 @@ public class ValidationRulesetController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
         validationRulesetService.deleteRuleset(userId, workspaceId, rulesetId);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteRulesets(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(validationRulesetService.bulkDeleteRulesets(userId, workspaceId, request.ids()));
     }
 
     @PostMapping("/{rulesetId}/validate-against-sources")

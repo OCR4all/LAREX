@@ -1,8 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.tag;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.TagSetDto;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagSetService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -77,6 +79,14 @@ public class TagSetController {
 
         tagSetService.deleteTagSet(userId, workspaceId, tagSetId);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteTagSets(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(tagSetService.bulkDeleteTagSets(userId, workspaceId, request.ids()));
     }
 
     @GetMapping("/{tagSetId}/flattened")

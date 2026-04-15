@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.workspace;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceMemberDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
@@ -49,6 +50,13 @@ public class WorkspaceController {
                 .toList();
 
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteWorkspaces(
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(workspaceService.bulkDeleteWorkspaces(request.ids(), userId));
     }
 
     /**

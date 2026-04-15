@@ -191,32 +191,42 @@ async function handleDeleteSelected() {
   const ids = selectedDictionaries.value.map(dictionary => dictionary.id)
   deletingDictionaryIds.value = new Set([...deletingDictionaryIds.value, ...ids])
 
-  const results = await Promise.allSettled(ids.map(id =>
-    $fetch(`/api/workspaces/${selectedWorkspace.value}/dictionaries/${id}`, { method: 'DELETE' })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${selectedWorkspace.value}/dictionaries/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({
+        title: response.successCount === 1 ? 'Dictionary deleted' : 'Dictionaries deleted',
+        description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`,
+        color: 'success'
+      })
+    }
 
-  if (deletedCount > 0) {
+    if (response.failedCount > 0) {
+      toast.add({
+        title: 'Some deletions failed',
+        description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be deleted.`,
+        color: 'warning'
+      })
+    }
+
+    clearSelection()
+    await refreshNuxtData(dictionariesKey.value)
+  } catch (error: unknown) {
     toast.add({
-      title: deletedCount === 1 ? 'Dictionary deleted' : 'Dictionaries deleted',
-      description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`,
-      color: 'success'
+      title: 'Error deleting dictionaries',
+      description: extractApiErrorMessage(error, 'Failed to delete dictionaries'),
+      color: 'error'
     })
+  } finally {
+    deletingDictionaryIds.value = new Set()
   }
-
-  if (failedCount > 0) {
-    toast.add({
-      title: 'Some deletions failed',
-      description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`,
-      color: 'warning'
-    })
-  }
-
-  clearSelection()
-  deletingDictionaryIds.value = new Set()
-  await refreshNuxtData(dictionariesKey.value)
 }
 
 const items = (row: DictionarySummary) => {

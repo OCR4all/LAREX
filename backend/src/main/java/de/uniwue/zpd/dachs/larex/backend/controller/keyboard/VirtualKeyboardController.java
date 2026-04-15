@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.keyboard;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.VirtualKeyboardDto;
 import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService;
 import org.springframework.http.HttpStatus;
@@ -59,5 +60,13 @@ public class VirtualKeyboardController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
         virtualKeyboardService.deleteKeyboard(userId, workspaceId, id);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteKeyboards(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(virtualKeyboardService.bulkDeleteKeyboards(userId, workspaceId, request.ids()));
     }
 }

@@ -1,8 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.label;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -76,5 +78,13 @@ public class LabelSetController {
 
         labelSetService.deleteLabelSet(userId, workspaceId, labelSetId);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteLabelSets(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(labelSetService.bulkDeleteLabelSets(userId, workspaceId, request.ids()));
     }
 }

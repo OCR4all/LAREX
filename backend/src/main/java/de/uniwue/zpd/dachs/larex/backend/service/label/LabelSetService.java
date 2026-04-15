@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.label;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.LabelSetDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -175,6 +177,36 @@ public class LabelSetService {
         labelSetRepository.deleteById(Objects.requireNonNull(labelSetId, "labelSetId"));
     }
 
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteLabelSets(String userId, String workspaceId, List<String> ids) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String labelSetId : new LinkedHashSet<>(ids)) {
+            if (labelSetId == null || labelSetId.isBlank()) {
+                failedIds.add(Objects.toString(labelSetId, "<null>"));
+                errors.add("Cannot delete label set with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteLabelSet(userId, workspaceId, labelSetId);
+                deletedIds.add(labelSetId);
+            } catch (RuntimeException ex) {
+                failedIds.add(labelSetId);
+                errors.add("Failed to delete label set " + labelSetId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
+    }
+
     @Cacheable(value = "labelSets", key = "#workspaceId + ':list'")
     @Transactional(readOnly = true)
     public List<LabelSetDto.SummaryResponse> getLabelSets(String userId, String workspaceId) {
@@ -267,5 +299,9 @@ public class LabelSetService {
                 labelSet.getUpdated(),
                 capabilities
         );
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

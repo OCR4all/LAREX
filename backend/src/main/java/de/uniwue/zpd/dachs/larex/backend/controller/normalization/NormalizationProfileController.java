@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.normalization;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.NormalizationProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.service.normalization.NormalizationProfileService;
 import jakarta.validation.Valid;
@@ -66,6 +67,14 @@ public class NormalizationProfileController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
         normalizationProfileService.deleteProfile(userId, workspaceId, profileId);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteProfiles(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(normalizationProfileService.bulkDeleteProfiles(userId, workspaceId, request.ids()));
     }
 
     @PostMapping("/{profileId}/normalize-sources")

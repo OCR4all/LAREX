@@ -1,16 +1,21 @@
 package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.WorkspaceMemberDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.PersonalWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.TeamWorkspace;
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -111,6 +116,45 @@ public class WorkspaceService {
         return teamWorkspaceService.deleteTeamWorkspace(workspaceId, userId);
     }
 
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteWorkspaces(List<String> ids, String userId) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String workspaceId : new LinkedHashSet<>(ids)) {
+            if (workspaceId == null || workspaceId.isBlank()) {
+                failedIds.add(Objects.toString(workspaceId, "<null>"));
+                errors.add("Cannot delete workspace with a blank ID.");
+                continue;
+            }
+
+            try {
+                AbstractWorkspace workspace = getWorkspaceById(workspaceId, userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Workspace", workspaceId));
+                if (workspace.isPersonal()) {
+                    throw new IllegalArgumentException("Personal workspaces cannot be deleted");
+                }
+                if (deleteWorkspace(workspaceId, userId)) {
+                    deletedIds.add(workspaceId);
+                } else {
+                    failedIds.add(workspaceId);
+                    errors.add("Could not delete workspace " + workspaceId + ".");
+                }
+            } catch (RuntimeException ex) {
+                failedIds.add(workspaceId);
+                errors.add("Failed to delete workspace " + workspaceId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
+    }
+
     // Delegation methods for team workspace operations
     public boolean inviteUserToWorkspace(String workspaceId, String inviterId, String userId, de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceMember.Role role) {
         return teamWorkspaceService.inviteUserToTeamWorkspace(workspaceId, inviterId, userId, role);
@@ -192,5 +236,9 @@ public class WorkspaceService {
      */
     private boolean hasAccessToWorkspace(AbstractWorkspace workspace, String userId) {
         return workspaceAccessService.hasWorkspaceAccess(workspace.getId(), userId);
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

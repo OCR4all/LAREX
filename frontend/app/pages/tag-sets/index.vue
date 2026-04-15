@@ -180,22 +180,27 @@ async function handleDeleteSelected() {
   const confirmed = await instance.result
   if (!confirmed) return
 
-  const results = await Promise.allSettled(selectedTagSets.value.map(tagSet =>
-    $fetch(`/api/workspaces/${workspaceId.value}/tag-sets/${tagSet.id}`, { method: 'DELETE' })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${workspaceId.value}/tag-sets/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids: selectedTagSets.value.map(tagSet => tagSet.id) }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({ title: response.successCount === 1 ? 'Tag set deleted' : 'Tag sets deleted', description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    }
+    if (response.failedCount > 0) {
+      toast.add({ title: 'Some deletions failed', description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+    }
 
-  if (deletedCount > 0) {
-    toast.add({ title: deletedCount === 1 ? 'Tag set deleted' : 'Tag sets deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    clearSelection()
+    await refresh()
+  } catch (error: unknown) {
+    toast.add({ title: 'Error deleting tag sets', description: extractApiErrorMessage(error, 'Failed to delete tag sets'), color: 'error' })
   }
-  if (failedCount > 0) {
-    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
-  }
-
-  clearSelection()
-  await refresh()
 }
 
 const items = (row: TagSetRow): DropdownMenuItem[][] => {

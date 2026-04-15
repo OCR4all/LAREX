@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.tag;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.TagSetDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
@@ -123,6 +124,36 @@ public class TagSetService {
         projectRepository.saveAll(projects);
 
         tagSetRepository.deleteById(Objects.requireNonNull(tagSetId, "tagSetId"));
+    }
+
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteTagSets(String userId, String workspaceId, List<String> ids) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String tagSetId : new LinkedHashSet<>(ids)) {
+            if (tagSetId == null || tagSetId.isBlank()) {
+                failedIds.add(Objects.toString(tagSetId, "<null>"));
+                errors.add("Cannot delete tag set with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteTagSet(userId, workspaceId, tagSetId);
+                deletedIds.add(tagSetId);
+            } catch (RuntimeException ex) {
+                failedIds.add(tagSetId);
+                errors.add("Failed to delete tag set " + tagSetId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
     }
 
     @Cacheable(value = "tagSets", key = "#workspaceId + ':list'")
@@ -326,5 +357,9 @@ public class TagSetService {
 
         descendantsMap.put(tag.id(), descendants);
         return descendants;
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

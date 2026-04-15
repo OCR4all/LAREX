@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.codec;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
@@ -25,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -120,6 +122,36 @@ public class CodecService {
                 .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
 
         codecRepository.delete(codec);
+    }
+
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteCodecs(String userId, String workspaceId, List<String> ids) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String codecId : new LinkedHashSet<>(ids)) {
+            if (codecId == null || codecId.isBlank()) {
+                failedIds.add(Objects.toString(codecId, "<null>"));
+                errors.add("Cannot delete codec with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteCodec(userId, workspaceId, codecId);
+                deletedIds.add(codecId);
+            } catch (RuntimeException ex) {
+                failedIds.add(codecId);
+                errors.add("Failed to delete codec " + codecId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
     }
 
     @Cacheable(value = "codecs", key = "#workspaceId + ':list'")
@@ -282,6 +314,10 @@ public class CodecService {
                 addedCharacterCount,
                 message
         );
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 
     @Transactional(readOnly = true)

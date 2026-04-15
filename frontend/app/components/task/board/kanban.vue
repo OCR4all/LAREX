@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import type { Task, TaskStatus } from '~/types/index'
-import { useTaskKanban, KANBAN_COLUMNS } from '~/composables/use-task-kanban'
+import { useTaskKanban } from '~/composables/use-task-kanban'
 
-const props = defineProps<{
-  tasks: Task[]
-}>()
+const props = withDefaults(defineProps<{
+  tasks?: Task[]
+}>(), {
+  tasks: () => []
+})
 
 const emit = defineEmits<{
-  refresh: []
+  'refresh': []
   'task-click': [task: Task]
 }>()
 
-const tasksRef = computed(() => props.tasks)
+const tasksRef = computed(() => props.tasks ?? [])
 const { columns, updateTaskStatus, isUpdating } = useTaskKanban(tasksRef)
 
 async function onTaskMoved(taskId: string, newStatus: TaskStatus) {
@@ -26,8 +28,8 @@ async function onTaskMoved(taskId: string, newStatus: TaskStatus) {
   <div class="flex gap-4 h-full overflow-x-auto p-4">
     <TaskBoardColumn
       v-for="column in columns"
-      :key="column.id"
       :id="column.id"
+      :key="column.id"
       :title="column.title"
       :color="column.color"
       :tasks="column.tasks"

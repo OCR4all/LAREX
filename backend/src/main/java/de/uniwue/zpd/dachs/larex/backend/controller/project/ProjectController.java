@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.project;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.IiifImportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectDto;
@@ -177,6 +178,14 @@ public class ProjectController {
         }
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteProjects(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(projectService.bulkDeleteProjects(workspaceId, request.ids(), userId));
     }
 
     @PostMapping("/{projectId}/bulk-upload")

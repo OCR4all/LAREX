@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DictionaryDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionaryEntry;
@@ -152,6 +153,36 @@ public class DictionaryService {
         invalidateDictionaryCache(dictionaryId);
     }
 
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteDictionaries(String userId, String workspaceId, List<String> ids) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String dictionaryId : new LinkedHashSet<>(ids)) {
+            if (dictionaryId == null || dictionaryId.isBlank()) {
+                failedIds.add(Objects.toString(dictionaryId, "<null>"));
+                errors.add("Cannot delete dictionary with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteDictionary(userId, workspaceId, dictionaryId);
+                deletedIds.add(dictionaryId);
+            } catch (RuntimeException ex) {
+                failedIds.add(dictionaryId);
+                errors.add("Failed to delete dictionary " + dictionaryId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
+    }
+
     @Transactional(readOnly = true)
     public List<DictionaryDto.SummaryResponse> getDictionaries(String userId, String workspaceId) {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
@@ -234,6 +265,10 @@ public class DictionaryService {
         entry = entryRepository.save(entry);
         invalidateDictionaryCache(dictionaryId);
         return toEntryResponse(entry);
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 
     public void deleteEntry(String userId, String workspaceId, String dictionaryId, String entryId) {

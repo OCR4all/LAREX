@@ -1,12 +1,17 @@
 package de.uniwue.zpd.dachs.larex.backend.service.project;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectCrudService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UnifiedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +59,44 @@ public class ProjectService {
         return projectCrudService.deleteProject(projectId, userId);
     }
 
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteProjects(String workspaceId, List<String> ids, String userId) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String projectId : new LinkedHashSet<>(ids)) {
+            if (projectId == null || projectId.isBlank()) {
+                failedIds.add(Objects.toString(projectId, "<null>"));
+                errors.add("Cannot delete project with a blank ID.");
+                continue;
+            }
+
+            try {
+                Project project = getProjectById(projectId, userId)
+                        .filter(candidate -> workspaceId.equals(candidate.getLibrary().getWorkspaceId()))
+                        .orElseThrow(() -> new ResourceNotFoundException("Project", projectId));
+
+                if (deleteProject(project.getId(), userId)) {
+                    deletedIds.add(projectId);
+                } else {
+                    failedIds.add(projectId);
+                    errors.add("Could not delete project " + projectId + ".");
+                }
+            } catch (RuntimeException ex) {
+                failedIds.add(projectId);
+                errors.add("Failed to delete project " + projectId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
+    }
+
     public List<Project> searchProjects(String workspaceId, String searchTerm, String userId) {
         return projectCrudService.searchProjects(workspaceId, searchTerm, userId);
     }
@@ -74,5 +117,9 @@ public class ProjectService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found or access denied"));
         workspaceAccessService.requireManageProjectsAccess(project.getLibrary().getWorkspaceId(), userId);
         return unifiedUploadService.importDataset(projectId, files, userId);
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

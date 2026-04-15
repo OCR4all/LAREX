@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.dictionary;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DictionaryDto;
 import de.uniwue.zpd.dachs.larex.backend.service.dictionary.DictionaryService;
 import jakarta.validation.Valid;
@@ -69,6 +70,14 @@ public class DictionaryController {
                                                  @AuthenticationPrincipal(expression = "subject") String userId) {
         dictionaryService.deleteDictionary(userId, workspaceId, dictionaryId);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteDictionaries(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(dictionaryService.bulkDeleteDictionaries(userId, workspaceId, request.ids()));
     }
 
     @GetMapping("/{dictionaryId}/entries")

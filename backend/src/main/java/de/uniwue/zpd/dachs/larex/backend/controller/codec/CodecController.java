@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.codec;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
 import jakarta.validation.Valid;
@@ -76,6 +77,14 @@ public class CodecController {
 
         codecService.deleteCodec(userId, workspaceId, codecId);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteCodecs(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(codecService.bulkDeleteCodecs(userId, workspaceId, request.ids()));
     }
 
     // Character management endpoints

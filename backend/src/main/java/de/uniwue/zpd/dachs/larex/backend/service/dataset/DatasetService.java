@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.dataset;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DatasetDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Dataset;
@@ -166,6 +167,36 @@ public class DatasetService {
         workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
     }
 
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteDatasets(String workspaceId, List<String> ids, String userId) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String datasetId : new LinkedHashSet<>(ids)) {
+            if (datasetId == null || datasetId.isBlank()) {
+                failedIds.add(Objects.toString(datasetId, "<null>"));
+                errors.add("Cannot delete dataset with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteDataset(workspaceId, datasetId, userId);
+                deletedIds.add(datasetId);
+            } catch (RuntimeException ex) {
+                failedIds.add(datasetId);
+                errors.add("Failed to delete dataset " + datasetId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
+    }
+
     public DatasetDto.DetailResponse addItems(String workspaceId,
                                               String datasetId,
                                               DatasetDto.AddItemsRequest request,
@@ -276,6 +307,47 @@ public class DatasetService {
         datasetItemRepository.delete(item);
         workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
         return getDataset(workspaceId, datasetId, userId);
+    }
+
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteItems(String workspaceId,
+                                                            String datasetId,
+                                                            List<String> ids,
+                                                            String userId) {
+        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        requireDataset(workspaceId, datasetId);
+
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String itemId : new LinkedHashSet<>(ids)) {
+            if (itemId == null || itemId.isBlank()) {
+                failedIds.add(Objects.toString(itemId, "<null>"));
+                errors.add("Cannot delete dataset item with a blank ID.");
+                continue;
+            }
+
+            try {
+                DatasetItem item = datasetItemRepository.findByIdAndDatasetId(itemId, datasetId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Dataset item", itemId));
+                deleteCopiedFiles(item.getCopyFiles());
+                datasetItemRepository.delete(item);
+                deletedIds.add(itemId);
+            } catch (RuntimeException ex) {
+                failedIds.add(itemId);
+                errors.add("Failed to delete dataset item " + itemId + ": " + describeError(ex));
+            }
+        }
+
+        workspaceQuotaRefreshService.scheduleUsageRefresh(workspaceId);
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
     }
 
     public DatasetDto.DetailResponse generateSplit(String workspaceId,
@@ -1638,5 +1710,9 @@ public class DatasetService {
     }
 
     public record SharedReleaseDownload(String fileName, Path absolutePath, long contentLength, String checksumSha256) {
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

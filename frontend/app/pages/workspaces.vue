@@ -271,22 +271,27 @@ async function handleDeleteSelected() {
   const confirmed = await instance.result
   if (!confirmed) return
 
-  const results = await Promise.allSettled(selectedWorkspaces.value.map(workspace =>
-    $fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE' })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      '/api/workspaces/bulk',
+      {
+        method: 'DELETE',
+        body: { ids: selectedWorkspaces.value.map(workspace => workspace.id) }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({ title: response.successCount === 1 ? 'Workspace deleted' : 'Workspaces deleted', description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    }
+    if (response.failedCount > 0) {
+      toast.add({ title: 'Some deletions failed', description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
+    }
 
-  if (deletedCount > 0) {
-    toast.add({ title: deletedCount === 1 ? 'Workspace deleted' : 'Workspaces deleted', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    clearSelection()
+    await refreshWorkspaceList()
+  } catch (error: unknown) {
+    toast.add({ title: 'Failed to delete', description: extractApiErrorMessage(error, 'Failed to delete workspaces'), color: 'error' })
   }
-  if (failedCount > 0) {
-    toast.add({ title: 'Some deletions failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be deleted.`, color: 'warning' })
-  }
-
-  clearSelection()
-  await refreshWorkspaceList()
 }
 
 async function leaveWorkspace(ws: WorkspaceRow) {

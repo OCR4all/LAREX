@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.dataset;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DatasetDto;
 import de.uniwue.zpd.dachs.larex.backend.service.dataset.DatasetService;
 import jakarta.validation.Valid;
@@ -47,6 +48,14 @@ public class DatasetController {
             @Valid @RequestBody DatasetDto.CreateOrUpdateRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(datasetService.createDataset(workspaceId, request, userId));
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteDatasets(
+            @PathVariable String workspaceId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(datasetService.bulkDeleteDatasets(workspaceId, request.ids(), userId));
     }
 
     @GetMapping("/{datasetId}")
@@ -101,6 +110,15 @@ public class DatasetController {
             @PathVariable String itemId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(datasetService.deleteItem(workspaceId, datasetId, itemId, userId));
+    }
+
+    @DeleteMapping("/{datasetId}/items/bulk")
+    public ResponseEntity<BulkDeleteDto.BulkDeleteResponse> bulkDeleteItems(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(datasetService.bulkDeleteItems(workspaceId, datasetId, request.ids(), userId));
     }
 
     @PostMapping("/{datasetId}/split-generate")

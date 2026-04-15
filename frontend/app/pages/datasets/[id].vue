@@ -938,25 +938,29 @@ async function deleteSelectedItems() {
   const ids = selectedItems.value.map(row => row.item.id)
   deletingItemIds.value = new Set([...deletingItemIds.value, ...ids])
 
-  const results = await Promise.allSettled(ids.map(id =>
-    $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value!.id}/items/${id}`, {
-      method: 'DELETE'
-    })
-  ))
+  try {
+    const response = await $fetch<{ successCount: number, failedCount: number }>(
+      `/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value.id}/items/bulk`,
+      {
+        method: 'DELETE',
+        body: { ids }
+      }
+    )
 
-  const deletedCount = results.filter(result => result.status === 'fulfilled').length
-  const failedCount = results.length - deletedCount
+    if (response.successCount > 0) {
+      toast.add({ title: response.successCount === 1 ? 'Item removed' : 'Items removed', description: `${response.successCount} item${response.successCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    }
+    if (response.failedCount > 0) {
+      toast.add({ title: 'Some removals failed', description: `${response.failedCount} item${response.failedCount === 1 ? '' : 's'} could not be removed.`, color: 'warning' })
+    }
 
-  if (deletedCount > 0) {
-    toast.add({ title: deletedCount === 1 ? 'Item removed' : 'Items removed', description: `${deletedCount} item${deletedCount === 1 ? '' : 's'} removed.`, color: 'success' })
+    clearItemSelection()
+    await refresh()
+  } catch (cause: unknown) {
+    toast.add({ title: 'Remove failed', description: extractApiErrorMessage(cause, 'Failed to remove selected dataset items'), color: 'error' })
+  } finally {
+    deletingItemIds.value = new Set()
   }
-  if (failedCount > 0) {
-    toast.add({ title: 'Some removals failed', description: `${failedCount} item${failedCount === 1 ? '' : 's'} could not be removed.`, color: 'warning' })
-  }
-
-  clearItemSelection()
-  deletingItemIds.value = new Set()
-  await refresh()
 }
 
 async function downloadBlobResponse(response: Response, fallbackName: string) {

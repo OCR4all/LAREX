@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.normalization;
 
+import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.NormalizationProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
@@ -138,6 +139,37 @@ public class NormalizationProfileService {
         NormalizationProfile profile = requireProfile(workspaceId, profileId);
         clearAssignments(workspaceId, profileId);
         normalizationProfileRepository.delete(profile);
+    }
+
+    @Transactional
+    public BulkDeleteDto.BulkDeleteResponse bulkDeleteProfiles(String userId, String workspaceId, List<String> ids) {
+        List<String> deletedIds = new ArrayList<>();
+        List<String> failedIds = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        for (String profileId : new LinkedHashSet<>(ids)) {
+            if (profileId == null || profileId.isBlank()) {
+                failedIds.add(Objects.toString(profileId, "<null>"));
+                errors.add("Cannot delete normalization profile with a blank ID.");
+                continue;
+            }
+
+            try {
+                deleteProfile(userId, workspaceId, profileId);
+                deletedIds.add(profileId);
+            } catch (RuntimeException ex) {
+                failedIds.add(profileId);
+                errors.add("Failed to delete normalization profile " + profileId + ": " + describeError(ex));
+            }
+        }
+
+        return new BulkDeleteDto.BulkDeleteResponse(
+                deletedIds.size(),
+                failedIds.size(),
+                deletedIds,
+                failedIds,
+                errors
+        );
     }
 
     @Transactional(readOnly = true)
@@ -1005,5 +1037,9 @@ public class NormalizationProfileService {
     }
 
     private record VariantSelection(VariantSelectionMode mode, Integer variantIndex) {
+    }
+
+    private String describeError(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank() ? "Unexpected error" : ex.getMessage();
     }
 }

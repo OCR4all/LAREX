@@ -84,13 +84,27 @@ const { data: members } = await useFetch<WorkspaceMember[]>(
 )
 
 const canManageTasks = computed(() => allow(workspaceCapabilities.value.canManageTasks))
-const acceptedMembers = computed(() => members.value.filter(m => m.invitationStatus === 'ACCEPTED'))
+const acceptedMembers = computed(() => (members.value ?? []).filter(m => m.invitationStatus === 'ACCEPTED'))
 const canCreateTasks = computed(() => canManageTasks.value)
+
+const tasksSafe = computed(() => Array.isArray(tasks.value) ? tasks.value : [])
+const tasksSafeCount = computed(() => tasksSafe.value.length)
+
+const filteredTasks = computed(() => {
+  const source = Array.isArray(tasksSafe.value) ? tasksSafe.value : []
+  if (!q.value) return source
+  const search = q.value.toLowerCase()
+  return source.filter(t =>
+    t.title.toLowerCase().includes(search)
+    || (t.description || '').toLowerCase().includes(search)
+  )
+})
 
 const selectedTaskIds = ref<Set<string>>(new Set())
 const selectedTasks = computed(() =>
-  filteredTasks.value.filter(t => selectedTaskIds.value.has(t.id))
+  (filteredTasks.value ?? []).filter(t => selectedTaskIds.value.has(t.id))
 )
+const selectedTasksCount = computed(() => selectedTasks.value?.length ?? 0)
 
 function getTaskCapabilities(task: Task) {
   return {
@@ -100,23 +114,44 @@ function getTaskCapabilities(task: Task) {
 }
 
 const canBulkDeleteSelected = computed(() =>
-  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canDelete))
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canDelete))
 )
 
 const canBulkStatusSelected = computed(() =>
-  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canUpdateStatus))
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canUpdateStatus))
 )
 
 const canBulkPrioritySelected = computed(() =>
-  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canEdit))
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canEdit))
 )
 
 const canBulkAssignSelected = computed(() =>
-  selectedTasks.value.length > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canAssignOthers))
+  selectedTasksCount.value > 0 && selectedTasks.value.every(task => allow(getTaskCapabilities(task).canAssignOthers))
 )
 
+const bulkAssignPopoverOpen = ref(false)
+const bulkAssignQuery = ref('')
+
+const bulkAssigneeItems = computed(() =>
+  (acceptedMembers.value ?? [])
+    .map(member => ({
+      label: member.displayName || member.username || member.userId,
+      value: member.userId
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+)
+const hasBulkAssigneeItems = computed(() => (bulkAssigneeItems.value?.length ?? 0) > 0)
+
+const filteredBulkAssigneeItems = computed(() => {
+  const query = bulkAssignQuery.value.trim().toLowerCase()
+  const items = bulkAssigneeItems.value ?? []
+  if (!query) return items
+  return items.filter(item => item.label.toLowerCase().includes(query))
+})
+const hasFilteredBulkAssigneeItems = computed(() => (filteredBulkAssigneeItems.value?.length ?? 0) > 0)
+
 const allSelected = computed(() =>
-  filteredTasks.value.length > 0 && filteredTasks.value.every(t => selectedTaskIds.value.has(t.id))
+  (filteredTasks.value?.length ?? 0) > 0 && (filteredTasks.value ?? []).every(t => selectedTaskIds.value.has(t.id))
 )
 
 const someSelected = computed(() =>
@@ -127,7 +162,7 @@ function toggleSelectAll() {
   if (allSelected.value) {
     selectedTaskIds.value.clear()
   } else {
-    filteredTasks.value.forEach(t => selectedTaskIds.value.add(t.id))
+    ;(filteredTasks.value ?? []).forEach(t => selectedTaskIds.value.add(t.id))
   }
 }
 
@@ -210,9 +245,23 @@ async function handleBulkAddAssignee(userId: string) {
   }
 }
 
+function closeBulkAssignPopover() {
+  bulkAssignPopoverOpen.value = false
+  bulkAssignQuery.value = ''
+}
+
+async function handleBulkAssigneePick(userId: string) {
+  await handleBulkAddAssignee(userId)
+  closeBulkAssignPopover()
+}
+
+watch(canBulkAssignSelected, (enabled) => {
+  if (!enabled) closeBulkAssignPopover()
+})
+
 async function handleBulkDelete() {
   if (!canBulkDeleteSelected.value) return
-  const count = selectedTasks.value.length
+  const count = selectedTasksCount.value
   const instance = deleteSlideover.open({
     name: `${count} task${count > 1 ? 's' : ''}`,
     entityType: 'Task',
@@ -252,17 +301,6 @@ async function handleDeleteTask(task: Task) {
     })
   }
 }
-
-const tasksSafe = computed(() => tasks.value ?? [])
-
-const filteredTasks = computed(() => {
-  if (!q.value) return tasksSafe.value
-  const search = q.value.toLowerCase()
-  return tasksSafe.value.filter(t =>
-    t.title.toLowerCase().includes(search)
-    || (t.description || '').toLowerCase().includes(search)
-  )
-})
 
 const statusColor = (status: TaskStatus) => {
   switch (status) {
@@ -312,7 +350,8 @@ const contextMenuItems = computed(() => {
   return getRowActions(contextMenuTask.value)
 })
 
-function handleRowContextMenu(_event: Event, row: TableRow<Task>) {
+function handleRowContextMenu(_event: Event, row?: TableRow<Task>) {
+  if (!row?.original) return
   contextMenuTask.value = row.original
 }
 
@@ -469,7 +508,7 @@ const viewModeItems = [
     </template>
 
     <template #body>
-      <div v-if="tasksStatus === 'pending' && tasksSafe.length === 0" class="py-8 text-center">
+      <div v-if="tasksStatus === 'pending' && tasksSafeCount === 0" class="py-8 text-center">
         <div class="flex items-center justify-center">
           <UIcon name="i-lucide-loader" class="animate-spin text-neutral-500" />
           <span class="ml-2 text-sm text-neutral-600 dark:text-neutral-400">Loading tasks...</span>
@@ -477,7 +516,7 @@ const viewModeItems = [
       </div>
 
       <UEmpty
-        v-else-if="tasksSafe.length === 0"
+        v-else-if="tasksSafeCount === 0"
         variant="naked"
         icon="i-lucide-clipboard-list"
         title="No tasks found"
@@ -494,7 +533,7 @@ const viewModeItems = [
       />
 
       <div v-else-if="viewMode === 'table'">
-        <UContextMenu :items="contextMenuItems as any">
+        <UContextMenu :items="contextMenuItems">
           <UTable
             :data="filteredTasks"
             :columns="columns"
@@ -511,7 +550,7 @@ const viewModeItems = [
         </UContextMenu>
 
         <UiFloatingSelectionMenu
-          :selected-count="selectedTasks.length"
+          :selected-count="selectedTasksCount"
           @clear="clearSelection"
         >
           <UDropdownMenu
@@ -553,24 +592,53 @@ const viewModeItems = [
             </UButton>
           </UDropdownMenu>
 
-          <UDropdownMenu
-            v-if="acceptedMembers.length > 0 && canBulkAssignSelected"
-            :items="acceptedMembers.map(m => ({
-              label: m.displayName || m.username || m.userId,
-              onSelect: () => handleBulkAddAssignee(m.userId)
-            }))"
+          <UPopover
+            v-if="hasBulkAssigneeItems && canBulkAssignSelected"
+            v-model:open="bulkAssignPopoverOpen"
+            :content="{ align: 'start', sideOffset: 6 }"
           >
             <UButton
-              icon="i-lucide-user-plus"
+              :icon="bulkLoading ? 'i-lucide-loader-2' : 'i-lucide-user-plus'"
               color="neutral"
               variant="ghost"
               size="sm"
               class="text-neutral-50 hover:bg-white/10"
-              :loading="bulkLoading"
+              :ui="{ leadingIcon: bulkLoading ? 'animate-spin' : '' }"
+              :disabled="bulkLoading"
             >
               Assign
             </UButton>
-          </UDropdownMenu>
+
+            <template #content>
+              <div class="w-64 space-y-2 p-2">
+                <UInput
+                  v-model="bulkAssignQuery"
+                  icon="i-lucide-search"
+                  size="sm"
+                  placeholder="Search assignees..."
+                  autofocus
+                />
+                <div class="max-h-56 space-y-1 overflow-auto">
+                  <UButton
+                    v-for="item in filteredBulkAssigneeItems"
+                    :key="item.value"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    block
+                    class="justify-start"
+                    :disabled="bulkLoading"
+                    @click="handleBulkAssigneePick(item.value)"
+                  >
+                    {{ item.label }}
+                  </UButton>
+                  <p v-if="!hasFilteredBulkAssigneeItems" class="px-2 py-1 text-xs text-muted">
+                    No assignees found.
+                  </p>
+                </div>
+              </div>
+            </template>
+          </UPopover>
 
           <UButton
             v-if="canBulkDeleteSelected"

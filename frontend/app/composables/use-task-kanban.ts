@@ -7,27 +7,30 @@ export interface KanbanColumn {
   tasks: Task[]
 }
 
-export const KANBAN_COLUMNS: { id: TaskStatus; title: string; color: 'neutral' | 'info' | 'success' | 'error' }[] = [
+type KanbanColumnMeta = Pick<KanbanColumn, 'id' | 'title' | 'color'>
+
+export const KANBAN_COLUMNS: KanbanColumnMeta[] = [
   { id: 'OPEN', title: 'Open', color: 'neutral' },
   { id: 'IN_PROGRESS', title: 'In Progress', color: 'info' },
   { id: 'COMPLETED', title: 'Completed', color: 'success' },
   { id: 'CANCELLED', title: 'Cancelled', color: 'error' }
 ]
 
-export function useTaskKanban(tasks: Ref<Task[]>) {
+export function useTaskKanban(tasks: Ref<Task[] | null | undefined>) {
   const toast = useToast()
+  const taskList = computed<Task[]>(() => Array.isArray(tasks.value) ? tasks.value : [])
 
   const columns = computed<KanbanColumn[]>(() => {
     return KANBAN_COLUMNS.map(col => ({
       ...col,
-      tasks: tasks.value.filter(t => t.status === col.id)
+      tasks: taskList.value.filter(t => t.status === col.id)
     }))
   })
 
   const pendingUpdates = ref<Set<string>>(new Set())
 
   async function updateTaskStatus(taskId: string, newStatus: TaskStatus): Promise<boolean> {
-    const task = tasks.value.find(t => t.id === taskId)
+    const task = taskList.value.find(t => t.id === taskId)
     if (!task || task.status === newStatus) return true
 
     const oldStatus = task.status
@@ -41,11 +44,16 @@ export function useTaskKanban(tasks: Ref<Task[]>) {
         body: { status: newStatus }
       })
       return true
-    } catch (err: any) {
+    } catch (err: unknown) {
       task.status = oldStatus
+      const errorMessage = (
+        (err as { data?: { message?: string } } | undefined)?.data?.message
+        || (err instanceof Error ? err.message : undefined)
+        || 'An error occurred'
+      )
       toast.add({
         title: 'Failed to update task status',
-        description: err?.data?.message || 'An error occurred',
+        description: errorMessage,
         color: 'error'
       })
       return false
