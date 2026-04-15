@@ -7,6 +7,7 @@ import type {
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { buildProjectReleaseShareCurlSnippet, buildProjectReleaseShareWgetSnippet } from '@/utils/project-release-share'
+import { buildReleaseShareBrowserDownloadUrl } from '@/utils/release-share-browser-download'
 
 const props = defineProps<{
   projectId: string
@@ -36,6 +37,10 @@ const curlSnippet = computed(() =>
 
 const wgetSnippet = computed(() =>
   recentShare.value ? buildProjectReleaseShareWgetSnippet(recentShare.value.downloadUrl, recentShare.value.secret) : ''
+)
+
+const browserDownloadUrl = computed(() =>
+  recentShare.value ? buildReleaseShareBrowserDownloadUrl(recentShare.value.downloadUrl) : null
 )
 
 async function refreshReleaseState() {
@@ -70,7 +75,7 @@ async function createOrRotateShare() {
     changed.value = true
     toast.add({
       title: releaseState.value.shareEnabled ? 'Share rotated' : 'Share created',
-      description: 'The secret is shown once. Copy it to the HPC workflow now.',
+      description: 'The secret is shown once. Copy it now for browser or CLI download.',
       color: 'success'
     })
     await refreshReleaseState()
@@ -156,6 +161,14 @@ async function copySecret() {
   await copyTextToClipboard(recentShare.value.secret, {
     successTitle: 'Secret copied',
     failureDescription: 'Unable to copy the share secret to the clipboard.'
+  })
+}
+
+async function copyBrowserDownloadUrl() {
+  if (!browserDownloadUrl.value) return
+  await copyTextToClipboard(browserDownloadUrl.value, {
+    successTitle: 'Browser URL copied',
+    failureDescription: 'Unable to copy the browser download URL to the clipboard.'
   })
 }
 
@@ -301,6 +314,10 @@ function normalizeDateTimeLocal(value: string) {
             <UInput :model-value="recentShare.downloadUrl" readonly />
           </UFormField>
 
+          <UFormField v-if="browserDownloadUrl" label="Browser download URL">
+            <UInput :model-value="browserDownloadUrl" readonly />
+          </UFormField>
+
           <UFormField label="Secret">
             <UInput :model-value="recentShare.secret" readonly />
           </UFormField>
@@ -329,6 +346,25 @@ function normalizeDateTimeLocal(value: string) {
               @click="copyWgetSnippet"
             >
               Copy wget
+            </UButton>
+            <UButton
+              v-if="browserDownloadUrl"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-globe"
+              @click="copyBrowserDownloadUrl"
+            >
+              Copy Browser URL
+            </UButton>
+            <UButton
+              v-if="browserDownloadUrl"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-external-link"
+              :to="browserDownloadUrl"
+              target="_blank"
+            >
+              Open Browser Page
             </UButton>
           </div>
 

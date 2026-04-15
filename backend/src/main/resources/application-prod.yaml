@@ -46,6 +46,11 @@ file:
 larex:
   auth:
     user-provisioning-mode: ${LAREX_USER_PROVISIONING_MODE:LOCAL}
+    private-access-tokens:
+      allowed-user-ids: ${LAREX_PRIVATE_ACCESS_TOKENS_ALLOWED_USER_IDS:}
+      default-expiry-days: ${LAREX_PRIVATE_ACCESS_TOKENS_DEFAULT_EXPIRY_DAYS:30}
+      max-expiry-days: ${LAREX_PRIVATE_ACCESS_TOKENS_MAX_EXPIRY_DAYS:90}
+      max-active-tokens-per-workspace: ${LAREX_PRIVATE_ACCESS_TOKENS_MAX_ACTIVE_PER_WORKSPACE:5}
   upload:
     temp-directory: ${LAREX_UPLOAD_TEMP_DIR:${file.upload-dir}/temp}
     indexing:

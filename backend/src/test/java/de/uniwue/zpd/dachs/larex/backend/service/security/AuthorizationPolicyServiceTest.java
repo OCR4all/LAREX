@@ -178,6 +178,27 @@ class AuthorizationPolicyServiceTest {
     }
 
     @Test
+    void projectReleaseAndShareAccess_isLimitedToOwnerCuratorAndGlobalAdmin() {
+        String workspaceId = "ws-release-1";
+        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
+        when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "curator"))
+                .thenReturn(Optional.of(member("curator", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "editor"))
+                .thenReturn(Optional.of(member("editor", WorkspaceMember.Role.EDITOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "pending"))
+                .thenReturn(Optional.of(member("pending", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.PENDING, workspaceId)));
+
+        assertTrue(service.canManageProjectReleasesAndShares(workspaceId, "owner"));
+        assertTrue(service.canManageProjectReleasesAndShares(workspaceId, "curator"));
+        assertFalse(service.canManageProjectReleasesAndShares(workspaceId, "editor"));
+        assertFalse(service.canManageProjectReleasesAndShares(workspaceId, "pending"));
+
+        when(globalAdminService.isGlobalAdmin()).thenReturn(true);
+        assertTrue(service.canManageProjectReleasesAndShares(workspaceId, "any-user"));
+    }
+
+    @Test
     void projectCapabilities_followOwnerCuratorEditorRules_andLockedRules() {
         String workspaceId = "ws-3";
         Project unlockedProject = project(workspaceId, false);

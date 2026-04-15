@@ -6,7 +6,8 @@
  */
 export default defineNuxtRouteMiddleware((to) => {
   const publicRoutes = [
-    '/auth/keycloak'
+    '/auth/keycloak',
+    '/share'
   ]
 
   const isPublicRoute = publicRoutes.some(route => to.path.startsWith(route))

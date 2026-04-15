@@ -113,6 +113,14 @@ public class AuthorizationPolicyService {
         return canManageWorkspaceOperations(workspaceId, userId);
     }
 
+    /**
+     * Release/share management is intentionally restricted to owner, curator-like members, and global admins.
+     * Keep this separate from broader project-management semantics.
+     */
+    public boolean canManageProjectReleasesAndShares(String workspaceId, String userId) {
+        return canManageWorkspaceOperations(workspaceId, userId);
+    }
+
     public boolean canManageTasks(String workspaceId, String userId) {
         return canManageWorkspaceOperations(workspaceId, userId);
     }
@@ -152,9 +160,10 @@ public class AuthorizationPolicyService {
         String workspaceId = project.getLibrary().getWorkspaceId();
         boolean canAccessWorkspace = canAccessWorkspace(workspaceId, userId);
         boolean canManageProjects = canManageProjects(workspaceId, userId);
+        boolean canManageReleasesAndShares = canManageProjectReleasesAndShares(workspaceId, userId);
 
         boolean canEdit = canManageProjects && !project.isLocked();
-        boolean canShare = canManageProjects && !project.isLocked();
+        boolean canShare = canManageReleasesAndShares && !project.isLocked();
         boolean canDelete = canManageProjects && !project.isLocked();
         boolean canDeletePages = canManageProjects && !project.isLocked();
         boolean canUpload = canManageProjects && !project.isLocked();

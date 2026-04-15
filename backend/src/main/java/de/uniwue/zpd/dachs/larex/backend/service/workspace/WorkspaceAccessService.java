@@ -58,6 +58,16 @@ public class WorkspaceAccessService {
         }
     }
 
+    public boolean canManageProjectReleasesAndShares(String workspaceId, String userId) {
+        return authorizationPolicyService.canManageProjectReleasesAndShares(workspaceId, userId);
+    }
+
+    public void requireManageProjectReleasesAndSharesAccess(String workspaceId, String userId) {
+        if (!canManageProjectReleasesAndShares(workspaceId, userId)) {
+            throw new SecurityException("Release/share management access required for workspace: " + workspaceId);
+        }
+    }
+
     public boolean canManageTasks(String workspaceId, String userId) {
         return authorizationPolicyService.canManageTasks(workspaceId, userId);
     }

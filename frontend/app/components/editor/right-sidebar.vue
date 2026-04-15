@@ -55,25 +55,6 @@ const editorUiStore = useEditorUiStore()
             @click="emit('save')"
           />
         </UTooltip>
-        <UTooltip text="History" :content="{ side: 'left' }">
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-history"
-            size="sm"
-            @click="emit('open-history')"
-          />
-        </UTooltip>
-        <UTooltip text="View/Edit XML" :content="{ side: 'left' }">
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-file-pen-line"
-            size="sm"
-            :disabled="!canOpenActiveCanvasXmlEditor"
-            @click="emit('open-xml-editor')"
-          />
-        </UTooltip>
         <UDropdownMenu :items="actionItems">
           <UButton
             color="neutral"
@@ -97,37 +78,6 @@ const editorUiStore = useEditorUiStore()
             @click="emit('save')"
           />
         </UTooltip>
-
-        <UTooltip text="Version history">
-          <UButton
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-history"
-            @click="emit('open-history')"
-          />
-        </UTooltip>
-
-        <UTooltip text="View/Edit XML">
-          <UButton
-            color="neutral"
-            variant="outline"
-            icon="i-lucide-file-pen-line"
-            :disabled="!canOpenActiveCanvasXmlEditor"
-            @click="emit('open-xml-editor')"
-          />
-        </UTooltip>
-
-        <UButton
-          v-if="canCompleteActivePageSubtasks"
-          color="neutral"
-          variant="outline"
-          icon="i-lucide-check-square"
-          label="Save + Complete"
-          :loading="isSavingActiveCanvas || isCompletingOpenSubtasks"
-          loading-icon="i-lucide-loader"
-          :disabled="isSavingActiveCanvas || isCompletingOpenSubtasks || isActivePageLocked || !canEditActiveCanvas"
-          @click="emit('save-and-complete')"
-        />
 
         <UDropdownMenu :items="actionItems">
           <UButton

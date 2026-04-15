@@ -806,16 +806,53 @@ async function openCodecValidationForLoadedPages() {
   await instance.result as ValidateCodecAgainstSourcesResponse | null
 }
 
-const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => [[
-  {
-    label: 'Check Codec',
-    icon: 'i-lucide-badge-check',
-    disabled: !canCheckCodecForLoadedPages.value,
-    onSelect: () => {
-      void openCodecValidationForLoadedPages()
+const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
+  const layoutActions: DropdownMenuItem[] = []
+
+  if (activeUiMode.value === 'layout') {
+    layoutActions.push(
+      {
+        label: 'Version History',
+        icon: 'i-lucide-history',
+        onSelect: () => {
+          void openVersionHistory()
+        }
+      },
+      {
+        label: 'View/Edit XML',
+        icon: 'i-lucide-file-pen-line',
+        disabled: !canOpenActiveCanvasXmlEditor.value,
+        onSelect: () => {
+          void openXmlEditor()
+        }
+      }
+    )
+
+    if (canCompleteActivePageSubtasks.value) {
+      layoutActions.push({
+        label: 'Save + Complete',
+        icon: 'i-lucide-check-square',
+        disabled: isSavingActiveCanvas.value || isCompletingOpenSubtasks.value || isActivePageLocked.value || !activeCanvasCanEdit.value,
+        onSelect: () => {
+          void handleSaveAndCompleteOpenSubtasks()
+        }
+      })
     }
   }
-]])
+
+  const utilityActions: DropdownMenuItem[] = [
+    {
+      label: 'Check Codec',
+      icon: 'i-lucide-badge-check',
+      disabled: !canCheckCodecForLoadedPages.value,
+      onSelect: () => {
+        void openCodecValidationForLoadedPages()
+      }
+    }
+  ]
+
+  return layoutActions.length > 0 ? [layoutActions, utilityActions] : [utilityActions]
+})
 
 const backendFilteredPageIdsByProjectId = ref<Record<string, string[]>>({})
 

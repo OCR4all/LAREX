@@ -110,6 +110,7 @@ class DatasetServiceIntegrationTest {
         ReflectionTestUtils.setField(datasetService, "datasetReleaseSharePublicBaseUrl", "http://larex.localhost/api/public/dataset-releases");
 
         doNothing().when(workspaceAccessService).requireManageProjectsAccess(anyString(), anyString());
+        doNothing().when(workspaceAccessService).requireManageProjectReleasesAndSharesAccess(anyString(), anyString());
         doNothing().when(workspaceAccessService).requireWorkspaceAccess(anyString(), anyString());
         when(workspaceQuotaGuardService.reserveBytesOrThrow(anyString(), anyLong(), anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(1, Long.class));

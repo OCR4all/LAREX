@@ -749,6 +749,7 @@ async function exportProjectPackage(scope: ProjectActionScope = 'all') {
 }
 
 async function openCreateRelease() {
+  if (!allow(projectCapabilities.value.canShare)) return
   if (!project.value) return
 
   const instance = createReleaseSlideover.open({
@@ -801,7 +802,7 @@ function getReleaseCardItems(release: ProjectPackageRelease): DropdownMenuItem[]
     }
   ]
 
-  if (allow(projectCapabilities.value.canEdit)) {
+  if (allow(projectCapabilities.value.canShare)) {
     items.unshift({
       label: 'Share',
       icon: 'i-lucide-key-round',
@@ -2865,7 +2866,7 @@ useHead({
                   <span>Releases</span>
                 </div>
                 <UButton
-                  v-if="allow(projectCapabilities.canExportPackage)"
+                  v-if="allow(projectCapabilities.canShare)"
                   color="neutral"
                   variant="solid"
                   size="xs"

@@ -201,7 +201,7 @@ public class ProjectPackageService {
                                                                   String projectId,
                                                                   ProjectPackageDto.CreateReleaseRequest request,
                                                                   String userId) throws IOException {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         Project project = requireProject(workspaceId, projectId);
 
         int nextVersionNumber = defaultInt(projectPackageReleaseRepository.findMaxVersionNumberByProjectId(projectId)) + 1;
@@ -267,7 +267,7 @@ public class ProjectPackageService {
                                                                              String releaseId,
                                                                              ProjectPackageDto.UpsertReleaseShareRequest request,
                                                                              String userId) {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         requireProject(workspaceId, projectId);
         ProjectPackageRelease release = requireRelease(projectId, releaseId);
         requireShareableRelease(release);
@@ -300,7 +300,7 @@ public class ProjectPackageService {
                                                                        String releaseId,
                                                                        ProjectPackageDto.UpdateReleaseShareRequest request,
                                                                        String userId) {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         requireProject(workspaceId, projectId);
         ProjectPackageRelease release = requireRelease(projectId, releaseId);
         requireActiveShare(release);
@@ -313,7 +313,7 @@ public class ProjectPackageService {
                                                                        String projectId,
                                                                        String releaseId,
                                                                        String userId) {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         requireProject(workspaceId, projectId);
         ProjectPackageRelease release = requireRelease(projectId, releaseId);
         requireActiveShare(release);

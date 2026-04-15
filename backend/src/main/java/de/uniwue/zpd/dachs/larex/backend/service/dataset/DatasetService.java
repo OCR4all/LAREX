@@ -420,7 +420,7 @@ public class DatasetService {
                                                            String datasetId,
                                                            DatasetDto.CreateReleaseRequest request,
                                                            String userId) throws IOException {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         Dataset dataset = requireDataset(workspaceId, datasetId);
         List<DatasetItem> items = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(datasetId);
 
@@ -499,7 +499,7 @@ public class DatasetService {
                                                                       String releaseId,
                                                                       DatasetDto.UpsertReleaseShareRequest request,
                                                                       String userId) {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         requireDataset(workspaceId, datasetId);
         DatasetRelease release = requireRelease(datasetId, releaseId);
         requireShareableRelease(release);
@@ -532,7 +532,7 @@ public class DatasetService {
                                                                 String releaseId,
                                                                 DatasetDto.UpdateReleaseShareRequest request,
                                                                 String userId) {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         requireDataset(workspaceId, datasetId);
         DatasetRelease release = requireRelease(datasetId, releaseId);
         requireActiveShare(release);
@@ -545,7 +545,7 @@ public class DatasetService {
                                                                 String datasetId,
                                                                 String releaseId,
                                                                 String userId) {
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
+        workspaceAccessService.requireManageProjectReleasesAndSharesAccess(workspaceId, userId);
         requireDataset(workspaceId, datasetId);
         DatasetRelease release = requireRelease(datasetId, releaseId);
         requireActiveShare(release);

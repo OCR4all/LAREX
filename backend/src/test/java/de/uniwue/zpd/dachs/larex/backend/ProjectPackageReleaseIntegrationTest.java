@@ -109,6 +109,7 @@ class ProjectPackageReleaseIntegrationTest {
         ReflectionTestUtils.setField(hierarchicalFileStorageService, "uploadRoot", tempDir.toAbsolutePath().normalize());
 
         doNothing().when(workspaceAccessService).requireManageProjectsAccess(anyString(), anyString());
+        doNothing().when(workspaceAccessService).requireManageProjectReleasesAndSharesAccess(anyString(), anyString());
         doNothing().when(workspaceAccessService).requireWorkspaceAccess(anyString(), anyString());
         when(workspaceQuotaGuardService.reserveBytesOrThrow(anyString(), org.mockito.ArgumentMatchers.anyLong(), anyString()))
                 .thenAnswer(invocation -> invocation.getArgument(1, Long.class));
