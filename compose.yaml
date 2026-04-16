@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   traefik:
-    image: traefik:v3.6.11
+    image: traefik:v3.6.13
     command:
       - --configFile=/etc/traefik/traefik.yml
     ports:
