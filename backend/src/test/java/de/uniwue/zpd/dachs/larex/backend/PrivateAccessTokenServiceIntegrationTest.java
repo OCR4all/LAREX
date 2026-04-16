@@ -4,6 +4,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PrivateAccessTokenDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessToken;
 import de.uniwue.zpd.dachs.larex.backend.repository.user.UserPrivateAccessTokenRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.user.PrivateAccessTokenService;
+import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,10 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = {
-        "larex.auth.private-access-tokens.allowed-user-ids=user-1,global-admin",
         "larex.auth.private-access-tokens.default-expiry-days=30",
         "larex.auth.private-access-tokens.max-expiry-days=90",
         "larex.auth.private-access-tokens.max-active-tokens-per-workspace=5"
@@ -42,15 +43,19 @@ class PrivateAccessTokenServiceIntegrationTest {
     @MockBean
     private WorkspaceAccessService workspaceAccessService;
 
+    @MockBean
+    private UserService userService;
+
     @BeforeEach
     void setUp() {
         userMachineTokenRepository.deleteAll();
         doNothing().when(workspaceAccessService).requireWorkspaceAccess("ws-1", "user-1");
         doNothing().when(workspaceAccessService).requireWorkspaceAccess("ws-2", "user-1");
+        when(userService.isPrivateAccessTokenEnabled("user-1")).thenReturn(true);
     }
 
     @Test
-    void createListAndRevokeMachineToken() {
+    void createListAndDeleteMachineToken() {
         PrivateAccessTokenDto.CreateRequest request = new PrivateAccessTokenDto.CreateRequest(
                 "ws-1",
                 "slurm-job",
@@ -74,8 +79,8 @@ class PrivateAccessTokenServiceIntegrationTest {
 
         userMachineTokenService.revokeTokenForUser("user-1", created.id());
 
-        UserPrivateAccessToken revoked = userMachineTokenRepository.findById(created.id()).orElseThrow();
-        assertNotNull(revoked.getRevokedAt());
+        assertTrue(userMachineTokenRepository.findById(created.id()).isEmpty());
+        assertTrue(userMachineTokenService.listTokensForUser("user-1").isEmpty());
         assertFalse(userMachineTokenService.authenticateBearerToken("Bearer " + created.secret()).isPresent());
     }
 
@@ -106,7 +111,7 @@ class PrivateAccessTokenServiceIntegrationTest {
     }
 
     @Test
-    void createTokenRejectsUsersOutsideAllowlist() {
+    void createTokenRejectsUsersWithoutPatAccess() {
         SecurityException thrown = assertThrows(
                 SecurityException.class,
                 () -> userMachineTokenService.createTokenForUser(

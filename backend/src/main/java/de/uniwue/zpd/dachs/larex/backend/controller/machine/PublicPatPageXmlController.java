@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.machine;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.machine.PatXmlAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
@@ -231,6 +232,54 @@ public class PublicPatPageXmlController {
         }
     }
 
+    @GetMapping("/{projectId}/pages/images/{imageId}/export")
+    public ResponseEntity<Resource> exportImage(
+            @PathVariable String projectId,
+            @PathVariable String imageId,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+
+        Optional<PrivateAccessTokenService.PrivateAccessTokenAuthContext> authContextOpt =
+                privateAccessTokenService.authenticateBearerToken(authorizationHeader);
+        if (authContextOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        PrivateAccessTokenService.PrivateAccessTokenAuthContext authContext = authContextOpt.get();
+        if (!authContext.hasScope(PrivateAccessTokenService.SCOPE_XML_READ)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (!patXmlAccessService.imageBelongsToProjectAndWorkspace(imageId, projectId, authContext.workspaceId())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        try {
+            PageImage image = pageService.getImageById(imageId, authContext.ownerUserId());
+            if (image == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            Path filePath = Paths.get(uploadDir).resolve(image.getFilePath());
+            if (!Files.exists(filePath)) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
+            FileSystemResource resource = new FileSystemResource(filePath);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(resolveImageContentType(image));
+            headers.setContentLength(resource.contentLength());
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename(sanitizeFileName(image.getFileName(), "image"))
+                    .build());
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     private boolean resourceBelongsToTokenWorkspace(String projectId, String pageId, String xmlId, String workspaceId) {
         return patXmlAccessService.xmlBelongsToPageInWorkspace(xmlId, pageId, projectId, workspaceId);
     }
@@ -243,6 +292,17 @@ public class PublicPatPageXmlController {
             return MediaType.parseMediaType(xml.getMimeType());
         } catch (Exception ignored) {
             return MediaType.APPLICATION_XML;
+        }
+    }
+
+    private MediaType resolveImageContentType(PageImage image) {
+        if (image.getMimeType() == null || image.getMimeType().isBlank()) {
+            return MediaType.APPLICATION_OCTET_STREAM;
+        }
+        try {
+            return MediaType.parseMediaType(image.getMimeType());
+        } catch (Exception ignored) {
+            return MediaType.APPLICATION_OCTET_STREAM;
         }
     }
 

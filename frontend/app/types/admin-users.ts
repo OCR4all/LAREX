@@ -1,6 +1,14 @@
 export type AdminUserOnboardingState = 'ACTIVE' | 'PENDING_SETUP' | 'DISABLED' | 'SERVICE_ACCOUNT'
 export type AdminUserStatusFilter = 'ALL' | 'ACTIVE' | 'PENDING_SETUP' | 'DISABLED'
-export type AdminUserAuditAction = 'CREATE' | 'ENABLE' | 'DISABLE' | 'RESEND_SETUP_EMAIL' | 'GLOBAL_CURATOR_GRANT' | 'GLOBAL_CURATOR_REVOKE'
+export type AdminUserAuditAction =
+  | 'CREATE'
+  | 'ENABLE'
+  | 'DISABLE'
+  | 'RESEND_SETUP_EMAIL'
+  | 'GLOBAL_CURATOR_GRANT'
+  | 'GLOBAL_CURATOR_REVOKE'
+  | 'PRIVATE_ACCESS_TOKENS_ENABLE'
+  | 'PRIVATE_ACCESS_TOKENS_DISABLE'
 export type AdminUserAuditOutcome = 'SUCCESS' | 'FAILURE'
 export type AdminUserIdentitySource = 'LOCAL' | 'LDAP' | 'SERVICE_ACCOUNT'
 
@@ -17,6 +25,7 @@ export interface AdminUser {
   externallyManaged: boolean
   identitySource: AdminUserIdentitySource
   onboardingState: AdminUserOnboardingState
+  privateAccessTokensEnabled: boolean
   createdTimestamp?: string | null
 }
 

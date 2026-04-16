@@ -168,14 +168,14 @@ async function revokePat(tokenId: string) {
     })
     await fetchPatTokens()
     toast.add({
-      title: 'Private access token revoked',
+      title: 'Private access token deleted',
       color: 'success'
     })
   } catch (error: unknown) {
     console.error('Failed to revoke private access token', error)
     toast.add({
-      title: 'Revocation failed',
-      description: extractApiMessage(error, 'Failed to revoke private access token'),
+      title: 'Delete failed',
+      description: extractApiMessage(error, 'Failed to delete private access token'),
       color: 'error'
     })
   } finally {
@@ -220,6 +220,59 @@ function extractApiMessage(error: unknown, fallback: string): string {
   }
   return fallback
 }
+
+async function copyCreatedSecret() {
+  if (!createdSecret.value) {
+    return
+  }
+
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(createdSecret.value)
+    } else {
+      const copied = copyWithExecCommand(createdSecret.value)
+      if (!copied) {
+        throw new Error('Clipboard not available')
+      }
+    }
+
+    toast.add({
+      title: 'Token copied',
+      description: 'Private access token copied to clipboard.',
+      color: 'success'
+    })
+  } catch (error) {
+    console.error('Failed to copy private access token', error)
+    toast.add({
+      title: 'Copy failed',
+      description: 'Could not copy token to clipboard. Please copy it manually.',
+      color: 'error'
+    })
+  }
+}
+
+function copyWithExecCommand(value: string): boolean {
+  if (typeof document === 'undefined') {
+    return false
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'absolute'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  let copied = false
+  try {
+    copied = document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+
+  return copied
+}
 </script>
 
 <template>
@@ -241,7 +294,7 @@ function extractApiMessage(error: unknown, fallback: string): string {
 
   <UPageCard
     title="Private Access Tokens (PAT)"
-    description="Create workspace-scoped private access tokens for API automation. Tokens are shown once and can be revoked at any time."
+    description="Create workspace-scoped private access tokens for API automation. Tokens are shown once and can be deleted at any time."
     variant="subtle"
   >
     <div class="space-y-4">
@@ -269,14 +322,25 @@ function extractApiMessage(error: unknown, fallback: string): string {
       />
 
       <template v-else>
-        <UAlert
-          v-if="createdSecret"
-          icon="i-lucide-key-round"
-          color="success"
-          variant="subtle"
-          title="Copy this token now"
-          :description="createdSecret"
-        />
+        <div v-if="createdSecret" class="space-y-2">
+          <UAlert
+            icon="i-lucide-key-round"
+            color="success"
+            variant="subtle"
+            title="Copy this token now"
+            :description="createdSecret"
+          />
+          <div class="flex justify-end">
+            <UButton
+              label="Copy to Clipboard"
+              icon="i-lucide-copy"
+              color="neutral"
+              variant="soft"
+              size="sm"
+              @click="copyCreatedSecret"
+            />
+          </div>
+        </div>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <UFormField label="Workspace" required>
@@ -313,7 +377,7 @@ function extractApiMessage(error: unknown, fallback: string): string {
 
         <div class="flex justify-end">
           <UButton
-            label="Create Machine Token"
+            label="Create Private Access Token"
             icon="i-lucide-plus"
             :loading="creatingToken"
             :disabled="creatingToken || workspaceItems.length === 0"
@@ -365,13 +429,13 @@ function extractApiMessage(error: unknown, fallback: string): string {
               </div>
 
               <UButton
-                label="Revoke"
-                icon="i-lucide-ban"
+                label="Delete"
+                icon="i-lucide-trash-2"
                 color="error"
                 variant="soft"
                 size="sm"
                 :loading="revokingTokenId === token.id"
-                :disabled="revokingTokenId !== null || !token.active"
+                :disabled="revokingTokenId !== null"
                 @click="revokePat(token.id)"
               />
             </div>

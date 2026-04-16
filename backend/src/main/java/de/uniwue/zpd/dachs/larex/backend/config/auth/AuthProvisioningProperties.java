@@ -3,9 +3,6 @@ package de.uniwue.zpd.dachs.larex.backend.config.auth;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Component
 @ConfigurationProperties(prefix = "larex.auth")
 public class AuthProvisioningProperties {
@@ -27,18 +24,9 @@ public class AuthProvisioningProperties {
 
     public static class PrivateAccessTokens {
 
-        private List<String> allowedUserIds = new ArrayList<>();
         private int defaultExpiryDays = 30;
         private int maxExpiryDays = 90;
         private int maxActiveTokensPerWorkspace = 5;
-
-        public List<String> getAllowedUserIds() {
-            return allowedUserIds;
-        }
-
-        public void setAllowedUserIds(List<String> allowedUserIds) {
-            this.allowedUserIds = allowedUserIds == null ? new ArrayList<>() : allowedUserIds;
-        }
 
         public int getDefaultExpiryDays() {
             return defaultExpiryDays;

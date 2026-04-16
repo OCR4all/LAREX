@@ -13,7 +13,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -36,13 +35,16 @@ public class PrivateAccessTokenService {
     private final UserPrivateAccessTokenRepository userPrivateAccessTokenRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final AuthProvisioningProperties authProvisioningProperties;
+    private final UserService userService;
 
     public PrivateAccessTokenService(UserPrivateAccessTokenRepository userPrivateAccessTokenRepository,
                                      WorkspaceAccessService workspaceAccessService,
-                                     AuthProvisioningProperties authProvisioningProperties) {
+                                     AuthProvisioningProperties authProvisioningProperties,
+                                     UserService userService) {
         this.userPrivateAccessTokenRepository = userPrivateAccessTokenRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.authProvisioningProperties = authProvisioningProperties;
+        this.userService = userService;
     }
 
     @Transactional(readOnly = true)
@@ -102,11 +104,7 @@ public class PrivateAccessTokenService {
 
         UserPrivateAccessToken token = userPrivateAccessTokenRepository.findByIdAndOwnerUserId(tokenId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Private access token not found"));
-
-        if (token.getRevokedAt() == null) {
-            token.setRevokedAt(LocalDateTime.now());
-            userPrivateAccessTokenRepository.save(token);
-        }
+        userPrivateAccessTokenRepository.delete(token);
     }
 
     public Optional<PrivateAccessTokenAuthContext> authenticateBearerToken(String authorizationHeader) {
@@ -122,7 +120,7 @@ public class PrivateAccessTokenService {
         }
 
         UserPrivateAccessToken token = tokenOpt.get();
-        if (!isPrivateAccessTokenEligible(token.getOwnerUserId())) {
+        if (!userService.isPrivateAccessTokenEnabled(token.getOwnerUserId())) {
             return Optional.empty();
         }
 
@@ -225,43 +223,9 @@ public class PrivateAccessTokenService {
     }
 
     private void requirePrivateAccessTokenEligible(String userId) {
-        if (!isPrivateAccessTokenEligible(userId)) {
-            throw new SecurityException(privateAccessTokenEligibilityMessage());
+        if (!userService.isPrivateAccessTokenEnabled(userId)) {
+            throw new SecurityException("Private access tokens are not enabled for this account");
         }
-    }
-
-    private boolean isPrivateAccessTokenEligible(String userId) {
-        List<String> allowlist = normalizedAllowlist();
-        if (allowlist.isEmpty()) {
-            return false;
-        }
-        return allowlist.contains(userId);
-    }
-
-    private String privateAccessTokenEligibilityMessage() {
-        if (normalizedAllowlist().isEmpty()) {
-            return "Private access tokens are disabled";
-        }
-        return "Private access tokens are not enabled for this account";
-    }
-
-    private List<String> normalizedAllowlist() {
-        List<String> raw = authProvisioningProperties.getPrivateAccessTokens().getAllowedUserIds();
-        if (raw == null || raw.isEmpty()) {
-            return List.of();
-        }
-
-        List<String> normalized = new ArrayList<>();
-        for (String entry : raw) {
-            if (entry == null) {
-                continue;
-            }
-            String trimmed = entry.trim();
-            if (!trimmed.isEmpty()) {
-                normalized.add(trimmed);
-            }
-        }
-        return normalized;
     }
 
     private int defaultExpiryDays() {

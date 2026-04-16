@@ -13,5 +13,6 @@ public record AdminUserDto(
     boolean externallyManaged,
     AdminUserIdentitySource identitySource,
     AdminUserOnboardingState onboardingState,
+    boolean privateAccessTokensEnabled,
     String createdTimestamp
 ) {}

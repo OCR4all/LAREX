@@ -12,6 +12,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
+import de.uniwue.zpd.dachs.larex.backend.repository.user.UserPrivateAccessSettingRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminUserAuditService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import jakarta.ws.rs.NotFoundException;
@@ -33,9 +34,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -84,6 +85,9 @@ class UserServiceTest {
     @Mock
     private AdminUserAuditService adminUserAuditService;
 
+    @Mock
+    private UserPrivateAccessSettingRepository userPrivateAccessSettingRepository;
+
     private UserService userService;
 
     @BeforeEach
@@ -95,6 +99,7 @@ class UserServiceTest {
         lenient().when(userResource.roles()).thenReturn(roleMappingResource);
         lenient().when(roleMappingResource.realmLevel()).thenReturn(realmRoleScopeResource);
         lenient().when(rolesResource.get(anyString())).thenReturn(roleResource);
+        lenient().when(userPrivateAccessSettingRepository.findById(anyString())).thenReturn(Optional.empty());
     }
 
     @Test
@@ -657,6 +662,75 @@ class UserServiceTest {
         verify(realmRoleScopeResource, never()).add(anyList());
     }
 
+    @Test
+    void isPrivateAccessTokenEnabled_returnsTrueWhenRepositorySettingExists() {
+        de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting setting =
+                new de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting();
+        setting.setUserId("user-1");
+        setting.setPrivateAccessTokensEnabled(true);
+        when(userPrivateAccessSettingRepository.findById("user-1")).thenReturn(Optional.of(setting));
+
+        assertTrue(userService.isPrivateAccessTokenEnabled("user-1"));
+    }
+
+    @Test
+    void updatePrivateAccessTokenAccessForAdmin_enablesInRepository() {
+        UserRepresentation current = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(current);
+        de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting enabledSetting =
+                new de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting();
+        enabledSetting.setUserId("user-1");
+        enabledSetting.setPrivateAccessTokensEnabled(true);
+        when(userPrivateAccessSettingRepository.findById("user-1"))
+                .thenReturn(Optional.empty(), Optional.of(enabledSetting));
+
+        var result = userService.updatePrivateAccessTokenAccessForAdmin("admin-1", "admin", "user-1", true);
+
+        ArgumentCaptor<de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting> settingCaptor =
+                ArgumentCaptor.forClass(de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting.class);
+        verify(userPrivateAccessSettingRepository).save(settingCaptor.capture());
+        assertEquals("user-1", settingCaptor.getValue().getUserId());
+        assertTrue(settingCaptor.getValue().isPrivateAccessTokensEnabled());
+        assertTrue(result.privateAccessTokensEnabled());
+        verify(adminUserAuditService).logEvent(
+                eq("admin-1"),
+                eq("admin"),
+                eq("user-1"),
+                eq("alice"),
+                eq(AdminUserAuditAction.PRIVATE_ACCESS_TOKENS_ENABLE),
+                eq(AdminUserAuditOutcome.SUCCESS),
+                anyMap()
+        );
+    }
+
+    @Test
+    void updatePrivateAccessTokenAccessForAdmin_disablesByDeletingRepositorySetting() {
+        UserRepresentation current = localUser("user-1", "alice", "alice@example.org", true, true, List.of());
+        when(usersResource.get("user-1")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(current);
+        de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting existingSetting =
+                new de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting();
+        existingSetting.setUserId("user-1");
+        existingSetting.setPrivateAccessTokensEnabled(true);
+        when(userPrivateAccessSettingRepository.findById("user-1"))
+                .thenReturn(Optional.of(existingSetting), Optional.empty());
+
+        var result = userService.updatePrivateAccessTokenAccessForAdmin("admin-1", "admin", "user-1", false);
+
+        verify(userPrivateAccessSettingRepository).deleteById("user-1");
+        assertFalse(result.privateAccessTokensEnabled());
+        verify(adminUserAuditService).logEvent(
+                eq("admin-1"),
+                eq("admin"),
+                eq("user-1"),
+                eq("alice"),
+                eq(AdminUserAuditAction.PRIVATE_ACCESS_TOKENS_DISABLE),
+                eq(AdminUserAuditOutcome.SUCCESS),
+                anyMap()
+        );
+    }
+
     private UserService createUserService(UserProvisioningMode provisioningMode) {
         AuthProvisioningProperties properties = new AuthProvisioningProperties();
         properties.setUserProvisioningMode(provisioningMode);
@@ -668,7 +742,8 @@ class UserServiceTest {
                 "http://larex.localhost/auth/keycloak",
                 43200,
                 adminUserAuditService,
-                properties
+                properties,
+                userPrivateAccessSettingRepository
         );
     }
 

@@ -136,4 +136,36 @@ class PublicPatPageXmlControllerTest {
                                 """))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void exportImageReturnsForbiddenWhenScopeMissing() throws Exception {
+        when(userMachineTokenService.authenticateBearerToken("Bearer no-read"))
+                .thenReturn(Optional.of(new PrivateAccessTokenService.PrivateAccessTokenAuthContext(
+                        "tok-1",
+                        "user-1",
+                        "ws-1",
+                        List.of(PrivateAccessTokenService.SCOPE_XML_WRITE)
+                )));
+
+        mockMvc.perform(get("/public/pat/projects/p1/pages/images/i1/export")
+                        .header("Authorization", "Bearer no-read"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void exportImageReturnsNotFoundWhenWorkspaceBindingFails() throws Exception {
+        when(userMachineTokenService.authenticateBearerToken("Bearer ok"))
+                .thenReturn(Optional.of(new PrivateAccessTokenService.PrivateAccessTokenAuthContext(
+                        "tok-1",
+                        "user-1",
+                        "ws-1",
+                        List.of(PrivateAccessTokenService.SCOPE_XML_READ)
+                )));
+        when(machineXmlAccessService.imageBelongsToProjectAndWorkspace("i1", "p1", "ws-1"))
+                .thenReturn(false);
+
+        mockMvc.perform(get("/public/pat/projects/p1/pages/images/i1/export")
+                        .header("Authorization", "Bearer ok"))
+                .andExpect(status().isNotFound());
+    }
 }

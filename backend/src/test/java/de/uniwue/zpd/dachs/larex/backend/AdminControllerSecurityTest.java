@@ -72,7 +72,8 @@ class AdminControllerSecurityTest {
                 false,
                 false,
                 AdminUserIdentitySource.LOCAL,
-                AdminUserOnboardingState.PENDING_SETUP
+                AdminUserOnboardingState.PENDING_SETUP,
+                false
         ));
 
         mockMvc.perform(post("/admin/users")
@@ -157,7 +158,7 @@ class AdminControllerSecurityTest {
     @WithMockUser(roles = "GLOBAL_ADMIN")
     void disableUser_allowedForAdmin() throws Exception {
         when(adminService.disableUserForAdmin(any(), any(), eq("user-1")))
-                .thenReturn(adminUser("user-1", false, false, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.DISABLED));
+                .thenReturn(adminUser("user-1", false, false, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.DISABLED, false));
 
         mockMvc.perform(post("/admin/users/user-1/disable"))
                 .andExpect(status().isOk())
@@ -199,7 +200,7 @@ class AdminControllerSecurityTest {
     void getUsers_returnsPagedPayloadWithCapabilities() throws Exception {
         when(adminService.getUserPageForAdmin(eq(0), eq(25), any(), anyBoolean(), eq(AdminUserStatusFilter.ALL)))
                 .thenReturn(new AdminUserPageDto(
-                        List.of(adminUser("user-1", true, false, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.PENDING_SETUP)),
+                        List.of(adminUser("user-1", true, false, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.PENDING_SETUP, false)),
                         0,
                         25,
                         1,
@@ -303,13 +304,44 @@ class AdminControllerSecurityTest {
                 .andExpect(jsonPath("$.globalCurator").value(false));
     }
 
+    @Test
+    @WithMockUser(roles = "USER")
+    void privateAccessTokenAccess_forbiddenForNonAdmin() throws Exception {
+        mockMvc.perform(post("/admin/users/user-1/private-access-tokens/access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled": true
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "GLOBAL_ADMIN")
+    void privateAccessTokenAccess_allowedForAdmin() throws Exception {
+        when(adminService.updatePrivateAccessTokenAccessForAdmin(any(), any(), eq("user-1"), eq(true)))
+                .thenReturn(adminUser("user-1", true, true, false, AdminUserIdentitySource.LOCAL, AdminUserOnboardingState.ACTIVE, true));
+
+        mockMvc.perform(post("/admin/users/user-1/private-access-tokens/access")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "enabled": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.privateAccessTokensEnabled").value(true));
+    }
+
     private AdminUserDto adminUser(
             String id,
             boolean enabled,
             boolean emailVerified,
             boolean externallyManaged,
             AdminUserIdentitySource identitySource,
-            AdminUserOnboardingState onboardingState) {
+            AdminUserOnboardingState onboardingState,
+            boolean privateAccessTokensEnabled) {
         return new AdminUserDto(
                 id,
                 "alice",
@@ -323,6 +355,7 @@ class AdminControllerSecurityTest {
                 externallyManaged,
                 identitySource,
                 onboardingState,
+                privateAccessTokensEnabled,
                 null
         );
     }

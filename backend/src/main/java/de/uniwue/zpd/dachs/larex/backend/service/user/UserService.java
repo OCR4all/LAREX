@@ -14,8 +14,10 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserStatusFilter;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserProfileDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.UserPrivateAccessSetting;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserErrorCode;
 import de.uniwue.zpd.dachs.larex.backend.exception.AdminUserManagementException;
+import de.uniwue.zpd.dachs.larex.backend.repository.user.UserPrivateAccessSettingRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.admin.AdminUserAuditService;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
@@ -56,6 +58,7 @@ public class UserService {
     private final Integer actionEmailLifespanSeconds;
     private final AdminUserAuditService adminUserAuditService;
     private final AuthProvisioningProperties authProvisioningProperties;
+    private final UserPrivateAccessSettingRepository userPrivateAccessSettingRepository;
 
     public UserService(
             Keycloak keycloakAdmin,
@@ -64,7 +67,8 @@ public class UserService {
             @Value("${keycloak.admin.action-email.redirect-uri:http://larex.localhost/auth/keycloak}") String actionEmailRedirectUri,
             @Value("${keycloak.admin.action-email.lifespan-seconds:43200}") Integer actionEmailLifespanSeconds,
             AdminUserAuditService adminUserAuditService,
-            AuthProvisioningProperties authProvisioningProperties) {
+            AuthProvisioningProperties authProvisioningProperties,
+            UserPrivateAccessSettingRepository userPrivateAccessSettingRepository) {
         this.keycloakAdmin = keycloakAdmin;
         this.realm = realm;
         this.actionEmailClientId = actionEmailClientId;
@@ -72,6 +76,7 @@ public class UserService {
         this.actionEmailLifespanSeconds = actionEmailLifespanSeconds;
         this.adminUserAuditService = adminUserAuditService;
         this.authProvisioningProperties = authProvisioningProperties;
+        this.userPrivateAccessSettingRepository = userPrivateAccessSettingRepository;
     }
 
     private enum AdminMutationAction {
@@ -121,6 +126,14 @@ public class UserService {
         return mapToAdminUserDto(getRequiredUserRepresentation(userId));
     }
 
+    public boolean isPrivateAccessTokenEnabled(String userId) {
+        String normalizedUserId = normalizeOptional(userId);
+        if (normalizedUserId == null) {
+            return false;
+        }
+        return isPrivateAccessTokensEnabled(normalizedUserId);
+    }
+
     public List<AdminUserAuditEventDto> getUserAuditEventsForAdmin(String targetUserId, int limit) {
         getRequiredUserRepresentation(targetUserId);
         return adminUserAuditService.getAuditEvents(targetUserId, limit);
@@ -137,6 +150,87 @@ public class UserService {
 
     public AdminGlobalRolesDto revokeGlobalCuratorForAdmin(String actorUserId, String actorUsername, String targetUserId, String reason) {
         return mutateGlobalCuratorRole(actorUserId, actorUsername, targetUserId, reason, false);
+    }
+
+    public AdminUserDto updatePrivateAccessTokenAccessForAdmin(
+            String actorUserId,
+            String actorUsername,
+            String targetUserId,
+            boolean enabled) {
+        AdminUserAuditAction action = enabled
+                ? AdminUserAuditAction.PRIVATE_ACCESS_TOKENS_ENABLE
+                : AdminUserAuditAction.PRIVATE_ACCESS_TOKENS_DISABLE;
+
+        UserRepresentation user;
+        try {
+            user = getRequiredUserRepresentation(targetUserId);
+            assertNotServiceAccount(user);
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    null,
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    Map.of("errorCode", ex.getCode().name())
+            );
+            throw ex;
+        }
+
+        boolean previousEnabled = isPrivateAccessTokensEnabled(user);
+
+        try {
+            persistPrivateAccessTokensEnabled(user.getId(), enabled);
+            AdminUserDto updatedDto = mapToAdminUserDto(user);
+
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.SUCCESS,
+                    Map.of(
+                            "previousEnabled", previousEnabled,
+                            "newEnabled", updatedDto.privateAccessTokensEnabled()
+                    )
+            );
+
+            return updatedDto;
+        } catch (AdminUserManagementException ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    Map.of(
+                            "errorCode", ex.getCode().name(),
+                            "previousEnabled", previousEnabled
+                    )
+            );
+            throw ex;
+        } catch (Exception ex) {
+            adminUserAuditService.logEvent(
+                    actorUserId,
+                    actorUsername,
+                    targetUserId,
+                    user.getUsername(),
+                    action,
+                    AdminUserAuditOutcome.FAILURE,
+                    Map.of(
+                            "errorCode", AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED.name(),
+                            "previousEnabled", previousEnabled
+                    )
+            );
+            throw new AdminUserManagementException(
+                    AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                    "Failed to update private access token access.",
+                    ex
+            );
+        }
     }
 
     public AdminUserDto createUserForAdmin(String actorUserId, String actorUsername, AdminCreateUserRequest request) {
@@ -829,6 +923,7 @@ public class UserService {
         AdminUserIdentitySource identitySource = deriveIdentitySource(user);
         boolean externallyManaged = identitySource != AdminUserIdentitySource.LOCAL;
         AdminUserOnboardingState onboardingState = deriveOnboardingState(user);
+        boolean privateAccessTokensEnabled = isPrivateAccessTokensEnabled(user);
 
         return new AdminUserDto(
                 user.getId(),
@@ -843,6 +938,7 @@ public class UserService {
                 externallyManaged,
                 identitySource,
                 onboardingState,
+                privateAccessTokensEnabled,
                 user.getCreatedTimestamp() != null
                         ? Instant.ofEpochMilli(user.getCreatedTimestamp()).toString()
                         : null
@@ -1028,6 +1124,41 @@ public class UserService {
         }
         String username = user.getUsername();
         return username != null && username.startsWith(SERVICE_ACCOUNT_USERNAME_PREFIX);
+    }
+
+    private boolean isPrivateAccessTokensEnabled(UserRepresentation user) {
+        if (user == null) {
+            return false;
+        }
+        return isPrivateAccessTokensEnabled(user.getId());
+    }
+
+    private boolean isPrivateAccessTokensEnabled(String userId) {
+        String normalizedUserId = normalizeOptional(userId);
+        if (normalizedUserId == null) {
+            return false;
+        }
+
+        return userPrivateAccessSettingRepository.findById(normalizedUserId)
+                .map(UserPrivateAccessSetting::isPrivateAccessTokensEnabled)
+                .orElse(false);
+    }
+
+    private void persistPrivateAccessTokensEnabled(String userId, boolean enabled) {
+        String normalizedUserId = normalizeOptional(userId);
+        if (normalizedUserId == null) {
+            return;
+        }
+
+        if (enabled) {
+            UserPrivateAccessSetting setting = userPrivateAccessSettingRepository.findById(normalizedUserId)
+                    .orElseGet(UserPrivateAccessSetting::new);
+            setting.setUserId(normalizedUserId);
+            setting.setPrivateAccessTokensEnabled(true);
+            userPrivateAccessSettingRepository.save(setting);
+            return;
+        }
+        userPrivateAccessSettingRepository.deleteById(normalizedUserId);
     }
 
     private String extractAvatarUrl(UserRepresentation user) {
