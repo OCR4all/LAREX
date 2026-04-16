@@ -25,6 +25,8 @@ export interface EditorPreferences {
   shortcutBindings: ShortcutPreferences | null
   onboardingDashboardTourVersion: number | null
   onboardingEditorTourVersion: number | null
+  onboardingTourCompletion: Record<string, true> | null
+  onboardingToursOptedOut: boolean | null
 }
 
 interface EditorPreferencesState {
@@ -56,7 +58,9 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   highlightUnknownCodecChars: null,
   shortcutBindings: null,
   onboardingDashboardTourVersion: null,
-  onboardingEditorTourVersion: null
+  onboardingEditorTourVersion: null,
+  onboardingTourCompletion: null,
+  onboardingToursOptedOut: null
 }
 
 const SAVE_DEBOUNCE_MS = 1200

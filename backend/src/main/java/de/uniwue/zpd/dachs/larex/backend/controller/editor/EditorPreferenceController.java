@@ -39,7 +39,9 @@ public class EditorPreferenceController {
             Boolean highlightUnknownCodecChars,
             JsonNode shortcutBindings,
             Integer onboardingDashboardTourVersion,
-            Integer onboardingEditorTourVersion
+            Integer onboardingEditorTourVersion,
+            JsonNode onboardingTourCompletion,
+            Boolean onboardingToursOptedOut
     ) {
         public static EditorPreferenceDto from(EditorPreference pref) {
             return new EditorPreferenceDto(
@@ -63,7 +65,9 @@ public class EditorPreferenceController {
                     pref.getHighlightUnknownCodecChars(),
                     pref.getShortcutBindings(),
                     pref.getOnboardingDashboardTourVersion(),
-                    pref.getOnboardingEditorTourVersion()
+                    pref.getOnboardingEditorTourVersion(),
+                    pref.getOnboardingTourCompletion(),
+                    pref.getOnboardingToursOptedOut()
             );
         }
     }

@@ -45,6 +45,8 @@ public class EditorPreferenceService {
         if (dto.shortcutBindings() != null) pref.setShortcutBindings(dto.shortcutBindings());
         if (dto.onboardingDashboardTourVersion() != null) pref.setOnboardingDashboardTourVersion(dto.onboardingDashboardTourVersion());
         if (dto.onboardingEditorTourVersion() != null) pref.setOnboardingEditorTourVersion(dto.onboardingEditorTourVersion());
+        if (dto.onboardingTourCompletion() != null) pref.setOnboardingTourCompletion(dto.onboardingTourCompletion());
+        if (dto.onboardingToursOptedOut() != null) pref.setOnboardingToursOptedOut(dto.onboardingToursOptedOut());
 
         return repository.save(pref);
     }

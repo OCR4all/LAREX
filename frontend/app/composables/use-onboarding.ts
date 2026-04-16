@@ -1,33 +1,21 @@
 import { driver, type Config, type Driver, type DriveStep, type PopoverDOM } from 'driver.js'
 import {
   getTourDefinition,
+  onboardingTours,
   resolveContextTourId,
+  TOUR_IDS,
   type OnboardingDriveStep,
   type OnboardingMajor,
   type OnboardingContext,
   type TourId
 } from './onboarding/tour-registry'
-import {
-  buildLocalCompletionKey,
-  clearLocalCompletion,
-  isTourCompleted,
-  loadLocalCompletion,
-  saveLocalCompletion,
-  setTourCompletion,
-  type LocalCompletionPayload
-} from './onboarding/onboarding-storage'
 import { sleep } from './onboarding/tour-utils'
 
 /**
  * Bump these versions to trigger major onboarding resets.
- * Per-mini-tour completion is stored in localStorage and will be cleared
- * when these change through reset logic.
  */
 const DASHBOARD_TOUR_VERSION = 2
 const EDITOR_TOUR_VERSION = 2
-
-const LOCAL_COMPLETION_SCHEMA_VERSION = 1
-const LOCAL_OPTOUT_SCHEMA_VERSION = 1
 
 /**
  * Map from CSS selector used in step definitions -> sidebar nav label text.
@@ -135,48 +123,12 @@ function getMajorPreferenceKey(major: OnboardingMajor): 'onboardingDashboardTour
   return major === 'editor' ? 'onboardingEditorTourVersion' : 'onboardingDashboardTourVersion'
 }
 
-type SessionUserLike = {
-  id?: string
-  sub?: string
-  username?: string
-  preferred_username?: string
-  email?: string
-  name?: string
-}
+const TOUR_ID_SET = new Set<TourId>(TOUR_IDS)
 
-function getCurrentUserScopeId(): string {
-  const { user, loggedIn } = useUserSession()
-  const sessionUser = user.value as SessionUserLike | null | undefined
-
-  const candidate = sessionUser?.id
-    || sessionUser?.sub
-    || sessionUser?.username
-    || sessionUser?.preferred_username
-    || sessionUser?.email
-    || sessionUser?.name
-
-  if (candidate && candidate.trim().length > 0) {
-    return candidate.trim()
-  }
-
-  if (loggedIn.value) {
-    return 'authenticated'
-  }
-
-  return 'anonymous'
-}
-
-function getLocalCompletionKey(userScopeId: string): string {
-  return buildLocalCompletionKey({
-    schemaVersion: LOCAL_COMPLETION_SCHEMA_VERSION,
-    dashboardVersion: DASHBOARD_TOUR_VERSION,
-    editorVersion: EDITOR_TOUR_VERSION,
-    userScopeId
-  })
-}
-
-function getOptOutKey(userScopeId: string): string {
-  return ['larex', 'onboarding', `optout-${LOCAL_OPTOUT_SCHEMA_VERSION}`, userScopeId].join(':')
+function getTourIdsForMajor(major: OnboardingMajor): TourId[] {
+  return onboardingTours
+    .filter(tour => tour.major === major)
+    .map(tour => tour.id)
 }
 
 export const useOnboarding = () => {
@@ -230,58 +182,68 @@ export const useOnboarding = () => {
     return createFallbackDriver
   }
 
-  function getCompletionPayload(): LocalCompletionPayload {
-    const userScopeId = getCurrentUserScopeId()
-    const key = getLocalCompletionKey(userScopeId)
-    return loadLocalCompletion(import.meta.client ? localStorage : null, key, LOCAL_COMPLETION_SCHEMA_VERSION)
+  function getCompletionMap(): Partial<Record<TourId, true>> {
+    const persisted = preferences.value.onboardingTourCompletion
+    if (!persisted || typeof persisted !== 'object' || Array.isArray(persisted)) {
+      return {}
+    }
+
+    const completion: Partial<Record<TourId, true>> = {}
+    for (const [tourId, completed] of Object.entries(persisted)) {
+      if (!TOUR_ID_SET.has(tourId as TourId) || completed !== true) continue
+      completion[tourId as TourId] = true
+    }
+    return completion
+  }
+
+  async function persistOnboardingState(update: {
+    onboardingTourCompletion?: Record<string, true>
+    onboardingToursOptedOut?: boolean
+    onboardingDashboardTourVersion?: number
+    onboardingEditorTourVersion?: number
+  }): Promise<void> {
+    Object.assign(preferences.value, update)
+    await savePreferences(update)
   }
 
   function markCompleted(tourId: TourId): void {
-    const userScopeId = getCurrentUserScopeId()
-    const key = getLocalCompletionKey(userScopeId)
-    const payload = loadLocalCompletion(import.meta.client ? localStorage : null, key, LOCAL_COMPLETION_SCHEMA_VERSION)
-    const next = setTourCompletion(payload, tourId, true)
-    saveLocalCompletion(import.meta.client ? localStorage : null, key, next)
+    const completion = getCompletionMap()
+    const next: Record<string, true> = { ...completion, [tourId]: true }
+    void persistOnboardingState({ onboardingTourCompletion: next })
   }
 
   function isCompleted(tourId: TourId): boolean {
-    const payload = getCompletionPayload()
-    return isTourCompleted(payload, tourId)
+    const completion = getCompletionMap()
+    return completion[tourId] === true
   }
 
-  function clearAllLocalCompletion(): void {
-    if (!import.meta.client) return
-    const prefix = 'larex:onboarding:'
+  async function clearCompletionForMajor(major: OnboardingMajor): Promise<void> {
+    const completion = getCompletionMap()
+    const majorTourIds = new Set<TourId>(getTourIdsForMajor(major))
+    const next: Record<string, true> = {}
+    let changed = false
 
-    const keysToRemove: string[] = []
-    for (let idx = 0; idx < localStorage.length; idx += 1) {
-      const key = localStorage.key(idx)
-      if (key?.startsWith(prefix)) {
-        keysToRemove.push(key)
+    for (const [tourId, completed] of Object.entries(completion)) {
+      if (completed !== true) continue
+      if (majorTourIds.has(tourId as TourId)) {
+        changed = true
+        continue
       }
+      next[tourId] = true
     }
 
-    for (const key of keysToRemove) {
-      clearLocalCompletion(localStorage, key)
-    }
+    if (!changed) return
+    await persistOnboardingState({ onboardingTourCompletion: next })
   }
 
   function isOptedOut(): boolean {
     if (import.meta.server) return false
-    const userScopeId = getCurrentUserScopeId()
-    const key = getOptOutKey(userScopeId)
-    return localStorage.getItem(key) === '1'
+    return preferences.value.onboardingToursOptedOut === true
   }
 
   function setOptedOut(value: boolean): void {
     if (import.meta.server) return
-    const userScopeId = getCurrentUserScopeId()
-    const key = getOptOutKey(userScopeId)
-    if (value) {
-      localStorage.setItem(key, '1')
-      return
-    }
-    localStorage.removeItem(key)
+    void persistOnboardingState({ onboardingToursOptedOut: value })
   }
 
   function optOutTours(): void {
@@ -339,7 +301,7 @@ export const useOnboarding = () => {
     const storedVersion = preferences.value[prefKey]
 
     if (storedVersion === null || storedVersion < currentVersion) {
-      clearAllLocalCompletion()
+      await clearCompletionForMajor(major)
     }
 
     majorResetDone.value[major] = true
@@ -449,7 +411,7 @@ export const useOnboarding = () => {
     try {
       await fetchPreferences()
     } catch {
-      // Continue with local state and let startTourById apply best-effort policy.
+      // Continue with in-memory defaults and let startTourById apply best-effort policy.
     }
 
     if (routePath && normalizeRoutePath(route.path) !== requestedPathNormalized) {
@@ -509,12 +471,11 @@ export const useOnboarding = () => {
   const resetTours = async () => {
     stopTour()
 
-    clearAllLocalCompletion()
-    setOptedOut(false)
-
-    await savePreferences({
-      onboardingDashboardTourVersion: null,
-      onboardingEditorTourVersion: null
+    await persistOnboardingState({
+      onboardingTourCompletion: {},
+      onboardingToursOptedOut: false,
+      onboardingDashboardTourVersion: 0,
+      onboardingEditorTourVersion: 0
     })
 
     majorResetDone.value.dashboard = false

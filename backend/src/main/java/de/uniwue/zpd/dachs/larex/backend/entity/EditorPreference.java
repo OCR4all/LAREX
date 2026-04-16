@@ -90,6 +90,13 @@ public class EditorPreference {
     @Column(name = "onboarding_editor_tour_version")
     private Integer onboardingEditorTourVersion;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "onboarding_tour_completion", columnDefinition = "jsonb")
+    private JsonNode onboardingTourCompletion;
+
+    @Column(name = "onboarding_tours_opted_out")
+    private Boolean onboardingToursOptedOut;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime created;
@@ -173,6 +180,12 @@ public class EditorPreference {
 
     public Integer getOnboardingEditorTourVersion() { return onboardingEditorTourVersion; }
     public void setOnboardingEditorTourVersion(Integer onboardingEditorTourVersion) { this.onboardingEditorTourVersion = onboardingEditorTourVersion; }
+
+    public JsonNode getOnboardingTourCompletion() { return onboardingTourCompletion; }
+    public void setOnboardingTourCompletion(JsonNode onboardingTourCompletion) { this.onboardingTourCompletion = onboardingTourCompletion; }
+
+    public Boolean getOnboardingToursOptedOut() { return onboardingToursOptedOut; }
+    public void setOnboardingToursOptedOut(Boolean onboardingToursOptedOut) { this.onboardingToursOptedOut = onboardingToursOptedOut; }
 
     public LocalDateTime getCreated() { return created; }
     public LocalDateTime getUpdated() { return updated; }

@@ -57,6 +57,8 @@ class EditorPreferenceServiceTest {
                 null,
                 shortcutBindings,
                 null,
+                null,
+                null,
                 null
         ));
 
@@ -97,11 +99,53 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null
         ));
 
         assertEquals("#fff", updated.getBackgroundColor());
-        assertEquals("meta_s", updated.getShortcutBindings().get("bindings").get("save").get(0).asText());
+        assertEquals(existing.getShortcutBindings(), updated.getShortcutBindings());
+    }
+
+    @Test
+    void updatePersistsOnboardingStateWhenProvided() {
+        EditorPreference existing = new EditorPreference("user-1");
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+        var completion = objectMapper.createObjectNode().put("tasks-index", true).put("editor-layout", true);
+
+        EditorPreference updated = service.update("user-1", new EditorPreferenceDto(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                completion,
+                true
+        ));
+
+        assertEquals(completion, updated.getOnboardingTourCompletion());
+        assertEquals(Boolean.TRUE, updated.getOnboardingToursOptedOut());
+        verify(repository).save(existing);
     }
 
     @Test
