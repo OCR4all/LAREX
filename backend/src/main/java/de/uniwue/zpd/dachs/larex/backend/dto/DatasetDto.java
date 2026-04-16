@@ -50,8 +50,7 @@ public class DatasetDto {
     ) {}
 
     public record UpdateItemRequest(
-            DatasetItem.Split assignedSplit,
-            Boolean pinned
+            DatasetItem.Split assignedSplit
     ) {}
 
     public record GenerateSplitRequest(
@@ -139,7 +138,6 @@ public class DatasetDto {
             List<String> selectedSourceImageIds,
             DatasetItem.Split assignedSplit,
             boolean manualSplit,
-            boolean pinned,
             DatasetItem.Status status,
             String brokenReason,
             LocalDateTime copiedAt,

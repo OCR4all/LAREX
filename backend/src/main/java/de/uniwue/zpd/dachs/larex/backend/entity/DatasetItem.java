@@ -101,9 +101,6 @@ public class DatasetItem {
     @Column(nullable = false, name = "manual_split")
     private boolean manualSplit = false;
 
-    @Column(nullable = false)
-    private boolean pinned = false;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private Status status = Status.READY;
@@ -238,14 +235,6 @@ public class DatasetItem {
 
     public void setManualSplit(boolean manualSplit) {
         this.manualSplit = manualSplit;
-    }
-
-    public boolean isPinned() {
-        return pinned;
-    }
-
-    public void setPinned(boolean pinned) {
-        this.pinned = pinned;
     }
 
     public Status getStatus() {

@@ -288,9 +288,6 @@ public class DatasetService {
             item.setAssignedSplit(normalizeSplitForTemplate(item.getDataset().getSplitTemplate(), request.assignedSplit()));
             item.setManualSplit(true);
         }
-        if (request.pinned() != null) {
-            item.setPinned(request.pinned());
-        }
         datasetItemRepository.save(item);
         return getDataset(workspaceId, datasetId, userId);
     }
@@ -748,7 +745,6 @@ public class DatasetService {
         item.setSelectedSourceImageIds(new ArrayList<>(pendingItem.images().stream().map(PageImage::getId).toList()));
         item.setAssignedSplit(DatasetItem.Split.TRAIN);
         item.setManualSplit(false);
-        item.setPinned(false);
         item.setStatus(DatasetItem.Status.READY);
         item.setBrokenReason(null);
         item.setSourcePageUpdatedAtSnapshot(page.getUpdated());
@@ -875,7 +871,7 @@ public class DatasetService {
     }
 
     private boolean shouldPreserveSplit(DatasetItem item) {
-        return item.isPinned() || (item.getMode() == DatasetItem.Mode.COPY && item.getCopiedAt() != null);
+        return item.getMode() == DatasetItem.Mode.COPY && item.getCopiedAt() != null;
     }
 
     private void assignRandomly(List<DatasetItem> items,
@@ -1286,7 +1282,6 @@ public class DatasetService {
                 defaultList(item.getSelectedSourceImageIds()),
                 item.getAssignedSplit(),
                 item.isManualSplit(),
-                item.isPinned(),
                 item.getStatus(),
                 item.getBrokenReason(),
                 item.getCopiedAt(),

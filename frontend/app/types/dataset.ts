@@ -50,7 +50,6 @@ export interface DatasetItem {
   selectedSourceImageIds: string[]
   assignedSplit: DatasetItemSplit
   manualSplit: boolean
-  pinned: boolean
   status: DatasetItemStatus
   brokenReason?: string | null
   copiedAt?: string | null

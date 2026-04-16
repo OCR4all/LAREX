@@ -140,7 +140,6 @@ type DatasetTableRow = {
   status: DatasetItemStatus
   statusLabel: string
   tags: string[]
-  pinned: boolean
   manualSplit: boolean
   brokenReason?: string | null
   item: DatasetItem
@@ -227,7 +226,6 @@ const tableRows = computed<DatasetTableRow[]>(() => (dataset.value?.items || [])
   status: item.status,
   statusLabel: itemStatusLabel(item.status),
   tags: item.sourcePageTags,
-  pinned: item.pinned,
   manualSplit: item.manualSplit,
   brokenReason: item.brokenReason,
   item
@@ -567,21 +565,6 @@ const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
       : h('span', { class: 'text-sm text-muted' }, '—')
   },
   {
-    id: 'pinned',
-    header: createSortableHeader('Pinned', 'pinned', sort, UButton),
-    cell: ({ row }) => datasetCapabilities.value.canManageItems
-      ? h(UButton, {
-          color: 'neutral',
-          variant: row.original.pinned ? 'soft' : 'ghost',
-          size: 'xs',
-          icon: row.original.pinned ? 'i-lucide-pin' : 'i-lucide-pin-off',
-          onClick: () => updateItemPinned(row.original.item, !row.original.pinned)
-        }, () => row.original.pinned ? 'Pinned' : 'Pin')
-      : (row.original.pinned
-          ? h(UBadge, { color: 'neutral', variant: 'soft' }, () => 'Pinned')
-          : h('span', { class: 'text-sm text-muted' }, 'No'))
-  },
-  {
     id: 'actions',
     header: '',
     cell: ({ row }) => datasetCapabilities.value.canManageItems
@@ -884,20 +867,6 @@ async function updateItemSplit(item: DatasetItem, split: DatasetItemSplit) {
     await refresh()
   } catch (cause: unknown) {
     toast.add({ title: 'Update failed', description: extractApiErrorMessage(cause, 'Failed to update item split'), color: 'error' })
-  }
-}
-
-async function updateItemPinned(item: DatasetItem, pinned: boolean) {
-  if (!selectedWorkspace.value || !dataset.value) return
-
-  try {
-    await $fetch(`/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value.id}/items/${item.id}`, {
-      method: 'PATCH',
-      body: { pinned }
-    })
-    await refresh()
-  } catch (cause: unknown) {
-    toast.add({ title: 'Update failed', description: extractApiErrorMessage(cause, 'Failed to update item pinning'), color: 'error' })
   }
 }
 
