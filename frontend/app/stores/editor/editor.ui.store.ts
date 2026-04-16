@@ -32,6 +32,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     constrainToImage: true,
     constrainToParent: true,
     autoSelect: false,
+    preventOverlapOnCreate: false,
     cutMinAreaThreshold: 0.0001,
     moveWithChildren: true,
     defaultLineWidth: 'normal'
@@ -116,6 +117,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.constrainToImage !== null) globalSettings.value.constrainToImage = prefs.constrainToImage
     if (prefs.constrainToParent !== null) globalSettings.value.constrainToParent = prefs.constrainToParent
     if (prefs.autoSelect !== null) globalSettings.value.autoSelect = prefs.autoSelect
+    if (prefs.preventOverlapOnCreate !== null) globalSettings.value.preventOverlapOnCreate = prefs.preventOverlapOnCreate
     if (prefs.moveWithChildren !== null) globalSettings.value.moveWithChildren = prefs.moveWithChildren
     if (prefs.cutMinAreaThreshold !== null) globalSettings.value.cutMinAreaThreshold = prefs.cutMinAreaThreshold
     if (prefs.defaultLineWidth) globalSettings.value.defaultLineWidth = prefs.defaultLineWidth as LineWidthPreset
@@ -207,6 +209,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
       constrainToImage: globalSettings.value.constrainToImage,
       constrainToParent: globalSettings.value.constrainToParent,
       autoSelect: globalSettings.value.autoSelect,
+      preventOverlapOnCreate: globalSettings.value.preventOverlapOnCreate,
       cutMinAreaThreshold: globalSettings.value.cutMinAreaThreshold
     })
   }
@@ -224,6 +227,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   function toggleAutoSelect() {
     globalSettings.value.autoSelect = !globalSettings.value.autoSelect
     editorPreferences.updatePreference('autoSelect', globalSettings.value.autoSelect)
+  }
+
+  function togglePreventOverlapOnCreate() {
+    globalSettings.value.preventOverlapOnCreate = !globalSettings.value.preventOverlapOnCreate
+    editorPreferences.updatePreference('preventOverlapOnCreate', globalSettings.value.preventOverlapOnCreate)
   }
 
   function toggleMoveWithChildren() {
@@ -553,6 +561,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleConstrainToImage,
     toggleConstrainToParent,
     toggleAutoSelect,
+    togglePreventOverlapOnCreate,
     toggleMoveWithChildren,
     setDefaultLineWidth,
     setReadingOrderOverlayVisible,

@@ -205,6 +205,8 @@ const constrainToImage = computed(() => editorStore.globalSettings.constrainToIm
 const constrainToParent = computed(() => editorStore.globalSettings.constrainToParent)
 const autoSelect = computed(() => editorStore.globalSettings.autoSelect)
 const moveWithChildren = computed(() => editorStore.globalSettings.moveWithChildren)
+const preventOverlapOnCreate = computed(() => editorStore.globalSettings.preventOverlapOnCreate)
+const overlapMinAreaThreshold = computed(() => editorStore.globalSettings.cutMinAreaThreshold)
 
 const currentImageSrc = ref(props.src)
 
@@ -365,12 +367,14 @@ const aspectRatioScale = computed(() => {
 const polygonDrawing = usePolygonDraw(
   polygons, view, pixelsToWorld, constrainToImage, webglRenderer.imageSize,
   canvasControls.regionType, mouseInteraction, selectedPolygonIndex, constrainToParent,
-  polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode
+  polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode,
+  preventOverlapOnCreate, overlapMinAreaThreshold
 )
 
 const rectangleDrawing = useRectangleDrawing(
   polygons, constrainToImage, webglRenderer.imageSize, canvasControls.regionType,
-  selectedPolygonIndex, constrainToParent, polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode
+  selectedPolygonIndex, constrainToParent, polygons, autoSelect, canvasControls.commander, props.canvasId, canvasControls.viewMode,
+  preventOverlapOnCreate, overlapMinAreaThreshold
 )
 
 const polygonEditing = usePolygonEditing(
@@ -382,7 +386,8 @@ const polygonEditing = usePolygonEditing(
 const polylineDrawing = usePolylineDrawing(
   polylines, view, pixelsToWorld, constrainToImage, webglRenderer.imageSize,
   selectedPolygonIndex, polygons, constrainToParent, autoSelect,
-  selectedPolylineIndex, canvasControls.commander, props.canvasId, canvasControls.viewMode
+  selectedPolylineIndex, canvasControls.commander, props.canvasId, canvasControls.viewMode,
+  preventOverlapOnCreate, overlapMinAreaThreshold
 )
 
 const polylineEditing = usePolylineEditing(

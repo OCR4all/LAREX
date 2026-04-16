@@ -26,6 +26,8 @@ const MIN_OVERLAP_PERCENTAGE = 50
 
 export interface CreateBaselineAutoParentCommandData {
   points: Point[]
+  preventOverlapOnCreate?: boolean
+  overlapMinAreaThreshold?: number
 }
 
 /**
@@ -53,12 +55,16 @@ export interface CreateBaselineAutoParentResult {
  */
 export class CreateBaselineAutoParentCommand implements Command {
   private points: Point[]
+  private preventOverlapOnCreate: boolean
+  private overlapMinAreaThreshold: number
 
   private executedCommands: Command[] = []
   private result: CreateBaselineAutoParentResult | null = null
 
   constructor(data: CreateBaselineAutoParentCommandData) {
     this.points = toPlainPoints(data.points)
+    this.preventOverlapOnCreate = data.preventOverlapOnCreate ?? false
+    this.overlapMinAreaThreshold = data.overlapMinAreaThreshold ?? 0.0001
   }
 
   execute(ctx?: CommandContext): CreateBaselineAutoParentResult {
@@ -134,11 +140,16 @@ export class CreateBaselineAutoParentCommand implements Command {
       const createTextlineCmd = new CreatePolygonCommand({
         points: textlinePoints,
         type: PolygonType.TEXTLINE,
-        parentId: bestRegion.id
+        parentId: bestRegion.id,
+        preventOverlapOnCreate: this.preventOverlapOnCreate,
+        overlapMinAreaThreshold: this.overlapMinAreaThreshold
       })
 
       this.executedCommands.push(createTextlineCmd)
-      const textlineResult = createTextlineCmd.execute(ctx) as { id: string }
+      const textlineResult = createTextlineCmd.execute(ctx) as { id: string, created: boolean }
+      if (textlineResult?.created === false) {
+        throw new Error('Failed to create textline after overlap prevention clipping.')
+      }
       const textlineId = textlineResult.id
 
       const createBaselineCmd = new CreatePolylineCommand({
@@ -178,11 +189,17 @@ export class CreateBaselineAutoParentCommand implements Command {
     const createTextlineCmd = new CreatePolygonCommand({
       points: textlinePoints,
       type: PolygonType.TEXTLINE,
-      parentId: regionId
+      parentId: regionId,
+      preventOverlapOnCreate: this.preventOverlapOnCreate,
+      overlapMinAreaThreshold: this.overlapMinAreaThreshold
     })
 
     this.executedCommands.push(createTextlineCmd)
-    const textlineResult = createTextlineCmd.execute(ctx) as { id: string }
+    const textlineResult = createTextlineCmd.execute(ctx) as { id: string, created: boolean }
+    if (textlineResult?.created === false) {
+      createRegionCmd.undo(ctx)
+      throw new Error('Failed to create textline after overlap prevention clipping.')
+    }
     const textlineId = textlineResult.id
 
     const createBaselineCmd = new CreatePolylineCommand({

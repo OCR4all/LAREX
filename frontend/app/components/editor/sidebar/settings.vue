@@ -280,6 +280,13 @@ onBeforeUnmount(() => {
         />
       </div>
       <div class="flex items-center justify-between">
+        <span class="text-sm">Prevent Overlap</span>
+        <USwitch
+          :model-value="editorUiStore.globalSettings.preventOverlapOnCreate"
+          @update:model-value="toggleSetting(() => editorUiStore.togglePreventOverlapOnCreate())"
+        />
+      </div>
+      <div class="flex items-center justify-between">
         <span class="text-sm">Move with Children</span>
         <USwitch
           :model-value="editorUiStore.globalSettings.moveWithChildren"

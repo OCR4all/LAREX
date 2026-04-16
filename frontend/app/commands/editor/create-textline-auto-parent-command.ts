@@ -25,6 +25,8 @@ const MIN_OVERLAP_PERCENTAGE = 50
 export interface CreateTextlineAutoParentCommandData {
   points: Point[]
   label?: string
+  preventOverlapOnCreate?: boolean
+  overlapMinAreaThreshold?: number
 }
 
 /**
@@ -49,6 +51,8 @@ export interface CreateTextlineAutoParentResult {
 export class CreateTextlineAutoParentCommand implements Command {
   private points: Point[]
   private label?: string
+  private preventOverlapOnCreate: boolean
+  private overlapMinAreaThreshold: number
 
   private innerCommand: Command | null = null
   private result: CreateTextlineAutoParentResult | null = null
@@ -56,6 +60,8 @@ export class CreateTextlineAutoParentCommand implements Command {
   constructor(data: CreateTextlineAutoParentCommandData) {
     this.points = toPlainPoints(data.points)
     this.label = data.label
+    this.preventOverlapOnCreate = data.preventOverlapOnCreate ?? false
+    this.overlapMinAreaThreshold = data.overlapMinAreaThreshold ?? 0.0001
   }
 
   execute(ctx?: CommandContext): CreateTextlineAutoParentResult {
@@ -85,11 +91,16 @@ export class CreateTextlineAutoParentCommand implements Command {
         points: this.points,
         type: PolygonType.TEXTLINE,
         label: this.label,
-        parentId: bestParent.id
+        parentId: bestParent.id,
+        preventOverlapOnCreate: this.preventOverlapOnCreate,
+        overlapMinAreaThreshold: this.overlapMinAreaThreshold
       })
 
       this.innerCommand = createTextlineCmd
-      const cmdResult = createTextlineCmd.execute(ctx) as { id: string }
+      const cmdResult = createTextlineCmd.execute(ctx) as { id: string, created: boolean }
+      if (cmdResult.created === false) {
+        throw new Error('Created textline has no remaining visible area after overlap prevention.')
+      }
 
       this.result = {
         textlineId: cmdResult.id,
@@ -112,10 +123,16 @@ export class CreateTextlineAutoParentCommand implements Command {
         points: this.points,
         type: PolygonType.TEXTLINE,
         label: this.label,
-        parentId
+        parentId,
+        preventOverlapOnCreate: this.preventOverlapOnCreate,
+        overlapMinAreaThreshold: this.overlapMinAreaThreshold
       })
 
-      const textlineResult = createTextlineCmd.execute(ctx) as { id: string }
+      const textlineResult = createTextlineCmd.execute(ctx) as { id: string, created: boolean }
+      if (textlineResult.created === false) {
+        createRegionCmd.undo(ctx)
+        throw new Error('Created textline has no remaining visible area after overlap prevention.')
+      }
 
       this.innerCommand = new CompoundCommand(
         [createRegionCmd, createTextlineCmd],

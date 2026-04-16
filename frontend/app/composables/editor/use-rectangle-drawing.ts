@@ -36,7 +36,9 @@ export function useRectangleDrawing(
   autoSelect: Ref<boolean> | undefined,
   commander: Commander,
   canvasId: string,
-  viewMode?: Ref<string>
+  viewMode?: Ref<string>,
+  preventOverlapOnCreate?: Ref<boolean>,
+  overlapMinAreaThreshold?: Ref<number>
 ) {
   const dialogs = useOverlayDialogs()
   const startPoint = reactive<RectanglePoint>({ x: null, y: null })
@@ -166,12 +168,27 @@ export function useRectangleDrawing(
       log.debug('Using auto-parent command for textline rectangle creation in textline view mode')
 
       const autoParentCommand = new CreateTextlineAutoParentCommand({
-        points: [...previewPoints]
+        points: [...previewPoints],
+        preventOverlapOnCreate: preventOverlapOnCreate?.value,
+        overlapMinAreaThreshold: overlapMinAreaThreshold?.value
       })
 
       const session = getEditorSession(canvasId)
       const commandCtx = session ? { canvasId, session } : undefined
-      const result = commander.execute(autoParentCommand, commandCtx)
+      let result: { textlineId: string } | undefined
+      try {
+        result = commander.execute(autoParentCommand, commandCtx)
+      } catch (error) {
+        const message = error instanceof Error && error.message
+          ? error.message
+          : 'Could not create textline with overlap prevention enabled.'
+        dialogs.alert({
+          title: 'Textline creation blocked',
+          message
+        })
+        clearDrawing()
+        return false
+      }
 
       if (autoSelect?.value && result?.textlineId) {
         setTimeout(() => {
@@ -228,12 +245,27 @@ export function useRectangleDrawing(
     const createCommand = new CreatePolygonCommand({
       points: [...previewPoints], // Copy the points
       type: currentType,
-      parentId: parentId
+      parentId: parentId,
+      preventOverlapOnCreate: preventOverlapOnCreate?.value,
+      overlapMinAreaThreshold: overlapMinAreaThreshold?.value
     })
 
     const session = getEditorSession(canvasId)
     const commandCtx = session ? { canvasId, session } : undefined
-    const result = commander.execute(createCommand, commandCtx)
+    let result: { id: string } | undefined
+    try {
+      result = commander.execute(createCommand, commandCtx)
+    } catch (error) {
+      const message = error instanceof Error && error.message
+        ? error.message
+        : 'Could not create rectangle with overlap prevention enabled.'
+      dialogs.alert({
+        title: 'Rectangle creation blocked',
+        message
+      })
+      clearDrawing()
+      return false
+    }
 
     if (autoSelect?.value && result?.id) {
       setTimeout(() => {

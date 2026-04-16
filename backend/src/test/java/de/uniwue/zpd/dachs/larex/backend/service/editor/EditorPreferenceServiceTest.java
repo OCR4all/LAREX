@@ -55,6 +55,7 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 null,
+                null,
                 shortcutBindings,
                 null,
                 null,
@@ -101,6 +102,7 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null
         ));
 
@@ -118,6 +120,7 @@ class EditorPreferenceServiceTest {
         var completion = objectMapper.createObjectNode().put("tasks-index", true).put("editor-layout", true);
 
         EditorPreference updated = service.update("user-1", new EditorPreferenceDto(
+                null,
                 null,
                 null,
                 null,

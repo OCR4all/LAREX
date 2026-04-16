@@ -13,6 +13,7 @@ export interface EditorPreferences {
   constrainToImage: boolean | null
   constrainToParent: boolean | null
   autoSelect: boolean | null
+  preventOverlapOnCreate: boolean | null
   moveWithChildren: boolean | null
   cutMinAreaThreshold: number | null
   defaultLineWidth: string | null
@@ -47,6 +48,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   constrainToImage: null,
   constrainToParent: null,
   autoSelect: null,
+  preventOverlapOnCreate: null,
   moveWithChildren: null,
   cutMinAreaThreshold: null,
   defaultLineWidth: null,

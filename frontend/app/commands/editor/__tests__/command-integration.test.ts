@@ -12,6 +12,7 @@ import {
   countTotalRegions,
   findRegionById
 } from './test-utils'
+import { computed, ref } from 'vue'
 
 vi.mock('@/services/visibility-service', () => ({
   visibilityService: {
@@ -24,7 +25,7 @@ vi.mock('@/composables/use-geometry-cache-integrations', () => ({
   invalidateMultiplePolygonGeometry: vi.fn()
 }))
 
-vi.mock('@/stores/editor.ui.store', () => ({
+vi.mock('@/stores/editor/editor.ui.store', () => ({
   useEditorUiStore: () => ({
     bumpReadingOrderVersion: vi.fn()
   })
@@ -301,6 +302,166 @@ describe('Create Polygon Command Integration', () => {
 
     const parentAfterUndo = getDocument()?.page.regions[0] as any
     expect(parentAfterUndo?.textLines?.length).toBe(0)
+  })
+
+  it('should subtract overlap from visible regions when enabled', () => {
+    const existing = createTestTextRegion({
+      id: 'existing',
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 }
+      ]
+    })
+    const doc = createTestDocument({ regions: [existing] })
+    const { session, getDocument } = createMockSession(doc)
+    session.controls.value = {
+      polygons: [{
+        id: 'existing',
+        type: PolygonType.REGION,
+        points: [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 100, y: 100 },
+          { x: 0, y: 100 }
+        ]
+      }],
+      polylines: [],
+      selectedPolygonIndex: ref(-1),
+      selectedPolylineIndex: ref(-1),
+      viewMode: ref('default'),
+      hiddenPolygonIds: computed(() => []),
+      hiddenPolylineIds: computed(() => [])
+    } as any
+
+    const ctx = createTestContext(session)
+    const result = commander.execute(
+      new CreatePolygonCommand({
+        points: [
+          { x: 50, y: 0 },
+          { x: 150, y: 0 },
+          { x: 150, y: 100 },
+          { x: 50, y: 100 }
+        ],
+        type: PolygonType.REGION,
+        preventOverlapOnCreate: true,
+        overlapMinAreaThreshold: 0
+      }),
+      ctx
+    )
+
+    expect(result.created).toBe(true)
+    const createdRegion = findRegionById(getDocument()!.page.regions, result.id) as any
+    const xs = createdRegion.coords.points.map((p: [number, number]) => p[0])
+    expect(Math.min(...xs)).toBeGreaterThanOrEqual(99.999)
+  })
+
+  it('should ignore hidden regions for overlap subtraction', () => {
+    const existing = createTestTextRegion({
+      id: 'existing',
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 }
+      ]
+    })
+    const doc = createTestDocument({ regions: [existing] })
+    const { session, getDocument } = createMockSession(doc)
+    session.controls.value = {
+      polygons: [{
+        id: 'existing',
+        type: PolygonType.REGION,
+        points: [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 100, y: 100 },
+          { x: 0, y: 100 }
+        ]
+      }],
+      polylines: [],
+      selectedPolygonIndex: ref(-1),
+      selectedPolylineIndex: ref(-1),
+      viewMode: ref('default'),
+      hiddenPolygonIds: computed(() => ['existing']),
+      hiddenPolylineIds: computed(() => [])
+    } as any
+
+    const ctx = createTestContext(session)
+    const result = commander.execute(
+      new CreatePolygonCommand({
+        points: [
+          { x: 50, y: 0 },
+          { x: 150, y: 0 },
+          { x: 150, y: 100 },
+          { x: 50, y: 100 }
+        ],
+        type: PolygonType.REGION,
+        preventOverlapOnCreate: true,
+        overlapMinAreaThreshold: 0
+      }),
+      ctx
+    )
+
+    expect(result.created).toBe(true)
+    const createdRegion = findRegionById(getDocument()!.page.regions, result.id) as any
+    const xs = createdRegion.coords.points.map((p: [number, number]) => p[0])
+    expect(Math.min(...xs)).toBeLessThanOrEqual(50.001)
+  })
+
+  it('should not subtract against ancestor regions during nested creation', () => {
+    const parent = createTestTextRegion({
+      id: 'parent-region',
+      points: [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 },
+        { x: 200, y: 200 },
+        { x: 0, y: 200 }
+      ]
+    })
+    const doc = createTestDocument({ regions: [parent] })
+    const { session, getDocument } = createMockSession(doc)
+    session.controls.value = {
+      polygons: [{
+        id: 'parent-region',
+        type: PolygonType.REGION,
+        points: [
+          { x: 0, y: 0 },
+          { x: 200, y: 0 },
+          { x: 200, y: 200 },
+          { x: 0, y: 200 }
+        ]
+      }],
+      polylines: [],
+      selectedPolygonIndex: ref(0),
+      selectedPolylineIndex: ref(-1),
+      viewMode: ref('default'),
+      hiddenPolygonIds: computed(() => []),
+      hiddenPolylineIds: computed(() => [])
+    } as any
+
+    const ctx = createTestContext(session)
+    const result = commander.execute(
+      new CreatePolygonCommand({
+        points: [
+          { x: 50, y: 50 },
+          { x: 150, y: 50 },
+          { x: 150, y: 150 },
+          { x: 50, y: 150 }
+        ],
+        type: PolygonType.REGION,
+        parentId: 'parent-region',
+        preventOverlapOnCreate: true,
+        overlapMinAreaThreshold: 0
+      }),
+      ctx
+    )
+
+    expect(result.created).toBe(true)
+    const nested = (getDocument()!.page.regions[0] as any).regions[0]
+    const xs = nested.coords.points.map((p: [number, number]) => p[0])
+    expect(Math.min(...xs)).toBeLessThanOrEqual(50.001)
   })
 })
 

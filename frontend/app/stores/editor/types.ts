@@ -66,6 +66,8 @@ export interface GlobalSettings {
   constrainToImage: boolean
   constrainToParent: boolean
   autoSelect: boolean
+  /** When creating regions/textlines, subtract overlaps from visible existing polygons. */
+  preventOverlapOnCreate: boolean
   /** Minimum polygon area threshold for cut operations. Polygons below this area are auto-deleted. Default: 0.0001 (0.01% of normalized space) */
   cutMinAreaThreshold: number
   /** When moving elements, also move all children (textlines, baselines) */

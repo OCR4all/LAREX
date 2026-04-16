@@ -30,7 +30,9 @@ export function usePolylineDrawing(
   selectedPolylineIndex: Ref<number> | undefined,
   commander: Commander,
   canvasId: string,
-  viewMode?: Ref<string>
+  viewMode?: Ref<string>,
+  preventOverlapOnCreate?: Ref<boolean>,
+  overlapMinAreaThreshold?: Ref<number>
 ) {
   const dialogs = useOverlayDialogs()
   const currentPolylinePoints = reactive<Point[]>([])
@@ -130,7 +132,9 @@ export function usePolylineDrawing(
       log.debug('Using auto-parent command for baseline creation in baseline view mode')
 
       const autoParentCommand = new CreateBaselineAutoParentCommand({
-        points: [...currentPolylinePoints]
+        points: [...currentPolylinePoints],
+        preventOverlapOnCreate: preventOverlapOnCreate?.value,
+        overlapMinAreaThreshold: overlapMinAreaThreshold?.value
       })
 
       const session = getEditorSession(canvasId)
