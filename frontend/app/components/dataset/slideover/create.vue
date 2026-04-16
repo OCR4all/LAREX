@@ -263,7 +263,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         </UButton>
         <UButton
           color="primary"
-          icon="i-lucide-database-zap"
+          icon="i-lucide-database"
           :loading="creating"
           @click="submit"
         >

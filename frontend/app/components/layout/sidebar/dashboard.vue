@@ -65,7 +65,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
 
   return [
     { label: 'Library', icon: 'i-lucide-library', to: '/', active: isLibraryRoute.value, onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Datasets', icon: 'i-lucide-database-zap', to: '/datasets', active: isDatasetRoute.value, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', active: isDatasetRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Tasks', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Utilities', icon: 'i-lucide-tool-case', defaultOpen: hasActive(utilitiesChildren), type: 'trigger', children: utilitiesChildren },
     { label: 'Workspace', icon: 'i-lucide-layers', defaultOpen: hasActive(workspaceChildren), type: 'trigger', children: workspaceChildren },

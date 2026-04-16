@@ -2818,7 +2818,7 @@ useHead({
               </UButton>
               <UButton
                 v-if="canManageDatasets"
-                icon="i-lucide-database-zap"
+                icon="i-lucide-database"
                 color="neutral"
                 variant="ghost"
                 size="sm"

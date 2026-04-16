@@ -169,7 +169,7 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => [
   },
   {
     label: 'Datasets',
-    icon: 'i-lucide-database-zap',
+    icon: 'i-lucide-database',
     to: '/datasets'
   },
   {
