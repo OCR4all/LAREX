@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { WatchStopHandle } from 'vue'
+import DiffMatchPatch from 'diff-match-patch'
+import type { Diff } from 'diff-match-patch'
 import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
 import { triangulatePolygon } from '@/utils/editor/hit-detection'
 import { clipToWorldCoords, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
@@ -7,6 +9,8 @@ import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
+import { useWorkspaceStore } from '@/stores/workspace.store'
 import { normalizeRelation } from '@/utils/editor/relations'
 import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
 import { useReadingOrderVisualization } from '@/composables/editor/use-reading-order-visualization'
@@ -14,13 +18,26 @@ import { useRelationsVisualization } from '@/composables/editor/use-relations-vi
 import { useCutDrawing } from '@/composables/editor/use-cut-drawing'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
-import { CreateRelationCommand, UpdateRelationCommand } from '@/commands'
-import type { Relation } from '@/models/editor'
+import { CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
+import { PolygonType, type Relation } from '@/models/editor'
 import type { CommentOverlayLabel } from '@/types/editor/rendering'
+import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { visibilityService } from '@/services/editor/visibility-service'
 import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
 import { getCollaborationColor } from '@/types/collaboration'
 import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
+import {
+  collectTextlineIdsInPageOrder,
+  getAdjacentTextlineId
+} from '@/utils/editor/textline-navigation'
+import { ensureGtVariantAtIndex, normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
+import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
+import {
+  handleSingleLineTextareaBeforeInput,
+  handleSingleLineTextareaDrop,
+  handleSingleLineTextareaPaste
+} from '@/components/editor/text/shared/text-input-guards'
+import { tokenizeForDictionary } from '@/components/editor/text/shared/text-highlighting'
 
 const CommentsLabelsOverlay = LazyEditorCommentsLabelsOverlay
 const ReadingOrderNumbersOverlay = LazyEditorReadingOrderNumbersOverlay
@@ -33,11 +50,27 @@ const props = defineProps({
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
+const sessionStore = useEditorSessionStore()
+const workspaceStore = useWorkspaceStore()
 const collaboration = useEditorCollaboration()
 const session = useEditorSession(props.canvasId)
+const {
+  ensureTokenResults,
+  getTokenResult,
+  isTokenPending,
+  hasSuggestionsLoaded
+} = useDictionaryTokenLookup()
 const toast = useToast()
 
 const colorMode = useColorMode()
+const WORLD_COORD_THRESHOLD = 2.5
+const CORRECTION_FONT_MIN = 14
+const CORRECTION_FONT_MAX = 64
+const CORRECTION_FONT_DEFAULT = 32
+
+function isTextlinePolygonType(type: unknown): boolean {
+  return typeof type === 'string' && type.toLowerCase() === PolygonType.TEXTLINE
+}
 
 function hexToRgba(hex: string, opacity: number): string {
   const r = parseInt(hex.slice(1, 3), 16)
@@ -200,6 +233,7 @@ const activateEditor = () => editorStore.setActiveCanvas(props.canvasId)
 
 const effectiveUiMode = computed(() => editorStore.effectiveUiMode(props.canvasId))
 const renderEnabled = computed(() => effectiveUiMode.value !== 'text')
+const canvasTextCorrectionEnabled = computed(() => editorUiStore.canvasTextCorrectionEnabled)
 
 const constrainToImage = computed(() => editorStore.globalSettings.constrainToImage)
 const constrainToParent = computed(() => editorStore.globalSettings.constrainToParent)
@@ -758,27 +792,46 @@ watch(() => editorUiStore.temporaryHoverPolylineId, () => {
   }
 })
 
-function handleSelectPolygon(polygonId: string | null, options?: { zoomToFit?: boolean }) {
+function resolveSelectionFocusMode(options?: SelectionFocusOptions): SelectionFocusMode {
+  if (options?.focusMode) return options.focusMode
+  return options?.zoomToFit === false ? 'none' : 'context'
+}
+
+function hasExplicitSelectionFocusMode(options?: SelectionFocusOptions): boolean {
+  return typeof options?.focusMode === 'string' || options?.zoomToFit === false
+}
+
+function handleSelectPolygon(polygonId: string | null, options?: SelectionFocusOptions) {
   if (!polygonId) {
     stateActions.clearSelection()
     return
   }
   const index = stateActions.selectPolygonById(polygonId)
-  if (index >= 0 && options?.zoomToFit !== false) {
+  if (index >= 0) {
     const polygon = polygons[index]
-    if (polygon) {
+    const defaultFocusMode = resolveSelectionFocusMode(options)
+    const focusMode = (
+      !hasExplicitSelectionFocusMode(options)
+      && canvasTextCorrectionEnabled.value
+      && isTextlinePolygonType(polygon?.type)
+    )
+      ? 'none'
+      : defaultFocusMode
+    if (polygon && focusMode === 'context') {
       editorInteractions.centerViewOnPolygon(polygon)
+    } else if (polygon && focusMode === 'fit-width') {
+      editorInteractions.centerViewOnPolygonFitWidth(polygon)
     }
   }
 }
 
-function handleSelectPolyline(polylineId: string | null, options?: { zoomToFit?: boolean }) {
+function handleSelectPolyline(polylineId: string | null, options?: SelectionFocusOptions) {
   if (!polylineId) {
     stateActions.clearSelection()
     return
   }
   const index = stateActions.selectPolylineById(polylineId)
-  if (index >= 0 && options?.zoomToFit !== false) {
+  if (index >= 0 && resolveSelectionFocusMode(options) !== 'none') {
     const polyline = polylines[index]
     if (polyline) {
       editorInteractions.centerViewOnPolyline(polyline)
@@ -873,8 +926,11 @@ function toScreenPoint(point: { x: number, y: number }): { x: number, y: number 
     return null
   }
 
-  const worldPoint = imageToWorld(point, imageSize)
+  const looksLikeWorldCoords = Math.abs(point.x) <= WORLD_COORD_THRESHOLD
+    && Math.abs(point.y) <= WORLD_COORD_THRESHOLD
+  const worldPoint = looksLikeWorldCoords ? point : imageToWorld(point, imageSize)
   const clipPoint = worldToClipCoords(worldPoint, view, aspectRatioScale.value)
+  if (!Number.isFinite(clipPoint.x) || !Number.isFinite(clipPoint.y)) return null
 
   return {
     x: ((clipPoint.x + 1) / 2) * canvasDimensions.value.width,
@@ -901,6 +957,669 @@ function buildOverlayPath(points: { x: number, y: number }[], closed: boolean): 
     }
   }
 }
+
+const correctionTextareaRef = ref<HTMLTextAreaElement | null>(null)
+const correctionInputValue = ref('')
+const focusCorrectionInputQueued = ref(false)
+const pendingCorrectionCommit = ref<{ textlineId: string, text: string } | null>(null)
+const activeGtIndex = computed(() => editorStore.projectTextDefaultGtIndex ?? 0)
+const activeRecognitionIndices = computed(() => editorStore.projectTextDefaultRecognitionIndices ?? [1])
+const textViewSettings = computed(() => sessionStore.textViewSettings)
+const selectedWorkspaceId = computed(() => workspaceStore.selectedWorkspaceId as string | null)
+const hasProjectCodec = computed(() => {
+  return Boolean(editorStore.projectCodecId) || (editorStore.projectCodecCharacters?.length ?? 0) > 0
+})
+const projectCodecCharacterSet = computed(() => new Set(editorStore.projectCodecCharacters ?? []))
+const hasProjectDictionary = computed(() => Boolean(editorStore.projectDictionaryId))
+const showDiffModel = computed({
+  get: () => textViewSettings.value.showDiff,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({
+      ...current,
+      showDiff: Boolean(next)
+    }))
+  }
+})
+const showCommentsModel = computed({
+  get: () => textViewSettings.value.showComments,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({
+      ...current,
+      showComments: Boolean(next)
+    }))
+  }
+})
+const showRecognitionInCorrectionOverlay = ref(true)
+const highlightUnknownCodecCharsModel = computed({
+  get: () => editorUiStore.highlightUnknownCodecChars,
+  set: (next: boolean) => editorUiStore.setHighlightUnknownCodecChars(Boolean(next))
+})
+const highlightUnknownDictionaryTokensModel = computed({
+  get: () => editorUiStore.highlightUnknownDictionaryTokens,
+  set: (next: boolean) => editorUiStore.setHighlightUnknownDictionaryTokens(Boolean(next))
+})
+const canCheckDictionaryTokens = computed(() => {
+  return Boolean(selectedWorkspaceId.value && editorStore.projectDictionaryId)
+})
+
+let dmpInstance: DiffMatchPatch | null = null
+function getDmp(): DiffMatchPatch {
+  if (!dmpInstance) {
+    dmpInstance = new DiffMatchPatch()
+  }
+  return dmpInstance
+}
+
+const correctionFontSizePx = computed({
+  get: () => {
+    const current = Number(editorUiStore.textViewFontSize)
+    if (!Number.isFinite(current)) return CORRECTION_FONT_DEFAULT
+    return Math.min(CORRECTION_FONT_MAX, Math.max(CORRECTION_FONT_MIN, Math.trunc(current)))
+  },
+  set: (next: number) => {
+    const clamped = Math.min(CORRECTION_FONT_MAX, Math.max(CORRECTION_FONT_MIN, Math.trunc(Number(next) || CORRECTION_FONT_DEFAULT)))
+    editorUiStore.setTextViewFontSize(clamped)
+  }
+})
+
+function adjustCorrectionFontSize(delta: number): void {
+  correctionFontSizePx.value = correctionFontSizePx.value + delta
+}
+
+function resetCorrectionFontSize(): void {
+  correctionFontSizePx.value = CORRECTION_FONT_DEFAULT
+}
+
+function handleOpenKeyboardEditor(): void {
+  const keyboardId = editorUiStore.selectedVirtualKeyboardId
+  if (!keyboardId) {
+    toast.add({ title: 'No virtual keyboard selected', color: 'warning' })
+    return
+  }
+  navigateTo(`/virtual-keyboard/${keyboardId}`)
+}
+
+const selectedTextlinePolygon = computed(() => {
+  const selectedFromCanvasState = selectedRegionId.value
+  if (selectedFromCanvasState) {
+    const fromCanvasState = polygons.find(polygon => polygon.id === selectedFromCanvasState) ?? null
+    if (isTextlinePolygonType(fromCanvasState?.type)) return fromCanvasState
+  }
+
+  const selectedId = selectedPolygonIds.value.length === 1
+    ? (selectedPolygonIds.value[0] ?? null)
+    : null
+
+  if (selectedId) {
+    const selectedById = polygons.find(polygon => polygon.id === selectedId) ?? null
+    if (isTextlinePolygonType(selectedById?.type)) return selectedById
+  }
+
+  const index = selectedPolygonIndex.value
+  if (index < 0 || index >= polygons.length) return null
+  const polygon = polygons[index]
+  if (!polygon || !isTextlinePolygonType(polygon.type)) return null
+  return polygon
+})
+
+const selectedTextlineScreenBounds = computed(() => {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon || polygon.points.length === 0) return null
+
+  const screenPoints = polygon.points
+    .map(point => toScreenPoint(point))
+    .filter((point): point is { x: number, y: number } => point !== null)
+  if (screenPoints.length === 0) return null
+
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+
+  for (const point of screenPoints) {
+    minX = Math.min(minX, point.x)
+    maxX = Math.max(maxX, point.x)
+    minY = Math.min(minY, point.y)
+    maxY = Math.max(maxY, point.y)
+  }
+
+  return { minX, maxX, minY, maxY }
+})
+
+const canvasTextCorrectionVisible = computed(() => {
+  return canvasTextCorrectionEnabled.value && !!selectedTextlinePolygon.value
+})
+
+const correctionOverlayLayout = computed(() => {
+  if (!canvasTextCorrectionVisible.value) return null
+  const bounds = selectedTextlineScreenBounds.value
+  if (!bounds) return null
+
+  const viewportWidth = canvasDimensions.value.width
+  const viewportHeight = canvasDimensions.value.height
+  if (!viewportWidth || !viewportHeight) return null
+
+  const maxOverlayWidth = Math.max(320, viewportWidth - 24)
+  const preferredOverlayWidth = Math.max(420, (bounds.maxX - bounds.minX) + 24)
+  const overlayWidth = Math.min(900, preferredOverlayWidth, maxOverlayWidth)
+  const recognitionRows = showRecognitionInCorrectionOverlay.value
+    ? selectedTextlineRecognitionVariants.value.length
+    : 0
+  const hasLineComment = showCommentsModel.value && selectedTextlineComment.value.length > 0
+  const hasCodecCheck = highlightUnknownCodecCharsModel.value && hasProjectCodec.value
+  const hasDictionaryCheck = highlightUnknownDictionaryTokensModel.value && hasProjectDictionary.value
+  const perRecognitionRowHeight = 78
+    + (showDiffModel.value ? 58 : 0)
+    + (showCommentsModel.value ? 42 : 0)
+  const overlayHeightEstimate = 146
+    + (hasLineComment ? 56 : 0)
+    + (hasCodecCheck ? 64 : 0)
+    + (hasDictionaryCheck ? 64 : 0)
+    + (recognitionRows * perRecognitionRowHeight)
+  const overlayHeight = Math.max(118, Math.min(viewportHeight - 12, overlayHeightEstimate))
+
+  const placement = computeCanvasTextCorrectionPlacement({
+    anchorBounds: bounds,
+    viewport: {
+      width: viewportWidth,
+      height: viewportHeight
+    },
+    overlay: {
+      width: overlayWidth,
+      height: overlayHeight
+    }
+  })
+
+  return {
+    ...placement,
+    width: overlayWidth
+  }
+})
+
+const correctionOverlayStyle = computed(() => {
+  const layout = correctionOverlayLayout.value
+  if (!layout) return null
+  return {
+    left: `${layout.left}px`,
+    top: `${layout.top}px`,
+    width: `${layout.width}px`
+  }
+})
+
+const selectedTextlineGtText = computed(() => {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon) return ''
+  const variants = normalizeEditableTextVariants(polygon.textContentVariants)
+  const gt = variants.find(variant => variant.index === activeGtIndex.value)
+  return gt?.unicode ?? ''
+})
+
+type OverlayDiffSegment = {
+  text: string
+  type: 'equal' | 'insert' | 'delete'
+}
+
+type OverlayRecognitionVariant = {
+  key: string
+  label: string
+  unicode: string
+  confidence?: number
+  comments?: string
+  diff: OverlayDiffSegment[]
+}
+
+function getConfidencePercent(confidence: number | undefined): number | undefined {
+  if (typeof confidence !== 'number' || !Number.isFinite(confidence)) return undefined
+  return Math.round(confidence * 100)
+}
+
+function getConfidenceClass(confidence: number | undefined): string {
+  if (typeof confidence !== 'number' || !Number.isFinite(confidence)) return ''
+  if (confidence > 0.9) return 'text-emerald-600 border-emerald-200 bg-emerald-50'
+  if (confidence > 0.7) return 'text-amber-600 border-amber-200 bg-amber-50'
+  return 'text-rose-600 border-rose-200 bg-rose-50'
+}
+
+function renderDiff(diffs: Diff[] | undefined): OverlayDiffSegment[] {
+  if (!diffs) return []
+  return diffs.map(diff => ({
+    text: diff[1],
+    type: diff[0] === 0 ? 'equal' : diff[0] === 1 ? 'insert' : 'delete'
+  }))
+}
+
+const selectedTextlineComment = computed(() => {
+  const comment = selectedTextlinePolygon.value?.comments
+  return typeof comment === 'string' ? comment.trim() : ''
+})
+
+const selectedTextlineRecognitionVariants = computed<OverlayRecognitionVariant[]>(() => {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon) return []
+
+  const recognitionIndices = [...new Set(activeRecognitionIndices.value)]
+  if (recognitionIndices.length === 0) return []
+
+  const variants = normalizeEditableTextVariants(polygon.textContentVariants)
+  const gtText = normalizeSingleLineText(correctionInputValue.value)
+  const dmp = getDmp()
+
+  return variants
+    .filter((variant) => {
+      if (typeof variant.index === 'number') {
+        if (variant.index === activeGtIndex.value) return false
+        return recognitionIndices.includes(variant.index)
+      }
+      return recognitionIndices.includes(-1)
+    })
+    .map((variant, pos) => {
+      const unicode = variant.unicode ?? ''
+      const diffs = dmp.diff_main(gtText, unicode)
+      dmp.diff_cleanupSemantic(diffs)
+      const label = typeof variant.index === 'number' ? `REC #${variant.index}` : 'REC (unindexed)'
+
+      return {
+        key: `${typeof variant.index === 'number' ? variant.index : 'u'}_${pos}`,
+        label,
+        unicode,
+        confidence: variant.confidence,
+        comments: variant.comments?.trim(),
+        diff: renderDiff(diffs)
+      }
+    })
+})
+
+type OverlayUnknownSegment = {
+  text: string
+  unknown: boolean
+}
+
+function splitCodepoints(text: string): string[] {
+  return Array.from(text ?? '')
+}
+
+function isWhitespaceCharacter(char: string): boolean {
+  return /\s/u.test(char)
+}
+
+function isUnknownCodecCharacter(char: string): boolean {
+  if (!highlightUnknownCodecCharsModel.value) return false
+  if (!editorUiStore.includeWhitespaceInCodecHighlight && isWhitespaceCharacter(char)) return false
+  return !projectCodecCharacterSet.value.has(char)
+}
+
+function getUnknownCodecSegments(text: string): OverlayUnknownSegment[] {
+  if (!highlightUnknownCodecCharsModel.value) {
+    return [{ text, unknown: false }]
+  }
+
+  const chars = splitCodepoints(text)
+  if (chars.length === 0) return [{ text: '', unknown: false }]
+
+  const segments: OverlayUnknownSegment[] = []
+  let currentUnknown = isUnknownCodecCharacter(chars[0] ?? '')
+  let buffer = chars[0] ?? ''
+
+  for (let i = 1; i < chars.length; i += 1) {
+    const char = chars[i] ?? ''
+    const unknown = isUnknownCodecCharacter(char)
+    if (unknown === currentUnknown) {
+      buffer += char
+      continue
+    }
+    segments.push({ text: buffer, unknown: currentUnknown })
+    buffer = char
+    currentUnknown = unknown
+  }
+
+  segments.push({ text: buffer, unknown: currentUnknown })
+  return segments
+}
+
+const gtCodecUnknownCount = computed(() => {
+  return splitCodepoints(correctionInputValue.value).filter(char => isUnknownCodecCharacter(char)).length
+})
+
+const gtCodecUnknownSegments = computed(() => getUnknownCodecSegments(correctionInputValue.value))
+
+type OverlayUnknownDictionarySegment = {
+  text: string
+  unknown: boolean
+  start: number
+  end: number
+}
+
+function getUnknownDictionaryTokenCount(text: string): number {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) return 0
+
+  return tokenizeForDictionary(text)
+    .map(token => getTokenResult(workspaceId, dictionaryId, token))
+    .filter(result => result && !result.known)
+    .length
+}
+
+function getUnknownDictionaryTokenSegmentsFromLookup(text: string): OverlayUnknownDictionarySegment[] {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) {
+    return [{ text, unknown: false, start: 0, end: text.length }]
+  }
+
+  const segments: OverlayUnknownDictionarySegment[] = []
+  let cursor = 0
+
+  for (const token of tokenizeForDictionary(text)) {
+    const index = text.indexOf(token, cursor)
+    if (index < 0) continue
+
+    if (index > cursor) {
+      segments.push({ text: text.slice(cursor, index), unknown: false, start: cursor, end: index })
+    }
+
+    const result = getTokenResult(workspaceId, dictionaryId, token)
+    segments.push({
+      text: token,
+      unknown: Boolean(result && !result.known),
+      start: index,
+      end: index + token.length
+    })
+    cursor = index + token.length
+  }
+
+  if (cursor < text.length) {
+    segments.push({ text: text.slice(cursor), unknown: false, start: cursor, end: text.length })
+  }
+
+  return segments.length > 0 ? segments : [{ text, unknown: false, start: 0, end: text.length }]
+}
+
+const gtDictionaryTokens = computed(() => {
+  return [...new Set(tokenizeForDictionary(correctionInputValue.value))]
+})
+
+const gtUnknownDictionaryTokenCount = computed(() => {
+  return getUnknownDictionaryTokenCount(correctionInputValue.value)
+})
+
+const gtUnknownDictionarySegments = computed(() => {
+  return getUnknownDictionaryTokenSegmentsFromLookup(correctionInputValue.value)
+})
+
+function handleUnknownDictionaryPopoverUpdate(open: boolean, token: string): void {
+  if (!open) return
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!workspaceId || !dictionaryId) return
+
+  void ensureTokenResults({
+    workspaceId,
+    dictionaryId,
+    tokens: [token],
+    includeSuggestions: true,
+    limit: 5
+  })
+}
+
+function isDictionarySuggestionLoading(token: string): boolean {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!workspaceId || !dictionaryId) return false
+
+  const result = getTokenResult(workspaceId, dictionaryId, token)
+  if (!result) return true
+  if (result.known) return false
+  if (isTokenPending(workspaceId, dictionaryId, token)) return true
+  return !hasSuggestionsLoaded(workspaceId, dictionaryId, token)
+}
+
+function getDictionarySuggestions(token: string): string[] {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!workspaceId || !dictionaryId) return []
+
+  const result = getTokenResult(workspaceId, dictionaryId, token)
+  if (!result || result.known) return []
+  const suggestions = result.suggestions ?? []
+  return suggestions.map(suggestion => suggestion.display)
+}
+
+function applyDictionarySuggestionToGt(start: number, end: number, replacement: string): void {
+  if (!isCanvasEditable.value) return
+  const current = correctionInputValue.value
+  const nextText = `${current.slice(0, start)}${replacement}${current.slice(end)}`
+  correctionInputValue.value = nextText
+
+  const textlineId = selectedTextlinePolygon.value?.id ?? null
+  if (!textlineId) return
+  pendingCorrectionCommit.value = {
+    textlineId,
+    text: nextText
+  }
+  commitCorrectionInputDebounced()
+  queueCorrectionInputFocus()
+}
+
+const isDictionaryCheckLoadingForGt = computed(() => {
+  const workspaceId = selectedWorkspaceId.value
+  const dictionaryId = editorStore.projectDictionaryId
+  if (!canCheckDictionaryTokens.value || !workspaceId || !dictionaryId) return false
+  const tokens = gtDictionaryTokens.value
+  if (tokens.length === 0) return false
+
+  return tokens.some((token) => {
+    const result = getTokenResult(workspaceId, dictionaryId, token)
+    if (result) return false
+    return isTokenPending(workspaceId, dictionaryId, token)
+  })
+})
+
+const pageOrderTextlineIds = computed(() => collectTextlineIdsInPageOrder(session.document.value?.page?.regions))
+
+function queueCorrectionInputFocus() {
+  focusCorrectionInputQueued.value = true
+  nextTick(() => {
+    if (!focusCorrectionInputQueued.value) return
+    const textarea = correctionTextareaRef.value
+    if (!textarea) return
+    textarea.focus()
+    const end = textarea.value.length
+    textarea.setSelectionRange(end, end)
+    focusCorrectionInputQueued.value = false
+  })
+}
+
+function commitTextlineVariants(textlineId: string, variants: Array<{
+  unicode: string
+  plainText?: string
+  confidence?: number
+  index?: number
+  dataType?: string
+  dataTypeDetails?: string
+  comments?: string
+}>): void {
+  if (!isCanvasEditable.value) return
+  canvasControls.commander.execute(
+    new UpdateTextContentVariantsCommand({
+      elementId: textlineId,
+      nextTextContentVariants: variants
+    }),
+    getCommandContext()
+  )
+}
+
+function ensureSelectedTextlineGtVariant(): boolean {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon || !isCanvasEditable.value) return false
+
+  const ensured = ensureGtVariantAtIndex(
+    polygon.textContentVariants,
+    activeGtIndex.value
+  )
+  if (!ensured.created) return false
+
+  commitTextlineVariants(polygon.id, ensured.variants)
+  correctionInputValue.value = ensured.variants[ensured.gtPos]?.unicode ?? ''
+  return true
+}
+
+function normalizeSingleLineText(value: string): string {
+  return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
+}
+
+function updateSelectedTextlineGtText(nextText: string) {
+  const polygon = selectedTextlinePolygon.value
+  if (!polygon) return
+  updateTextlineGtTextById(polygon.id, nextText)
+}
+
+function updateTextlineGtTextById(textlineId: string, nextText: string) {
+  const polygon = polygons.find(item => item.id === textlineId)
+  if (!polygon || !isCanvasEditable.value) return
+
+  const normalizedText = normalizeSingleLineText(nextText)
+  const updated = setGtVariantUnicode(
+    polygon.textContentVariants,
+    activeGtIndex.value,
+    normalizedText
+  )
+  if (!updated.changed && !updated.created) return
+
+  commitTextlineVariants(textlineId, updated.variants)
+}
+
+const commitCorrectionInputDebounced = useDebounceFn(() => {
+  const pending = pendingCorrectionCommit.value
+  if (!pending) return
+  updateTextlineGtTextById(pending.textlineId, pending.text)
+  pendingCorrectionCommit.value = null
+}, 80)
+
+function flushPendingCorrectionCommit() {
+  const pending = pendingCorrectionCommit.value
+  if (!pending) return
+  updateTextlineGtTextById(pending.textlineId, pending.text)
+  pendingCorrectionCommit.value = null
+}
+
+function navigateCanvasCorrectionTextline(direction: 1 | -1): boolean {
+  flushPendingCorrectionCommit()
+  const currentId = selectedTextlinePolygon.value?.id ?? null
+  const nextId = getAdjacentTextlineId(pageOrderTextlineIds.value, currentId, direction)
+  if (!nextId || nextId === currentId) return false
+
+  canvasControls.selectPolylineById?.(null, { focusMode: 'none' })
+  canvasControls.selectPolygonById?.(nextId, { focusMode: 'none' })
+  queueCorrectionInputFocus()
+  return true
+}
+
+function handleCorrectionTextareaKeydown(event: KeyboardEvent) {
+  if (event.key === 'Tab') {
+    event.preventDefault()
+    navigateCanvasCorrectionTextline(event.shiftKey ? -1 : 1)
+    return
+  }
+
+  if (event.key === 'Enter') {
+    event.preventDefault()
+  }
+}
+
+function handleCorrectionReadonlyKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Tab') return
+  event.preventDefault()
+  navigateCanvasCorrectionTextline(event.shiftKey ? -1 : 1)
+}
+
+function handleCorrectionOverlayKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Tab') return
+  event.preventDefault()
+  event.stopPropagation()
+  navigateCanvasCorrectionTextline(event.shiftKey ? -1 : 1)
+}
+
+function handleCorrectionTextareaBeforeInput(event: InputEvent) {
+  handleSingleLineTextareaBeforeInput(event, true)
+}
+
+function handleCorrectionTextareaPaste(event: ClipboardEvent) {
+  handleSingleLineTextareaPaste(event, true)
+}
+
+function handleCorrectionTextareaDrop(event: DragEvent) {
+  handleSingleLineTextareaDrop(event, true)
+}
+
+function handleCorrectionTextareaInput(event: Event) {
+  const target = event.target
+  if (!(target instanceof HTMLTextAreaElement)) return
+  correctionInputValue.value = target.value
+
+  const textlineId = selectedTextlinePolygon.value?.id ?? null
+  if (!textlineId) return
+  pendingCorrectionCommit.value = {
+    textlineId,
+    text: target.value
+  }
+  commitCorrectionInputDebounced()
+}
+
+function handleCorrectionTextareaBlur() {
+  flushPendingCorrectionCommit()
+}
+
+watch(selectedTextlineGtText, (nextText) => {
+  correctionInputValue.value = nextText
+}, { immediate: true })
+
+watch(
+  [
+    highlightUnknownDictionaryTokensModel,
+    canCheckDictionaryTokens,
+    selectedWorkspaceId,
+    () => editorStore.projectDictionaryId,
+    gtDictionaryTokens
+  ],
+  async ([dictionaryHighlightEnabled, canCheck, workspaceId, dictionaryId, tokens]) => {
+    if (!dictionaryHighlightEnabled || !canCheck || !workspaceId || !dictionaryId || !Array.isArray(tokens) || tokens.length === 0) {
+      return
+    }
+    try {
+      await ensureTokenResults({
+        workspaceId,
+        dictionaryId,
+        tokens,
+        includeSuggestions: false
+      })
+    } catch {
+      // Keep correction input responsive even if dictionary checks fail.
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [canvasTextCorrectionEnabled.value, selectedTextlinePolygon.value?.id ?? null, activeGtIndex.value] as const,
+  ([enabled, selectedId, gtIndex], [prevEnabled, prevSelectedId, prevGtIndex]) => {
+    if (!enabled || !selectedId) return
+
+    const selectionChanged = selectedId !== prevSelectedId
+    const justEnabled = enabled && !prevEnabled
+    const gtIndexChanged = gtIndex !== prevGtIndex
+    if (!selectionChanged && !justEnabled && !gtIndexChanged) return
+
+    if (isCanvasEditable.value && (selectionChanged || justEnabled || gtIndexChanged)) {
+      ensureSelectedTextlineGtVariant()
+    }
+
+    if (selectionChanged || justEnabled) {
+      canvasControls.selectPolygonById?.(selectedId, { focusMode: 'fit-width' })
+      queueCorrectionInputFocus()
+    }
+  }
+)
 
 const remoteSelectionOverlays = computed(() => {
   const editorId = canvasEditor.value?.user.id
@@ -1339,6 +2058,292 @@ watch(() => props.src, (newSrc) => {
         </template>
       </UContextMenu>
 
+      <div
+        v-if="canvasTextCorrectionVisible && correctionOverlayStyle"
+        class="absolute z-[930] max-h-[72vh] overflow-y-auto rounded-md border border-default bg-default p-2.5 shadow-xl"
+        :style="correctionOverlayStyle"
+        @mousedown.stop
+        @click.stop
+        @keydown.capture="handleCorrectionOverlayKeydown"
+      >
+        <div class="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
+          <div class="flex items-center gap-2">
+            <span class="font-medium text-muted">GT #{{ activeGtIndex }}</span>
+            <span class="text-muted">{{ correctionFontSizePx }}px</span>
+            <div class="flex items-center gap-1">
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-minus"
+                title="Decrease font size"
+                :disabled="correctionFontSizePx <= CORRECTION_FONT_MIN"
+                @click="adjustCorrectionFontSize(-2)"
+              />
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-plus"
+                title="Increase font size"
+                :disabled="correctionFontSizePx >= CORRECTION_FONT_MAX"
+                @click="adjustCorrectionFontSize(2)"
+              />
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-rotate-ccw"
+                title="Reset font size"
+                @click="resetCorrectionFontSize"
+              />
+            </div>
+          </div>
+          <div class="flex items-center gap-2 min-w-0">
+            <UButton
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              icon="i-lucide-keyboard"
+              title="Open virtual keyboard editor"
+              @click="handleOpenKeyboardEditor"
+            />
+            <span class="truncate text-muted max-w-56">{{ selectedTextlinePolygon?.id }}</span>
+          </div>
+        </div>
+        <div class="mb-2 flex flex-wrap items-center gap-1.5">
+          <UButton
+            size="xs"
+            color="neutral"
+            :variant="showDiffModel ? 'soft' : 'ghost'"
+            @click="showDiffModel = !showDiffModel"
+          >
+            Diff
+          </UButton>
+          <UButton
+            size="xs"
+            color="neutral"
+            :variant="showCommentsModel ? 'soft' : 'ghost'"
+            @click="showCommentsModel = !showCommentsModel"
+          >
+            Comments
+          </UButton>
+          <UButton
+            size="xs"
+            color="neutral"
+            :variant="showRecognitionInCorrectionOverlay ? 'soft' : 'ghost'"
+            @click="showRecognitionInCorrectionOverlay = !showRecognitionInCorrectionOverlay"
+          >
+            Recognition
+          </UButton>
+          <UButton
+            size="xs"
+            color="neutral"
+            :variant="highlightUnknownCodecCharsModel ? 'soft' : 'ghost'"
+            :disabled="!hasProjectCodec"
+            :title="hasProjectCodec ? 'Toggle codec checks' : 'No project codec configured'"
+            @click="highlightUnknownCodecCharsModel = !highlightUnknownCodecCharsModel"
+          >
+            Codec
+          </UButton>
+          <UButton
+            size="xs"
+            color="neutral"
+            :variant="highlightUnknownDictionaryTokensModel ? 'soft' : 'ghost'"
+            :disabled="!hasProjectDictionary"
+            :title="hasProjectDictionary ? 'Toggle dictionary checks' : 'No project dictionary configured'"
+            @click="highlightUnknownDictionaryTokensModel = !highlightUnknownDictionaryTokensModel"
+          >
+            Dictionary
+          </UButton>
+        </div>
+        <textarea
+          ref="correctionTextareaRef"
+          :value="correctionInputValue"
+          rows="1"
+          class="w-full min-h-10 resize-none rounded-sm border border-default bg-default px-2.5 py-2 font-junicode text-foreground outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+          :style="{ fontSize: `${correctionFontSizePx}px`, lineHeight: `${Math.round(correctionFontSizePx * 1.2)}px` }"
+          :readonly="!isCanvasEditable"
+          :disabled="!isCanvasEditable"
+          spellcheck="false"
+          @keydown="handleCorrectionTextareaKeydown"
+          @beforeinput="handleCorrectionTextareaBeforeInput"
+          @paste="handleCorrectionTextareaPaste"
+          @drop="handleCorrectionTextareaDrop"
+          @input="handleCorrectionTextareaInput"
+          @blur="handleCorrectionTextareaBlur"
+        />
+
+        <div
+          v-if="highlightUnknownCodecCharsModel && hasProjectCodec"
+          class="mt-2 rounded-sm border border-default bg-muted/20 p-2"
+        >
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <span class="text-xs text-muted">Codec check</span>
+            <UBadge
+              :color="gtCodecUnknownCount > 0 ? 'warning' : 'success'"
+              variant="soft"
+              size="xs"
+            >
+              {{ gtCodecUnknownCount }} unknown
+            </UBadge>
+          </div>
+          <div
+            class="break-all font-junicode text-sm"
+            :style="{ fontSize: `${Math.max(14, Math.round(correctionFontSizePx * 0.68))}px`, lineHeight: `${Math.max(18, Math.round(correctionFontSizePx * 0.8))}px` }"
+          >
+            <template v-for="(segment, segmentIndex) in gtCodecUnknownSegments" :key="`gt_codec_${segmentIndex}`">
+              <span
+                v-if="segment.unknown"
+                class="rounded-sm bg-warning/20 px-0.5 text-warning-700 dark:text-warning-300"
+              >
+                {{ segment.text }}
+              </span>
+              <span v-else>{{ segment.text }}</span>
+            </template>
+          </div>
+        </div>
+
+        <div
+          v-if="highlightUnknownDictionaryTokensModel && hasProjectDictionary"
+          class="mt-2 rounded-sm border border-default bg-muted/20 p-2"
+        >
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <span class="text-xs text-muted">Dictionary check</span>
+            <USkeleton v-if="isDictionaryCheckLoadingForGt" class="h-5 w-16" />
+            <UBadge
+              v-else
+              :color="gtUnknownDictionaryTokenCount > 0 ? 'warning' : 'success'"
+              variant="soft"
+              size="xs"
+            >
+              {{ gtUnknownDictionaryTokenCount }} unknown
+            </UBadge>
+          </div>
+          <div
+            class="break-words font-junicode text-sm"
+            :style="{ fontSize: `${Math.max(14, Math.round(correctionFontSizePx * 0.68))}px`, lineHeight: `${Math.max(18, Math.round(correctionFontSizePx * 0.8))}px` }"
+          >
+            <template v-for="(segment, segmentIndex) in gtUnknownDictionarySegments" :key="`gt_dict_${segmentIndex}`">
+              <UPopover
+                v-if="segment.unknown"
+                mode="hover"
+                :content="{ side: 'top', align: 'start', sideOffset: 8 }"
+                @update:open="(open: boolean) => handleUnknownDictionaryPopoverUpdate(open, segment.text)"
+              >
+                <span class="cursor-help text-warning-700 underline decoration-warning decoration-2 underline-offset-2 dark:text-warning-300">
+                  {{ segment.text }}
+                </span>
+                <template #content>
+                  <div class="min-w-56 max-w-96 space-y-2 p-2">
+                    <div class="text-xs font-medium text-muted">
+                      Dictionary suggestions
+                    </div>
+                    <div v-if="isDictionarySuggestionLoading(segment.text)" class="space-y-2">
+                      <USkeleton class="h-6 w-full" />
+                      <USkeleton class="h-6 w-2/3" />
+                    </div>
+                    <div v-else-if="getDictionarySuggestions(segment.text).length > 0" class="flex flex-wrap gap-1">
+                      <UButton
+                        v-for="suggestion in getDictionarySuggestions(segment.text)"
+                        :key="`${segment.text}_${suggestion}`"
+                        color="neutral"
+                        variant="soft"
+                        size="xs"
+                        :disabled="!isCanvasEditable"
+                        @click.stop="applyDictionarySuggestionToGt(segment.start, segment.end, suggestion)"
+                      >
+                        {{ suggestion }}
+                      </UButton>
+                    </div>
+                    <div v-else class="text-xs text-muted">
+                      No suggestions available.
+                    </div>
+                  </div>
+                </template>
+              </UPopover>
+              <span v-else>{{ segment.text }}</span>
+            </template>
+          </div>
+        </div>
+
+        <div
+          v-if="showCommentsModel && selectedTextlineComment.length > 0"
+          class="mt-2 rounded-sm border border-amber-200/70 bg-amber-50/70 px-2 py-1.5 dark:border-amber-800/70 dark:bg-amber-950/25"
+        >
+          <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800/90 dark:text-amber-200/90">
+            Comment
+          </p>
+          <p class="mt-0.5 whitespace-pre-wrap break-words text-xs text-amber-900/90 dark:text-amber-100/90">
+            {{ selectedTextlineComment }}
+          </p>
+        </div>
+
+        <div v-if="showRecognitionInCorrectionOverlay" class="mt-2 space-y-2">
+          <div
+            v-for="recognition in selectedTextlineRecognitionVariants"
+            :key="recognition.key"
+            class="rounded-sm border border-default bg-elevated/60 p-2"
+          >
+            <div class="mb-1 flex items-center justify-between gap-2 text-[11px]">
+              <span class="font-medium text-muted">{{ recognition.label }}</span>
+              <UBadge
+                v-if="getConfidencePercent(recognition.confidence) !== undefined"
+                variant="outline"
+                class="text-[10px] px-1.5 py-0"
+                :class="getConfidenceClass(recognition.confidence)"
+              >
+                {{ getConfidencePercent(recognition.confidence) }}%
+              </UBadge>
+            </div>
+
+            <textarea
+              :value="recognition.unicode"
+              rows="1"
+              class="w-full min-h-9 resize-none rounded-sm border border-default bg-default px-2 py-1.5 font-junicode text-foreground/95 outline-none"
+              :style="{ fontSize: `${Math.max(16, Math.round(correctionFontSizePx * 0.78))}px`, lineHeight: `${Math.max(20, Math.round(correctionFontSizePx * 0.9))}px` }"
+              readonly
+              spellcheck="false"
+              @keydown="handleCorrectionReadonlyKeydown"
+            />
+
+            <div
+              v-if="showDiffModel && recognition.diff.length > 0"
+              class="mt-1 rounded-sm border border-default bg-muted/30 p-1.5 font-mono text-xs"
+            >
+              <template v-for="(segment, segmentIndex) in recognition.diff" :key="`${recognition.key}_${segment.type}_${segmentIndex}`">
+                <span v-if="segment.type === 'equal'" class="text-foreground">{{ segment.text }}</span>
+                <span v-else-if="segment.type === 'delete'" class="rounded bg-red-500/10 px-0.5 text-red-500 line-through">
+                  {{ segment.text }}
+                </span>
+                <span v-else class="rounded-sm bg-green-500/10 px-0.5 font-semibold text-green-500">
+                  +{{ segment.text }}
+                </span>
+              </template>
+            </div>
+
+            <div
+              v-if="showCommentsModel && recognition.comments && recognition.comments.length > 0"
+              class="mt-1 rounded-sm border border-amber-200/70 bg-amber-50/70 px-2 py-1 dark:border-amber-800/70 dark:bg-amber-950/25"
+            >
+              <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800/90 dark:text-amber-200/90">
+                Variant Comment
+              </p>
+              <p class="mt-0.5 whitespace-pre-wrap break-words text-xs text-amber-900/90 dark:text-amber-100/90">
+                {{ recognition.comments }}
+              </p>
+            </div>
+          </div>
+
+          <div
+            v-if="selectedTextlineRecognitionVariants.length === 0"
+            class="rounded-sm border border-default bg-muted/20 px-2 py-1.5 text-xs text-muted"
+          >
+            No recognition variants found for indices {{ activeRecognitionIndices.join(', ') }}.
+          </div>
+        </div>
+      </div>
+
       <Transition name="fade">
         <div
           v-if="isLoadingAnnotations"
@@ -1652,6 +2657,7 @@ watch(() => props.src, (newSrc) => {
         @toggle-reading-order="handlePropertiesToggleReadingOrder"
       />
     </div>
+
   </div>
 </template>
 
