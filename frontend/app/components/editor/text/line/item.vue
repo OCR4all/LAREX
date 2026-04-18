@@ -144,6 +144,19 @@ let cutoutRequestId = 0
 
 const isVertical = computed(() => props.layout === 'vertical')
 const canMutateAnnotation = computed(() => !props.readOnly)
+// Keep cutout start aligned with the transcription textarea start rail in vertical/isolated layout.
+// 5.5rem = index button (1.25rem) + two gaps (0.375rem each) + confidence column (3.5rem).
+const cutoutStartOffsetRem = 5.5
+const cutoutWrapperStyle = computed(() => {
+  if (!isVertical.value) return undefined
+  return {
+    paddingInlineStart: `${cutoutStartOffsetRem}rem`
+  }
+})
+const cutoutCanvasStyle = computed(() => ({
+  objectFit: 'contain',
+  objectPosition: isVertical.value ? 'left center' : 'center center'
+}))
 const effectiveCutoutMaxHeightClass = computed(() => {
   if (props.cutoutMaxHeightClass) return props.cutoutMaxHeightClass
   return isVertical.value ? 'max-h-56' : 'max-h-40'
@@ -963,7 +976,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div
-            class="rounded-sm overflow-hidden bg-muted/20 border border-border/30 flex items-center justify-center relative"
+            class="rounded-sm overflow-hidden bg-muted/20 border border-border/30 flex items-center relative"
+            :class="isVertical ? 'justify-start' : 'justify-center'"
+            :style="cutoutWrapperStyle"
             @mousemove="onCutoutMouseMove"
             @mouseleave="onCutoutMouseLeave"
           >
@@ -975,7 +990,7 @@ onBeforeUnmount(() => {
               ref="canvasRef"
               class="w-full h-auto block"
               :class="[isCutoutLoading ? 'opacity-0' : 'opacity-100', effectiveCutoutMaxHeightClass]"
-              :style="{ objectFit: 'contain' }"
+              :style="cutoutCanvasStyle"
             />
             <div
               v-if="cutoutLoadFailed"
