@@ -785,7 +785,8 @@ async function updatePrivateAccessTokenAccess(enabled: boolean) {
 
       <div>
         <UContextMenu :items="contextMenuItems as any">
-          <UTable
+          <AppTable
+            table-id="admin-users"
             :data="users"
             :columns="columns"
             :loading="pending"

@@ -246,7 +246,8 @@ function handleOutgoingRowContextMenu(_event: Event, row: { original: TransferRe
       <p>No pending incoming requests</p>
     </div>
     <UContextMenu v-else :items="incomingContextMenuItems as any">
-      <UTable
+      <AppTable
+        table-id="workspace-requests-incoming"
         :columns="incomingColumns"
         :data="incoming"
         @contextmenu="handleIncomingRowContextMenu"
@@ -263,7 +264,8 @@ function handleOutgoingRowContextMenu(_event: Event, row: { original: TransferRe
       <p>No pending outgoing requests</p>
     </div>
     <UContextMenu v-else :items="outgoingContextMenuItems as any">
-      <UTable
+      <AppTable
+        table-id="workspace-requests-outgoing"
         :columns="outgoingColumns"
         :data="outgoing"
         @contextmenu="handleOutgoingRowContextMenu"

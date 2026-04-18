@@ -60,6 +60,7 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 null,
+                null,
                 null
         ));
 
@@ -81,6 +82,7 @@ class EditorPreferenceServiceTest {
 
         EditorPreference updated = service.update("user-1", new EditorPreferenceDto(
                 "#fff",
+                null,
                 null,
                 null,
                 null,
@@ -142,6 +144,7 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 null,
+                null,
                 completion,
                 true
         ));
@@ -162,6 +165,7 @@ class EditorPreferenceServiceTest {
 
         assertEquals("missing", created.getUserId());
         assertNull(created.getShortcutBindings());
+        assertNull(created.getTableColumnVisibility());
         verify(repository).save(any(EditorPreference.class));
     }
 }

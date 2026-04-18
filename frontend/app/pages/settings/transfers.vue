@@ -154,7 +154,8 @@ function handleRowContextMenu(_event: Event, row: { original: TransferRow }) {
         </div>
 
         <UContextMenu v-else :items="contextMenuItems as any">
-          <UTable
+          <AppTable
+            table-id="settings-transfers"
             :columns="columns"
             :data="allTransfers"
             @contextmenu="handleRowContextMenu"

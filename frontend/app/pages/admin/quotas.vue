@@ -444,7 +444,8 @@ function formatBytes(bytes: number) {
 
       <div>
         <UContextMenu :items="contextMenuItems">
-          <UTable
+          <AppTable
+            table-id="admin-quotas"
             :data="paginatedRows"
             :columns="columns"
             :loading="pending"

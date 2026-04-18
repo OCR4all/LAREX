@@ -795,7 +795,8 @@ function closeWithResult() {
             </div>
 
             <div class="border border-default rounded-sm overflow-hidden">
-              <UTable
+              <AppTable
+                table-id="codec-action-source-tree"
                 v-model:expanded="sourceTreeExpanded"
                 :columns="sourceTreeColumns"
                 :data="sourceTreeRows"
@@ -857,7 +858,7 @@ function closeWithResult() {
                     </span>
                   </div>
                 </template>
-              </UTable>
+              </AppTable>
             </div>
 
             <div class="text-xs text-muted space-y-1">
@@ -1041,7 +1042,8 @@ function closeWithResult() {
               <div class="text-xs font-medium text-muted">
                 Missing characters by page
               </div>
-              <UTable
+              <AppTable
+                table-id="codec-action-validation-missing-chars"
                 :data="validationMissingCharacterRows"
                 :columns="validationMissingCharacterColumns"
                 :ui="{
@@ -1084,7 +1086,7 @@ function closeWithResult() {
                     </span>
                   </div>
                 </template>
-              </UTable>
+              </AppTable>
             </div>
 
             <div class="space-y-2">

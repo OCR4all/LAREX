@@ -242,7 +242,8 @@ function clearFilters() {
 
       <div>
         <UContextMenu :items="contextMenuItems">
-          <UTable
+          <AppTable
+            table-id="admin-workspaces"
             :data="paginatedRows"
             :columns="columns"
             :loading="pending"

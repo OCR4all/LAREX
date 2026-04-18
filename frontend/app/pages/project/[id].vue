@@ -2757,20 +2757,13 @@ useHead({
 
             <div v-else-if="pages">
               <UContextMenu :items="contextMenuItems as any">
-                <UTable
+                <AppTable
+                  table-id="project-pages"
                   v-if="paginatedPages.length > 0"
                   :columns="pageColumns"
                   :data="paginatedPages"
                   :loading="isManualPagesRefresh"
                   class="flex-1"
-                  :ui="{
-                    base: 'table-fixed border-separate border-spacing-0',
-                    thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
-                    tbody: '[&>tr]:last:[&>td]:border-b-0',
-                    th: 'py-2 first:rounded-l-lg last:rounded-r-lg border-y border-default first:border-l last:border-r',
-                    td: 'border-b border-default',
-                    separator: 'h-0'
-                  }"
                   @contextmenu="handlePageRowContextMenu"
                 />
               </UContextMenu>

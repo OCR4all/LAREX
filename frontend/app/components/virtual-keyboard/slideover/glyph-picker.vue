@@ -213,7 +213,8 @@ const headerTitle = computed(() => props.title || `Glyph Picker${total.value ? `
         </div>
 
         <div class="flex min-h-0 flex-1 flex-col px-2 pb-2">
-          <UTable
+          <AppTable
+            table-id="virtual-keyboard-glyph-picker"
             ref="tableRef"
             :data="tableRows"
             :columns="columns"

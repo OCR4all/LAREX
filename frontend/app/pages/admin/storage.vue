@@ -612,7 +612,8 @@ async function refreshAll() {
 
         <template v-else>
           <UContextMenu :items="contextMenuItems">
-            <UTable
+            <AppTable
+              table-id="admin-storage-orphaned-files"
               :columns="columns"
               :data="currentPageFiles"
               :loading="orphanedPending"

@@ -649,7 +649,8 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 
             <div v-else class="h-full">
               <UContextMenu :items="contextMenuItems as any">
-                <UTable
+                <AppTable
+                  table-id="codec-builder-characters"
                   data-tour="codec-builder-table"
                   :data="characterData"
                   :columns="columns"

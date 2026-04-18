@@ -374,7 +374,8 @@ function clearFilters() {
           </div>
         </div>
 
-        <UTable
+        <AppTable
+          table-id="admin-errors"
           :data="rows"
           :columns="columns"
           :loading="pending"

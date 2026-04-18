@@ -5,6 +5,7 @@ import type { BreadcrumbItem, DropdownMenuItem, TableColumn, TabsItem } from '@n
 import type {
   DatasetCreateOrUpdateRequest,
   DatasetDetail,
+  DatasetEditorOpenResponse,
   DatasetItem,
   DatasetItemMode,
   DatasetItemSplit,
@@ -18,6 +19,8 @@ import { wsKey } from '@/utils/fetch-keys'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { SIMPLE_TAG_OPERATOR_OPTIONS } from '@/composables/use-resource-list-page'
 import { createSortableHeader, renderSimpleTagCell } from '@/utils/resource-list-columns'
+import { useEditorStore } from '@/stores/editor/editor.store'
+import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 
 const route = useRoute()
 const toast = useToast()
@@ -122,6 +125,7 @@ const saving = ref(false)
 const generating = ref(false)
 const exporting = ref(false)
 const deletingItemIds = ref<Set<string>>(new Set())
+const openingEditor = ref(false)
 const activeTab = ref<'pages' | 'releases'>('pages')
 
 type DatasetTableRow = {
@@ -365,6 +369,16 @@ const canDeleteSelectedItems = computed(() =>
   datasetCapabilities.value.canManageItems
   && selectedItems.value.length > 0
   && !selectedItems.value.some(row => deletingItemIds.value.has(row.id))
+)
+const canOpenSelectedItemsInEditor = computed(() =>
+  selectedItems.value.length > 0
+  && !openingEditor.value
+  && !pending.value
+)
+const canOpenAllItemsInEditor = computed(() =>
+  (dataset.value?.items?.length ?? 0) > 0
+  && !openingEditor.value
+  && !pending.value
 )
 const allPageItemsSelected = computed(() =>
   paginatedRows.value.length > 0
@@ -932,6 +946,128 @@ async function deleteSelectedItems() {
   }
 }
 
+async function openDatasetInEditor(itemIds?: string[]) {
+  if (!selectedWorkspace.value || !dataset.value || openingEditor.value) return
+
+  openingEditor.value = true
+  try {
+    const response = await $fetch<DatasetEditorOpenResponse>(
+      `/api/workspaces/${selectedWorkspace.value}/datasets/${dataset.value.id}/editor/open`,
+      {
+        method: 'POST',
+        body: itemIds && itemIds.length > 0 ? { itemIds } : {}
+      }
+    )
+
+    const editorStore = useEditorStore()
+    const sessionStore = useEditorSessionStore()
+    const projects = response.projects || []
+
+    if (projects.length === 0 || projects.every(project => (project.pages?.length ?? 0) === 0)) {
+      toast.add({
+        title: 'No pages opened',
+        description: response.skippedItems?.length
+          ? 'All selected dataset items were skipped.'
+          : 'No openable pages were returned for this dataset.',
+        color: 'warning'
+      })
+      return
+    }
+
+    editorStore.resetEditorState()
+    sessionStore.clearSession({ preserveTextViewSettings: true })
+    sessionStore.initWorkspaceSession(selectedWorkspace.value)
+
+    let firstProjectId: string | null = null
+    let firstPageId: string | null = null
+    let openedCount = 0
+    let readOnlyCount = 0
+
+    for (const project of projects) {
+      const mappedPages = (project.pages || []).map((page) => {
+        openedCount++
+        if (!page.canEdit) readOnlyCount++
+        return {
+          id: page.sourcePageId,
+          projectId: project.projectId,
+          projectName: project.projectName,
+          label: page.sourcePageName,
+          thumbnail: page.thumbnailUrl || undefined,
+          imageVariants: (page.imageVariants || []).map(variant => ({
+            id: variant.id,
+            url: variant.url,
+            fileName: variant.fileName,
+            type: variant.variant || undefined,
+            label: variant.label
+          })),
+          xmlFiles: (page.xmlFiles || []).map(xml => ({
+            id: xml.id,
+            fileName: xml.fileName,
+            schema: xml.schema,
+            schemaVersion: xml.schemaVersion || undefined,
+            variant: xml.variant || undefined
+          })),
+          tags: page.sourcePageTags || [],
+          locked: !page.canEdit,
+          lockedReason: page.canEdit ? null : (page.readOnlyReason || 'Read-only'),
+          annotationContext: page.annotationContext
+        }
+      })
+
+      if (mappedPages.length === 0) continue
+
+      sessionStore.addOpenedProject(project.projectId)
+      editorStore.setProjectPages(project.projectId, mappedPages, { replaceProject: true, markLoaded: true })
+
+      if (!firstProjectId) {
+        firstProjectId = project.projectId
+        firstPageId = mappedPages[0]?.id || null
+      }
+    }
+
+    if (!firstProjectId || !firstPageId) {
+      toast.add({
+        title: 'No pages opened',
+        description: 'No openable pages were returned for this dataset.',
+        color: 'warning'
+      })
+      return
+    }
+
+    sessionStore.setActiveProject(firstProjectId)
+    sessionStore.addOpenedPage(firstProjectId, firstPageId)
+    sessionStore.setActivePage(firstProjectId, firstPageId)
+
+    const skippedCount = response.skippedItems?.length ?? 0
+    const brokenSkippedCount = (response.skippedItems || []).filter(item => item.reasonCode === 'ITEM_BROKEN').length
+    toast.add({
+      title: 'Editor session prepared',
+      description: `${openedCount} page${openedCount === 1 ? '' : 's'} opened, ${readOnlyCount} read-only, ${brokenSkippedCount} broken skipped${skippedCount !== brokenSkippedCount ? ` (${skippedCount} total skipped)` : ''}.`,
+      color: skippedCount > 0 ? 'warning' : 'success'
+    })
+
+    await navigateTo('/editor')
+  } catch (cause: unknown) {
+    toast.add({
+      title: 'Failed to open editor',
+      description: extractApiErrorMessage(cause, 'Could not prepare dataset pages for editor.'),
+      color: 'error'
+    })
+  } finally {
+    openingEditor.value = false
+  }
+}
+
+async function openAllItemsInEditor() {
+  await openDatasetInEditor()
+}
+
+async function openSelectedItemsInEditor() {
+  const ids = selectedItems.value.map(row => row.id)
+  if (ids.length === 0) return
+  await openDatasetInEditor(ids)
+}
+
 async function downloadBlobResponse(response: Response, fallbackName: string) {
   const blob = await response.blob()
   const contentDisposition = response.headers.get('content-disposition')
@@ -966,6 +1102,17 @@ useHead({
 
         <template #right>
           <UFieldGroup>
+            <UButton
+              v-if="canOpenAllItemsInEditor"
+              icon="i-lucide-pencil"
+              color="neutral"
+              variant="outline"
+              :loading="openingEditor"
+              @click="openAllItemsInEditor"
+            >
+              Open in Editor
+            </UButton>
+
             <UButton
               v-if="datasetCapabilities.canEdit"
               color="neutral"
@@ -1315,7 +1462,8 @@ useHead({
                 </div>
 
                 <div v-else class="p-4">
-                  <UTable
+                  <AppTable
+                    table-id="dataset-items"
                     :data="paginatedRows"
                     :columns="itemColumns"
                     class="flex-1"
@@ -1333,6 +1481,19 @@ useHead({
                     :selected-count="selectedItemIds.size"
                     @clear="clearItemSelection"
                   >
+                    <UButton
+                      icon="i-lucide-pencil"
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      class="text-neutral-50 hover:bg-white/10"
+                      :disabled="!canOpenSelectedItemsInEditor"
+                      :loading="openingEditor"
+                      @click="openSelectedItemsInEditor"
+                    >
+                      <span class="hidden sm:inline">Open Selected</span>
+                    </UButton>
+
                     <UButton
                       icon="i-lucide-trash"
                       color="error"
@@ -1394,7 +1555,8 @@ useHead({
                   />
                 </div>
 
-                <UTable
+                <AppTable
+                  table-id="dataset-releases"
                   v-else
                   :data="dataset.releases"
                   :columns="releaseColumns"
