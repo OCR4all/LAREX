@@ -1,9 +1,9 @@
-import { getWorldCoordsFromEvent } from '@/utils/editor/coordinates'
+import { getWorldCoordsFromEvent, imageToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
 import { getVisiblePolygonAtPoint, getHoverablePolylineAtPoint, isPointInPolygon } from '@/utils/editor/hit-detection'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { PolygonType, type View, type AspectRatioScale, type Point } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline, ViewMode } from '@/types/editor/rendering'
-import { TIMING, VIEW_PADDING } from '@/utils/editor/editor-constants'
+import { TIMING, VIEW_PADDING, ZOOM } from '@/utils/editor/editor-constants'
 import type { EditorStateActions } from './use-editor-state'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type {
@@ -69,6 +69,7 @@ export function useEditorInteractions(
     | 'setHoveredPolylineId'
   >
 ) {
+  const WORLD_COORD_THRESHOLD = 2.5
   const editorUiStore = useEditorUiStore()
   const hiddenPolygonIdSet = computed(() => new Set(hiddenPolygonIds.value))
   const hiddenPolylineIdSet = computed(() => new Set(hiddenPolylineIds.value))
@@ -981,6 +982,79 @@ export function useEditorInteractions(
   }
 
   /**
+   * Center and zoom the view so the polygon width fits the viewport width.
+   * Used by canvas text correction to focus a textline without continuously forcing zoom.
+   */
+  function centerViewOnPolygonFitWidth(polygon: RenderablePolygon): void {
+    if (!polygon || !polygon.points || polygon.points.length === 0) return
+    if (!canvas.value || !imageSize.value || imageSize.value.width === 0 || imageSize.value.height === 0) return
+
+    const toWorldPoint = (point: { x: number, y: number }): { x: number, y: number } => {
+      const looksLikeWorldCoords = Math.abs(point.x) <= WORLD_COORD_THRESHOLD
+        && Math.abs(point.y) <= WORLD_COORD_THRESHOLD
+      return looksLikeWorldCoords ? point : imageToWorld(point, imageSize.value)
+    }
+
+    const worldPoints = polygon.points.map(toWorldPoint)
+    if (worldPoints.length === 0) return
+
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    for (const point of worldPoints) {
+      minX = Math.min(minX, point.x)
+      maxX = Math.max(maxX, point.x)
+      minY = Math.min(minY, point.y)
+      maxY = Math.max(maxY, point.y)
+    }
+
+    const canvasElement = canvas.value as HTMLCanvasElement
+    const canvasRect = canvasElement.getBoundingClientRect()
+    const canvasWidthPx = canvasRect.width
+    if (!Number.isFinite(canvasWidthPx) || canvasWidthPx <= 0) return
+
+    const sidebars = [
+      document.querySelector<HTMLElement>('[data-tour="editor-left-sidebar"]'),
+      document.querySelector<HTMLElement>('[data-tour="editor-right-sidebar"]')
+    ].filter((sidebar): sidebar is HTMLElement => Boolean(sidebar))
+
+    const occludedWidthPx = sidebars.reduce((sum, sidebar) => {
+      const rect = sidebar.getBoundingClientRect()
+      const intersectsVertically = rect.bottom > canvasRect.top && rect.top < canvasRect.bottom
+      if (!intersectsVertically) return sum
+      const overlapLeft = Math.max(canvasRect.left, rect.left)
+      const overlapRight = Math.min(canvasRect.right, rect.right)
+      const overlapWidth = Math.max(0, overlapRight - overlapLeft)
+      return sum + overlapWidth
+    }, 0)
+
+    const horizontalPaddingPx = 24
+    const availableWidthPx = Math.max(1, canvasWidthPx - occludedWidthPx - horizontalPaddingPx)
+
+    let minScreenX = Infinity
+    let maxScreenX = -Infinity
+    for (const point of worldPoints) {
+      const clipPoint = worldToClipCoords(point, view, aspectRatioScale.value)
+      if (!Number.isFinite(clipPoint.x)) continue
+      const screenX = ((clipPoint.x + 1) / 2) * canvasWidthPx
+      minScreenX = Math.min(minScreenX, screenX)
+      maxScreenX = Math.max(maxScreenX, screenX)
+    }
+
+    const currentWidthPx = Math.max(1, maxScreenX - minScreenX)
+    const targetWidthPx = Math.max(1, availableWidthPx * 0.9)
+    const fitWidthZoom = view.zoom * (targetWidthPx / currentWidthPx)
+    const newZoom = Math.min(Math.max(fitWidthZoom, ZOOM.MIN), ZOOM.MAX)
+
+    mouseInteraction.setView({
+      zoom: newZoom,
+      offsetX: -(((minX + maxX) / 2) * newZoom),
+      offsetY: -(((minY + maxY) / 2) * newZoom)
+    })
+  }
+
+  /**
    * Center and zoom the view to fit a polyline (baseline) comfortably.
    * Note: Polyline points are stored in pixel coordinates. View offset/zoom operate in normalized clip space.
    */
@@ -1039,6 +1113,7 @@ export function useEditorInteractions(
     onKeyDown,
 
     centerViewOnPolygon,
+    centerViewOnPolygonFitWidth,
     centerViewOnPolyline,
 
     isMarqueeSelecting,

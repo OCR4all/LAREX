@@ -84,6 +84,7 @@ export function createMockSession(initialDocument?: PcGts): {
     mode: 'textline' as const,
     gtIndex: 0,
     showDiff: false,
+    showComments: false,
     confidenceRange: [0, 1] as [number, number],
     selectedIndices: [] as number[],
     filterUnindexed: false,

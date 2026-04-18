@@ -77,7 +77,7 @@ const searchQuery = computed({
   }
 })
 const sortOrder = ref<'asc' | 'desc' | 'confidence'>('asc')
-const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch'>('all')
+const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch' | 'diffMismatch'>('all')
 const selectedRegionId = ref<string | null>(null)
 const matchingTextRegionIds = ref<Set<string>>(new Set())
 const isLoadingMatchingTextRegions = ref(false)
@@ -201,6 +201,8 @@ const onlyMissingGtModel = computed({
     }))
   }
 })
+
+const showCommentsModel = computed(() => textViewSettings.value.showComments)
 
 function looksLikeWorldCoords(points: Point[]): boolean {
   if (points.length === 0) return false
@@ -354,6 +356,7 @@ const regions = computed(() => {
     return {
       id: region.id,
       label: renderable?.label ?? region.type ?? region.id,
+      comments: renderable?.comments ?? region.comments,
       points: toImagePoints(renderable?.points ?? []),
       readingDirection: region.readingDirection as ReadingDirection | undefined,
       textContentVariants: visibleTextContentVariants,
@@ -422,6 +425,11 @@ function regionHasDictionaryMismatch(region: { textContentVariants: Array<{ inde
   return hasLoadedResult ? false : false
 }
 
+function regionHasDiffMismatch(region: { textContentVariants: Array<{ index?: number, text: string }> }): boolean {
+  const gtText = region.textContentVariants.find(variant => variantRole(variant.index) === 'gt')?.text ?? ''
+  return region.textContentVariants.some(variant => variantRole(variant.index) !== 'gt' && variant.text !== gtText)
+}
+
 const selectedRegionIdFromSharedSelection = computed(() => {
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygonSelection = runtime?.selectedPolygonId?.value ?? null
@@ -457,6 +465,8 @@ const displayRegions = computed(() => {
     items = items.filter(region => typeof region.regionConfidence === 'number' && region.regionConfidence < 0.8)
   } else if (filterMode.value === 'dictionaryMismatch') {
     items = items.filter(regionHasDictionaryMismatch)
+  } else if (filterMode.value === 'diffMismatch') {
+    items = items.filter(regionHasDiffMismatch)
   } else if (filterMode.value === 'matchingFilter') {
     if (matchingTextRegionIds.value.size > 0) {
       items = items.filter(region => matchingTextRegionIds.value.has(region.id))
@@ -856,6 +866,14 @@ const filterMenuItems = computed(() => {
       onSelect: () => { filterMode.value = 'dictionaryMismatch' }
     },
     {
+      label: 'Diff mismatches',
+      icon: 'i-lucide-git-compare',
+      active: filterMode.value === 'diffMismatch',
+      activeColor: 'primary',
+      activeVariant: 'solid',
+      onSelect: () => { filterMode.value = 'diffMismatch' }
+    },
+    {
       label: 'Only regions without GT',
       icon: 'i-lucide-leaf',
       active: onlyMissingGtModel.value,
@@ -1047,6 +1065,7 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
             :gt-index="gtIndexModel"
             :recognition-indices="recognitionIndicesModel"
             :show-diff="showDiffModel"
+            :show-comments="showCommentsModel"
             :is-selected="selectedRegionId === region.id"
             :text-highlight-query="activeTextHighlightQuery"
             :project-codec-id="editorStore.projectCodecId"

@@ -55,6 +55,13 @@ const textItemLayoutModel = computed({
   set: next => uiStore.setTextItemLayout(next)
 })
 
+const showCommentsModel = computed({
+  get: () => textViewSettings.value?.showComments ?? false,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({ ...current, showComments: Boolean(next) }))
+  }
+})
+
 const highlightUnknownCodecCharsModel = computed({
   get: () => uiStore.highlightUnknownCodecChars,
   set: next => uiStore.setHighlightUnknownCodecChars(Boolean(next))
@@ -296,6 +303,7 @@ onBeforeUnmount(() => {
                 v-model:padding="paddingModel"
                 v-model:font-size="fontSizeModel"
                 v-model:text-item-layout="textItemLayoutModel"
+                v-model:show-comments="showCommentsModel"
               />
             </template>
             <template v-else-if="item.slot === 'codec'">
@@ -381,6 +389,7 @@ onBeforeUnmount(() => {
             v-model:padding="paddingModel"
             v-model:font-size="fontSizeModel"
             v-model:text-item-layout="textItemLayoutModel"
+            v-model:show-comments="showCommentsModel"
           />
         </div>
       </template>

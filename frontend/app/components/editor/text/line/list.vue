@@ -81,7 +81,7 @@ const searchQuery = computed({
   }
 })
 const sortOrder = ref<'asc' | 'desc' | 'confidence'>('asc')
-const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch'>('all')
+const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch' | 'diffMismatch'>('all')
 
 const collapsedRegionIds = ref<Set<string>>(new Set())
 const orderOverrideByRegion = ref<Record<string, string[]>>({})
@@ -229,6 +229,8 @@ const onlyMissingGtModel = computed({
     }))
   }
 })
+
+const showCommentsModel = computed(() => textViewSettings.value.showComments)
 
 function normalizeSingleLineText(value: string): string {
   return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
@@ -743,6 +745,7 @@ const textlines = computed(() => {
       id: tl.id,
       label: tl.label ?? tl.id,
       parentId: tl.parentId,
+      comments: tl.comments,
       points: toImagePoints(tl.points),
       readingDirection: textLineReadingDirectionById.value[tl.id],
       textContentVariants: visibleTextContentVariants,
@@ -808,6 +811,11 @@ function textlineHasDictionaryMismatch(textline: { textContentVariants: Array<{ 
   return hasLoadedResult ? false : false
 }
 
+function textlineHasDiffMismatch(textline: { textContentVariants: Array<{ index?: number, text: string }> }): boolean {
+  const gtText = textline.textContentVariants.find(variant => variantRole(variant.index) === 'gt')?.text ?? ''
+  return textline.textContentVariants.some(variant => variantRole(variant.index) !== 'gt' && variant.text !== gtText)
+}
+
 const selectedTextlineIdFromSharedSelection = computed(() => {
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygonSelection = runtime?.selectedPolygonId?.value ?? null
@@ -847,6 +855,8 @@ const displayTextlines = computed(() => {
     items = items.filter(tl => typeof tl.lineConfidence === 'number' && tl.lineConfidence < 0.8)
   } else if (filterMode.value === 'dictionaryMismatch') {
     items = items.filter(textlineHasDictionaryMismatch)
+  } else if (filterMode.value === 'diffMismatch') {
+    items = items.filter(textlineHasDiffMismatch)
   } else if (filterMode.value === 'matchingFilter') {
     if (matchingTextLineIds.value.size > 0) {
       items = items.filter(tl => matchingTextLineIds.value.has(tl.id))
@@ -1002,6 +1012,14 @@ const filterMenuItems = computed(() => {
         activeVariant: 'solid',
         disabled: !hasProjectDictionary.value,
         onSelect: () => { filterMode.value = 'dictionaryMismatch' }
+      },
+      {
+        label: 'Diff mismatches',
+        icon: 'i-lucide-git-compare',
+        active: filterMode.value === 'diffMismatch',
+        activeColor: 'primary',
+        activeVariant: 'solid',
+        onSelect: () => { filterMode.value = 'diffMismatch' }
       },
       {
         label: 'Only lines without GT',
@@ -1271,6 +1289,7 @@ const sectionMenuItems = computed(() => {
                       :show-diff="showDiffModel"
                       :is-selected="selectedTextlineId === textline.id"
                       :text-highlight-query="activeTextHighlightQuery"
+                      :show-comments="showCommentsModel"
                       :project-codec-id="editorStore.projectCodecId"
                       :project-dictionary-id="editorStore.projectDictionaryId"
                       :can-quick-add-to-dictionary="canQuickAddToDictionary"

@@ -5,6 +5,7 @@ import type { Region, TextRegion } from '@/models/editor/region'
 import type { AvailableItem } from '@/components/editor/reading-order'
 import type { TreeItemData } from '@/components/editor/sidebar/tree-item.vue'
 import type { RenderablePolyline } from '@/types/editor/rendering'
+import type { SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import type { Commander } from '@/commands/editor/commander'
 import type { CommandContext } from '@/commands/editor/types'
 import type { PcGts } from '@/models/editor/document'
@@ -82,8 +83,8 @@ const props = withDefaults(defineProps<PolygonSidebarProps>(), {
 })
 
 const emit = defineEmits<{
-  'select-polygon': [polygonId: string | null, options?: { zoomToFit?: boolean }]
-  'select-polyline': [polylineId: string | null, options?: { zoomToFit?: boolean }]
+  'select-polygon': [polygonId: string | null, options?: SelectionFocusOptions]
+  'select-polyline': [polylineId: string | null, options?: SelectionFocusOptions]
   'hover-polygon': [polygonId: string | null]
   'hover-polyline': [polylineId: string | null]
   'unhover-polygon': []

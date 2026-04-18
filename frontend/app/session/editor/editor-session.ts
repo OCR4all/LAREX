@@ -20,6 +20,7 @@ export type TextViewSettings = {
   mode: 'textline' | 'region'
   gtIndex: number | undefined
   showDiff: boolean
+  showComments: boolean
   confidenceRange: [number, number]
   selectedIndices: number[]
   filterUnindexed: boolean
@@ -76,6 +77,7 @@ function createServerPlaceholderSession(canvasId: string): EditorSession {
     mode: 'textline',
     gtIndex: 0,
     showDiff: false,
+    showComments: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,
@@ -111,6 +113,7 @@ export function ensureEditorSession(canvasId: string, initial?: { document?: PcG
     mode: 'textline',
     gtIndex: 0,
     showDiff: false,
+    showComments: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,

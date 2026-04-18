@@ -125,7 +125,9 @@ describe('editor.session.store', () => {
     expect(store.textViewSettings).toEqual({
       mode: 'textline',
       gtIndex: 0,
+      searchQuery: '',
       showDiff: false,
+      showComments: false,
       confidenceRange: [0, 1],
       selectedIndices: [],
       filterUnindexed: false,
@@ -158,7 +160,9 @@ describe('editor.session.store', () => {
     expect(reloadedStore.textViewSettings).toEqual({
       mode: 'textline',
       gtIndex: 3,
+      searchQuery: '',
       showDiff: true,
+      showComments: false,
       confidenceRange: [0.2, 0.9],
       selectedIndices: [2, 5],
       filterUnindexed: true,
@@ -187,7 +191,9 @@ describe('editor.session.store', () => {
     expect(store.textViewSettings).toEqual({
       mode: 'textline',
       gtIndex: 0,
+      searchQuery: '',
       showDiff: true,
+      showComments: false,
       confidenceRange: [0.25, 0.75],
       selectedIndices: [7],
       filterUnindexed: true,
@@ -221,7 +227,9 @@ describe('editor.session.store', () => {
     expect(store.textViewSettings).toEqual({
       mode: 'textline',
       gtIndex: 4,
+      searchQuery: '',
       showDiff: false,
+      showComments: false,
       confidenceRange: [0, 1],
       selectedIndices: [],
       filterUnindexed: false,
@@ -249,7 +257,9 @@ describe('editor.session.store', () => {
     expect(reloadedStore.textViewSettings).toEqual({
       mode: 'region',
       gtIndex: 0,
+      searchQuery: '',
       showDiff: false,
+      showComments: false,
       confidenceRange: [0, 1],
       selectedIndices: [],
       filterUnindexed: false,

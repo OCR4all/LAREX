@@ -4,7 +4,7 @@ import type { CommandContext } from '@/commands/editor/types'
 import type { TextContentVariantData } from '@/models/editor'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
-import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
+import type { EditorCanvasControls, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 
 export type TextViewEditorStoreLike = {
   regionsByCanvasId: (canvasId: string) => RenderablePolygon[]
@@ -14,8 +14,8 @@ export type TextRuntimeControls = {
   polygons: RenderablePolygon[]
   commander?: Commander
   selectedPolygonId?: ComputedRef<string | null>
-  selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-  selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
+  selectPolygonById?: (id: string | null, options?: SelectionFocusOptions) => void
+  selectPolylineById?: (id: string | null, options?: SelectionFocusOptions) => void
 }
 
 export function getTextViewRuntimeControls(

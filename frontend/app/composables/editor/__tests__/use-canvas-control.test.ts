@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, reactive, ref } from 'vue'
+import type { SelectionFocusOptions } from '@/types/editor/canvas-controls'
 
 const editorStoreMock = vi.hoisted(() => ({
   clearCanvasSelection: vi.fn(),
@@ -20,6 +21,12 @@ vi.mock('@/stores/editor/editor.ui.store', () => ({
   useEditorUiStore: () => ({
     lastLayoutViewMode: 'default',
     ...editorUiStoreMock
+  })
+}))
+
+vi.mock('@/composables/editor/use-editor-collaboration', () => ({
+  useEditorCollaboration: () => ({
+    canEditCanvas: () => true
   })
 }))
 
@@ -48,14 +55,14 @@ describe('useCanvasControl', () => {
       selectedPolylineIndex: ReturnType<typeof ref<number>>
       selectedPolygonIds: ReturnType<typeof ref<string[]>>
       selectedPolylineIds: ReturnType<typeof ref<string[]>>
-      selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-      selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
+      selectPolygonById?: (id: string | null, options?: SelectionFocusOptions) => void
+      selectPolylineById?: (id: string | null, options?: SelectionFocusOptions) => void
       unhoverPolygon?: () => void
       unhoverPolyline?: () => void
     }
 
-    const selectPolygonById = vi.fn<(id: string | null, options?: { zoomToFit?: boolean }) => void>()
-    const selectPolylineById = vi.fn<(id: string | null, options?: { zoomToFit?: boolean }) => void>()
+    const selectPolygonById = vi.fn<(id: string | null, options?: SelectionFocusOptions) => void>()
+    const selectPolylineById = vi.fn<(id: string | null, options?: SelectionFocusOptions) => void>()
     const unhoverPolygon = vi.fn<() => void>()
     const unhoverPolyline = vi.fn<() => void>()
 

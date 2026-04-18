@@ -37,6 +37,7 @@ interface Props {
   textline: {
     id: string
     label?: string
+    comments?: string
     points: Point[]
     readingDirection?: ReadingDirection
     textContentVariants: TextContentVariantData[]
@@ -55,6 +56,7 @@ interface Props {
   gtIndex?: number | undefined
   recognitionIndices?: number[]
   showDiff?: boolean
+  showComments?: boolean
   isSelected?: boolean
   textHighlightQuery?: string | null
   projectCodecId?: string | null
@@ -93,7 +95,8 @@ const props = withDefaults(defineProps<Props>(), {
   showDragHandle: true,
   showDeleteButton: true,
   cutoutMaxHeightClass: null,
-  readOnly: false
+  readOnly: false,
+  showComments: false
 })
 const emit = defineEmits<{
   updateTextContentVariant: [id: string, arrayPos: number, text: string]
@@ -158,6 +161,7 @@ const textDirectionAttributes = computed(() => getReadingDirectionTextAttributes
 const textDirectionStyle = computed(() => textDirectionAttributes.value.style)
 const textDirectionDir = computed(() => textDirectionAttributes.value.dir)
 const normalizedTextHighlightQuery = computed(() => props.textHighlightQuery?.trim() ?? '')
+const normalizedComment = computed(() => (props.textline.comments ?? '').trim())
 const editableTextContentVariants = computed(() => props.textline.allTextContentVariants ?? props.textline.textContentVariants)
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
@@ -1015,6 +1019,18 @@ onBeforeUnmount(() => {
                 Add
               </UButton>
             </div>
+          </div>
+
+          <div
+            v-if="props.showComments && normalizedComment.length > 0"
+            class="rounded-sm border border-amber-200/70 bg-amber-50/70 px-2 py-1.5"
+          >
+            <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800/90">
+              Comment
+            </p>
+            <p class="mt-0.5 text-xs text-amber-900/90 whitespace-pre-wrap break-words">
+              {{ normalizedComment }}
+            </p>
           </div>
 
           <div class="flex flex-col gap-2">

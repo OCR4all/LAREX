@@ -11,6 +11,7 @@ export interface EditorTextViewSettings {
   gtIndex: number | undefined
   searchQuery: string
   showDiff: boolean
+  showComments: boolean
   confidenceRange: [number, number]
   selectedIndices: number[]
   filterUnindexed: boolean
@@ -49,6 +50,7 @@ function createDefaultTextViewSettings(): EditorTextViewSettings {
     gtIndex: 0,
     searchQuery: '',
     showDiff: false,
+    showComments: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,
@@ -147,6 +149,7 @@ function normalizeTextViewSettings(value: unknown): EditorTextViewSettings {
     gtIndex,
     searchQuery: typeof candidate.searchQuery === 'string' ? candidate.searchQuery : defaults.searchQuery,
     showDiff: Boolean(candidate.showDiff ?? defaults.showDiff),
+    showComments: Boolean(candidate.showComments ?? defaults.showComments),
     confidenceRange,
     selectedIndices,
     filterUnindexed: Boolean(candidate.filterUnindexed ?? defaults.filterUnindexed),

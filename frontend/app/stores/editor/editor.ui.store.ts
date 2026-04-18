@@ -79,6 +79,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const textViewFontSize = ref<number>(18)
   const textViewPadding = ref<number>(10)
   const textItemLayout = ref<TextItemLayout>('side-by-side')
+  const canvasTextCorrectionEnabled = ref<boolean>(false)
   const highlightUnknownCodecChars = ref<boolean>(false)
   const includeWhitespaceInCodecHighlight = ref<boolean>(false)
   const highlightUnknownDictionaryTokens = ref<boolean>(false)
@@ -406,6 +407,14 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     editorPreferences.updatePreference('textItemLayout', layout)
   }
 
+  function setCanvasTextCorrectionEnabled(enabled: boolean) {
+    canvasTextCorrectionEnabled.value = Boolean(enabled)
+  }
+
+  function toggleCanvasTextCorrection() {
+    setCanvasTextCorrectionEnabled(!canvasTextCorrectionEnabled.value)
+  }
+
   function setHighlightUnknownCodecChars(enabled: boolean) {
     highlightUnknownCodecChars.value = enabled
     editorPreferences.updatePreference('highlightUnknownCodecChars', enabled)
@@ -535,6 +544,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     textViewFontSize,
     textViewPadding,
     textItemLayout,
+    canvasTextCorrectionEnabled,
     highlightUnknownCodecChars,
     includeWhitespaceInCodecHighlight,
     highlightUnknownDictionaryTokens,
@@ -596,6 +606,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setTextViewFontSize,
     setTextViewPadding,
     setTextItemLayout,
+    setCanvasTextCorrectionEnabled,
+    toggleCanvasTextCorrection,
     setHighlightUnknownCodecChars,
     toggleHighlightUnknownCodecChars,
     setIncludeWhitespaceInCodecHighlight,

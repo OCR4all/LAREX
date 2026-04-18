@@ -499,6 +499,13 @@ const cycleVirtualKeyboardMode = () => {
   uiStore.setVirtualKeyboardMode(nextMode)
 }
 
+const canvasTextCorrectionEnabledModel = computed({
+  get: () => uiStore.canvasTextCorrectionEnabled,
+  set: (next: boolean) => {
+    uiStore.setCanvasTextCorrectionEnabled(Boolean(next))
+  }
+})
+
 const vkDropdownItems = computed(() => [
   [
     {
@@ -1072,6 +1079,23 @@ const moreOptionsDropdownItems = computed(() => [
               </UTooltip>
             </template>
           </UTabs>
+
+          <UTooltip
+            :delay-duration="0"
+            text="Canvas GT correction overlay"
+          >
+            <UButton
+              variant="ghost"
+              size="sm"
+              icon="i-lucide-notebook-pen"
+              color="neutral"
+              :active="canvasTextCorrectionEnabledModel"
+              active-color="primary"
+              active-variant="solid"
+              :disabled="!currentCanvasState"
+              @click="canvasTextCorrectionEnabledModel = !canvasTextCorrectionEnabledModel"
+            />
+          </UTooltip>
 
           <USeparator
             v-if="showUndoTool || showRedoTool || showHistoryTool"

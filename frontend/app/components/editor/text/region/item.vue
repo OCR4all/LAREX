@@ -14,6 +14,7 @@ interface Props {
   region: {
     id: string
     label?: string
+    comments?: string
     points: Point[]
     readingDirection?: ReadingDirection
     textContentVariants: TextContentVariantData[]
@@ -32,6 +33,7 @@ interface Props {
   gtIndex?: number | undefined
   recognitionIndices?: number[]
   showDiff?: boolean
+  showComments?: boolean
   isSelected?: boolean
   textHighlightQuery?: string | null
   projectCodecId?: string | null
@@ -100,6 +102,7 @@ const lineItemModel = computed(() => ({
     :gt-index="props.gtIndex"
     :recognition-indices="props.recognitionIndices"
     :show-diff="props.showDiff"
+    :show-comments="props.showComments"
     :is-selected="props.isSelected"
     :text-highlight-query="props.textHighlightQuery"
     :project-codec-id="props.projectCodecId"

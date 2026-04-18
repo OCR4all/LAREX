@@ -6,6 +6,22 @@ import type { PolygonType } from '@/models/editor'
 import type { SpatialIndexService } from '@/services/editor/spatial-index-service'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 
+export type SelectionFocusMode = 'context' | 'fit-width' | 'none'
+
+export interface SelectionFocusOptions {
+  /**
+   * Backward-compatible flag:
+   * - undefined/true => keep default focus behavior
+   * - false => no automatic focus adjustment
+   */
+  zoomToFit?: boolean
+  /**
+   * Explicit focus strategy.
+   * If provided, takes precedence over `zoomToFit`.
+   */
+  focusMode?: SelectionFocusMode
+}
+
 export interface EditorCanvasControls {
   commander: Commander
   isCanvasEditable: ComputedRef<boolean>
@@ -62,8 +78,8 @@ export interface EditorCanvasControls {
   hoveredPolygonId?: Ref<string | null>
   hoveredPolylineId?: Ref<string | null>
   cutDrawing?: CutDrawing
-  selectPolygonById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
-  selectPolylineById?: (id: string | null, options?: { zoomToFit?: boolean }) => void
+  selectPolygonById?: (id: string | null, options?: SelectionFocusOptions) => void
+  selectPolylineById?: (id: string | null, options?: SelectionFocusOptions) => void
   hoverPolygonById?: (id: string | null) => void
   hoverPolylineById?: (id: string | null) => void
   unhoverPolygon?: () => void
