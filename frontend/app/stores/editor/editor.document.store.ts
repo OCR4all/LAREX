@@ -166,11 +166,12 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     }))
   }
 
-  function setProjectPages(projectId: string, projectPages: PageData[], options?: { replaceProject?: boolean }) {
+  function setProjectPages(projectId: string, projectPages: PageData[], options?: { replaceProject?: boolean, markLoaded?: boolean }) {
     ensureProject(projectId)
 
     const incoming = sortPages(normalizePages(projectId, projectPages))
     const replaceProject = options?.replaceProject !== false
+    const markLoaded = options?.markLoaded === true
     const current = pagesByProjectId.value[projectId] ?? []
 
     if (replaceProject) {
@@ -180,7 +181,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       }
       loadedPageIdsByProjectId.value = {
         ...loadedPageIdsByProjectId.value,
-        [projectId]: new Set()
+        [projectId]: markLoaded ? new Set(incoming.map(page => page.id)) : new Set()
       }
     } else {
       const byId = new Map<string, PageData>()
@@ -189,6 +190,16 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
       pagesByProjectId.value = {
         ...pagesByProjectId.value,
         [projectId]: sortPages(Array.from(byId.values()))
+      }
+      if (markLoaded) {
+        const nextLoaded = cloneSet(loadedPageIdsByProjectId.value[projectId] ?? new Set())
+        for (const page of incoming) {
+          nextLoaded.add(page.id)
+        }
+        loadedPageIdsByProjectId.value = {
+          ...loadedPageIdsByProjectId.value,
+          [projectId]: nextLoaded
+        }
       }
     }
 

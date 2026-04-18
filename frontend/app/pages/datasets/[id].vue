@@ -380,13 +380,16 @@ const canOpenAllItemsInEditor = computed(() =>
   && !openingEditor.value
   && !pending.value
 )
-const allPageItemsSelected = computed(() =>
-  paginatedRows.value.length > 0
-  && paginatedRows.value.every(row => selectedItemIds.value.has(row.id))
+const selectedFilteredItemCount = computed(() =>
+  filteredAndSortedData.value.reduce((count, row) => count + (selectedItemIds.value.has(row.id) ? 1 : 0), 0)
 )
-const somePageItemsSelected = computed(() =>
-  paginatedRows.value.some(row => selectedItemIds.value.has(row.id))
-  && !allPageItemsSelected.value
+const allFilteredItemsSelected = computed(() =>
+  filteredAndSortedData.value.length > 0
+  && selectedFilteredItemCount.value === filteredAndSortedData.value.length
+)
+const someFilteredItemsSelected = computed(() =>
+  selectedFilteredItemCount.value > 0
+  && selectedFilteredItemCount.value < filteredAndSortedData.value.length
 )
 
 function toggleItemSelection(itemId: string) {
@@ -396,12 +399,12 @@ function toggleItemSelection(itemId: string) {
   selectedItemIds.value = next
 }
 
-function toggleCurrentItemPageSelection() {
+function toggleAllFilteredItemSelection() {
   const next = new Set(selectedItemIds.value)
-  if (allPageItemsSelected.value) {
-    paginatedRows.value.forEach(row => next.delete(row.id))
+  if (allFilteredItemsSelected.value) {
+    filteredAndSortedData.value.forEach(row => next.delete(row.id))
   } else {
-    paginatedRows.value.forEach(row => next.add(row.id))
+    filteredAndSortedData.value.forEach(row => next.add(row.id))
   }
   selectedItemIds.value = next
 }
@@ -493,9 +496,9 @@ const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
     id: 'select',
     header: () => h('input', {
       type: 'checkbox',
-      checked: allPageItemsSelected.value,
-      indeterminate: somePageItemsSelected.value,
-      onChange: toggleCurrentItemPageSelection,
+      checked: allFilteredItemsSelected.value,
+      indeterminate: someFilteredItemsSelected.value,
+      onChange: toggleAllFilteredItemSelection,
       class: 'rounded-sm border-neutral-300 text-primary-600 focus:ring-primary-500'
     }),
     cell: ({ row }) => h('input', {
@@ -964,10 +967,22 @@ async function openDatasetInEditor(itemIds?: string[]) {
     const projects = response.projects || []
 
     if (projects.length === 0 || projects.every(project => (project.pages?.length ?? 0) === 0)) {
+      const skippedReasonSummary = Object.entries(
+        (response.skippedItems || []).reduce<Record<string, number>>((acc, item) => {
+          const key = item.reasonCode || 'UNKNOWN'
+          acc[key] = (acc[key] || 0) + 1
+          return acc
+        }, {})
+      )
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 2)
+        .map(([reason, count]) => `${reason} (${count})`)
+        .join(', ')
+
       toast.add({
         title: 'No pages opened',
         description: response.skippedItems?.length
-          ? 'All selected dataset items were skipped.'
+          ? `All selected dataset items were skipped.${skippedReasonSummary ? ` Reasons: ${skippedReasonSummary}.` : ''}`
           : 'No openable pages were returned for this dataset.',
         color: 'warning'
       })

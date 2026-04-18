@@ -145,3 +145,61 @@ export interface DatasetValidationResult {
   warnings: string[]
   issues: DatasetValidateIssue[]
 }
+
+export interface DatasetEditorAnnotationContext {
+  mode: 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY'
+  basePath: string
+  createAllowed: boolean
+}
+
+export interface DatasetEditorImageVariant {
+  id: string
+  fileName: string
+  variant?: string | null
+  label: string
+  url: string
+}
+
+export interface DatasetEditorXmlFile {
+  id: string
+  fileName: string
+  schema: 'PAGE_XML' | 'ALTO_XML' | 'UNKNOWN'
+  schemaVersion?: string | null
+  variant?: string | null
+}
+
+export interface DatasetEditorPage {
+  itemId: string
+  sourceProjectId: string
+  sourceProjectName: string
+  sourcePageId: string
+  sourcePageName: string
+  mode: DatasetItemMode
+  sourcePageTags: string[]
+  canEdit: boolean
+  readOnlyReason?: string | null
+  annotationContext: DatasetEditorAnnotationContext
+  imageVariants: DatasetEditorImageVariant[]
+  xmlFiles: DatasetEditorXmlFile[]
+  thumbnailUrl?: string | null
+}
+
+export interface DatasetEditorProjectPages {
+  projectId: string
+  projectName: string
+  pages: DatasetEditorPage[]
+}
+
+export interface DatasetEditorSkippedItem {
+  itemId: string
+  sourceProjectId: string
+  sourcePageId: string
+  sourcePageName: string
+  reasonCode: string
+  reason: string
+}
+
+export interface DatasetEditorOpenResponse {
+  projects: DatasetEditorProjectPages[]
+  skippedItems: DatasetEditorSkippedItem[]
+}

@@ -1,6 +1,7 @@
 import { getEditorSession, type EditorSession } from '@/session/editor/editor-session'
 import { collectPolygonsFromPcGts, collectPolylinesFromPcGts } from '@/stores/editor/editor.collectors.store'
 import { useEditorStore } from '@/stores/editor/editor.store'
+import type { AnnotationApiContext } from '@/stores/editor/types'
 import { visibilityService } from '@/services/editor/visibility-service'
 import { convertPageDtoToPcGts, convertPcGtsToPageDto } from '@/services/editor/page-conversion.service'
 import {
@@ -177,6 +178,14 @@ function roomHasRemoteParticipants(
   return distinctRemoteUsers.size > 0
 }
 
+function defaultAnnotationContext(projectId: string, pageId: string): AnnotationApiContext {
+  return {
+    mode: 'PROJECT',
+    basePath: `/api/projects/${projectId}/pages/${pageId}/annotations`,
+    createAllowed: true
+  }
+}
+
 export function useEditorCollaboration() {
   const { user, loggedIn } = useUserSession()
   const editorStore = useEditorStore()
@@ -236,6 +245,41 @@ export function useEditorCollaboration() {
     return (left?.requester.id ?? null) === (right?.requester.id ?? null)
       && (left?.requestedAt ?? null) === (right?.requestedAt ?? null)
       && (left?.force ?? false) === (right?.force ?? false)
+  }
+
+  const resolveAnnotationContextForCanvas = (canvasId: string): AnnotationApiContext | null => {
+    const canvas = editorStore.getCanvas(canvasId)
+    if (!canvas?.projectId || !canvas.pageId) return null
+
+    if (canvas.annotationContext?.basePath) {
+      return canvas.annotationContext
+    }
+
+    const page = editorStore.getPage(canvas.pageId, canvas.projectId)
+    if (page?.annotationContext?.basePath) {
+      return page.annotationContext
+    }
+
+    return defaultAnnotationContext(canvas.projectId, canvas.pageId)
+  }
+
+  const annotationBasePathForRoom = (room: CollaborationRoomSession): string => {
+    if (room.identity.annotationBasePath) {
+      return room.identity.annotationBasePath
+    }
+    return defaultAnnotationContext(room.identity.projectId, room.identity.pageId).basePath
+  }
+
+  const annotationResourcePathForRoom = (room: CollaborationRoomSession, xmlId?: string): string => {
+    return `${annotationBasePathForRoom(room)}/${xmlId ?? room.identity.xmlId}`
+  }
+
+  const collaborationPathForRoom = (room: CollaborationRoomSession, suffix: string): string => {
+    return `${annotationResourcePathForRoom(room)}/collaboration/${suffix}`
+  }
+
+  const revisionPathForRoom = (room: CollaborationRoomSession): string => {
+    return collaborationPathForRoom(room, 'revision')
   }
 
   const setLocallyExpired = (roomKey: string, expired: boolean) => {
@@ -468,7 +512,7 @@ export function useEditorCollaboration() {
 
     try {
       const lease = await $fetch<CollaborationLeaseResponse>(
-        `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/heartbeat`,
+        collaborationPathForRoom(room, 'lease/heartbeat'),
         {
           method: 'POST',
           body: { instanceId: ensureInstanceId() }
@@ -556,7 +600,7 @@ export function useEditorCollaboration() {
     setLeaseExpiringSoon(roomKey, false)
     teardownRoomBroadcastChannel(roomKey, true)
 
-    const url = `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/release`
+    const url = collaborationPathForRoom(room, 'lease/release')
     const payload = JSON.stringify({ instanceId: ensureInstanceId() })
 
     if (keepalive && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
@@ -673,7 +717,7 @@ export function useEditorCollaboration() {
 
       try {
         const revision = await $fetch<CollaborationRevisionResponse>(
-          `/api/projects/${currentRoom.identity.projectId}/pages/${currentRoom.identity.pageId}/annotations/${currentRoom.identity.xmlId}/collaboration/revision`
+          revisionPathForRoom(currentRoom)
         )
 
         const nextRooms = cloneRooms(rooms.value)
@@ -963,7 +1007,7 @@ export function useEditorCollaboration() {
     await reloadBoundCanvasesForRoom(roomKey)
 
     const revision = await $fetch<CollaborationRevisionResponse>(
-      `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/revision`
+      revisionPathForRoom(room)
     )
 
     const nextRooms = cloneRooms(rooms.value)
@@ -1052,15 +1096,20 @@ export function useEditorCollaboration() {
     projectId: string,
     pageId: string,
     xmlId: string,
-    canvasId: string
+    canvasId: string,
+    annotationContext: AnnotationApiContext
   ): Promise<CollaborationRoomSession | null> => {
     if (import.meta.server) return null
 
+    const context = annotationContext?.basePath
+      ? annotationContext
+      : defaultAnnotationContext(projectId, pageId)
+
     const bootstrap = await $fetch<CollaborationRoomBootstrap>(
-      `/api/projects/${projectId}/pages/${pageId}/annotations/${xmlId}/collaboration/token`
+      `${context.basePath}/${xmlId}/collaboration/token`
     )
     const lease = await $fetch<CollaborationLeaseResponse>(
-      `/api/projects/${projectId}/pages/${pageId}/annotations/${xmlId}/collaboration/lease/join`,
+      `${context.basePath}/${xmlId}/collaboration/lease/join`,
       {
         method: 'POST',
         body: { instanceId: ensureInstanceId() }
@@ -1077,6 +1126,9 @@ export function useEditorCollaboration() {
         projectId: bootstrap.projectId,
         pageId: bootstrap.pageId,
         xmlId: bootstrap.xmlId,
+        annotationBasePath: context.basePath,
+        annotationMode: context.mode,
+        createAllowed: context.createAllowed,
         token: bootstrap.token,
         canEdit: bootstrap.canEdit,
         canForceTakeover: bootstrap.canForceTakeover,
@@ -1135,13 +1187,17 @@ export function useEditorCollaboration() {
     if (!projectId || !pageId || canvas.isLoadingAnnotations) {
       return null
     }
-
-    const page = editorStore.getPage(pageId, projectId)
-    if (page?.locked) {
+    const annotationContext = getAnnotationContextForCanvas(canvasId)
+    if (!annotationContext) {
       return null
     }
 
-    const pageKey = `${projectId}:${pageId}`
+    const page = editorStore.getPage(pageId, projectId)
+    if (!annotationContext.createAllowed || page?.locked) {
+      return null
+    }
+
+    const pageKey = `${annotationContext.basePath}`
     const pendingCreation = pendingInitialXmlCreations.get(pageKey)
     if (pendingCreation) {
       return pendingCreation
@@ -1157,7 +1213,7 @@ export function useEditorCollaboration() {
       try {
         const pageDto = convertPcGtsToPageDto(pcGts)
         const created = await $fetch<{ xmlId: string, fileName?: string, schemaVersion?: string }>(
-          `/api/projects/${projectId}/pages/${pageId}/annotations`,
+          annotationContext.basePath,
           {
             method: 'POST',
             body: pageDto
@@ -1202,13 +1258,17 @@ export function useEditorCollaboration() {
     if (!canvas?.projectId || !canvas.pageId || canvas.isLoadingAnnotations) {
       return null
     }
+    const annotationContext = resolveAnnotationContextForCanvas(canvasId)
+    if (!annotationContext) {
+      return null
+    }
 
     const xmlId = canvas.xmlFileId ?? await ensureInitialPageXmlForCanvas(canvasId)
     if (!xmlId) {
       return null
     }
 
-    return ensureRoom(canvas.projectId, canvas.pageId, xmlId, canvasId)
+    return ensureRoom(canvas.projectId, canvas.pageId, xmlId, canvasId, annotationContext)
   }
 
   const leaveCanvasRoom = (canvasId: string) => {
@@ -1278,7 +1338,7 @@ export function useEditorCollaboration() {
     if (!room) return
 
     const revision = await $fetch<CollaborationRevisionResponse>(
-      `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/revision`
+      revisionPathForRoom(room)
     )
 
     const nextRooms = cloneRooms(rooms.value)
@@ -1410,7 +1470,7 @@ export function useEditorCollaboration() {
 
     try {
       const response = await $fetch<CollaborationLeaseResponse>(
-        `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/request`,
+        collaborationPathForRoom(room, 'lease/request'),
         {
           method: 'POST',
           body: { force }
@@ -1436,7 +1496,7 @@ export function useEditorCollaboration() {
 
     try {
       const response = await $fetch<CollaborationLeaseResponse>(
-        `/api/projects/${room.identity.projectId}/pages/${room.identity.pageId}/annotations/${room.identity.xmlId}/collaboration/lease/respond`,
+        collaborationPathForRoom(room, 'lease/respond'),
         {
           method: 'POST',
           body: { decision, handoffMode }

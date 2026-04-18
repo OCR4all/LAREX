@@ -709,11 +709,26 @@ async function handleSaveDocument() {
   }
 }
 
+function resolveCanvasAnnotationContext(canvasId: string) {
+  const canvas = editorStore.canvases[canvasId]
+  if (!canvas?.projectId || !canvas.pageId) return null
+  if (canvas.annotationContext?.basePath) return canvas.annotationContext
+  const page = editorStore.getPage(canvas.pageId, canvas.projectId)
+  if (page?.annotationContext?.basePath) return page.annotationContext
+  return {
+    mode: 'PROJECT' as const,
+    basePath: `/api/projects/${canvas.projectId}/pages/${canvas.pageId}/annotations`,
+    createAllowed: true
+  }
+}
+
 async function openVersionHistory() {
   const canvasId = editorStore.activeCanvasId
   if (!canvasId) return
   const canvas = editorStore.canvases[canvasId]
   if (!canvas?.xmlFileId || !canvas?.pageId || !canvas?.projectId) return
+  const annotationContext = resolveCanvasAnnotationContext(canvasId)
+  if (!annotationContext) return
 
   if (!collaboration.canEditCanvas(canvasId)) {
     toast.add({
@@ -727,7 +742,8 @@ async function openVersionHistory() {
   const instance = versionHistorySlideover.open({
     projectId: canvas.projectId,
     pageId: canvas.pageId,
-    xmlId: canvas.xmlFileId
+    xmlId: canvas.xmlFileId,
+    annotationBasePath: annotationContext.basePath
   })
   const result = await instance.result
   if (result === 'restored') {
@@ -749,6 +765,8 @@ async function openXmlEditor() {
     })
     return
   }
+  const annotationContext = resolveCanvasAnnotationContext(canvasId)
+  if (!annotationContext) return
 
   const room = collaboration.getRoomForCanvas(canvasId)
   const canEditXml = room?.identity.canEdit ?? activeCanvasCanEdit.value
@@ -758,6 +776,9 @@ async function openXmlEditor() {
     projectId: canvas.projectId,
     pageId: canvas.pageId,
     xmlId: canvas.xmlFileId,
+    xmlBasePath: annotationContext.basePath.endsWith('/annotations')
+      ? `${annotationContext.basePath.slice(0, -'/annotations'.length)}/xml`
+      : annotationContext.basePath.replace(/\/annotations$/, '/xml'),
     pageName,
     readOnly: !canEditXml,
     readOnlyMessage: canEditXml
@@ -1356,6 +1377,13 @@ const activeCanvasCanEdit = computed(() => {
   const canvasId = activeCanvasId.value
   if (!canvasId) return true
   return collaboration.canEditCanvas(canvasId)
+})
+
+const activeAnnotationMode = computed<'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY' | null>(() => {
+  const canvasId = activeCanvasId.value
+  if (!canvasId) return null
+  const annotationContext = resolveCanvasAnnotationContext(canvasId)
+  return annotationContext?.mode ?? null
 })
 
 const canOpenActiveCanvasXmlEditor = computed(() => {
@@ -2446,6 +2474,7 @@ const onReady = (event: DockviewReadyEvent) => {
         :editor="activeCanvasEditor"
         :pending-takeover="activePendingTakeover"
         :can-edit="activeCanvasCanEdit"
+        :annotation-mode="activeAnnotationMode"
       />
 
       <EditorEmpty v-if="!activeCanvasId" class="absolute inset-0 z-10" />

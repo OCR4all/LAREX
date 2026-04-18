@@ -13,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
+import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemRepository;
@@ -132,6 +133,80 @@ public class DatasetService {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         Dataset dataset = requireDataset(workspaceId, datasetId);
         return toDetailResponse(dataset, authorizationPolicyService.resolveDatasetCapabilities(workspaceId, userId));
+    }
+
+    public DatasetDto.EditorOpenResponse openDatasetItemsInEditor(String workspaceId,
+                                                                  String datasetId,
+                                                                  DatasetDto.EditorOpenRequest request,
+                                                                  String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        Dataset dataset = requireDataset(workspaceId, datasetId);
+
+        List<DatasetItem> allItems = datasetItemRepository.findByDatasetIdOrderByCreatedAsc(datasetId);
+        Set<String> selectedIds = normalizeSelectedItemIds(request);
+        List<DatasetItem> itemsToProcess = selectedIds.isEmpty()
+                ? allItems
+                : allItems.stream()
+                    .filter(item -> selectedIds.contains(item.getId()))
+                    .toList();
+
+        Map<String, MutableProjectPages> grouped = new LinkedHashMap<>();
+        List<DatasetDto.EditorSkippedItem> skipped = new ArrayList<>();
+
+        if (!selectedIds.isEmpty()) {
+            Set<String> foundIds = itemsToProcess.stream().map(DatasetItem::getId).collect(Collectors.toSet());
+            for (String selectedId : selectedIds) {
+                if (!foundIds.contains(selectedId)) {
+                    skipped.add(new DatasetDto.EditorSkippedItem(
+                            selectedId,
+                            null,
+                            null,
+                            null,
+                            "ITEM_NOT_FOUND",
+                            "Dataset item is missing"
+                    ));
+                }
+            }
+        }
+
+        for (DatasetItem item : itemsToProcess) {
+            OpenableEditorPage resolved;
+            try {
+                resolved = resolveOpenableEditorPage(workspaceId, datasetId, item, userId);
+            } catch (RuntimeException ex) {
+                resolved = OpenableEditorPage.skipped("ITEM_UNAVAILABLE", describeError(ex));
+            }
+            if (!resolved.openable()) {
+                skipped.add(new DatasetDto.EditorSkippedItem(
+                        item.getId(),
+                        item.getSourceProjectId(),
+                        item.getSourcePageId(),
+                        item.getSourcePageName(),
+                        resolved.skipReasonCode(),
+                        resolved.skipReason()
+                ));
+                continue;
+            }
+
+            String projectId = resolved.projectId();
+            MutableProjectPages projectPages = grouped.get(projectId);
+            if (projectPages == null) {
+                projectPages = new MutableProjectPages(
+                        projectId,
+                        resolved.projectName(),
+                        new ArrayList<>()
+                );
+                grouped.put(projectId, projectPages);
+            }
+            projectPages.pages().add(resolved.page());
+        }
+
+        return new DatasetDto.EditorOpenResponse(
+                grouped.values().stream()
+                        .map(group -> new DatasetDto.EditorProjectPages(group.projectId(), group.projectName(), group.pages()))
+                        .toList(),
+                skipped
+        );
     }
 
     public DatasetDto.DetailResponse createDataset(String workspaceId,
@@ -584,6 +659,232 @@ public class DatasetService {
                 download.contentLength(),
                 download.checksumSha256()
         );
+    }
+
+    private Set<String> normalizeSelectedItemIds(DatasetDto.EditorOpenRequest request) {
+        if (request == null || request.itemIds() == null) {
+            return Set.of();
+        }
+        return request.itemIds().stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(id -> !id.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private OpenableEditorPage resolveOpenableEditorPage(String workspaceId,
+                                                         String datasetId,
+                                                         DatasetItem item,
+                                                         String userId) {
+        if (item.getStatus() == DatasetItem.Status.BROKEN) {
+            return OpenableEditorPage.skipped("ITEM_BROKEN",
+                    item.getBrokenReason() == null || item.getBrokenReason().isBlank()
+                            ? "Dataset item is marked as broken"
+                            : item.getBrokenReason());
+        }
+        return item.getMode() == DatasetItem.Mode.COPY
+                ? resolveCopyEditorPage(workspaceId, datasetId, item, userId)
+                : resolveLinkEditorPage(workspaceId, item, userId);
+    }
+
+    private OpenableEditorPage resolveLinkEditorPage(String workspaceId, DatasetItem item, String userId) {
+        Page sourcePage = pageRepository.findById(item.getSourcePageId()).orElse(null);
+        if (sourcePage == null
+                || sourcePage.getProject() == null
+                || sourcePage.getProject().getLibrary() == null
+                || !workspaceId.equals(sourcePage.getProject().getLibrary().getWorkspaceId())
+                || !item.getSourceProjectId().equals(sourcePage.getProject().getId())) {
+            return OpenableEditorPage.skipped("SOURCE_PAGE_NOT_FOUND", "Source page is missing");
+        }
+
+        PageXml selectedXml = pageXmlRepository.findById(item.getSelectedSourceXmlId()).orElse(null);
+        if (selectedXml != null && (selectedXml.getPage() == null || !sourcePage.getId().equals(selectedXml.getPage().getId()))) {
+            selectedXml = null;
+        }
+
+        PageXml editorXml = resolveLinkEditorXml(sourcePage, selectedXml);
+        if (editorXml == null) {
+            return selectedXml == null
+                    ? OpenableEditorPage.skipped("SOURCE_XML_NOT_FOUND", "Selected source XML is missing")
+                    : OpenableEditorPage.skipped("SOURCE_XML_UNSUPPORTED", "No PAGE XML is available for this page");
+        }
+        if (!Files.exists(resolveStoragePath(editorXml.getFilePath()))) {
+            return OpenableEditorPage.skipped("SOURCE_XML_MISSING_ON_DISK", "Selected PAGE XML file is missing");
+        }
+
+        Map<String, PageImage> imagesById = pageImageRepository.findByPageId(sourcePage.getId()).stream()
+                .collect(Collectors.toMap(PageImage::getId, image -> image));
+        List<PageImage> selectedImages = new ArrayList<>();
+        for (String sourceImageId : item.getSelectedSourceImageIds()) {
+            PageImage sourceImage = imagesById.get(sourceImageId);
+            if (sourceImage == null) {
+                return OpenableEditorPage.skipped("SOURCE_IMAGE_NOT_FOUND", "A selected source image is missing");
+            }
+            if (!Files.exists(resolveStoragePath(sourceImage.getFilePath()))) {
+                return OpenableEditorPage.skipped("SOURCE_IMAGE_MISSING_ON_DISK", "A selected source image file is missing");
+            }
+            selectedImages.add(sourceImage);
+        }
+
+        boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
+                && !sourcePage.getProject().isLocked();
+        String readOnlyReason = canEdit
+                ? null
+                : resolveReadOnlyReason(sourcePage.getProject().getLockedReason(), "Source project is locked");
+
+        String annotationBasePath = "/api/projects/" + sourcePage.getProject().getId()
+                + "/pages/" + sourcePage.getId()
+                + "/annotations";
+
+        DatasetDto.EditorPageResponse page = new DatasetDto.EditorPageResponse(
+                item.getId(),
+                sourcePage.getProject().getId(),
+                sourcePage.getProject().getName(),
+                sourcePage.getId(),
+                sourcePage.getName(),
+                DatasetItem.Mode.LINK,
+                item.getSourcePageTags() == null ? List.of() : item.getSourcePageTags(),
+                canEdit,
+                readOnlyReason,
+                new DatasetDto.EditorAnnotationContext("DATASET_LINK", annotationBasePath, true),
+                selectedImages.stream()
+                        .map(image -> new DatasetDto.EditorImageVariant(
+                                image.getId(),
+                                image.getFileName(),
+                                image.getVariant(),
+                                image.getVariant() == null || image.getVariant().isBlank() ? image.getFileName() : image.getVariant(),
+                                "/api/projects/" + sourcePage.getProject().getId() + "/pages/images/" + image.getId() + "/blob"
+                        ))
+                        .toList(),
+                List.of(new DatasetDto.EditorXmlFile(
+                        editorXml.getId(),
+                        editorXml.getFileName(),
+                        editorXml.getSchema().name(),
+                        editorXml.getSchemaVersion(),
+                        editorXml.getVariant()
+                )),
+                selectedImages.stream()
+                        .filter(image -> image.getThumbnailPath() != null && !image.getThumbnailPath().isBlank())
+                        .findFirst()
+                        .map(image -> "/api/projects/" + sourcePage.getProject().getId() + "/pages/images/" + image.getId() + "/thumbnail")
+                        .orElseGet(() -> selectedImages.isEmpty()
+                                ? null
+                                : "/api/projects/" + sourcePage.getProject().getId() + "/pages/images/" + selectedImages.get(0).getId() + "/blob")
+        );
+
+        return OpenableEditorPage.openable(sourcePage.getProject().getId(), sourcePage.getProject().getName(), page);
+    }
+
+    private PageXml resolveLinkEditorXml(Page sourcePage, PageXml selectedXml) {
+        if (selectedXml != null && selectedXml.getSchema() == XmlSchema.PAGE_XML) {
+            return selectedXml;
+        }
+
+        List<PageXml> pageXmlCandidates = pageXmlRepository.findByPage_Id(sourcePage.getId()).stream()
+                .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
+                .toList();
+        if (pageXmlCandidates.isEmpty()) {
+            return null;
+        }
+
+        if (selectedXml != null) {
+            return pageXmlCandidates.stream()
+                    .filter(candidate -> Objects.equals(candidate.getVariant(), selectedXml.getVariant()))
+                    .findFirst()
+                    .orElse(pageXmlCandidates.get(0));
+        }
+
+        return pageXmlCandidates.get(0);
+    }
+
+    private OpenableEditorPage resolveCopyEditorPage(String workspaceId,
+                                                     String datasetId,
+                                                     DatasetItem item,
+                                                     String userId) {
+        List<DatasetItemCopyFile> copyFiles = item.getCopyFiles() == null ? List.of() : item.getCopyFiles();
+        DatasetItemCopyFile copyXml = copyFiles.stream()
+                .filter(file -> file.getKind() == DatasetItemCopyFile.Kind.XML)
+                .filter(file -> item.getSelectedSourceXmlId().equals(file.getSourceFileId()))
+                .findFirst()
+                .orElse(null);
+        if (copyXml == null) {
+            return OpenableEditorPage.skipped("COPY_XML_NOT_FOUND", "Frozen XML copy is missing");
+        }
+        if (!Files.exists(resolveStoragePath(copyXml.getFilePath()))) {
+            return OpenableEditorPage.skipped("COPY_XML_MISSING_ON_DISK", "Frozen XML copy file is missing");
+        }
+
+        PageXml sourceXml = pageXmlRepository.findById(copyXml.getSourceFileId()).orElse(null);
+        if (sourceXml != null && sourceXml.getSchema() != XmlSchema.PAGE_XML) {
+            return OpenableEditorPage.skipped("COPY_XML_UNSUPPORTED", "Only PAGE XML can be opened in the editor");
+        }
+
+        Map<String, DatasetItemCopyFile> copyImagesBySourceId = copyFiles.stream()
+                .filter(file -> file.getKind() == DatasetItemCopyFile.Kind.IMAGE)
+                .collect(Collectors.toMap(DatasetItemCopyFile::getSourceFileId, file -> file, (left, right) -> left));
+
+        List<DatasetItemCopyFile> selectedCopyImages = new ArrayList<>();
+        for (String sourceImageId : item.getSelectedSourceImageIds()) {
+            DatasetItemCopyFile copyImage = copyImagesBySourceId.get(sourceImageId);
+            if (copyImage == null) {
+                return OpenableEditorPage.skipped("COPY_IMAGE_NOT_FOUND", "A frozen image copy is missing");
+            }
+            if (!Files.exists(resolveStoragePath(copyImage.getFilePath()))) {
+                return OpenableEditorPage.skipped("COPY_IMAGE_MISSING_ON_DISK", "A frozen image copy file is missing");
+            }
+            selectedCopyImages.add(copyImage);
+        }
+
+        boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId);
+        String readOnlyReason = canEdit ? null : "You do not have permission to edit this dataset copy";
+
+        String annotationBasePath = "/api/workspaces/" + workspaceId
+                + "/datasets/" + datasetId
+                + "/items/" + item.getId()
+                + "/annotations";
+
+        DatasetDto.EditorPageResponse page = new DatasetDto.EditorPageResponse(
+                item.getId(),
+                item.getSourceProjectId(),
+                item.getSourceProjectName(),
+                item.getSourcePageId(),
+                item.getSourcePageName(),
+                DatasetItem.Mode.COPY,
+                item.getSourcePageTags() == null ? List.of() : item.getSourcePageTags(),
+                canEdit,
+                readOnlyReason,
+                new DatasetDto.EditorAnnotationContext("DATASET_COPY", annotationBasePath, false),
+                selectedCopyImages.stream()
+                        .map(image -> new DatasetDto.EditorImageVariant(
+                                image.getId(),
+                                image.getFileName(),
+                                image.getVariant(),
+                                image.getVariant() == null || image.getVariant().isBlank() ? image.getFileName() : image.getVariant(),
+                                "/api/workspaces/" + workspaceId + "/datasets/" + datasetId
+                                        + "/items/" + item.getId() + "/images/" + image.getId() + "/blob"
+                        ))
+                        .toList(),
+                List.of(new DatasetDto.EditorXmlFile(
+                        copyXml.getId(),
+                        copyXml.getFileName(),
+                        XmlSchema.PAGE_XML.name(),
+                        sourceXml == null ? null : sourceXml.getSchemaVersion(),
+                        copyXml.getVariant()
+                )),
+                selectedCopyImages.isEmpty()
+                        ? null
+                        : "/api/workspaces/" + workspaceId + "/datasets/" + datasetId
+                                + "/items/" + item.getId() + "/images/" + selectedCopyImages.get(0).getId() + "/blob"
+        );
+
+        return OpenableEditorPage.openable(item.getSourceProjectId(), item.getSourceProjectName(), page);
+    }
+
+    private String resolveReadOnlyReason(String preferredReason, String fallbackReason) {
+        if (preferredReason == null || preferredReason.isBlank()) {
+            return fallbackReason;
+        }
+        return preferredReason;
     }
 
     private Dataset requireDataset(String workspaceId, String datasetId) {
@@ -1699,6 +2000,26 @@ public class DatasetService {
                                   DatasetDto.StatsResponse stats,
                                   Map<DatasetItem.Split, List<Map<String, Object>>> jsonlRowsBySplit,
                                   List<ExportFile> files) {
+    }
+
+    private record MutableProjectPages(String projectId, String projectName, List<DatasetDto.EditorPageResponse> pages) {
+    }
+
+    private record OpenableEditorPage(boolean openable,
+                                      String skipReasonCode,
+                                      String skipReason,
+                                      String projectId,
+                                      String projectName,
+                                      DatasetDto.EditorPageResponse page) {
+        private static OpenableEditorPage skipped(String reasonCode, String reason) {
+            return new OpenableEditorPage(false, reasonCode, reason, null, null, null);
+        }
+
+        private static OpenableEditorPage openable(String projectId,
+                                                   String projectName,
+                                                   DatasetDto.EditorPageResponse page) {
+            return new OpenableEditorPage(true, null, null, projectId, projectName, page);
+        }
     }
 
     public record ReleaseFileDownload(String fileName, Path absolutePath, long contentLength, String checksumSha256) {

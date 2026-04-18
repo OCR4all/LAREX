@@ -36,8 +36,13 @@ public class PageXmlVersionController {
             @PathVariable String xmlId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
-        List<PageXmlVersionDto> versions = versionService.listVersions(xmlId);
-        return ResponseEntity.ok(versions);
+        try {
+            annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
+            List<PageXmlVersionDto> versions = versionService.listVersions(xmlId);
+            return ResponseEntity.ok(versions);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/{versionId}")
@@ -49,7 +54,8 @@ public class PageXmlVersionController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         try {
-            String content = versionService.getVersionContent(versionId);
+            annotationLeaseService.resolveRoomAccess(projectId, pageId, xmlId, userId);
+            String content = versionService.getVersionContent(versionId, xmlId);
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_XML)
                     .body(content);
@@ -71,7 +77,7 @@ public class PageXmlVersionController {
 
         try {
             annotationLeaseService.assertWriteAccess(projectId, pageId, xmlId, userId);
-            versionService.restoreVersion(versionId, userId);
+            versionService.restoreVersion(versionId, xmlId, userId);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();

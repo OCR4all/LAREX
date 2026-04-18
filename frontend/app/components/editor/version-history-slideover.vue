@@ -6,6 +6,7 @@ const props = defineProps<{
   projectId: string
   pageId: string
   xmlId: string
+  annotationBasePath?: string
 }>()
 
 const emit = defineEmits<{
@@ -15,8 +16,12 @@ const emit = defineEmits<{
 const toast = useToast()
 const { confirm } = useOverlayDialogs()
 
+const annotationBasePath = computed(() =>
+  props.annotationBasePath || `/api/projects/${props.projectId}/pages/${props.pageId}/annotations`
+)
+
 const { data: versions, status, refresh } = useFetch<PageXmlVersion[]>(
-  () => `/api/projects/${props.projectId}/pages/${props.pageId}/annotations/${props.xmlId}/versions`,
+  () => `${annotationBasePath.value}/${props.xmlId}/versions`,
   { lazy: true }
 )
 
@@ -72,7 +77,7 @@ async function handleRestore(version: PageXmlVersion) {
   restoringId.value = version.id
   try {
     await $fetch(
-      `/api/projects/${props.projectId}/pages/${props.pageId}/annotations/${props.xmlId}/versions/${version.id}/restore`,
+      `${annotationBasePath.value}/${props.xmlId}/versions/${version.id}/restore`,
       { method: 'POST' }
     )
     toast.add({

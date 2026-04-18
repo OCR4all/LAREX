@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceStorageQuota;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetReleaseRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectPackageReleaseRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceStorageQuotaRepository;
@@ -35,6 +36,7 @@ public class WorkspaceStorageQuotaService {
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlVersionRepository pageXmlVersionRepository;
     private final DatasetItemCopyFileRepository datasetItemCopyFileRepository;
+    private final DatasetItemCopyXmlVersionRepository datasetItemCopyXmlVersionRepository;
     private final DatasetReleaseRepository datasetReleaseRepository;
     private final ProjectPackageReleaseRepository projectPackageReleaseRepository;
     private final PersonalWorkspaceRepository personalWorkspaceRepository;
@@ -50,6 +52,7 @@ public class WorkspaceStorageQuotaService {
             PageXmlRepository pageXmlRepository,
             PageXmlVersionRepository pageXmlVersionRepository,
             DatasetItemCopyFileRepository datasetItemCopyFileRepository,
+            DatasetItemCopyXmlVersionRepository datasetItemCopyXmlVersionRepository,
             DatasetReleaseRepository datasetReleaseRepository,
             ProjectPackageReleaseRepository projectPackageReleaseRepository,
             PersonalWorkspaceRepository personalWorkspaceRepository,
@@ -59,6 +62,7 @@ public class WorkspaceStorageQuotaService {
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionRepository = pageXmlVersionRepository;
         this.datasetItemCopyFileRepository = datasetItemCopyFileRepository;
+        this.datasetItemCopyXmlVersionRepository = datasetItemCopyXmlVersionRepository;
         this.datasetReleaseRepository = datasetReleaseRepository;
         this.projectPackageReleaseRepository = projectPackageReleaseRepository;
         this.personalWorkspaceRepository = personalWorkspaceRepository;
@@ -315,15 +319,17 @@ public class WorkspaceStorageQuotaService {
         Long xmlBytes = pageXmlRepository.sumFileSizeByWorkspaceId(workspaceId);
         Long versionBytes = pageXmlVersionRepository.sumFileSizeByWorkspaceId(workspaceId);
         Long datasetCopyBytes = datasetItemCopyFileRepository.sumFileSizeByWorkspaceId(workspaceId);
+        Long datasetCopyVersionBytes = datasetItemCopyXmlVersionRepository.sumFileSizeByWorkspaceId(workspaceId);
         Long datasetReleaseBytes = datasetReleaseRepository.sumPackageFileSizeByWorkspaceId(workspaceId);
         Long projectReleaseBytes = projectPackageReleaseRepository.sumPackageFileSizeByWorkspaceId(workspaceId);
         if (imageBytes == null) imageBytes = 0L;
         if (xmlBytes == null) xmlBytes = 0L;
         if (versionBytes == null) versionBytes = 0L;
         if (datasetCopyBytes == null) datasetCopyBytes = 0L;
+        if (datasetCopyVersionBytes == null) datasetCopyVersionBytes = 0L;
         if (datasetReleaseBytes == null) datasetReleaseBytes = 0L;
         if (projectReleaseBytes == null) projectReleaseBytes = 0L;
-        return imageBytes + xmlBytes + versionBytes + datasetCopyBytes + datasetReleaseBytes + projectReleaseBytes;
+        return imageBytes + xmlBytes + versionBytes + datasetCopyBytes + datasetCopyVersionBytes + datasetReleaseBytes + projectReleaseBytes;
     }
 
     /**

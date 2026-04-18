@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<{
   editor?: CollaborationLeaseOwner | null
   pendingTakeover?: CollaborationTakeoverRequest | null
   canEdit?: boolean
+  annotationMode?: 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY' | null
 }>(), {
   hoveredEntity: null,
   selectedEntity: null,
@@ -42,7 +43,8 @@ const props = withDefaults(defineProps<{
   collaborators: () => [],
   editor: null,
   pendingTakeover: null,
-  canEdit: true
+  canEdit: true,
+  annotationMode: null
 })
 
 const tooltipUi = {
@@ -170,6 +172,31 @@ const collaborationActorInitials = computed(() => {
     username: actor.username
   })
 })
+
+const annotationModeInfo = computed<{
+  label: string
+  icon: string
+  color: 'info' | 'warning'
+  tooltip: string
+} | null>(() => {
+  if (props.annotationMode === 'DATASET_LINK') {
+    return {
+      label: 'LINK',
+      icon: 'i-lucide-link-2',
+      color: 'info',
+      tooltip: 'Linked dataset item: annotations are saved to the source project XML.'
+    }
+  }
+  if (props.annotationMode === 'DATASET_COPY') {
+    return {
+      label: 'COPY (frozen source)',
+      icon: 'i-lucide-copy',
+      color: 'warning',
+      tooltip: 'Dataset copy mode: source project stays frozen; edits are stored in the dataset copy XML.'
+    }
+  }
+  return null
+})
 </script>
 
 <template>
@@ -266,6 +293,24 @@ const collaborationActorInitials = computed(() => {
 
       <div v-else class="flex items-center h-full min-w-0">
         <span class="text-xs text-neutral-400 dark:text-neutral-600">Hover or select a region to inspect</span>
+      </div>
+
+      <div v-if="annotationModeInfo" class="flex items-center shrink-0 min-w-0">
+        <UTooltip
+          :delay-duration="200"
+          :text="annotationModeInfo.tooltip"
+          :content="{ side: 'top' }"
+          :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+        >
+          <UBadge
+            :icon="annotationModeInfo.icon"
+            :color="annotationModeInfo.color"
+            variant="subtle"
+            size="sm"
+          >
+            {{ annotationModeInfo.label }}
+          </UBadge>
+        </UTooltip>
       </div>
 
       <div v-if="collaborationStatusVisible" class="flex items-center shrink-0 min-w-0 justify-end">

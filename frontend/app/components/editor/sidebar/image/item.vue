@@ -117,6 +117,32 @@ const collaborationTooltip = computed(() => {
   return `${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'} watching`
 })
 
+const annotationModeBadge = computed<{
+  label: string
+  icon: string
+  color: 'info' | 'warning'
+  tooltip: string
+} | null>(() => {
+  const mode = props.page.annotationContext?.mode
+  if (mode === 'DATASET_LINK') {
+    return {
+      label: 'LINK',
+      icon: 'i-lucide-link-2',
+      color: 'info',
+      tooltip: 'Linked dataset item: annotations are saved to the source project XML.'
+    }
+  }
+  if (mode === 'DATASET_COPY') {
+    return {
+      label: 'COPY',
+      icon: 'i-lucide-copy',
+      color: 'warning',
+      tooltip: 'Dataset copy (frozen source): annotations are saved to the dataset copy XML.'
+    }
+  }
+  return null
+})
+
 function collaborationAvatarText() {
   const editor = collaborationEditor.value?.user
   if (!editor) return 'U'
@@ -298,9 +324,27 @@ async function handleCopyPageId() {
         </div>
 
         <div class="absolute inset-x-0 top-0 p-2 flex items-start justify-between gap-2">
-          <span class="inline-flex px-1.5 py-0.5 text-sm font-mono font-medium bg-neutral-900/90 text-neutral-300 rounded border border-neutral-700/50 backdrop-blur-sm">
-            {{ pageLabel }}
-          </span>
+          <div class="flex min-w-0 flex-col items-start gap-1">
+            <span class="inline-flex max-w-full truncate px-1.5 py-0.5 text-sm font-mono font-medium bg-neutral-900/90 text-neutral-300 rounded border border-neutral-700/50 backdrop-blur-sm">
+              {{ pageLabel }}
+            </span>
+            <UTooltip
+              v-if="annotationModeBadge"
+              :text="annotationModeBadge.tooltip"
+              :content="{ side: 'right' }"
+              :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+            >
+              <UBadge
+                :icon="annotationModeBadge.icon"
+                :color="annotationModeBadge.color"
+                variant="subtle"
+                size="xs"
+                class="backdrop-blur-sm"
+              >
+                {{ annotationModeBadge.label }}
+              </UBadge>
+            </UTooltip>
+          </div>
 
           <div class="flex items-center gap-1">
             <UTooltip
@@ -552,9 +596,28 @@ async function handleCopyPageId() {
               </div>
 
               <div class="absolute inset-x-0 top-0 p-2 flex items-start justify-between gap-2">
-                <span class="inline-flex px-1.5 py-0.5 text-sm font-mono font-medium bg-neutral-900/90 text-neutral-300 rounded border border-neutral-700/50 backdrop-blur-sm">
-                  {{ pageLabel }}
-                </span>
+                <div class="flex min-w-0 flex-col items-start gap-1">
+                  <span class="inline-flex max-w-full truncate px-1.5 py-0.5 text-sm font-mono font-medium bg-neutral-900/90 text-neutral-300 rounded border border-neutral-700/50 backdrop-blur-sm">
+                    {{ pageLabel }}
+                  </span>
+                  <UTooltip
+                    v-if="annotationModeBadge"
+                    :text="annotationModeBadge.tooltip"
+                    :content="{ side: 'right' }"
+                    :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+                    :portal="false"
+                  >
+                    <UBadge
+                      :icon="annotationModeBadge.icon"
+                      :color="annotationModeBadge.color"
+                      variant="subtle"
+                      size="xs"
+                      class="backdrop-blur-sm"
+                    >
+                      {{ annotationModeBadge.label }}
+                    </UBadge>
+                  </UTooltip>
+                </div>
 
                 <div class="flex items-center gap-1">
                   <UPopover

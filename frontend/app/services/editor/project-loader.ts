@@ -14,6 +14,14 @@ export interface PageResponse {
   indexingStatus?: PageIndexingStatus
 }
 
+function projectAnnotationContext(projectId: string, pageId: string) {
+  return {
+    mode: 'PROJECT' as const,
+    basePath: `/api/projects/${projectId}/pages/${pageId}/annotations`,
+    createAllowed: true
+  }
+}
+
 interface ImageResponse {
   id: string
   fileName: string
@@ -53,7 +61,8 @@ export function createSkeletonPageData(
     lockedReason: page.lockedReason ?? null,
     imageCount: page.imageCount ?? 0,
     xmlFileCount: page.xmlFileCount ?? 0,
-    indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE'
+    indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
+    annotationContext: options?.projectId ? projectAnnotationContext(options.projectId, page.id) : undefined
   }))
 }
 
@@ -105,7 +114,8 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
       resolvedTags: page.resolvedTags ?? null,
       locked: page.locked ?? false,
       lockedReason: page.lockedReason ?? null,
-      indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE'
+      indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
+      annotationContext: projectAnnotationContext(projectId, page.id)
     }
   } catch (error) {
     console.error(`Failed to load data for page ${page.id}:`, error)
@@ -120,7 +130,8 @@ export async function loadSinglePageData(projectId: string, page: PageResponse):
       resolvedTags: page.resolvedTags ?? null,
       locked: page.locked ?? false,
       lockedReason: page.lockedReason ?? null,
-      indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE'
+      indexingStatus: page.indexingStatus ?? 'NOT_APPLICABLE',
+      annotationContext: projectAnnotationContext(projectId, page.id)
     }
   }
 }

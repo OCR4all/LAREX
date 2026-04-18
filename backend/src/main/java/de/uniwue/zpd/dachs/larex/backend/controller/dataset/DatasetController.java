@@ -138,6 +138,15 @@ public class DatasetController {
         return ResponseEntity.ok(datasetService.validateDataset(workspaceId, datasetId, userId));
     }
 
+    @PostMapping("/{datasetId}/editor/open")
+    public ResponseEntity<DatasetDto.EditorOpenResponse> openDatasetItemsInEditor(
+            @PathVariable String workspaceId,
+            @PathVariable String datasetId,
+            @RequestBody(required = false) DatasetDto.EditorOpenRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(datasetService.openDatasetItemsInEditor(workspaceId, datasetId, request, userId));
+    }
+
     @PostMapping("/{datasetId}/export-package")
     public ResponseEntity<byte[]> exportPackage(
             @PathVariable String workspaceId,

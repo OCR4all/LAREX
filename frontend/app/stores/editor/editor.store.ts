@@ -1,4 +1,5 @@
 import type {
+  AnnotationApiContext,
   CanvasState,
   ImageVariant,
   UiMode,
@@ -35,6 +36,36 @@ function resolveMetadataImageFilename(variant: ImageVariant): string {
   const label = variant.label?.trim()
   if (label) return label
   return variant.url
+}
+
+function defaultProjectAnnotationContext(projectId: string, pageId: string): AnnotationApiContext {
+  return {
+    mode: 'PROJECT',
+    basePath: `/api/projects/${projectId}/pages/${pageId}/annotations`,
+    createAllowed: true
+  }
+}
+
+function normalizeAnnotationContext(
+  context: AnnotationApiContext | null | undefined,
+  projectId: string,
+  pageId: string
+): AnnotationApiContext {
+  if (!context?.basePath) {
+    return defaultProjectAnnotationContext(projectId, pageId)
+  }
+  return context
+}
+
+function annotationResourcePath(context: AnnotationApiContext, xmlId: string): string {
+  return `${context.basePath}/${xmlId}`
+}
+
+function xmlBasePathFromAnnotationContext(context: AnnotationApiContext): string {
+  if (context.basePath.endsWith('/annotations')) {
+    return `${context.basePath.slice(0, -'/annotations'.length)}/xml`
+  }
+  return context.basePath.replace(/\/annotations$/, '/xml')
 }
 
 function createEmptyPcGts(params: { imageFilename: string, imageWidth: number, imageHeight: number, pcGtsId?: string }): PcGts {
@@ -830,6 +861,28 @@ export const useEditorStore = defineStore('editor', () => {
     visibilityService.clearCache()
   }
 
+  function getAnnotationContextForCanvas(canvas: CanvasState): AnnotationApiContext | null {
+    const projectId = canvas.projectId ?? null
+    const pageId = canvas.pageId ?? null
+    if (!projectId || !pageId) return null
+
+    if (canvas.annotationContext?.basePath) {
+      return canvas.annotationContext
+    }
+
+    const page = documentStore.getPage(pageId, projectId)
+    return normalizeAnnotationContext(page?.annotationContext, projectId, pageId)
+  }
+
+  function getAnnotationContextForPage(projectId: string, pageId: string): AnnotationApiContext {
+    const page = documentStore.getPage(pageId, projectId)
+    return normalizeAnnotationContext(page?.annotationContext, projectId, pageId)
+  }
+
+  function buildAnnotationCacheKey(projectId: string, pageId: string, context: AnnotationApiContext, xmlId: string): string {
+    return `${projectId}:${pageId}:${context.basePath}:${xmlId}`
+  }
+
   /**
    * Load a page into a canvas, including fetching annotations from the backend.
    * If the page hasn't been enriched yet (skeleton data only), enriches it first via API calls.
@@ -879,6 +932,7 @@ export const useEditorStore = defineStore('editor', () => {
     canvas.pageId = pageId
     canvas.imageVariantId = variant.id
     canvas.imageSrc = variant.url
+    canvas.annotationContext = normalizeAnnotationContext(page.annotationContext, projectId, pageId)
 
     if (activeCanvasId.value === canvasId) {
       currentPageId.value = pageId
@@ -898,7 +952,7 @@ export const useEditorStore = defineStore('editor', () => {
     canvas.selectedBaselineId = null
 
     if (page.xmlFiles && page.xmlFiles.length > 0) {
-      loadAnnotationsForCanvas(canvasId, projectId, pageId, page.xmlFiles, metadataImageFilename)
+      loadAnnotationsForCanvas(canvasId, projectId, pageId, page.xmlFiles, metadataImageFilename, canvas.annotationContext ?? undefined)
     } else {
       log.info(`No XML files available for page ${pageId}, using empty document`)
     }
@@ -916,7 +970,8 @@ export const useEditorStore = defineStore('editor', () => {
     projectId: string,
     pageId: string,
     xmlFiles: { id: string, fileName: string, schema: string }[],
-    imageFilename?: string
+    imageFilename?: string,
+    annotationContext?: AnnotationApiContext
   ): Promise<void> {
     const pageXmlFile = xmlFiles.find(xml => xml.schema === 'PAGE_XML')
     if (!pageXmlFile) {
@@ -924,12 +979,14 @@ export const useEditorStore = defineStore('editor', () => {
       return
     }
 
-    const cacheKey = `${projectId}:${pageId}:${pageXmlFile.id}`
+    const context = normalizeAnnotationContext(annotationContext, projectId, pageId)
+    const cacheKey = buildAnnotationCacheKey(projectId, pageId, context, pageXmlFile.id)
     pageXmlPrefetchCache.set(`${projectId}:${pageId}`, pageXmlFile.id)
     const canvas = canvases.value[canvasId]
 
     if (canvas) {
       canvas.isLoadingAnnotations = true
+      canvas.annotationContext = context
     }
 
     try {
@@ -942,7 +999,7 @@ export const useEditorStore = defineStore('editor', () => {
         log.info(`Fetching annotations from ${pageXmlFile.fileName} (id: ${pageXmlFile.id}) for page ${pageId}`)
 
         pageDto = await $fetch<PageDto>(
-          `/api/projects/${projectId}/pages/${pageId}/annotations/${pageXmlFile.id}`
+          annotationResourcePath(context, pageXmlFile.id)
         )
 
         annotationCache.set(cacheKey, pageDto)
@@ -1049,7 +1106,7 @@ export const useEditorStore = defineStore('editor', () => {
 
   async function resolvePageXmlIdForPrefetch(
     projectId: string,
-    page: { id: string, xmlFiles?: { id: string, schema: string }[], xmlFileCount?: number },
+    page: { id: string, xmlFiles?: { id: string, schema: string }[], xmlFileCount?: number, annotationContext?: AnnotationApiContext },
     signal: AbortSignal
   ): Promise<string | null> {
     const pageKey = `${projectId}:${page.id}`
@@ -1074,8 +1131,9 @@ export const useEditorStore = defineStore('editor', () => {
 
     const lookupPromise = (async () => {
       try {
+        const context = normalizeAnnotationContext(page.annotationContext, projectId, page.id)
         const xmlFiles = await $fetch<Array<{ id: string, schema: string }>>(
-          `/api/projects/${projectId}/pages/${page.id}/xml`,
+          xmlBasePathFromAnnotationContext(context),
           { signal }
         )
         const pageXmlId = xmlFiles.find(xml => xml.schema === 'PAGE_XML')?.id ?? null
@@ -1156,7 +1214,8 @@ export const useEditorStore = defineStore('editor', () => {
 
           if (!isPrefetchGenerationCurrent(projectId, generation) || controller.signal.aborted) return
 
-          const cacheKey = `${projectId}:${page.id}:${pageXmlId}`
+          const context = normalizeAnnotationContext(page.annotationContext, projectId, page.id)
+          const cacheKey = buildAnnotationCacheKey(projectId, page.id, context, pageXmlId)
           if (annotationCache.has(cacheKey) || pendingPrefetches.value.has(cacheKey)) {
             continue
           }
@@ -1164,7 +1223,7 @@ export const useEditorStore = defineStore('editor', () => {
           pendingPrefetches.value.add(cacheKey)
           try {
             const pageDto = await $fetch<PageDto>(
-              `/api/projects/${projectId}/pages/${page.id}/annotations/${pageXmlId}`,
+              annotationResourcePath(context, pageXmlId),
               { signal: controller.signal }
             )
             annotationCache.set(cacheKey, pageDto)
@@ -1252,6 +1311,11 @@ export const useEditorStore = defineStore('editor', () => {
       log.warn('No project ID available for saving annotations')
       return false
     }
+    const context = getAnnotationContextForCanvas(canvas)
+    if (!context) {
+      log.warn('No annotation context available for saving annotations')
+      return false
+    }
 
     const session = getEditorSession(targetCanvasId)
     const pcGts = session?.document.value
@@ -1267,9 +1331,13 @@ export const useEditorStore = defineStore('editor', () => {
       let xmlFileId = canvas.xmlFileId
 
       if (!xmlFileId) {
+        if (!context.createAllowed) {
+          log.warn(`Initial XML creation is disabled for page ${pageId} in context ${context.mode}`)
+          return false
+        }
         log.info(`Creating initial PAGE XML for page ${pageId}`)
         const created = await $fetch<{ xmlId: string, fileName?: string, schema?: string, schemaVersion?: string }>(
-          `/api/projects/${projectId}/pages/${pageId}/annotations`,
+          context.basePath,
           {
             method: 'POST',
             body: pageDto
@@ -1298,7 +1366,7 @@ export const useEditorStore = defineStore('editor', () => {
         }
       } else {
         log.info(`Saving annotations for page ${pageId} to XML file ${xmlFileId}`)
-        await $fetch(`/api/projects/${projectId}/pages/${pageId}/annotations/${xmlFileId}`, {
+        await $fetch(annotationResourcePath(context, xmlFileId), {
           method: 'PUT',
           body: pageDto
         })
@@ -1308,7 +1376,7 @@ export const useEditorStore = defineStore('editor', () => {
 
       invalidateAnnotationCache(pageId, projectId)
 
-      const cacheKey = `${projectId}:${pageId}:${xmlFileId}`
+      const cacheKey = buildAnnotationCacheKey(projectId, pageId, context, xmlFileId)
       annotationCache.set(cacheKey, pageDto)
       resetCanvasHistoryBaseline(targetCanvasId)
 

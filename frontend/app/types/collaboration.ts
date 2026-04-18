@@ -57,6 +57,9 @@ export interface CollaborationRoomIdentity {
   projectId: string
   pageId: string
   xmlId: string
+  annotationBasePath?: string
+  annotationMode?: string
+  createAllowed?: boolean
   token: string
   canEdit: boolean
   canForceTakeover: boolean

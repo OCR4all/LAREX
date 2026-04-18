@@ -109,12 +109,22 @@ public class PageXmlVersionService {
 
     @Transactional(readOnly = true)
     public String getVersionContent(String versionId) throws IOException {
+        return getVersionContent(versionId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public String getVersionContent(String versionId, String expectedPageXmlId) throws IOException {
         Optional<PageXmlVersion> versionOpt = versionRepository.findById(versionId);
         if (versionOpt.isEmpty()) {
             throw new IllegalArgumentException("Version not found: " + versionId);
         }
 
-        Path versionPath = Paths.get(uploadDir, versionOpt.get().getFilePath());
+        PageXmlVersion version = versionOpt.get();
+        if (expectedPageXmlId != null && (version.getPageXml() == null || !expectedPageXmlId.equals(version.getPageXml().getId()))) {
+            throw new IllegalArgumentException("Version does not belong to requested XML file");
+        }
+
+        Path versionPath = Paths.get(uploadDir, version.getFilePath());
         if (!Files.exists(versionPath)) {
             throw new IOException("Version file not found on disk: " + versionPath);
         }
@@ -124,12 +134,20 @@ public class PageXmlVersionService {
 
     @Transactional
     public void restoreVersion(String versionId, String userId) throws IOException {
+        restoreVersion(versionId, null, userId);
+    }
+
+    @Transactional
+    public void restoreVersion(String versionId, String expectedPageXmlId, String userId) throws IOException {
         Optional<PageXmlVersion> versionOpt = versionRepository.findById(versionId);
         if (versionOpt.isEmpty()) {
             throw new IllegalArgumentException("Version not found: " + versionId);
         }
 
         PageXmlVersion version = versionOpt.get();
+        if (expectedPageXmlId != null && (version.getPageXml() == null || !expectedPageXmlId.equals(version.getPageXml().getId()))) {
+            throw new IllegalArgumentException("Version does not belong to requested XML file");
+        }
         PageXml xml = version.getPageXml();
         String pageXmlId = xml.getId();
 

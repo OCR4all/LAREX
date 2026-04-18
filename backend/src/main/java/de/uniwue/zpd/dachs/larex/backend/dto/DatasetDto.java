@@ -63,6 +63,10 @@ public class DatasetDto {
             List<String> stratifyTagIds
     ) {}
 
+    public record EditorOpenRequest(
+            List<String> itemIds
+    ) {}
+
     public record CreateReleaseRequest(
             @Size(max = 128, message = "Release tag must not exceed 128 characters")
             String versionTag,
@@ -143,6 +147,64 @@ public class DatasetDto {
             LocalDateTime copiedAt,
             LocalDateTime created,
             LocalDateTime updated
+    ) {}
+
+    public record EditorOpenResponse(
+            List<EditorProjectPages> projects,
+            List<EditorSkippedItem> skippedItems
+    ) {}
+
+    public record EditorProjectPages(
+            String projectId,
+            String projectName,
+            List<EditorPageResponse> pages
+    ) {}
+
+    public record EditorPageResponse(
+            String itemId,
+            String sourceProjectId,
+            String sourceProjectName,
+            String sourcePageId,
+            String sourcePageName,
+            DatasetItem.Mode mode,
+            List<String> sourcePageTags,
+            boolean canEdit,
+            String readOnlyReason,
+            EditorAnnotationContext annotationContext,
+            List<EditorImageVariant> imageVariants,
+            List<EditorXmlFile> xmlFiles,
+            String thumbnailUrl
+    ) {}
+
+    public record EditorAnnotationContext(
+            String mode,
+            String basePath,
+            boolean createAllowed
+    ) {}
+
+    public record EditorImageVariant(
+            String id,
+            String fileName,
+            String variant,
+            String label,
+            String url
+    ) {}
+
+    public record EditorXmlFile(
+            String id,
+            String fileName,
+            String schema,
+            String schemaVersion,
+            String variant
+    ) {}
+
+    public record EditorSkippedItem(
+            String itemId,
+            String sourceProjectId,
+            String sourcePageId,
+            String sourcePageName,
+            String reasonCode,
+            String reason
     ) {}
 
     public record ValidationIssue(

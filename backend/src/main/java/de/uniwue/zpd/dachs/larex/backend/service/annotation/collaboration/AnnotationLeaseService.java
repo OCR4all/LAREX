@@ -66,14 +66,7 @@ public class AnnotationLeaseService {
                 && !page.getProject().isLocked();
         boolean canForceTakeover = authorizationPolicyService.canManageProjects(workspaceId, userId);
 
-        AnnotationCollaborationDto.UserSummary user = userService.getUserProfile(userId)
-                .map(profile -> new AnnotationCollaborationDto.UserSummary(
-                        profile.id(),
-                        profile.username(),
-                        buildDisplayName(profile.id(), profile.username(), profile.firstName(), profile.lastName()),
-                        profile.avatar()
-                ))
-                .orElseGet(() -> new AnnotationCollaborationDto.UserSummary(userId, userId, userId, null));
+        AnnotationCollaborationDto.UserSummary user = resolveUserSummary(userId);
 
         return new RoomAccessContext(
                 workspaceId,
@@ -305,6 +298,10 @@ public class AnnotationLeaseService {
 
     public void assertWriteAccess(String projectId, String pageId, String xmlId, String userId) {
         RoomAccessContext context = resolveRoomAccess(projectId, pageId, xmlId, userId);
+        assertWriteAccess(context, userId);
+    }
+
+    public void assertWriteAccess(RoomAccessContext context, String userId) {
         if (!context.canEdit()) {
             throw new AnnotationLeaseLockedException(
                     "This page is currently read-only.",
@@ -333,6 +330,17 @@ public class AnnotationLeaseService {
             return;
         }
         throw lockedException;
+    }
+
+    public AnnotationCollaborationDto.UserSummary resolveUserSummary(String userId) {
+        return userService.getUserProfile(userId)
+                .map(profile -> new AnnotationCollaborationDto.UserSummary(
+                        profile.id(),
+                        profile.username(),
+                        buildDisplayName(profile.id(), profile.username(), profile.firstName(), profile.lastName()),
+                        profile.avatar()
+                ))
+                .orElseGet(() -> new AnnotationCollaborationDto.UserSummary(userId, userId, userId, null));
     }
 
     @Scheduled(fixedDelayString = "${larex.collaboration.lease-cleanup-ms:10000}")

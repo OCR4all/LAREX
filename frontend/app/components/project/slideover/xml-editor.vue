@@ -40,6 +40,7 @@ const props = defineProps<{
   projectId: string
   pageId: string
   xmlId: string
+  xmlBasePath?: string
   pageName?: string
   readOnly?: boolean
   readOnlyMessage?: string
@@ -76,6 +77,10 @@ const isReadOnly = computed(() => Boolean(props.readOnly))
 const title = computed(() => isReadOnly.value ? 'View PAGE XML' : 'View/Edit PAGE XML')
 const canSave = computed(() => !isReadOnly.value && isDirty.value && validation.value?.valid === true && !saving.value)
 const errorCount = computed(() => validation.value?.errors?.length ?? 0)
+const resolvedXmlBasePath = computed(() => {
+  if (props.xmlBasePath?.trim()) return props.xmlBasePath
+  return `/api/projects/${props.projectId}/pages/${props.pageId}/xml`
+})
 
 const validateDebounced = useDebounceFn(async (xmlText: string) => {
   await validateXml(xmlText)
@@ -105,7 +110,7 @@ async function loadXml() {
   loading.value = true
   try {
     const response = await $fetch<XmlTextResponse>(
-      `/api/projects/${props.projectId}/pages/${props.pageId}/xml/${props.xmlId}/text`
+      `${resolvedXmlBasePath.value}/${props.xmlId}/text`
     )
     initialXml.value = response.xml
     validation.value = response.validation
@@ -179,7 +184,7 @@ async function validateXml(xmlText: string) {
   validating.value = true
   try {
     const result = await $fetch<XmlValidationResult>(
-      `/api/projects/${props.projectId}/pages/${props.pageId}/xml/${props.xmlId}/validate`,
+      `${resolvedXmlBasePath.value}/${props.xmlId}/validate`,
       {
         method: 'POST',
         body: { xml: xmlText }
@@ -224,7 +229,7 @@ async function saveXml() {
   saving.value = true
   try {
     const xmlText = editorView.state.doc.toString()
-    await $fetch(`/api/projects/${props.projectId}/pages/${props.pageId}/xml/${props.xmlId}/text`, {
+    await $fetch(`${resolvedXmlBasePath.value}/${props.xmlId}/text`, {
       method: 'PUT',
       body: { xml: xmlText }
     })

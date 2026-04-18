@@ -34,6 +34,13 @@ export interface ResolvedTag {
 }
 
 export type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
+export type AnnotationApiMode = 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY'
+
+export interface AnnotationApiContext {
+  mode: AnnotationApiMode
+  basePath: string
+  createAllowed: boolean
+}
 
 export interface XmlFile {
   id: string
@@ -60,6 +67,7 @@ export interface PageData {
   /** Available from page list API before enrichment */
   xmlFileCount?: number
   indexingStatus?: PageIndexingStatus
+  annotationContext?: AnnotationApiContext
 }
 
 export interface GlobalSettings {
@@ -125,6 +133,8 @@ export interface CanvasState {
   isLoadingAnnotations?: boolean
   /** The XML file ID that was loaded for this canvas (for saving back) */
   xmlFileId?: string
+  /** Context for annotation API endpoints for this canvas */
+  annotationContext?: AnnotationApiContext | null
   /** Whether annotations are currently being saved */
   isSavingAnnotations?: boolean
   /** Whether the annotations have unsaved changes */
