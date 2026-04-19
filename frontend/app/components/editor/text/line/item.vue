@@ -1282,6 +1282,7 @@ onBeforeUnmount(() => {
                       :ui="hasHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
                       :readonly="props.readOnly || variantRole(textEquiv.index) === 'recognition'"
                       :disabled="props.readOnly || variantRole(textEquiv.index) === 'nonAssigned'"
+                      :tabindex="isEditableVariant(textEquiv.index) ? 0 : -1"
                       :data-textline-id="props.textline.id"
                       :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
                       :data-textequiv-pos="String(textEquiv.pos)"

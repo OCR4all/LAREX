@@ -11,6 +11,7 @@ export function getVisibleTextContentVariantTextareas(rootEl: Ref<HTMLElement | 
   const textareas = Array.from(el.querySelectorAll<HTMLTextAreaElement>('textarea[data-textequiv-pos]'))
   return textareas
     .filter(textarea => !textarea.disabled)
+    .filter(textarea => !textarea.readOnly)
     .filter(textarea => isVisibleElement(textarea))
 }
 
