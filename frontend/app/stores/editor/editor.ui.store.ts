@@ -76,7 +76,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const temporaryHoverPolygonId = ref<string | null>(null)
   const temporaryHoverPolylineId = ref<string | null>(null)
 
-  const textViewFontSize = ref<number>(18)
+  const textViewFontSize = ref<number>(30)
   const textViewPadding = ref<number>(10)
   const textItemLayout = ref<TextItemLayout>('side-by-side')
   const canvasTextCorrectionEnabled = ref<boolean>(false)
