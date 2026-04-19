@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LazyDictionarySlideoverBrowser } from '#components'
+import { LazyDictionarySlideoverBrowser, LazyUiConfirmModal } from '#components'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType, isTextRegion, type TextContentVariantData, type TextRegion } from '@/models/editor'
 import type { Point } from '@/models/editor/types'
@@ -40,7 +40,7 @@ import {
   normalizeTextContentVariants,
   sortByIndex
 } from '../shared/text-view-runtime'
-import { CompoundCommand, UpdateTextContentVariantsCommand } from '@/commands'
+import { CompoundCommand, DeletePolygonCommand, UpdateTextContentVariantsCommand } from '@/commands'
 
 const log = createScopedLogger('RegionTextView')
 
@@ -53,6 +53,7 @@ const workspaceStore = useWorkspaceStore()
 const collaboration = useEditorCollaboration()
 const toast = useToast()
 const overlay = useOverlay()
+const confirmModal = overlay.create(LazyUiConfirmModal)
 const dictionaryBrowserSlideover = overlay.create(LazyDictionarySlideoverBrowser)
 const {
   ensureTokenResults,
@@ -505,6 +506,25 @@ function handleSelectRegion(regionId: string): void {
     editorStore.clearBaselineSelection()
     editorStore.selectRegionById(regionId)
   }
+}
+
+async function handleDeleteRegion(regionId: string): Promise<void> {
+  if (!isCanvasEditable.value) return
+
+  const instance = confirmModal.open({
+    title: 'Delete Region?',
+    description: `Are you sure you want to delete "${regionId}"? This action cannot be undone.`,
+    confirmLabel: 'Delete',
+    confirmColor: 'error'
+  })
+  const confirmed = await instance.result
+  if (!confirmed) return
+
+  const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
+  if (!runtime?.commander) return
+
+  runtime.commander.execute(new DeletePolygonCommand({ polygonId: regionId }), createTextViewCommandContext(effectiveCanvasId.value))
+  if (selectedRegionId.value === regionId) selectedRegionId.value = null
 }
 
 function handleUpdateRegionComment(regionId: string, comment: string): void {
@@ -1107,6 +1127,7 @@ const hasActiveLocalFilters = computed(() => filterMode.value !== 'all' || onlyM
             :has-virtual-keyboard="Boolean(selectedLayout)"
             :read-only="!isCanvasEditable"
             @select-region="handleSelectRegion"
+            @delete-region="handleDeleteRegion"
             @add-text-content-variant="handleAddTextContentVariant"
             @remove-text-content-variant="handleRemoveTextContentVariant"
             @update-text-content-variant="handleCommitTextContentVariant"

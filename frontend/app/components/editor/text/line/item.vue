@@ -904,12 +904,46 @@ onBeforeUnmount(() => {
           :class="isVertical ? 'flex-col' : '@max-sm:flex-col'"
         >
           <div class="min-w-0 p-3 pb-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
-            <div class="flex items-center gap-2">
-              <UBadge variant="subtle" color="neutral" class="font-mono">
-                <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
-                {{ props.textline.label ?? props.textline.id }}
-              </UBadge>
+          <div class="flex items-center justify-between gap-2">
+            <UBadge variant="subtle" color="neutral" class="font-mono">
+              <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
+              {{ props.textline.label ?? props.textline.id }}
+            </UBadge>
+            <div class="flex items-center gap-1">
+              <template v-if="props.showReorderButtons">
+                <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-lucide-arrow-up"
+                    :disabled="!canMutateAnnotation || !props.canMoveUp"
+                    @click.stop="emit('moveUpTextline', props.textline.id)"
+                  />
+                </UTooltip>
+                <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    icon="i-lucide-arrow-down"
+                    size="xs"
+                    :disabled="!canMutateAnnotation || !props.canMoveDown"
+                    @click.stop="emit('moveDownTextline', props.textline.id)"
+                  />
+                </UTooltip>
+              </template>
+              <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="error"
+                  variant="ghost"
+                  icon="i-lucide-trash-2"
+                  size="xs"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="emit('deleteTextline', props.textline.id)"
+                />
+              </UTooltip>
             </div>
+          </div>
 
             <div
               class="rounded-sm overflow-hidden bg-muted/20 flex items-center relative"
@@ -942,28 +976,6 @@ onBeforeUnmount(() => {
                 Transcription
               </span>
               <div class="flex items-center gap-1">
-                <template v-if="props.showReorderButtons">
-                  <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                    <UButton
-                      color="neutral"
-                      variant="ghost"
-                      size="xs"
-                      icon="i-lucide-arrow-up"
-                      :disabled="!canMutateAnnotation || !props.canMoveUp"
-                      @click.stop="emit('moveUpTextline', props.textline.id)"
-                    />
-                  </UTooltip>
-                  <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                    <UButton
-                      color="neutral"
-                      variant="ghost"
-                      icon="i-lucide-arrow-down"
-                      size="xs"
-                      :disabled="!canMutateAnnotation || !props.canMoveDown"
-                      @click.stop="emit('moveDownTextline', props.textline.id)"
-                    />
-                  </UTooltip>
-                </template>
                 <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                   <UButton
                     color="success"
@@ -1036,16 +1048,6 @@ onBeforeUnmount(() => {
                     </div>
                   </template>
                 </UPopover>
-                <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="error"
-                    variant="ghost"
-                    icon="i-lucide-trash-2"
-                    size="xs"
-                    :disabled="!canMutateAnnotation"
-                    @click.stop="emit('deleteTextline', props.textline.id)"
-                  />
-                </UTooltip>
               </div>
             </div>
 

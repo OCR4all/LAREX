@@ -74,6 +74,7 @@ const emit = defineEmits<{
   addTextContentVariant: [id: string]
   removeTextContentVariant: [id: string, arrayPos: number]
   selectRegion: [id: string]
+  deleteRegion: [id: string]
   createGtFromRecognition: [id: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }]
   quickAddCodecChar: [char: string]
   quickAddDictionaryToken: [token: string]
@@ -117,9 +118,10 @@ const lineItemModel = computed(() => ({
     :read-only="props.readOnly"
     :allow-multiline="true"
     :show-drag-handle="false"
-    :show-delete-button="false"
+    :show-delete-button="true"
     cutout-max-height-class="max-h-[100vh]"
     @select-textline="emit('selectRegion', $event)"
+    @delete-textline="emit('deleteRegion', $event)"
     @add-text-content-variant="emit('addTextContentVariant', $event)"
     @remove-text-content-variant="(id, arrayPos) => emit('removeTextContentVariant', id, arrayPos)"
     @update-text-content-variant="(id, arrayPos, text) => emit('updateTextContentVariant', id, arrayPos, text)"
