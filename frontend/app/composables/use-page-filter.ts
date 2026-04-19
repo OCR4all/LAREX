@@ -57,7 +57,7 @@ const DEFAULT_FILTER_STATE: PageFilterState = {
   labelIds: [],
   textContent: '',
   tags: [],
-  filterOperator: 'or',
+  filterOperator: 'and',
   confidenceRange: [0, 1],
   confidenceElementTypes: [],
   onlyWithOpenSubtasks: false
@@ -146,7 +146,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
             labelIds: normalizeLegacyLabelFilterValues(parsed.labelIds),
             textContent: typeof parsed.textContent === 'string' ? parsed.textContent : '',
             tags: Array.isArray(parsed.tags) ? parsed.tags.filter((tag: unknown): tag is string => typeof tag === 'string' && tag.trim().length > 0) : [],
-            filterOperator: parsed.filterOperator === 'and' ? 'and' : 'or',
+            filterOperator: parsed.filterOperator === 'or' ? 'or' : 'and',
             confidenceRange: normalizeConfidenceRange(parsed.confidenceRange),
             confidenceElementTypes: normalizeConfidenceElementTypes(parsed.confidenceElementTypes),
             onlyWithOpenSubtasks: parsed.onlyWithOpenSubtasks === true
