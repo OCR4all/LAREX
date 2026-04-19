@@ -846,9 +846,9 @@ onBeforeUnmount(() => {
     <div
       ref="rootRef"
       :style="{ '--text-font-size': fontSize + 'px' }"
-      class="@container group relative rounded-md border bg-card/70 transition-all duration-150"
+      class="@container group relative rounded-md border bg-card/65 transition-all duration-150"
       :class="[
-        props.isSelected ? 'border-primary/70 ring-1 ring-primary/35 shadow-sm' : 'border-border/25 hover:border-border/50'
+        props.isSelected ? 'border-primary/35 ring-1 ring-primary/12 shadow-[0_1px_6px_rgba(0,0,0,0.06)]' : 'border-border/12 hover:border-border/22'
       ]"
       @click="emit('selectTextline', props.textline.id)"
     >
@@ -874,7 +874,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div
-            class="rounded-sm overflow-hidden bg-muted/20 ring-1 ring-border/10 flex items-center relative"
+            class="rounded-sm overflow-hidden bg-muted/20 flex items-center relative"
             :class="isVertical ? 'justify-start' : 'justify-center'"
             :style="cutoutWrapperStyle"
           >
