@@ -147,9 +147,13 @@ function getDmp(): DiffMatchPatch {
 
 const isVisible = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
+const cutoutContainerRef = ref<HTMLElement | null>(null)
+const cutoutRenderWidth = ref<number | null>(null)
+const cutoutRenderHeight = ref<number | null>(null)
 const isCutoutLoading = ref(false)
 const cutoutLoadFailed = ref(false)
 let cutoutRequestId = 0
+const maxCutoutScale = 4
 
 const isVertical = computed(() => props.layout === 'vertical')
 const canMutateAnnotation = computed(() => !props.readOnly)
@@ -177,6 +181,40 @@ const effectiveCutoutMaxHeightClass = computed(() => {
   if (props.cutoutMaxHeightClass) return props.cutoutMaxHeightClass
   return isVertical.value ? 'max-h-56' : 'max-h-40'
 })
+
+function remToPx(rem: number): number {
+  if (typeof window === 'undefined') return rem * 16
+  const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize)
+  return rem * (Number.isFinite(rootFontSize) ? rootFontSize : 16)
+}
+
+function resolveCutoutMaxHeightPx(className: string): number | null {
+  if (!className) return null
+  if (className === 'max-h-56') return remToPx(14)
+  if (className === 'max-h-40') return remToPx(10)
+
+  const arbitraryMatch = className.match(/max-h-\[([^\]]+)\]/)
+  if (!arbitraryMatch) return null
+  const rawValue = arbitraryMatch[1]?.trim()
+  if (!rawValue) return null
+
+  if (rawValue.endsWith('px')) {
+    const parsed = Number.parseFloat(rawValue)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  if (rawValue.endsWith('rem')) {
+    const parsed = Number.parseFloat(rawValue)
+    return Number.isFinite(parsed) ? remToPx(parsed) : null
+  }
+  if (rawValue.endsWith('vh')) {
+    if (typeof window === 'undefined') return null
+    const parsed = Number.parseFloat(rawValue)
+    return Number.isFinite(parsed) ? (window.innerHeight * parsed) / 100 : null
+  }
+  return null
+}
+
+const cutoutMaxHeightPx = computed(() => resolveCutoutMaxHeightPx(effectiveCutoutMaxHeightClass.value))
 const codecCharacterSet = computed(() => new Set(props.codecCharacters ?? []))
 const codecPreviewStyle = computed(() => {
   const nextFontSize = baseTextFontSize.value
@@ -377,16 +415,56 @@ const boundingBox = computed(() => {
   const xs = points.map(p => p.x)
   const ys = points.map(p => p.y)
 
-  const minX = Math.min(...xs) - props.padding
-  const minY = Math.min(...ys) - props.padding
-  const maxX = Math.max(...xs) + props.padding
-  const maxY = Math.max(...ys) + props.padding
+  const minX = Math.floor(Math.min(...xs) - props.padding)
+  const minY = Math.floor(Math.min(...ys) - props.padding)
+  const maxX = Math.ceil(Math.max(...xs) + props.padding)
+  const maxY = Math.ceil(Math.max(...ys) + props.padding)
 
   return {
     x: minX,
     y: minY,
-    width: maxX - minX,
-    height: maxY - minY
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY)
+  }
+})
+
+const adjustedPolygonPoints = computed(() => {
+  const box = boundingBox.value
+  if (!box || props.textline.points.length === 0) return []
+  return props.textline.points.map(p => ({
+    x: p.x - box.x,
+    y: p.y - box.y
+  }))
+})
+
+const polygonPath = computed(() => {
+  const points = adjustedPolygonPoints.value
+  if (points.length === 0) return ''
+  const [first, ...rest] = points
+  if (!first) return ''
+  const commands = [`M ${first.x} ${first.y}`]
+  for (const point of rest) {
+    commands.push(`L ${point.x} ${point.y}`)
+  }
+  commands.push('Z')
+  return commands.join(' ')
+})
+
+const cutoutMaskPath = computed(() => {
+  const box = boundingBox.value
+  const polygon = polygonPath.value
+  if (!box || !polygon) return ''
+  return `M 0 0 H ${box.width} V ${box.height} H 0 Z ${polygon}`
+})
+
+const cutoutFrameStyle = computed(() => {
+  const box = boundingBox.value
+  if (!box) return undefined
+  const width = cutoutRenderWidth.value ?? box.width
+  const height = cutoutRenderHeight.value ?? box.height
+  return {
+    width: `${width}px`,
+    height: `${height}px`
   }
 })
 
@@ -401,8 +479,36 @@ const drawCutout = () => {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  canvas.width = box.width
-  canvas.height = box.height
+  let containerWidth = cutoutContainerRef.value?.clientWidth ?? box.width
+  if (cutoutContainerRef.value && typeof window !== 'undefined') {
+    const style = window.getComputedStyle(cutoutContainerRef.value)
+    const paddingStart = Number.parseFloat(style.paddingInlineStart || style.paddingLeft || '0')
+    const paddingEnd = Number.parseFloat(style.paddingInlineEnd || style.paddingRight || '0')
+    containerWidth -= (Number.isFinite(paddingStart) ? paddingStart : 0) + (Number.isFinite(paddingEnd) ? paddingEnd : 0)
+  }
+  containerWidth = Math.max(1, containerWidth)
+  const maxHeightPx = cutoutMaxHeightPx.value
+  let scale = Math.min(maxCutoutScale, Math.max(1, containerWidth / box.width))
+  if (typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx) && maxHeightPx > 0) {
+    const heightLimitedScale = maxHeightPx / box.height
+    if (heightLimitedScale < scale) {
+      scale = Math.max(0.1, heightLimitedScale)
+    }
+  }
+  const displayWidth = Math.max(1, Math.round(box.width * scale))
+  const displayHeight = Math.max(1, Math.round(box.height * scale))
+  cutoutRenderWidth.value = displayWidth
+  cutoutRenderHeight.value = displayHeight
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1)
+  canvas.width = Math.max(1, Math.round(displayWidth * dpr))
+  canvas.height = Math.max(1, Math.round(displayHeight * dpr))
+  canvas.style.width = `${displayWidth}px`
+  canvas.style.height = `${displayHeight}px`
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, displayWidth, displayHeight)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
 
   if (!props.imageUrl) {
     isCutoutLoading.value = false
@@ -419,55 +525,32 @@ const drawCutout = () => {
 
   img.onload = () => {
     if (requestId !== cutoutRequestId) return
+
+    const sourceX = Math.max(0, box.x)
+    const sourceY = Math.max(0, box.y)
+    const sourceXEnd = Math.min(img.naturalWidth, box.x + box.width)
+    const sourceYEnd = Math.min(img.naturalHeight, box.y + box.height)
+    const sourceWidth = Math.max(0, sourceXEnd - sourceX)
+    const sourceHeight = Math.max(0, sourceYEnd - sourceY)
+
+    if (sourceWidth <= 0 || sourceHeight <= 0) {
+      isCutoutLoading.value = false
+      cutoutLoadFailed.value = true
+      return
+    }
+
+    const destX = sourceX - box.x
+    const destY = sourceY - box.y
+
+    ctx.clearRect(0, 0, displayWidth, displayHeight)
     ctx.drawImage(
       img,
-      box.x, box.y, box.width, box.height, // Source rectangle
-      0, 0, box.width, box.height // Destination rectangle
+      sourceX, sourceY, sourceWidth, sourceHeight,
+      Math.round(destX * scale),
+      Math.round(destY * scale),
+      Math.round(sourceWidth * scale),
+      Math.round(sourceHeight * scale)
     )
-
-    const adjustedPoints = props.textline.points.map(p => ({
-      x: p.x - box.x,
-      y: p.y - box.y
-    }))
-
-    ctx.save()
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.06)'
-    ctx.beginPath()
-    ctx.rect(0, 0, box.width, box.height)
-    if (adjustedPoints.length > 0) {
-      const firstPoint = adjustedPoints[0]
-      if (firstPoint) {
-        ctx.moveTo(firstPoint.x, firstPoint.y)
-        for (let i = 1; i < adjustedPoints.length; i++) {
-          const point = adjustedPoints[i]
-          if (point) {
-            ctx.lineTo(point.x, point.y)
-          }
-        }
-        ctx.closePath()
-      }
-    }
-    ctx.fill('evenodd')
-    ctx.restore()
-
-    ctx.strokeStyle = '#007acc'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-
-    if (adjustedPoints.length > 0) {
-      const firstPoint = adjustedPoints[0]
-      if (firstPoint) {
-        ctx.moveTo(firstPoint.x, firstPoint.y)
-        for (let i = 1; i < adjustedPoints.length; i++) {
-          const point = adjustedPoints[i]
-          if (point) {
-            ctx.lineTo(point.x, point.y)
-          }
-        }
-      }
-      ctx.closePath()
-      ctx.stroke()
-    }
 
     isCutoutLoading.value = false
     cutoutLoadFailed.value = false
@@ -848,6 +931,8 @@ watch([() => props.imageUrl, () => props.padding, () => props.textline.id, point
 })
 
 let observer: IntersectionObserver | null = null
+let resizeObserver: ResizeObserver | null = null
+let onViewportResize: (() => void) | null = null
 
 onMounted(() => {
   if (typeof IntersectionObserver !== 'undefined' && rootRef.value) {
@@ -869,12 +954,36 @@ onMounted(() => {
     isVisible.value = true
     drawCutout()
   }
+
+  if (typeof ResizeObserver !== 'undefined' && cutoutContainerRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      if (!isVisible.value) return
+      drawCutout()
+    })
+    resizeObserver.observe(cutoutContainerRef.value)
+  }
+
+  if (typeof window !== 'undefined') {
+    onViewportResize = () => {
+      if (!isVisible.value) return
+      drawCutout()
+    }
+    window.addEventListener('resize', onViewportResize)
+  }
 })
 
 onBeforeUnmount(() => {
   if (observer) {
     observer.disconnect()
     observer = null
+  }
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  if (typeof window !== 'undefined' && onViewportResize) {
+    window.removeEventListener('resize', onViewportResize)
+    onViewportResize = null
   }
 })
 </script>
@@ -904,49 +1013,50 @@ onBeforeUnmount(() => {
           :class="isVertical ? 'flex-col' : '@max-sm:flex-col'"
         >
           <div class="min-w-0 p-3 pb-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
-          <div class="flex items-center justify-between gap-2">
-            <UBadge variant="subtle" color="neutral" class="font-mono">
-              <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
-              {{ props.textline.label ?? props.textline.id }}
-            </UBadge>
-            <div class="flex items-center gap-1">
-              <template v-if="props.showReorderButtons">
-                <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+            <div class="flex items-center justify-between gap-2">
+              <UBadge variant="subtle" color="neutral" class="font-mono">
+                <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
+                {{ props.textline.label ?? props.textline.id }}
+              </UBadge>
+              <div class="flex items-center gap-1">
+                <template v-if="props.showReorderButtons">
+                  <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      icon="i-lucide-arrow-up"
+                      :disabled="!canMutateAnnotation || !props.canMoveUp"
+                      @click.stop="emit('moveUpTextline', props.textline.id)"
+                    />
+                  </UTooltip>
+                  <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      icon="i-lucide-arrow-down"
+                      size="xs"
+                      :disabled="!canMutateAnnotation || !props.canMoveDown"
+                      @click.stop="emit('moveDownTextline', props.textline.id)"
+                    />
+                  </UTooltip>
+                </template>
+                <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                   <UButton
-                    color="neutral"
+                    color="error"
                     variant="ghost"
+                    icon="i-lucide-trash-2"
                     size="xs"
-                    icon="i-lucide-arrow-up"
-                    :disabled="!canMutateAnnotation || !props.canMoveUp"
-                    @click.stop="emit('moveUpTextline', props.textline.id)"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="emit('deleteTextline', props.textline.id)"
                   />
                 </UTooltip>
-                <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    icon="i-lucide-arrow-down"
-                    size="xs"
-                    :disabled="!canMutateAnnotation || !props.canMoveDown"
-                    @click.stop="emit('moveDownTextline', props.textline.id)"
-                  />
-                </UTooltip>
-              </template>
-              <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                <UButton
-                  color="error"
-                  variant="ghost"
-                  icon="i-lucide-trash-2"
-                  size="xs"
-                  :disabled="!canMutateAnnotation"
-                  @click.stop="emit('deleteTextline', props.textline.id)"
-                />
-              </UTooltip>
+              </div>
             </div>
-          </div>
 
             <div
-              class="rounded-sm overflow-hidden bg-muted/20 flex items-center relative"
+              ref="cutoutContainerRef"
+              class="rounded-md overflow-hidden bg-gradient-to-b from-muted/30 to-muted/10 flex items-center relative"
               :class="isVertical ? 'justify-start' : 'justify-center'"
               :style="cutoutWrapperStyle"
             >
@@ -954,12 +1064,46 @@ onBeforeUnmount(() => {
                 v-if="isCutoutLoading"
                 class="absolute inset-0 h-full w-full"
               />
-              <canvas
-                ref="canvasRef"
-                class="w-full h-auto block"
-                :class="[isCutoutLoading ? 'opacity-0' : 'opacity-100', effectiveCutoutMaxHeightClass]"
-                :style="{ objectFit: 'contain', objectPosition: isVertical ? 'left center' : 'center center' }"
-              />
+              <div
+                class="relative max-w-full shrink-0"
+                :style="cutoutFrameStyle"
+              >
+                <canvas
+                  ref="canvasRef"
+                  class="cutout-canvas block h-auto max-w-full"
+                  :class="isCutoutLoading ? 'opacity-0' : 'opacity-100'"
+                />
+                <svg
+                  v-if="boundingBox && polygonPath"
+                  class="pointer-events-none absolute inset-0 h-full w-full"
+                  :viewBox="`0 0 ${boundingBox.width} ${boundingBox.height}`"
+                  preserveAspectRatio="xMinYMin meet"
+                  aria-hidden="true"
+                >
+                  <path
+                    v-if="cutoutMaskPath"
+                    :d="cutoutMaskPath"
+                    fill="rgba(2, 6, 23, 0.14)"
+                    fill-rule="evenodd"
+                  />
+                  <path
+                    :d="polygonPath"
+                    fill="none"
+                    stroke="rgba(125, 211, 252, 0.38)"
+                    stroke-width="4"
+                    vector-effect="non-scaling-stroke"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    :d="polygonPath"
+                    fill="rgba(255, 255, 255, 0.08)"
+                    stroke="rgba(14, 165, 233, 0.96)"
+                    stroke-width="1.5"
+                    vector-effect="non-scaling-stroke"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </div>
               <div
                 v-if="cutoutLoadFailed"
                 class="absolute inset-0 flex items-center justify-center textline-ui-xs text-muted bg-muted/20"
@@ -1487,5 +1631,12 @@ onBeforeUnmount(() => {
 
 :deep(.dark) .textline-highlight-mark {
   background-color: rgb(250 204 21 / 0.3);
+}
+
+.cutout-canvas {
+  border-radius: 0.375rem;
+  box-shadow:
+    inset 0 0 0 1px rgb(15 23 42 / 0.08),
+    0 2px 8px rgb(2 6 23 / 0.06);
 }
 </style>
