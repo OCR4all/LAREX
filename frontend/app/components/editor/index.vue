@@ -2161,7 +2161,7 @@ watch(() => props.src, (newSrc) => {
           ref="correctionTextareaRef"
           :value="correctionInputValue"
           rows="1"
-          class="w-full min-h-10 resize-none rounded-sm border border-default bg-default px-2.5 py-2 font-junicode text-foreground outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20"
+          class="w-full min-h-10 resize-none rounded-sm border border-emerald-300 bg-emerald-100/95 px-2.5 py-2 font-junicode text-foreground outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20 dark:bg-emerald-900/90"
           :style="{ fontSize: `${correctionFontSizePx}px`, lineHeight: `${Math.round(correctionFontSizePx * 1.2)}px` }"
           :readonly="!isCanvasEditable"
           :disabled="!isCanvasEditable"
