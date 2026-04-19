@@ -993,9 +993,9 @@ onBeforeUnmount(() => {
     <div
       ref="rootRef"
       :style="textViewFontVars"
-      class="@container group relative rounded-md border bg-card/65 transition-all duration-150"
+      class="@container group relative rounded-md border transition-all duration-150"
       :class="[
-        props.isSelected ? 'border-primary/35 ring-1 ring-primary/12 shadow-[0_1px_6px_rgba(0,0,0,0.06)]' : 'border-border/12 hover:border-border/22'
+        props.isSelected ? 'border-burnt-sienna-500 ring-1 ring-primary/12' : 'border-neutral-200 dark:border-neutral-800 hover:border-border/22'
       ]"
       @click="emit('selectTextline', props.textline.id)"
     >
@@ -1056,7 +1056,7 @@ onBeforeUnmount(() => {
 
             <div
               ref="cutoutContainerRef"
-              class="rounded-md overflow-hidden bg-gradient-to-b from-muted/30 to-muted/10 flex items-center relative"
+              class="rounded-md overflow-hidden bg-linear-to-b from-muted/30 to-muted/10 flex items-center relative"
               :class="isVertical ? 'justify-start' : 'justify-center'"
               :style="cutoutWrapperStyle"
             >
@@ -1114,85 +1114,79 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="min-w-0 p-3 pt-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
-            <div class="flex items-center justify-between">
-              <span class="textline-ui-xs font-medium text-muted flex items-center gap-1.5">
-                <Icon name="i-lucide-type" class="h-3 w-3" />
-                Transcription
-              </span>
-              <div class="flex items-center gap-1">
-                <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="success"
-                    variant="soft"
-                    size="xs"
-                    icon="i-lucide-copy-plus"
-                    :disabled="!canMutateAnnotation"
-                    @click.stop="createGtFromRecognition"
-                  >
-                    Create GT
-                  </UButton>
-                </UTooltip>
-                <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    icon="i-lucide-plus"
-                    :disabled="!canMutateAnnotation"
-                    @click.stop="addTextContentVariant"
-                  >
-                    Add
-                  </UButton>
-                </UTooltip>
-                <UPopover
-                  v-model:open="commentEditorOpen"
-                  :content="{ side: 'top', align: 'end', sideOffset: 6 }"
+            <div class="flex items-center gap-1 justify-end w-full">
+              <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="success"
+                  variant="soft"
+                  size="xs"
+                  icon="i-lucide-copy-plus"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="createGtFromRecognition"
                 >
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    class="h-6 px-2 textline-ui-xs text-muted hover:text-foreground"
-                    :disabled="!canMutateAnnotation"
-                    @click.stop="openCommentEditor"
-                  >
-                    <Icon name="i-lucide-message-square" class="h-3 w-3 mr-1" />
-                    {{ hasElementComment ? 'Edit Comment' : 'Add Comment' }}
-                  </UButton>
-                  <template #content>
-                    <div class="w-80 p-3 flex flex-col gap-2" @click.stop>
-                      <div class="textline-ui-xs font-medium text-muted">
-                        {{ hasElementComment ? 'Edit metadata comment' : 'Add metadata comment' }}
-                      </div>
-                      <UTextarea
-                        v-model="commentDraft"
-                        :rows="4"
-                        autoresize
-                        placeholder="Enter comment..."
-                        :disabled="!canMutateAnnotation"
-                      />
-                      <div class="flex items-center justify-end gap-2">
-                        <UButton
-                          color="neutral"
-                          variant="ghost"
-                          size="xs"
-                          @click.stop="cancelCommentEdit"
-                        >
-                          Cancel
-                        </UButton>
-                        <UButton
-                          color="primary"
-                          size="xs"
-                          :disabled="!canMutateAnnotation"
-                          @click.stop="saveCommentEdit"
-                        >
-                          Save
-                        </UButton>
-                      </div>
+                  Create GT
+                </UButton>
+              </UTooltip>
+              <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  icon="i-lucide-plus"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="addTextContentVariant"
+                >
+                  Add
+                </UButton>
+              </UTooltip>
+              <UPopover
+                v-model:open="commentEditorOpen"
+                :content="{ side: 'top', align: 'end', sideOffset: 6 }"
+              >
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  class="h-6 px-2 textline-ui-xs text-muted hover:text-foreground"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="openCommentEditor"
+                >
+                  <Icon name="i-lucide-message-square" class="h-3 w-3 mr-1" />
+                  {{ hasElementComment ? 'Edit Comment' : 'Add Comment' }}
+                </UButton>
+                <template #content>
+                  <div class="w-80 p-3 flex flex-col gap-2" @click.stop>
+                    <div class="textline-ui-xs font-medium text-muted">
+                      {{ hasElementComment ? 'Edit metadata comment' : 'Add metadata comment' }}
                     </div>
-                  </template>
-                </UPopover>
-              </div>
+                    <UTextarea
+                      v-model="commentDraft"
+                      :rows="4"
+                      autoresize
+                      placeholder="Enter comment..."
+                      :disabled="!canMutateAnnotation"
+                    />
+                    <div class="flex items-center justify-end gap-2">
+                      <UButton
+                        color="neutral"
+                        variant="ghost"
+                        size="xs"
+                        @click.stop="cancelCommentEdit"
+                      >
+                        Cancel
+                      </UButton>
+                      <UButton
+                        color="primary"
+                        size="xs"
+                        :disabled="!canMutateAnnotation"
+                        @click.stop="saveCommentEdit"
+                      >
+                        Save
+                      </UButton>
+                    </div>
+                  </div>
+                </template>
+              </UPopover>
             </div>
 
             <UAlert
