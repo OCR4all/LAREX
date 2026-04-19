@@ -70,6 +70,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   updateTextContentVariant: [id: string, arrayPos: number, text: string]
   updateTextContentVariantIndex: [id: string, arrayPos: number, index: number | undefined]
+  updateElementComment: [id: string, comment: string]
   addTextContentVariant: [id: string]
   removeTextContentVariant: [id: string, arrayPos: number]
   selectRegion: [id: string]
@@ -123,6 +124,7 @@ const lineItemModel = computed(() => ({
     @remove-text-content-variant="(id, arrayPos) => emit('removeTextContentVariant', id, arrayPos)"
     @update-text-content-variant="(id, arrayPos, text) => emit('updateTextContentVariant', id, arrayPos, text)"
     @update-text-content-variant-index="(id, arrayPos, index) => emit('updateTextContentVariantIndex', id, arrayPos, index)"
+    @update-element-comment="(id, comment) => emit('updateElementComment', id, comment)"
     @create-gt-from-recognition="(id, payload) => emit('createGtFromRecognition', id, payload)"
     @quick-add-codec-char="emit('quickAddCodecChar', $event)"
     @quick-add-dictionary-token="emit('quickAddDictionaryToken', $event)"

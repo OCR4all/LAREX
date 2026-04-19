@@ -108,6 +108,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   updateTextContentVariant: [id: string, arrayPos: number, text: string]
   updateTextContentVariantIndex: [id: string, arrayPos: number, index: number | undefined]
+  updateElementComment: [id: string, comment: string]
   addTextContentVariant: [id: string]
   removeTextContentVariant: [id: string, arrayPos: number]
   selectTextline: [id: string]
@@ -152,6 +153,17 @@ let cutoutRequestId = 0
 
 const isVertical = computed(() => props.layout === 'vertical')
 const canMutateAnnotation = computed(() => !props.readOnly)
+const baseTextFontSize = computed(() => Math.max(10, Number(props.fontSize ?? 18)))
+function scaleText(multiplier: number, min: number): number {
+  return Math.max(min, Math.round(baseTextFontSize.value * multiplier))
+}
+const textViewFontVars = computed(() => ({
+  '--text-font-size': `${baseTextFontSize.value}px`,
+  '--text-font-size-sm': `${scaleText(0.8, 11)}px`,
+  '--text-font-size-xs': `${scaleText(0.68, 10)}px`,
+  '--text-font-size-2xs': `${scaleText(0.58, 9)}px`,
+  '--text-font-size-char': `${scaleText(0.9, 13)}px`
+}))
 // Keep cutout start aligned with the transcription textarea start rail in vertical/isolated layout.
 // 5.5rem = index button (1.25rem) + two gaps (0.375rem each) + confidence column (3.5rem).
 const cutoutStartOffsetRem = 5.5
@@ -167,7 +179,7 @@ const effectiveCutoutMaxHeightClass = computed(() => {
 })
 const codecCharacterSet = computed(() => new Set(props.codecCharacters ?? []))
 const codecPreviewStyle = computed(() => {
-  const nextFontSize = Math.max(10, Number(props.fontSize ?? 18))
+  const nextFontSize = baseTextFontSize.value
   return {
     fontSize: `${nextFontSize}px`,
     lineHeight: `${Math.max(16, Math.round(nextFontSize * 1.4))}px`
@@ -179,7 +191,16 @@ const textDirectionStyle = computed(() => textDirectionAttributes.value.style)
 const textDirectionDir = computed(() => textDirectionAttributes.value.dir)
 const normalizedTextHighlightQuery = computed(() => props.textHighlightQuery?.trim() ?? '')
 const normalizedComment = computed(() => (props.textline.comments ?? '').trim())
+const hasElementComment = computed(() => normalizedComment.value.length > 0)
 const editableTextContentVariants = computed(() => props.textline.allTextContentVariants ?? props.textline.textContentVariants)
+const commentEditorOpen = ref(false)
+const commentDraft = ref(props.textline.comments ?? '')
+
+watch(() => props.textline.comments, (nextComment) => {
+  if (!commentEditorOpen.value) {
+    commentDraft.value = nextComment ?? ''
+  }
+}, { immediate: true })
 
 function variantRole(index: number | undefined): 'gt' | 'recognition' | 'nonAssigned' {
   if (typeof index === 'number' && index === props.gtIndex) return 'gt'
@@ -216,6 +237,23 @@ function createGtFromRecognition() {
   const source = recognitionCandidates.value[0]
   if (!source) return
   emit('createGtFromRecognition', props.textline.id, { gtIndex, sourceRecognitionIndex: source.index })
+}
+
+function openCommentEditor() {
+  if (!canMutateAnnotation.value) return
+  commentDraft.value = props.textline.comments ?? ''
+  commentEditorOpen.value = true
+}
+
+function cancelCommentEdit() {
+  commentDraft.value = props.textline.comments ?? ''
+  commentEditorOpen.value = false
+}
+
+function saveCommentEdit() {
+  if (!canMutateAnnotation.value) return
+  emit('updateElementComment', props.textline.id, commentDraft.value)
+  commentEditorOpen.value = false
 }
 
 function handleTextareaKeydownEnter(event: KeyboardEvent, variantIndex: number | undefined) {
@@ -845,507 +883,570 @@ onBeforeUnmount(() => {
   <TooltipProvider :delay-duration="200">
     <div
       ref="rootRef"
-      :style="{ '--text-font-size': fontSize + 'px' }"
+      :style="textViewFontVars"
       class="@container group relative rounded-md border bg-card/65 transition-all duration-150"
       :class="[
         props.isSelected ? 'border-primary/35 ring-1 ring-primary/12 shadow-[0_1px_6px_rgba(0,0,0,0.06)]' : 'border-border/12 hover:border-border/22'
       ]"
       @click="emit('selectTextline', props.textline.id)"
     >
-    <template v-if="!isVisible">
-      <div class="flex-1 p-3 space-y-2">
-        <USkeleton class="h-4 w-24" />
-        <USkeleton class="h-16 w-full" />
-        <USkeleton class="h-8 w-full" />
-      </div>
-    </template>
-
-    <template v-else>
-      <div
-        class="flex min-w-0"
-        :class="isVertical ? 'flex-col' : '@max-sm:flex-col'"
-      >
-        <div class="min-w-0 p-3 pb-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
-          <div class="flex items-center gap-2">
-            <UBadge variant="subtle" color="neutral" class="font-mono">
-              <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
-              {{ props.textline.label ?? props.textline.id }}
-            </UBadge>
-          </div>
-
-          <div
-            class="rounded-sm overflow-hidden bg-muted/20 flex items-center relative"
-            :class="isVertical ? 'justify-start' : 'justify-center'"
-            :style="cutoutWrapperStyle"
-          >
-            <USkeleton
-              v-if="isCutoutLoading"
-              class="absolute inset-0 h-full w-full"
-            />
-            <canvas
-              ref="canvasRef"
-              class="w-full h-auto block"
-              :class="[isCutoutLoading ? 'opacity-0' : 'opacity-100', effectiveCutoutMaxHeightClass]"
-              :style="{ objectFit: 'contain', objectPosition: isVertical ? 'left center' : 'center center' }"
-            />
-            <div
-              v-if="cutoutLoadFailed"
-              class="absolute inset-0 flex items-center justify-center text-xs text-muted bg-muted/20"
-            >
-              Cutout unavailable
-            </div>
-          </div>
+      <template v-if="!isVisible">
+        <div class="flex-1 p-3 space-y-2">
+          <USkeleton class="h-4 w-24" />
+          <USkeleton class="h-16 w-full" />
+          <USkeleton class="h-8 w-full" />
         </div>
+      </template>
 
-        <div class="min-w-0 p-3 pt-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-medium text-muted flex items-center gap-1.5">
-              <Icon name="i-lucide-type" class="h-3 w-3" />
-              Transcription
-            </span>
-            <div class="flex items-center gap-1">
-              <template v-if="props.showReorderButtons">
-                <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    class="h-6 w-6 p-0 text-muted hover:text-foreground"
-                    :disabled="!canMutateAnnotation || !props.canMoveUp"
-                    @click.stop="emit('moveUpTextline', props.textline.id)"
-                  >
-                    <Icon name="i-lucide-arrow-up" class="h-3.5 w-3.5" />
-                  </UButton>
-                </UTooltip>
-                <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    class="h-6 w-6 p-0 text-muted hover:text-foreground"
-                    :disabled="!canMutateAnnotation || !props.canMoveDown"
-                    @click.stop="emit('moveDownTextline', props.textline.id)"
-                  >
-                    <Icon name="i-lucide-arrow-down" class="h-3.5 w-3.5" />
-                  </UButton>
-                </UTooltip>
-              </template>
-              <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                <UButton
-                  color="success"
-                  variant="soft"
-                  size="sm"
-                  class="h-6 px-2 text-xs"
-                  :disabled="!canMutateAnnotation"
-                  @click.stop="createGtFromRecognition"
-                >
-                  <Icon name="i-lucide-copy-plus" class="h-3 w-3 mr-1" />
-                  Create GT
-                </UButton>
-              </UTooltip>
-              <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  class="h-6 px-2 text-xs text-muted hover:text-foreground"
-                  :disabled="!canMutateAnnotation"
-                  @click.stop="addTextContentVariant"
-                >
-                  <Icon name="i-lucide-plus" class="h-3 w-3 mr-1" />
-                  Add
-                </UButton>
-              </UTooltip>
-              <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
-                <UButton
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  class="h-6 w-6 p-0 text-muted hover:text-destructive hover:bg-destructive/10"
-                  :disabled="!canMutateAnnotation"
-                  @click.stop="emit('deleteTextline', props.textline.id)"
-                >
-                  <Icon name="i-lucide-trash-2" class="h-3.5 w-3.5" />
-                </UButton>
-              </UTooltip>
+      <template v-else>
+        <div
+          class="flex min-w-0"
+          :class="isVertical ? 'flex-col' : '@max-sm:flex-col'"
+        >
+          <div class="min-w-0 p-3 pb-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
+            <div class="flex items-center gap-2">
+              <UBadge variant="subtle" color="neutral" class="font-mono">
+                <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
+                {{ props.textline.label ?? props.textline.id }}
+              </UBadge>
+            </div>
+
+            <div
+              class="rounded-sm overflow-hidden bg-muted/20 flex items-center relative"
+              :class="isVertical ? 'justify-start' : 'justify-center'"
+              :style="cutoutWrapperStyle"
+            >
+              <USkeleton
+                v-if="isCutoutLoading"
+                class="absolute inset-0 h-full w-full"
+              />
+              <canvas
+                ref="canvasRef"
+                class="w-full h-auto block"
+                :class="[isCutoutLoading ? 'opacity-0' : 'opacity-100', effectiveCutoutMaxHeightClass]"
+                :style="{ objectFit: 'contain', objectPosition: isVertical ? 'left center' : 'center center' }"
+              />
+              <div
+                v-if="cutoutLoadFailed"
+                class="absolute inset-0 flex items-center justify-center textline-ui-xs text-muted bg-muted/20"
+              >
+                Cutout unavailable
+              </div>
             </div>
           </div>
 
-          <div
-            v-if="props.showComments && normalizedComment.length > 0"
-            class="rounded-sm border border-amber-200/70 bg-amber-50/70 px-2 py-1.5"
-          >
-            <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800/90">
-              Comment
-            </p>
-            <p class="mt-0.5 text-xs text-amber-900/90 whitespace-pre-wrap break-words">
-              {{ normalizedComment }}
-            </p>
-          </div>
-
-          <div class="flex flex-col gap-2">
-            <div
-              v-for="textEquiv in textContentVariantsWithDiff"
-              :key="getTextContentVariantRenderKey(textEquiv)"
-              class="flex items-center gap-1.5 group/input"
-            >
-              <UPopover :content="{ side: 'left', align: 'center' }" @update:open="(open: boolean) => { if (!open) closeIndexEditor() }">
-                <UButton
-                  variant="ghost"
-                  color="neutral"
-                  size="xs"
-                  class="relative shrink-0 min-w-5 h-5 p-0 text-[10px] inline-flex items-center justify-center"
-                  :class="typeof textEquiv.index === 'number' ? 'text-muted/60 hover:text-primary' : 'text-muted/40 italic hover:text-primary'"
-                  :disabled="!canMutateAnnotation"
-                  title="Change index"
-                  @click.stop="openIndexEditor(textEquiv.pos, textEquiv.index)"
-                >
-                  {{ typeof textEquiv.index === 'number' ? textEquiv.index : '–' }}
-                </UButton>
-                <template #content>
-                  <div v-if="editingIndexPos === textEquiv.pos" class="p-3 flex flex-col gap-2 w-52" @click.stop>
-                    <span class="text-xs font-medium text-muted">Change Index</span>
-                    <UCheckbox v-model="editingUnindexed" label="Unindexed" :disabled="!canMutateAnnotation" />
-                    <UInput
-                      v-if="!editingUnindexed"
-                      v-model.number="editingIndexValue"
-                      type="number"
-                      :min="0"
-                      size="sm"
-                      placeholder="Index"
-                      :disabled="!canMutateAnnotation"
-                      :color="hasIndexConflict(textEquiv.pos, editingEffectiveIndex) ? 'error' : undefined"
-                      @keydown.enter.stop="saveIndex(textEquiv.pos)"
-                      @keydown.escape.stop="closeIndexEditor"
-                    />
-                    <p v-if="hasIndexConflict(textEquiv.pos, editingEffectiveIndex)" class="text-xs text-error">
-                      {{ editingEffectiveIndex === undefined ? 'Another variant already has no index' : `Index ${editingEffectiveIndex} is already in use` }} (will swap)
-                    </p>
-                    <div class="flex justify-end gap-1">
-                      <UButton
-                        size="xs"
-                        color="neutral"
-                        variant="ghost"
-                        @click.stop="closeIndexEditor"
-                      >
-                        Cancel
-                      </UButton>
-                      <UButton
-                        size="xs"
-                        color="primary"
-                        :disabled="!canMutateAnnotation"
-                        @click.stop="saveIndex(textEquiv.pos)"
-                      >
-                        Save
-                      </UButton>
-                    </div>
-                  </div>
-                </template>
-              </UPopover>
-
-              <div class="shrink-0 w-14 flex justify-center">
-                <UBadge
-                  v-if="getConfidencePercent(textEquiv.confidence) !== undefined"
-                  variant="outline"
-                  class="text-xs px-1.5 py-0"
-                  :class="getConfidenceClass(textEquiv.confidence)"
-                >
-                  {{ getConfidencePercent(textEquiv.confidence) }}%
-                </UBadge>
-              </div>
-
-              <div class="flex-1 min-w-0 flex flex-col gap-1">
-                <div class="flex items-center gap-1">
-                  <UTextarea
-                    :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
-                    :model-value="textEquiv.text"
-                    :rows="props.allowMultiline ? 3 : 1"
-                    autoresize
-                    placeholder="Enter transcription..."
-                    :dir="textDirectionDir"
-                    :style="textDirectionStyle"
-                    :ui="hasHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
-                    :readonly="props.readOnly || variantRole(textEquiv.index) === 'recognition'"
-                    :disabled="props.readOnly || variantRole(textEquiv.index) === 'nonAssigned'"
-                    :data-textline-id="props.textline.id"
-                    :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
-                    :data-textequiv-pos="String(textEquiv.pos)"
-                    class="textline-textarea flex-1 min-w-0 min-h-9 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
-                    :class="[
-                      variantRole(textEquiv.index) === 'gt' && (hasHighlight(textEquiv.text)
-                        ? 'textline-textarea--gt border-emerald-200'
-                        : 'textline-textarea--gt border-emerald-200 bg-emerald-100/95 dark:bg-emerald-900/90'),
-                      variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
-                      variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200/70 text-muted',
-                      hasHighlight(textEquiv.text) && ['textline-textarea--has-highlight', highlightShellClass(textEquiv.index, textEquiv.text)]
-                    ]"
-                    @click.stop
-                    @focus="emit('selectTextline', props.textline.id)"
-                    @keydown.enter="(event: KeyboardEvent) => handleTextareaKeydownEnter(event, textEquiv.index)"
-                    @beforeinput="(event: InputEvent) => handleTextareaBeforeInput(event, textEquiv.index)"
-                    @paste="(event: ClipboardEvent) => handleTextareaPaste(event, textEquiv.index)"
-                    @drop="(event: DragEvent) => handleTextareaDrop(event, textEquiv.index)"
-                    @update:model-value="(value) => { if (isEditableVariant(textEquiv.index)) updateText(textEquiv.pos, String(value ?? '')) }"
-                  >
-                    <div
-                      v-if="hasHighlight(textEquiv.text)"
-                      class="textline-textarea-highlight-layer pointer-events-none absolute inset-px z-0 overflow-hidden rounded-md px-2.5 py-1.5 font-junicode text-transparent whitespace-pre-wrap break-words"
-                      :dir="textDirectionDir"
-                      :style="textDirectionStyle"
-                      aria-hidden="true"
-                    >
-                      <template
-                        v-for="(segment, segmentIndex) in highlightedSegments(textEquiv.text)"
-                        :key="`${textEquiv.pos}_${segmentIndex}`"
-                      >
-                        <mark v-if="segment.matched" class="textline-highlight-mark">{{ segment.text }}</mark>
-                        <span v-else>{{ segment.text }}</span>
-                      </template>
-                    </div>
-                  </UTextarea>
-                  <UTooltip text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+          <div class="min-w-0 p-3 pt-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
+            <div class="flex items-center justify-between">
+              <span class="textline-ui-xs font-medium text-muted flex items-center gap-1.5">
+                <Icon name="i-lucide-type" class="h-3 w-3" />
+                Transcription
+              </span>
+              <div class="flex items-center gap-1">
+                <template v-if="props.showReorderButtons">
+                  <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                     <UButton
                       color="neutral"
                       variant="ghost"
-                      size="xs"
-                      class="shrink-0 h-6 w-6 p-0 opacity-0 group-hover/input:opacity-100 transition-opacity text-muted hover:text-destructive"
-                      :disabled="!canMutateAnnotation"
-                      @click.stop="removeTextContentVariant(textEquiv.pos)"
+                      size="sm"
+                      class="h-6 w-6 p-0 text-muted hover:text-foreground"
+                      :disabled="!canMutateAnnotation || !props.canMoveUp"
+                      @click.stop="emit('moveUpTextline', props.textline.id)"
                     >
-                      <Icon name="i-lucide-x" class="h-3 w-3" />
+                      <Icon name="i-lucide-arrow-up" class="h-3.5 w-3.5" />
                     </UButton>
                   </UTooltip>
-                </div>
-
-                <div
-                  v-if="highlightUnknownCodecChars && codecCharacterSet.size > 0"
-                  class="text-xs rounded-sm bg-muted/25 p-2 space-y-1"
-                >
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="text-muted">Codec check</span>
-                    <UBadge
-                      :color="getUnknownCharacterCount(textEquiv.text) > 0 ? 'warning' : 'success'"
-                      variant="soft"
-                      size="xs"
+                  <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      class="h-6 w-6 p-0 text-muted hover:text-foreground"
+                      :disabled="!canMutateAnnotation || !props.canMoveDown"
+                      @click.stop="emit('moveDownTextline', props.textline.id)"
                     >
-                      {{ getUnknownCharacterCount(textEquiv.text) }} unknown
-                    </UBadge>
-                  </div>
-                  <div class="font-junicode break-all" :dir="textDirectionDir" :style="[codecPreviewStyle, textDirectionStyle]">
-                    <template v-for="(segment, segmentIndex) in getUnknownSegments(textEquiv.text)" :key="`seg_${textEquiv.pos}_${segmentIndex}`">
-                      <UPopover
-                        v-if="segment.unknown"
-                        mode="hover"
-                        :content="{ side: 'top', align: 'start', sideOffset: 8 }"
-                        @update:open="(open: boolean) => handleUnknownPopoverUpdate(open, segment.text)"
-                      >
-                        <span class="bg-warning/20 text-warning-700 dark:text-warning-300 rounded-sm px-0.5 cursor-help">
-                          {{ segment.text }}
-                        </span>
-                        <template #content>
-                          <div class="p-2 min-w-48 max-w-80 space-y-1">
-                            <div class="text-xs font-medium text-muted">
-                              Unknown characters
-                            </div>
-                            <div
-                              v-for="detail in getUnknownCharacterDetails(segment.text)"
-                              :key="`unknown_${textEquiv.pos}_${segmentIndex}_${detail.char}_${detail.codepoint}`"
-                              class="space-y-1"
-                            >
-                              <div class="flex items-center gap-2 text-xs">
-                                <span class="font-junicode text-base leading-none">{{ detail.char }}</span>
-                                <span class="font-mono">{{ detail.codepoint }}</span>
-                                <span v-if="detail.loading" class="text-muted">Loading...</span>
-                                <span v-else-if="detail.description" class="text-muted truncate">{{ detail.description }}</span>
-                                <UBadge
-                                  v-if="detail.source"
-                                  color="neutral"
-                                  variant="soft"
-                                  size="xs"
-                                  class="uppercase"
-                                >
-                                  {{ detail.source }}
-                                </UBadge>
-                              </div>
-                              <div class="flex flex-wrap gap-1">
-                                <UButton
-                                  size="xs"
-                                  color="neutral"
-                                  variant="soft"
-                                  :disabled="!projectCodecId"
-                                  @click.stop="emit('quickAddCodecChar', detail.char)"
-                                >
-                                  Add to Codec
-                                </UButton>
-                                <UButton
-                                  size="xs"
-                                  color="neutral"
-                                  variant="soft"
-                                  :disabled="!hasVirtualKeyboard"
-                                  @click.stop="emit('quickAddKeyboardChar', detail.char)"
-                                >
-                                  Add to Keyboard
-                                </UButton>
-                                <UButton
-                                  size="xs"
-                                  color="neutral"
-                                  variant="ghost"
-                                  :disabled="!projectCodecId"
-                                  @click.stop="emit('openCodecEditor')"
-                                >
-                                  Open Codec
-                                </UButton>
-                                <UButton
-                                  size="xs"
-                                  color="neutral"
-                                  variant="ghost"
-                                  :disabled="!hasVirtualKeyboard"
-                                  @click.stop="emit('openKeyboardEditor')"
-                                >
-                                  Open Keyboard
-                                </UButton>
-                              </div>
-                            </div>
-                          </div>
-                        </template>
-                      </UPopover>
-                      <span
-                        v-else
-                      >{{ segment.text }}</span>
-                    </template>
-                  </div>
-                </div>
-
-                <div
-                  v-if="canCheckDictionaryTokens && variantRole(textEquiv.index) === 'gt'"
-                  class="text-xs rounded-sm bg-muted/25 p-2 space-y-1"
-                >
-                  <div class="flex items-center justify-between gap-2">
-                    <span class="text-muted">Dictionary check</span>
-                    <USkeleton
-                      v-if="isDictionaryCheckLoading(textEquiv.text)"
-                      class="h-5 w-20"
-                    />
-                    <UBadge
-                      v-else
-                      :color="getUnknownDictionaryTokenCount(textEquiv.text) > 0 ? 'warning' : 'success'"
-                      variant="soft"
-                      size="xs"
-                    >
-                      {{ getUnknownDictionaryTokenCount(textEquiv.text) }} unknown
-                    </UBadge>
-                  </div>
-                  <div
-                    v-if="isDictionaryCheckLoading(textEquiv.text)"
-                    class="space-y-2"
+                      <Icon name="i-lucide-arrow-down" class="h-3.5 w-3.5" />
+                    </UButton>
+                  </UTooltip>
+                </template>
+                <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="success"
+                    variant="soft"
+                    size="sm"
+                    class="h-6 px-2 textline-ui-xs"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="createGtFromRecognition"
                   >
-                    <USkeleton class="h-5 w-full" />
-                    <USkeleton class="h-5 w-3/4" />
-                  </div>
-                  <div
-                    v-else
-                    class="font-junicode break-words"
-                    :dir="textDirectionDir"
-                    :style="[codecPreviewStyle, textDirectionStyle]"
+                    <Icon name="i-lucide-copy-plus" class="h-3 w-3 mr-1" />
+                    Create GT
+                  </UButton>
+                </UTooltip>
+                <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 px-2 textline-ui-xs text-muted hover:text-foreground"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="addTextContentVariant"
                   >
-                    <template v-for="(segment, segmentIndex) in getUnknownDictionaryTokenSegmentsFromLookup(textEquiv.text)" :key="`dict_seg_${textEquiv.pos}_${segmentIndex}`">
-                      <UPopover
-                        v-if="segment.unknown"
-                        mode="hover"
-                        :content="{ side: 'top', align: 'start', sideOffset: 8 }"
-                        @update:open="(open: boolean) => handleUnknownDictionaryPopoverUpdate(open, segment.text)"
-                      >
-                        <span class="underline decoration-warning decoration-2 underline-offset-2 text-warning-700 dark:text-warning-300">
-                          {{ segment.text }}
-                        </span>
-                        <template #content>
-                          <div class="p-2 min-w-56 max-w-96 space-y-2">
-                            <div class="text-xs font-medium text-muted">
-                              Dictionary suggestions
-                            </div>
-                            <div
-                              v-for="detail in getUnknownDictionaryTokenDetails(segment.text)"
-                              :key="`dictionary_${textEquiv.pos}_${segmentIndex}_${detail.normalized}`"
-                              class="space-y-2"
-                            >
-                              <div class="text-xs">
-                                <span class="font-medium">{{ detail.token }}</span>
-                                <span class="text-muted"> is not in the dictionary.</span>
-                              </div>
-                              <div v-if="detail.suggestions.length > 0" class="flex flex-wrap gap-1">
-                                <UButton
-                                  v-for="suggestion in detail.suggestions"
-                                  :key="`${detail.normalized}_${suggestion.display}`"
-                                  color="neutral"
-                                  variant="soft"
-                                  size="xs"
-                                  @click.stop="applyDictionarySuggestion(textEquiv.pos, segment, suggestion.display)"
-                                >
-                                  {{ suggestion.display }}
-                                </UButton>
-                              </div>
-                              <div v-else-if="isDictionarySuggestionLoading(detail.token)" class="space-y-2">
-                                <USkeleton class="h-7 w-full" />
-                                <USkeleton class="h-7 w-2/3" />
-                              </div>
-                              <div class="flex flex-wrap gap-1">
-                                <UButton
-                                  v-if="!projectDictionaryLocked"
-                                  size="xs"
-                                  color="neutral"
-                                  variant="soft"
-                                  :disabled="!projectDictionaryId || !canQuickAddToDictionary"
-                                  @click.stop="emit('quickAddDictionaryToken', detail.token)"
-                                >
-                                  Add to Dictionary
-                                </UButton>
-                                <UButton
-                                  size="xs"
-                                  color="neutral"
-                                  variant="ghost"
-                                  :disabled="!projectDictionaryId"
-                                  @click.stop="emit('openDictionaryEditor')"
-                                >
-                                  Open Dictionary
-                                </UButton>
-                              </div>
-                            </div>
-                          </div>
-                        </template>
-                      </UPopover>
-                      <span v-else>{{ segment.text }}</span>
-                    </template>
-                  </div>
-                </div>
-
-                <div
-                  v-if="showDiff && textEquiv.diffs"
-                  class="text-sm font-mono p-2 bg-muted/25 rounded-sm"
-                  :dir="textDirectionDir"
-                  :style="textDirectionStyle"
+                    <Icon name="i-lucide-plus" class="h-3 w-3 mr-1" />
+                    Add
+                  </UButton>
+                </UTooltip>
+                <UPopover
+                  v-model:open="commentEditorOpen"
+                  :content="{ side: 'top', align: 'end', sideOffset: 6 }"
                 >
-                  <template v-for="segment in renderDiff(textEquiv.diffs)" :key="segment.text">
-                    <span v-if="segment.type === 'equal'" class="text-foreground">{{ segment.text }}</span>
-                    <span v-else-if="segment.type === 'delete'" class="text-red-500 line-through bg-red-500/10 px-0.5 rounded">
-                      {{ segment.text }}
-                    </span>
-                    <span v-else-if="segment.type === 'insert'" class="text-green-500 bg-green-500/10 px-0.5 rounded-sm font-semibold">
-                      +{{ segment.text }}
-                    </span>
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 px-2 textline-ui-xs text-muted hover:text-foreground"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="openCommentEditor"
+                  >
+                    <Icon name="i-lucide-message-square" class="h-3 w-3 mr-1" />
+                    {{ hasElementComment ? 'Edit Comment' : 'Add Comment' }}
+                  </UButton>
+                  <template #content>
+                    <div class="w-80 p-3 flex flex-col gap-2" @click.stop>
+                      <div class="textline-ui-xs font-medium text-muted">
+                        {{ hasElementComment ? 'Edit metadata comment' : 'Add metadata comment' }}
+                      </div>
+                      <UTextarea
+                        v-model="commentDraft"
+                        :rows="4"
+                        autoresize
+                        placeholder="Enter comment..."
+                        :disabled="!canMutateAnnotation"
+                      />
+                      <div class="flex items-center justify-end gap-2">
+                        <UButton
+                          color="neutral"
+                          variant="ghost"
+                          size="xs"
+                          @click.stop="cancelCommentEdit"
+                        >
+                          Cancel
+                        </UButton>
+                        <UButton
+                          color="primary"
+                          size="xs"
+                          :disabled="!canMutateAnnotation"
+                          @click.stop="saveCommentEdit"
+                        >
+                          Save
+                        </UButton>
+                      </div>
+                    </div>
                   </template>
+                </UPopover>
+                <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 w-6 p-0 text-muted hover:text-destructive hover:bg-destructive/10"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="emit('deleteTextline', props.textline.id)"
+                  >
+                    <Icon name="i-lucide-trash-2" class="h-3.5 w-3.5" />
+                  </UButton>
+                </UTooltip>
+              </div>
+            </div>
+
+            <UAlert
+              v-if="props.showComments && normalizedComment.length > 0"
+              color="info"
+              variant="subtle"
+              title="Comment"
+              :description="normalizedComment"
+              icon="i-lucide-message-square-quote"
+            />
+
+            <div class="flex flex-col gap-2">
+              <div
+                v-for="textEquiv in textContentVariantsWithDiff"
+                :key="getTextContentVariantRenderKey(textEquiv)"
+                class="flex items-center gap-1.5 group/input"
+              >
+                <UPopover :content="{ side: 'left', align: 'center' }" @update:open="(open: boolean) => { if (!open) closeIndexEditor() }">
+                  <UButton
+                    variant="ghost"
+                    color="neutral"
+                    size="xs"
+                    class="relative shrink-0 min-w-5 h-5 p-0 textline-ui-2xs inline-flex items-center justify-center"
+                    :class="typeof textEquiv.index === 'number' ? 'text-muted/60 hover:text-primary' : 'text-muted/40 italic hover:text-primary'"
+                    :disabled="!canMutateAnnotation"
+                    title="Change index"
+                    @click.stop="openIndexEditor(textEquiv.pos, textEquiv.index)"
+                  >
+                    {{ typeof textEquiv.index === 'number' ? textEquiv.index : '–' }}
+                  </UButton>
+                  <template #content>
+                    <div v-if="editingIndexPos === textEquiv.pos" class="p-3 flex flex-col gap-2 w-52" @click.stop>
+                      <span class="textline-ui-xs font-medium text-muted">Change Index</span>
+                      <UCheckbox v-model="editingUnindexed" label="Unindexed" :disabled="!canMutateAnnotation" />
+                      <UInput
+                        v-if="!editingUnindexed"
+                        v-model.number="editingIndexValue"
+                        type="number"
+                        :min="0"
+                        size="sm"
+                        placeholder="Index"
+                        :disabled="!canMutateAnnotation"
+                        :color="hasIndexConflict(textEquiv.pos, editingEffectiveIndex) ? 'error' : undefined"
+                        @keydown.enter.stop="saveIndex(textEquiv.pos)"
+                        @keydown.escape.stop="closeIndexEditor"
+                      />
+                      <p v-if="hasIndexConflict(textEquiv.pos, editingEffectiveIndex)" class="textline-ui-xs text-error">
+                        {{ editingEffectiveIndex === undefined ? 'Another variant already has no index' : `Index ${editingEffectiveIndex} is already in use` }} (will swap)
+                      </p>
+                      <div class="flex justify-end gap-1">
+                        <UButton
+                          size="xs"
+                          color="neutral"
+                          variant="ghost"
+                          @click.stop="closeIndexEditor"
+                        >
+                          Cancel
+                        </UButton>
+                        <UButton
+                          size="xs"
+                          color="primary"
+                          :disabled="!canMutateAnnotation"
+                          @click.stop="saveIndex(textEquiv.pos)"
+                        >
+                          Save
+                        </UButton>
+                      </div>
+                    </div>
+                  </template>
+                </UPopover>
+
+                <div class="shrink-0 w-14 flex justify-center">
+                  <UBadge
+                    v-if="getConfidencePercent(textEquiv.confidence) !== undefined"
+                    variant="outline"
+                    class="textline-ui-xs px-1.5 py-0"
+                    :class="getConfidenceClass(textEquiv.confidence)"
+                  >
+                    {{ getConfidencePercent(textEquiv.confidence) }}%
+                  </UBadge>
+                </div>
+
+                <div class="flex-1 min-w-0 flex flex-col gap-1">
+                  <div class="flex items-center gap-1">
+                    <UTextarea
+                      :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
+                      :model-value="textEquiv.text"
+                      :rows="props.allowMultiline ? 3 : 1"
+                      autoresize
+                      placeholder="Enter transcription..."
+                      :dir="textDirectionDir"
+                      :style="textDirectionStyle"
+                      :ui="hasHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
+                      :readonly="props.readOnly || variantRole(textEquiv.index) === 'recognition'"
+                      :disabled="props.readOnly || variantRole(textEquiv.index) === 'nonAssigned'"
+                      :data-textline-id="props.textline.id"
+                      :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
+                      :data-textequiv-pos="String(textEquiv.pos)"
+                      class="textline-textarea flex-1 min-w-0 min-h-9 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
+                      :class="[
+                        variantRole(textEquiv.index) === 'gt' && (hasHighlight(textEquiv.text)
+                          ? 'textline-textarea--gt border-emerald-200'
+                          : 'textline-textarea--gt border-emerald-200 bg-emerald-100/95 dark:bg-emerald-900/90'),
+                        variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
+                        variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200/70 text-muted',
+                        hasHighlight(textEquiv.text) && ['textline-textarea--has-highlight', highlightShellClass(textEquiv.index, textEquiv.text)]
+                      ]"
+                      @click.stop
+                      @focus="emit('selectTextline', props.textline.id)"
+                      @keydown.enter="(event: KeyboardEvent) => handleTextareaKeydownEnter(event, textEquiv.index)"
+                      @beforeinput="(event: InputEvent) => handleTextareaBeforeInput(event, textEquiv.index)"
+                      @paste="(event: ClipboardEvent) => handleTextareaPaste(event, textEquiv.index)"
+                      @drop="(event: DragEvent) => handleTextareaDrop(event, textEquiv.index)"
+                      @update:model-value="(value) => { if (isEditableVariant(textEquiv.index)) updateText(textEquiv.pos, String(value ?? '')) }"
+                    >
+                      <div
+                        v-if="hasHighlight(textEquiv.text)"
+                        class="textline-textarea-highlight-layer pointer-events-none absolute inset-px z-0 overflow-hidden rounded-md px-2.5 py-1.5 font-junicode text-transparent whitespace-pre-wrap break-words"
+                        :dir="textDirectionDir"
+                        :style="textDirectionStyle"
+                        aria-hidden="true"
+                      >
+                        <template
+                          v-for="(segment, segmentIndex) in highlightedSegments(textEquiv.text)"
+                          :key="`${textEquiv.pos}_${segmentIndex}`"
+                        >
+                          <mark v-if="segment.matched" class="textline-highlight-mark">{{ segment.text }}</mark>
+                          <span v-else>{{ segment.text }}</span>
+                        </template>
+                      </div>
+                    </UTextarea>
+                    <UTooltip text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                      <UButton
+                        color="neutral"
+                        variant="ghost"
+                        size="xs"
+                        class="shrink-0 h-6 w-6 p-0 opacity-0 group-hover/input:opacity-100 transition-opacity text-muted hover:text-destructive"
+                        :disabled="!canMutateAnnotation"
+                        @click.stop="removeTextContentVariant(textEquiv.pos)"
+                      >
+                        <Icon name="i-lucide-x" class="h-3 w-3" />
+                      </UButton>
+                    </UTooltip>
+                  </div>
+
+                  <div
+                    v-if="highlightUnknownCodecChars && codecCharacterSet.size > 0"
+                    class="textline-ui-xs rounded-sm bg-muted/25 p-2 space-y-1"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-muted">Codec check</span>
+                      <UBadge
+                        :color="getUnknownCharacterCount(textEquiv.text) > 0 ? 'warning' : 'success'"
+                        variant="soft"
+                        size="xs"
+                      >
+                        {{ getUnknownCharacterCount(textEquiv.text) }} unknown
+                      </UBadge>
+                    </div>
+                    <div class="font-junicode break-all" :dir="textDirectionDir" :style="[codecPreviewStyle, textDirectionStyle]">
+                      <template v-for="(segment, segmentIndex) in getUnknownSegments(textEquiv.text)" :key="`seg_${textEquiv.pos}_${segmentIndex}`">
+                        <UPopover
+                          v-if="segment.unknown"
+                          mode="hover"
+                          :content="{ side: 'top', align: 'start', sideOffset: 8 }"
+                          @update:open="(open: boolean) => handleUnknownPopoverUpdate(open, segment.text)"
+                        >
+                          <span class="bg-warning/20 text-warning-700 dark:text-warning-300 rounded-sm px-0.5 cursor-help">
+                            {{ segment.text }}
+                          </span>
+                          <template #content>
+                            <div class="p-2 min-w-48 max-w-80 space-y-1">
+                              <div class="textline-ui-xs font-medium text-muted">
+                                Unknown characters
+                              </div>
+                              <div
+                                v-for="detail in getUnknownCharacterDetails(segment.text)"
+                                :key="`unknown_${textEquiv.pos}_${segmentIndex}_${detail.char}_${detail.codepoint}`"
+                                class="space-y-1"
+                              >
+                                <div class="flex items-center gap-2 textline-ui-xs">
+                                  <span class="font-junicode textline-ui-char leading-none">{{ detail.char }}</span>
+                                  <span class="font-mono">{{ detail.codepoint }}</span>
+                                  <span v-if="detail.loading" class="text-muted">Loading...</span>
+                                  <span v-else-if="detail.description" class="text-muted truncate">{{ detail.description }}</span>
+                                  <UBadge
+                                    v-if="detail.source"
+                                    color="neutral"
+                                    variant="soft"
+                                    size="xs"
+                                    class="uppercase"
+                                  >
+                                    {{ detail.source }}
+                                  </UBadge>
+                                </div>
+                                <div class="flex flex-wrap gap-1">
+                                  <UButton
+                                    size="xs"
+                                    color="neutral"
+                                    variant="soft"
+                                    :disabled="!projectCodecId"
+                                    @click.stop="emit('quickAddCodecChar', detail.char)"
+                                  >
+                                    Add to Codec
+                                  </UButton>
+                                  <UButton
+                                    size="xs"
+                                    color="neutral"
+                                    variant="soft"
+                                    :disabled="!hasVirtualKeyboard"
+                                    @click.stop="emit('quickAddKeyboardChar', detail.char)"
+                                  >
+                                    Add to Keyboard
+                                  </UButton>
+                                  <UButton
+                                    size="xs"
+                                    color="neutral"
+                                    variant="ghost"
+                                    :disabled="!projectCodecId"
+                                    @click.stop="emit('openCodecEditor')"
+                                  >
+                                    Open Codec
+                                  </UButton>
+                                  <UButton
+                                    size="xs"
+                                    color="neutral"
+                                    variant="ghost"
+                                    :disabled="!hasVirtualKeyboard"
+                                    @click.stop="emit('openKeyboardEditor')"
+                                  >
+                                    Open Keyboard
+                                  </UButton>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                        </UPopover>
+                        <span
+                          v-else
+                        >{{ segment.text }}</span>
+                      </template>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="canCheckDictionaryTokens && variantRole(textEquiv.index) === 'gt'"
+                    class="textline-ui-xs rounded-sm bg-muted/25 p-2 space-y-1"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-muted">Dictionary check</span>
+                      <USkeleton
+                        v-if="isDictionaryCheckLoading(textEquiv.text)"
+                        class="h-5 w-20"
+                      />
+                      <UBadge
+                        v-else
+                        :color="getUnknownDictionaryTokenCount(textEquiv.text) > 0 ? 'warning' : 'success'"
+                        variant="soft"
+                        size="xs"
+                      >
+                        {{ getUnknownDictionaryTokenCount(textEquiv.text) }} unknown
+                      </UBadge>
+                    </div>
+                    <div
+                      v-if="isDictionaryCheckLoading(textEquiv.text)"
+                      class="space-y-2"
+                    >
+                      <USkeleton class="h-5 w-full" />
+                      <USkeleton class="h-5 w-3/4" />
+                    </div>
+                    <div
+                      v-else
+                      class="font-junicode break-words"
+                      :dir="textDirectionDir"
+                      :style="[codecPreviewStyle, textDirectionStyle]"
+                    >
+                      <template v-for="(segment, segmentIndex) in getUnknownDictionaryTokenSegmentsFromLookup(textEquiv.text)" :key="`dict_seg_${textEquiv.pos}_${segmentIndex}`">
+                        <UPopover
+                          v-if="segment.unknown"
+                          mode="hover"
+                          :content="{ side: 'top', align: 'start', sideOffset: 8 }"
+                          @update:open="(open: boolean) => handleUnknownDictionaryPopoverUpdate(open, segment.text)"
+                        >
+                          <span class="underline decoration-warning decoration-2 underline-offset-2 text-warning-700 dark:text-warning-300">
+                            {{ segment.text }}
+                          </span>
+                          <template #content>
+                            <div class="p-2 min-w-56 max-w-96 space-y-2">
+                              <div class="textline-ui-xs font-medium text-muted">
+                                Dictionary suggestions
+                              </div>
+                              <div
+                                v-for="detail in getUnknownDictionaryTokenDetails(segment.text)"
+                                :key="`dictionary_${textEquiv.pos}_${segmentIndex}_${detail.normalized}`"
+                                class="space-y-2"
+                              >
+                                <div class="textline-ui-xs">
+                                  <span class="font-medium">{{ detail.token }}</span>
+                                  <span class="text-muted"> is not in the dictionary.</span>
+                                </div>
+                                <div v-if="detail.suggestions.length > 0" class="flex flex-wrap gap-1">
+                                  <UButton
+                                    v-for="suggestion in detail.suggestions"
+                                    :key="`${detail.normalized}_${suggestion.display}`"
+                                    color="neutral"
+                                    variant="soft"
+                                    size="xs"
+                                    @click.stop="applyDictionarySuggestion(textEquiv.pos, segment, suggestion.display)"
+                                  >
+                                    {{ suggestion.display }}
+                                  </UButton>
+                                </div>
+                                <div v-else-if="isDictionarySuggestionLoading(detail.token)" class="space-y-2">
+                                  <USkeleton class="h-7 w-full" />
+                                  <USkeleton class="h-7 w-2/3" />
+                                </div>
+                                <div class="flex flex-wrap gap-1">
+                                  <UButton
+                                    v-if="!projectDictionaryLocked"
+                                    size="xs"
+                                    color="neutral"
+                                    variant="soft"
+                                    :disabled="!projectDictionaryId || !canQuickAddToDictionary"
+                                    @click.stop="emit('quickAddDictionaryToken', detail.token)"
+                                  >
+                                    Add to Dictionary
+                                  </UButton>
+                                  <UButton
+                                    size="xs"
+                                    color="neutral"
+                                    variant="ghost"
+                                    :disabled="!projectDictionaryId"
+                                    @click.stop="emit('openDictionaryEditor')"
+                                  >
+                                    Open Dictionary
+                                  </UButton>
+                                </div>
+                              </div>
+                            </div>
+                          </template>
+                        </UPopover>
+                        <span v-else>{{ segment.text }}</span>
+                      </template>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="showDiff && textEquiv.diffs"
+                    class="textline-ui-sm font-mono p-2 bg-muted/25 rounded-sm"
+                    :dir="textDirectionDir"
+                    :style="textDirectionStyle"
+                  >
+                    <template v-for="segment in renderDiff(textEquiv.diffs)" :key="segment.text">
+                      <span v-if="segment.type === 'equal'" class="text-foreground">{{ segment.text }}</span>
+                      <span v-else-if="segment.type === 'delete'" class="text-red-500 line-through bg-red-500/10 px-0.5 rounded">
+                        {{ segment.text }}
+                      </span>
+                      <span v-else-if="segment.type === 'insert'" class="text-green-500 bg-green-500/10 px-0.5 rounded-sm font-semibold">
+                        +{{ segment.text }}
+                      </span>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-
-    </template>
+      </template>
     </div>
   </TooltipProvider>
 </template>
 
 <style scoped>
+.textline-ui-sm {
+  font-size: var(--text-font-size-sm);
+  line-height: 1.35;
+}
+
+.textline-ui-xs {
+  font-size: var(--text-font-size-xs);
+  line-height: 1.3;
+}
+
+.textline-ui-2xs {
+  font-size: var(--text-font-size-2xs);
+  line-height: 1.25;
+}
+
+.textline-ui-char {
+  font-size: var(--text-font-size-char);
+}
+
 .textline-textarea :deep(textarea) {
   font-size: var(--text-font-size, 18px);
 }

@@ -18,6 +18,7 @@ import { usePageFilter } from '@/composables/use-page-filter'
 import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
 import type { LabelDefinition } from '@/types/label-set'
 import { wsKey } from '@/utils/fetch-keys'
+import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { tokenizeForDictionary } from '../shared/text-highlighting'
 import { computeTextLineReadingDirectionMap } from './reading-direction'
 import {
@@ -80,7 +81,7 @@ const searchQuery = computed({
   }
 })
 const sortOrder = ref<'asc' | 'desc' | 'confidence'>('asc')
-const filterMode = ref<'all' | 'empty' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch' | 'diffMismatch'>('all')
+const filterMode = ref<'all' | 'empty' | 'withComments' | 'lowConfidence' | 'matchingFilter' | 'dictionaryMismatch' | 'diffMismatch'>('all')
 
 const collapsedRegionIds = ref<Set<string>>(new Set())
 const orderOverrideByRegion = ref<Record<string, string[]>>({})
@@ -412,6 +413,24 @@ async function handleDeleteTextline(textlineId: string): Promise<void> {
 
   runtime.commander.execute(new DeletePolygonCommand({ polygonId: textlineId }), createTextViewCommandContext(effectiveCanvasId.value))
   if (selectedTextlineId.value === textlineId) selectedTextlineId.value = null
+}
+
+function handleUpdateTextlineComment(textlineId: string, comment: string): void {
+  if (!isCanvasEditable.value) return
+  const canvasId = effectiveCanvasId.value
+  if (!canvasId) return
+
+  const session = getEditorSession(canvasId)
+  const pcGts = session?.document.value
+  if (!session || !pcGts) return
+
+  const hit = findTextLineRecursive(pcGts.page.regions, textlineId)
+  if (!hit) return
+
+  const normalizedComment = comment.trim()
+  hit.textLine.comments = normalizedComment.length > 0 ? normalizedComment : undefined
+  pcGts.metadata?.touch?.()
+  triggerRef(session.document)
 }
 
 function canMoveTextline(regionId: string, textlineId: string, direction: -1 | 1): boolean {
@@ -854,6 +873,8 @@ const displayTextlines = computed(() => {
 
   if (filterMode.value === 'empty') {
     items = items.filter(tl => !tl.hasAnyText)
+  } else if (filterMode.value === 'withComments') {
+    items = items.filter(tl => (tl.comments ?? '').trim().length > 0)
   } else if (filterMode.value === 'lowConfidence') {
     items = items.filter(tl => typeof tl.lineConfidence === 'number' && tl.lineConfidence < 0.8)
   } else if (filterMode.value === 'dictionaryMismatch') {
@@ -1006,6 +1027,14 @@ const filterMenuItems = computed(() => {
         activeColor: 'primary',
         activeVariant: 'solid',
         onSelect: () => { filterMode.value = 'lowConfidence' }
+      },
+      {
+        label: 'With comments',
+        icon: 'i-lucide-message-square-text',
+        active: filterMode.value === 'withComments',
+        activeColor: 'primary',
+        activeVariant: 'solid',
+        onSelect: () => { filterMode.value = 'withComments' }
       },
       {
         label: 'Dictionary mismatches',
@@ -1306,6 +1335,7 @@ const sectionMenuItems = computed(() => {
                     @remove-text-content-variant="handleRemoveTextContentVariant"
                     @update-text-content-variant="handleCommitTextContentVariant"
                     @update-text-content-variant-index="handleCommitTextContentVariantIndex"
+                    @update-element-comment="handleUpdateTextlineComment"
                     @create-gt-from-recognition="handleCreateGtFromRecognition"
                     @quick-add-codec-char="handleQuickAddCodecCharacter"
                     @quick-add-dictionary-token="handleQuickAddDictionaryToken"
