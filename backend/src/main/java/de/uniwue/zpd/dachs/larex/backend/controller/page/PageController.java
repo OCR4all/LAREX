@@ -582,14 +582,19 @@ public class PageController {
         }
 
         String thumbnailUrl = null;
-        if (page.getImages() != null && !page.getImages().isEmpty()) {
-            PageImage img = page.getImages().stream()
+        List<PageImage> images = page.getImages() != null ? new ArrayList<>(page.getImages()) : List.of();
+        if (!images.isEmpty()) {
+            PageImage img = images.stream()
                     .filter(i -> i.getThumbnailPath() != null)
                     .findFirst()
-                    .orElse(page.getImages().iterator().next());
+                    .orElse(images.getFirst());
             thumbnailUrl = "/api/projects/" + page.getProject().getId()
                     + "/pages/images/" + img.getId() + "/thumbnail";
         }
+
+        List<PageDto.ImageVariantPreview> imageVariants = images.stream()
+                .map(this::mapToImageVariantPreview)
+                .toList();
 
         return new PageDto.Response(
                 page.getId(),
@@ -600,11 +605,20 @@ public class PageController {
                 page.getCreated(),
                 page.getUpdated(),
                 page.getXmlFiles() != null ? page.getXmlFiles().size() : 0,
-                page.getImages() != null ? page.getImages().size() : 0,
+                images.size(),
                 page.isLocked(),
                 page.getLockedReason(),
                 thumbnailUrl,
-                indexingStatus != null ? indexingStatus : PageDto.PageIndexingStatus.NOT_APPLICABLE
+                indexingStatus != null ? indexingStatus : PageDto.PageIndexingStatus.NOT_APPLICABLE,
+                imageVariants
+        );
+    }
+
+    private PageDto.ImageVariantPreview mapToImageVariantPreview(PageImage image) {
+        return new PageDto.ImageVariantPreview(
+                image.getId(),
+                image.getFileName(),
+                image.getVariant()
         );
     }
 

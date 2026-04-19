@@ -29,10 +29,9 @@ import { DRAWING_MODES, VIEW_MODES, type DrawingMode, type ViewMode } from '@/co
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import type { Commander } from '@/commands/editor/commander'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
-import { createSkeletonPageData } from '@/services/editor/project-loader'
+import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { copyTextToClipboard } from '@/utils/clipboard'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
-import type { PageIndexingStatus } from '@/stores/editor/types'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import type { ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { Dictionary } from '@/types/dictionary'
@@ -307,34 +306,10 @@ async function openSelectionsInEditor(
     const projectName = selection.projectName
     sessionStore.addOpenedProject(projectId)
 
-    let allPages: Array<{
-      id: string
-      name: string
-      thumbnail?: string
-      thumbnailUrl?: string
-      tags?: string[]
-      resolvedTags?: Array<{ id: string, label: string, color: string | null }>
-      locked?: boolean
-      lockedReason?: string | null
-      imageCount?: number
-      xmlFileCount?: number
-      indexingStatus?: PageIndexingStatus
-    }> = []
+    let allPages: PageResponse[] = []
 
     try {
-      allPages = await $fetch<Array<{
-        id: string
-        name: string
-        thumbnail?: string
-        thumbnailUrl?: string
-        tags?: string[]
-        resolvedTags?: Array<{ id: string, label: string, color: string | null }>
-        locked?: boolean
-        lockedReason?: string | null
-        imageCount?: number
-        xmlFileCount?: number
-        indexingStatus?: PageIndexingStatus
-      }>>(`/api/projects/${projectId}/pages`)
+      allPages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
     } catch (err: unknown) {
       toast.add({
         title: 'Failed to load project pages',
@@ -1823,19 +1798,7 @@ async function ensureProjectPagesLoaded(projectId: string, pageId: string): Prom
       : Promise.resolve(null)
     const [project, allPagesResponse] = await Promise.all([
       projectPromise,
-      $fetch<Array<{
-        id: string
-        name: string
-        thumbnail?: string
-        thumbnailUrl?: string
-        tags?: string[]
-        resolvedTags?: Array<{ id: string, label: string, color: string | null }>
-        locked?: boolean
-        lockedReason?: string | null
-        imageCount?: number
-        xmlFileCount?: number
-        indexingStatus?: PageIndexingStatus
-      }>>(`/api/projects/${projectId}/pages`)
+      $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
     ])
 
     const targetPage = allPagesResponse.find(page => page.id === pageId)
@@ -1868,19 +1831,7 @@ async function ensureFullProjectPagesLoaded(projectId: string): Promise<boolean>
       : Promise.resolve(null)
     const [project, allPagesResponse] = await Promise.all([
       projectPromise,
-      $fetch<Array<{
-        id: string
-        name: string
-        thumbnail?: string
-        thumbnailUrl?: string
-        tags?: string[]
-        resolvedTags?: Array<{ id: string, label: string, color: string | null }>
-        locked?: boolean
-        lockedReason?: string | null
-        imageCount?: number
-        xmlFileCount?: number
-        indexingStatus?: PageIndexingStatus
-      }>>(`/api/projects/${projectId}/pages`)
+      $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
     ])
 
     const skeletonPages = createSkeletonPageData(allPagesResponse, {
@@ -1975,19 +1926,7 @@ async function restorePersistedProject(projectId: string) {
     ? await $fetch<{ id: string, name: string }>(`/api/workspaces/${selectedWorkspace.value}/projects/${projectId}`).catch(() => null)
     : null
 
-  const allPagesResponse = await $fetch<Array<{
-    id: string
-    name: string
-    thumbnail?: string
-    thumbnailUrl?: string
-    tags?: string[]
-    resolvedTags?: Array<{ id: string, label: string, color: string | null }>
-    locked?: boolean
-    lockedReason?: string | null
-    imageCount?: number
-    xmlFileCount?: number
-    indexingStatus?: PageIndexingStatus
-  }>>(`/api/projects/${projectId}/pages`)
+  const allPagesResponse = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
 
   const skeletonPages = createSkeletonPageData(allPagesResponse, {
     projectId,

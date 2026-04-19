@@ -28,6 +28,12 @@ public class PageDto {
 
     public record ResolvedTag(String id, String label, String color) {}
 
+    public record ImageVariantPreview(
+            String id,
+            String fileName,
+            String variant
+    ) {}
+
     public record Response(
             String id,
             String name,
@@ -41,7 +47,8 @@ public class PageDto {
             boolean locked,
             String lockedReason,
             String thumbnailUrl,
-            PageIndexingStatus indexingStatus
+            PageIndexingStatus indexingStatus,
+            List<ImageVariantPreview> imageVariants
     ) {}
 
     public record ImageResponse(

@@ -1,5 +1,11 @@
 import type { PageData, ImageVariant, XmlFile, ResolvedTag, PageIndexingStatus } from '@/stores/editor/types'
 
+export interface PageImageVariantPreviewResponse {
+  id: string
+  fileName: string
+  variant?: string | null
+}
+
 export interface PageResponse {
   id: string
   name: string
@@ -12,6 +18,7 @@ export interface PageResponse {
   imageCount?: number
   xmlFileCount?: number
   indexingStatus?: PageIndexingStatus
+  imageVariants?: PageImageVariantPreviewResponse[]
 }
 
 function projectAnnotationContext(projectId: string, pageId: string) {
@@ -40,20 +47,27 @@ interface XmlResponse {
 }
 
 /**
- * Create skeleton PageData[] from PageResponse[] with no API calls.
- * Skeleton pages have empty imageVariants and xmlFiles arrays.
+ * Create skeleton PageData[] from PageResponse[] with no extra API calls.
+ * Skeleton pages include preview-ready imageVariants (from page list response) and empty xmlFiles.
  */
 export function createSkeletonPageData(
   pages: PageResponse[],
   options?: { projectId?: string, projectName?: string }
 ): PageData[] {
   return pages.map(page => ({
+    imageVariants: (page.imageVariants ?? []).map((img) => ({
+      id: img.id,
+      // Use thumbnail URLs for sidebar previews; full blob URLs are loaded when the page is opened.
+      url: options?.projectId ? `/api/projects/${options.projectId}/pages/images/${img.id}/thumbnail` : '',
+      fileName: img.fileName,
+      type: img.variant || undefined,
+      label: img.variant || img.fileName
+    })),
     id: page.id,
     projectId: options?.projectId ?? '',
     projectName: options?.projectName,
     label: page.name,
     thumbnail: page.thumbnailUrl ?? undefined,
-    imageVariants: [],
     xmlFiles: [],
     tags: page.tags ?? [],
     resolvedTags: page.resolvedTags ?? null,
