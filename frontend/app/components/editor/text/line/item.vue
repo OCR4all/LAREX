@@ -947,37 +947,32 @@ onBeforeUnmount(() => {
                     <UButton
                       color="neutral"
                       variant="ghost"
-                      size="sm"
-                      class="h-6 w-6 p-0 text-muted hover:text-foreground"
+                      size="xs"
+                      icon="i-lucide-arrow-up"
                       :disabled="!canMutateAnnotation || !props.canMoveUp"
                       @click.stop="emit('moveUpTextline', props.textline.id)"
-                    >
-                      <Icon name="i-lucide-arrow-up" class="h-3.5 w-3.5" />
-                    </UButton>
+                    />
                   </UTooltip>
                   <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                     <UButton
                       color="neutral"
                       variant="ghost"
-                      size="sm"
-                      class="h-6 w-6 p-0 text-muted hover:text-foreground"
+                      icon="i-lucide-arrow-down"
+                      size="xs"
                       :disabled="!canMutateAnnotation || !props.canMoveDown"
                       @click.stop="emit('moveDownTextline', props.textline.id)"
-                    >
-                      <Icon name="i-lucide-arrow-down" class="h-3.5 w-3.5" />
-                    </UButton>
+                    />
                   </UTooltip>
                 </template>
                 <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                   <UButton
                     color="success"
                     variant="soft"
-                    size="sm"
-                    class="h-6 px-2 textline-ui-xs"
+                    size="xs"
+                    icon="i-lucide-copy-plus"
                     :disabled="!canMutateAnnotation"
                     @click.stop="createGtFromRecognition"
                   >
-                    <Icon name="i-lucide-copy-plus" class="h-3 w-3 mr-1" />
                     Create GT
                   </UButton>
                 </UTooltip>
@@ -986,11 +981,10 @@ onBeforeUnmount(() => {
                     color="neutral"
                     variant="ghost"
                     size="sm"
-                    class="h-6 px-2 textline-ui-xs text-muted hover:text-foreground"
+                    icon="i-lucide-plus"
                     :disabled="!canMutateAnnotation"
                     @click.stop="addTextContentVariant"
                   >
-                    <Icon name="i-lucide-plus" class="h-3 w-3 mr-1" />
                     Add
                   </UButton>
                 </UTooltip>
@@ -1001,7 +995,7 @@ onBeforeUnmount(() => {
                   <UButton
                     color="neutral"
                     variant="ghost"
-                    size="sm"
+                    size="xs"
                     class="h-6 px-2 textline-ui-xs text-muted hover:text-foreground"
                     :disabled="!canMutateAnnotation"
                     @click.stop="openCommentEditor"
@@ -1044,15 +1038,13 @@ onBeforeUnmount(() => {
                 </UPopover>
                 <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                   <UButton
-                    color="neutral"
+                    color="error"
                     variant="ghost"
-                    size="sm"
-                    class="h-6 w-6 p-0 text-muted hover:text-destructive hover:bg-destructive/10"
+                    icon="i-lucide-trash-2"
+                    size="xs"
                     :disabled="!canMutateAnnotation"
                     @click.stop="emit('deleteTextline', props.textline.id)"
-                  >
-                    <Icon name="i-lucide-trash-2" class="h-3.5 w-3.5" />
-                  </UButton>
+                  />
                 </UTooltip>
               </div>
             </div>
@@ -1191,12 +1183,10 @@ onBeforeUnmount(() => {
                         color="neutral"
                         variant="ghost"
                         size="xs"
-                        class="shrink-0 h-6 w-6 p-0 opacity-0 group-hover/input:opacity-100 transition-opacity text-muted hover:text-destructive"
+                        icon="i-lucide-x"
                         :disabled="!canMutateAnnotation"
                         @click.stop="removeTextContentVariant(textEquiv.pos)"
-                      >
-                        <Icon name="i-lucide-x" class="h-3 w-3" />
-                      </UButton>
+                      />
                     </UTooltip>
                   </div>
 
