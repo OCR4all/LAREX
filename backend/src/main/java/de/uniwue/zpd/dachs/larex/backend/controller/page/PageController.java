@@ -160,7 +160,8 @@ public class PageController {
                 operator,
                 request.confidenceMin(),
                 request.confidenceMax(),
-                request.confidenceElementTypes()
+                request.confidenceElementTypes(),
+                request.hasComments()
         );
 
         return ResponseEntity.ok(new PageDto.FilterResponse(pageIds, pageIds.size()));

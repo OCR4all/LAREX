@@ -90,6 +90,8 @@ public class PageDto {
             Double confidenceMax,
             /** PAGE XML element types with @conf to include */
             List<String> confidenceElementTypes,
+            /** Filter only pages that have at least one non-empty PAGE XML @comments value */
+            Boolean hasComments,
             /** Global operator for combining all filters: "and" or "or" (default: "or") */
             String filterOperator
     ) {}

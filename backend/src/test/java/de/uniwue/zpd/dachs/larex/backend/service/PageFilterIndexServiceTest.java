@@ -184,6 +184,62 @@ class PageFilterIndexServiceTest {
     }
 
     @Test
+    void indexPage_indexesCommentAttributesAsCommentEntries() {
+        Page page = page("page-1", "project-1");
+
+        TextLineDto line = new TextLineDto(
+            "line-1",
+            null,
+            null,
+            List.of(new TextContentVariantDto("line unicode", null, 0.77, 0, null, null, "variant comment")),
+            List.of(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            0.81,
+            null,
+            null,
+            "line comment"
+        );
+        RegionDto region = region(
+            "region-1",
+            RegionKind.TextRegion,
+            "paragraph",
+            null,
+            List.of(),
+            List.of(line),
+            0.9,
+            "region comment"
+        );
+
+        service.indexPage(page, pageDto(List.of(region), 0.91, null));
+
+        ArgumentCaptor<Iterable<PageTextContent>> textCaptor = ArgumentCaptor.forClass(Iterable.class);
+        verify(textContentRepository).saveAll(textCaptor.capture());
+        List<PageTextContent> rows = streamOf(textCaptor.getValue());
+
+        Set<String> indexedCommentTexts = rows.stream()
+            .filter(PageTextContent::isCommentEntry)
+            .map(PageTextContent::getTextContent)
+            .collect(Collectors.toSet());
+
+        assertTrue(indexedCommentTexts.contains("region comment"));
+        assertTrue(indexedCommentTexts.contains("line comment"));
+        assertTrue(indexedCommentTexts.contains("variant comment"));
+    }
+
+    @Test
     void filterPages_appliesGlobalAndAcrossGroups() {
         String projectId = "project-1";
 
@@ -213,7 +269,8 @@ class PageFilterIndexServiceTest {
             "and",
             0.3,
             0.8,
-            List.of("TEXTEQUIV")
+            List.of("TEXTEQUIV"),
+            null
         );
 
         assertEquals(Set.of("page-2"), result);
@@ -247,7 +304,8 @@ class PageFilterIndexServiceTest {
             "or",
             0.1,
             0.9,
-            List.of("PAGE")
+            List.of("PAGE"),
+            null
         );
 
         assertEquals(Set.of("page-1", "page-2", "page-3", "page-4"), result);
@@ -272,6 +330,7 @@ class PageFilterIndexServiceTest {
             "or",
             0.2,
             0.6,
+            null,
             null
         );
 
@@ -307,10 +366,33 @@ class PageFilterIndexServiceTest {
             "and",
             0.4,
             0.5,
-            List.of("COORDS")
+            List.of("COORDS"),
+            null
         );
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void filterPages_withHasCommentsOnly_returnsCommentMatchedPages() {
+        String projectId = "project-1";
+        when(textContentRepository.findPageIdsByProjectIdWithComments(projectId))
+            .thenReturn(List.of("page-2", "page-4"));
+
+        Set<String> result = service.filterPages(
+            projectId,
+            null,
+            null,
+            "and",
+            null,
+            "and",
+            null,
+            null,
+            null,
+            true
+        );
+
+        assertEquals(Set.of("page-2", "page-4"), result);
     }
 
     @Test
@@ -377,6 +459,18 @@ class PageFilterIndexServiceTest {
             List<TextContentVariantDto> textVariants,
             List<TextLineDto> textLines,
             Double confidence) {
+        return region(id, kind, type, custom, textVariants, textLines, confidence, null);
+    }
+
+    private static RegionDto region(
+            String id,
+            RegionKind kind,
+            String type,
+            String custom,
+            List<TextContentVariantDto> textVariants,
+            List<TextLineDto> textLines,
+            Double confidence,
+            String comments) {
         return new RegionDto(
             id,
             kind,
@@ -404,7 +498,7 @@ class PageFilterIndexServiceTest {
             null,
             confidence,
             custom,
-            null,
+            comments,
             null,
             null
         );

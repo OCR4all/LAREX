@@ -37,6 +37,7 @@ const {
   filterOperator,
   confidenceRange,
   confidenceElementTypes,
+  hasComments,
   onlyWithOpenSubtasks,
   hasActiveFilters,
   isFiltering,
@@ -86,8 +87,8 @@ const labelItems = computed(() => {
 })
 
 const operatorOptions = [
-  { label: 'Match any (OR)', value: 'or' as const },
-  { label: 'Match all (AND)', value: 'and' as const }
+  { label: 'Match all (AND)', value: 'and' as const },
+  { label: 'Match any (OR)', value: 'or' as const }
 ]
 
 const localPageNameFilter = computed({
@@ -115,6 +116,7 @@ const activeFilterCount = computed(() => {
   if (textContent.value.trim()) count++
   if (tags.value.length > 0) count++
   if (confidenceFilterActive.value) count++
+  if (hasComments.value) count++
   if (onlyWithOpenSubtasks.value) count++
   return count
 })
@@ -177,7 +179,9 @@ function handleClearAll() {
         </template>
 
         <div class="flex items-center justify-between">
-          <h3 class="font-semibold text-sm">Page Filters</h3>
+          <h3 class="font-semibold text-sm">
+            Page Filters
+          </h3>
           <UButton
             v-if="hasActiveFilters"
             size="xs"
@@ -248,7 +252,12 @@ function handleClearAll() {
                   :style="{ backgroundColor: item.color }"
                 />
                 <span class="truncate">{{ item.label }}</span>
-                <UBadge size="xs" color="neutral" variant="subtle" class="ml-auto">
+                <UBadge
+                  size="xs"
+                  color="neutral"
+                  variant="subtle"
+                  class="ml-auto"
+                >
                   {{ item.scope }}
                 </UBadge>
               </div>
@@ -311,7 +320,12 @@ function handleClearAll() {
             <template #item="{ item }">
               <div class="flex items-center justify-between w-full">
                 <span>{{ item.label }}</span>
-                <UBadge v-if="item.count" size="xs" color="neutral" variant="subtle">
+                <UBadge
+                  v-if="item.count"
+                  size="xs"
+                  color="neutral"
+                  variant="subtle"
+                >
                   {{ item.count }}
                 </UBadge>
               </div>
@@ -367,6 +381,17 @@ function handleClearAll() {
 
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
+            <UCheckbox v-model="hasComments" />
+            <label class="text-xs text-foreground cursor-pointer" @click="hasComments = !hasComments">
+              Only pages with comments
+            </label>
+          </div>
+        </div>
+
+        <USeparator />
+
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
             <UCheckbox
               v-model="onlyWithOpenSubtasks"
               :disabled="openSubtaskPageCount === 0"
@@ -375,7 +400,12 @@ function handleClearAll() {
               Only pages with open tasks
             </label>
           </div>
-          <UBadge v-if="openSubtaskPageCount > 0" size="xs" color="warning" variant="subtle">
+          <UBadge
+            v-if="openSubtaskPageCount > 0"
+            size="xs"
+            color="warning"
+            variant="subtle"
+          >
             {{ openSubtaskPageCount }}
           </UBadge>
         </div>
@@ -410,13 +440,27 @@ function handleClearAll() {
               </div>
               <template v-else-if="indexStats">
                 <div class="grid grid-cols-2 gap-2 text-xs">
-                  <div class="text-muted-foreground">Total pages:</div>
-                  <div class="font-medium">{{ indexStats.totalPages }}</div>
-                  <div class="text-muted-foreground">Indexed (text):</div>
-                  <div class="font-medium">{{ indexStats.indexedTextContentPages }}</div>
-                  <div class="text-muted-foreground">Indexed (labels):</div>
-                  <div class="font-medium">{{ indexStats.indexedLabelPages }}</div>
-                  <div class="text-muted-foreground">Needs indexing:</div>
+                  <div class="text-muted-foreground">
+                    Total pages:
+                  </div>
+                  <div class="font-medium">
+                    {{ indexStats.totalPages }}
+                  </div>
+                  <div class="text-muted-foreground">
+                    Indexed (text):
+                  </div>
+                  <div class="font-medium">
+                    {{ indexStats.indexedTextContentPages }}
+                  </div>
+                  <div class="text-muted-foreground">
+                    Indexed (labels):
+                  </div>
+                  <div class="font-medium">
+                    {{ indexStats.indexedLabelPages }}
+                  </div>
+                  <div class="text-muted-foreground">
+                    Needs indexing:
+                  </div>
                   <div class="font-medium" :class="{ 'text-warning': indexStats.pagesNeedingIndex > 0 }">
                     {{ indexStats.pagesNeedingIndex }}
                   </div>

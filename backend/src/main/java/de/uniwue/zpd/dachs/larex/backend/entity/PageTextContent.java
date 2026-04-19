@@ -17,7 +17,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "page_text_content", indexes = {
     @Index(name = "idx_page_text_content_page_id", columnList = "page_id"),
-    @Index(name = "idx_page_text_content_text", columnList = "text_content")
+    @Index(name = "idx_page_text_content_text", columnList = "text_content"),
+    @Index(name = "idx_page_text_content_comment_entry", columnList = "comment_entry")
 })
 @EntityListeners(AuditingEntityListener.class)
 public class PageTextContent {
@@ -46,6 +47,9 @@ public class PageTextContent {
     @Column(name = "variant_index")
     private Integer variantIndex;
 
+    @Column(name = "comment_entry", nullable = false)
+    private boolean commentEntry = false;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime created;
@@ -53,11 +57,16 @@ public class PageTextContent {
     public PageTextContent() {}
 
     public PageTextContent(Page page, String textLineId, String regionId, String textContent, Integer variantIndex) {
+        this(page, textLineId, regionId, textContent, variantIndex, false);
+    }
+
+    public PageTextContent(Page page, String textLineId, String regionId, String textContent, Integer variantIndex, boolean commentEntry) {
         this.page = page;
         this.textLineId = textLineId;
         this.regionId = regionId;
         this.textContent = textContent;
         this.variantIndex = variantIndex;
+        this.commentEntry = commentEntry;
     }
 
     // Getters and Setters
@@ -108,6 +117,14 @@ public class PageTextContent {
 
     public void setVariantIndex(Integer variantIndex) {
         this.variantIndex = variantIndex;
+    }
+
+    public boolean isCommentEntry() {
+        return commentEntry;
+    }
+
+    public void setCommentEntry(boolean commentEntry) {
+        this.commentEntry = commentEntry;
     }
 
     public String getNormalizedText() {

@@ -22,6 +22,7 @@ describe('use-page-filter helpers', () => {
       filterOperator: 'and',
       confidenceRange: [0, 1],
       confidenceElementTypes: [],
+      hasComments: false,
       onlyWithOpenSubtasks: false
     })
 
@@ -32,6 +33,7 @@ describe('use-page-filter helpers', () => {
       confidenceMin: null,
       confidenceMax: null,
       confidenceElementTypes: null,
+      hasComments: null,
       filterOperator: 'and'
     })
   })
@@ -46,6 +48,7 @@ describe('use-page-filter helpers', () => {
       filterOperator: 'or',
       confidenceRange: [0.2, 0.8],
       confidenceElementTypes: [],
+      hasComments: false,
       onlyWithOpenSubtasks: false
     })
 
@@ -62,6 +65,7 @@ describe('use-page-filter helpers', () => {
       filterOperator: 'or',
       confidenceRange: [0, 1],
       confidenceElementTypes: ['TEXTEQUIV', 'COORDS'],
+      hasComments: false,
       onlyWithOpenSubtasks: false
     })
 
@@ -89,5 +93,24 @@ describe('use-page-filter helpers', () => {
       confidenceRange: [0, 1],
       confidenceElementTypes: ['PAGE']
     })).toBe(true)
+  })
+
+  it('buildPageFilterRequestBody includes hasComments when enabled', async () => {
+    const { buildPageFilterRequestBody } = await import('../use-page-filter')
+
+    const body = buildPageFilterRequestBody({
+      labelIds: [],
+      textContent: '',
+      tags: [],
+      filterOperator: 'and',
+      confidenceRange: [0, 1],
+      confidenceElementTypes: [],
+      hasComments: true,
+      onlyWithOpenSubtasks: false
+    })
+
+    expect(body).toMatchObject({
+      hasComments: true
+    })
   })
 })

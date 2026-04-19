@@ -235,6 +235,7 @@ const {
   filterOperator: backendFilterOperator,
   confidenceRange: backendConfidenceRange,
   confidenceElementTypes: backendConfidenceElementTypes,
+  hasComments: backendHasComments,
   onlyWithOpenSubtasks
 } = usePageFilter(currentProjectIdForFilter)
 
@@ -891,6 +892,7 @@ const backendFilterSignature = computed(() => JSON.stringify({
   tags: [...backendTagsFilter.value].sort(),
   confidenceRange: [...backendConfidenceRange.value],
   confidenceElementTypes: [...backendConfidenceElementTypes.value].sort(),
+  hasComments: backendHasComments.value,
   filterOperator: backendFilterOperator.value,
   projectIds: [...sessionStore.openedProjectIds]
 }))
@@ -908,6 +910,7 @@ async function refreshBackendFiltersForOpenedProjects() {
     filterOperator: backendFilterOperator.value,
     confidenceRange: backendConfidenceRange.value,
     confidenceElementTypes: backendConfidenceElementTypes.value,
+    hasComments: backendHasComments.value,
     onlyWithOpenSubtasks: false
   })
 

@@ -24,6 +24,7 @@ public class PostgresSearchInitializer {
             jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm");
             jdbcTemplate.execute("ALTER TABLE page_text_content ADD COLUMN IF NOT EXISTS normalized_text TEXT");
             jdbcTemplate.execute("ALTER TABLE page_text_content ADD COLUMN IF NOT EXISTS search_vector tsvector");
+            jdbcTemplate.execute("ALTER TABLE page_text_content ADD COLUMN IF NOT EXISTS comment_entry BOOLEAN NOT NULL DEFAULT FALSE");
             jdbcTemplate.execute("""
                     CREATE INDEX IF NOT EXISTS idx_page_text_content_search_vector
                     ON page_text_content USING GIN (search_vector)
@@ -31,6 +32,10 @@ public class PostgresSearchInitializer {
             jdbcTemplate.execute("""
                     CREATE INDEX IF NOT EXISTS idx_page_text_content_normalized_trgm
                     ON page_text_content USING GIN (normalized_text gin_trgm_ops)
+                    """);
+            jdbcTemplate.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_page_text_content_comment_entry
+                    ON page_text_content (comment_entry)
                     """);
             jdbcTemplate.execute("""
                     CREATE INDEX IF NOT EXISTS idx_search_lexicon_workspace_project
@@ -43,8 +48,9 @@ public class PostgresSearchInitializer {
             jdbcTemplate.execute("""
                     UPDATE page_text_content
                     SET normalized_text = lower(regexp_replace(coalesce(text_content, ''), '\\s+', ' ', 'g')),
-                        search_vector = to_tsvector('simple', lower(regexp_replace(coalesce(text_content, ''), '\\s+', ' ', 'g')))
-                    WHERE normalized_text IS NULL OR search_vector IS NULL
+                        search_vector = to_tsvector('simple', lower(regexp_replace(coalesce(text_content, ''), '\\s+', ' ', 'g'))),
+                        comment_entry = coalesce(comment_entry, false)
+                    WHERE normalized_text IS NULL OR search_vector IS NULL OR comment_entry IS NULL
                     """);
         } catch (Exception e) {
             log.warn("Failed to initialize PostgreSQL text search support: {}", e.getMessage());

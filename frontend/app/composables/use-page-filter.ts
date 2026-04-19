@@ -30,6 +30,8 @@ export interface PageFilterState {
   confidenceRange: [number, number]
   /** Selected PAGE XML @conf element types */
   confidenceElementTypes: PageConfidenceElementType[]
+  /** Only show pages with at least one non-empty PAGE XML comment value */
+  hasComments: boolean
   /** Only show pages with open subtasks */
   onlyWithOpenSubtasks: boolean
 }
@@ -60,6 +62,7 @@ const DEFAULT_FILTER_STATE: PageFilterState = {
   filterOperator: 'and',
   confidenceRange: [0, 1],
   confidenceElementTypes: [],
+  hasComments: false,
   onlyWithOpenSubtasks: false
 }
 
@@ -119,6 +122,7 @@ export function buildPageFilterRequestBody(state: PageFilterState): Record<strin
     confidenceElementTypes: confidenceActive && state.confidenceElementTypes.length > 0
       ? state.confidenceElementTypes
       : null,
+    hasComments: state.hasComments ? true : null,
     filterOperator: state.filterOperator
   }
 }
@@ -149,6 +153,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
             filterOperator: parsed.filterOperator === 'or' ? 'or' : 'and',
             confidenceRange: normalizeConfidenceRange(parsed.confidenceRange),
             confidenceElementTypes: normalizeConfidenceElementTypes(parsed.confidenceElementTypes),
+            hasComments: parsed.hasComments === true,
             onlyWithOpenSubtasks: parsed.onlyWithOpenSubtasks === true
           }
         } catch {
@@ -175,6 +180,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
       || globalFilterState.value.textContent.trim().length > 0
       || globalFilterState.value.tags.length > 0
       || isConfidenceFilterActive(globalFilterState.value)
+      || globalFilterState.value.hasComments
       || globalFilterState.value.onlyWithOpenSubtasks
     )
   })
@@ -185,6 +191,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
       || globalFilterState.value.textContent.trim().length > 0
       || globalFilterState.value.tags.length > 0
       || isConfidenceFilterActive(globalFilterState.value)
+      || globalFilterState.value.hasComments
     )
   })
 
@@ -231,6 +238,11 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
         confidenceElementTypes: normalizeConfidenceElementTypes(value)
       }
     }
+  })
+
+  const hasComments = computed({
+    get: () => globalFilterState.value.hasComments,
+    set: (value) => { globalFilterState.value = { ...globalFilterState.value, hasComments: Boolean(value) } }
   })
 
   const onlyWithOpenSubtasks = computed({
@@ -417,6 +429,7 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     filterOperator,
     confidenceRange,
     confidenceElementTypes,
+    hasComments,
     onlyWithOpenSubtasks,
     hasBackendFilters,
 

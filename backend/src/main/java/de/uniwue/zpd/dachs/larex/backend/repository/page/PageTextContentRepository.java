@@ -44,6 +44,12 @@ public interface PageTextContentRepository extends JpaRepository<PageTextContent
             @Param("searchText") String searchText);
 
     /**
+     * Find page IDs within a project that have at least one indexed comment entry.
+     */
+    @Query("SELECT DISTINCT p.page.id FROM PageTextContent p WHERE p.page.project.id = :projectId AND p.commentEntry = true")
+    List<String> findPageIdsByProjectIdWithComments(@Param("projectId") String projectId);
+
+    /**
      * Find text line IDs within a page that contain the given text substring.
      */
     @Query("SELECT DISTINCT p.textLineId FROM PageTextContent p WHERE p.page.id = :pageId AND p.textLineId IS NOT NULL AND LOWER(p.textContent) LIKE LOWER(CONCAT('%', :searchText, '%'))")
@@ -105,6 +111,7 @@ public interface PageTextContentRepository extends JpaRepository<PageTextContent
             FROM PageTextContent p
             WHERE p.page.project.id = :projectId
               AND COALESCE(p.variantIndex, 0) = COALESCE(p.page.project.defaultGtIndex, 0)
+              AND (p.commentEntry = false OR p.commentEntry IS NULL)
               AND p.textContent IS NOT NULL
             """)
     List<String> findPrimaryTextContentsByProjectId(@Param("projectId") String projectId);

@@ -2,9 +2,16 @@ package de.uniwue.zpd.dachs.larex.backend.service.page.indexing;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GlyphDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.AlternativeImageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.RelationDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.layout.RelationsDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.readingorder.ReadingOrderDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.metadata.LabelsDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemeElementDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.GraphemesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.text.WordDto;
@@ -132,6 +139,11 @@ public class PageFilterIndexService {
                 confidenceDedupKeys
             );
         }
+        indexCommentValue(page, pageDto.metadata() != null ? pageDto.metadata().comments() : null, textContents);
+        indexAlternativeImageComments(page, pageDto.alternativeImages(), textContents);
+        indexLabelsComments(page, pageDto.labels(), textContents);
+        indexReadingOrderComments(page, pageDto.readingOrder(), textContents);
+        indexRelationsComments(page, pageDto.relations(), textContents);
 
         if (pageDto.regions() != null) {
             for (RegionDto region : pageDto.regions()) {
@@ -278,7 +290,8 @@ public class PageFilterIndexService {
             String tagOperator,
             Double confidenceMin,
             Double confidenceMax,
-            List<String> confidenceElementTypes) {
+            List<String> confidenceElementTypes,
+            Boolean hasComments) {
 
         List<Set<String>> activeFilterGroups = new ArrayList<>();
 
@@ -331,6 +344,12 @@ public class PageFilterIndexService {
                     )
                 );
             activeFilterGroups.add(confidenceMatches);
+        }
+
+        if (Boolean.TRUE.equals(hasComments)) {
+            activeFilterGroups.add(new HashSet<>(
+                textContentRepository.findPageIdsByProjectIdWithComments(projectId)
+            ));
         }
 
         if (activeFilterGroups.isEmpty()) {
@@ -456,6 +475,9 @@ public class PageFilterIndexService {
         }
 
         addCoordsConfidence(page, regionId, region.coords(), confidenceIndices, confidenceDedupKeys);
+        indexCommentValue(page, region.comments(), textContents);
+        indexAlternativeImageComments(page, region.alternativeImages(), textContents);
+        indexLabelsComments(page, region.labels(), textContents);
         indexTextContentVariants(page, region.textContentVariants(), null, regionId, textContents, confidenceIndices, confidenceDedupKeys, regionId);
 
         if (region.textLines() != null) {
@@ -543,6 +565,9 @@ public class PageFilterIndexService {
 
         addCoordsConfidence(page, textLineId, textLine.coords(), confidenceIndices, confidenceDedupKeys);
         addBaselineConfidence(page, textLineId, textLine.baseline(), confidenceIndices, confidenceDedupKeys);
+        indexCommentValue(page, textLine.comments(), textContents);
+        indexAlternativeImageComments(page, textLine.alternativeImages(), textContents);
+        indexLabelsComments(page, textLine.labels(), textContents);
 
         indexTextContentVariants(
             page,
@@ -592,6 +617,9 @@ public class PageFilterIndexService {
             confidenceDedupKeys
         );
         addCoordsConfidence(page, wordId, word.coords(), confidenceIndices, confidenceDedupKeys);
+        indexCommentValue(page, word.comments(), textContents);
+        indexAlternativeImageComments(page, word.alternativeImages(), textContents);
+        indexLabelsComments(page, word.labels(), textContents);
 
         indexTextContentVariants(
             page,
@@ -641,6 +669,10 @@ public class PageFilterIndexService {
             confidenceDedupKeys
         );
         addCoordsConfidence(page, glyphId, glyph.coords(), confidenceIndices, confidenceDedupKeys);
+        indexCommentValue(page, glyph.comments(), textContents);
+        indexAlternativeImageComments(page, glyph.alternativeImages(), textContents);
+        indexLabelsComments(page, glyph.labels(), textContents);
+        indexGraphemeComments(page, glyph.graphemes(), textContents);
 
         indexTextContentVariants(
             page,
@@ -682,6 +714,8 @@ public class PageFilterIndexService {
                     variant.index()
                 ));
             }
+
+            indexCommentValue(page, variant.comments(), textContents);
 
             addConfidenceEntry(
                 page,
@@ -771,6 +805,107 @@ public class PageFilterIndexService {
         }
 
         confidenceIndices.add(new PageConfidenceIndex(page, elementType, normalizedElementId, confidence));
+    }
+
+    private void indexCommentValue(Page page, String comment, List<PageTextContent> textContents) {
+        String normalizedComment = blankToNull(comment);
+        if (normalizedComment == null) {
+            return;
+        }
+        textContents.add(new PageTextContent(page, null, null, normalizedComment, null, true));
+    }
+
+    private void indexAlternativeImageComments(Page page, List<AlternativeImageDto> alternativeImages, List<PageTextContent> textContents) {
+        if (alternativeImages == null || alternativeImages.isEmpty()) {
+            return;
+        }
+        for (AlternativeImageDto image : alternativeImages) {
+            if (image == null) continue;
+            indexCommentValue(page, image.comments(), textContents);
+        }
+    }
+
+    private void indexLabelsComments(Page page, List<LabelsDto> labels, List<PageTextContent> textContents) {
+        if (labels == null || labels.isEmpty()) {
+            return;
+        }
+        for (LabelsDto group : labels) {
+            if (group == null) continue;
+            indexCommentValue(page, group.comments(), textContents);
+            if (group.labels() == null || group.labels().isEmpty()) continue;
+            for (LabelDto label : group.labels()) {
+                if (label == null) continue;
+                indexCommentValue(page, label.comments(), textContents);
+            }
+        }
+    }
+
+    private void indexReadingOrderComments(Page page, ReadingOrderDto readingOrder, List<PageTextContent> textContents) {
+        if (readingOrder == null) {
+            return;
+        }
+        indexReadingOrderGroupComments(page, readingOrder.root(), textContents);
+    }
+
+    private void indexReadingOrderGroupComments(
+            Page page,
+            ReadingOrderDto.GroupDto group,
+            List<PageTextContent> textContents) {
+        if (group == null) {
+            return;
+        }
+
+        indexCommentValue(page, group.comments(), textContents);
+        indexLabelsComments(page, group.labels(), textContents);
+
+        List<ReadingOrderDto.GroupMemberDto> members = group.members();
+        if (members == null || members.isEmpty()) {
+            return;
+        }
+        for (ReadingOrderDto.GroupMemberDto member : members) {
+            if (member instanceof ReadingOrderDto.NestedGroupDto nested && nested.group() != null) {
+                indexReadingOrderGroupComments(page, nested.group(), textContents);
+            }
+        }
+    }
+
+    private void indexRelationsComments(Page page, RelationsDto relations, List<PageTextContent> textContents) {
+        if (relations == null || relations.relations() == null || relations.relations().isEmpty()) {
+            return;
+        }
+        for (RelationDto relation : relations.relations()) {
+            if (relation == null) continue;
+            indexCommentValue(page, relation.comments(), textContents);
+            indexLabelsComments(page, relation.labels(), textContents);
+        }
+    }
+
+    private void indexGraphemeComments(Page page, GraphemesDto graphemes, List<PageTextContent> textContents) {
+        if (graphemes == null || graphemes.elements() == null || graphemes.elements().isEmpty()) {
+            return;
+        }
+        for (GraphemeElementDto element : graphemes.elements()) {
+            indexGraphemeElementComments(page, element, textContents);
+        }
+    }
+
+    private void indexGraphemeElementComments(Page page, GraphemeElementDto element, List<PageTextContent> textContents) {
+        if (element == null) {
+            return;
+        }
+        indexCommentValue(page, element.comments(), textContents);
+        indexLabelsComments(page, element.labels(), textContents);
+        if (element.textContentVariants() != null) {
+            for (TextContentVariantDto variant : element.textContentVariants()) {
+                if (variant == null) continue;
+                indexCommentValue(page, variant.comments(), textContents);
+            }
+        }
+        if (element.members() != null) {
+            for (GraphemeElementDto member : element.members()) {
+                indexGraphemeElementComments(page, member, textContents);
+            }
+        }
     }
 
     // ============================================================================
