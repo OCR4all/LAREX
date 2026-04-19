@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { LazyDictionarySlideoverBrowser, LazyUiConfirmModal } from '#components'
-import { VueDraggable } from 'vue-draggable-plus'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { PolygonType } from '@/models/editor'
 import type { TextContentVariantData } from '@/models/editor'
@@ -95,20 +94,12 @@ const isCanvasEditable = computed(() => {
   return canvasId ? collaboration.canEditCanvas(canvasId) : true
 })
 
-const dragEnabled = computed(() => {
+const reorderEnabled = computed(() => {
   return isCanvasEditable.value
     && sortOrder.value === 'asc'
     && filterMode.value === 'all'
     && searchQuery.value.trim().length === 0
 })
-
-const sortableOptions = computed(() => ({
-  animation: 150,
-  ghostClass: 'opacity-50',
-  dragClass: 'opacity-90',
-  handle: '.textline-drag-handle',
-  disabled: !dragEnabled.value
-}))
 
 const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
 const { keyboards, selectedLayout, selectedTheme, selectedKeyboardId } = useVirtualKeyboards()
@@ -374,11 +365,6 @@ function setRegionOrderOverride(regionId: string, orderedIds: string[]): void {
   }
 }
 
-interface SortableUpdateEvent {
-  oldIndex?: number | null
-  newIndex?: number | null
-}
-
 function handleSelectTextline(textlineId: string): void {
   selectedTextlineId.value = textlineId
 
@@ -428,17 +414,34 @@ async function handleDeleteTextline(textlineId: string): Promise<void> {
   if (selectedTextlineId.value === textlineId) selectedTextlineId.value = null
 }
 
-function handleRegionReorder(regionId: string, event: SortableUpdateEvent): void {
-  if (!dragEnabled.value) return
-  if (typeof event.oldIndex !== 'number' || typeof event.newIndex !== 'number') return
-  if (event.oldIndex < 0 || event.newIndex < 0) return
+function canMoveTextline(regionId: string, textlineId: string, direction: -1 | 1): boolean {
+  if (!reorderEnabled.value) return false
+  if (regionId === '__unassigned__') return false
 
-  const current = (textlinesByRegion.value.get(regionId) ?? []).map(t => t.id)
-  const [moved] = current.splice(event.oldIndex, 1)
-  if (!moved) return
-  current.splice(event.newIndex, 0, moved)
-  setRegionOrderOverride(regionId, current)
-  persistRegionOrder(regionId, current)
+  const list = textlinesByRegion.value.get(regionId) ?? []
+  const fromIndex = list.findIndex(item => item.id === textlineId)
+  if (fromIndex < 0) return false
+
+  const toIndex = fromIndex + direction
+  return toIndex >= 0 && toIndex < list.length
+}
+
+function handleMoveTextline(regionId: string, textlineId: string, direction: -1 | 1): void {
+  if (!canMoveTextline(regionId, textlineId, direction)) return
+
+  const list = textlinesByRegion.value.get(regionId) ?? []
+  const orderedIds = list.map(item => item.id)
+  const fromIndex = orderedIds.indexOf(textlineId)
+  if (fromIndex < 0) return
+  const toIndex = fromIndex + direction
+  if (toIndex < 0 || toIndex >= orderedIds.length) return
+
+  const [movedId] = orderedIds.splice(fromIndex, 1)
+  if (!movedId) return
+  orderedIds.splice(toIndex, 0, movedId)
+
+  setRegionOrderOverride(regionId, orderedIds)
+  persistRegionOrder(regionId, orderedIds)
 }
 
 function commitTextContentVariants(textlineId: string, nextTextContentVariants: TextContentVariantData[] | undefined): void {
@@ -928,7 +931,7 @@ const textlinesByRegion = computed(() => {
     map.set(regionId, list)
   }
 
-  if (dragEnabled.value) {
+  if (reorderEnabled.value) {
     for (const [regionId, list] of map) {
       const override = orderOverrideByRegion.value[regionId]
       if (!override || override.length === 0) continue
@@ -1094,7 +1097,7 @@ const sectionMenuItems = computed(() => {
   <div ref="rootEl" data-shortcut-scope="text-view" class="flex flex-col h-full">
     <div
       data-tour="editor-textline-list-toolbar"
-      class="sticky top-0 z-10 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85"
+      class="sticky top-0 z-30 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85"
     >
       <div class="flex flex-wrap items-center gap-2 md:flex-nowrap">
         <div class="flex min-w-0 shrink-0 items-center gap-2.5">
@@ -1212,7 +1215,7 @@ const sectionMenuItems = computed(() => {
           <template v-if="!searchQuery || (textlinesByRegion.get(region.id)?.length ?? 0) > 0">
             <button
               type="button"
-              class="w-full flex items-center gap-3 p-2 rounded-sm hover:bg-muted/50 transition-colors group sticky top-0 z-[5] bg-background/95 backdrop-blur-sm"
+              class="w-full flex items-center gap-3 p-2 rounded-sm hover:bg-muted/50 transition-colors group sticky top-0 z-20 bg-background/95 backdrop-blur-sm"
             >
               <div class="w-1 h-8 rounded-sm" :style="{ backgroundColor: region.color }" />
               <div class="flex-1 flex items-center gap-2 min-w-0">
@@ -1264,57 +1267,54 @@ const sectionMenuItems = computed(() => {
                 v-else
                 class="flex flex-col gap-2"
               >
-                <VueDraggable
-                  :key="(textlinesByRegion.get(region.id) ?? []).map(t => t.id).join(',')"
-                  :model-value="textlinesByRegion.get(region.id) ?? []"
-                  v-bind="sortableOptions"
-                  class="flex flex-col gap-2"
-                  @update="(e) => handleRegionReorder(region.id, e)"
-                >
-                  <template v-for="textline in (textlinesByRegion.get(region.id) ?? [])" :key="textline.id">
-                    <EditorTextLineItem
-                      :textline="textline"
-                      :image-url="effectiveImageUrl"
-                      :padding="padding"
-                      :font-size="fontSize"
-                      :layout="textItemLayout"
-                      :codec-characters="codecCharacters"
-                      :highlight-unknown-codec-chars="highlightUnknownCodecChars"
-                      :include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlight"
-                      :highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokens"
-                      :gt-index="gtIndexModel"
-                      :recognition-indices="recognitionIndicesModel"
-                      :has-gt-variant="textline.hasGtVariant"
-                      :recognition-candidates="textline.recognitionCandidates"
-                      :show-diff="showDiffModel"
-                      :is-selected="selectedTextlineId === textline.id"
-                      :text-highlight-query="activeTextHighlightQuery"
-                      :show-comments="showCommentsModel"
-                      :project-codec-id="editorStore.projectCodecId"
-                      :project-dictionary-id="editorStore.projectDictionaryId"
-                      :can-quick-add-to-dictionary="canQuickAddToDictionary"
-                      :project-dictionary-locked="editorStore.projectDictionaryLocked"
-                      :project-dictionary-case-sensitive="editorStore.projectDictionaryCaseSensitive"
-                      :project-dictionary-unicode-normalization="editorStore.projectDictionaryUnicodeNormalization"
-                      :selected-keyboard-id="selectedKeyboardId"
-                      :has-virtual-keyboard="Boolean(selectedLayout)"
-                      :read-only="!isCanvasEditable"
-                      @select-textline="handleSelectTextline"
-                      @delete-textline="handleDeleteTextline"
-                      @add-text-content-variant="handleAddTextContentVariant"
-                      @remove-text-content-variant="handleRemoveTextContentVariant"
-                      @update-text-content-variant="handleCommitTextContentVariant"
-                      @update-text-content-variant-index="handleCommitTextContentVariantIndex"
-                      @create-gt-from-recognition="handleCreateGtFromRecognition"
-                      @quick-add-codec-char="handleQuickAddCodecCharacter"
-                      @quick-add-dictionary-token="handleQuickAddDictionaryToken"
-                      @quick-add-keyboard-char="handleQuickAddKeyboardCharacter"
-                      @open-codec-editor="handleOpenCodecEditor"
-                      @open-dictionary-editor="handleOpenDictionaryEditor"
-                      @open-keyboard-editor="handleOpenKeyboardEditor"
-                    />
-                  </template>
-                </VueDraggable>
+                <template v-for="textline in (textlinesByRegion.get(region.id) ?? [])" :key="textline.id">
+                  <EditorTextLineItem
+                    :textline="textline"
+                    :image-url="effectiveImageUrl"
+                    :padding="padding"
+                    :font-size="fontSize"
+                    :layout="textItemLayout"
+                    :codec-characters="codecCharacters"
+                    :highlight-unknown-codec-chars="highlightUnknownCodecChars"
+                    :include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlight"
+                    :highlight-unknown-dictionary-tokens="highlightUnknownDictionaryTokens"
+                    :gt-index="gtIndexModel"
+                    :recognition-indices="recognitionIndicesModel"
+                    :has-gt-variant="textline.hasGtVariant"
+                    :recognition-candidates="textline.recognitionCandidates"
+                    :show-diff="showDiffModel"
+                    :is-selected="selectedTextlineId === textline.id"
+                    :text-highlight-query="activeTextHighlightQuery"
+                    :show-comments="showCommentsModel"
+                    :project-codec-id="editorStore.projectCodecId"
+                    :project-dictionary-id="editorStore.projectDictionaryId"
+                    :can-quick-add-to-dictionary="canQuickAddToDictionary"
+                    :project-dictionary-locked="editorStore.projectDictionaryLocked"
+                    :project-dictionary-case-sensitive="editorStore.projectDictionaryCaseSensitive"
+                    :project-dictionary-unicode-normalization="editorStore.projectDictionaryUnicodeNormalization"
+                    :selected-keyboard-id="selectedKeyboardId"
+                    :has-virtual-keyboard="Boolean(selectedLayout)"
+                    :show-reorder-buttons="reorderEnabled && region.id !== '__unassigned__'"
+                    :can-move-up="canMoveTextline(region.id, textline.id, -1)"
+                    :can-move-down="canMoveTextline(region.id, textline.id, 1)"
+                    :read-only="!isCanvasEditable"
+                    @select-textline="handleSelectTextline"
+                    @move-up-textline="handleMoveTextline(region.id, textline.id, -1)"
+                    @move-down-textline="handleMoveTextline(region.id, textline.id, 1)"
+                    @delete-textline="handleDeleteTextline"
+                    @add-text-content-variant="handleAddTextContentVariant"
+                    @remove-text-content-variant="handleRemoveTextContentVariant"
+                    @update-text-content-variant="handleCommitTextContentVariant"
+                    @update-text-content-variant-index="handleCommitTextContentVariantIndex"
+                    @create-gt-from-recognition="handleCreateGtFromRecognition"
+                    @quick-add-codec-char="handleQuickAddCodecCharacter"
+                    @quick-add-dictionary-token="handleQuickAddDictionaryToken"
+                    @quick-add-keyboard-char="handleQuickAddKeyboardCharacter"
+                    @open-codec-editor="handleOpenCodecEditor"
+                    @open-dictionary-editor="handleOpenDictionaryEditor"
+                    @open-keyboard-editor="handleOpenKeyboardEditor"
+                  />
+                </template>
               </div>
             </div>
           </template>

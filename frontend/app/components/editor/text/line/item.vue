@@ -6,6 +6,7 @@ import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import { GlyphService } from '@/utils/glyph-service'
 import type { DictionarySuggestion } from '@/types/dictionary'
+import { TooltipProvider } from 'reka-ui'
 import {
   getHighlightedSegments,
   getTextHighlightShellClass,
@@ -70,6 +71,9 @@ interface Props {
   allowMultiline?: boolean
   showDragHandle?: boolean
   showDeleteButton?: boolean
+  showReorderButtons?: boolean
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   cutoutMaxHeightClass?: string | null
   readOnly?: boolean
 }
@@ -94,6 +98,9 @@ const props = withDefaults(defineProps<Props>(), {
   allowMultiline: false,
   showDragHandle: true,
   showDeleteButton: true,
+  showReorderButtons: false,
+  canMoveUp: false,
+  canMoveDown: false,
   cutoutMaxHeightClass: null,
   readOnly: false,
   showComments: false
@@ -104,6 +111,8 @@ const emit = defineEmits<{
   addTextContentVariant: [id: string]
   removeTextContentVariant: [id: string, arrayPos: number]
   selectTextline: [id: string]
+  moveUpTextline: [id: string]
+  moveDownTextline: [id: string]
   deleteTextline: [id: string]
   createGtFromRecognition: [id: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }]
   quickAddCodecChar: [char: string]
@@ -125,7 +134,6 @@ const {
 } = useDictionaryTokenLookup()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const lensCanvasRef = ref<HTMLCanvasElement | null>(null)
 const localTextContentVariants = ref<TextContentVariantData[]>([...props.textline.textContentVariants])
 
 let dmpInstance: DiffMatchPatch | null = null
@@ -153,10 +161,6 @@ const cutoutWrapperStyle = computed(() => {
     paddingInlineStart: `${cutoutStartOffsetRem}rem`
   }
 })
-const cutoutCanvasStyle = computed(() => ({
-  objectFit: 'contain',
-  objectPosition: isVertical.value ? 'left center' : 'center center'
-}))
 const effectiveCutoutMaxHeightClass = computed(() => {
   if (props.cutoutMaxHeightClass) return props.cutoutMaxHeightClass
   return isVertical.value ? 'max-h-56' : 'max-h-40'
@@ -204,6 +208,7 @@ const hasGtVariant = computed(() => {
 })
 
 const canCreateGtFromRecognition = computed(() => !hasGtVariant.value && recognitionCandidates.value.length > 0)
+const canAddTextContentVariant = computed(() => canMutateAnnotation.value && !hasGtVariant.value)
 
 function createGtFromRecognition() {
   if (!canCreateGtFromRecognition.value) return
@@ -437,110 +442,6 @@ const drawCutout = () => {
   }
 
   img.src = props.imageUrl
-}
-
-const LENS_SIZE = 160
-const DISPLAY_ZOOM = 2 // Always 2x relative to what's currently displayed on screen
-const showLens = ref(false)
-const lensX = ref(0)
-const lensY = ref(0)
-
-/**
- * Compute the rendered content area within the canvas CSS box,
- * accounting for object-fit: contain (which may add dead space).
- */
-function getCanvasContentRect(canvas: HTMLCanvasElement) {
-  const rect = canvas.getBoundingClientRect()
-  if (rect.width === 0 || rect.height === 0) return null
-
-  const bufferAspect = canvas.width / canvas.height
-  const cssAspect = rect.width / rect.height
-
-  if (bufferAspect > cssAspect) {
-    const contentHeight = rect.width / bufferAspect
-    return { x: 0, y: (rect.height - contentHeight) / 2, width: rect.width, height: contentHeight }
-  }
-  const contentWidth = rect.height * bufferAspect
-  return { x: (rect.width - contentWidth) / 2, y: 0, width: contentWidth, height: rect.height }
-}
-
-function onCutoutMouseMove(e: MouseEvent) {
-  const canvas = canvasRef.value
-  const lensCanvas = lensCanvasRef.value
-  if (!canvas || !lensCanvas) return
-
-  const rect = canvas.getBoundingClientRect()
-  const content = getCanvasContentRect(canvas)
-  if (!content) return
-
-  const mouseX = e.clientX - rect.left - content.x
-  const mouseY = e.clientY - rect.top - content.y
-
-  if (mouseX < 0 || mouseY < 0 || mouseX > content.width || mouseY > content.height) {
-    showLens.value = false
-    return
-  }
-
-  const scaleX = canvas.width / content.width
-  const scaleY = canvas.height / content.height
-
-  const srcX = mouseX * scaleX
-  const srcY = mouseY * scaleY
-
-  lensX.value = e.clientX
-  lensY.value = e.clientY
-  showLens.value = true
-
-  const lensCtx = lensCanvas.getContext('2d')
-  if (!lensCtx) return
-
-  lensCanvas.width = LENS_SIZE
-  lensCanvas.height = LENS_SIZE
-
-  lensCtx.clearRect(0, 0, LENS_SIZE, LENS_SIZE)
-
-  lensCtx.save()
-  lensCtx.beginPath()
-  lensCtx.arc(LENS_SIZE / 2, LENS_SIZE / 2, LENS_SIZE / 2, 0, Math.PI * 2)
-  lensCtx.clip()
-
-  const srcRegionW = LENS_SIZE * scaleX / DISPLAY_ZOOM
-  const srcRegionH = LENS_SIZE * scaleY / DISPLAY_ZOOM
-  lensCtx.drawImage(
-    canvas,
-    srcX - srcRegionW / 2, srcY - srcRegionH / 2, srcRegionW, srcRegionH,
-    0, 0, LENS_SIZE, LENS_SIZE
-  )
-
-  const vignette = lensCtx.createRadialGradient(
-    LENS_SIZE / 2, LENS_SIZE / 2, LENS_SIZE * 0.3,
-    LENS_SIZE / 2, LENS_SIZE / 2, LENS_SIZE / 2
-  )
-  vignette.addColorStop(0, 'rgba(255, 255, 255, 0)')
-  vignette.addColorStop(0.7, 'rgba(255, 255, 255, 0)')
-  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.15)')
-  lensCtx.fillStyle = vignette
-  lensCtx.fillRect(0, 0, LENS_SIZE, LENS_SIZE)
-
-  const shine = lensCtx.createRadialGradient(
-    LENS_SIZE * 0.35, LENS_SIZE * 0.3, 0,
-    LENS_SIZE * 0.35, LENS_SIZE * 0.3, LENS_SIZE * 0.35
-  )
-  shine.addColorStop(0, 'rgba(255, 255, 255, 0.2)')
-  shine.addColorStop(1, 'rgba(255, 255, 255, 0)')
-  lensCtx.fillStyle = shine
-  lensCtx.fillRect(0, 0, LENS_SIZE, LENS_SIZE)
-
-  lensCtx.restore()
-
-  lensCtx.fillStyle = 'rgba(0, 122, 204, 0.35)'
-  lensCtx.beginPath()
-  lensCtx.arc(LENS_SIZE / 2, LENS_SIZE / 2, 2.5, 0, Math.PI * 2)
-  lensCtx.fill()
-}
-
-function onCutoutMouseLeave() {
-  showLens.value = false
 }
 
 const addTextContentVariant = () => {
@@ -941,15 +842,16 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    ref="rootRef"
-    :style="{ '--text-font-size': fontSize + 'px' }"
-    class="@container group relative flex rounded-sm border bg-card transition-all duration-200"
-    :class="[
-      props.isSelected ? 'border-primary border-rounded-sm ring-2 ring-primary shadow-md' : 'border-border/60 hover:border-border hover:shadow-sm'
-    ]"
-    @click="emit('selectTextline', props.textline.id)"
-  >
+  <TooltipProvider :delay-duration="200">
+    <div
+      ref="rootRef"
+      :style="{ '--text-font-size': fontSize + 'px' }"
+      class="@container group relative rounded-md border bg-card/70 transition-all duration-150"
+      :class="[
+        props.isSelected ? 'border-primary/70 ring-1 ring-primary/35 shadow-sm' : 'border-border/25 hover:border-border/50'
+      ]"
+      @click="emit('selectTextline', props.textline.id)"
+    >
     <template v-if="!isVisible">
       <div class="flex-1 p-3 space-y-2">
         <USkeleton class="h-4 w-24" />
@@ -959,15 +861,11 @@ onBeforeUnmount(() => {
     </template>
 
     <template v-else>
-      <div v-if="props.showDragHandle" class="textline-drag-handle flex items-center px-1.5 border-r border-border/40 bg-muted/30 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity rounded-l-lg">
-        <Icon name="i-lucide-grip-vertical" class="h-4 w-4 text-muted/70" />
-      </div>
-
       <div
-        class="flex-1 min-w-0 flex pl-2"
+        class="flex min-w-0"
         :class="isVertical ? 'flex-col' : '@max-sm:flex-col'"
       >
-        <div class="min-w-0 p-3 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
+        <div class="min-w-0 p-3 pb-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
           <div class="flex items-center gap-2">
             <UBadge variant="subtle" color="neutral" class="font-mono">
               <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
@@ -976,11 +874,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div
-            class="rounded-sm overflow-hidden bg-muted/20 border border-border/30 flex items-center relative"
+            class="rounded-sm overflow-hidden bg-muted/20 ring-1 ring-border/10 flex items-center relative"
             :class="isVertical ? 'justify-start' : 'justify-center'"
             :style="cutoutWrapperStyle"
-            @mousemove="onCutoutMouseMove"
-            @mouseleave="onCutoutMouseLeave"
           >
             <USkeleton
               v-if="isCutoutLoading"
@@ -990,7 +886,7 @@ onBeforeUnmount(() => {
               ref="canvasRef"
               class="w-full h-auto block"
               :class="[isCutoutLoading ? 'opacity-0' : 'opacity-100', effectiveCutoutMaxHeightClass]"
-              :style="cutoutCanvasStyle"
+              :style="{ objectFit: 'contain', objectPosition: isVertical ? 'left center' : 'center center' }"
             />
             <div
               v-if="cutoutLoadFailed"
@@ -1001,38 +897,77 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="!isVertical" class="w-px bg-border/40 my-3 @max-sm:hidden" />
-
-        <div class="min-w-0 p-3 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
+        <div class="min-w-0 p-3 pt-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
           <div class="flex items-center justify-between">
             <span class="text-xs font-medium text-muted flex items-center gap-1.5">
               <Icon name="i-lucide-type" class="h-3 w-3" />
               Transcription
             </span>
             <div class="flex items-center gap-1">
-              <UButton
-                v-if="canCreateGtFromRecognition"
-                color="success"
-                variant="soft"
-                size="sm"
-                class="h-6 px-2 text-xs"
-                :disabled="!canMutateAnnotation"
-                @click.stop="createGtFromRecognition"
-              >
-                <Icon name="i-lucide-copy-plus" class="h-3 w-3 mr-1" />
-                Create GT
-              </UButton>
-              <UButton
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="h-6 px-2 text-xs text-muted hover:text-foreground"
-                :disabled="!canMutateAnnotation"
-                @click.stop="addTextContentVariant"
-              >
-                <Icon name="i-lucide-plus" class="h-3 w-3 mr-1" />
-                Add
-              </UButton>
+              <template v-if="props.showReorderButtons">
+                <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 w-6 p-0 text-muted hover:text-foreground"
+                    :disabled="!canMutateAnnotation || !props.canMoveUp"
+                    @click.stop="emit('moveUpTextline', props.textline.id)"
+                  >
+                    <Icon name="i-lucide-arrow-up" class="h-3.5 w-3.5" />
+                  </UButton>
+                </UTooltip>
+                <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    class="h-6 w-6 p-0 text-muted hover:text-foreground"
+                    :disabled="!canMutateAnnotation || !props.canMoveDown"
+                    @click.stop="emit('moveDownTextline', props.textline.id)"
+                  >
+                    <Icon name="i-lucide-arrow-down" class="h-3.5 w-3.5" />
+                  </UButton>
+                </UTooltip>
+              </template>
+              <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="success"
+                  variant="soft"
+                  size="sm"
+                  class="h-6 px-2 text-xs"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="createGtFromRecognition"
+                >
+                  <Icon name="i-lucide-copy-plus" class="h-3 w-3 mr-1" />
+                  Create GT
+                </UButton>
+              </UTooltip>
+              <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="h-6 px-2 text-xs text-muted hover:text-foreground"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="addTextContentVariant"
+                >
+                  <Icon name="i-lucide-plus" class="h-3 w-3 mr-1" />
+                  Add
+                </UButton>
+              </UTooltip>
+              <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  class="h-6 w-6 p-0 text-muted hover:text-destructive hover:bg-destructive/10"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="emit('deleteTextline', props.textline.id)"
+                >
+                  <Icon name="i-lucide-trash-2" class="h-3.5 w-3.5" />
+                </UButton>
+              </UTooltip>
             </div>
           </div>
 
@@ -1061,8 +996,8 @@ onBeforeUnmount(() => {
                   size="xs"
                   class="relative shrink-0 min-w-5 h-5 p-0 text-[10px] inline-flex items-center justify-center"
                   :class="typeof textEquiv.index === 'number' ? 'text-muted/60 hover:text-primary' : 'text-muted/40 italic hover:text-primary'"
-                  title="Change index"
                   :disabled="!canMutateAnnotation"
+                  title="Change index"
                   @click.stop="openIndexEditor(textEquiv.pos, textEquiv.index)"
                 >
                   {{ typeof textEquiv.index === 'number' ? textEquiv.index : '–' }}
@@ -1138,10 +1073,10 @@ onBeforeUnmount(() => {
                     class="textline-textarea flex-1 min-w-0 min-h-9 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
                     :class="[
                       variantRole(textEquiv.index) === 'gt' && (hasHighlight(textEquiv.text)
-                        ? 'textline-textarea--gt border-emerald-300'
-                        : 'textline-textarea--gt border-emerald-300 bg-emerald-100/95 dark:bg-emerald-900/90'),
+                        ? 'textline-textarea--gt border-emerald-200'
+                        : 'textline-textarea--gt border-emerald-200 bg-emerald-100/95 dark:bg-emerald-900/90'),
                       variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
-                      variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200 text-muted',
+                      variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200/70 text-muted',
                       hasHighlight(textEquiv.text) && ['textline-textarea--has-highlight', highlightShellClass(textEquiv.index, textEquiv.text)]
                     ]"
                     @click.stop
@@ -1168,22 +1103,23 @@ onBeforeUnmount(() => {
                       </template>
                     </div>
                   </UTextarea>
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="xs"
-                    class="shrink-0 h-6 w-6 p-0 opacity-0 group-hover/input:opacity-100 transition-opacity text-muted hover:text-destructive"
-                    title="Remove this TextContentVariant"
-                    :disabled="!canMutateAnnotation"
-                    @click.stop="removeTextContentVariant(textEquiv.pos)"
-                  >
-                    <Icon name="i-lucide-x" class="h-3 w-3" />
-                  </UButton>
+                  <UTooltip text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="xs"
+                      class="shrink-0 h-6 w-6 p-0 opacity-0 group-hover/input:opacity-100 transition-opacity text-muted hover:text-destructive"
+                      :disabled="!canMutateAnnotation"
+                      @click.stop="removeTextContentVariant(textEquiv.pos)"
+                    >
+                      <Icon name="i-lucide-x" class="h-3 w-3" />
+                    </UButton>
+                  </UTooltip>
                 </div>
 
                 <div
                   v-if="highlightUnknownCodecChars && codecCharacterSet.size > 0"
-                  class="text-xs rounded-sm border border-default p-2 space-y-1"
+                  class="text-xs rounded-sm bg-muted/25 p-2 space-y-1"
                 >
                   <div class="flex items-center justify-between gap-2">
                     <span class="text-muted">Codec check</span>
@@ -1282,7 +1218,7 @@ onBeforeUnmount(() => {
 
                 <div
                   v-if="canCheckDictionaryTokens && variantRole(textEquiv.index) === 'gt'"
-                  class="text-xs rounded-sm border border-default p-2 space-y-1"
+                  class="text-xs rounded-sm bg-muted/25 p-2 space-y-1"
                 >
                   <div class="flex items-center justify-between gap-2">
                     <span class="text-muted">Dictionary check</span>
@@ -1384,7 +1320,7 @@ onBeforeUnmount(() => {
 
                 <div
                   v-if="showDiff && textEquiv.diffs"
-                  class="text-sm font-mono p-2 bg-muted/30 rounded-sm border"
+                  class="text-sm font-mono p-2 bg-muted/25 rounded-sm"
                   :dir="textDirectionDir"
                   :style="textDirectionStyle"
                 >
@@ -1404,36 +1340,9 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div v-if="props.showDeleteButton" class="flex flex-col items-center justify-between p-2 border-l border-border/40">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          class="h-7 w-7 p-0 text-muted hover:text-destructive hover:bg-destructive/10"
-          :disabled="!canMutateAnnotation"
-          @click.stop="emit('deleteTextline', props.textline.id)"
-        >
-          <Icon name="i-lucide-x" class="h-3.5 w-3.5" />
-        </UButton>
-      </div>
     </template>
-
-    <Teleport to="body">
-      <canvas
-        v-show="showLens"
-        ref="lensCanvasRef"
-        class="fixed pointer-events-none rounded-full border-2 border-primary/60 shadow-xl z-50"
-        :width="LENS_SIZE"
-        :height="LENS_SIZE"
-        :style="{
-          width: LENS_SIZE + 'px',
-          height: LENS_SIZE + 'px',
-          left: (lensX - LENS_SIZE / 2) + 'px',
-          top: (lensY - LENS_SIZE / 2) + 'px'
-        }"
-      />
-    </Teleport>
-  </div>
+    </div>
+  </TooltipProvider>
 </template>
 
 <style scoped>
