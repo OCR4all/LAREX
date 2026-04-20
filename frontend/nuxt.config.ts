@@ -79,7 +79,8 @@ export default defineNuxtConfig({
         '@codemirror/lint',
         '@codemirror/search',
         '@codemirror/language',
-        '@lezer/highlight'
+        '@lezer/highlight',
+        'reka-ui'
       ]
     }
   },
