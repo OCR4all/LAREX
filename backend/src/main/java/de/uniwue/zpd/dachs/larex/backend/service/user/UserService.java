@@ -1,5 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.user;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.UserProvisioningMode;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
@@ -50,6 +52,8 @@ public class UserService {
     private static final String SERVICE_ACCOUNT_USERNAME_PREFIX = "service-account-";
     private static final String GLOBAL_ADMIN_ROLE = "GLOBAL_ADMIN";
     private static final String GLOBAL_CURATOR_ROLE = "GLOBAL_CURATOR";
+    private static final int IDENTITY_PROVIDER_ERROR_DETAIL_MAX_LENGTH = 240;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final Keycloak keycloakAdmin;
     private final String realm;
@@ -303,11 +307,17 @@ public class UserService {
         try (Response response = usersResource.create(newUser)) {
             int status = response.getStatus();
             if (status != Response.Status.CREATED.getStatusCode()) {
+                String providerErrorDetail = extractIdentityProviderErrorDetail(response);
+                AdminUserErrorCode errorCode = switch (status) {
+                    case 400 -> AdminUserErrorCode.ADMIN_USER_IDENTITY_PROVIDER_VALIDATION_FAILED;
+                    case 409 -> AdminUserErrorCode.ADMIN_USER_IDENTITY_PROVIDER_CONFLICT;
+                    default -> AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED;
+                };
                 AdminUserManagementException ex = new AdminUserManagementException(
-                        AdminUserErrorCode.ADMIN_USER_KEYCLOAK_OPERATION_FAILED,
+                        errorCode,
                         status == Response.Status.CONFLICT.getStatusCode()
                                 ? "Failed to create user because the identity provider reported a conflict."
-                                : "Failed to create user in the identity provider."
+                                : buildIdentityProviderCreateFailureMessage(status, providerErrorDetail)
                 );
                 adminUserAuditService.logEvent(
                         actorUserId,
@@ -320,7 +330,7 @@ public class UserService {
                 );
                 throw ex;
             }
-            createdUserId = CreatedResponseUtil.getCreatedId(response);
+            createdUserId = resolveCreatedUserId(response, usersResource, username, email);
         } catch (AdminUserManagementException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -1124,6 +1134,146 @@ public class UserService {
         }
         String username = user.getUsername();
         return username != null && username.startsWith(SERVICE_ACCOUNT_USERNAME_PREFIX);
+    }
+
+    private String resolveCreatedUserId(Response response, UsersResource usersResource, String username, String email) {
+        String createdIdFromLocation = null;
+        try {
+            createdIdFromLocation = normalizeOptional(CreatedResponseUtil.getCreatedId(response));
+        } catch (Exception ex) {
+            logger.warn("Failed to parse created user id from response location for username '{}'.", username, ex);
+        }
+
+        if (createdIdFromLocation != null) {
+            try {
+                UserRepresentation createdUser = usersResource.get(createdIdFromLocation).toRepresentation();
+                if (matchesCreatedUserIdentity(createdUser, username, email)) {
+                    return createdIdFromLocation;
+                }
+                logger.error(
+                        "Created user id '{}' from response location did not match requested identity (username='{}'). Falling back to lookup.",
+                        createdIdFromLocation,
+                        username
+                );
+            } catch (Exception ex) {
+                logger.warn(
+                        "Failed to read created user '{}' from response location for username '{}'. Falling back to lookup.",
+                        createdIdFromLocation,
+                        username,
+                        ex
+                );
+            }
+        }
+
+        return findCreatedUserIdByIdentity(usersResource, username, email)
+                .orElseThrow(() -> new IllegalStateException("Identity provider did not return a resolvable user id after successful creation."));
+    }
+
+    private Optional<String> findCreatedUserIdByIdentity(UsersResource usersResource, String username, String email) {
+        String normalizedEmail = normalizeOptional(email);
+        return usersResource.searchByUsername(username, true).stream()
+                .filter(user -> matchesCreatedUserIdentity(user, username, normalizedEmail))
+                .map(UserRepresentation::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .findFirst();
+    }
+
+    private boolean matchesCreatedUserIdentity(UserRepresentation user, String username, String email) {
+        if (user == null) {
+            return false;
+        }
+        String normalizedUsername = normalizeOptional(username);
+        String normalizedEmail = normalizeOptional(email);
+        String userUsername = normalizeOptional(user.getUsername());
+        String userEmail = normalizeOptional(user.getEmail());
+        return userUsername != null
+                && userUsername.equalsIgnoreCase(normalizedUsername)
+                && (normalizedEmail == null || (userEmail != null && userEmail.equalsIgnoreCase(normalizedEmail)));
+    }
+
+    private String buildIdentityProviderCreateFailureMessage(int status, String providerErrorDetail) {
+        String baseMessage = "Failed to create user in the identity provider (HTTP " + status + ").";
+        if (providerErrorDetail == null) {
+            if (status == Response.Status.BAD_REQUEST.getStatusCode()) {
+                return baseMessage + " Check required user profile attributes in the identity provider.";
+            }
+            return baseMessage;
+        }
+        return baseMessage + " " + providerErrorDetail;
+    }
+
+    private String extractIdentityProviderErrorDetail(Response response) {
+        if (response == null || !response.hasEntity()) {
+            return null;
+        }
+        try {
+            String rawBody = normalizeOptional(response.readEntity(String.class));
+            if (rawBody == null) {
+                return null;
+            }
+            return summarizeIdentityProviderErrorBody(rawBody);
+        } catch (Exception ex) {
+            logger.warn("Failed to read identity provider error body from create-user response.");
+            return null;
+        }
+    }
+
+    private String summarizeIdentityProviderErrorBody(String rawBody) {
+        String normalizedBody = normalizeSingleLine(rawBody);
+        if (normalizedBody == null) {
+            return null;
+        }
+
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(normalizedBody);
+            String preferredMessage = firstNonBlank(
+                    readJsonText(root, "errorMessage"),
+                    readJsonText(root, "error_description"),
+                    readJsonText(root, "message"),
+                    readJsonText(root, "error")
+            );
+            if (preferredMessage != null) {
+                return truncateMessage(preferredMessage);
+            }
+        } catch (Exception ignored) {
+            // Fall back to sanitized/truncated payload below.
+        }
+
+        return truncateMessage(normalizedBody);
+    }
+
+    private String readJsonText(JsonNode root, String fieldName) {
+        JsonNode field = root.get(fieldName);
+        if (field == null || !field.isValueNode()) {
+            return null;
+        }
+        return normalizeOptional(field.asText());
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            String normalized = normalizeOptional(value);
+            if (normalized != null) {
+                return normalized;
+            }
+        }
+        return null;
+    }
+
+    private String truncateMessage(String value) {
+        if (value.length() <= IDENTITY_PROVIDER_ERROR_DETAIL_MAX_LENGTH) {
+            return value;
+        }
+        return value.substring(0, IDENTITY_PROVIDER_ERROR_DETAIL_MAX_LENGTH) + "...";
+    }
+
+    private String normalizeSingleLine(String value) {
+        if (value == null) {
+            return null;
+        }
+        String withoutControlChars = value.replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", "");
+        String collapsed = withoutControlChars.replaceAll("\\s+", " ").trim();
+        return collapsed.isEmpty() ? null : collapsed;
     }
 
     private boolean isPrivateAccessTokensEnabled(UserRepresentation user) {

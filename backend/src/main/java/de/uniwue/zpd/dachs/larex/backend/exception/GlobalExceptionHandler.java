@@ -394,7 +394,9 @@ public class GlobalExceptionHandler {
 
     private HttpStatus resolveAdminUserStatus(AdminUserErrorCode code) {
         return switch (code) {
-            case ADMIN_USER_DUPLICATE_USERNAME, ADMIN_USER_DUPLICATE_EMAIL -> HttpStatus.CONFLICT;
+            case ADMIN_USER_DUPLICATE_USERNAME,
+                    ADMIN_USER_DUPLICATE_EMAIL,
+                    ADMIN_USER_IDENTITY_PROVIDER_CONFLICT -> HttpStatus.CONFLICT;
             case ADMIN_USER_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case ADMIN_USER_SERVICE_ACCOUNT_FORBIDDEN,
                     ADMIN_USER_SELF_DISABLE_FORBIDDEN,
@@ -403,7 +405,8 @@ public class GlobalExceptionHandler {
             case ADMIN_USER_INVALID_USERNAME,
                     ADMIN_USER_ALREADY_ENABLED,
                     ADMIN_USER_ALREADY_DISABLED,
-                    ADMIN_USER_RESEND_NOT_ALLOWED -> HttpStatus.BAD_REQUEST;
+                    ADMIN_USER_RESEND_NOT_ALLOWED,
+                    ADMIN_USER_IDENTITY_PROVIDER_VALIDATION_FAILED -> HttpStatus.BAD_REQUEST;
             case ADMIN_USER_SETUP_EMAIL_FAILED, ADMIN_USER_KEYCLOAK_OPERATION_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }

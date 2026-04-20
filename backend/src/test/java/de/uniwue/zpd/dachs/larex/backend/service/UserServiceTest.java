@@ -104,7 +104,8 @@ class UserServiceTest {
 
     @Test
     void createUserForAdmin_createsUserAndSendsActionsEmail() {
-        when(usersResource.searchByUsername("alice", true)).thenReturn(List.of());
+        UserRepresentation createdUserRepresentation = localUser("user-1", "alice", "alice@example.org", true, false, List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
+        when(usersResource.searchByUsername("alice", true)).thenReturn(List.of(), List.of(createdUserRepresentation));
         when(usersResource.searchByEmail("alice@example.org", true)).thenReturn(List.of());
 
         Response createdResponse = Response.status(Response.Status.CREATED)
@@ -112,8 +113,6 @@ class UserServiceTest {
                 .build();
         when(usersResource.create(any(UserRepresentation.class))).thenReturn(createdResponse);
         when(usersResource.get("user-1")).thenReturn(userResource);
-
-        UserRepresentation createdUserRepresentation = localUser("user-1", "alice", "alice@example.org", true, false, List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
         when(userResource.toRepresentation()).thenReturn(createdUserRepresentation);
 
         var created = userService.createUserForAdmin(
@@ -137,6 +136,7 @@ class UserServiceTest {
                 43200,
                 List.of("VERIFY_EMAIL", "UPDATE_PASSWORD")
         );
+        verify(usersResource).searchByUsername("alice", true);
         verify(userResource, never()).remove();
         verify(adminUserAuditService).logEvent(
                 eq("admin-1"),
@@ -209,8 +209,33 @@ class UserServiceTest {
     }
 
     @Test
-    void createUserForAdmin_rollsBackIfActionsEmailFails() {
+    void createUserForAdmin_surfacesIdentityProviderValidationDetails() {
         when(usersResource.searchByUsername("alice", true)).thenReturn(List.of());
+        when(usersResource.searchByEmail("alice@example.org", true)).thenReturn(List.of());
+        Response badRequestResponse = Response.status(Response.Status.BAD_REQUEST)
+                .entity("{\"errorMessage\":\"User profile validation failed: firstName is required\"}")
+                .build();
+        when(usersResource.create(any(UserRepresentation.class))).thenReturn(badRequestResponse);
+
+        AdminUserManagementException ex = assertThrows(
+                AdminUserManagementException.class,
+                () -> userService.createUserForAdmin(
+                        "admin-1",
+                        "admin",
+                        new AdminCreateUserRequest("alice", "alice@example.org", null, null)
+                )
+        );
+
+        assertEquals(AdminUserErrorCode.ADMIN_USER_IDENTITY_PROVIDER_VALIDATION_FAILED, ex.getCode());
+        assertTrue(ex.getMessage().contains("HTTP 400"));
+        assertTrue(ex.getMessage().contains("firstName is required"));
+        verify(usersResource, never()).get(anyString());
+    }
+
+    @Test
+    void createUserForAdmin_rollsBackIfActionsEmailFails() {
+        UserRepresentation createdUserRepresentation = localUser("user-2", "alice", "alice@example.org", true, false, List.of("VERIFY_EMAIL", "UPDATE_PASSWORD"));
+        when(usersResource.searchByUsername("alice", true)).thenReturn(List.of(), List.of(createdUserRepresentation));
         when(usersResource.searchByEmail("alice@example.org", true)).thenReturn(List.of());
 
         Response createdResponse = Response.status(Response.Status.CREATED)
@@ -236,6 +261,83 @@ class UserServiceTest {
                 eq(AdminUserAuditAction.CREATE),
                 eq(AdminUserAuditOutcome.FAILURE),
                 anyMap()
+        );
+    }
+
+    @Test
+    void createUserForAdmin_fallsBackWhenLocationIdDoesNotMatchRequestedIdentity() {
+        UserRepresentation createdUserRepresentation = localUser(
+                "user-lookup",
+                "alice",
+                "alice@example.org",
+                true,
+                false,
+                List.of("VERIFY_EMAIL", "UPDATE_PASSWORD")
+        );
+        UserRepresentation wrongUserRepresentation = localUser(
+                "user-from-location",
+                "mallory",
+                "mallory@example.org",
+                true,
+                true,
+                List.of()
+        );
+        UserResource wrongUserResource = org.mockito.Mockito.mock(UserResource.class);
+        when(usersResource.searchByUsername("alice", true)).thenReturn(List.of(), List.of(createdUserRepresentation));
+        when(usersResource.searchByEmail("alice@example.org", true)).thenReturn(List.of());
+
+        Response createdResponse = Response.status(Response.Status.CREATED)
+                .location(URI.create("http://keycloak.example/admin/realms/larex-prod/users/user-from-location"))
+                .build();
+        when(usersResource.create(any(UserRepresentation.class))).thenReturn(createdResponse);
+        when(usersResource.get("user-from-location")).thenReturn(wrongUserResource);
+        when(wrongUserResource.toRepresentation()).thenReturn(wrongUserRepresentation);
+        when(usersResource.get("user-lookup")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(createdUserRepresentation);
+
+        var created = userService.createUserForAdmin(
+                "admin-1",
+                "admin",
+                new AdminCreateUserRequest("alice", "alice@example.org", "Alice", "Admin")
+        );
+
+        assertNotNull(created);
+        assertEquals("user-lookup", created.id());
+        verify(usersResource).get("user-from-location");
+        verify(usersResource).get("user-lookup");
+    }
+
+    @Test
+    void createUserForAdmin_resolvesByLookupWhenCreatedResponseHasNoLocation() {
+        UserRepresentation createdUserRepresentation = localUser(
+                "user-3",
+                "alice",
+                "alice@example.org",
+                true,
+                false,
+                List.of("VERIFY_EMAIL", "UPDATE_PASSWORD")
+        );
+        when(usersResource.searchByUsername("alice", true)).thenReturn(List.of(), List.of(createdUserRepresentation));
+        when(usersResource.searchByEmail("alice@example.org", true)).thenReturn(List.of());
+
+        Response createdResponse = Response.status(Response.Status.CREATED).build();
+        when(usersResource.create(any(UserRepresentation.class))).thenReturn(createdResponse);
+        when(usersResource.get("user-3")).thenReturn(userResource);
+        when(userResource.toRepresentation()).thenReturn(createdUserRepresentation);
+
+        var created = userService.createUserForAdmin(
+                "admin-1",
+                "admin",
+                new AdminCreateUserRequest("alice", "alice@example.org", "Alice", "Admin")
+        );
+
+        assertNotNull(created);
+        assertEquals("user-3", created.id());
+        verify(userResource).executeActionsEmail(
+                "larex-frontend",
+                "http://larex.localhost/auth/keycloak",
+                43200,
+                List.of("VERIFY_EMAIL", "UPDATE_PASSWORD")
         );
     }
 
