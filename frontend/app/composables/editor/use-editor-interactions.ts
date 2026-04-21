@@ -338,6 +338,13 @@ export function useEditorInteractions(
     mouseInteraction.handleWheel(e, canvas.value, aspectRatioScale.value)
   }
 
+  function isShiftPanDrawingModeActive(): boolean {
+    return isPolygonMode.value
+      || isRectangleMode.value
+      || isPolylineMode.value
+      || Boolean(canvasControls.isCutMode?.value)
+  }
+
   function onMouseDown(e: MouseEvent): void {
     if (e.button !== 0) return // Only main left-click
 
@@ -345,6 +352,10 @@ export function useEditorInteractions(
 
     stateActions?.setHoveredPolygonId(null)
     stateActions?.setHoveredPolylineId(null)
+
+    if (e.shiftKey && isShiftPanDrawingModeActive()) {
+      return
+    }
 
     if (canvasControls.isCutMode?.value && canvasControls.cutDrawing) {
       if (!canvas.value) return
@@ -404,6 +415,28 @@ export function useEditorInteractions(
 
   function onMouseMove(e: MouseEvent): void {
     mouseInteraction.handleMouseMove(e)
+
+    const shiftPanIntentInDrawingMode = e.shiftKey
+      && isShiftPanDrawingModeActive()
+      && mouseInteraction.actionState.startPosition !== null
+    const keepShiftPanDragging = isShiftPanDrawingModeActive() && mouseInteraction.isPanning()
+
+    if (shiftPanIntentInDrawingMode || keepShiftPanDragging) {
+      const isDragging = polylineEditing.isDragging() || polygonEditing.isDragging()
+      const shouldPan = e.shiftKey && mouseInteraction.shouldStartPanning(e, isDragging)
+
+      if (shouldPan) {
+        mouseInteraction.startPanning(e)
+      }
+
+      if (mouseInteraction.isPanning()) {
+        mouseInteraction.updatePanning(e, canvas.value, aspectRatioScale.value)
+      }
+
+      stateActions?.setHoveredPolygonId(null)
+      stateActions?.setHoveredPolylineId(null)
+      return
+    }
 
     if (pendingShiftMarquee && pendingShiftStartClient) {
       if (mouseInteraction.hasExceededMovementThreshold(e)) {
