@@ -10,8 +10,8 @@ services:
       KEYCLOAK_PUBLIC_HOST: ${KEYCLOAK_PUBLIC_HOST:-auth.example.org}
       KEYCLOAK_UPSTREAM: ${KEYCLOAK_UPSTREAM:-http://keycloak:8080}
     volumes:
-      - ./deployment/nginx/templates/larex-proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ${NGINX_CERTS_DIR:-./deployment/nginx/certs}:/etc/nginx/certs:ro
+      - ./deployment/nginx/templates/larex-proxy.conf.template:/etc/nginx/templates/default.conf.template:ro,Z
+      - ${NGINX_CERTS_DIR:-./deployment/nginx/certs}:/etc/nginx/certs:ro,Z
     depends_on:
       frontend:
         condition: service_healthy

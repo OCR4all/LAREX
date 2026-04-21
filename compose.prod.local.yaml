@@ -11,7 +11,7 @@ services:
       NETWORKS: 1
       TASKS: 0
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro,Z
     networks:
       - socket-proxy
     restart: unless-stopped
@@ -24,7 +24,7 @@ services:
       - "${LAREX_BIND_IP:-127.0.0.1}:80:80"
       - "${LAREX_BIND_IP:-127.0.0.1}:8081:8080"
     volumes:
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro,Z
     networks:
       - default
       - socket-proxy

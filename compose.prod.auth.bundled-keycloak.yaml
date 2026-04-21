@@ -41,8 +41,8 @@ services:
       LAREX_INITIAL_ADMIN_TEMP_PASSWORD: ${LAREX_INITIAL_ADMIN_TEMP_PASSWORD:-change-me-initial-admin}
     volumes:
       - keycloak_data:/opt/keycloak/data
-      - ./config/keycloak/larex.bootstrap.realm.json:/opt/keycloak/data/import/larex.bootstrap.realm.json:ro
-      - ./config/keycloak/theme.jar:/opt/keycloak/providers/larex_theme.jar:ro
+      - ./config/keycloak/larex.bootstrap.realm.json:/opt/keycloak/data/import/larex.bootstrap.realm.json:ro,Z
+      - ./config/keycloak/theme.jar:/opt/keycloak/providers/larex_theme.jar:ro,Z
     networks:
       - backend
     depends_on:

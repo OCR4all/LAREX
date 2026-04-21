@@ -4,7 +4,7 @@ services:
       context: docs
       dockerfile: Dockerfile
     volumes:
-      - ./docs:/app
+      - ./docs:/app:Z
       - /app/node_modules
     labels:
       - "traefik.enable=true"
