@@ -26,6 +26,7 @@ export interface EditorPreferences {
   canvasTextCorrectionOverlayXRatio: number | null
   canvasTextCorrectionOverlayYRatio: number | null
   canvasTextCorrectionZoom: number | null
+  textModeSubmode: 'visual' | 'expert' | null
   highlightUnknownCodecChars: boolean | null
   shortcutBindings: ShortcutPreferences | null
   tableColumnVisibility: Record<string, Record<string, boolean>> | null
@@ -66,6 +67,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   canvasTextCorrectionOverlayXRatio: null,
   canvasTextCorrectionOverlayYRatio: null,
   canvasTextCorrectionZoom: null,
+  textModeSubmode: null,
   highlightUnknownCodecChars: null,
   shortcutBindings: null,
   tableColumnVisibility: null,

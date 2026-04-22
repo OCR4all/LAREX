@@ -36,7 +36,7 @@ const workspaceStore = useWorkspaceStore()
 
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const textViewSettings = computed(() => sessionStore.textViewSettings)
-const textElementType = computed(() => textViewSettings.value?.mode === 'region' ? PolygonType.REGION : PolygonType.TEXTLINE)
+const textElementType = computed(() => PolygonType.TEXTLINE)
 
 const paddingModel = computed({
   get: () => uiStore.textViewPadding,

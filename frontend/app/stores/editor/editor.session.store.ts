@@ -7,7 +7,7 @@ interface ProjectSessionState {
 }
 
 export interface EditorTextViewSettings {
-  mode: 'textline' | 'region'
+  mode: 'textline'
   gtIndex: number | undefined
   searchQuery: string
   showDiff: boolean
@@ -145,7 +145,7 @@ function normalizeTextViewSettings(value: unknown): EditorTextViewSettings {
     : defaults.selectedIndices
 
   return {
-    mode: candidate.mode === 'region' ? 'region' : defaults.mode,
+    mode: 'textline',
     gtIndex,
     searchQuery: typeof candidate.searchQuery === 'string' ? candidate.searchQuery : defaults.searchQuery,
     showDiff: Boolean(candidate.showDiff ?? defaults.showDiff),

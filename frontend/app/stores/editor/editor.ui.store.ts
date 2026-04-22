@@ -11,6 +11,7 @@ import type {
   VirtualKeyboardMode,
   LineWidthPreset,
   TextItemLayout,
+  TextModeSubmode,
   ConfidenceHeatmapMode,
   ConfidenceHeatmapSettings
 } from './types'
@@ -79,7 +80,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const textViewFontSize = ref<number>(30)
   const textViewPadding = ref<number>(10)
   const textItemLayout = ref<TextItemLayout>('side-by-side')
-  const canvasTextCorrectionEnabled = ref<boolean>(false)
+  const textModeSubmode = ref<TextModeSubmode>('visual')
   const canvasTextCorrectionOverlaySnapToLine = ref<boolean>(true)
   const canvasTextCorrectionOverlayXRatio = ref<number | null>(null)
   const canvasTextCorrectionOverlayYRatio = ref<number | null>(null)
@@ -137,6 +138,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.textViewFontSize !== null) textViewFontSize.value = prefs.textViewFontSize
     if (prefs.textViewPadding !== null) textViewPadding.value = prefs.textViewPadding
     if (prefs.textItemLayout !== null) textItemLayout.value = prefs.textItemLayout
+    if (prefs.textModeSubmode === 'expert' || prefs.textModeSubmode === 'visual') {
+      textModeSubmode.value = prefs.textModeSubmode
+    }
     if (prefs.canvasTextCorrectionOverlaySnapToLine !== null) {
       canvasTextCorrectionOverlaySnapToLine.value = Boolean(prefs.canvasTextCorrectionOverlaySnapToLine)
     }
@@ -430,8 +434,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     editorPreferences.updatePreference('textItemLayout', layout)
   }
 
-  function setCanvasTextCorrectionEnabled(enabled: boolean) {
-    canvasTextCorrectionEnabled.value = Boolean(enabled)
+  function setTextModeSubmode(mode: TextModeSubmode) {
+    textModeSubmode.value = mode
+    editorPreferences.updatePreference('textModeSubmode', mode)
   }
 
   function setCanvasTextCorrectionOverlaySnapToLine(enabled: boolean) {
@@ -459,10 +464,6 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (!Number.isFinite(parsed) || parsed <= 0) return
     canvasTextCorrectionZoom.value = parsed
     editorPreferences.updatePreference('canvasTextCorrectionZoom', parsed)
-  }
-
-  function toggleCanvasTextCorrection() {
-    setCanvasTextCorrectionEnabled(!canvasTextCorrectionEnabled.value)
   }
 
   function setHighlightUnknownCodecChars(enabled: boolean) {
@@ -594,7 +595,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     textViewFontSize,
     textViewPadding,
     textItemLayout,
-    canvasTextCorrectionEnabled,
+    textModeSubmode,
     canvasTextCorrectionOverlaySnapToLine,
     canvasTextCorrectionOverlayXRatio,
     canvasTextCorrectionOverlayYRatio,
@@ -660,11 +661,10 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setTextViewFontSize,
     setTextViewPadding,
     setTextItemLayout,
-    setCanvasTextCorrectionEnabled,
+    setTextModeSubmode,
     setCanvasTextCorrectionOverlaySnapToLine,
     setCanvasTextCorrectionOverlayPosition,
     setCanvasTextCorrectionZoom,
-    toggleCanvasTextCorrection,
     setHighlightUnknownCodecChars,
     toggleHighlightUnknownCodecChars,
     setIncludeWhitespaceInCodecHighlight,

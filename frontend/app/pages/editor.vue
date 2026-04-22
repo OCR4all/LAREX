@@ -2005,9 +2005,13 @@ async function applyPageDeepLinkFromQuery(): Promise<void> {
 
     if (editorMode === 'text') {
       editorStore.setUiMode('text')
+      const nextTextSubmode = textView === 'expert' || textView === 'textline' || textView === 'region'
+        ? 'expert'
+        : 'visual'
+      editorUiStore.setTextModeSubmode(nextTextSubmode)
       sessionStore.updateTextViewSettings(current => ({
         ...current,
-        mode: textView === 'region' ? 'region' : 'textline',
+        mode: 'textline',
         searchQuery: textSearch ?? current.searchQuery
       }))
     }

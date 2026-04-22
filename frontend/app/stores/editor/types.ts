@@ -7,6 +7,7 @@ export type UiModeScope = 'global' | 'per-canvas'
 export type ToolbarLayout = 'floating' | 'docked-top' | 'docked-bottom' | 'docked-left' | 'docked-right'
 export type VirtualKeyboardMode = 'off' | 'floating' | 'slideover'
 export type TextItemLayout = 'side-by-side' | 'vertical'
+export type TextModeSubmode = 'visual' | 'expert'
 export type ConfidenceHeatmapMode = 'indices' | 'average'
 export type RelationPickerMode = 'idle' | 'pick-source' | 'pick-target' | 'repick-source' | 'repick-target'
 

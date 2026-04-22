@@ -22,6 +22,10 @@ export interface SelectionFocusOptions {
   focusMode?: SelectionFocusMode
 }
 
+export interface SetViewModeOptions {
+  persistAsLayoutPreference?: boolean
+}
+
 export interface EditorCanvasControls {
   commander: Commander
   isCanvasEditable: ComputedRef<boolean>
@@ -60,7 +64,7 @@ export interface EditorCanvasControls {
   setConstrainToParent: (value: boolean) => void
   setAutoSelect: (value: boolean) => void
   setRegionType: (value: PolygonType) => void
-  setViewMode: (value: ViewMode) => void
+  setViewMode: (value: ViewMode, options?: SetViewModeOptions) => void
 
   canUndo: ComputedRef<boolean>
   canRedo: ComputedRef<boolean>

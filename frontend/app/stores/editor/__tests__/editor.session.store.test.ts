@@ -238,14 +238,31 @@ describe('editor.session.store', () => {
     })
   })
 
-  it('persists region text mode', async () => {
+  it('migrates legacy region text mode to textline mode', async () => {
     const store = await createStore()
 
     store.initWorkspaceSession('workspace-1')
     store.updateTextViewSettings((current) => ({
       ...current,
-      mode: 'region',
+      mode: 'textline',
       onlyMissingGt: true
+    }))
+
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      workspaceId: 'workspace-1',
+      openedProjectIds: ['project-a'],
+      activeProjectId: 'project-a',
+      projectsById: {
+        'project-a': {
+          openedPageIds: ['page-a1'],
+          activePageId: 'page-a1',
+          selectedVariantIdByPageId: {}
+        }
+      },
+      textViewSettings: {
+        mode: 'region',
+        onlyMissingGt: true
+      }
     }))
 
     const pinia = await getPiniaModule()
@@ -253,10 +270,10 @@ describe('editor.session.store', () => {
     const reloadedStore = await createStore()
     const loaded = reloadedStore.loadPersistedSession()
 
-    expect(loaded).toBe(false)
+    expect(loaded).toBe(true)
     expect(reloadedStore.textViewSettings).toEqual({
-      mode: 'region',
-      gtIndex: 0,
+      mode: 'textline',
+      gtIndex: undefined,
       searchQuery: '',
       showDiff: false,
       showComments: false,

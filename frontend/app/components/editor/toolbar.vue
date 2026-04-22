@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useEditorStore } from '@/stores/editor/editor.store'
-import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { DRAWING_MODES, VIEW_MODES } from '@/composables/editor/use-canvas-control'
 import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
@@ -10,10 +9,9 @@ import type { TabsItem } from '@nuxt/ui'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
 import type { Commander } from '@/commands/editor/commander'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
-import type { VirtualKeyboardMode } from '@/stores/editor/types'
+import type { LayoutViewMode, VirtualKeyboardMode } from '@/stores/editor/types'
 
 const editorStore = useEditorStore()
-const sessionStore = useEditorSessionStore()
 
 const emit = defineEmits<{
   merge: []
@@ -88,19 +86,19 @@ const viewModeItems = computed<TabsItem[]>(() => [
   }
 ])
 
-const textViewModeItems = computed<TabsItem[]>(() =>
+const textModeSubmodeItems = computed<TabsItem[]>(() =>
   [
     {
-      label: 'Textlines',
-      value: 'textline',
-      icon: 'i-lucide-text',
-      tooltip: { text: 'Textline text view' }
+      label: 'Visual',
+      value: 'visual',
+      icon: 'i-lucide-notebook-pen',
+      tooltip: { text: 'Canvas GT correction on textlines' }
     },
     {
-      label: 'Regions',
-      value: 'region',
-      icon: 'i-lucide-square-stack',
-      tooltip: { text: 'Region text view' }
+      label: 'Expert',
+      value: 'expert',
+      icon: 'i-lucide-list-filter',
+      tooltip: { text: 'Textline list with sort and filters' }
     }
   ].map(({ label, tooltip, ...rest }) => ({
     ...rest,
@@ -300,13 +298,10 @@ const editorModeModel = computed({
   }
 })
 
-const textViewModeModel = computed({
-  get: () => sessionStore.textViewSettings.mode,
-  set: (next: 'textline' | 'region') => {
-    sessionStore.updateTextViewSettings(current => ({
-      ...current,
-      mode: next
-    }))
+const textModeSubmodeModel = computed({
+  get: () => uiStore.textModeSubmode,
+  set: (next: 'visual' | 'expert') => {
+    uiStore.setTextModeSubmode(next)
   }
 })
 
@@ -468,6 +463,45 @@ const uiStore = useEditorUiStore()
 const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
 const { hasKeyboards } = useVirtualKeyboardAvailability()
 const isCompact = computed(() => uiStore.toolbarCompact)
+const isTextVisualMode = computed(() =>
+  isTextUiMode.value && uiStore.textModeSubmode === 'visual'
+)
+const forcedLayoutViewModeByCanvasId = ref<Record<string, LayoutViewMode>>({})
+
+watch(
+  () => [currentCanvasId.value, isTextVisualMode.value, effectiveUiMode.value, selectedViewMode.value] as const,
+  ([canvasId, visualTextMode, uiMode, currentView]) => {
+    if (!canvasId) return
+    const controls = currentCanvasState.value
+    if (!controls) return
+
+    if (visualTextMode) {
+      if (!forcedLayoutViewModeByCanvasId.value[canvasId]) {
+        forcedLayoutViewModeByCanvasId.value = {
+          ...forcedLayoutViewModeByCanvasId.value,
+          [canvasId]: currentView as LayoutViewMode
+        }
+      }
+      if (currentView !== VIEW_MODES.TEXTLINE) {
+        controls.setViewMode?.(VIEW_MODES.TEXTLINE, { persistAsLayoutPreference: false })
+      }
+      return
+    }
+
+    if (uiMode !== 'layout') return
+    const restoreMode = forcedLayoutViewModeByCanvasId.value[canvasId]
+    if (!restoreMode) return
+
+    const nextMap = { ...forcedLayoutViewModeByCanvasId.value }
+    delete nextMap[canvasId]
+    forcedLayoutViewModeByCanvasId.value = nextMap
+
+    if (restoreMode !== currentView) {
+      controls.setViewMode?.(restoreMode, { persistAsLayoutPreference: true })
+    }
+  },
+  { immediate: true }
+)
 
 const showVirtualKeyboardControls = computed(() => !isCompact.value || hasKeyboards.value)
 const showSelectAndMove = computed(() => !isCompact.value || !!currentCanvasState.value)
@@ -498,13 +532,6 @@ const cycleVirtualKeyboardMode = () => {
     : 'off'
   uiStore.setVirtualKeyboardMode(nextMode)
 }
-
-const canvasTextCorrectionEnabledModel = computed({
-  get: () => uiStore.canvasTextCorrectionEnabled,
-  set: (next: boolean) => {
-    uiStore.setCanvasTextCorrectionEnabled(Boolean(next))
-  }
-})
 
 const vkDropdownItems = computed(() => [
   [
@@ -716,13 +743,13 @@ const moreOptionsDropdownItems = computed(() => [
           </template>
 
           <UTabs
-            v-model="textViewModeModel"
+            v-model="textModeSubmodeModel"
             data-tour="text-view-mode-tabs"
             :orientation="isVertical ? 'vertical' : 'horizontal'"
             size="sm"
             color="neutral"
             :content="false"
-            :items="textViewModeItems"
+            :items="textModeSubmodeItems"
           >
             <template #item="{ item }">
               <UTooltip :delay-duration="0" :text="getTabTooltipText(item)">
@@ -1079,23 +1106,6 @@ const moreOptionsDropdownItems = computed(() => [
               </UTooltip>
             </template>
           </UTabs>
-
-          <UTooltip
-            :delay-duration="0"
-            text="Canvas GT correction overlay"
-          >
-            <UButton
-              variant="ghost"
-              size="sm"
-              icon="i-lucide-notebook-pen"
-              color="neutral"
-              :active="canvasTextCorrectionEnabledModel"
-              active-color="primary"
-              active-variant="solid"
-              :disabled="!currentCanvasState"
-              @click="canvasTextCorrectionEnabledModel = !canvasTextCorrectionEnabledModel"
-            />
-          </UTooltip>
 
           <USeparator
             v-if="showUndoTool || showRedoTool || showHistoryTool"

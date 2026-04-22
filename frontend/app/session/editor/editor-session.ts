@@ -17,7 +17,7 @@ export interface EditorSession {
 }
 
 export type TextViewSettings = {
-  mode: 'textline' | 'region'
+  mode: 'textline'
   gtIndex: number | undefined
   showDiff: boolean
   showComments: boolean

@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
-import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 
 const props = defineProps<{ canvasId?: string | null }>()
 
 const editorStore = useEditorStore()
-const sessionStore = useEditorSessionStore()
 const collaboration = useEditorCollaboration()
-
-const textViewMode = computed(() => sessionStore.textViewSettings.mode)
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const canvasState = computed(() => {
   const canvasId = effectiveCanvasId.value
@@ -48,8 +44,7 @@ watch(
     canvasState.value?.pageId ?? null,
     canvasState.value?.xmlFileId ?? null,
     canvasState.value?.imageVariantId ?? null,
-    editorStore.activeCanvasId,
-    textViewMode.value
+    editorStore.activeCanvasId
   ],
   () => {
     emitPresence()
@@ -59,7 +54,6 @@ watch(
 
 <template>
   <div class="h-full flex flex-col bg-background">
-    <EditorTextLineList v-if="textViewMode === 'textline'" :canvas-id="props.canvasId" class="h-full w-full" />
-    <EditorTextRegionList v-else :canvas-id="props.canvasId" class="h-full w-full" />
+    <EditorTextLineList :canvas-id="props.canvasId" class="h-full w-full" />
   </div>
 </template>

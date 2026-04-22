@@ -18,9 +18,9 @@ import { useRelationsVisualization } from '@/composables/editor/use-relations-vi
 import { useCutDrawing } from '@/composables/editor/use-cut-drawing'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
-import { CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
-import { PolygonType, type Relation } from '@/models/editor'
-import type { CommentOverlayLabel } from '@/types/editor/rendering'
+import { CompoundCommand, CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
+import { PolygonType, type Relation, type TextContentVariantData } from '@/models/editor'
+import type { CommentOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { visibilityService } from '@/services/editor/visibility-service'
 import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
@@ -30,9 +30,11 @@ import {
   collectTextlineIdsInPageOrder,
   getAdjacentTextlineId
 } from '@/utils/editor/textline-navigation'
+import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
 import { ensureGtVariantAtIndex, normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
 import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
 import { ZOOM } from '@/utils/editor/editor-constants'
+import { buildRegionGtSyncedVariants, composeRegionGtFromTextLines } from '@/components/editor/text/shared/region-gt-sync'
 import {
   handleSingleLineTextareaBeforeInput,
   handleSingleLineTextareaDrop,
@@ -234,8 +236,10 @@ const showCollaboratorsPopover = computed(() => collaborationParticipants.value.
 const activateEditor = () => editorStore.setActiveCanvas(props.canvasId)
 
 const effectiveUiMode = computed(() => editorStore.effectiveUiMode(props.canvasId))
-const renderEnabled = computed(() => effectiveUiMode.value !== 'text')
-const canvasTextCorrectionEnabled = computed(() => editorUiStore.canvasTextCorrectionEnabled)
+const isTextVisualMode = computed(() =>
+  effectiveUiMode.value === 'text' && editorUiStore.textModeSubmode === 'visual'
+)
+const renderEnabled = computed(() => effectiveUiMode.value !== 'text' || isTextVisualMode.value)
 const canvasTextCorrectionSnapToLine = computed({
   get: () => editorUiStore.canvasTextCorrectionOverlaySnapToLine,
   set: (next: boolean) => editorUiStore.setCanvasTextCorrectionOverlaySnapToLine(Boolean(next))
@@ -809,18 +813,43 @@ function hasExplicitSelectionFocusMode(options?: SelectionFocusOptions): boolean
   return typeof options?.focusMode === 'string' || options?.zoomToFit === false
 }
 
+function syncCanvasSelection(regionId: string | null, baselineId: string | null): void {
+  const canvas = canvasState.value
+  if (!canvas) return
+  if (canvas.selectedRegionId !== regionId) canvas.selectedRegionId = regionId
+  if (canvas.selectedBaselineId !== baselineId) canvas.selectedBaselineId = baselineId
+}
+
+function getLocalSingleSelectedPolygonId(): string | null {
+  if (selectedPolygonIds.value.length > 1) return null
+  if (selectedPolygonIds.value.length === 1) return selectedPolygonIds.value[0] ?? null
+  const index = selectedPolygonIndex.value
+  if (index < 0 || index >= polygons.length) return null
+  return polygons[index]?.id ?? null
+}
+
+function getLocalSingleSelectedPolylineId(): string | null {
+  if (selectedPolylineIds.value.length > 1) return null
+  if (selectedPolylineIds.value.length === 1) return selectedPolylineIds.value[0] ?? null
+  const index = selectedPolylineIndex.value
+  if (index < 0 || index >= polylines.length) return null
+  return polylines[index]?.id ?? null
+}
+
 function handleSelectPolygon(polygonId: string | null, options?: SelectionFocusOptions) {
   if (!polygonId) {
     stateActions.clearSelection()
+    syncCanvasSelection(null, null)
     return
   }
   const index = stateActions.selectPolygonById(polygonId)
   if (index >= 0) {
     const polygon = polygons[index]
+    syncCanvasSelection(polygon?.id ?? null, null)
     const defaultFocusMode = resolveSelectionFocusMode(options)
     const focusMode = (
       !hasExplicitSelectionFocusMode(options)
-      && canvasTextCorrectionEnabled.value
+      && isTextVisualMode.value
       && isTextlinePolygonType(polygon?.type)
     )
       ? 'none'
@@ -830,20 +859,28 @@ function handleSelectPolygon(polygonId: string | null, options?: SelectionFocusO
     } else if (polygon && focusMode === 'fit-width') {
       editorInteractions.centerViewOnPolygonFitWidth(polygon)
     }
+  } else {
+    syncCanvasSelection(null, null)
   }
 }
 
 function handleSelectPolyline(polylineId: string | null, options?: SelectionFocusOptions) {
   if (!polylineId) {
     stateActions.clearSelection()
+    syncCanvasSelection(null, null)
     return
   }
   const index = stateActions.selectPolylineById(polylineId)
   if (index >= 0 && resolveSelectionFocusMode(options) !== 'none') {
     const polyline = polylines[index]
+    syncCanvasSelection(null, polyline?.id ?? null)
     if (polyline) {
       editorInteractions.centerViewOnPolyline(polyline)
     }
+  } else if (index >= 0) {
+    syncCanvasSelection(null, polylines[index]?.id ?? null)
+  } else {
+    syncCanvasSelection(null, null)
   }
 }
 
@@ -876,6 +913,22 @@ canvasControls.hoverPolygonById = handleHoverPolygon
 canvasControls.unhoverPolygon = handleUnhoverPolygon
 canvasControls.hoverPolylineById = handleHoverPolyline
 canvasControls.unhoverPolyline = handleUnhoverPolyline
+
+watch(
+  () => [getLocalSingleSelectedPolygonId(), getLocalSingleSelectedPolylineId()] as const,
+  ([polygonId, polylineId]) => {
+    if (polygonId) {
+      syncCanvasSelection(polygonId, null)
+      return
+    }
+    if (polylineId) {
+      syncCanvasSelection(null, polylineId)
+      return
+    }
+    syncCanvasSelection(null, null)
+  },
+  { immediate: true }
+)
 
 // Publish controls only after all runtime fields are attached.
 // `session.controls` is a shallowRef, so late property mutations would not be reactive for consumers.
@@ -999,6 +1052,28 @@ function normalizeCorrectionOverlayPosition(input: {
   }
 }
 
+let textMeasureCanvasContext: CanvasRenderingContext2D | null = null
+
+function getTextMeasureContext(): CanvasRenderingContext2D | null {
+  if (!import.meta.client) return null
+  if (textMeasureCanvasContext) return textMeasureCanvasContext
+
+  const canvas = document.createElement('canvas')
+  textMeasureCanvasContext = canvas.getContext('2d')
+  return textMeasureCanvasContext
+}
+
+function measureOverlayTextWidthPx(text: string, fontSizePx: number): number {
+  const normalizedText = text.length > 0 ? text : ' '
+  const context = getTextMeasureContext()
+  if (!context) {
+    return normalizedText.length * fontSizePx * 0.62
+  }
+
+  context.font = `${Math.max(12, Math.round(fontSizePx))}px Junicode, serif`
+  return context.measureText(normalizedText).width
+}
+
 const correctionTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const correctionInputValue = ref('')
 const focusCorrectionInputQueued = ref(false)
@@ -1071,6 +1146,15 @@ function resetCorrectionFontSize(): void {
   correctionFontSizePx.value = CORRECTION_FONT_DEFAULT
 }
 
+const correctionTextareaMinHeightPx = computed(() => {
+  const lineHeightPx = Math.round(correctionFontSizePx.value * 1.2)
+  return Math.max(40, lineHeightPx + 16)
+})
+
+const recognitionTextareaFontSizePx = computed(() => Math.max(16, Math.round(correctionFontSizePx.value * 0.78)))
+const recognitionTextareaLineHeightPx = computed(() => Math.max(20, Math.round(correctionFontSizePx.value * 0.9)))
+const recognitionTextareaMinHeightPx = computed(() => Math.max(36, recognitionTextareaLineHeightPx.value + 14))
+
 function handleOpenKeyboardEditor(): void {
   const keyboardId = editorUiStore.selectedVirtualKeyboardId
   if (!keyboardId) {
@@ -1080,13 +1164,11 @@ function handleOpenKeyboardEditor(): void {
   navigateTo(`/virtual-keyboard/${keyboardId}`)
 }
 
-const selectedTextlinePolygon = computed(() => {
-  const selectedFromCanvasState = selectedRegionId.value
-  if (selectedFromCanvasState) {
-    const fromCanvasState = polygons.find(polygon => polygon.id === selectedFromCanvasState) ?? null
-    if (isTextlinePolygonType(fromCanvasState?.type)) return fromCanvasState
-  }
+type RenderableTextlinePolygon = RenderablePolygon & {
+  textContentVariants?: TextContentVariantData[] | undefined
+}
 
+const selectedTextlinePolygon = computed<RenderableTextlinePolygon | null>(() => {
   const selectedId = selectedPolygonIds.value.length === 1
     ? (selectedPolygonIds.value[0] ?? null)
     : null
@@ -1097,10 +1179,21 @@ const selectedTextlinePolygon = computed(() => {
   }
 
   const index = selectedPolygonIndex.value
-  if (index < 0 || index >= polygons.length) return null
-  const polygon = polygons[index]
-  if (!polygon || !isTextlinePolygonType(polygon.type)) return null
-  return polygon
+  const hasIndexSelection = index >= 0 && index < polygons.length
+  if (hasIndexSelection) {
+    const polygon = polygons[index]
+    if (!polygon || !isTextlinePolygonType(polygon.type)) return null
+    return polygon
+  }
+
+  const hasPolylineSelection = selectedPolylineIds.value.length > 0 || selectedPolylineIndex.value >= 0
+  if (hasPolylineSelection) return null
+
+  const selectedFromCanvasState = selectedRegionId.value
+  if (!selectedFromCanvasState) return null
+  const fromCanvasState = polygons.find(polygon => polygon.id === selectedFromCanvasState) ?? null
+  if (!isTextlinePolygonType(fromCanvasState?.type)) return null
+  return fromCanvasState
 })
 
 const selectedTextlineScreenBounds = computed(() => {
@@ -1128,7 +1221,7 @@ const selectedTextlineScreenBounds = computed(() => {
 })
 
 const canvasTextCorrectionVisible = computed(() => {
-  return canvasTextCorrectionEnabled.value && !!selectedTextlinePolygon.value
+  return isTextVisualMode.value && !!selectedTextlinePolygon.value
 })
 
 const correctionOverlayLayout = computed(() => {
@@ -1142,8 +1235,12 @@ const correctionOverlayLayout = computed(() => {
   if (!bounds) return null
 
   const maxOverlayWidth = Math.max(320, viewportWidth - 24)
-  const preferredOverlayWidth = Math.max(420, (bounds.maxX - bounds.minX) + 24)
-  const overlayWidth = Math.min(900, preferredOverlayWidth, maxOverlayWidth)
+  const preferredOverlayWidth = Math.max(
+    420,
+    (bounds.maxX - bounds.minX) + 24,
+    correctionOverlayPreferredTextWidth.value
+  )
+  const overlayWidth = Math.min(preferredOverlayWidth, maxOverlayWidth)
   const recognitionRows = showRecognitionInCorrectionOverlay.value
     ? selectedTextlineRecognitionVariants.value.length
     : 0
@@ -1280,6 +1377,15 @@ function handleCorrectionOverlayPointerDown(event: PointerEvent): void {
   if (!layout || !container) return
 
   if (canvasTextCorrectionSnapToLine.value) {
+    const normalized = normalizeCorrectionOverlayPosition({
+      left: layout.left,
+      top: layout.top,
+      viewportWidth: canvasDimensions.value.width,
+      viewportHeight: canvasDimensions.value.height,
+      overlayWidth: layout.width,
+      overlayHeight: layout.height
+    })
+    editorUiStore.setCanvasTextCorrectionOverlayPosition(normalized.xRatio, normalized.yRatio)
     canvasTextCorrectionSnapToLine.value = false
   }
 
@@ -1445,6 +1551,21 @@ const selectedTextlineRecognitionVariants = computed<OverlayRecognitionVariant[]
         diff: renderDiff(diffs)
       }
     })
+})
+
+const correctionOverlayPreferredTextWidth = computed(() => {
+  const textSamples: string[] = [normalizeSingleLineText(correctionInputValue.value)]
+  if (showRecognitionInCorrectionOverlay.value) {
+    for (const recognition of selectedTextlineRecognitionVariants.value) {
+      textSamples.push(normalizeSingleLineText(recognition.unicode))
+    }
+  }
+
+  const widestTextPx = textSamples.reduce((maxWidth, text) =>
+    Math.max(maxWidth, measureOverlayTextWidthPx(text, correctionFontSizePx.value)), 0)
+
+  // Padding + caret/scrollbar room so single-line text remains visible.
+  return Math.max(420, Math.ceil(widestTextPx + 84))
 })
 
 type OverlayUnknownSegment = {
@@ -1658,13 +1779,63 @@ function commitTextlineVariants(textlineId: string, variants: Array<{
   comments?: string
 }>): void {
   if (!isCanvasEditable.value) return
-  canvasControls.commander.execute(
-    new UpdateTextContentVariantsCommand({
-      elementId: textlineId,
-      nextTextContentVariants: variants
-    }),
-    getCommandContext()
+
+  const textlineCommand = new UpdateTextContentVariantsCommand({
+    elementId: textlineId,
+    nextTextContentVariants: variants
+  })
+  const parentRegionSyncCommand = buildParentRegionSyncCommandForTextline(textlineId, variants)
+
+  if (parentRegionSyncCommand) {
+    canvasControls.commander.execute(
+      new CompoundCommand(
+        [textlineCommand, parentRegionSyncCommand],
+        'Update textline GT and sync parent region GT'
+      ),
+      getCommandContext()
+    )
+    return
+  }
+
+  canvasControls.commander.execute(textlineCommand, getCommandContext())
+}
+
+function buildParentRegionSyncCommandForTextline(
+  textlineId: string,
+  nextTextlineVariants: TextContentVariantData[] | undefined
+): UpdateTextContentVariantsCommand | null {
+  const pageRegions = session.document.value?.page?.regions
+  if (!pageRegions) return null
+
+  const textlineHit = findTextLineRecursive(pageRegions, textlineId)
+  if (!textlineHit) return null
+
+  const parentTextRegion = textlineHit.parentTextRegion
+  const parentRegionId = parentTextRegion.id
+  if (!parentRegionId) return null
+
+  const syncedTextLines = (parentTextRegion.textLines ?? []).map((textline) => {
+    if (textline.id !== textlineId) return textline
+    return {
+      ...textline,
+      textContentVariants: nextTextlineVariants
+    }
+  })
+
+  const nextGtText = composeRegionGtFromTextLines(syncedTextLines, activeGtIndex.value)
+  const nextRegionVariants = buildRegionGtSyncedVariants(
+    parentTextRegion.textContentVariants as TextContentVariantData[] | undefined,
+    nextGtText,
+    activeGtIndex.value
   )
+  const currentNormalized = normalizeEditableTextVariants(parentTextRegion.textContentVariants)
+  const nextNormalized = normalizeEditableTextVariants(nextRegionVariants)
+  if (JSON.stringify(currentNormalized) === JSON.stringify(nextNormalized)) return null
+
+  return new UpdateTextContentVariantsCommand({
+    elementId: parentRegionId,
+    nextTextContentVariants: nextRegionVariants
+  })
 }
 
 function ensureSelectedTextlineGtVariant(): boolean {
@@ -1687,7 +1858,7 @@ function normalizeSingleLineText(value: string): string {
 }
 
 function updateTextlineGtTextById(textlineId: string, nextText: string) {
-  const polygon = polygons.find(item => item.id === textlineId)
+  const polygon = polygons.find(item => item.id === textlineId) as RenderableTextlinePolygon | undefined
   if (!polygon || !isCanvasEditable.value) return
 
   const normalizedText = normalizeSingleLineText(nextText)
@@ -1813,7 +1984,7 @@ watch(
 )
 
 watch(
-  () => [canvasTextCorrectionEnabled.value, selectedTextlinePolygon.value?.id ?? null, activeGtIndex.value] as const,
+  () => [isTextVisualMode.value, selectedTextlinePolygon.value?.id ?? null, activeGtIndex.value] as const,
   ([enabled, selectedId, gtIndex], [prevEnabled, prevSelectedId, prevGtIndex]) => {
     if (!enabled || !selectedId) return
 
@@ -1845,9 +2016,9 @@ watch(
 )
 
 watch(
-  () => [canvasTextCorrectionEnabled.value, view.zoom] as const,
-  ([enabled, zoom]) => {
-    if (!enabled || suppressCorrectionZoomPreferenceUpdate.value) return
+  () => [canvasTextCorrectionVisible.value, correctionOverlayStyle.value, view.zoom] as const,
+  ([visible, overlayStyle, zoom]) => {
+    if (!visible || !overlayStyle || suppressCorrectionZoomPreferenceUpdate.value) return
     if (!Number.isFinite(zoom)) return
     editorUiStore.setCanvasTextCorrectionZoom(clamp(zoom, ZOOM.MIN, ZOOM.MAX))
   }
@@ -2076,9 +2247,9 @@ onMounted(() => {
   editorRenderer.setupReadingOrderAnimationWatch()
 
   stopUiModeWatch = watch(
-    () => [effectiveUiMode.value, isCanvasEditable.value] as const,
-    ([mode, editable]) => {
-      if (mode === 'text' || !editable) {
+    () => [effectiveUiMode.value, isTextVisualMode.value, isCanvasEditable.value] as const,
+    ([mode, visualTextMode, editable]) => {
+      if ((mode === 'text' && !visualTextMode) || !editable) {
         detachInteractions()
         webglRenderer.stopRenderLoop()
         stateActions.setHoveredPolygonId(null)
@@ -2412,8 +2583,9 @@ watch(() => props.src, (newSrc) => {
           ref="correctionTextareaRef"
           :value="correctionInputValue"
           rows="1"
-          class="w-full min-h-10 resize-none rounded-sm border border-emerald-300 bg-emerald-100/95 px-2.5 py-2 font-junicode text-foreground outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20 dark:bg-emerald-900/90"
-          :style="{ fontSize: `${correctionFontSizePx}px`, lineHeight: `${Math.round(correctionFontSizePx * 1.2)}px` }"
+          wrap="off"
+          class="w-full min-h-10 resize-none overflow-x-auto whitespace-nowrap rounded-sm border border-emerald-300 bg-emerald-100/95 px-2.5 py-2 font-junicode text-foreground outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20 dark:bg-emerald-900/90"
+          :style="{ fontSize: `${correctionFontSizePx}px`, lineHeight: `${Math.round(correctionFontSizePx * 1.2)}px`, minHeight: `${correctionTextareaMinHeightPx}px` }"
           :readonly="!isCanvasEditable"
           :disabled="!isCanvasEditable"
           spellcheck="false"
@@ -2551,8 +2723,9 @@ watch(() => props.src, (newSrc) => {
             <textarea
               :value="recognition.unicode"
               rows="1"
-              class="w-full min-h-9 resize-none rounded-sm border border-default bg-default px-2 py-1.5 font-junicode text-foreground/95 outline-none"
-              :style="{ fontSize: `${Math.max(16, Math.round(correctionFontSizePx * 0.78))}px`, lineHeight: `${Math.max(20, Math.round(correctionFontSizePx * 0.9))}px` }"
+              wrap="off"
+              class="w-full min-h-9 resize-none overflow-x-auto whitespace-nowrap rounded-sm border border-default bg-default px-2 py-1.5 font-junicode text-foreground/95 outline-none"
+              :style="{ fontSize: `${recognitionTextareaFontSizePx}px`, lineHeight: `${recognitionTextareaLineHeightPx}px`, minHeight: `${recognitionTextareaMinHeightPx}px` }"
               readonly
               spellcheck="false"
               @keydown="handleCorrectionReadonlyKeydown"

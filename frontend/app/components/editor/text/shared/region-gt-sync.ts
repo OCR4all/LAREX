@@ -1,8 +1,11 @@
 import type { TextContentVariantData } from '@/models/editor'
-import type { TextLine } from '@/models/editor/text'
 import { normalizeTextContentVariants, sortByIndex } from './text-view-runtime'
 
-export function composeRegionGtFromTextLines(textLines: TextLine[] | undefined, gtIndex: number): string | null {
+type TextLineLike = {
+  textContentVariants?: TextContentVariantData[] | undefined
+}
+
+export function composeRegionGtFromTextLines(textLines: TextLineLike[] | undefined, gtIndex: number): string | null {
   const lines = (textLines ?? []).map((textLine) => {
     const gtVariant = normalizeTextContentVariants(textLine.textContentVariants)
       .find(variant => variant.index === gtIndex)

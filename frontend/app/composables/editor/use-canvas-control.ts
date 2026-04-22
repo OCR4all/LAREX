@@ -5,7 +5,7 @@ import { useEditorCollaboration } from '@/composables/editor/use-editor-collabor
 import type { Command, CommandContext } from '@/commands/editor/types'
 import { PolygonType } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
-import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
+import type { EditorCanvasControls, SetViewModeOptions } from '@/types/editor/canvas-controls'
 
 export const DRAWING_MODES = {
   SELECT: 'select',
@@ -210,12 +210,14 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
     editorStore.clearCanvasSelection(canvasId)
   }
 
-  const setViewMode = (value: ViewMode): void => {
+  const setViewMode = (value: ViewMode, options?: SetViewModeOptions): void => {
     if (viewMode.value === value) return
 
     clearSelectionForViewModeChange()
     viewMode.value = value
-    editorUiStore.setLastLayoutViewMode(value)
+    if (options?.persistAsLayoutPreference !== false) {
+      editorUiStore.setLastLayoutViewMode(value)
+    }
   }
 
   const isDrawingMode: ComputedRef<boolean> = computed(() => drawingMode.value !== DRAWING_MODES.SELECT && drawingMode.value !== DRAWING_MODES.MOVE)

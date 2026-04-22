@@ -64,6 +64,14 @@ Complete documentation for developers and users of LAREX.
   :::
 ::
 
+::warning
+Documentation status: this documentation set is currently generated automatically.
+
+Content may be incomplete or inaccurate and is not guaranteed to be 100% correct.
+
+A human-authored overhaul is planned soon.
+::
+
 ::u-page-section
 #title
 Technical Documentation

@@ -92,6 +92,9 @@ public class EditorPreference {
     @Column(name = "canvas_text_correction_zoom")
     private Double canvasTextCorrectionZoom;
 
+    @Column(name = "text_mode_submode")
+    private String textModeSubmode;
+
     @Column(name = "highlight_unknown_codec_chars")
     private Boolean highlightUnknownCodecChars;
 
@@ -202,6 +205,9 @@ public class EditorPreference {
 
     public Double getCanvasTextCorrectionZoom() { return canvasTextCorrectionZoom; }
     public void setCanvasTextCorrectionZoom(Double canvasTextCorrectionZoom) { this.canvasTextCorrectionZoom = canvasTextCorrectionZoom; }
+
+    public String getTextModeSubmode() { return textModeSubmode; }
+    public void setTextModeSubmode(String textModeSubmode) { this.textModeSubmode = textModeSubmode; }
 
     public Boolean getHighlightUnknownCodecChars() { return highlightUnknownCodecChars; }
     public void setHighlightUnknownCodecChars(Boolean highlightUnknownCodecChars) { this.highlightUnknownCodecChars = highlightUnknownCodecChars; }

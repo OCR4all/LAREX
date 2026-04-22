@@ -37,7 +37,8 @@ export function getTextViewRuntimeControls(
       constrainToParent: ref(true),
       autoSelect: ref(false),
       regionType: ref('region'),
-      viewMode: ref('default'),
+      // Text mode no longer has a region hierarchy workflow; keep fallback runtime textline-centric.
+      viewMode: ref('textline'),
       historyState: reactive({
         canUndo: false,
         canRedo: false,

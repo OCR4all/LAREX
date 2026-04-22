@@ -16,10 +16,12 @@ type DockviewPanelProps<TParams> = {
 const props = defineProps<{ params: DockviewPanelProps<EditorPanelParams> }>()
 
 const editorStore = useEditorStore()
+const uiStore = useEditorUiStore()
 
 const canvasId = computed(() => props.params.params?.canvasId || props.params.api.id)
 
 const uiMode = computed(() => editorStore.effectiveUiMode(canvasId.value))
+const isTextVisualMode = computed(() => uiMode.value === 'text' && uiStore.textModeSubmode === 'visual')
 
 const requestedPageId = computed(() => props.params.params?.pageId)
 const requestedProjectId = computed(() => props.params.params?.projectId)
@@ -48,7 +50,7 @@ onMounted(async () => {
     <EditorCollaborationHost :canvas-id="canvasId" />
 
     <Editor
-      v-if="uiMode === 'layout' && !!src"
+      v-if="(uiMode === 'layout' || isTextVisualMode) && !!src"
       class="h-full w-full"
       :src="src"
       :canvas-id="canvasId"
