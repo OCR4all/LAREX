@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { WorkspaceCapabilities } from '@/types/capabilities'
 import { globalKey } from '~/utils/fetch-keys'

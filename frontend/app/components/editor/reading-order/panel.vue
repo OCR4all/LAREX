@@ -99,9 +99,7 @@ const availableItems = computed(() => {
   return props.allItems.filter((item) => {
     if (includedRegionRefIds.value.has(item.id)) return false
 
-    if (!overlaySettings.value.showAllRegions && item.parentId) return false
-
-    return true
+    return !(!overlaySettings.value.showAllRegions && item.parentId)
   })
 })
 
@@ -576,7 +574,7 @@ defineExpose({
                 @mouseenter="handleHoverRegion(regionRef.regionRef)"
                 @mouseleave="handleUnhoverRegion"
               >
-                <Icon name="i-lucide-grip-vertical" class="drag-handle w-4 h-4 text-muted cursor-grab flex-shrink-0" />
+                <Icon name="i-lucide-grip-vertical" class="drag-handle w-4 h-4 text-muted cursor-grab shrink-0" />
                 <span class="flex-1 text-sm truncate" :title="`${getItemLabel(regionRef.id)} (${regionRef.id})`">{{ getItemLabel(regionRef.id) }} <span class="text-muted">({{ regionRef.id }})</span></span>
                 <UButton
                   size="xs"

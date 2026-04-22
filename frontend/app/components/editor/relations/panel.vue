@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Commander } from '@/commands/editor/commander'
 import type { CommandContext } from '@/commands/editor/types'
-import type { Page, Relation } from '@/models/editor'
+import type { Page } from '@/models/editor'
 import type { PcGts } from '@/models/editor/document'
 import { CreateRelationCommand, DeleteRelationCommand, UpdateRelationCommand } from '@/commands'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
@@ -259,10 +259,19 @@ watch(selectedRelation, (relation) => {
       <section class="space-y-2">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-semibold">Relations</p>
-            <p class="text-xs text-muted">Existing PAGE relations on this page</p>
+            <p class="text-sm font-semibold">
+              Relations
+            </p>
+            <p class="text-xs text-muted">
+              Existing PAGE relations on this page
+            </p>
           </div>
-          <UButton size="xs" variant="soft" icon="i-lucide-plus" @click="openCreateSection">
+          <UButton
+            size="xs"
+            variant="soft"
+            icon="i-lucide-plus"
+            @click="openCreateSection"
+          >
             New Relation
           </UButton>
         </div>
@@ -278,7 +287,9 @@ watch(selectedRelation, (relation) => {
           >
             <div class="flex items-center justify-between gap-2">
               <span class="text-sm font-medium truncate">{{ getRelationDisplayLabel(relation) }}</span>
-              <UBadge color="neutral" variant="subtle">{{ relation.type ?? 'link' }}</UBadge>
+              <UBadge color="neutral" variant="subtle">
+                {{ relation.type ?? 'link' }}
+              </UBadge>
             </div>
             <p class="mt-1 text-xs text-muted truncate">
               {{ getRegionLabel(relation.sourceRegionRef) }} -> {{ getRegionLabel(relation.targetRegionRef) }}
@@ -294,8 +305,12 @@ watch(selectedRelation, (relation) => {
       <section v-if="showCreateSection" class="space-y-3 rounded-md border border-default p-3">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-semibold">Create Relation</p>
-            <p class="text-xs text-muted">Prepare the draft, then pick source and target on the canvas.</p>
+            <p class="text-sm font-semibold">
+              Create Relation
+            </p>
+            <p class="text-xs text-muted">
+              Prepare the draft, then pick source and target on the canvas.
+            </p>
           </div>
           <div class="flex items-center gap-2">
             <UButton
@@ -326,7 +341,9 @@ watch(selectedRelation, (relation) => {
             class="rounded-md border px-3 py-2"
             :class="draft.sourceRegionRef ? 'border-sky-300 bg-sky-50/60' : 'border-dashed border-default bg-background'"
           >
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">Source</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Source
+            </p>
             <p class="text-sm" :class="draft.sourceRegionRef ? 'text-default' : 'text-muted'">
               {{ draft.sourceRegionRef ? getRegionLabel(draft.sourceRegionRef) : 'Not picked yet' }}
             </p>
@@ -336,7 +353,9 @@ watch(selectedRelation, (relation) => {
             class="rounded-md border px-3 py-2"
             :class="draft.targetRegionRef ? 'border-sky-300 bg-sky-50/60' : 'border-dashed border-default bg-background'"
           >
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">Target</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Target
+            </p>
             <p class="text-sm" :class="draft.targetRegionRef ? 'text-default' : 'text-muted'">
               {{ draft.targetRegionRef ? getRegionLabel(draft.targetRegionRef) : 'Not picked yet' }}
             </p>
@@ -381,13 +400,28 @@ watch(selectedRelation, (relation) => {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UButton size="xs" variant="soft" icon="i-lucide-crosshair" @click="startCreatePicking">
+          <UButton
+            size="xs"
+            variant="soft"
+            icon="i-lucide-crosshair"
+            @click="startCreatePicking"
+          >
             {{ isPickingCreateSource ? 'Pick Source' : isPickingCreateTarget ? 'Pick Target' : 'Pick On Canvas' }}
           </UButton>
-          <UButton size="xs" color="primary" :disabled="!canCreateDraft" @click="createRelationFromDraft">
+          <UButton
+            size="xs"
+            color="primary"
+            :disabled="!canCreateDraft"
+            @click="createRelationFromDraft"
+          >
             Create Now
           </UButton>
-          <UButton size="xs" variant="ghost" color="neutral" @click="editorUiStore.resetRelationDraft()">
+          <UButton
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            @click="editorUiStore.resetRelationDraft()"
+          >
             Reset Draft
           </UButton>
         </div>
@@ -418,14 +452,29 @@ watch(selectedRelation, (relation) => {
       <section v-if="showEditSection && selectedRelation" class="space-y-3 rounded-md border border-default p-3">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm font-semibold">Edit Selected Relation</p>
-            <p class="text-xs text-muted">{{ getRelationDisplayLabel(selectedRelation) }}</p>
+            <p class="text-sm font-semibold">
+              Edit Selected Relation
+            </p>
+            <p class="text-xs text-muted">
+              {{ getRelationDisplayLabel(selectedRelation) }}
+            </p>
           </div>
           <div class="flex items-center gap-2">
-            <UButton size="xs" variant="soft" icon="i-lucide-plus" @click="openCreateSection">
+            <UButton
+              size="xs"
+              variant="soft"
+              icon="i-lucide-plus"
+              @click="openCreateSection"
+            >
               New Relation
             </UButton>
-            <UButton size="xs" color="error" variant="ghost" icon="i-lucide-trash-2" @click="deleteSelectedRelation">
+            <UButton
+              size="xs"
+              color="error"
+              variant="ghost"
+              icon="i-lucide-trash-2"
+              @click="deleteSelectedRelation"
+            >
               Delete
             </UButton>
           </div>
@@ -469,10 +518,20 @@ watch(selectedRelation, (relation) => {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <UButton size="xs" variant="soft" icon="i-lucide-crosshair" @click="startRepickSource">
+          <UButton
+            size="xs"
+            variant="soft"
+            icon="i-lucide-crosshair"
+            @click="startRepickSource"
+          >
             Repick Source
           </UButton>
-          <UButton size="xs" variant="soft" icon="i-lucide-crosshair" @click="startRepickTarget">
+          <UButton
+            size="xs"
+            variant="soft"
+            icon="i-lucide-crosshair"
+            @click="startRepickTarget"
+          >
             Repick Target
           </UButton>
           <UButton size="xs" color="primary" @click="saveSelectedRelation">

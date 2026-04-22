@@ -40,20 +40,27 @@ const hasUnread = computed(() => groupedNotifications.value.some(g => g.items.so
 
 function getNotificationIcon(type: string) {
   switch (type) {
-    case 'WORKSPACE_INVITATION': return 'i-lucide-user-plus'
-    case 'TASK_ASSIGNED': return 'i-lucide-clipboard-list'
-    case 'TASK_COMPLETED': return 'i-lucide-check-circle'
+    case 'WORKSPACE_INVITATION':
+      return 'i-lucide-user-plus'
+    case 'TASK_ASSIGNED':
+      return 'i-lucide-clipboard-list'
+    case 'TASK_COMPLETED':
+      return 'i-lucide-check-circle'
     case 'PROJECT_CREATED':
-    case 'PROJECT_DELETED': return 'i-lucide-folder'
+    case 'PROJECT_DELETED':
+      return 'i-lucide-folder'
     case 'PAGE_CREATED':
-    case 'PAGE_DELETED': return 'i-lucide-file'
+    case 'PAGE_DELETED':
+      return 'i-lucide-file'
     case 'COLLAB_TAKEOVER_REQUESTED':
     case 'COLLAB_TAKEOVER_GRANTED':
     case 'COLLAB_TAKEOVER_DECLINED':
     case 'COLLAB_TAKEOVER_FORCED':
     case 'COLLAB_LEASE_EXPIRED':
-      return 'i-lucide-lock'
-    default: return 'i-lucide-bell'
+      return
+      'i-lucide-lock'
+    default:
+      return 'i-lucide-bell'
   }
 }
 

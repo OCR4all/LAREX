@@ -1,3 +1,31 @@
+<script setup lang="ts">
+const {
+  isHealthy,
+  isChecking,
+  lastCheckTime,
+  consecutiveFailures,
+  retryConnection
+} = useBackendHealth()
+
+const { loggedIn } = useUserSession()
+const isInitialized = useState<boolean>('app.isInitialized', () => false)
+
+const retry = async () => {
+  const success = await retryConnection()
+  if (success) {
+    console.log('Connection restored!')
+  }
+}
+
+const formatTime = (date: Date) => {
+  return new Intl.DateTimeFormat('en', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(date)
+}
+</script>
+
 <template>
   <Transition
     enter-active-class="transition-all duration-300 ease-out"
@@ -41,31 +69,3 @@
     </div>
   </Transition>
 </template>
-
-<script setup lang="ts">
-const {
-  isHealthy,
-  isChecking,
-  lastCheckTime,
-  consecutiveFailures,
-  retryConnection
-} = useBackendHealth()
-
-const { loggedIn } = useUserSession()
-const isInitialized = useState<boolean>('app.isInitialized', () => false)
-
-const retry = async () => {
-  const success = await retryConnection()
-  if (success) {
-    console.log('✅ Connection restored!')
-  }
-}
-
-const formatTime = (date: Date) => {
-  return new Intl.DateTimeFormat('en', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  }).format(date)
-}
-</script>

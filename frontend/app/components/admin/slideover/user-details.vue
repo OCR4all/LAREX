@@ -430,7 +430,7 @@ function handleOpenChange(open: boolean) {
                           <th class="w-40 bg-elevated/30 px-3 py-2 text-left font-medium text-muted">
                             {{ detail.label }}
                           </th>
-                          <td class="px-3 py-2 text-highlighted break-words">
+                          <td class="px-3 py-2 text-highlighted wrap-break-word">
                             {{ detail.value }}
                           </td>
                         </tr>

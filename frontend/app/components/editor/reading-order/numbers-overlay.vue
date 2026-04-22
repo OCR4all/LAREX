@@ -67,7 +67,7 @@ function getBadgeClasses(item: OrderNumber): string {
 }
 
 /**
- * Get top-left corner of group bounds for label positioning
+ * Get the top-left corner of group bounds for label positioning
  */
 function getGroupLabelPosition(bounds: GroupBounds): { x: number, y: number } {
   if (bounds.points.length < 4) return { x: 0, y: 0 }

@@ -495,7 +495,7 @@ async function handleCopyPageId() {
           </template>
         </UTooltip>
 
-        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-neutral-950 via-neutral-950/90 to-transparent pt-6 pb-2 px-2">
+        <div class="absolute inset-x-0 bottom-0 bg-linear-to-t from-neutral-950 via-neutral-950/90 to-transparent pt-6 pb-2 px-2">
           <div v-if="variantItems.length > 0" @click.stop @pointerdown.stop>
             <USelect
               :model-value="selectedVariant ?? undefined"
@@ -580,7 +580,7 @@ async function handleCopyPageId() {
             ]"
             @click="handleSelectPage"
           >
-            <div class="relative aspect-[3/4] bg-neutral-950">
+            <div class="relative aspect-3/4 bg-neutral-950">
               <img
                 v-if="previewUrl"
                 :src="previewUrl"
@@ -753,7 +753,7 @@ async function handleCopyPageId() {
                 </template>
               </UTooltip>
 
-              <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-neutral-950 via-neutral-950/90 to-transparent pt-6 pb-2 px-2">
+              <div class="absolute inset-x-0 bottom-0 bg-linear-to-t from-neutral-950 via-neutral-950/90 to-transparent pt-6 pb-2 px-2">
                 <div v-if="variantItems.length > 0" @click.stop @pointerdown.stop>
                   <USelect
                     :model-value="selectedVariant ?? undefined"

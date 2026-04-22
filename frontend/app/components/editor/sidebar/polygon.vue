@@ -630,7 +630,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
       </template>
 
       <template #structure>
-        <div data-tour="editor-layout-structure-panel">
+        <div dataw-tour="editor-layout-structure-panel">
           <EditorSidebarStructurePanel
             :polygons="polygons"
             :polylines="polylines"

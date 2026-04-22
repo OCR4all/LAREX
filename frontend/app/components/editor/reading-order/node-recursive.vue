@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { VueDraggable } from 'vue-draggable-plus'
+
 import type {
   ReadingOrderNode,
   ReadingOrderGroup,
@@ -207,8 +208,8 @@ function forwardUnhoverRegion(): void {
     class="reading-order-elements"
     :class="[
       depth === 0
-        ? 'min-h-[100px] rounded-sm border-2 border-dashed border-default p-1'
-        : 'min-h-[40px] rounded-sm border border-dashed border-default p-1'
+        ? 'min-h-25 rounded-sm border-2 border-dashed border-default p-1'
+        : 'min-h-10 rounded-sm border border-dashed border-default p-1'
     ]"
     @add="handleSortableAdd"
     @remove="handleSortableRemove"
@@ -224,22 +225,22 @@ function forwardUnhoverRegion(): void {
           }"
           @click="handleItemClick($event, node.id)"
         >
-          <Icon name="i-lucide-grip-vertical" class="drag-handle w-4 h-4 text-muted cursor-grab flex-shrink-0" />
+          <Icon name="i-lucide-grip-vertical" class="drag-handle w-4 h-4 text-muted cursor-grab shrink-0" />
 
           <button
-            class="p-0.5 hover:bg-accented rounded-sm flex-shrink-0"
+            class="p-0.5 hover:bg-accented rounded-sm shrink-0"
             @click.stop="handleToggleExpanded(node.id)"
           >
             <Icon :name="isGroupExpanded(node.id) ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'" class="w-4 h-4" />
           </button>
 
-          <span class="text-xs font-mono text-muted w-12 flex-shrink-0">
+          <span class="text-xs font-mono text-muted w-12 shrink-0">
             {{ getDisplayIndex(i) }}-{{ getDisplayIndex(i) + countItems(node) - 1 }}
           </span>
 
           <Icon
             :name="getGroupTypeIconName(node)"
-            class="w-4 h-4 flex-shrink-0"
+            class="w-4 h-4 shrink-0"
             :class="isOrderedGroup(node) ? 'text-primary' : 'text-primary/70'"
           />
 
@@ -248,7 +249,7 @@ function forwardUnhoverRegion(): void {
           <UButton
             size="xs"
             variant="ghost"
-            class="flex-shrink-0"
+            class="shrink-0"
             title="Dissolve group (keep items)"
             @click.stop="handleDissolveGroup(node.id)"
           >
@@ -287,9 +288,9 @@ function forwardUnhoverRegion(): void {
         @mouseenter="handleHoverRegion(node)"
         @mouseleave="handleUnhoverRegion"
       >
-        <Icon name="i-lucide-grip-vertical" class="drag-handle w-4 h-4 text-muted cursor-grab flex-shrink-0" />
+        <Icon name="i-lucide-grip-vertical" class="drag-handle w-4 h-4 text-muted cursor-grab shrink-0" />
 
-        <span class="text-xs font-mono text-muted w-6 flex-shrink-0 text-right">
+        <span class="text-xs font-mono text-muted w-6 shrink-0 text-right">
           {{ getDisplayIndex(i) }}.
         </span>
 
@@ -299,7 +300,7 @@ function forwardUnhoverRegion(): void {
           size="xs"
           variant="ghost"
           color="error"
-          class="flex-shrink-0"
+          class="shrink-0"
           title="Remove from reading order"
           @click.stop="handleRemoveItem(node.id)"
         >

@@ -1,3 +1,5 @@
+import error from "~/error.vue";
+
 /**
  * SSR Workspace Initialization Plugin
  *
@@ -14,5 +16,6 @@ export default defineNuxtPlugin(async () => {
     await workspaceStore.fetchWorkspaces()
     await workspaceStore.validateAndSelectWorkspace()
   } catch {
+    console.error('Failed to initialize workspace store:', error)
   }
 })
