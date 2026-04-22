@@ -42,6 +42,10 @@ public class EditorPreferenceService {
         if (dto.textViewFontSize() != null) pref.setTextViewFontSize(dto.textViewFontSize());
         if (dto.textViewPadding() != null) pref.setTextViewPadding(dto.textViewPadding());
         if (dto.textItemLayout() != null) pref.setTextItemLayout(dto.textItemLayout());
+        if (dto.canvasTextCorrectionOverlaySnapToLine() != null) pref.setCanvasTextCorrectionOverlaySnapToLine(dto.canvasTextCorrectionOverlaySnapToLine());
+        if (dto.canvasTextCorrectionOverlayXRatio() != null) pref.setCanvasTextCorrectionOverlayXRatio(dto.canvasTextCorrectionOverlayXRatio());
+        if (dto.canvasTextCorrectionOverlayYRatio() != null) pref.setCanvasTextCorrectionOverlayYRatio(dto.canvasTextCorrectionOverlayYRatio());
+        if (dto.canvasTextCorrectionZoom() != null) pref.setCanvasTextCorrectionZoom(dto.canvasTextCorrectionZoom());
         if (dto.highlightUnknownCodecChars() != null) pref.setHighlightUnknownCodecChars(dto.highlightUnknownCodecChars());
         if (dto.shortcutBindings() != null) pref.setShortcutBindings(dto.shortcutBindings());
         if (dto.tableColumnVisibility() != null) pref.setTableColumnVisibility(dto.tableColumnVisibility());

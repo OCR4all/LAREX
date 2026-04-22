@@ -32,6 +32,7 @@ import {
 } from '@/utils/editor/textline-navigation'
 import { ensureGtVariantAtIndex, normalizeEditableTextVariants, setGtVariantUnicode } from '@/utils/editor/text-variants'
 import { computeCanvasTextCorrectionPlacement } from '@/utils/editor/canvas-text-correction-placement'
+import { ZOOM } from '@/utils/editor/editor-constants'
 import {
   handleSingleLineTextareaBeforeInput,
   handleSingleLineTextareaDrop,
@@ -67,6 +68,7 @@ const WORLD_COORD_THRESHOLD = 2.5
 const CORRECTION_FONT_MIN = 14
 const CORRECTION_FONT_MAX = 64
 const CORRECTION_FONT_DEFAULT = 32
+const CORRECTION_OVERLAY_MARGIN = 8
 
 function isTextlinePolygonType(type: unknown): boolean {
   return typeof type === 'string' && type.toLowerCase() === PolygonType.TEXTLINE
@@ -234,6 +236,10 @@ const activateEditor = () => editorStore.setActiveCanvas(props.canvasId)
 const effectiveUiMode = computed(() => editorStore.effectiveUiMode(props.canvasId))
 const renderEnabled = computed(() => effectiveUiMode.value !== 'text')
 const canvasTextCorrectionEnabled = computed(() => editorUiStore.canvasTextCorrectionEnabled)
+const canvasTextCorrectionSnapToLine = computed({
+  get: () => editorUiStore.canvasTextCorrectionOverlaySnapToLine,
+  set: (next: boolean) => editorUiStore.setCanvasTextCorrectionOverlaySnapToLine(Boolean(next))
+})
 
 const constrainToImage = computed(() => editorStore.globalSettings.constrainToImage)
 const constrainToParent = computed(() => editorStore.globalSettings.constrainToParent)
@@ -247,7 +253,9 @@ const currentImageSrc = ref(props.src)
 const canvasControls = useCanvasControl(props.canvasId)
 
 const canvas = ref<HTMLCanvasElement | null>(null)
+const correctionOverlayContainerRef = ref<HTMLDivElement | null>(null)
 const webglRenderer = useWebglRenderer(canvas)
+const suppressCorrectionZoomPreferenceUpdate = ref(false)
 
 const editorState = useEditorState(session.spatialIndex)
 const {
@@ -958,6 +966,39 @@ function buildOverlayPath(points: { x: number, y: number }[], closed: boolean): 
   }
 }
 
+function clamp(value: number, min: number, max: number): number {
+  if (max < min) return min
+  return Math.min(Math.max(value, min), max)
+}
+
+function normalizeCorrectionOverlayPosition(input: {
+  left: number
+  top: number
+  viewportWidth: number
+  viewportHeight: number
+  overlayWidth: number
+  overlayHeight: number
+}) {
+  const minLeft = CORRECTION_OVERLAY_MARGIN
+  const maxLeft = input.viewportWidth - input.overlayWidth - CORRECTION_OVERLAY_MARGIN
+  const minTop = CORRECTION_OVERLAY_MARGIN
+  const maxTop = input.viewportHeight - input.overlayHeight - CORRECTION_OVERLAY_MARGIN
+
+  const left = clamp(input.left, minLeft, maxLeft)
+  const top = clamp(input.top, minTop, maxTop)
+  const leftRange = Math.max(0, maxLeft - minLeft)
+  const topRange = Math.max(0, maxTop - minTop)
+  const xRatio = leftRange > 0 ? (left - minLeft) / leftRange : 0
+  const yRatio = topRange > 0 ? (top - minTop) / topRange : 0
+
+  return {
+    left,
+    top,
+    xRatio,
+    yRatio
+  }
+}
+
 const correctionTextareaRef = ref<HTMLTextAreaElement | null>(null)
 const correctionInputValue = ref('')
 const focusCorrectionInputQueued = ref(false)
@@ -1092,12 +1133,13 @@ const canvasTextCorrectionVisible = computed(() => {
 
 const correctionOverlayLayout = computed(() => {
   if (!canvasTextCorrectionVisible.value) return null
-  const bounds = selectedTextlineScreenBounds.value
-  if (!bounds) return null
 
   const viewportWidth = canvasDimensions.value.width
   const viewportHeight = canvasDimensions.value.height
   if (!viewportWidth || !viewportHeight) return null
+
+  const bounds = selectedTextlineScreenBounds.value
+  if (!bounds) return null
 
   const maxOverlayWidth = Math.max(320, viewportWidth - 24)
   const preferredOverlayWidth = Math.max(420, (bounds.maxX - bounds.minX) + 24)
@@ -1118,6 +1160,31 @@ const correctionOverlayLayout = computed(() => {
     + (recognitionRows * perRecognitionRowHeight)
   const overlayHeight = Math.max(118, Math.min(viewportHeight - 12, overlayHeightEstimate))
 
+  const overlayXRatio = Number(editorUiStore.canvasTextCorrectionOverlayXRatio)
+  const overlayYRatio = Number(editorUiStore.canvasTextCorrectionOverlayYRatio)
+  const hasStoredOverlayPosition = Number.isFinite(overlayXRatio) && Number.isFinite(overlayYRatio)
+  const snapToLine = canvasTextCorrectionSnapToLine.value
+
+  if (!snapToLine && hasStoredOverlayPosition) {
+    const leftRange = Math.max(0, viewportWidth - overlayWidth - (CORRECTION_OVERLAY_MARGIN * 2))
+    const topRange = Math.max(0, viewportHeight - overlayHeight - (CORRECTION_OVERLAY_MARGIN * 2))
+    const normalized = normalizeCorrectionOverlayPosition({
+      left: CORRECTION_OVERLAY_MARGIN + (leftRange * clamp(overlayXRatio, 0, 1)),
+      top: CORRECTION_OVERLAY_MARGIN + (topRange * clamp(overlayYRatio, 0, 1)),
+      viewportWidth,
+      viewportHeight,
+      overlayWidth,
+      overlayHeight
+    })
+
+    return {
+      left: normalized.left,
+      top: normalized.top,
+      width: overlayWidth,
+      height: overlayHeight
+    }
+  }
+
   const placement = computeCanvasTextCorrectionPlacement({
     anchorBounds: bounds,
     viewport: {
@@ -1127,12 +1194,15 @@ const correctionOverlayLayout = computed(() => {
     overlay: {
       width: overlayWidth,
       height: overlayHeight
-    }
+    },
+    margin: CORRECTION_OVERLAY_MARGIN
   })
 
   return {
-    ...placement,
-    width: overlayWidth
+    left: placement.left,
+    top: placement.top,
+    width: overlayWidth,
+    height: overlayHeight
   }
 })
 
@@ -1145,6 +1215,154 @@ const correctionOverlayStyle = computed(() => {
     width: `${layout.width}px`
   }
 })
+
+type CorrectionOverlayDragState = {
+  pointerId: number
+  offsetX: number
+  offsetY: number
+  moved: boolean
+}
+
+const correctionOverlayDragState = ref<CorrectionOverlayDragState | null>(null)
+
+function stopCorrectionOverlayDrag(): void {
+  correctionOverlayDragState.value = null
+  window.removeEventListener('pointermove', handleCorrectionOverlayPointerMove)
+  window.removeEventListener('pointerup', handleCorrectionOverlayPointerUp)
+  window.removeEventListener('pointercancel', handleCorrectionOverlayPointerUp)
+}
+
+function updateCorrectionOverlayPositionFromPointer(clientX: number, clientY: number): void {
+  const dragState = correctionOverlayDragState.value
+  const layout = correctionOverlayLayout.value
+  const container = correctionOverlayContainerRef.value
+  if (!dragState || !layout || !container) return
+
+  const rect = container.getBoundingClientRect()
+  const normalized = normalizeCorrectionOverlayPosition({
+    left: clientX - rect.left - dragState.offsetX,
+    top: clientY - rect.top - dragState.offsetY,
+    viewportWidth: canvasDimensions.value.width,
+    viewportHeight: canvasDimensions.value.height,
+    overlayWidth: layout.width,
+    overlayHeight: layout.height
+  })
+
+  editorUiStore.setCanvasTextCorrectionOverlayPosition(normalized.xRatio, normalized.yRatio)
+}
+
+function handleCorrectionOverlayPointerMove(event: PointerEvent): void {
+  const dragState = correctionOverlayDragState.value
+  if (!dragState || event.pointerId !== dragState.pointerId) return
+
+  correctionOverlayDragState.value = {
+    ...dragState,
+    moved: true
+  }
+  updateCorrectionOverlayPositionFromPointer(event.clientX, event.clientY)
+  event.preventDefault()
+}
+
+function handleCorrectionOverlayPointerUp(event: PointerEvent): void {
+  const dragState = correctionOverlayDragState.value
+  if (!dragState || event.pointerId !== dragState.pointerId) return
+
+  if (dragState.moved) {
+    updateCorrectionOverlayPositionFromPointer(event.clientX, event.clientY)
+  }
+  stopCorrectionOverlayDrag()
+}
+
+function handleCorrectionOverlayPointerDown(event: PointerEvent): void {
+  if (event.button !== 0) return
+  const layout = correctionOverlayLayout.value
+  const container = correctionOverlayContainerRef.value
+  if (!layout || !container) return
+
+  if (canvasTextCorrectionSnapToLine.value) {
+    canvasTextCorrectionSnapToLine.value = false
+  }
+
+  const rect = container.getBoundingClientRect()
+  correctionOverlayDragState.value = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left - layout.left,
+    offsetY: event.clientY - rect.top - layout.top,
+    moved: false
+  }
+
+  window.addEventListener('pointermove', handleCorrectionOverlayPointerMove)
+  window.addEventListener('pointerup', handleCorrectionOverlayPointerUp)
+  window.addEventListener('pointercancel', handleCorrectionOverlayPointerUp)
+  event.preventDefault()
+}
+
+function toggleCorrectionOverlaySnapToLine(): void {
+  const next = !canvasTextCorrectionSnapToLine.value
+  if (!next) {
+    const layout = correctionOverlayLayout.value
+    if (layout) {
+      const normalized = normalizeCorrectionOverlayPosition({
+        left: layout.left,
+        top: layout.top,
+        viewportWidth: canvasDimensions.value.width,
+        viewportHeight: canvasDimensions.value.height,
+        overlayWidth: layout.width,
+        overlayHeight: layout.height
+      })
+      editorUiStore.setCanvasTextCorrectionOverlayPosition(normalized.xRatio, normalized.yRatio)
+    }
+  }
+  canvasTextCorrectionSnapToLine.value = next
+}
+
+function getPersistedCorrectionZoom(): number | null {
+  const parsed = Number(editorUiStore.canvasTextCorrectionZoom)
+  if (!Number.isFinite(parsed)) return null
+  return clamp(parsed, ZOOM.MIN, ZOOM.MAX)
+}
+
+function withSuppressedCorrectionZoomPreferenceUpdate(action: () => void): void {
+  suppressCorrectionZoomPreferenceUpdate.value = true
+  try {
+    action()
+  } finally {
+    nextTick(() => {
+      suppressCorrectionZoomPreferenceUpdate.value = false
+    })
+  }
+}
+
+function centerCorrectionViewOnTextlineWithZoom(
+  polygon: { points: Array<{ x: number, y: number }> } | null | undefined,
+  zoom: number
+): void {
+  if (!polygon || !Array.isArray(polygon.points) || polygon.points.length === 0) return
+  const imageSize = webglRenderer.imageSize.value
+  if (!imageSize.width || !imageSize.height) return
+
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+
+  for (const point of polygon.points) {
+    const looksLikeWorldCoords = Math.abs(point.x) <= WORLD_COORD_THRESHOLD
+      && Math.abs(point.y) <= WORLD_COORD_THRESHOLD
+    const worldPoint = looksLikeWorldCoords ? point : imageToWorld(point, imageSize)
+    minX = Math.min(minX, worldPoint.x)
+    maxX = Math.max(maxX, worldPoint.x)
+    minY = Math.min(minY, worldPoint.y)
+    maxY = Math.max(maxY, worldPoint.y)
+  }
+
+  const normalizedZoom = clamp(zoom, ZOOM.MIN, ZOOM.MAX)
+  mouseInteraction.setView({
+    zoom: normalizedZoom,
+    offsetX: -(((minX + maxX) / 2) * normalizedZoom),
+    offsetY: -(((minY + maxY) / 2) * normalizedZoom)
+  })
+}
 
 const selectedTextlineGtText = computed(() => {
   const polygon = selectedTextlinePolygon.value
@@ -1468,12 +1686,6 @@ function normalizeSingleLineText(value: string): string {
   return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
 }
 
-function updateSelectedTextlineGtText(nextText: string) {
-  const polygon = selectedTextlinePolygon.value
-  if (!polygon) return
-  updateTextlineGtTextById(polygon.id, nextText)
-}
-
 function updateTextlineGtTextById(textlineId: string, nextText: string) {
   const polygon = polygons.find(item => item.id === textlineId)
   if (!polygon || !isCanvasEditable.value) return
@@ -1615,9 +1827,29 @@ watch(
     }
 
     if (selectionChanged || justEnabled) {
-      canvasControls.selectPolygonById?.(selectedId, { focusMode: 'fit-width' })
+      const persistedCorrectionZoom = getPersistedCorrectionZoom()
+      if (persistedCorrectionZoom !== null) {
+        withSuppressedCorrectionZoomPreferenceUpdate(() => {
+          canvasControls.selectPolygonById?.(selectedId, { focusMode: 'none' })
+          const polygon = selectedTextlinePolygon.value
+          centerCorrectionViewOnTextlineWithZoom(polygon, persistedCorrectionZoom)
+        })
+      } else {
+        withSuppressedCorrectionZoomPreferenceUpdate(() => {
+          canvasControls.selectPolygonById?.(selectedId, { focusMode: 'fit-width' })
+        })
+      }
       queueCorrectionInputFocus()
     }
+  }
+)
+
+watch(
+  () => [canvasTextCorrectionEnabled.value, view.zoom] as const,
+  ([enabled, zoom]) => {
+    if (!enabled || suppressCorrectionZoomPreferenceUpdate.value) return
+    if (!Number.isFinite(zoom)) return
+    editorUiStore.setCanvasTextCorrectionZoom(clamp(zoom, ZOOM.MIN, ZOOM.MAX))
   }
 )
 
@@ -1869,6 +2101,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (stopUiModeWatch) stopUiModeWatch()
 
+  stopCorrectionOverlayDrag()
   mouseInteraction.cleanup()
   webglRenderer.cleanup()
 
@@ -2035,7 +2268,7 @@ watch(() => props.src, (newSrc) => {
       </div>
     </div>
 
-    <div class="relative flex-1 min-h-0" :class="{ 'editor-checkerboard': showCheckerboard }">
+    <div ref="correctionOverlayContainerRef" class="relative flex-1 min-h-0" :class="{ 'editor-checkerboard': showCheckerboard }">
       <div class="absolute inset-0 pointer-events-none" :style="{ backgroundColor: editorBackgroundColor }" />
       <UContextMenu
         v-model:open="contextMenuOpen"
@@ -2068,6 +2301,24 @@ watch(() => props.src, (newSrc) => {
       >
         <div class="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
           <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted transition hover:bg-muted/60 hover:text-foreground cursor-move"
+              title="Drag overlay"
+              @pointerdown.stop.prevent="handleCorrectionOverlayPointerDown"
+            >
+              <Icon name="i-lucide-grip-horizontal" class="h-3.5 w-3.5" />
+            </button>
+            <UButton
+              size="xs"
+              color="neutral"
+              :variant="canvasTextCorrectionSnapToLine ? 'soft' : 'ghost'"
+              :icon="canvasTextCorrectionSnapToLine ? 'i-lucide-link-2' : 'i-lucide-unlink-2'"
+              :title="canvasTextCorrectionSnapToLine ? 'Snap to selected line is enabled' : 'Snap to selected line is disabled'"
+              @click="toggleCorrectionOverlaySnapToLine"
+            >
+              Snap
+            </UButton>
             <span class="font-medium text-muted">GT #{{ activeGtIndex }}</span>
             <span class="text-muted">{{ correctionFontSizePx }}px</span>
             <div class="flex items-center gap-1">
@@ -2657,7 +2908,6 @@ watch(() => props.src, (newSrc) => {
         @toggle-reading-order="handlePropertiesToggleReadingOrder"
       />
     </div>
-
   </div>
 </template>
 

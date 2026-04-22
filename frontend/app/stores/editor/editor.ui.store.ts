@@ -80,6 +80,10 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const textViewPadding = ref<number>(10)
   const textItemLayout = ref<TextItemLayout>('side-by-side')
   const canvasTextCorrectionEnabled = ref<boolean>(false)
+  const canvasTextCorrectionOverlaySnapToLine = ref<boolean>(true)
+  const canvasTextCorrectionOverlayXRatio = ref<number | null>(null)
+  const canvasTextCorrectionOverlayYRatio = ref<number | null>(null)
+  const canvasTextCorrectionZoom = ref<number | null>(null)
   const highlightUnknownCodecChars = ref<boolean>(false)
   const includeWhitespaceInCodecHighlight = ref<boolean>(false)
   const highlightUnknownDictionaryTokens = ref<boolean>(false)
@@ -100,6 +104,12 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   const shortcutSettingsOpen = ref(false)
 
   const preferencesLoaded = ref(false)
+
+  function normalizeOverlayRatio(value: unknown): number | null {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) return null
+    return Math.max(0, Math.min(1, parsed))
+  }
 
   async function loadPreferences() {
     if (import.meta.server || preferencesLoaded.value) return
@@ -127,6 +137,19 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.textViewFontSize !== null) textViewFontSize.value = prefs.textViewFontSize
     if (prefs.textViewPadding !== null) textViewPadding.value = prefs.textViewPadding
     if (prefs.textItemLayout !== null) textItemLayout.value = prefs.textItemLayout
+    if (prefs.canvasTextCorrectionOverlaySnapToLine !== null) {
+      canvasTextCorrectionOverlaySnapToLine.value = Boolean(prefs.canvasTextCorrectionOverlaySnapToLine)
+    }
+    if (prefs.canvasTextCorrectionOverlayXRatio !== null) {
+      canvasTextCorrectionOverlayXRatio.value = normalizeOverlayRatio(prefs.canvasTextCorrectionOverlayXRatio)
+    }
+    if (prefs.canvasTextCorrectionOverlayYRatio !== null) {
+      canvasTextCorrectionOverlayYRatio.value = normalizeOverlayRatio(prefs.canvasTextCorrectionOverlayYRatio)
+    }
+    if (prefs.canvasTextCorrectionZoom !== null) {
+      const parsedZoom = Number(prefs.canvasTextCorrectionZoom)
+      canvasTextCorrectionZoom.value = Number.isFinite(parsedZoom) && parsedZoom > 0 ? parsedZoom : null
+    }
     if (prefs.highlightUnknownCodecChars !== null) highlightUnknownCodecChars.value = prefs.highlightUnknownCodecChars
 
     preferencesLoaded.value = true
@@ -411,6 +434,33 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     canvasTextCorrectionEnabled.value = Boolean(enabled)
   }
 
+  function setCanvasTextCorrectionOverlaySnapToLine(enabled: boolean) {
+    const normalized = Boolean(enabled)
+    canvasTextCorrectionOverlaySnapToLine.value = normalized
+    editorPreferences.updatePreference('canvasTextCorrectionOverlaySnapToLine', normalized)
+  }
+
+  function setCanvasTextCorrectionOverlayPosition(xRatio: number, yRatio: number) {
+    const normalizedX = normalizeOverlayRatio(xRatio)
+    const normalizedY = normalizeOverlayRatio(yRatio)
+    if (normalizedX === null || normalizedY === null) return
+
+    canvasTextCorrectionOverlayXRatio.value = normalizedX
+    canvasTextCorrectionOverlayYRatio.value = normalizedY
+
+    editorPreferences.updatePreferences({
+      canvasTextCorrectionOverlayXRatio: normalizedX,
+      canvasTextCorrectionOverlayYRatio: normalizedY
+    })
+  }
+
+  function setCanvasTextCorrectionZoom(zoom: number) {
+    const parsed = Number(zoom)
+    if (!Number.isFinite(parsed) || parsed <= 0) return
+    canvasTextCorrectionZoom.value = parsed
+    editorPreferences.updatePreference('canvasTextCorrectionZoom', parsed)
+  }
+
   function toggleCanvasTextCorrection() {
     setCanvasTextCorrectionEnabled(!canvasTextCorrectionEnabled.value)
   }
@@ -545,6 +595,10 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     textViewPadding,
     textItemLayout,
     canvasTextCorrectionEnabled,
+    canvasTextCorrectionOverlaySnapToLine,
+    canvasTextCorrectionOverlayXRatio,
+    canvasTextCorrectionOverlayYRatio,
+    canvasTextCorrectionZoom,
     highlightUnknownCodecChars,
     includeWhitespaceInCodecHighlight,
     highlightUnknownDictionaryTokens,
@@ -607,6 +661,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setTextViewPadding,
     setTextItemLayout,
     setCanvasTextCorrectionEnabled,
+    setCanvasTextCorrectionOverlaySnapToLine,
+    setCanvasTextCorrectionOverlayPosition,
+    setCanvasTextCorrectionZoom,
     toggleCanvasTextCorrection,
     setHighlightUnknownCodecChars,
     toggleHighlightUnknownCodecChars,

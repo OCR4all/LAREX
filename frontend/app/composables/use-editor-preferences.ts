@@ -22,6 +22,10 @@ export interface EditorPreferences {
   textViewFontSize: number | null
   textViewPadding: number | null
   textItemLayout: TextItemLayout | null
+  canvasTextCorrectionOverlaySnapToLine: boolean | null
+  canvasTextCorrectionOverlayXRatio: number | null
+  canvasTextCorrectionOverlayYRatio: number | null
+  canvasTextCorrectionZoom: number | null
   highlightUnknownCodecChars: boolean | null
   shortcutBindings: ShortcutPreferences | null
   tableColumnVisibility: Record<string, Record<string, boolean>> | null
@@ -58,6 +62,10 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   textViewFontSize: null,
   textViewPadding: null,
   textItemLayout: null,
+  canvasTextCorrectionOverlaySnapToLine: null,
+  canvasTextCorrectionOverlayXRatio: null,
+  canvasTextCorrectionOverlayYRatio: null,
+  canvasTextCorrectionZoom: null,
   highlightUnknownCodecChars: null,
   shortcutBindings: null,
   tableColumnVisibility: null,

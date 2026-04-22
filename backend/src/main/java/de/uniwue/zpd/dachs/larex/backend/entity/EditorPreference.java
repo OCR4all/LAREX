@@ -80,6 +80,18 @@ public class EditorPreference {
     @Column(name = "text_item_layout")
     private String textItemLayout;
 
+    @Column(name = "canvas_text_correction_overlay_snap_to_line")
+    private Boolean canvasTextCorrectionOverlaySnapToLine;
+
+    @Column(name = "canvas_text_correction_overlay_x_ratio")
+    private Double canvasTextCorrectionOverlayXRatio;
+
+    @Column(name = "canvas_text_correction_overlay_y_ratio")
+    private Double canvasTextCorrectionOverlayYRatio;
+
+    @Column(name = "canvas_text_correction_zoom")
+    private Double canvasTextCorrectionZoom;
+
     @Column(name = "highlight_unknown_codec_chars")
     private Boolean highlightUnknownCodecChars;
 
@@ -178,6 +190,18 @@ public class EditorPreference {
 
     public String getTextItemLayout() { return textItemLayout; }
     public void setTextItemLayout(String textItemLayout) { this.textItemLayout = textItemLayout; }
+
+    public Boolean getCanvasTextCorrectionOverlaySnapToLine() { return canvasTextCorrectionOverlaySnapToLine; }
+    public void setCanvasTextCorrectionOverlaySnapToLine(Boolean canvasTextCorrectionOverlaySnapToLine) { this.canvasTextCorrectionOverlaySnapToLine = canvasTextCorrectionOverlaySnapToLine; }
+
+    public Double getCanvasTextCorrectionOverlayXRatio() { return canvasTextCorrectionOverlayXRatio; }
+    public void setCanvasTextCorrectionOverlayXRatio(Double canvasTextCorrectionOverlayXRatio) { this.canvasTextCorrectionOverlayXRatio = canvasTextCorrectionOverlayXRatio; }
+
+    public Double getCanvasTextCorrectionOverlayYRatio() { return canvasTextCorrectionOverlayYRatio; }
+    public void setCanvasTextCorrectionOverlayYRatio(Double canvasTextCorrectionOverlayYRatio) { this.canvasTextCorrectionOverlayYRatio = canvasTextCorrectionOverlayYRatio; }
+
+    public Double getCanvasTextCorrectionZoom() { return canvasTextCorrectionZoom; }
+    public void setCanvasTextCorrectionZoom(Double canvasTextCorrectionZoom) { this.canvasTextCorrectionZoom = canvasTextCorrectionZoom; }
 
     public Boolean getHighlightUnknownCodecChars() { return highlightUnknownCodecChars; }
     public void setHighlightUnknownCodecChars(Boolean highlightUnknownCodecChars) { this.highlightUnknownCodecChars = highlightUnknownCodecChars; }
