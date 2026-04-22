@@ -9,7 +9,7 @@ const attributes = defineModel<UserAttributeFormState[]>({ required: true })
 </script>
 
 <template>
-  <div class="space-y-2 rounded-md border border-border p-3">
+  <div class="space-y-2 rounded-md border border-default p-3">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">User-Defined Attributes</span>
       <UButton
@@ -25,7 +25,7 @@ const attributes = defineModel<UserAttributeFormState[]>({ required: true })
     <div
       v-for="(attribute, attributeIndex) in attributes"
       :key="`user-attribute-${attributeIndex}`"
-      class="space-y-2 rounded-md border border-border p-2"
+      class="space-y-2 rounded-md border border-default p-2"
     >
       <UFormField label="Name">
         <UInput v-model="attribute.name" placeholder="Attribute name" />

@@ -33,7 +33,7 @@ const emit = defineEmits<{
 <template>
   <div>
     <div class="px-4 py-2 flex justify-between items-center bg-muted/10">
-      <span class="text-xs text-muted-foreground font-medium">
+      <span class="text-xs text-muted font-medium">
         {{ polygons.length }} items
       </span>
 
@@ -95,12 +95,12 @@ const emit = defineEmits<{
 
         <div v-if="polygons.length === 0" class="flex flex-col items-center justify-center py-12 text-center px-4">
           <div class="bg-muted rounded-sm p-3 mb-3">
-            <Icon name="i-lucide-file-text" class="h-6 w-6 text-muted-foreground" />
+            <Icon name="i-lucide-file-text" class="h-6 w-6 text-muted" />
           </div>
           <h3 class="text-sm font-medium mb-1">
             No document structure
           </h3>
-          <p class="text-xs text-muted-foreground">
+          <p class="text-xs text-muted">
             Start drawing to create regions and textlines
           </p>
         </div>

@@ -2474,7 +2474,7 @@ watch(() => props.src, (newSrc) => {
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted transition hover:bg-muted/60 hover:text-foreground cursor-move"
+              class="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted transition hover:bg-muted/60 hover:text-default cursor-move"
               title="Drag overlay"
               @pointerdown.stop.prevent="handleCorrectionOverlayPointerDown"
             >
@@ -2584,7 +2584,7 @@ watch(() => props.src, (newSrc) => {
           :value="correctionInputValue"
           rows="1"
           wrap="off"
-          class="w-full min-h-10 resize-none overflow-x-auto whitespace-nowrap rounded-sm border border-emerald-300 bg-emerald-100/95 px-2.5 py-2 font-junicode text-foreground outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20 dark:bg-emerald-900/90"
+          class="w-full min-h-10 resize-none overflow-x-auto whitespace-nowrap rounded-sm border border-emerald-300 bg-emerald-100/95 px-2.5 py-2 font-junicode text-default outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20 dark:bg-emerald-900/90"
           :style="{ fontSize: `${correctionFontSizePx}px`, lineHeight: `${Math.round(correctionFontSizePx * 1.2)}px`, minHeight: `${correctionTextareaMinHeightPx}px` }"
           :readonly="!isCanvasEditable"
           :disabled="!isCanvasEditable"
@@ -2724,7 +2724,7 @@ watch(() => props.src, (newSrc) => {
               :value="recognition.unicode"
               rows="1"
               wrap="off"
-              class="w-full min-h-9 resize-none overflow-x-auto whitespace-nowrap rounded-sm border border-default bg-default px-2 py-1.5 font-junicode text-foreground/95 outline-none"
+              class="w-full min-h-9 resize-none overflow-x-auto whitespace-nowrap rounded-sm border border-default bg-default px-2 py-1.5 font-junicode text-default/95 outline-none"
               :style="{ fontSize: `${recognitionTextareaFontSizePx}px`, lineHeight: `${recognitionTextareaLineHeightPx}px`, minHeight: `${recognitionTextareaMinHeightPx}px` }"
               readonly
               spellcheck="false"
@@ -2736,7 +2736,7 @@ watch(() => props.src, (newSrc) => {
               class="mt-1 rounded-sm border border-default bg-muted/30 p-1.5 font-mono text-xs"
             >
               <template v-for="(segment, segmentIndex) in recognition.diff" :key="`${recognition.key}_${segment.type}_${segmentIndex}`">
-                <span v-if="segment.type === 'equal'" class="text-foreground">{{ segment.text }}</span>
+                <span v-if="segment.type === 'equal'" class="text-default">{{ segment.text }}</span>
                 <span v-else-if="segment.type === 'delete'" class="rounded bg-red-500/10 px-0.5 text-red-500 line-through">
                   {{ segment.text }}
                 </span>

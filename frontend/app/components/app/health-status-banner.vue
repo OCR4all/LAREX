@@ -37,11 +37,11 @@ const formatTime = (date: Date) => {
   >
     <div
       v-if="!isHealthy && loggedIn && isInitialized"
-      class="fixed top-0 left-0 right-0 z-900 bg-red-500 text-white px-4 py-2 text-sm"
+      class="fixed top-0 left-0 right-0 z-900 bg-error text-inverted px-4 py-2 text-sm"
     >
       <div class="container mx-auto flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <UIcon name="i-lucide-wifi-off" class="text-white" />
+          <UIcon name="i-lucide-wifi-off" class="text-inverted" />
           <span>
             Connection to backend lost
             <span v-if="consecutiveFailures > 1">
@@ -51,7 +51,7 @@ const formatTime = (date: Date) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <span v-if="lastCheckTime" class="text-red-200 text-xs">
+          <span v-if="lastCheckTime" class="text-inverted/80 text-xs">
             Last check: {{ formatTime(lastCheckTime) }}
           </span>
 

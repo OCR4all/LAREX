@@ -1183,7 +1183,7 @@ const sectionMenuItems = computed(() => {
   <div ref="rootEl" data-shortcut-scope="text-view" class="flex flex-col h-full">
     <div
       data-tour="editor-textline-list-toolbar"
-      class="sticky top-0 z-30 border-b bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85"
+      class="sticky top-0 z-30 border-b bg-default/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-default/85"
     >
       <div class="flex flex-wrap items-center gap-2 md:flex-nowrap">
         <div class="flex min-w-0 shrink-0 items-center gap-2.5">
@@ -1256,11 +1256,11 @@ const sectionMenuItems = computed(() => {
     <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
       <div
         v-if="isLoadingAnnotations && displayTextlines.length === 0"
-        class="flex flex-col items-center justify-center py-8 text-muted-foreground"
+        class="flex flex-col items-center justify-center py-8 text-muted"
       >
         <div class="flex items-center gap-2 mb-3">
           <Icon name="i-lucide-loader-2" class="h-5 w-5 animate-spin text-primary" />
-          <p class="text-sm font-medium text-foreground">
+          <p class="text-sm font-medium text-default">
             Loading annotations...
           </p>
         </div>
@@ -1271,7 +1271,7 @@ const sectionMenuItems = computed(() => {
           <div
             v-for="i in 3"
             :key="`textview-loading-${i}`"
-            class="rounded-lg border border-border/50 bg-elevated/40 p-3 space-y-2"
+            class="rounded-lg border border-default/50 bg-elevated/40 p-3 space-y-2"
           >
             <div class="flex items-center gap-2">
               <USkeleton class="h-5 w-20" />
@@ -1284,7 +1284,7 @@ const sectionMenuItems = computed(() => {
           </div>
         </div>
       </div>
-      <div v-else-if="displayTextlines.length === 0" class="flex flex-col items-center justify-center py-12 text-muted-foreground">
+      <div v-else-if="displayTextlines.length === 0" class="flex flex-col items-center justify-center py-12 text-muted">
         <Icon name="i-lucide-search" class="h-8 w-8 mb-2 opacity-50" />
         <p class="text-sm">
           No textlines found
@@ -1301,7 +1301,7 @@ const sectionMenuItems = computed(() => {
           <template v-if="!searchQuery || (textlinesByRegion.get(region.id)?.length ?? 0) > 0">
             <button
               type="button"
-              class="w-full flex items-center gap-3 p-2 rounded-sm hover:bg-muted/50 transition-colors group sticky top-0 z-20 bg-background/95 backdrop-blur-sm"
+              class="w-full flex items-center gap-3 p-2 rounded-sm hover:bg-muted/50 transition-colors group sticky top-0 z-20 bg-default/95 backdrop-blur-sm"
             >
               <div class="w-1 h-8 rounded-sm" :style="{ backgroundColor: region.color }" />
               <div class="flex-1 flex items-center gap-2 min-w-0">

@@ -5,7 +5,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
 </script>
 
 <template>
-  <div class="space-y-2 rounded-md border border-border p-3">
+  <div class="space-y-2 rounded-md border border-default p-3">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">Labels</span>
       <UButton
@@ -21,7 +21,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
     <div
       v-for="(group, groupIndex) in groups"
       :key="`label-group-${groupIndex}`"
-      class="space-y-2 rounded-md border border-border p-2"
+      class="space-y-2 rounded-md border border-default p-2"
     >
       <UFormField label="External Model">
         <UInput v-model="group.externalModel" placeholder="External model" />
@@ -52,7 +52,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
         <div
           v-for="(label, labelIndex) in group.labels"
           :key="`label-group-${groupIndex}-label-${labelIndex}`"
-          class="space-y-2 rounded-md border border-border p-2"
+          class="space-y-2 rounded-md border border-default p-2"
         >
           <UFormField label="Value">
             <UInput v-model="label.value" placeholder="Value" />

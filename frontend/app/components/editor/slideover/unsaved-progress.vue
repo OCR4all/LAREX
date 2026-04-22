@@ -42,13 +42,13 @@ const hiddenCount = computed(() => Math.max(0, props.pages.length - visiblePages
           <span
             v-for="page in visiblePages"
             :key="page"
-            class="px-2 py-0.5 rounded-sm text-xs font-medium border border-muted bg-muted/40 text-foreground"
+            class="px-2 py-0.5 rounded-sm text-xs font-medium border border-muted bg-muted/40 text-default"
           >
             {{ page }}
           </span>
           <span
             v-if="hiddenCount > 0"
-            class="px-2 py-0.5 rounded-sm text-xs font-medium border border-muted bg-muted/20 text-muted-foreground"
+            class="px-2 py-0.5 rounded-sm text-xs font-medium border border-muted bg-muted/20 text-muted"
           >
             +{{ hiddenCount }} more
           </span>

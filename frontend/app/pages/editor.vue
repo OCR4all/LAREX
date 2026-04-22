@@ -2346,7 +2346,7 @@ const onReady = (event: DockviewReadyEvent) => {
     :loading="isCommandCenterLoading"
     shortcut=""
   />
-  <div v-show="!isLoading" class="w-screen h-screen flex overflow-hidden bg-background text-foreground">
+  <div v-show="!isLoading" class="w-screen h-screen flex overflow-hidden bg-default text-default">
     <EditorLeftSidebar
       v-model:page-name-filter="pageNameFilter"
       v-model:filter-popover-open="editorFilterPopoverOpen"

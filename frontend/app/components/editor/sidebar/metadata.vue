@@ -411,7 +411,7 @@ watch(() => props.selectedElement, () => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-background">
+  <div class="h-full flex flex-col bg-default">
     <div class="flex-1 overflow-y-auto">
       <div class="p-4 space-y-4">
         <template v-if="isEditing">
@@ -422,8 +422,8 @@ watch(() => props.selectedElement, () => {
             class="space-y-4"
             @submit="onSubmitDocument"
           >
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:book-open" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:book-open" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">Document Metadata</span>
             </div>
 
@@ -434,14 +434,14 @@ watch(() => props.selectedElement, () => {
             <UFormField label="Created" name="created">
               <UInput :model-value="formatDate(documentFormState.created)" disabled class="bg-muted" />
               <template #hint>
-                <span class="text-xs text-muted-foreground">Read-only</span>
+                <span class="text-xs text-muted">Read-only</span>
               </template>
             </UFormField>
 
             <UFormField label="Last Change" name="lastChange">
               <UInput :model-value="formatDate(documentFormState.lastChange)" disabled class="bg-muted" />
               <template #hint>
-                <span class="text-xs text-muted-foreground">Auto-updated on save</span>
+                <span class="text-xs text-muted">Auto-updated on save</span>
               </template>
             </UFormField>
 
@@ -463,7 +463,7 @@ watch(() => props.selectedElement, () => {
               :item-type-options="metadataItemTypeOptions"
             />
 
-            <div class="flex gap-2 pt-4 border-t border-border">
+            <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">
                 <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
               </UButton>
@@ -491,8 +491,8 @@ watch(() => props.selectedElement, () => {
             class="space-y-4"
             @submit="onSubmitPage"
           >
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:file-image" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:file-image" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">Page Metadata</span>
             </div>
 
@@ -534,7 +534,7 @@ watch(() => props.selectedElement, () => {
                 placeholder="0"
               />
               <template #hint>
-                <span class="text-xs text-muted-foreground">Degrees (-180 to 180)</span>
+                <span class="text-xs text-muted">Degrees (-180 to 180)</span>
               </template>
             </UFormField>
 
@@ -614,7 +614,7 @@ watch(() => props.selectedElement, () => {
               :type-options="userAttributeTypeOptions"
             />
 
-            <div class="space-y-2 rounded-md border border-border p-3">
+            <div class="space-y-2 rounded-md border border-default p-3">
               <span class="text-sm font-medium">Text Style</span>
               <UFormField label="Font Family">
                 <UInput v-model="pageFormState.textStyle.fontFamily" placeholder="Font family" />
@@ -666,7 +666,7 @@ watch(() => props.selectedElement, () => {
               </div>
             </div>
 
-            <div class="flex gap-2 pt-4 border-t border-border">
+            <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">
                 <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
               </UButton>
@@ -694,8 +694,8 @@ watch(() => props.selectedElement, () => {
             class="space-y-4"
             @submit="onSubmitTextRegion"
           >
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:box" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:box" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">Text Region</span>
             </div>
 
@@ -711,7 +711,7 @@ watch(() => props.selectedElement, () => {
                 @update:model-value="onRegionKindSelectChange"
               />
               <template #hint>
-                <span class="text-xs text-muted-foreground">Changing kind may remove child elements</span>
+                <span class="text-xs text-muted">Changing kind may remove child elements</span>
               </template>
             </UFormField>
 
@@ -826,7 +826,7 @@ watch(() => props.selectedElement, () => {
               :type-options="userAttributeTypeOptions"
             />
 
-            <div class="space-y-2 rounded-md border border-border p-3">
+            <div class="space-y-2 rounded-md border border-default p-3">
               <span class="text-sm font-medium">Text Style</span>
               <UFormField label="Font Family">
                 <UInput v-model="textRegionFormState.textStyle.fontFamily" placeholder="Font family" />
@@ -878,7 +878,7 @@ watch(() => props.selectedElement, () => {
               </div>
             </div>
 
-            <div class="flex gap-2 pt-4 border-t border-border">
+            <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">
                 <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
               </UButton>
@@ -895,8 +895,8 @@ watch(() => props.selectedElement, () => {
             class="space-y-4"
             @submit="onSubmitGenericRegion"
           >
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:square" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:square" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">{{ genericRegionFormState.kind.replace(/Region$/, '') }} Region</span>
             </div>
 
@@ -912,7 +912,7 @@ watch(() => props.selectedElement, () => {
                 @update:model-value="onRegionKindSelectChange"
               />
               <template #hint>
-                <span class="text-xs text-muted-foreground">Changing to TextRegion enables text lines</span>
+                <span class="text-xs text-muted">Changing to TextRegion enables text lines</span>
               </template>
             </UFormField>
 
@@ -994,7 +994,7 @@ watch(() => props.selectedElement, () => {
               <UCheckbox v-model="genericRegionFormState.borderPresent" label="Border present" />
             </div>
 
-            <div class="space-y-2 rounded-md border border-border p-3">
+            <div class="space-y-2 rounded-md border border-default p-3">
               <span class="text-sm font-medium">Table Cell Role</span>
               <div class="grid grid-cols-2 gap-2">
                 <UFormField label="Row Index">
@@ -1015,7 +1015,7 @@ watch(() => props.selectedElement, () => {
               <UCheckbox v-model="genericRegionFormState.tableCellRole.header" label="Header cell" />
             </div>
 
-            <div class="space-y-2 rounded-md border border-border p-3">
+            <div class="space-y-2 rounded-md border border-default p-3">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium">Table Grid Rows</span>
                 <UButton
@@ -1027,7 +1027,7 @@ watch(() => props.selectedElement, () => {
                   Add Row
                 </UButton>
               </div>
-              <div v-for="(row, rowIndex) in genericRegionFormState.gridRows" :key="`region-grid-row-${rowIndex}`" class="space-y-2 rounded-md border border-border p-2">
+              <div v-for="(row, rowIndex) in genericRegionFormState.gridRows" :key="`region-grid-row-${rowIndex}`" class="space-y-2 rounded-md border border-default p-2">
                 <UFormField label="Row Index">
                   <UInput v-model.number="row.index" type="number" min="0" />
                 </UFormField>
@@ -1053,7 +1053,7 @@ watch(() => props.selectedElement, () => {
               :type-options="userAttributeTypeOptions"
             />
 
-            <div class="space-y-2 rounded-md border border-border p-3">
+            <div class="space-y-2 rounded-md border border-default p-3">
               <span class="text-sm font-medium">Text Style</span>
               <UFormField label="Font Family">
                 <UInput v-model="genericRegionFormState.textStyle.fontFamily" placeholder="Font family" />
@@ -1105,7 +1105,7 @@ watch(() => props.selectedElement, () => {
               </div>
             </div>
 
-            <div class="flex gap-2 pt-4 border-t border-border">
+            <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">
                 <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
               </UButton>
@@ -1122,8 +1122,8 @@ watch(() => props.selectedElement, () => {
             class="space-y-4"
             @submit="onSubmitTextLine"
           >
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:type" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:type" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">Text Line</span>
             </div>
 
@@ -1197,7 +1197,7 @@ watch(() => props.selectedElement, () => {
               :type-options="userAttributeTypeOptions"
             />
 
-            <div class="space-y-2 rounded-md border border-border p-3">
+            <div class="space-y-2 rounded-md border border-default p-3">
               <span class="text-sm font-medium">Text Style</span>
               <UFormField label="Font Family">
                 <UInput v-model="textLineFormState.textStyle.fontFamily" placeholder="Font family" />
@@ -1249,7 +1249,7 @@ watch(() => props.selectedElement, () => {
               </div>
             </div>
 
-            <div class="flex gap-2 pt-4 border-t border-border">
+            <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">
                 <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
               </UButton>
@@ -1266,12 +1266,12 @@ watch(() => props.selectedElement, () => {
             class="space-y-4"
             @submit="onSubmitBaseline"
           >
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:minus" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:minus" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">Baseline</span>
             </div>
 
-            <p class="text-sm text-muted-foreground">
+            <p class="text-sm text-muted">
               Baselines have minimal editable metadata. Only confidence can be set.
             </p>
 
@@ -1286,7 +1286,7 @@ watch(() => props.selectedElement, () => {
               />
             </UFormField>
 
-            <div class="flex gap-2 pt-4 border-t border-border">
+            <div class="flex gap-2 pt-4 border-t border-default">
               <UButton type="submit" class="flex-1">
                 <Icon name="lucide:save" class="w-4 h-4 mr-1" />Save
               </UButton>
@@ -1299,194 +1299,194 @@ watch(() => props.selectedElement, () => {
 
         <template v-else>
           <template v-if="selectedElement && isBaselineElement(selectedElement)">
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:minus" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:minus" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">Baseline</span>
             </div>
             <div class="space-y-1.5 text-sm">
               <div class="flex justify-between">
-                <span class="text-muted-foreground">ID</span><span class="font-mono text-xs">{{ selectedElement.id }}</span>
+                <span class="text-muted">ID</span><span class="font-mono text-xs">{{ selectedElement.id }}</span>
               </div>
             </div>
           </template>
 
           <template v-else-if="selectedElement && isTextLineElement(selectedElement)">
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:type" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:type" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium truncate">Text Line</span>
             </div>
             <div class="space-y-1.5 text-sm">
               <div class="flex justify-between">
-                <span class="text-muted-foreground">ID</span><span class="font-mono text-xs truncate ml-2">{{ selectedElement.id }}</span>
+                <span class="text-muted">ID</span><span class="font-mono text-xs truncate ml-2">{{ selectedElement.id }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Index</span><span>{{ formatNumber(selectedElement.index) }}</span>
+                <span class="text-muted">Index</span><span>{{ formatNumber(selectedElement.index) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Primary Language</span><span>{{ selectedElement.primaryLanguage || '—' }}</span>
+                <span class="text-muted">Primary Language</span><span>{{ selectedElement.primaryLanguage || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Primary Script</span><span>{{ selectedElement.primaryScript || '—' }}</span>
+                <span class="text-muted">Primary Script</span><span>{{ selectedElement.primaryScript || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Secondary Script</span><span>{{ selectedElement.secondaryScript || '—' }}</span>
+                <span class="text-muted">Secondary Script</span><span>{{ selectedElement.secondaryScript || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Reading Direction</span><span>{{ selectedElement.readingDirection || '—' }}</span>
+                <span class="text-muted">Reading Direction</span><span>{{ selectedElement.readingDirection || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Production</span><span>{{ selectedElement.production || '—' }}</span>
+                <span class="text-muted">Production</span><span>{{ selectedElement.production || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
               </div>
             </div>
           </template>
 
           <template v-else-if="selectedElement && isRegionElement(selectedElement)">
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon :name="isTextRegion(selectedElement) ? 'lucide:box' : 'lucide:square'" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon :name="isTextRegion(selectedElement) ? 'lucide:box' : 'lucide:square'" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium truncate">{{ selectedElement.kind.replace(/Region$/, '') }} Region</span>
             </div>
             <div class="space-y-1.5 text-sm">
               <div class="flex justify-between">
-                <span class="text-muted-foreground">ID</span><span class="font-mono text-xs truncate ml-2">{{ selectedElement.id }}</span>
+                <span class="text-muted">ID</span><span class="font-mono text-xs truncate ml-2">{{ selectedElement.id }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Kind</span><span>{{ selectedElement.kind }}</span>
+                <span class="text-muted">Kind</span><span>{{ selectedElement.kind }}</span>
               </div>
 
               <template v-if="isTextRegion(selectedElement)">
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Type</span><span>{{ selectedElement.type || '—' }}</span>
+                  <span class="text-muted">Type</span><span>{{ selectedElement.type || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Orientation</span><span>{{ formatNumber(selectedElement.orientation) }}°</span>
+                  <span class="text-muted">Orientation</span><span>{{ formatNumber(selectedElement.orientation) }}°</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Reading Orientation</span><span>{{ formatNumber(selectedElement.readingOrientation) }}°</span>
+                  <span class="text-muted">Reading Orientation</span><span>{{ formatNumber(selectedElement.readingOrientation) }}°</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Primary Language</span><span>{{ selectedElement.primaryLanguage || '—' }}</span>
+                  <span class="text-muted">Primary Language</span><span>{{ selectedElement.primaryLanguage || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Secondary Language</span><span>{{ selectedElement.secondaryLanguage || '—' }}</span>
+                  <span class="text-muted">Secondary Language</span><span>{{ selectedElement.secondaryLanguage || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Primary Script</span><span>{{ selectedElement.primaryScript || '—' }}</span>
+                  <span class="text-muted">Primary Script</span><span>{{ selectedElement.primaryScript || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Secondary Script</span><span>{{ selectedElement.secondaryScript || '—' }}</span>
+                  <span class="text-muted">Secondary Script</span><span>{{ selectedElement.secondaryScript || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Reading Direction</span><span>{{ selectedElement.readingDirection || '—' }}</span>
+                  <span class="text-muted">Reading Direction</span><span>{{ selectedElement.readingDirection || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Text Line Order</span><span>{{ selectedElement.textLineOrder || '—' }}</span>
+                  <span class="text-muted">Text Line Order</span><span>{{ selectedElement.textLineOrder || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Production</span><span>{{ selectedElement.production || '—' }}</span>
+                  <span class="text-muted">Production</span><span>{{ selectedElement.production || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Align</span><span>{{ selectedElement.align || '—' }}</span>
+                  <span class="text-muted">Align</span><span>{{ selectedElement.align || '—' }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Leading</span><span>{{ formatNumber(selectedElement.leading) }}</span>
+                  <span class="text-muted">Leading</span><span>{{ formatNumber(selectedElement.leading) }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-muted-foreground">Indented</span><span>{{ formatBoolean(selectedElement.indented) }}</span>
+                  <span class="text-muted">Indented</span><span>{{ formatBoolean(selectedElement.indented) }}</span>
                 </div>
               </template>
 
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Continuation</span><span>{{ formatBoolean(selectedElement.continuation) }}</span>
+                <span class="text-muted">Continuation</span><span>{{ formatBoolean(selectedElement.continuation) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
+                <span class="text-muted">Comments</span><span>{{ selectedElement.comments || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ selectedElement.custom || '—' }}</span>
               </div>
             </div>
           </template>
 
           <template v-else-if="page">
-            <div class="flex items-center gap-2 pb-2 border-b border-border">
-              <Icon name="lucide:file-image" class="w-4 h-4 text-muted-foreground" />
+            <div class="flex items-center gap-2 pb-2 border-b border-default">
+              <Icon name="lucide:file-image" class="w-4 h-4 text-muted" />
               <span class="text-sm font-medium">Page</span>
             </div>
             <div class="space-y-1.5 text-sm">
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Image</span><span class="truncate ml-2">{{ page.imageFilename }}</span>
+                <span class="text-muted">Image</span><span class="truncate ml-2">{{ page.imageFilename }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Dimensions</span><span>{{ page.imageWidth }} × {{ page.imageHeight }}px</span>
+                <span class="text-muted">Dimensions</span><span>{{ page.imageWidth }} × {{ page.imageHeight }}px</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">X Resolution</span><span>{{ formatNumber(page.imageXResolution) }}</span>
+                <span class="text-muted">X Resolution</span><span>{{ formatNumber(page.imageXResolution) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Y Resolution</span><span>{{ formatNumber(page.imageYResolution) }}</span>
+                <span class="text-muted">Y Resolution</span><span>{{ formatNumber(page.imageYResolution) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Resolution Unit</span><span>{{ page.imageResolutionUnit || '—' }}</span>
+                <span class="text-muted">Resolution Unit</span><span>{{ page.imageResolutionUnit || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Type</span><span>{{ page.type || '—' }}</span>
+                <span class="text-muted">Type</span><span>{{ page.type || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Orientation</span><span>{{ formatNumber(page.orientation) }}°</span>
+                <span class="text-muted">Orientation</span><span>{{ formatNumber(page.orientation) }}°</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Primary Language</span><span>{{ page.primaryLanguage || '—' }}</span>
+                <span class="text-muted">Primary Language</span><span>{{ page.primaryLanguage || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Secondary Language</span><span>{{ page.secondaryLanguage || '—' }}</span>
+                <span class="text-muted">Secondary Language</span><span>{{ page.secondaryLanguage || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Primary Script</span><span>{{ page.primaryScript || '—' }}</span>
+                <span class="text-muted">Primary Script</span><span>{{ page.primaryScript || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Secondary Script</span><span>{{ page.secondaryScript || '—' }}</span>
+                <span class="text-muted">Secondary Script</span><span>{{ page.secondaryScript || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Reading Direction</span><span>{{ page.readingDirection || '—' }}</span>
+                <span class="text-muted">Reading Direction</span><span>{{ page.readingDirection || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Text Line Order</span><span>{{ page.textLineOrder || '—' }}</span>
+                <span class="text-muted">Text Line Order</span><span>{{ page.textLineOrder || '—' }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Confidence</span><span>{{ formatConfidence(page.conf) }}</span>
+                <span class="text-muted">Confidence</span><span>{{ formatConfidence(page.conf) }}</span>
               </div>
               <div class="flex justify-between">
-                <span class="text-muted-foreground">Custom</span><span class="truncate ml-2">{{ page.custom || '—' }}</span>
+                <span class="text-muted">Custom</span><span class="truncate ml-2">{{ page.custom || '—' }}</span>
               </div>
             </div>
 
             <template v-if="document?.metadata">
-              <div class="mt-4 pt-4 border-t border-border">
-                <div class="flex items-center gap-2 pb-2 border-b border-border">
-                  <Icon name="lucide:book-open" class="w-4 h-4 text-muted-foreground" />
+              <div class="mt-4 pt-4 border-t border-default">
+                <div class="flex items-center gap-2 pb-2 border-b border-default">
+                  <Icon name="lucide:book-open" class="w-4 h-4 text-muted" />
                   <span class="text-sm font-medium">Document Metadata</span>
                 </div>
                 <div class="space-y-1.5 text-sm mt-2">
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Creator</span><span>{{ document.metadata.creator || '—' }}</span>
+                    <span class="text-muted">Creator</span><span>{{ document.metadata.creator || '—' }}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Created</span><span>{{ formatDate(document.metadata.created) }}</span>
+                    <span class="text-muted">Created</span><span>{{ formatDate(document.metadata.created) }}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Last Change</span><span>{{ formatDate(document.metadata.lastChange) }}</span>
+                    <span class="text-muted">Last Change</span><span>{{ formatDate(document.metadata.lastChange) }}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">Comments</span><span>{{ document.metadata.comments || '—' }}</span>
+                    <span class="text-muted">Comments</span><span>{{ document.metadata.comments || '—' }}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span class="text-muted-foreground">External Ref</span><span class="truncate ml-2">{{ document.metadata.externalRef || '—' }}</span>
+                    <span class="text-muted">External Ref</span><span class="truncate ml-2">{{ document.metadata.externalRef || '—' }}</span>
                   </div>
                 </div>
               </div>
@@ -1503,7 +1503,7 @@ watch(() => props.selectedElement, () => {
       </div>
     </div>
 
-    <div class="p-3 border-t border-border bg-background">
+    <div class="p-3 border-t border-default bg-default">
       <UButton
         v-if="!isEditing"
         class="w-full"

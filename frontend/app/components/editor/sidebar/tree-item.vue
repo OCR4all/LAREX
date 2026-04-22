@@ -285,7 +285,7 @@ defineExpose({ focus })
   >
     <div
       ref="itemRow"
-      class="group flex items-center px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+      class="group flex items-center px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-default focus:ring-offset-1"
       :class="[
         {
           'bg-accent text-accent-foreground': isItemSelected,
@@ -311,7 +311,7 @@ defineExpose({ focus })
       </button>
       <span v-else class="w-5 mr-1" />
 
-      <Icon :name="getItemIconName(item)" class="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+      <Icon :name="getItemIconName(item)" class="h-3.5 w-3.5 mr-2 text-muted" />
 
       <span
         v-if="shouldShowLabelIndicator(item)"
@@ -325,7 +325,7 @@ defineExpose({ focus })
       <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <button
           type="button"
-          class="h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+          class="h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted transition-colors focus:outline-none focus:ring-1 focus:ring-default"
           :title="getVisibilityTitle(item)"
           :aria-label="getVisibilityTitle(item)"
           tabindex="-1"
@@ -335,7 +335,7 @@ defineExpose({ focus })
         </button>
         <button
           type="button"
-          class="h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted hover:text-destructive transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+          class="h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted hover:text-error transition-colors focus:outline-none focus:ring-1 focus:ring-default"
           :title="`Delete ${itemType}`"
           :aria-label="`Delete ${itemType}`"
           tabindex="-1"
@@ -348,7 +348,7 @@ defineExpose({ focus })
 
     <div
       v-if="hasChildren && isExpanded"
-      class="pl-4 border-l border-border ml-2.5 my-1"
+      class="pl-4 border-l border-default ml-2.5 my-1"
       role="group"
     >
       <TreeItem

@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed inset-0 z-50 flex h-screen w-full items-center justify-center overflow-hidden bg-background">
+  <div class="fixed inset-0 z-50 flex h-screen w-full items-center justify-center overflow-hidden bg-default">
     <div class="flex flex-col items-center gap-5">
       <UiLogo :size="60" />
       <UProgress

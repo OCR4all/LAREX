@@ -282,7 +282,7 @@ watch(selectedRelation, (relation) => {
             :key="relation.id ?? `${relation.sourceRegionRef}-${relation.targetRegionRef}`"
             type="button"
             class="w-full rounded-md border px-3 py-2 text-left transition"
-            :class="relation.id === selectedRelationId ? 'border-primary bg-primary/10' : 'border-default bg-background hover:bg-accented/50'"
+            :class="relation.id === selectedRelationId ? 'border-primary bg-primary/10' : 'border-default bg-default hover:bg-accented/50'"
             @click="setSelectedRelation(relation.id ?? null)"
           >
             <div class="flex items-center justify-between gap-2">
@@ -339,7 +339,7 @@ watch(selectedRelation, (relation) => {
         <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
           <div
             class="rounded-md border px-3 py-2"
-            :class="draft.sourceRegionRef ? 'border-sky-300 bg-sky-50/60' : 'border-dashed border-default bg-background'"
+            :class="draft.sourceRegionRef ? 'border-sky-300 bg-sky-50/60' : 'border-dashed border-default bg-default'"
           >
             <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">
               Source
@@ -351,7 +351,7 @@ watch(selectedRelation, (relation) => {
 
           <div
             class="rounded-md border px-3 py-2"
-            :class="draft.targetRegionRef ? 'border-sky-300 bg-sky-50/60' : 'border-dashed border-default bg-background'"
+            :class="draft.targetRegionRef ? 'border-sky-300 bg-sky-50/60' : 'border-dashed border-default bg-default'"
           >
             <p class="text-[11px] font-semibold uppercase tracking-wide text-muted">
               Target

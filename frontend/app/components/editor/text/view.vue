@@ -53,7 +53,7 @@ watch(
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-background">
+  <div class="h-full flex flex-col bg-default">
     <EditorTextLineList :canvas-id="props.canvasId" class="h-full w-full" />
   </div>
 </template>

@@ -13,14 +13,14 @@ const hasErrors = computed(() => activeTag.value?.errors && activeTag.value.erro
 <template>
   <div data-tour="tag-builder-editor" class="flex-1 p-8 overflow-y-auto custom-scroll">
     <div v-if="activeTag" class="max-w-2xl mx-auto space-y-8">
-      <div v-if="hasErrors" class="bg-red-500/10 border border-red-500/50 rounded-sm p-4">
+      <div v-if="hasErrors" class="bg-error/10 border border-error/30 rounded-sm p-4">
         <div class="flex items-start gap-3">
-          <UIcon name="i-lucide-alert-triangle" class="w-6 h-6 text-red-400 shrink-0" />
+          <UIcon name="i-lucide-alert-triangle" class="w-6 h-6 text-error shrink-0" />
           <div class="flex-1">
-            <h3 class="text-sm font-bold text-red-400 mb-1">
+            <h3 class="text-sm font-bold text-error mb-1">
               Validation Errors
             </h3>
-            <ul class="list-disc list-inside text-xs text-red-800/80 dark:text-red-200/80 space-y-1">
+            <ul class="list-disc list-inside text-xs text-error/90 space-y-1">
               <li v-for="err in activeTag.errors" :key="err">
                 {{ err }}
               </li>

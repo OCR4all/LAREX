@@ -66,14 +66,14 @@ const handleSave = () => {
           </div>
         </div>
 
-        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-sm p-4">
+        <div class="bg-info/10 border border-info/30 rounded-sm p-4">
           <div class="flex items-start gap-3">
-            <UIcon name="i-lucide-info" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-            <div class="text-sm text-blue-800 dark:text-blue-200">
+            <UIcon name="i-lucide-info" class="w-5 h-5 text-info shrink-0 mt-0.5" />
+            <div class="text-sm text-info">
               <p class="font-medium mb-1">
                 About Tag Sets
               </p>
-              <p class="text-xs text-blue-700 dark:text-blue-300">
+              <p class="text-xs text-info/90">
                 Tag sets define hierarchical tag structures for categorizing projects and pages.
                 Tags are stored by ID, so you can safely rename them without breaking existing assignments.
               </p>

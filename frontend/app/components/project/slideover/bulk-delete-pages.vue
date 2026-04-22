@@ -72,13 +72,13 @@ async function confirmBulkDelete() {
   >
     <template #body>
       <div class="space-y-4">
-        <div class="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-sm">
-          <UIcon name="i-lucide-alert-triangle" class="text-red-500 mt-0.5 shrink-0" />
+        <div class="flex items-start gap-3 p-4 bg-error/10 border border-error/30 rounded-sm">
+          <UIcon name="i-lucide-alert-triangle" class="text-error mt-0.5 shrink-0" />
           <div>
-            <p class="font-medium text-red-800 dark:text-red-200">
+            <p class="font-medium text-error">
               Are you sure you want to delete {{ requestedCount }} page{{ requestedCount > 1 ? 's' : '' }}?
             </p>
-            <p class="text-sm text-red-700 dark:text-red-300 mt-1">
+            <p class="text-sm text-error/90 mt-1">
               All associated images and XML files will be permanently removed.
             </p>
           </div>

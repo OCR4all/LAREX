@@ -10,7 +10,7 @@ const items = defineModel<MetadataItemFormState[]>({ required: true })
 </script>
 
 <template>
-  <div class="space-y-2 rounded-md border border-border p-3">
+  <div class="space-y-2 rounded-md border border-default p-3">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">Metadata Items</span>
       <UButton
@@ -26,7 +26,7 @@ const items = defineModel<MetadataItemFormState[]>({ required: true })
     <div
       v-for="(item, itemIndex) in items"
       :key="`metadata-item-${itemIndex}`"
-      class="space-y-2 rounded-md border border-border p-2"
+      class="space-y-2 rounded-md border border-default p-2"
     >
       <UFormField label="Type">
         <USelect v-model="item.type" :items="itemTypeOptions" placeholder="Select type" />

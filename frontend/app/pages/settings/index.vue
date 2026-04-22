@@ -292,7 +292,7 @@ const removeImage = async () => {
       variant="subtle"
       class="mb-4"
     >
-      <p class="text-red-600">
+      <p class="text-error">
         Failed to load profile: {{ error }}
       </p>
     </UPageCard>

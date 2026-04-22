@@ -302,7 +302,7 @@ const columns: TableColumn<LibraryProject>[] = [
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
     cell: ({ row }) => h('div', { class: 'flex items-center gap-2' }, [
-      row.original.locked ? h('span', { class: 'text-amber-500', title: row.original.lockedReason || 'Locked' }, h(UIcon, { name: 'i-lucide-lock', class: 'w-4 h-4' })) : null,
+      row.original.locked ? h('span', { class: 'text-warning', title: row.original.lockedReason || 'Locked' }, h(UIcon, { name: 'i-lucide-lock', class: 'w-4 h-4' })) : null,
       h(NuxtLink, { to: `/project/${row.original.id}`, class: 'font-medium hover:underline text-primary' }, () => row.getValue('name'))
     ])
   },
@@ -899,7 +899,7 @@ async function handleProjectPackageImport(event: Event) {
 
     <template #body>
       <div v-if="error" class="py-8 text-center">
-        <div class="flex items-center justify-center gap-2 text-red-600 dark:text-red-400">
+        <div class="flex items-center justify-center gap-2 text-error">
           <UIcon name="i-lucide-alert-circle" />
           <p class="text-sm">
             <strong>Error loading projects:</strong> {{ error.message || error }}

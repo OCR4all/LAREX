@@ -194,7 +194,7 @@ function handleClearAll() {
         </div>
 
         <div class="flex items-center justify-between p-2 bg-muted/30 rounded-sm">
-          <span class="text-xs font-medium text-muted-foreground">Combine filters with:</span>
+          <span class="text-xs font-medium text-muted">Combine filters with:</span>
           <UFieldGroup size="xs">
             <UButton
               v-for="opt in operatorOptions"
@@ -208,7 +208,7 @@ function handleClearAll() {
           </UFieldGroup>
         </div>
 
-        <div v-if="isFiltering" class="absolute inset-0 bg-background/80 flex items-center justify-center z-10 rounded-sm">
+        <div v-if="isFiltering" class="absolute inset-0 bg-default/80 flex items-center justify-center z-10 rounded-sm">
           <div class="flex items-center gap-2 text-sm text-muted">
             <UIcon name="i-lucide-loader-2" class="animate-spin" />
             <span>Filtering...</span>
@@ -224,7 +224,7 @@ function handleClearAll() {
 
         <div data-tour="editor-page-filter-section-labels" class="space-y-2">
           <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted-foreground">Labels</label>
+            <label class="text-xs font-medium text-muted">Labels</label>
             <UButton
               v-if="labelIds.length > 0"
               size="xs"
@@ -269,7 +269,7 @@ function handleClearAll() {
 
         <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted-foreground">Text Content</label>
+            <label class="text-xs font-medium text-muted">Text Content</label>
             <UButton
               v-if="textContent.trim()"
               size="xs"
@@ -296,7 +296,7 @@ function handleClearAll() {
 
         <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted-foreground">Tags</label>
+            <label class="text-xs font-medium text-muted">Tags</label>
             <UButton
               v-if="tags.length > 0"
               size="xs"
@@ -337,7 +337,7 @@ function handleClearAll() {
 
         <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <label class="text-xs font-medium text-muted-foreground">Confidence</label>
+            <label class="text-xs font-medium text-muted">Confidence</label>
             <UButton
               v-if="confidenceFilterActive"
               size="xs"
@@ -352,7 +352,7 @@ function handleClearAll() {
           <div class="space-y-2">
             <div class="flex items-center justify-between text-xs text-muted">
               <span>Range</span>
-              <span class="font-medium text-foreground">
+              <span class="font-medium text-default">
                 {{ confidenceRangeModel[0].toFixed(2) }}-{{ confidenceRangeModel[1].toFixed(2) }}
               </span>
             </div>
@@ -382,7 +382,7 @@ function handleClearAll() {
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <UCheckbox v-model="hasComments" />
-            <label class="text-xs text-foreground cursor-pointer" @click="hasComments = !hasComments">
+            <label class="text-xs text-default cursor-pointer" @click="hasComments = !hasComments">
               Only pages with comments
             </label>
           </div>
@@ -396,7 +396,7 @@ function handleClearAll() {
               v-model="onlyWithOpenSubtasks"
               :disabled="openSubtaskPageCount === 0"
             />
-            <label class="text-xs text-foreground cursor-pointer" @click="onlyWithOpenSubtasks = !onlyWithOpenSubtasks">
+            <label class="text-xs text-default cursor-pointer" @click="onlyWithOpenSubtasks = !onlyWithOpenSubtasks">
               Only pages with open tasks
             </label>
           </div>
@@ -414,7 +414,7 @@ function handleClearAll() {
 
         <div class="space-y-2">
           <div v-if="hasActiveFilters" class="flex items-center justify-between text-sm">
-            <span class="text-muted-foreground">Matching pages:</span>
+            <span class="text-muted">Matching pages:</span>
             <span class="font-medium">{{ filteredCount }}</span>
           </div>
 
@@ -440,25 +440,25 @@ function handleClearAll() {
               </div>
               <template v-else-if="indexStats">
                 <div class="grid grid-cols-2 gap-2 text-xs">
-                  <div class="text-muted-foreground">
+                  <div class="text-muted">
                     Total pages:
                   </div>
                   <div class="font-medium">
                     {{ indexStats.totalPages }}
                   </div>
-                  <div class="text-muted-foreground">
+                  <div class="text-muted">
                     Indexed (text):
                   </div>
                   <div class="font-medium">
                     {{ indexStats.indexedTextContentPages }}
                   </div>
-                  <div class="text-muted-foreground">
+                  <div class="text-muted">
                     Indexed (labels):
                   </div>
                   <div class="font-medium">
                     {{ indexStats.indexedLabelPages }}
                   </div>
-                  <div class="text-muted-foreground">
+                  <div class="text-muted">
                     Needs indexing:
                   </div>
                   <div class="font-medium" :class="{ 'text-warning': indexStats.pagesNeedingIndex > 0 }">

@@ -66,7 +66,7 @@ const progressValue = computed(() => getStorageQuotaProgressValue(quota.value?.u
       <div class="h-3 bg-neutral-200 rounded-sm w-16" />
     </div>
 
-    <div v-else-if="error" class="text-xs text-red-600">
+    <div v-else-if="error" class="text-xs text-error">
       Error loading
     </div>
 

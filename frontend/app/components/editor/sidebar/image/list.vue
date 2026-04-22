@@ -234,7 +234,7 @@ function handlePageUnload(page: PageData) {
 
 <template>
   <div ref="listRootRef" :class="editorUiStore.leftCollapsed ? 'px-0  space-y-0 py-0' : 'px-3  space-y-3 py-2'">
-    <div v-if="filteredPages.length === 0" class="text-sm text-muted-foreground px-1 py-2">
+    <div v-if="filteredPages.length === 0" class="text-sm text-muted px-1 py-2">
       No pages match this filter.
     </div>
 

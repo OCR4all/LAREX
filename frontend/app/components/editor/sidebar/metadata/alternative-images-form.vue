@@ -5,7 +5,7 @@ const images = defineModel<AlternativeImageFormState[]>({ required: true })
 </script>
 
 <template>
-  <div class="space-y-2 rounded-md border border-border p-3">
+  <div class="space-y-2 rounded-md border border-default p-3">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">Alternative Images</span>
       <UButton
@@ -21,7 +21,7 @@ const images = defineModel<AlternativeImageFormState[]>({ required: true })
     <div
       v-for="(image, imageIndex) in images"
       :key="`alternative-image-${imageIndex}`"
-      class="space-y-2 rounded-md border border-border p-2"
+      class="space-y-2 rounded-md border border-default p-2"
     >
       <UFormField label="Filename">
         <UInput v-model="image.filename" placeholder="Image filename" />

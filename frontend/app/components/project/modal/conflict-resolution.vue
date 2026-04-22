@@ -168,28 +168,28 @@ const successfulUploads = computed(() => {
   >
     <template #body>
       <div class="space-y-6">
-        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-sm p-4">
+        <div class="bg-success/10 border border-success/30 rounded-sm p-4">
           <div class="flex items-start">
-            <UIcon name="i-lucide-check-circle" class="text-green-500 mt-0.5 mr-3" />
+            <UIcon name="i-lucide-check-circle" class="text-success mt-0.5 mr-3" />
             <div>
-              <h4 class="font-medium text-green-800 dark:text-green-200">
+              <h4 class="font-medium text-success">
                 Successful Uploads
               </h4>
-              <p class="text-sm text-green-700 dark:text-green-300 mt-1">
+              <p class="text-sm text-success/90 mt-1">
                 {{ successfulUploads.pages }} pages processed, {{ successfulUploads.images }} images uploaded, {{ successfulUploads.xml }} XML files uploaded
               </p>
             </div>
           </div>
         </div>
 
-        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-sm p-4">
+        <div class="bg-warning/10 border border-warning/30 rounded-sm p-4">
           <div class="flex items-start">
-            <UIcon name="i-lucide-alert-triangle" class="text-amber-500 mt-0.5 mr-3" />
+            <UIcon name="i-lucide-alert-triangle" class="text-warning mt-0.5 mr-3" />
             <div class="flex-1">
-              <h4 class="font-medium text-amber-800 dark:text-amber-200">
+              <h4 class="font-medium text-warning">
                 File Conflicts Detected
               </h4>
-              <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+              <p class="text-sm text-warning/90 mt-1">
                 {{ conflicts.length }} files could not be uploaded due to conflicts. Please choose how to resolve each conflict:
               </p>
             </div>

@@ -2012,7 +2012,7 @@ function renderIndexingStatusBadge(status?: PageIndexingStatus) {
   }
   if (value === 'INDEXING') {
     return h(UBadge, { color: 'warning', variant: 'soft', size: 'sm' }, () => [
-      h('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 animate-pulse' }),
+      h('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-warning mr-1 animate-pulse' }),
       'Indexing'
     ])
   }
@@ -2636,29 +2636,29 @@ useHead({
       </div>
 
       <div v-else-if="project" class="flex min-h-full flex-col gap-4">
-        <div v-if="project.locked" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-sm p-4">
+        <div v-if="project.locked" class="bg-warning/10 border border-warning/30 rounded-sm p-4">
           <div class="flex items-start">
-            <UIcon name="i-lucide-lock" class="text-amber-500 mt-0.5 mr-3" />
+            <UIcon name="i-lucide-lock" class="text-warning mt-0.5 mr-3" />
             <div>
-              <h4 class="font-medium text-amber-800 dark:text-amber-200">
+              <h4 class="font-medium text-warning">
                 Project Locked
               </h4>
-              <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+              <p class="text-sm text-warning/90 mt-1">
                 {{ project.lockedReason || 'This project is locked and cannot be edited.' }}
               </p>
             </div>
           </div>
         </div>
 
-        <div v-if="projectStatus?.hasUnresolvedConflicts" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-sm p-4">
+        <div v-if="projectStatus?.hasUnresolvedConflicts" class="bg-warning/10 border border-warning/30 rounded-sm p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-start">
-              <UIcon name="i-lucide-alert-triangle" class="text-amber-500 mt-0.5 mr-3" />
+              <UIcon name="i-lucide-alert-triangle" class="text-warning mt-0.5 mr-3" />
               <div>
-                <h4 class="font-medium text-amber-800 dark:text-amber-200">
+                <h4 class="font-medium text-warning">
                   Upload Conflicts Detected
                 </h4>
-                <p class="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                <p class="text-sm text-warning/90 mt-1">
                   This project has unresolved file upload conflicts. Some functionality is blocked until conflicts are resolved.
                 </p>
               </div>
@@ -2714,7 +2714,7 @@ useHead({
             </div>
 
             <div v-if="pagesError" class="py-8 text-center">
-              <div class="flex items-center justify-center gap-2 text-red-600 dark:text-red-400">
+              <div class="flex items-center justify-center gap-2 text-error">
                 <UIcon name="i-lucide-alert-circle" />
                 <p class="text-sm">
                   <strong>Error loading pages:</strong> {{ pagesError.message || pagesError }}

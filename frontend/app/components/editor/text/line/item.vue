@@ -995,7 +995,7 @@ onBeforeUnmount(() => {
       :style="textViewFontVars"
       class="@container group relative rounded-md border transition-all duration-150"
       :class="[
-        props.isSelected ? 'border-burnt-sienna-500 ring-1 ring-primary/12' : 'border-neutral-200 dark:border-neutral-800 hover:border-border/22'
+        props.isSelected ? 'border-burnt-sienna-500 ring-1 ring-primary/12' : 'border-neutral-200 dark:border-neutral-800 hover:border-default/22'
       ]"
       @click="emit('selectTextline', props.textline.id)"
     >
@@ -1147,7 +1147,7 @@ onBeforeUnmount(() => {
                   color="neutral"
                   variant="ghost"
                   size="xs"
-                  class="h-6 px-2 textline-ui-xs text-muted hover:text-foreground"
+                  class="h-6 px-2 textline-ui-xs text-muted hover:text-default"
                   :disabled="!canMutateAnnotation"
                   @click.stop="openCommentEditor"
                 >
@@ -1539,7 +1539,7 @@ onBeforeUnmount(() => {
                     :style="textDirectionStyle"
                   >
                     <template v-for="segment in renderDiff(textEquiv.diffs)" :key="segment.text">
-                      <span v-if="segment.type === 'equal'" class="text-foreground">{{ segment.text }}</span>
+                      <span v-if="segment.type === 'equal'" class="text-default">{{ segment.text }}</span>
                       <span v-else-if="segment.type === 'delete'" class="text-red-500 line-through bg-red-500/10 px-0.5 rounded">
                         {{ segment.text }}
                       </span>
