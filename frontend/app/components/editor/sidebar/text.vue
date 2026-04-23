@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div data-tour="editor-text-sidebar" class="h-full flex flex-col bg-elevated/25">
+  <div data-tour="editor-text-sidebar" class="h-full flex flex-col">
     <div v-if="collapsed" class="flex flex-col items-center gap-1 py-1">
       <UPopover v-for="item in accordionItems" :key="item.slot" :content="{ side: 'left', align: 'start', sideOffset: 12 }">
         <UTooltip :text="item.label" :content="{ side: 'left' }">
@@ -353,7 +353,6 @@ onBeforeUnmount(() => {
       v-else
       v-model="accordionModel"
       type="multiple"
-      :ui="{ root: 'bg-elevated/25' }"
       :items="accordionItems"
     >
       <template #leading="{ item }">

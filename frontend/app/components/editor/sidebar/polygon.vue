@@ -506,7 +506,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-default">
+  <div class="h-full flex flex-col">
     <div v-if="collapsed" class="flex flex-col items-center gap-1 py-1">
       <UPopover v-for="item in items" :key="item.slot" :content="{ side: 'left', align: 'start', sideOffset: 12 }">
         <UTooltip :text="item.label" :content="{ side: 'left' }">
