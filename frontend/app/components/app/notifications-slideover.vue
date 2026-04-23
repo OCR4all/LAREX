@@ -56,8 +56,7 @@ function getNotificationIcon(type: string) {
     case 'COLLAB_TAKEOVER_DECLINED':
     case 'COLLAB_TAKEOVER_FORCED':
     case 'COLLAB_LEASE_EXPIRED':
-      return
-      'i-lucide-lock'
+      return 'i-lucide-lock'
     default:
       return 'i-lucide-bell'
   }
