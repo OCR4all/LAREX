@@ -1218,7 +1218,6 @@ const sectionMenuItems = computed(() => {
               :variant="sortOrder === 'asc' ? 'ghost' : 'soft'"
               size="sm"
               icon="i-lucide-arrow-up-down"
-              class="h-8 w-8"
               :title="`Sort textlines (${currentSortLabel})`"
               :aria-label="`Sort textlines (${currentSortLabel})`"
             />
@@ -1230,7 +1229,6 @@ const sectionMenuItems = computed(() => {
               :variant="hasActiveLocalFilters ? 'soft' : 'ghost'"
               size="sm"
               icon="i-lucide-filter"
-              class="h-8 w-8"
               :title="hasActiveLocalFilters ? 'Filters active' : 'Filter textlines'"
               :aria-label="hasActiveLocalFilters ? 'Filters active' : 'Filter textlines'"
             />
@@ -1242,7 +1240,6 @@ const sectionMenuItems = computed(() => {
               :variant="hasCollapsedRegions ? 'soft' : 'ghost'"
               size="sm"
               icon="i-lucide-ellipsis-vertical"
-              class="h-8 w-8"
               title="Textline actions"
               aria-label="Textline actions"
             />
