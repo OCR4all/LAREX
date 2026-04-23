@@ -87,7 +87,7 @@ function resolveScrollElement(): HTMLElement | null {
 const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => ({
   count: filteredPages.value.length,
   getScrollElement: () => scrollElement.value,
-  getItemKey: (index) => filteredPages.value[index]?.id ?? index,
+  getItemKey: index => filteredPages.value[index]?.id ?? index,
   estimateSize: () => ESTIMATED_ROW_HEIGHT,
   overscan: 6,
   scrollMargin: scrollMargin.value,

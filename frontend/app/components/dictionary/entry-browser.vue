@@ -84,7 +84,7 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => (
   getScrollElement: () => scrollerRef.value,
   estimateSize: () => 72,
   overscan: OVERSCAN,
-  getItemKey: (index) => entries.value[index]?.id ?? `loader-${index}`
+  getItemKey: index => entries.value[index]?.id ?? `loader-${index}`
 })))
 
 const virtualRows = computed<Array<{ item: VirtualItem, entry?: DictionaryEntry }>>(() =>
@@ -299,9 +299,25 @@ defineExpose({
     </div>
 
     <div v-if="canEdit" class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
-      <UInput v-model="pendingEntry.form" :disabled="isAddingEntry" placeholder="Add accepted form" @keydown.enter.prevent="addEntry" />
-      <UInput v-model="pendingEntry.sourceEntryKey" :disabled="isAddingEntry" placeholder="Source entry key (optional)" @keydown.enter.prevent="addEntry" />
-      <UButton color="primary" icon="i-lucide-plus" :loading="isAddingEntry" :disabled="isAddingEntry" @click="addEntry">
+      <UInput
+        v-model="pendingEntry.form"
+        :disabled="isAddingEntry"
+        placeholder="Add accepted form"
+        @keydown.enter.prevent="addEntry"
+      />
+      <UInput
+        v-model="pendingEntry.sourceEntryKey"
+        :disabled="isAddingEntry"
+        placeholder="Source entry key (optional)"
+        @keydown.enter.prevent="addEntry"
+      />
+      <UButton
+        color="primary"
+        icon="i-lucide-plus"
+        :loading="isAddingEntry"
+        :disabled="isAddingEntry"
+        @click="addEntry"
+      >
         Add
       </UButton>
     </div>
@@ -330,19 +346,58 @@ defineExpose({
           <div v-if="entry" class="p-3">
             <div v-if="editingEntryId === entry.id" class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto_auto]">
               <UInput v-model="editingEntry.form" :disabled="savingEntryIds.has(entry.id)" @keydown.enter.prevent="saveEntry(entry.id)" />
-              <UInput v-model="editingEntry.sourceEntryKey" :disabled="savingEntryIds.has(entry.id)" placeholder="Source key" @keydown.enter.prevent="saveEntry(entry.id)" />
-              <UButton color="primary" variant="soft" :loading="savingEntryIds.has(entry.id)" :disabled="savingEntryIds.has(entry.id)" @click="saveEntry(entry.id)">Save</UButton>
-              <UButton color="neutral" variant="ghost" :disabled="savingEntryIds.has(entry.id)" @click="editingEntryId = null">Cancel</UButton>
+              <UInput
+                v-model="editingEntry.sourceEntryKey"
+                :disabled="savingEntryIds.has(entry.id)"
+                placeholder="Source key"
+                @keydown.enter.prevent="saveEntry(entry.id)"
+              />
+              <UButton
+                color="primary"
+                variant="soft"
+                :loading="savingEntryIds.has(entry.id)"
+                :disabled="savingEntryIds.has(entry.id)"
+                @click="saveEntry(entry.id)"
+              >
+                Save
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="ghost"
+                :disabled="savingEntryIds.has(entry.id)"
+                @click="editingEntryId = null"
+              >
+                Cancel
+              </UButton>
             </div>
             <div v-else class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <p class="font-medium break-all">{{ entry.form }}</p>
-                <p class="text-xs text-muted break-all">{{ entry.normalizedValue }}</p>
-                <p v-if="entry.sourceEntryKey" class="text-xs text-muted break-all">Key: {{ entry.sourceEntryKey }}</p>
+                <p class="font-medium break-all">
+                  {{ entry.form }}
+                </p>
+                <p class="text-xs text-muted break-all">
+                  {{ entry.normalizedValue }}
+                </p>
+                <p v-if="entry.sourceEntryKey" class="text-xs text-muted break-all">
+                  Key: {{ entry.sourceEntryKey }}
+                </p>
               </div>
               <div v-if="canEdit" class="flex items-center gap-2">
-                <UButton color="neutral" variant="ghost" icon="i-lucide-pencil" :disabled="deletingEntryIds.has(entry.id)" @click="startEdit(entry)" />
-                <UButton color="error" variant="ghost" icon="i-lucide-trash" :loading="deletingEntryIds.has(entry.id)" :disabled="deletingEntryIds.has(entry.id)" @click="removeEntry(entry.id)" />
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-pencil"
+                  :disabled="deletingEntryIds.has(entry.id)"
+                  @click="startEdit(entry)"
+                />
+                <UButton
+                  color="error"
+                  variant="ghost"
+                  icon="i-lucide-trash"
+                  :loading="deletingEntryIds.has(entry.id)"
+                  :disabled="deletingEntryIds.has(entry.id)"
+                  @click="removeEntry(entry.id)"
+                />
               </div>
             </div>
           </div>

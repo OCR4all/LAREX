@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ALL_REGION_KINDS, type RegionKind } from '@/models/editor/region'
+import type { RegionKind } from '@/models/editor/region'
 import { getRegionKindDisplayName, getRegionKindIcon } from '@/utils/editor/region-colors'
 
 export interface MergeSettings {

@@ -37,11 +37,25 @@ function hexToHsb(hex: string) {
 }
 
 function hsbToHex(h: number, s: number, b: number) {
-  s /= 100; b /= 100
-  const c = b * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = b - c
-  let r = 0, g = 0, bl = 0
-  if (h < 60) { r = c; g = x } else if (h < 120) { r = x; g = c } else if (h < 180) { g = c; bl = x } else if (h < 240) { g = x; bl = c } else if (h < 300) { r = x; bl = c } else { r = c; bl = x }
+  s /= 100
+  b /= 100
+
+  const c = b * s
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1))
+  const m = b - c
+
   const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0')
+
+  const sectors = [
+    [c, x, 0], // 0–60
+    [x, c, 0], // 60–120
+    [0, c, x], // 120–180
+    [0, x, c], // 180–240
+    [x, 0, c], // 240–300
+    [c, 0, x] // 300–360
+  ]
+  const [r, g, bl] = sectors[Math.floor(h / 60)]
+
   return `#${toHex(r)}${toHex(g)}${toHex(bl)}`
 }
 

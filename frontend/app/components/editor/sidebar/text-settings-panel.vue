@@ -54,6 +54,5 @@ const layoutTabItems = [
       </div>
       <USwitch v-model="showComments" />
     </div>
-
   </div>
 </template>

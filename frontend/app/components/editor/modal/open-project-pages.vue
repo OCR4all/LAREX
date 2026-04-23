@@ -200,7 +200,12 @@ function close() {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" :title="'Open Projects & Pages'" :ui="{ content: 'max-w-3xl' }" @close="close">
+  <UModal
+    v-model:open="isOpen"
+    :title="'Open Projects & Pages'"
+    :ui="{ content: 'max-w-3xl' }"
+    @close="close"
+  >
     <template #body>
       <div class="space-y-3 max-h-[70vh] overflow-auto">
         <div class="text-xs text-muted">
@@ -230,8 +235,12 @@ function close() {
                 @click="toggleProjectExpanded(project.id)"
               />
               <div class="flex-1 min-w-0">
-                <div class="font-medium truncate">{{ project.name }}</div>
-                <div class="text-xs text-muted">{{ project.pageCount ?? 0 }} pages</div>
+                <div class="font-medium truncate">
+                  {{ project.name }}
+                </div>
+                <div class="text-xs text-muted">
+                  {{ project.pageCount ?? 0 }} pages
+                </div>
               </div>
             </div>
 
@@ -272,4 +281,3 @@ function close() {
     </template>
   </UModal>
 </template>
-

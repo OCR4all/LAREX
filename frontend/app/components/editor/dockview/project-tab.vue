@@ -43,4 +43,3 @@ function requestClose(ev: MouseEvent) {
     </div>
   </div>
 </template>
-

@@ -41,7 +41,9 @@ function getTaskDescription(subtask: Subtask) {
       >
         <div class="flex items-start justify-between gap-2">
           <div class="min-w-0">
-            <p class="text-sm font-medium truncate">{{ subtask.title }}</p>
+            <p class="text-sm font-medium truncate">
+              {{ subtask.title }}
+            </p>
             <p v-if="getTaskDescription(subtask)" class="text-xs text-muted mt-0.5 line-clamp-2">
               {{ getTaskDescription(subtask) }}
             </p>
