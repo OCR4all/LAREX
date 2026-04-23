@@ -132,7 +132,7 @@ const gridLineColor = computed(() => getVirtualKeyboardGridLineColor(palette.val
         <div
           v-for="i in (gridCols * gridRows)"
           :key="i"
-          class="border transition-colors cursor-pointer hover:bg-white/5"
+          class="border-[0.5px] transition-colors cursor-pointer hover:bg-white/5"
           :class="palette.gridLineClass"
           :style="{ borderColor: gridLineColor }"
           @click="handleGridClick(i - 1)"

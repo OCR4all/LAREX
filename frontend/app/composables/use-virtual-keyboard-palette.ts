@@ -12,12 +12,12 @@ export interface VirtualKeyboardPalette {
 const DARK_PALETTE: VirtualKeyboardPalette = {
   boardClass: 'bg-neutral-900',
   boardBorderClass: 'border-neutral-700',
-  gridLineClass: 'border-neutral-800',
+  gridLineClass: 'border-neutral-700',
   keyBgClass: 'bg-neutral-800',
-  keyTextClass: 'text-neutral-200',
-  boardStyle: '#111827',
-  keyBgStyle: '#1f2937',
-  keyTextStyle: '#e5e7eb'
+  keyTextClass: 'text-neutral-100',
+  boardStyle: '#171717',
+  keyBgStyle: '#262626',
+  keyTextStyle: '#fafafa'
 }
 
 const LIGHT_PALETTE: VirtualKeyboardPalette = {
@@ -26,7 +26,7 @@ const LIGHT_PALETTE: VirtualKeyboardPalette = {
   gridLineClass: 'border-neutral-300',
   keyBgClass: 'bg-white',
   keyTextClass: 'text-neutral-800',
-  boardStyle: '#f3f4f6',
+  boardStyle: '#f5f5f5',
   keyBgStyle: '#ffffff',
   keyTextStyle: '#1f2937'
 }
@@ -40,7 +40,7 @@ export function useVirtualKeyboardPalette() {
 
 export function getVirtualKeyboardGridLineColor(boardStyle: string): string {
   if (!boardStyle.startsWith('#')) {
-    return 'rgba(0,0,0,0.15)'
+    return 'rgba(0,0,0,0.1)'
   }
 
   const hex = boardStyle.replace('#', '')
@@ -51,5 +51,5 @@ export function getVirtualKeyboardGridLineColor(boardStyle: string): string {
   const g = parseInt(normalizedHex.slice(2, 4), 16)
   const b = parseInt(normalizedHex.slice(4, 6), 16)
   const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000
-  return yiq >= 128 ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.1)'
+  return yiq >= 128 ? 'rgba(23,23,23,0.1)' : 'rgba(245,245,245,0.18)'
 }

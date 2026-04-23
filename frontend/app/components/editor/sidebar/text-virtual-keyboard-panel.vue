@@ -39,8 +39,9 @@ const keyboardViewportRef = ref<HTMLDivElement | null>(null)
 const keyboardViewportWidth = ref(0)
 let resizeObserver: ResizeObserver | null = null
 
-const MIN_CELL_SIZE = 28
-const MAX_CELL_SIZE = 56
+const TARGET_CELL_SIZE = 38
+const MIN_CELL_SIZE = 34
+const MAX_CELL_SIZE = 60
 const HORIZONTAL_PADDING_PX = 16
 
 const activeInput = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
@@ -59,8 +60,8 @@ const wrapColumns = computed(() => {
   if (!layout) return 1
 
   const availableWidth = Math.max(120, keyboardViewportWidth.value - HORIZONTAL_PADDING_PX)
-  const maxColsAtMinimumCellSize = Math.max(1, Math.floor(availableWidth / MIN_CELL_SIZE))
-  return Math.max(1, Math.min(layout.cols, maxColsAtMinimumCellSize))
+  const preferredCols = Math.max(1, Math.floor(availableWidth / TARGET_CELL_SIZE))
+  return Math.max(1, Math.min(layout.cols, preferredCols))
 })
 
 const isWrappedLayout = computed(() => {
@@ -280,10 +281,10 @@ onBeforeUnmount(() => {
 
       <div
         ref="keyboardViewportRef"
-        class="relative z-0 overflow-y-auto overflow-x-hidden rounded-sm border border-default bg-muted/20 p-2"
+        class="relative z-0 overflow-y-auto overflow-x-hidden"
       >
         <div
-          class="mx-auto overflow-hidden font-junicode rounded-sm p-2 shadow-[0_4px_16px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.08)]"
+          class="mx-auto overflow-hidden font-junicode rounded-sm p-2"
           :class="[palette.boardClass]"
           :style="{ background: palette.boardStyle }"
         >
@@ -304,7 +305,7 @@ onBeforeUnmount(() => {
                 <div
                   v-for="n in row.cols"
                   :key="`${row.id}-cell-${n}`"
-                  class="border"
+                  class="border-[0.5px]"
                   :class="palette.gridLineClass"
                   :style="{ borderColor: gridLineColor }"
                 />

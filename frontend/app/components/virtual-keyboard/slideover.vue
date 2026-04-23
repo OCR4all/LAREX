@@ -149,7 +149,7 @@ defineExpose({ open })
                   <div
                     v-for="n in (layout.cols * layout.rows)"
                     :key="n"
-                    class="border"
+                    class="border-[0.5px]"
                     :class="palette.gridLineClass"
                     :style="{ borderColor: gridLineColor }"
                   />
