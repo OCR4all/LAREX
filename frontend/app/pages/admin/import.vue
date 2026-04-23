@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { showApiErrorToast } from '@/utils/error-toast'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 

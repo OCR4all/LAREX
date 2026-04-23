@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { WorkspaceCapabilities } from '@/types/capabilities'
-import { globalKey } from '~/utils/fetch-keys'
 import { LazyWorkspaceSlideoverCreate, LazyUiDeleteSlideover } from '#components'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')

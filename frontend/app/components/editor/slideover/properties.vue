@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ContextMenuTarget } from '@/composables/editor/use-editor-command'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 
 const props = defineProps<{

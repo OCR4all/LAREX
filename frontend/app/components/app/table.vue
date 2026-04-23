@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { computed, ref, useAttrs, useSlots } from 'vue'
-import { usePersistentTableColumnVisibility } from '@/composables/use-table-column-visibility'
 
 defineOptions({ inheritAttrs: false })
 

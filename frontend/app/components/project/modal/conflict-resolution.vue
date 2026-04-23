@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { wsKey } from '@/utils/fetch-keys'
 
 interface Props {
   projectId: string

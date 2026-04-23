@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 type PreviewConflict = {
   canvasId: string

@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import type { Ref } from 'vue'
 import type { NormalizationProfile, NormalizationProfileCreateOrUpdateRequest, NormalizationReplacementRule } from '@/types/normalization-profile'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { wsKey } from '@/utils/fetch-keys'
-import type { NormalizationPresetRuleKey } from '@/utils/normalization-preset-rule-help'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 type UnicodeNormalizationForm = 'NFC' | 'NFD' | 'NFKC' | 'NFKD'
 type ReplacementMode = 'plain' | 'regex'

@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { DatasetAddItemRequest, DatasetCreateOrUpdateRequest, DatasetItemMode, DatasetSummary } from '@/types/dataset'
-import { wsKey } from '@/utils/fetch-keys'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const props = defineProps<{
   projectId: string

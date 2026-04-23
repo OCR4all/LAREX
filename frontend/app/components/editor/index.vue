@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { WatchStopHandle } from 'vue'
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
@@ -13,11 +12,8 @@ import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import { normalizeRelation } from '@/utils/editor/relations'
 import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
-import { useReadingOrderVisualization } from '@/composables/editor/use-reading-order-visualization'
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
-import { useCutDrawing } from '@/composables/editor/use-cut-drawing'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
-import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { CompoundCommand, CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
 import { PolygonType, type Relation, type TextContentVariantData } from '@/models/editor'
 import type { CommentOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
@@ -25,7 +21,6 @@ import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/c
 import { visibilityService } from '@/services/editor/visibility-service'
 import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
 import { getCollaborationColor } from '@/types/collaboration'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 import {
   collectTextlineIdsInPageOrder,
   getAdjacentTextlineId

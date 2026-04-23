@@ -4,10 +4,6 @@ import type {
   ProjectPackageReleaseShareRequest,
   ProjectPackageReleaseShareResponse
 } from '@/types/project-package-release'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { copyTextToClipboard } from '@/utils/clipboard'
-import { buildProjectReleaseShareCurlSnippet, buildProjectReleaseShareWgetSnippet } from '@/utils/project-release-share'
-import { buildReleaseShareBrowserDownloadUrl } from '@/utils/release-share-browser-download'
 
 const props = defineProps<{
   projectId: string

@@ -5,9 +5,6 @@ import { xml } from '@codemirror/lang-xml'
 import { basicSetup } from 'codemirror'
 import { lintGutter, setDiagnostics } from '@codemirror/lint'
 import { closeSearchPanel, highlightSelectionMatches, openSearchPanel, search, searchKeymap, searchPanelOpen } from '@codemirror/search'
-import type { XmlValidationError } from '@/utils/xml-editor-diagnostics'
-import { toCodeMirrorDiagnostics } from '@/utils/xml-editor-diagnostics'
-import { buildXmlEditorTheme } from '@/utils/xml-editor-theme'
 import { useOverlayDialogs } from '@/composables/editor/use-overlay-dialogs'
 
 type XmlValidationResult = {

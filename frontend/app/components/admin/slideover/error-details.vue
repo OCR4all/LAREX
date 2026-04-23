@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { AdminErrorEventDetail } from '@/types/admin-errors'
-import { copyTextToClipboard } from '@/utils/clipboard'
 
 interface Props {
   open: boolean

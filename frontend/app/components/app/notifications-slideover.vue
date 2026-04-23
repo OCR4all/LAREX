@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Notification, NotificationGroup, WorkspaceInvitation } from '~/types'
 import { ROLE_LABELS } from '~/types'
-import { getNotificationLink } from '~/utils/notifications'
 
 const { isNotificationsSlideoverOpen } = useDashboard()
 const toast = useToast()

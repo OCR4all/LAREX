@@ -10,7 +10,6 @@ import type {
   ProjectReleaseExportFormat,
   ProjectReleaseSpreadsheetProfile
 } from '@/types/project-package-release'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 type ExportDialogResult = {
   targetPageXmlVersion: string

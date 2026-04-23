@@ -2,7 +2,6 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { DatasetCreateReleaseRequest, DatasetRelease } from '@/types/dataset'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const props = defineProps<{
   datasetId: string

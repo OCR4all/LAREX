@@ -3,9 +3,6 @@ import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { ValidationRule, ValidationRuleset, ValidationRulesetCreateOrUpdateRequest, ValidationSeverity } from '@/types/validation-ruleset'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { wsKey } from '@/utils/fetch-keys'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 interface ValidationPreviewRuleResult {
   ruleId: string

@@ -2,7 +2,6 @@
 import type { WorkspaceInvitation } from '~/types'
 import { ROLE_LABELS } from '~/types'
 import { formatTimeAgo } from '@vueuse/core'
-import { globalKey } from '@/utils/fetch-keys'
 
 const toast = useToast()
 const { refreshUserInvitations, refreshWorkspaceList, refreshWorkspaceMembership } = useDataRefresh()

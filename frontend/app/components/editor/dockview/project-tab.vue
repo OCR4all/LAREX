@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { TabPartInitParameters } from 'dockview-core'
-import { useEditorCloseRequests } from '@/composables/use-editor-close-requests'
 import { parseProjectPanelId } from '@/stores/editor/editor.keys'
 
 const props = defineProps<{ params: TabPartInitParameters }>()

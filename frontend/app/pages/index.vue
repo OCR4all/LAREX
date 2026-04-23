@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { h } from 'vue'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import {
@@ -19,14 +18,7 @@ import {
 } from '#components'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
-import { extractApiErrorMessage, extractApiMessageFromPayload } from '@/utils/api-error'
-import { globalKey, wsKey } from '@/utils/fetch-keys'
 import UiColorTag from '@/components/ui/color-tag.vue'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
-import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
-import { createSortableHeader, renderDropdownActionsCell, renderTruncatedText } from '@/utils/resource-list-columns'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)

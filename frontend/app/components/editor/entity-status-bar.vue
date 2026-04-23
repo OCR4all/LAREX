@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { CollaborationLeaseOwner, CollaborationRoomMember, CollaborationTakeoverRequest } from '@/types/collaboration'
 import type { RegionKind, TextRegionSubtype } from '@/models/editor/region'
-import { getAvatarInitials } from '@/utils/avatar'
 
 export type RegionType = RegionKind | 'TextLine' | 'Baseline' | 'Polyline'
 export type TextSubtype = TextRegionSubtype | string

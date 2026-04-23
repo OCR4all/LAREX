@@ -1,13 +1,7 @@
 <script setup lang="ts">
-import { h } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import { LazyDatasetSlideoverCreate, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
 import type { DatasetSummary } from '@/types/dataset'
-import { wsKey } from '@/utils/fetch-keys'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
-import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
 
 const toast = useToast()
 const overlay = useOverlay()

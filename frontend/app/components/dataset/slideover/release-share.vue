@@ -1,9 +1,5 @@
 <script setup lang="ts">
 import type { DatasetRelease, DatasetReleaseShareRequest, DatasetReleaseShareResponse } from '@/types/dataset'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { copyTextToClipboard } from '@/utils/clipboard'
-import { buildDatasetReleaseShareCurlSnippet, buildDatasetReleaseShareWgetSnippet } from '@/utils/dataset-release-share'
-import { buildReleaseShareBrowserDownloadUrl } from '@/utils/release-share-browser-download'
 
 const props = defineProps<{
   datasetId: string

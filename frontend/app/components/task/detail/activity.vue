@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { TaskActivityLog, TaskActivityType } from '~/types/index'
 import { formatDistanceToNow, parseISO, differenceInMinutes } from 'date-fns'
-import { computed } from 'vue'
 
 const props = defineProps<{
   activity: TaskActivityLog[]

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { h } from 'vue'
 import { LazyDatasetSlideoverRelease, LazyDatasetSlideoverReleaseShare, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover, USelect } from '#components'
 import type { BreadcrumbItem, DropdownMenuItem, TableColumn, TabsItem } from '@nuxt/ui'
 import type {
@@ -15,10 +14,6 @@ import type {
   DatasetSplitTemplate,
   DatasetValidationResult
 } from '@/types/dataset'
-import { wsKey } from '@/utils/fetch-keys'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { SIMPLE_TAG_OPERATOR_OPTIONS } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderSimpleTagCell } from '@/utils/resource-list-columns'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 

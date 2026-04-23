@@ -1,10 +1,7 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
 import type { DropdownMenuItem, TableColumn, TableRow } from '@nuxt/ui'
 import type { Task, TaskStatus, TaskPriority, WorkspaceMember } from '~/types/index'
 import { DEFAULT_TASK_CAPABILITIES } from '@/types/capabilities'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { wsKey, globalKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover, LazyTaskSlideoverEdit } from '#components'
 
 const UButton = resolveComponent('UButton')

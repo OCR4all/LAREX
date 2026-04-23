@@ -2,10 +2,7 @@
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { Dictionary, DictionaryCreateOrUpdateRequest } from '@/types/dictionary'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
-import { extractApiErrorMessage } from '@/utils/api-error'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { wsKey } from '@/utils/fetch-keys'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 const route = useRoute()
 const router = useRouter()

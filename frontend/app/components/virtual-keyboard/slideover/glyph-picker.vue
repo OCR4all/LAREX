@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import type { TableColumn, TableRow } from '@nuxt/ui'
-import { h, resolveComponent } from 'vue'
 
 import type { Glyph } from '~/types/virtual-keyboard'
-import { GlyphService } from '~/utils/glyph-service'
-import { isPUA } from '~/utils/unicode'
 
 const SEARCH_DEBOUNCE_MS = 300
 const PAGE_SIZE = 100

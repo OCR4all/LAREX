@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
-import { wsKey } from '@/utils/fetch-keys'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 const route = useRoute()
 const router = useRouter()

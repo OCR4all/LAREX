@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Task, TaskStatus } from '~/types/index'
-import { useTaskKanban } from '~/composables/use-task-kanban'
 
 const props = withDefaults(defineProps<{
   tasks?: Task[]

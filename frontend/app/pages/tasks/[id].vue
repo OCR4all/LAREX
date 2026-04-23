@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Task, TaskStatus, TaskComment, TaskActivityLog, TaskLinks, Subtask, SubtaskProgress, TaskReminder } from '~/types/index'
 import { formatDistanceToNow, isPast, parseISO, format, addHours, addDays, set } from 'date-fns'
-import { globalKey } from '@/utils/fetch-keys'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { LazyTaskSlideoverEdit, LazyUiDeleteSlideover, LazyTaskSlideoverLinkItems, LazyTaskModalConvertToSubtasks } from '#components'
 

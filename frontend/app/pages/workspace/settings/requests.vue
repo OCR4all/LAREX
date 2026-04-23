@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
-import { globalKey, wsKey } from '@/utils/fetch-keys'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')

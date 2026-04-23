@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { WorkspaceMember } from '~/types'
 import { ROLE_LABELS } from '~/types'
-import { extractApiErrorMessage } from '@/utils/api-error'
 import { LazyUiConfirmModal } from '#components'
 
 const props = defineProps<{

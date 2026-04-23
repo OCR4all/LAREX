@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import type { DictionaryEntry, DictionaryEntryPageResponse } from '@/types/dictionary'
-import { extractApiErrorMessage } from '@/utils/api-error'
-import { wsKey } from '@/utils/fetch-keys'
 
 type EditableDictionaryEntry = {
   form: string

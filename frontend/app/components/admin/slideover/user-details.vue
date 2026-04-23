@@ -6,7 +6,6 @@ import type {
   AdminUserIdentitySource,
   AdminUserOnboardingState
 } from '@/types/admin-users'
-import { copyTextToClipboard } from '@/utils/clipboard'
 
 interface Props {
   open: boolean

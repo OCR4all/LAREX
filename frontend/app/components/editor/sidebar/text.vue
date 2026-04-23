@@ -227,6 +227,7 @@ const accordionItems = [
   { label: 'Metadata', icon: 'i-lucide-badge-info', slot: 'metadata' },
   { label: 'Tasks', icon: 'i-lucide-check-square', slot: 'tasks' },
   { label: 'Settings', icon: 'i-lucide-settings', slot: 'settings' },
+  { label: 'Virtual Keyboard', icon: 'i-lucide-keyboard', slot: 'virtualKeyboard' },
   { label: 'Codec', icon: 'i-lucide-badge-check', slot: 'codec' },
   { label: 'Dictionary', icon: 'i-lucide-book-copy', slot: 'dictionary' },
   { label: 'Diff', icon: 'i-lucide-git-compare', slot: 'diff' },
@@ -305,6 +306,9 @@ onBeforeUnmount(() => {
                 v-model:text-item-layout="textItemLayoutModel"
                 v-model:show-comments="showCommentsModel"
               />
+            </template>
+            <template v-else-if="item.slot === 'virtualKeyboard'">
+              <EditorSidebarTextVirtualKeyboardPanel />
             </template>
             <template v-else-if="item.slot === 'codec'">
               <EditorSidebarCodecSettingsPanel
@@ -392,6 +396,10 @@ onBeforeUnmount(() => {
             v-model:show-comments="showCommentsModel"
           />
         </div>
+      </template>
+
+      <template #virtualKeyboard>
+        <EditorSidebarTextVirtualKeyboardPanel />
       </template>
 
       <template #codec>

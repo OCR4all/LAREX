@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import type { KeyboardLayout, BoardTheme } from '@/types/virtual-keyboard'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { useVirtualKeyboardBuilder } from '@/composables/use-virtual-keyboard-builder'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
-import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 const route = useRoute()
 const router = useRouter()

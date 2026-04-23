@@ -1,9 +1,5 @@
 <script setup lang="ts">
 import type { LabelDefinition } from '@/types/label-set'
-import {
-  PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS,
-  isConfidenceFilterActive
-} from '@/composables/use-page-filter'
 import { createCanonicalLabelFilterOptions } from '@/utils/editor/page-filter-tokens'
 
 const props = defineProps<{

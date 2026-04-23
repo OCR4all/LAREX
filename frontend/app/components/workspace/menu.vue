@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { LazyWorkspaceSlideoverCreate } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { globalKey } from '@/utils/fetch-keys'
 
 defineProps<{
   collapsed?: boolean

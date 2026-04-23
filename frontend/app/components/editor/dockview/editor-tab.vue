@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { TabPartInitParameters } from 'dockview-core'
-import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
-import { useEditorCloseRequests } from '@/composables/use-editor-close-requests'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { parsePagePanelId } from '@/stores/editor/editor.keys'
 

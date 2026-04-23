@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
-import { wsKey } from '@/utils/fetch-keys'
 import type { CodecSummary } from '@/types/codec'
 import type { DictionarySummary } from '@/types/dictionary'
 import type { LabelSetSummary } from '~/types/label-set'

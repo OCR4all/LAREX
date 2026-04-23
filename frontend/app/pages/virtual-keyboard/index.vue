@@ -1,13 +1,8 @@
 <script setup lang="ts">
-import { h } from 'vue'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
-import { wsKey } from '@/utils/fetch-keys'
 import { LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
-import { useResourceListPage } from '@/composables/use-resource-list-page'
-import { createSortableHeader, renderDropdownActionsCell, renderSimpleTagCell, renderTruncatedText } from '@/utils/resource-list-columns'
 
 const toast = useToast()
 const overlay = useOverlay()

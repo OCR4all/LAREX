@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
 import type { PageData } from '@/stores/editor/types'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import UiColorTag from '@/components/ui/color-tag.vue'
-import { copyTextToClipboard } from '@/utils/clipboard'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 type VariantItem = { label: string, value: string }
 

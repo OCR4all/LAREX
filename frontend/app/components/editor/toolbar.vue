@@ -518,13 +518,12 @@ const showMoreMenu = computed(() => !isCompact.value || !!currentCanvasState.val
 const vkModeIcon = computed(() => {
   switch (virtualKeyboardMode.value) {
     case 'floating': return 'i-lucide-app-window'
-    case 'slideover': return 'i-lucide-panel-bottom'
     default: return 'i-lucide-keyboard-off'
   }
 })
 
 const cycleVirtualKeyboardMode = () => {
-  const modes: VirtualKeyboardMode[] = ['off', 'floating', 'slideover']
+  const modes: VirtualKeyboardMode[] = ['off', 'floating']
   const currentMode = virtualKeyboardMode.value ?? 'off'
   const currentIndex = modes.indexOf(currentMode)
   const nextMode: VirtualKeyboardMode = currentIndex >= 0
@@ -544,11 +543,6 @@ const vkDropdownItems = computed(() => [
       label: 'Floating',
       icon: 'i-lucide-app-window',
       onSelect: () => uiStore.setVirtualKeyboardMode('floating')
-    },
-    {
-      label: 'Slideover',
-      icon: 'i-lucide-panel-bottom',
-      onSelect: () => uiStore.setVirtualKeyboardMode('slideover')
     }
   ]
 ])

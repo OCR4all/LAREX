@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { NORMALIZATION_PRESET_RULE_HELP, type NormalizationPresetRuleKey } from '@/utils/normalization-preset-rule-help'
 
 const props = defineProps<{
   ruleKey: NormalizationPresetRuleKey

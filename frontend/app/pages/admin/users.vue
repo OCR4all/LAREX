@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
 import * as z from 'zod'
 import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import { LazyUiConfirmSlideover } from '#components'
@@ -13,8 +12,6 @@ import type {
   AdminUserStatusFilter,
   ErrorResponseData
 } from '@/types/admin-users'
-import { globalKey } from '@/utils/fetch-keys'
-import { showApiErrorToast } from '@/utils/error-toast'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 

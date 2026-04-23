@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { SubtaskProgress } from '~/types/index'
-import { globalKey } from '@/utils/fetch-keys'
 
 const props = defineProps<{
   taskId: string

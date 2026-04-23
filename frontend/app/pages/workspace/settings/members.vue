@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { WorkspaceMember } from '~/types/index'
-import { globalKey, wsKey } from '@/utils/fetch-keys'
 import { LazyWorkspaceSlideoverInviteMember } from '#components'
 
 const workspace = useWorkspaceStore()

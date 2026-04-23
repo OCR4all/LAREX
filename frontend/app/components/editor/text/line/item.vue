@@ -4,7 +4,6 @@ import type { Point } from '@/models/editor/types'
 import type { TextItemLayout } from '@/stores/editor/types'
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
-import { GlyphService } from '@/utils/glyph-service'
 import type { DictionarySuggestion } from '@/types/dictionary'
 import { TooltipProvider } from 'reka-ui'
 import {

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type {
   CodecSummary,
@@ -10,10 +9,8 @@ import type {
   ValidateCodecAgainstSourcesRequest,
   ValidateCodecAgainstSourcesResponse
 } from '@/types/codec'
-import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData } from '@/services/editor/project-loader'
 import type { PageResponse } from '@/services/editor/project-loader'
-import { copyTextToClipboard } from '@/utils/clipboard'
 
 type SourceProject = {
   id: string

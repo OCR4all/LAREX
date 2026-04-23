@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { wsKey, globalKey } from '@/utils/fetch-keys'
-import { getStorageQuotaAlertState, getStorageQuotaProgressValue } from '@/utils/storage-quota'
 import { LazyUiDeleteSlideover } from '#components'
 import type { CodecSummary } from '@/types/codec'
 import type { DictionarySummary } from '@/types/dictionary'

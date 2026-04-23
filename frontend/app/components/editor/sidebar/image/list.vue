@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ComponentPublicInstance } from 'vue'
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import ImageItem from './item.vue'
 import { useEditorStore } from '@/stores/editor/editor.store'

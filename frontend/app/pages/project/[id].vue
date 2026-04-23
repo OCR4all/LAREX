@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
 import {
   LazyCodecSlideoverAction,
   LazyPageSlideoverEdit,
@@ -22,24 +21,16 @@ import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
 import type { Subtask } from '~/types/index'
-import { wsKey } from '@/utils/fetch-keys'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { createPageXmlLabelSet } from '@/models/editor'
-import { useCollaborationPageSummary } from '@/composables/use-collaboration-page-summary'
 import type { LabelSet as ApiLabelSet } from '@/types/label-set'
 import { useEditorStore } from '@/stores/editor/editor.store'
-import { usePagePrefetch } from '@/composables/use-page-prefetch'
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { DictionaryProjectScope, DictionaryValidateAgainstSourcesResponse } from '@/types/dictionary'
 import type { ApplySourcesResponse, NormalizePreview, NormalizeSourcesResponse, NormalizationProfile, NormalizationProjectScope, NormalizeTarget } from '@/types/normalization-profile'
 import type { ValidateAgainstSourcesResponse, ValidationProjectScope } from '@/types/validation-ruleset'
 import type { ProjectPackageRelease } from '@/types/project-package-release'
-import type { NormalizationPresetRuleKey } from '@/utils/normalization-preset-rule-help'
 import UiColorTag from '@/components/ui/color-tag.vue'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
-import { useIndexStatusPolling } from '@/composables/use-index-status-polling'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')

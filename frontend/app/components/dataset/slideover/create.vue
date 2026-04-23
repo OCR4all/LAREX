@@ -2,7 +2,6 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 import type { DatasetCreateOrUpdateRequest, DatasetSummary } from '@/types/dataset'
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 const emit = defineEmits<{ close: [string | null] }>()
 

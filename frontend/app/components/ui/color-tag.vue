@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { getTagColors, isValidHex, type TagVariant } from '@/utils/tag-color'
 
 interface ColorTagProps {
   color: string

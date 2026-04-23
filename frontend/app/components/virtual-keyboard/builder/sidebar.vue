@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { BoardTheme } from '@/types/virtual-keyboard'
-import type { VirtualKeyboardBuilderState } from '@/composables/use-virtual-keyboard-builder'
 import { LazyVirtualKeyboardSlideoverThemeManager } from '#components'
 
 const props = defineProps<{

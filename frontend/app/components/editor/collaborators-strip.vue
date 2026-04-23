@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { CollaborationRoomMember } from '@/types/collaboration'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 const props = withDefaults(defineProps<{
   collaborators: CollaborationRoomMember[]

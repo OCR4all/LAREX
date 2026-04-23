@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 
 defineProps<{

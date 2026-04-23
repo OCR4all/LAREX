@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { AdminErrorEventDetail, AdminErrorEventPage, AdminErrorEventSummary, AdminErrorSummary } from '@/types/admin-errors'
 import type { AdminUserPage } from '@/types/admin-users'
-import { globalKey } from '@/utils/fetch-keys'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 

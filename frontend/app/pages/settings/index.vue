@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { UserProfile, UpdateUserProfileRequest } from '~/types'
-import { globalKey } from '@/utils/fetch-keys'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 const toast = useToast()
 const { resetTours } = useOnboarding()

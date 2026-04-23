@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
-import { globalKey } from '@/utils/fetch-keys'
 
 interface UserProfile {
   id: string
@@ -15,12 +14,6 @@ interface InvitedUser {
   userId: string
   username: string
   role: 'CURATOR' | 'EDITOR'
-}
-
-function getAsyncDataErrorMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== 'object') return undefined
-  const candidate = error as { data?: { message?: string }, message?: string }
-  return candidate.data?.message || candidate.message
 }
 
 const emit = defineEmits<{ close: [boolean] }>()
@@ -118,25 +111,15 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       }))
     }
 
-    const { data, error } = await useAsyncData(() => $fetch<{ id: string }>('/api/workspaces', {
+    const data = await $fetch<{ id: string }>('/api/workspaces', {
       method: 'POST',
       body
-    }))
-
-    if (error.value) {
-      const errorMessage = getAsyncDataErrorMessage(error.value) || 'An error occurred'
-      toast.add({
-        title: 'Error',
-        description: errorMessage,
-        color: 'error'
-      })
-      return
-    }
+    })
 
     await refreshNuxtData(globalKey('workspaces', 'list'))
     await workspaceStore.refreshWorkspaces()
-    if (data.value?.id) {
-      workspaceStore.selectWorkspace(data.value.id)
+    if (data.id) {
+      workspaceStore.selectWorkspace(data.id)
     }
 
     if (invitedUsers.value.length > 0) {
@@ -149,6 +132,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       toast.add({ title: 'Success', description: 'Workspace has been created.', color: 'success' })
     }
     emit('close', true)
+  } catch (error: unknown) {
+    const errorMessage = extractApiErrorMessage(error) || 'An error occurred'
+    toast.add({
+      title: 'Error',
+      description: errorMessage,
+      color: 'error'
+    })
   } finally {
     isCreating.value = false
   }
@@ -248,7 +238,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         </div>
 
         <div class="flex justify-end gap-1 pt-4">
-          <UButton color="neutral" variant="ghost" :disabled="isCreating" @click="emit('close', false)">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            :disabled="isCreating"
+            @click="emit('close', false)"
+          >
             Cancel
           </UButton>
           <UButton variant="solid" type="submit" :loading="isCreating">

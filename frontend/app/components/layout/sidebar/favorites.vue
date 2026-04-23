@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { globalKey, wsKey } from '@/utils/fetch-keys'
 
 interface Props {
   collapsed?: boolean

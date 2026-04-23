@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useVirtualizer, type VirtualItem } from '@tanstack/vue-virtual'
 import type { WorkspaceTextSearchClusterGroup, WorkspaceTextSearchHit, WorkspaceTextSearchResponse } from '@/types/search'
-import type { VNodeRef } from 'vue'
 
 type SearchListRow = WorkspaceTextSearchHit | WorkspaceTextSearchClusterGroup
 

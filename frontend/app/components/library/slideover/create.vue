@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
-import { wsKey } from '@/utils/fetch-keys'
 import type { CodecSummary } from '~/types/codec'
 import type { DictionarySummary } from '~/types/dictionary'
 import type { LabelSetSummary } from '~/types/label-set'

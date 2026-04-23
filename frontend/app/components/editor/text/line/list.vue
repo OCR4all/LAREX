@@ -9,7 +9,6 @@ import { getRegionColor } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 import type { RegionKind } from '@/models/editor/region'
 import { CompoundCommand, DeletePolygonCommand, ReorderTextLinesCommand, UpdateTextContentVariantsCommand } from '@/commands'
-import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
 import { useTextViewShortcutScope } from '@/composables/editor/use-keyboard-shortcuts'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -106,7 +105,6 @@ const reorderEnabled = computed(() => {
 
 const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
 const { keyboards, selectedLayout, selectedTheme, selectedKeyboardId } = useVirtualKeyboards()
-const { hasKeyboards } = useVirtualKeyboardAvailability()
 const selectedWorkspaceId = computed(() => workspaceStore.selectedWorkspaceId as string | null)
 
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
@@ -1415,25 +1413,6 @@ const sectionMenuItems = computed(() => {
       :theme="selectedTheme"
       :layouts="keyboards ?? []"
       @update:layout-id="selectedKeyboardId = $event"
-    />
-
-    <VirtualKeyboardSlideover
-      v-if="virtualKeyboardMode === 'slideover' && selectedLayout"
-      :layout="selectedLayout"
-      :theme="selectedTheme"
-      :layouts="keyboards ?? []"
-      side="bottom"
-      @update:layout-id="selectedKeyboardId = $event"
-    />
-
-    <UAlert
-      v-else-if="virtualKeyboardMode !== 'off' && !hasKeyboards"
-      icon="i-lucide-keyboard-off"
-      title="No Virtual Keyboards"
-      description="No virtual keyboards are available in this workspace. Create one to use the virtual keyboard feature."
-      color="neutral"
-      variant="solid"
-      class="mt-4"
     />
   </div>
 </template>

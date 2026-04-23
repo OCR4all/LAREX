@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { wsKey } from '@/utils/fetch-keys'
-import { getStorageQuotaAlertState, getStorageQuotaProgressValue, type StorageQuotaLike } from '@/utils/storage-quota'
 
 interface WorkspaceStorageQuota extends StorageQuotaLike {
   currentUsageFormatted: string

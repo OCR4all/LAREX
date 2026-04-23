@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { LazyUiConfirmModal } from '#components'
 import type { BoardTheme } from '~/types/virtual-keyboard'
-import { wsKey } from '~/utils/fetch-keys'
 
 const overlay = useOverlay()
 const confirmModal = overlay.create(LazyUiConfirmModal)

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
-import { globalKey } from '@/utils/fetch-keys'
 
 interface Workspace {
   id: string

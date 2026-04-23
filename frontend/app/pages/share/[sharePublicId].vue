@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { extractApiErrorMessage } from '@/utils/api-error'
 
 definePageMeta({
   layout: false

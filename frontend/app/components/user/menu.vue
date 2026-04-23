@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { getAvatarInitials, resolveManagedProfileAvatarSrc } from '@/utils/avatar'
 
 defineProps<{
   collapsed?: boolean

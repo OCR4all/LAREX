@@ -1,11 +1,8 @@
 <script setup lang="ts">
 import { LazyCodecSlideoverAction, LazyVirtualKeyboardSlideoverGlyphPicker, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
-import { resolveComponent } from 'vue'
 import type { Codec, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
-import { wsKey } from '@/utils/fetch-keys'
-import { useWorkspaceBootstrap } from '@/composables/use-workspace-bootstrap'
 
 const route = useRoute()
 const router = useRouter()
