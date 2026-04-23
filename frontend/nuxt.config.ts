@@ -80,7 +80,8 @@ export default defineNuxtConfig({
         '@codemirror/search',
         '@codemirror/language',
         '@lezer/highlight',
-        'reka-ui'
+        'reka-ui',
+        '@internationalized/date'
       ]
     }
   },
