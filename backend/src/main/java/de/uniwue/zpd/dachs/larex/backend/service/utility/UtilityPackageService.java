@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import de.uniwue.zpd.dachs.larex.backend.dto.BoardThemeDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DictionaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.KeyboardItemDto;
@@ -12,7 +11,6 @@ import de.uniwue.zpd.dachs.larex.backend.dto.NormalizationProfileDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ValidationRulesetDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.VirtualKeyboardDto;
-import de.uniwue.zpd.dachs.larex.backend.entity.BoardTheme;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionaryEntry;
@@ -22,7 +20,6 @@ import de.uniwue.zpd.dachs.larex.backend.entity.TagSet;
 import de.uniwue.zpd.dachs.larex.backend.entity.ValidationRuleset;
 import de.uniwue.zpd.dachs.larex.backend.entity.VirtualKeyboard;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
-import de.uniwue.zpd.dachs.larex.backend.repository.board.BoardThemeRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryEntryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
@@ -32,7 +29,6 @@ import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationP
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
-import de.uniwue.zpd.dachs.larex.backend.service.board.BoardThemeService;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
 import de.uniwue.zpd.dachs.larex.backend.service.dictionary.DictionaryService;
 import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService;
@@ -77,7 +73,6 @@ public class UtilityPackageService {
     private final NormalizationProfileRepository normalizationProfileRepository;
     private final ValidationRulesetRepository validationRulesetRepository;
     private final VirtualKeyboardRepository virtualKeyboardRepository;
-    private final BoardThemeRepository boardThemeRepository;
     private final CodecService codecService;
     private final DictionaryService dictionaryService;
     private final LabelSetService labelSetService;
@@ -85,7 +80,6 @@ public class UtilityPackageService {
     private final NormalizationProfileService normalizationProfileService;
     private final ValidationRulesetService validationRulesetService;
     private final VirtualKeyboardService virtualKeyboardService;
-    private final BoardThemeService boardThemeService;
     private final ObjectMapper objectMapper;
 
     public UtilityPackageService(WorkspaceAccessService workspaceAccessService,
@@ -98,7 +92,6 @@ public class UtilityPackageService {
                                  NormalizationProfileRepository normalizationProfileRepository,
                                  ValidationRulesetRepository validationRulesetRepository,
                                  VirtualKeyboardRepository virtualKeyboardRepository,
-                                 BoardThemeRepository boardThemeRepository,
                                  CodecService codecService,
                                  DictionaryService dictionaryService,
                                  LabelSetService labelSetService,
@@ -106,7 +99,6 @@ public class UtilityPackageService {
                                  NormalizationProfileService normalizationProfileService,
                                  ValidationRulesetService validationRulesetService,
                                  VirtualKeyboardService virtualKeyboardService,
-                                 BoardThemeService boardThemeService,
                                  ObjectMapper objectMapper) {
         this.workspaceAccessService = workspaceAccessService;
         this.workspaceQueryService = workspaceQueryService;
@@ -118,7 +110,6 @@ public class UtilityPackageService {
         this.normalizationProfileRepository = normalizationProfileRepository;
         this.validationRulesetRepository = validationRulesetRepository;
         this.virtualKeyboardRepository = virtualKeyboardRepository;
-        this.boardThemeRepository = boardThemeRepository;
         this.codecService = codecService;
         this.dictionaryService = dictionaryService;
         this.labelSetService = labelSetService;
@@ -126,7 +117,6 @@ public class UtilityPackageService {
         this.normalizationProfileService = normalizationProfileService;
         this.validationRulesetService = validationRulesetService;
         this.virtualKeyboardService = virtualKeyboardService;
-        this.boardThemeService = boardThemeService;
         this.objectMapper = objectMapper;
     }
 
@@ -228,17 +218,6 @@ public class UtilityPackageService {
                     .forEach(resources::add);
         }
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.BOARD_THEME)) {
-            Collection<BoardTheme> themes = includeAll
-                    ? boardThemeRepository.findByWorkspaceId(workspaceId)
-                    : boardThemeRepository.findByWorkspaceId(workspaceId).stream()
-                    .filter(b -> selectors.getOrDefault(UtilityPackageDto.UtilityType.BOARD_THEME, Set.of()).contains(b.getId()))
-                    .toList();
-            themes.stream()
-                    .map(this::toBoardThemeResource)
-                    .forEach(resources::add);
-        }
-
         resources.sort(Comparator
                 .comparing((UtilityPackageDto.UtilityResource r) -> r.type().name())
                 .thenComparing(UtilityPackageDto.UtilityResource::name, Comparator.nullsLast(String::compareToIgnoreCase)));
@@ -337,7 +316,6 @@ public class UtilityPackageService {
                 case NORMALIZATION_PROFILE -> importNormalizationProfile(workspaceId, userId, resource);
                 case VALIDATION_RULESET -> importValidationRuleset(workspaceId, userId, resource);
                 case VIRTUAL_KEYBOARD -> importVirtualKeyboard(workspaceId, userId, resource);
-                case BOARD_THEME -> importBoardTheme(workspaceId, userId, resource);
             };
             resources.add(imported);
             if (resource.sourceId() != null && imported.targetId() != null) {
@@ -658,45 +636,6 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importBoardTheme(String workspaceId,
-                                                                String userId,
-                                                                UtilityPackageDto.UtilityResource resource) {
-        BoardThemeDto dto = objectMapper.convertValue(sanitizeBoardThemePayload(resource.payload()), BoardThemeDto.class);
-        String sourceName = normalizeName(dto.getName(), resource.name(), "Imported Theme");
-
-        Optional<BoardTheme> existingOpt = boardThemeRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
-        if (existingOpt.isPresent() && payloadEquals(boardThemePayload(existingOpt.get()), boardThemePayloadFromDto(dto, sourceName))) {
-            BoardTheme existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.BOARD_THEME,
-                    resource.sourceId(),
-                    existing.getId(),
-                    sourceName,
-                    existing.getName(),
-                    "REUSED",
-                    "Identical board theme already exists"
-            );
-        }
-
-        String targetName = existingOpt.isPresent()
-                ? uniqueName(sourceName, name -> boardThemeRepository.findByNameAndWorkspaceId(name, workspaceId).isPresent())
-                : sourceName;
-
-        dto.setId(null);
-        dto.setName(targetName);
-
-        BoardThemeDto created = boardThemeService.createTheme(userId, workspaceId, dto);
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.BOARD_THEME,
-                resource.sourceId(),
-                created.getId(),
-                sourceName,
-                created.getName(),
-                existingOpt.isPresent() ? "RENAMED_IMPORTED" : "IMPORTED",
-                existingOpt.isPresent() ? "Name conflict with different content" : "Created"
-        );
-    }
-
     private UtilityPackageDto.UtilityPackage parsePackageOrLegacy(String workspaceId, JsonNode root) {
         if (root != null && root.has("resources")) {
             return objectMapper.convertValue(root, UtilityPackageDto.UtilityPackage.class);
@@ -752,9 +691,6 @@ public class UtilityPackageService {
         if (root.has("rules") && root.path("rules").isArray()) {
             return UtilityPackageDto.UtilityType.VALIDATION_RULESET;
         }
-        if (root.has("bgClass") || root.has("keyBgClass")) {
-            return UtilityPackageDto.UtilityType.BOARD_THEME;
-        }
         return null;
     }
 
@@ -763,7 +699,7 @@ public class UtilityPackageService {
             return null;
         }
         return switch (type) {
-            case CODEC, DICTIONARY, NORMALIZATION_PROFILE, VALIDATION_RULESET, VIRTUAL_KEYBOARD, BOARD_THEME -> root.path("name").asText(null);
+            case CODEC, DICTIONARY, NORMALIZATION_PROFILE, VALIDATION_RULESET, VIRTUAL_KEYBOARD -> root.path("name").asText(null);
             case LABEL_SET, TAG_SET -> root.path("meta").path("name").asText(null);
         };
     }
@@ -777,7 +713,6 @@ public class UtilityPackageService {
             case NORMALIZATION_PROFILE -> sanitizeNormalizationProfilePayload(root);
             case VALIDATION_RULESET -> sanitizeValidationRulesetPayload(root);
             case VIRTUAL_KEYBOARD -> sanitizeVirtualKeyboardPayload(root);
-            case BOARD_THEME -> sanitizeBoardThemePayload(root);
         };
     }
 
@@ -855,17 +790,6 @@ public class UtilityPackageService {
                 null,
                 null,
                 virtualKeyboardPayload(keyboard)
-        );
-    }
-
-    private UtilityPackageDto.UtilityResource toBoardThemeResource(BoardTheme boardTheme) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.BOARD_THEME,
-                boardTheme.getId(),
-                boardTheme.getName(),
-                null,
-                null,
-                boardThemePayload(boardTheme)
         );
     }
 
@@ -1148,9 +1072,6 @@ public class UtilityPackageService {
         node.put("description", dto.getDescription() == null ? "" : dto.getDescription());
         node.put("cols", dto.getCols());
         node.put("rows", dto.getRows());
-        if (dto.getThemeId() != null) {
-            node.put("themeId", dto.getThemeId());
-        }
 
         ArrayNode tags = objectMapper.createArrayNode();
         if (dto.getTags() != null) {
@@ -1194,25 +1115,6 @@ public class UtilityPackageService {
                     });
         }
         node.set("items", items);
-        return node;
-    }
-
-    private JsonNode boardThemePayload(BoardTheme theme) {
-        return boardThemePayloadFromDto(new BoardThemeDto(theme), theme.getName());
-    }
-
-    private JsonNode boardThemePayloadFromDto(BoardThemeDto dto, String nameOverride) {
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("name", normalizeName(nameOverride, dto.getName(), "Theme"));
-        putNullable(node, "bgClass", dto.getBgClass());
-        putNullable(node, "borderClass", dto.getBorderClass());
-        putNullable(node, "gridLineClass", dto.getGridLineClass());
-        putNullable(node, "keyBgClass", dto.getKeyBgClass());
-        putNullable(node, "keyTextClass", dto.getKeyTextClass());
-        putNullable(node, "previewClass", dto.getPreviewClass());
-        putNullable(node, "bgStyle", dto.getBgStyle());
-        putNullable(node, "keyBgStyle", dto.getKeyBgStyle());
-        putNullable(node, "keyTextStyle", dto.getKeyTextStyle());
         return node;
     }
 
@@ -1322,32 +1224,9 @@ public class UtilityPackageService {
         node.put("description", root.path("description").asText(""));
         node.put("cols", root.path("cols").asInt(0));
         node.put("rows", root.path("rows").asInt(0));
-        if (root.has("themeId")) {
-            node.put("themeId", root.path("themeId").isNull() ? null : root.path("themeId").asText());
-        }
         node.set("tags", root.path("tags").isArray() ? root.path("tags").deepCopy() : objectMapper.createArrayNode());
         node.set("items", root.path("items").isArray() ? root.path("items").deepCopy() : objectMapper.createArrayNode());
         return node;
-    }
-
-    private ObjectNode sanitizeBoardThemePayload(JsonNode payload) {
-        ObjectNode root = ensureObject(payload);
-        ObjectNode node = objectMapper.createObjectNode();
-        node.put("name", root.path("name").asText(""));
-        putNullable(node, "bgClass", getNullableText(root, "bgClass"));
-        putNullable(node, "borderClass", getNullableText(root, "borderClass"));
-        putNullable(node, "gridLineClass", getNullableText(root, "gridLineClass"));
-        putNullable(node, "keyBgClass", getNullableText(root, "keyBgClass"));
-        putNullable(node, "keyTextClass", getNullableText(root, "keyTextClass"));
-        putNullable(node, "previewClass", getNullableText(root, "previewClass"));
-        putNullable(node, "bgStyle", getNullableText(root, "bgStyle"));
-        putNullable(node, "keyBgStyle", getNullableText(root, "keyBgStyle"));
-        putNullable(node, "keyTextStyle", getNullableText(root, "keyTextStyle"));
-        return node;
-    }
-
-    private String getNullableText(ObjectNode node, String field) {
-        return node.has(field) && !node.path(field).isNull() ? node.path(field).asText() : null;
     }
 
     private Map<UtilityPackageDto.UtilityType, Set<String>> parseSelectors(List<UtilityPackageDto.ResourceSelector> selectors) {

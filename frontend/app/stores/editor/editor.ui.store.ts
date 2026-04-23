@@ -112,6 +112,10 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     return Math.max(0, Math.min(1, parsed))
   }
 
+  function coerceVirtualKeyboardMode(value: unknown): VirtualKeyboardMode {
+    return value === 'floating' || value === 'slideover' ? 'floating' : 'off'
+  }
+
   async function loadPreferences() {
     if (import.meta.server || preferencesLoaded.value) return
 
@@ -133,7 +137,14 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.moveWithChildren !== null) globalSettings.value.moveWithChildren = prefs.moveWithChildren
     if (prefs.cutMinAreaThreshold !== null) globalSettings.value.cutMinAreaThreshold = prefs.cutMinAreaThreshold
     if (prefs.defaultLineWidth) globalSettings.value.defaultLineWidth = prefs.defaultLineWidth as LineWidthPreset
-    if (prefs.virtualKeyboardMode) virtualKeyboardMode.value = prefs.virtualKeyboardMode
+    if (prefs.virtualKeyboardMode !== null) {
+      const normalizedVirtualKeyboardMode = coerceVirtualKeyboardMode(prefs.virtualKeyboardMode)
+      virtualKeyboardMode.value = normalizedVirtualKeyboardMode
+
+      if (prefs.virtualKeyboardMode !== normalizedVirtualKeyboardMode) {
+        editorPreferences.updatePreference('virtualKeyboardMode', normalizedVirtualKeyboardMode)
+      }
+    }
     if (prefs.selectedVirtualKeyboardId !== null) selectedVirtualKeyboardId.value = prefs.selectedVirtualKeyboardId
     if (prefs.textViewFontSize !== null) textViewFontSize.value = prefs.textViewFontSize
     if (prefs.textViewPadding !== null) textViewPadding.value = prefs.textViewPadding
@@ -484,8 +495,9 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   }
 
   function setVirtualKeyboardMode(mode: VirtualKeyboardMode) {
-    virtualKeyboardMode.value = mode
-    editorPreferences.updatePreference('virtualKeyboardMode', mode)
+    const normalizedMode = coerceVirtualKeyboardMode(mode)
+    virtualKeyboardMode.value = normalizedMode
+    editorPreferences.updatePreference('virtualKeyboardMode', normalizedMode)
   }
 
   function setConfidenceHeatmapEnabled(enabled: boolean) {

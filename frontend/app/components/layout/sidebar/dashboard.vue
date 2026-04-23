@@ -135,7 +135,7 @@ const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaul
       <UDashboardSearchButton
         :collapsed="collapsed"
         class="bg-transparent ring-default"
-        :kbds="['meta', '/']"
+        :kbds="['meta', 'k']"
         data-tour="search-button"
       />
 

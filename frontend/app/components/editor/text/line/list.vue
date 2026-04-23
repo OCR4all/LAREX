@@ -104,7 +104,7 @@ const reorderEnabled = computed(() => {
 })
 
 const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
-const { keyboards, selectedLayout, selectedTheme, selectedKeyboardId } = useVirtualKeyboards()
+const { keyboards, selectedLayout, selectedKeyboardId } = useVirtualKeyboards()
 const selectedWorkspaceId = computed(() => workspaceStore.selectedWorkspaceId as string | null)
 
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
@@ -1407,7 +1407,6 @@ const sectionMenuItems = computed(() => {
     <VirtualKeyboard
       v-if="virtualKeyboardMode === 'floating' && selectedLayout"
       :layout="selectedLayout"
-      :theme="selectedTheme"
       :layouts="keyboards ?? []"
       @update:layout-id="selectedKeyboardId = $event"
     />

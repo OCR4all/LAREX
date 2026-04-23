@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import type { KeyboardItem, BoardTheme } from '@/types/virtual-keyboard'
+import type { KeyboardItem } from '@/types/virtual-keyboard'
+import type { VirtualKeyboardPalette } from '@/composables/use-virtual-keyboard-palette'
 
 const props = defineProps<{
   item: KeyboardItem
   isShiftPressed: boolean
   isPressed: boolean
   isEchoing: boolean
-  theme: BoardTheme
+  palette: VirtualKeyboardPalette
   cellSize: number
 }>()
 
@@ -17,15 +18,15 @@ const isShiftKey = computed(() => props.item.char === 'Shift' || props.item.desc
   <div
     class="keycap w-full h-full flex items-center justify-center relative overflow-hidden cursor-pointer select-none"
     :class="[
-      item.colorClass || theme.keyBgClass,
-      item.textClass || theme.keyTextClass,
+      item.colorClass || palette.keyBgClass,
+      item.textClass || palette.keyTextClass,
       (isPressed || isEchoing) ? 'is-pressed' : '',
       isEchoing ? 'is-echoing ring-2 ring-primary-400' : '',
       (isShiftKey && isShiftPressed) ? 'shift-active' : ''
     ]"
     :style="{
-      background: theme.keyBgStyle,
-      color: theme.keyTextStyle
+      background: palette.keyBgStyle,
+      color: palette.keyTextStyle
     }"
   >
     <div class="absolute inset-1 keycap-surface" />

@@ -9,7 +9,6 @@ export function useVirtualKeyboardBuilder(initialLayout: KeyboardLayout) {
   const layoutName = ref(initialLayout.name || '')
   const layoutDesc = ref(initialLayout.description || '')
   const tags = ref<string[]>([...(initialLayout.tags ?? [])])
-  const themeId = ref<string | undefined>(initialLayout.themeId)
 
   const currentLayout = computed(() => ({
     ...initialLayout,
@@ -19,7 +18,6 @@ export function useVirtualKeyboardBuilder(initialLayout: KeyboardLayout) {
     tags: tags.value.map(t => t.trim()).filter(t => t),
     cols: gridCols.value,
     rows: gridRows.value,
-    themeId: themeId.value,
     items: items.value
   }))
 
@@ -43,17 +41,19 @@ export function useVirtualKeyboardBuilder(initialLayout: KeyboardLayout) {
     }
   }
 
-  const updateFromImport = (json: any) => {
-    if (json.cols && json.rows && json.items) {
-      if (json.id) layoutId.value = json.id
-      gridCols.value = json.cols
-      gridRows.value = json.rows
-      items.value = json.items
-      layoutName.value = json.name || ''
-      layoutDesc.value = json.description || ''
-      tags.value = Array.isArray(json.tags) ? json.tags : []
-      themeId.value = json.themeId
-    }
+  const updateFromImport = (json: unknown) => {
+    if (!json || typeof json !== 'object') return
+
+    const payload = json as Partial<KeyboardLayout> & { items?: KeyboardItem[] }
+    if (typeof payload.cols !== 'number' || typeof payload.rows !== 'number' || !Array.isArray(payload.items)) return
+
+    if (typeof payload.id === 'string' && payload.id) layoutId.value = payload.id
+    gridCols.value = payload.cols
+    gridRows.value = payload.rows
+    items.value = payload.items
+    layoutName.value = payload.name || ''
+    layoutDesc.value = payload.description || ''
+    tags.value = Array.isArray(payload.tags) ? payload.tags : []
   }
 
   return {
@@ -64,7 +64,6 @@ export function useVirtualKeyboardBuilder(initialLayout: KeyboardLayout) {
     layoutName,
     layoutDesc,
     tags,
-    themeId,
     currentLayout,
     changeGridCols,
     changeGridRows,

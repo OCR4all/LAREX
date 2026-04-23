@@ -13,7 +13,6 @@ public class VirtualKeyboardDto {
     private List<String> tags = new ArrayList<>();
     private int cols;
     private int rows;
-    private String themeId;
     private List<KeyboardItemDto> items = new ArrayList<>();
     private AuthorizationCapabilitiesDto.ResourceCapabilities capabilities;
 
@@ -29,7 +28,6 @@ public class VirtualKeyboardDto {
         }
         this.cols = keyboard.getCols();
         this.rows = keyboard.getRows();
-        this.themeId = keyboard.getThemeId();
         if (keyboard.getItems() != null) {
             this.items = keyboard.getItems().stream()
                     .map(KeyboardItemDto::new)
@@ -84,14 +82,6 @@ public class VirtualKeyboardDto {
 
     public void setRows(int rows) {
         this.rows = rows;
-    }
-
-    public String getThemeId() {
-        return themeId;
-    }
-
-    public void setThemeId(String themeId) {
-        this.themeId = themeId;
     }
 
     public List<KeyboardItemDto> getItems() {

@@ -152,7 +152,6 @@ public class VirtualKeyboardService {
         keyboard.getTags().addAll(sanitizedTags);
         keyboard.setCols(dto.getCols());
         keyboard.setRows(dto.getRows());
-        keyboard.setThemeId(dto.getThemeId());
 
         if (dto.getItems() != null) {
             for (KeyboardItemDto itemDto : dto.getItems()) {

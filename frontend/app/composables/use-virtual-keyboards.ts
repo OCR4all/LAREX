@@ -1,15 +1,5 @@
-import type { KeyboardLayout, BoardTheme } from '@/types/virtual-keyboard'
+import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import { wsKey } from '@/utils/fetch-keys'
-
-const defaultTheme: BoardTheme = {
-  name: 'Dark',
-  bgClass: 'bg-neutral-900',
-  borderClass: 'border-neutral-700',
-  gridLineClass: 'border-neutral-800',
-  keyBgClass: 'bg-neutral-800',
-  keyTextClass: 'text-neutral-200',
-  previewClass: 'bg-neutral-900'
-}
 
 export function useVirtualKeyboards() {
   const workspace = useWorkspaceStore()
@@ -17,16 +7,10 @@ export function useVirtualKeyboards() {
 
   const selectedWorkspaceId = computed(() => workspace.selectedWorkspaceId as string)
   const keyboardsKey = computed(() => wsKey(selectedWorkspaceId.value, 'virtual-keyboards', 'list'))
-  const themesKey = computed(() => wsKey(selectedWorkspaceId.value, 'board-themes', 'list'))
 
   const { data: keyboards } = useFetch<KeyboardLayout[]>(
     () => `/api/workspaces/${selectedWorkspaceId.value}/virtual-keyboards`,
     { key: keyboardsKey, default: () => [] }
-  )
-
-  const { data: themes } = useFetch<BoardTheme[]>(
-    () => `/api/workspaces/${selectedWorkspaceId.value}/board-themes`,
-    { key: themesKey, default: () => [] }
   )
 
   const selectedKeyboardId = computed({
@@ -46,21 +30,10 @@ export function useVirtualKeyboards() {
     return list[0] ?? null
   })
 
-  const selectedTheme = computed(() => {
-    const themeId = selectedLayout.value?.themeId
-    if (themeId) {
-      const found = (themes.value ?? []).find(t => t.id === themeId)
-      if (found) return found
-    }
-    return (themes.value ?? [])[0] ?? defaultTheme
-  })
-
   return {
     keyboards,
-    themes,
     selectedKeyboardId,
-    selectedLayout,
-    selectedTheme
+    selectedLayout
   }
 }
 

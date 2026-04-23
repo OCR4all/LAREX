@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { KeyboardLayout, BoardTheme, KeyboardItem } from '@/types/virtual-keyboard'
+import type { KeyboardLayout, KeyboardItem } from '@/types/virtual-keyboard'
 
 const props = defineProps<{
   layout: KeyboardLayout
-  theme: BoardTheme
   layouts?: KeyboardLayout[]
 }>()
 
@@ -14,6 +13,7 @@ const cellSize = ref(50)
 const activeInput = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
 const dismissedInput = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
 const keyboardRootRef = ref<HTMLElement | null>(null)
+const palette = useVirtualKeyboardPalette()
 
 const isShiftPressed = ref(false)
 const pressedKeys = ref(new Set<number>())
@@ -87,20 +87,7 @@ onUnmounted(() => {
   window.removeEventListener('focusout', onBlur)
 })
 
-const getGridLineColor = (bgColor: string | undefined) => {
-  if (!bgColor || !bgColor.startsWith('#')) return undefined
-  const hex = bgColor.replace('#', '')
-  const normalizedHex = hex.length === 3
-    ? `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
-    : hex
-  const r = parseInt(normalizedHex.slice(0, 2), 16)
-  const g = parseInt(normalizedHex.slice(2, 4), 16)
-  const b = parseInt(normalizedHex.slice(4, 6), 16)
-  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000
-  return yiq >= 128 ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.1)'
-}
-
-const gridLineColor = computed(() => getGridLineColor(props.theme.bgStyle))
+const gridLineColor = computed(() => getVirtualKeyboardGridLineColor(palette.value.boardStyle))
 
 defineExpose({ open })
 </script>
@@ -141,8 +128,8 @@ defineExpose({ open })
           <div class="flex-1 overflow-auto p-6 flex justify-center bg-default">
             <div
               class="relative font-junicode rounded-sm p-3 shadow-[0_6px_20px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]"
-              :class="[theme.bgClass]"
-              :style="{ background: theme.bgStyle }"
+              :class="[palette.boardClass]"
+              :style="{ background: palette.boardStyle }"
             >
               <div
                 class="relative"
@@ -163,7 +150,7 @@ defineExpose({ open })
                     v-for="n in (layout.cols * layout.rows)"
                     :key="n"
                     class="border"
-                    :class="theme.gridLineClass"
+                    :class="palette.gridLineClass"
                     :style="{ borderColor: gridLineColor }"
                   />
                 </div>
@@ -186,7 +173,7 @@ defineExpose({ open })
                     :is-shift-pressed="isShiftPressed"
                     :is-pressed="pressedKeys.has(item.id)"
                     :is-echoing="false"
-                    :theme="theme"
+                    :palette="palette"
                     :cell-size="cellSize"
                   />
                 </div>

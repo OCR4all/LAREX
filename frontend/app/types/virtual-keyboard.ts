@@ -20,23 +20,8 @@ export interface KeyboardLayout {
   tags?: string[]
   cols: number
   rows: number
-  themeId?: string
   items: KeyboardItem[]
   capabilities?: ResourceCapabilities
-}
-
-export interface BoardTheme {
-  id?: string
-  name: string
-  bgClass: string
-  borderClass: string
-  gridLineClass: string
-  keyBgClass: string
-  keyTextClass: string
-  previewClass: string
-  bgStyle?: string
-  keyBgStyle?: string
-  keyTextStyle?: string
 }
 
 export interface Glyph {

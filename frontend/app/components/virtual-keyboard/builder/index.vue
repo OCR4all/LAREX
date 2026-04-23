@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { KeyboardItem, BoardTheme } from '~/types/virtual-keyboard'
+import type { KeyboardItem } from '~/types/virtual-keyboard'
 import { LazyVirtualKeyboardSlideoverEditKey } from '#components'
 
 const props = defineProps<{
   state: VirtualKeyboardBuilderState
-  theme: BoardTheme
 }>()
 
 const CELL_SIZE = 60
+const palette = useVirtualKeyboardPalette()
 
 const { gridCols, gridRows, items } = props.state
 
@@ -116,7 +116,7 @@ const onDragEnd = () => {
   window.removeEventListener('mouseup', onDragEnd)
 }
 
-const gridLineColor = computed(() => getReadableOverlayColor(props.theme.bgStyle))
+const gridLineColor = computed(() => getVirtualKeyboardGridLineColor(palette.value.boardStyle))
 </script>
 
 <template>
@@ -125,15 +125,15 @@ const gridLineColor = computed(() => getReadableOverlayColor(props.theme.bgStyle
       ref="gridRef"
       data-tour="vk-builder-grid"
       class="relative rounded-sm border-[3px] shadow-2xl box-content"
-      :class="[theme.bgClass, theme.borderClass]"
-      :style="{ width: (gridCols * cellSize) + 'px', height: (gridRows * cellSize) + 'px', background: theme.bgStyle }"
+      :class="[palette.boardClass, palette.boardBorderClass]"
+      :style="{ width: (gridCols * cellSize) + 'px', height: (gridRows * cellSize) + 'px', background: palette.boardStyle }"
     >
       <div class="absolute inset-0 grid" :style="{ gridTemplateColumns: `repeat(${gridCols}, 1fr)`, gridTemplateRows: `repeat(${gridRows}, 1fr)` }">
         <div
           v-for="i in (gridCols * gridRows)"
           :key="i"
           class="border transition-colors cursor-pointer hover:bg-white/5"
-          :class="theme.gridLineClass"
+          :class="palette.gridLineClass"
           :style="{ borderColor: gridLineColor }"
           @click="handleGridClick(i - 1)"
         />
@@ -169,7 +169,7 @@ const gridLineColor = computed(() => getReadableOverlayColor(props.theme.bgStyle
           :is-shift-pressed="false"
           :is-pressed="false"
           :is-echoing="false"
-          :theme="theme"
+          :palette="palette"
           :cell-size="cellSize"
         />
       </div>

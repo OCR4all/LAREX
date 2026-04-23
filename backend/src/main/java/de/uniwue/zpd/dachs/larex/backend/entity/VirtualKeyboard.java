@@ -36,9 +36,6 @@ public class VirtualKeyboard {
 
     private int rows;
 
-    @Column(name = "theme_id")
-    private String themeId;
-
     @ElementCollection
     @CollectionTable(name = "virtual_keyboard_tags", joinColumns = @JoinColumn(name = "virtual_keyboard_id"))
     @Column(name = "tag", nullable = false)
@@ -104,14 +101,6 @@ public class VirtualKeyboard {
 
     public void setRows(int rows) {
         this.rows = rows;
-    }
-
-    public String getThemeId() {
-        return themeId;
-    }
-
-    public void setThemeId(String themeId) {
-        this.themeId = themeId;
     }
 
     public List<String> getTags() {

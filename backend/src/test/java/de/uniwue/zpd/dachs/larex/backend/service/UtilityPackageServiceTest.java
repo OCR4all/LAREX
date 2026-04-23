@@ -7,7 +7,6 @@ import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryEntryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
-import de.uniwue.zpd.dachs.larex.backend.repository.board.BoardThemeRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.codec.CodecRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.keyboard.VirtualKeyboardRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.label.LabelSetRepository;
@@ -15,7 +14,6 @@ import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationP
 import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.WorkspaceQueryService;
-import de.uniwue.zpd.dachs.larex.backend.service.board.BoardThemeService;
 import de.uniwue.zpd.dachs.larex.backend.service.codec.CodecService;
 import de.uniwue.zpd.dachs.larex.backend.service.dictionary.DictionaryService;
 import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService;
@@ -73,9 +71,6 @@ class UtilityPackageServiceTest {
     private VirtualKeyboardRepository virtualKeyboardRepository;
 
     @Mock
-    private BoardThemeRepository boardThemeRepository;
-
-    @Mock
     private CodecService codecService;
     @Mock
     private DictionaryService dictionaryService;
@@ -92,9 +87,6 @@ class UtilityPackageServiceTest {
 
     @Mock
     private VirtualKeyboardService virtualKeyboardService;
-
-    @Mock
-    private BoardThemeService boardThemeService;
 
     private UtilityPackageService service;
 
@@ -113,7 +105,6 @@ class UtilityPackageServiceTest {
                 normalizationProfileRepository,
                 validationRulesetRepository,
                 virtualKeyboardRepository,
-                boardThemeRepository,
                 codecService,
                 dictionaryService,
                 labelSetService,
@@ -121,7 +112,6 @@ class UtilityPackageServiceTest {
                 normalizationProfileService,
                 validationRulesetService,
                 virtualKeyboardService,
-                boardThemeService,
                 objectMapper
         );
     }

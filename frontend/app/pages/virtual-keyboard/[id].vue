@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { KeyboardLayout, BoardTheme } from '@/types/virtual-keyboard'
+import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
@@ -19,7 +19,6 @@ const isNew = id === 'new'
 
 const keyboardsKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', 'list'))
 const keyboardKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', id))
-const themesKey = computed(() => wsKey(workspaceId.value, 'board-themes', 'list'))
 const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
 
 const breadcrumbItems = computed(() => [
@@ -71,38 +70,6 @@ const canDeleteKeyboard = computed(() => !isNew && allow(keyboardCapabilities.va
 
 const builderState = useVirtualKeyboardBuilder(initialLayout)
 
-const { data: themes } = await useFetch<BoardTheme[]>(() => `/api/workspaces/${selectedWorkspace.value}/board-themes`, {
-  key: themesKey,
-  default: () => []
-})
-const defaultTheme: BoardTheme = {
-  name: 'Dark',
-  bgClass: 'bg-neutral-900',
-  borderClass: 'border-neutral-700',
-  gridLineClass: 'border-neutral-800',
-  keyBgClass: 'bg-neutral-800',
-  keyTextClass: 'text-neutral-200',
-  previewClass: 'bg-neutral-900'
-}
-const boardThemes = computed({
-  get: () => themes.value ?? [],
-  set: (val) => { themes.value = val }
-})
-
-const resolveTheme = (themeId?: string) => {
-  if (themeId) {
-    const found = boardThemes.value.find(t => t.id === themeId)
-    if (found) return found
-  }
-  return boardThemes.value[0] || defaultTheme
-}
-
-const currentTheme = ref<BoardTheme>(resolveTheme(initialLayout.themeId))
-
-watch(currentTheme, (theme) => {
-  builderState.themeId.value = theme.id
-})
-
 const activeTab = ref<'builder' | 'preview'>('builder')
 
 const tabs = [
@@ -148,10 +115,7 @@ const handleSave = async () => {
 
 const handleExportLayout = () => {
   if (isNew) {
-    const data = {
-      ...builderState.currentLayout.value,
-      boardTheme: currentTheme.value.name
-    }
+    const data = builderState.currentLayout.value
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -372,17 +336,12 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
         <VirtualKeyboardBuilderSidebar
           v-if="activeTab === 'builder'"
           :state="builderState"
-          :themes="boardThemes"
-          :active-theme="currentTheme"
-          @update:active-theme="currentTheme = $event"
-          @update:themes="boardThemes = $event"
         />
 
         <section class="flex-1 bg-neutral-50/70 dark:bg-neutral-900 flex flex-col relative">
           <VirtualKeyboardBuilder
             v-if="activeTab === 'builder'"
             :state="builderState"
-            :theme="currentTheme"
           />
 
           <div v-else-if="activeTab === 'preview'" class="flex-1 p-4">
@@ -396,7 +355,6 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 
             <VirtualKeyboard
               :layout="builderState.currentLayout.value"
-              :theme="currentTheme"
               :layouts="availableLayouts"
               @update:layout-id="builderState.layoutId.value = $event"
             />

@@ -432,7 +432,7 @@ const tours: OnboardingTourDefinition[] = [
         element: '[data-tour="vk-builder-sidebar"]',
         popover: {
           title: 'Layout Settings',
-          description: 'Set name, tags, theme, and grid size for this layout.',
+          description: 'Set name, tags, and grid size for this layout.',
           side: 'right',
           align: 'start'
         }

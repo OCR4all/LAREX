@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import type { KeyboardLayout, BoardTheme, KeyboardItem } from '@/types/virtual-keyboard'
+import type { KeyboardLayout, KeyboardItem } from '@/types/virtual-keyboard'
 
 const props = defineProps<{
   layout: KeyboardLayout
-  theme: BoardTheme
   layouts?: KeyboardLayout[]
 }>()
 
@@ -25,6 +24,7 @@ const echoingKeys = ref(new Set<number>())
 const showInfo = ref(false)
 
 const keyboardRootRef = ref<HTMLElement | null>(null)
+const palette = useVirtualKeyboardPalette()
 
 const drag = reactive({ active: false, startX: 0, startY: 0, initialWinX: 0, initialWinY: 0 })
 const resize = reactive({ active: false, startX: 0, startWidth: 0 })
@@ -207,20 +207,7 @@ const toggleMinimized = () => {
   minimized.value = !minimized.value
 }
 
-const getGridLineColor = (bgColor: string | undefined) => {
-  if (!bgColor || !bgColor.startsWith('#')) return undefined
-  const hex = bgColor.replace('#', '')
-  const normalizedHex = hex.length === 3
-    ? `${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`
-    : hex
-  const r = parseInt(normalizedHex.slice(0, 2), 16)
-  const g = parseInt(normalizedHex.slice(2, 4), 16)
-  const b = parseInt(normalizedHex.slice(4, 6), 16)
-  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000
-  return yiq >= 128 ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.1)'
-}
-
-const gridLineColor = computed(() => getGridLineColor(props.theme.bgStyle))
+const gridLineColor = computed(() => getVirtualKeyboardGridLineColor(palette.value.boardStyle))
 
 defineExpose({ visible })
 </script>
@@ -317,8 +304,8 @@ defineExpose({ visible })
 
         <div
           class="relative w-full transition-[height] duration-200 ease-out overflow-hidden rounded-b-lg"
-          :class="[theme.bgClass, theme.borderClass]"
-          :style="{ height: minimized ? cellSize + 'px' : (layout.rows * cellSize) + 'px', background: theme.bgStyle }"
+          :class="[palette.boardClass, palette.boardBorderClass]"
+          :style="{ height: minimized ? cellSize + 'px' : (layout.rows * cellSize) + 'px', background: palette.boardStyle }"
         >
           <div
             class="relative w-full transition-transform duration-200 ease-out"
@@ -332,7 +319,7 @@ defineExpose({ visible })
                 v-for="n in (layout.cols * layout.rows)"
                 :key="n"
                 class="border"
-                :class="theme.gridLineClass"
+                :class="palette.gridLineClass"
                 :style="{ borderColor: gridLineColor }"
               />
             </div>
@@ -355,7 +342,7 @@ defineExpose({ visible })
                 :is-shift-pressed="isShiftPressed"
                 :is-pressed="pressedKeys.has(item.id)"
                 :is-echoing="echoingKeys.has(item.id)"
-                :theme="theme"
+                :palette="palette"
                 :cell-size="cellSize"
               />
             </div>

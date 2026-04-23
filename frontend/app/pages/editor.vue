@@ -91,7 +91,7 @@ const RIGHT_RAIL_WIDTH_PX = 48
 const MIN_LEFT_WIDTH_PX = 250
 const MAX_LEFT_WIDTH_PX = 500
 const MIN_RIGHT_WIDTH_PX = 250
-const MAX_RIGHT_WIDTH_PX = 500
+const MAX_RIGHT_WIDTH_PX = 800
 
 type ResizeSide = 'left' | 'right'
 const resizingSide = ref<ResizeSide | null>(null)

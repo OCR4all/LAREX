@@ -17,8 +17,7 @@ public class UtilityPackageDto {
         TAG_SET,
         NORMALIZATION_PROFILE,
         VALIDATION_RULESET,
-        VIRTUAL_KEYBOARD,
-        BOARD_THEME
+        VIRTUAL_KEYBOARD
     }
 
     public record ResourceSelector(
