@@ -18,6 +18,7 @@ import type { KeyboardItem, KeyboardLayout } from '@/types/virtual-keyboard'
 import type { LabelDefinition } from '@/types/label-set'
 import { wsKey } from '@/utils/fetch-keys'
 import { findTextLineRecursive } from '@/utils/editor/pcgts-editor-primitives'
+import { collectRegionIdsInReadingOrder } from '@/utils/editor/textline-navigation'
 import { tokenizeForDictionary } from '../shared/text-highlighting'
 import { computeTextLineReadingDirectionMap } from './reading-direction'
 import {
@@ -961,11 +962,24 @@ const displayTextlines = computed(() => {
   return items
 })
 
+const readingOrderRegionRank = computed(() => {
+  void uiStore.readingOrderVersion
+
+  const canvasId = effectiveCanvasId.value
+  const readingOrder = canvasId
+    ? getEditorSession(canvasId)?.document.value?.page?.readingOrder
+    : undefined
+  const orderedRegionIds = collectRegionIdsInReadingOrder(readingOrder)
+
+  return new Map(orderedRegionIds.map((id, index) => [id, index]))
+})
+
 const regionMeta = computed(() => {
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const polygons = runtime?.polygons ?? []
   const regionPolygons = polygons.filter(p => p.type === PolygonType.REGION)
   const regionById = new Map(regionPolygons.map(r => [r.id, r]))
+  const regionRank = readingOrderRegionRank.value
 
   const parentIds = new Set<string>()
   for (const tl of textlines.value) {
@@ -981,7 +995,19 @@ const regionMeta = computed(() => {
       regionKind: region?.regionKind,
       color: regionColor(region?.regionKind, region?.regionSubtype, region?.regionCustom)
     }
-  }).sort((a, b) => a.label.localeCompare(b.label))
+  }).sort((a, b) => {
+    if (sortOrder.value === 'asc' || sortOrder.value === 'desc') {
+      const rankA = regionRank.get(a.id)
+      const rankB = regionRank.get(b.id)
+      if (rankA !== undefined && rankB !== undefined && rankA !== rankB) {
+        return sortOrder.value === 'desc' ? rankB - rankA : rankA - rankB
+      }
+      if (rankA !== undefined && rankB === undefined) return -1
+      if (rankA === undefined && rankB !== undefined) return 1
+    }
+
+    return a.label.localeCompare(b.label)
+  })
 
   if (textlines.value.some(tl => !tl.parentId)) {
     regions.unshift({

@@ -1,5 +1,6 @@
 import type { Region } from '@/models/editor/region'
 import { isTextRegion } from '@/models/editor/region'
+import type { ReadingOrder, ReadingOrderNode } from '@/models/editor/reading-order'
 
 function collectTextlineIdsRecursive(regions: Region[], out: string[]): void {
   for (const region of regions) {
@@ -29,6 +30,44 @@ export function collectTextlineIdsInPageOrder(regions: Region[] | undefined): st
   return orderedIds
 }
 
+function isReadingOrderGroup(node: ReadingOrderNode): node is Extract<ReadingOrderNode, { elements: ReadingOrderNode[] }> {
+  return 'elements' in node && Array.isArray(node.elements)
+}
+
+/**
+ * Collect region IDs in PAGE reading-order traversal order.
+ */
+export function collectRegionIdsInReadingOrder(readingOrder: ReadingOrder | undefined): string[] {
+  if (!readingOrder?.root?.elements?.length) return []
+
+  const orderedIds: string[] = []
+  const seen = new Set<string>()
+
+  function add(regionId: string | undefined): void {
+    if (!regionId || seen.has(regionId)) return
+    seen.add(regionId)
+    orderedIds.push(regionId)
+  }
+
+  function traverse(node: ReadingOrderNode): void {
+    if (isReadingOrderGroup(node)) {
+      add(node.regionRef)
+      for (const child of node.elements) {
+        traverse(child)
+      }
+      return
+    }
+
+    add(node.regionRef)
+  }
+
+  for (const element of readingOrder.root.elements) {
+    traverse(element)
+  }
+
+  return orderedIds
+}
+
 /**
  * Return next/previous textline ID with wrap-around semantics.
  */
@@ -55,4 +94,3 @@ export function getAdjacentTextlineId(
   const nextIndex = (currentIndex + direction + orderedTextlineIds.length) % orderedTextlineIds.length
   return orderedTextlineIds[nextIndex] ?? null
 }
-
