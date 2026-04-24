@@ -31,7 +31,7 @@ import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } f
 import type { ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import type { Dictionary } from '@/types/dictionary'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
-import type { TreeItemData } from '@/components/editor/sidebar/tree-item.vue'
+import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import { getCanvasId, getPagePanelId, getProjectPanelId, parseCanvasId, parseProjectPanelId } from '@/stores/editor/editor.keys'
 import { useProjectDockviewRegistry } from '@/composables/editor/use-project-dockview-registry'
 import { useProjectTabCloseState } from '@/composables/editor/use-project-tab-close-state'

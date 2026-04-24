@@ -3,7 +3,7 @@ import { LazyUiConfirmModal } from '#components'
 import { PolygonType, type ReadingOrder } from '@/models/editor'
 import type { Region, TextRegion } from '@/models/editor/region'
 import type { AvailableItem } from '@/components/editor/reading-order'
-import type { TreeItemData } from '@/components/editor/sidebar/tree-item.vue'
+import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import type { RenderablePolyline } from '@/types/editor/rendering'
 import type { SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import type { Commander } from '@/commands/editor/commander'
@@ -15,7 +15,6 @@ import {
   ChangeRegionKindCommand,
   DeletePolygonCommand,
   DeletePolylineCommand,
-  DeleteSelectedElementsCommand,
   SetHiddenElementsCommand
 } from '@/commands'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -88,7 +87,6 @@ const emit = defineEmits<{
   'hover-polygon': [polygonId: string | null]
   'hover-polyline': [polylineId: string | null]
   'unhover-polygon': []
-  'clear-selection': []
   'update:accordionPanels': [panels: string[]]
   'apply-reading-order': [readingOrder: ReadingOrder]
   'apply-metadata': [payload: MetadataApplyPayload]
@@ -142,8 +140,6 @@ const openTaskCount = computed(() => props.openTasks?.length ?? 0)
 const expandedRegions = ref<Set<string>>(new Set())
 const hiddenPolygonIdSet = computed(() => new Set(props.hiddenPolygonIds ?? []))
 const hiddenPolylineIdSet = computed(() => new Set(props.hiddenPolylineIds ?? []))
-
-const selectedCount = computed(() => (props.selectedPolygonIds?.length ?? 0) + (props.selectedPolylineIds?.length ?? 0))
 
 const regions = computed(() =>
   props.polygons.filter(polygon => polygon.type === PolygonType.REGION && !polygon.parentId)
@@ -289,6 +285,25 @@ function toggleExpanded(elementId: string): void {
   }
 }
 
+function expandAll(): void {
+  const expandableIds = new Set<string>()
+  for (const polygon of props.polygons) {
+    if (polygon.parentId) expandableIds.add(polygon.parentId)
+  }
+  for (const polyline of props.polylines ?? []) {
+    if (polyline.parentId) {
+      expandableIds.add(polyline.parentId)
+    } else if (polyline.parentPolygonId) {
+      expandableIds.add(polyline.parentPolygonId)
+    }
+  }
+  expandedRegions.value = expandableIds
+}
+
+function collapseAll(): void {
+  expandedRegions.value = new Set()
+}
+
 function selectPolygon(polygonId: string): void {
   emit('select-polygon', polygonId)
 }
@@ -337,67 +352,6 @@ function togglePolygonVisibility(polygonId: string): void {
     }),
     ctx
   )
-}
-
-function hideSelected() {
-  if (!props.commander) return
-  if (!props.pageId) return
-  if (selectedCount.value === 0) return
-
-  const ctx = getCommandContext()
-  props.commander.execute(
-    new SetHiddenElementsCommand({
-      pageId: props.pageId,
-      action: 'hide',
-      polygonIds: props.selectedPolygonIds,
-      polylineIds: props.selectedPolylineIds
-    }),
-    ctx
-  )
-
-  emit('clear-selection')
-}
-
-function showSelected() {
-  if (!props.commander) return
-  if (!props.pageId) return
-  if (selectedCount.value === 0) return
-
-  const ctx = getCommandContext()
-  props.commander.execute(
-    new SetHiddenElementsCommand({
-      pageId: props.pageId,
-      action: 'show',
-      polygonIds: props.selectedPolygonIds,
-      polylineIds: props.selectedPolylineIds
-    }),
-    ctx
-  )
-}
-
-async function deleteSelected(): Promise<void> {
-  if (!props.commander) return
-  if (selectedCount.value === 0) return
-
-  const instance = confirmModal.open({
-    title: 'Delete Selected Items?',
-    description: `Are you sure you want to delete ${selectedCount.value} selected item(s)? This action cannot be undone.`,
-    confirmLabel: 'Delete',
-    confirmColor: 'error'
-  })
-  const confirmed = await instance.result
-  if (!confirmed) return
-
-  const ctx = getCommandContext()
-  props.commander.execute(
-    new DeleteSelectedElementsCommand({
-      polygonIds: props.selectedPolygonIds,
-      polylineIds: props.selectedPolylineIds
-    }),
-    ctx
-  )
-
-  emit('clear-selection')
 }
 
 async function deletePolygon(polygonId: string): Promise<void> {
@@ -543,7 +497,6 @@ watch(() => props.selectedPolylineIds, (newIds) => {
                   :hidden-polygon-ids="hiddenPolygonIds"
                   :hidden-polyline-ids="hiddenPolylineIds"
                   :expanded-regions="expandedRegions"
-                  :selected-count="selectedCount"
                   @select-polygon="selectPolygon"
                   @select-polyline="selectPolyline"
                   @hover-polygon="hoverPolygon"
@@ -552,9 +505,8 @@ watch(() => props.selectedPolylineIds, (newIds) => {
                   @delete-item="deletePolygon"
                   @toggle-visibility="togglePolygonVisibility"
                   @toggle-expanded="toggleExpanded"
-                  @delete-selected="deleteSelected"
-                  @hide-selected="hideSelected"
-                  @show-selected="showSelected"
+                  @collapse-all="collapseAll"
+                  @expand-all="expandAll"
                 />
               </div>
             </template>
@@ -630,7 +582,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
       </template>
 
       <template #structure>
-        <div dataw-tour="editor-layout-structure-panel">
+        <div data-tour="editor-layout-structure-panel">
           <EditorSidebarStructurePanel
             :polygons="polygons"
             :polylines="polylines"
@@ -641,7 +593,6 @@ watch(() => props.selectedPolylineIds, (newIds) => {
             :hidden-polygon-ids="hiddenPolygonIds"
             :hidden-polyline-ids="hiddenPolylineIds"
             :expanded-regions="expandedRegions"
-            :selected-count="selectedCount"
             @select-polygon="selectPolygon"
             @select-polyline="selectPolyline"
             @hover-polygon="hoverPolygon"
@@ -650,9 +601,8 @@ watch(() => props.selectedPolylineIds, (newIds) => {
             @delete-item="deletePolygon"
             @toggle-visibility="togglePolygonVisibility"
             @toggle-expanded="toggleExpanded"
-            @delete-selected="deleteSelected"
-            @hide-selected="hideSelected"
-            @show-selected="showSelected"
+            @collapse-all="collapseAll"
+            @expand-all="expandAll"
           />
         </div>
       </template>

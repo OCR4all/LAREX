@@ -1,33 +1,20 @@
 <script setup lang="ts">
-import type { Vertex } from '@/models/editor/types'
 import type { LabelDefinition } from '@/models/editor/labels'
 import type { RegionKind } from '@/models/editor/region'
+import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import { getRegionColor, getRegionKindIcon } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 
-export interface TreeItemData {
-  id: string
-  type?: string
-  parentId?: string
-  parentPolygonId?: string // For polylines that reference a parent polygon
-  label?: string
-  points?: Vertex[]
-  regionKind?: string
-  regionSubtype?: string
-  regionCustom?: string
-}
-
-export interface TreeItemProps {
+interface TreeItemProps {
   item: TreeItemData
   level?: number
-  selectedPolygonIds?: string[]
-  selectedPolylineIds?: string[]
+  hasChildren?: boolean
+  isExpanded?: boolean
   hoveredId?: string | null
-  polygons: TreeItemData[]
-  polylines?: TreeItemData[]
-  expandedRegions: Set<string>
-  hiddenPolygonIds?: string[]
-  hiddenPolylineIds?: string[]
+  selectedPolygonIdSet?: Set<string>
+  selectedPolylineIdSet?: Set<string>
+  hiddenPolygonIdSet?: Set<string>
+  hiddenPolylineIdSet?: Set<string>
   /** Enable focus management for keyboard navigation */
   isFocusable?: boolean
 }
@@ -36,12 +23,13 @@ const editorStore = useEditorStore()
 
 const props = withDefaults(defineProps<TreeItemProps>(), {
   level: 0,
-  selectedPolygonIds: () => [],
-  selectedPolylineIds: () => [],
+  hasChildren: false,
+  isExpanded: false,
   hoveredId: null,
-  polylines: () => [],
-  hiddenPolygonIds: () => [],
-  hiddenPolylineIds: () => [],
+  selectedPolygonIdSet: () => new Set<string>(),
+  selectedPolylineIdSet: () => new Set<string>(),
+  hiddenPolygonIdSet: () => new Set<string>(),
+  hiddenPolylineIdSet: () => new Set<string>(),
   isFocusable: true
 })
 
@@ -54,15 +42,14 @@ const emit = defineEmits<{
   'delete-item': [id: string]
   'toggle-visibility': [id: string]
   'toggle-expanded': [id: string]
-  'navigate-next': []
-  'navigate-prev': []
-  'navigate-parent': []
-  'navigate-first-child': []
 }>()
 
-const itemRow = ref<HTMLElement | null>(null)
+const BASE_ROW_PADDING_PX = 8
+const INDENT_PX = 16
 
-const isExpanded = computed(() => props.expandedRegions.has(props.item.id))
+const rowStyle = computed(() => ({
+  paddingLeft: `${BASE_ROW_PADDING_PX + props.level * INDENT_PX}px`
+}))
 
 const itemType = computed(() => {
   if (props.item.type) {
@@ -71,66 +58,26 @@ const itemType = computed(() => {
   return 'baseline'
 })
 
-const hasChildren = computed<boolean>(() => {
-  const polygonChildren = props.polygons.filter(p => p.parentId === props.item.id)
-  if (polygonChildren.length > 0) return true
-
-  const polylineChildren = props.polylines.filter(p =>
-    p.parentId === props.item.id || p.parentPolygonId === props.item.id
-  )
-  return polylineChildren.length > 0
-})
-
-const children = computed<TreeItemData[]>(() => {
-  const allChildren: TreeItemData[] = []
-
-  const polygonChildren = props.polygons.filter(p => p.parentId === props.item.id)
-  allChildren.push(...polygonChildren)
-
-  const polylineChildren = props.polylines.filter(p =>
-    p.parentId === props.item.id || p.parentPolygonId === props.item.id
-  )
-  allChildren.push(...polylineChildren)
-
-  const typeOrder: Record<string, number> = { REGION: 0, TEXTLINE: 1, BASELINE: 2 }
-  return allChildren.sort((a, b) => {
-    if (a.type !== b.type) {
-      const aType = a.type?.toUpperCase() ?? ''
-      const bType = b.type?.toUpperCase() ?? ''
-      return (typeOrder[aType] || 999) - (typeOrder[bType] || 999)
-    }
-    return (a.label || '').localeCompare(b.label || '')
-  })
+const isBaselineItem = computed(() => {
+  const type = props.item.type?.toUpperCase?.() ?? ''
+  return type === 'BASELINE' || props.item.type === 'baseline'
 })
 
 const isItemSelected = computed<boolean>(() => {
-  const type = props.item.type?.toUpperCase?.() ?? ''
-  const isBaseline = type === 'BASELINE' || props.item.type === 'baseline'
-  if (isBaseline) return props.selectedPolylineIds.includes(props.item.id)
-  return props.selectedPolygonIds.includes(props.item.id)
+  if (isBaselineItem.value) return props.selectedPolylineIdSet.has(props.item.id)
+  return props.selectedPolygonIdSet.has(props.item.id)
 })
 
 const isItemHovered = computed<boolean>(() => {
   return props.item.id === props.hoveredId
 })
 
-function isSelected(item: TreeItemData): boolean {
-  const type = item.type?.toUpperCase?.() ?? ''
-  const isBaseline = type === 'BASELINE' || item.type === 'baseline'
-  if (isBaseline) return props.selectedPolylineIds.includes(item.id)
-  return props.selectedPolygonIds.includes(item.id)
-}
-
-function isHovered(item: TreeItemData): boolean {
-  return item.id === props.hoveredId
-}
-
 function resolveRegionForItem(item: TreeItemData): { kind?: string, subtype?: string, custom?: string } {
-  const polygon = props.polygons.find(p => p.id === item.id)
-  const kind = polygon?.regionKind ?? item.regionKind
-  const subtype = polygon?.regionSubtype ?? item.regionSubtype
-  const custom = polygon?.regionCustom ?? item.regionCustom
-  return { kind, subtype, custom }
+  return {
+    kind: item.regionKind,
+    subtype: item.regionSubtype,
+    custom: item.regionCustom
+  }
 }
 
 function findLabelDefinitionForItem(item: TreeItemData): LabelDefinition | null {
@@ -162,15 +109,15 @@ function getItemIconName(item: TreeItemData): string {
 function getItemVisibilityIconName(item: TreeItemData): string {
   const type = item.type?.toUpperCase?.() ?? ''
   const isBaseline = type === 'BASELINE' || item.type === 'baseline'
-  const hiddenSet = new Set(isBaseline ? props.hiddenPolylineIds : props.hiddenPolygonIds)
-  return hiddenSet.has(item.id) ? 'i-lucide-eye-off' : 'i-lucide-eye'
+  return (isBaseline ? props.hiddenPolylineIdSet : props.hiddenPolygonIdSet).has(item.id)
+    ? 'i-lucide-eye-off'
+    : 'i-lucide-eye'
 }
 
 function getVisibilityTitle(item: TreeItemData): string {
   const typeUpper = item.type?.toUpperCase?.() ?? ''
   const isBaseline = typeUpper === 'BASELINE' || item.type === 'baseline'
-  const hiddenSet = new Set(isBaseline ? props.hiddenPolylineIds : props.hiddenPolygonIds)
-  const visible = !hiddenSet.has(item.id)
+  const visible = !(isBaseline ? props.hiddenPolylineIdSet : props.hiddenPolygonIdSet).has(item.id)
   const type = item.type ? item.type.toLowerCase() : 'baseline'
   return visible ? `Hide ${type}` : `Show ${type}`
 }
@@ -219,6 +166,7 @@ function toggleVisibility(item: TreeItemData): void {
 }
 
 function toggleExpanded() {
+  if (!props.hasChildren) return
   emit('toggle-expanded', props.item.id)
 }
 
@@ -231,29 +179,15 @@ function handleKeyDown(event: KeyboardEvent): void {
       break
     case 'ArrowRight':
       event.preventDefault()
-      if (hasChildren.value) {
-        if (!isExpanded.value) {
-          toggleExpanded()
-        } else {
-          emit('navigate-first-child')
-        }
+      if (props.hasChildren && !props.isExpanded) {
+        toggleExpanded()
       }
       break
     case 'ArrowLeft':
       event.preventDefault()
-      if (hasChildren.value && isExpanded.value) {
+      if (props.hasChildren && props.isExpanded) {
         toggleExpanded()
-      } else {
-        emit('navigate-parent')
       }
-      break
-    case 'ArrowDown':
-      event.preventDefault()
-      emit('navigate-next')
-      break
-    case 'ArrowUp':
-      event.preventDefault()
-      emit('navigate-prev')
       break
     case 'Delete':
     case 'Backspace':
@@ -267,12 +201,6 @@ function handleKeyDown(event: KeyboardEvent): void {
       break
   }
 }
-
-function focus(): void {
-  itemRow.value?.focus()
-}
-
-defineExpose({ focus })
 </script>
 
 <template>
@@ -284,8 +212,7 @@ defineExpose({ focus })
     :aria-level="level + 1"
   >
     <div
-      ref="itemRow"
-      class="group flex items-center px-2 py-1.5 rounded-sm text-sm cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-default focus:ring-offset-1"
+      class="group flex items-center py-1.5 pr-2 rounded-sm text-sm cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-default focus:ring-offset-1"
       :class="[
         {
           'bg-accent text-accent-foreground': isItemSelected,
@@ -293,6 +220,7 @@ defineExpose({ focus })
           'hover:bg-muted/50': !isItemSelected
         }
       ]"
+      :style="rowStyle"
       :tabindex="isFocusable ? 0 : -1"
       @click="selectItem(item)"
       @mouseenter="hoverItem(item)"
@@ -344,40 +272,6 @@ defineExpose({ focus })
           <Icon name="i-lucide-trash-2" class="h-3 w-3" />
         </button>
       </div>
-    </div>
-
-    <div
-      v-if="hasChildren && isExpanded"
-      class="pl-4 border-l border-default ml-2.5 my-1"
-      role="group"
-    >
-      <TreeItem
-        v-for="child in children"
-        :key="child.id"
-        :item="child"
-        :level="level + 1"
-        :selected-polygon-ids="selectedPolygonIds"
-        :selected-polyline-ids="selectedPolylineIds"
-        :hovered-id="hoveredId"
-        :polygons="polygons"
-        :polylines="polylines"
-        :expanded-regions="expandedRegions"
-        :hidden-polygon-ids="hiddenPolygonIds"
-        :hidden-polyline-ids="hiddenPolylineIds"
-        :is-focusable="isFocusable"
-        @select-item="$emit('select-item', $event)"
-        @select-polyline="$emit('select-polyline', $event)"
-        @hover-item="$emit('hover-item', $event)"
-        @hover-polyline="$emit('hover-polyline', $event)"
-        @unhover-item="$emit('unhover-item')"
-        @delete-item="$emit('delete-item', $event)"
-        @toggle-visibility="$emit('toggle-visibility', $event)"
-        @toggle-expanded="$emit('toggle-expanded', $event)"
-        @navigate-next="$emit('navigate-next')"
-        @navigate-prev="$emit('navigate-prev')"
-        @navigate-parent="$emit('navigate-parent')"
-        @navigate-first-child="$emit('navigate-first-child')"
-      />
     </div>
   </div>
 </template>
