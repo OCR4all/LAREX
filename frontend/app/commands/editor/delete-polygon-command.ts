@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts } from '@/models/editor'
-import type { Region, TextLine, TextRegion, ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, Relation } from '@/models/editor'
+import type { Region, TextLine, TextRegion, ReadingOrder, Relation } from '@/models/editor'
 import { invalidateMultiplePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@/utils/editor/pcgts-editor-primitives'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { cloneRelations, removeRelationsReferencingIds } from '@/utils/editor/relations'
+import { cloneReadingOrder, removeIdsFromReadingOrder } from './reading-order-utils'
 
 export interface DeletePolygonCommandData {
   polygonId: string // Region ID to delete
@@ -60,8 +61,10 @@ export class DeletePolygonCommand implements Command {
     this.readingOrderModified = false
     if (pcGts.page.readingOrder?.root?.elements) {
       this.previousReadingOrder = cloneReadingOrder(pcGts.page.readingOrder)
-      removeIdsFromReadingOrder(pcGts.page.readingOrder.root.elements, idsToRemove)
-      this.readingOrderModified = true
+      this.readingOrderModified = removeIdsFromReadingOrder(pcGts.page.readingOrder.root.elements, idsToRemove)
+      if (!this.readingOrderModified) {
+        this.previousReadingOrder = undefined
+      }
     }
 
     this.relationsModified = false
@@ -147,31 +150,4 @@ function collectDescendantPolygonIds(pcGts: PcGts, rootId: string): string[] {
   }
 
   return Array.from(out)
-}
-
-function cloneReadingOrder(readingOrder?: ReadingOrder): ReadingOrder | undefined {
-  if (!readingOrder) return undefined
-  return JSON.parse(JSON.stringify(readingOrder)) as ReadingOrder
-}
-
-/**
- * Recursively removes reading order nodes that reference any of the given IDs.
- * Modifies the array in place.
- */
-function removeIdsFromReadingOrder(elements: ReadingOrderNode[], idsToRemove: Set<string>): void {
-  for (let i = elements.length - 1; i >= 0; i--) {
-    const node = elements[i]
-    if (!node) continue
-    if (node.kind === 'RegionRef' || node.kind === 'RegionRefIndexed') {
-      const ref = node as RegionRef
-      if (idsToRemove.has(ref.regionRef)) {
-        elements.splice(i, 1)
-      }
-    } else {
-      const group = node as ReadingOrderGroup
-      if (group.elements) {
-        removeIdsFromReadingOrder(group.elements, idsToRemove)
-      }
-    }
-  }
 }

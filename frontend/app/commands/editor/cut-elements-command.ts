@@ -1,6 +1,6 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, TextLine, PolygonType, isTextRegion } from '@/models/editor'
-import type { Point, Region, TextRegion, ReadingOrderNode, ReadingOrderGroup, RegionRef, Relation } from '@/models/editor'
+import type { Point, Region, TextRegion, ReadingOrderNode, Relation } from '@/models/editor'
 import { Polygon as PolygonGeometry, Polyline as PolylineGeometry } from '@/models/editor/geometry'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
@@ -25,6 +25,7 @@ import {
   collectRegionIds,
   filterRelationsByExistingRegionIds
 } from '@/utils/editor/relations'
+import { insertIntoReadingOrderAfter, removeIdsFromReadingOrder } from './reading-order-utils'
 
 /**
  * Cut mode types
@@ -745,60 +746,14 @@ export class CutElementsCommand implements Command {
    * Add to reading order after an existing element
    */
   private addToReadingOrderAfter(pcGts: PcGts, afterId: string, newId: string): void {
-    if (!pcGts.page.readingOrder?.root?.elements) return
-    this.insertIntoReadingOrderAfter(pcGts.page.readingOrder.root.elements, afterId, newId)
-  }
-
-  private insertIntoReadingOrderAfter(elements: ReadingOrderNode[], afterId: string, newId: string): boolean {
-    for (let i = 0; i < elements.length; i++) {
-      const node = elements[i]
-      if (!node) continue
-
-      if (node.kind === 'RegionRef' || node.kind === 'RegionRefIndexed') {
-        const ref = node as RegionRef
-        if (ref.regionRef === afterId) {
-          elements.splice(i + 1, 0, {
-            kind: 'RegionRef',
-            id: `rr_${newId}`,
-            regionRef: newId
-          } as RegionRef)
-          return true
-        }
-      } else {
-        const group = node as ReadingOrderGroup
-        if (group.elements && this.insertIntoReadingOrderAfter(group.elements, afterId, newId)) {
-          return true
-        }
-      }
-    }
-    return false
+    insertIntoReadingOrderAfter(pcGts.page.readingOrder?.root?.elements, afterId, newId)
   }
 
   /**
    * Remove from reading order
    */
   private removeFromReadingOrder(pcGts: PcGts, id: string): void {
-    if (!pcGts.page.readingOrder?.root?.elements) return
-    this.removeFromReadingOrderRecursive(pcGts.page.readingOrder.root.elements, id)
-  }
-
-  private removeFromReadingOrderRecursive(elements: ReadingOrderNode[], id: string): void {
-    for (let i = elements.length - 1; i >= 0; i--) {
-      const node = elements[i]
-      if (!node) continue
-
-      if (node.kind === 'RegionRef' || node.kind === 'RegionRefIndexed') {
-        const ref = node as RegionRef
-        if (ref.regionRef === id) {
-          elements.splice(i, 1)
-        }
-      } else {
-        const group = node as ReadingOrderGroup
-        if (group.elements) {
-          this.removeFromReadingOrderRecursive(group.elements, id)
-        }
-      }
-    }
+    removeIdsFromReadingOrder(pcGts.page.readingOrder?.root?.elements, new Set([id]))
   }
 
   /**

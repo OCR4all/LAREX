@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Commander } from '../commander'
 import { UpdateReadingOrderCommand } from '../update-reading-order-command'
 import { DeletePolygonCommand } from '../delete-polygon-command'
+import { MergeElementsCommand } from '../merge-elements-command'
+import { CutElementsCommand } from '../cut-elements-command'
 import { createMockSession, createTestContext, createTestDocument, createTestReadingOrder, createTestTextRegion } from './test-utils'
 
 const bumpReadingOrderVersion = vi.fn()
@@ -77,5 +79,65 @@ describe('reading order commands', () => {
     expect(getDocument()?.page.readingOrder?.root.elements).toHaveLength(2)
     expect(getDocument()?.page.readingOrder?.root.elements[0]).toMatchObject({ regionRef: 'r1' })
     expect(getDocument()?.page.readingOrder?.root.elements[1]).toMatchObject({ regionRef: 'r2' })
+  })
+
+  it('places a merged region at the earliest previous reading order position', () => {
+    const doc = createTestDocument({
+      regions: [
+        createTestTextRegion({ id: 'r1' }),
+        createTestTextRegion({ id: 'r2' }),
+        createTestTextRegion({ id: 'r3' })
+      ],
+      readingOrder: createTestReadingOrder(['r1', 'r2', 'r3'])
+    })
+    const { session, getDocument } = createMockSession(doc)
+    const ctx = createTestContext(session)
+
+    const result = new MergeElementsCommand({
+      elementIds: ['r3', 'r2'],
+      elementType: 'region'
+    }).execute(ctx)
+
+    const elements = getDocument()?.page.readingOrder?.root.elements
+    expect(result?.id).toBeTruthy()
+    expect(elements).toHaveLength(2)
+    expect(elements?.[0]).toMatchObject({ regionRef: 'r1' })
+    expect(elements?.[1]).toMatchObject({ regionRef: result?.id })
+  })
+
+  it('adds split region pieces after the original reading order position', () => {
+    const doc = createTestDocument({
+      regions: [
+        createTestTextRegion({
+          id: 'r1',
+          points: [
+            { x: 100, y: 200 },
+            { x: 900, y: 200 },
+            { x: 900, y: 300 },
+            { x: 100, y: 300 }
+          ]
+        })
+      ],
+      readingOrder: createTestReadingOrder(['r1'])
+    })
+    const { session, getDocument } = createMockSession(doc)
+    const ctx = createTestContext(session)
+
+    new CutElementsCommand({
+      mode: 'rectangle',
+      targetElementIds: ['r1'],
+      cutPoints: [
+        { x: 450, y: 150 },
+        { x: 550, y: 150 },
+        { x: 550, y: 350 },
+        { x: 450, y: 350 }
+      ]
+    }).execute(ctx)
+
+    const elements = getDocument()?.page.readingOrder?.root.elements
+    expect(getDocument()?.page.regions).toHaveLength(2)
+    expect(elements).toHaveLength(2)
+    expect(elements?.[0]).toMatchObject({ regionRef: 'r1' })
+    expect((elements?.[1] as { regionRef?: string } | undefined)?.regionRef).toMatch(/^cut_/)
   })
 })

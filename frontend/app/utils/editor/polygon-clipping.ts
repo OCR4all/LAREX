@@ -1194,7 +1194,7 @@ function findAllPolylinePolygonIntersections(p1: Point, p2: Point, polygon: Poly
 
 /**
  * Union multiple polygons into a single polygon using martinez-polygon-clipping.
- * If polygons don't overlap, creates a bounding box containing all points.
+ * If the union cannot be represented as one polygon, creates a convex hull containing all points.
  *
  * @param polygons - Array of polygons to union
  * @returns The unioned polygon, or null if operation fails
@@ -1217,7 +1217,7 @@ export function unionPolygons(polygons: Polygon[]): Polygon | null {
         if (normalizedUnion.length === 1) {
           currentResult = normalizedUnion
         } else {
-          return createBoundingBoxFromAllPolygons(validPolygons)
+          return createConvexHullFromAllPolygons(validPolygons)
         }
       }
     }
@@ -1226,29 +1226,44 @@ export function unionPolygons(polygons: Polygon[]): Polygon | null {
     return resultPolygons[0] ?? null
   } catch (e) {
     console.error('unionPolygons failed:', e)
-    return null
+    return createConvexHullFromAllPolygons(validPolygons)
   }
 }
 
 /**
- * Create a bounding box polygon from multiple polygons.
+ * Create a convex hull polygon from multiple polygons.
  */
-function createBoundingBoxFromAllPolygons(polygons: Polygon[]): Polygon {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+function createConvexHullFromAllPolygons(polygons: Polygon[]): Polygon {
+  const points = polygons.flat()
+  if (points.length < 3) return points
 
-  for (const poly of polygons) {
-    for (const p of poly) {
-      if (p.x < minX) minX = p.x
-      if (p.y < minY) minY = p.y
-      if (p.x > maxX) maxX = p.x
-      if (p.y > maxY) maxY = p.y
+  const uniquePoints = Array.from(
+    new Map(points.map(point => [`${point.x},${point.y}`, point])).values()
+  )
+  if (uniquePoints.length < 3) return uniquePoints
+
+  const sorted = [...uniquePoints].sort((a, b) => a.x === b.x ? a.y - b.y : a.x - b.x)
+  const cross = (o: Point, a: Point, b: Point) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+
+  const lower: Point[] = []
+  for (const point of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, point) <= 0) {
+      lower.pop()
     }
+    lower.push(point)
   }
 
-  return [
-    { x: minX, y: minY },
-    { x: maxX, y: minY },
-    { x: maxX, y: maxY },
-    { x: minX, y: maxY }
-  ]
+  const upper: Point[] = []
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const point = sorted[i]!
+    while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, point) <= 0) {
+      upper.pop()
+    }
+    upper.push(point)
+  }
+
+  lower.pop()
+  upper.pop()
+  return [...lower, ...upper]
 }
