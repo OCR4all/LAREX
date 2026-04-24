@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, reactive, ref } from 'vue'
 
-;(globalThis as { ref?: typeof ref }).ref = ref
-;(globalThis as { reactive?: typeof reactive }).reactive = reactive
-;(globalThis as { computed?: typeof computed }).computed = computed
+Object.assign(globalThis, { ref, reactive, computed })
 
 const editorUiStoreMock = vi.hoisted(() => ({
   relationsEditor: {
@@ -249,7 +247,8 @@ async function createHarness(mode: Mode) {
     polygonDrawing,
     rectangleDrawing,
     polylineDrawing,
-    cutDrawing
+    cutDrawing,
+    canvasControls
   }
 }
 
@@ -319,5 +318,43 @@ describe('useEditorInteractions shift-pan routing', () => {
       expect(harness.cutDrawing.handleMouseDown).toHaveBeenCalledOnce()
       expect(harness.cutDrawing.handleMouseMove).toHaveBeenCalledOnce()
     }
+  })
+
+  it('does not run command undo from the canvas key handler when no drawing is active', async () => {
+    const harness = await createHarness('polygon')
+    const event = {
+      key: 'z',
+      ctrlKey: true,
+      metaKey: false,
+      preventDefault: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
+      stopPropagation: vi.fn()
+    } as unknown as KeyboardEvent
+
+    harness.interactions.onKeyDown(event)
+
+    expect(harness.canvasControls.handleUndo).not.toHaveBeenCalled()
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(event.stopImmediatePropagation).not.toHaveBeenCalled()
+  })
+
+  it('keeps in-progress polygon drawing undo local to the canvas key handler', async () => {
+    const harness = await createHarness('polygon')
+    harness.polygonDrawing.isActive.mockReturnValue(true)
+    const event = {
+      key: 'z',
+      ctrlKey: true,
+      metaKey: false,
+      preventDefault: vi.fn(),
+      stopImmediatePropagation: vi.fn(),
+      stopPropagation: vi.fn()
+    } as unknown as KeyboardEvent
+
+    harness.interactions.onKeyDown(event)
+
+    expect(harness.polygonDrawing.undoPolygonCreation).toHaveBeenCalledOnce()
+    expect(harness.canvasControls.handleUndo).not.toHaveBeenCalled()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(event.stopImmediatePropagation).toHaveBeenCalledOnce()
   })
 })

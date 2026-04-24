@@ -1,14 +1,14 @@
 import type { Command, CommandContext } from './types'
 import { PcGts, isTextRegion } from '@/models/editor'
 import type { Point, Region } from '@/models/editor'
-import { invalidatePolygonGeometry } from '@/composables/editor/use-geometry-cache-integrations'
 import { visibilityService } from '@/services/editor/visibility-service'
 import {
   findRegionRecursive,
   findTextLineRecursive,
   type TextLineHit,
   rebuildSpatialIndexFromPcGts,
-  baselineIdForTextLineId
+  baselineIdForTextLineId,
+  textLineIdFromBaselineId
 } from '@/utils/editor/pcgts-editor-primitives'
 
 export interface MoveElementCommandData {
@@ -130,7 +130,9 @@ export class MoveElementCommand implements Command {
   }
 
   private moveBaseline(pcGts: PcGts): void {
-    const textLineId = this.elementId.replace('baseline_', '')
+    const textLineId = textLineIdFromBaselineId(this.elementId)
+    if (!textLineId) return
+
     const hit = findTextLineRecursive(pcGts.page.regions, textLineId)
     if (!hit?.textLine.baseline) return
 
@@ -151,7 +153,9 @@ export class MoveElementCommand implements Command {
 
     for (const saved of this.savedPoints) {
       if (saved.type === 'baseline') {
-        const textLineId = saved.id.replace('baseline_', '')
+        const textLineId = textLineIdFromBaselineId(saved.id)
+        if (!textLineId) continue
+
         const hit = findTextLineRecursive(pcGts.page.regions, textLineId)
         if (hit?.textLine.baseline) {
           hit.textLine.baseline.points.points = [...saved.points]

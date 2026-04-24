@@ -436,6 +436,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (!handled) continue
 
         event.preventDefault()
+        event.stopImmediatePropagation()
         event.stopPropagation()
         return
       }

@@ -331,7 +331,6 @@ export function useEditorInteractions(
       replaceSelectionFromCurrentIndices(viewMode)
       return
     }
-
   }
 
   function onWheel(e: WheelEvent): void {
@@ -934,21 +933,18 @@ export function useEditorInteractions(
     }
 
     if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'z') {
+      if (e.key === 'z' && polygonDrawing.isActive()) {
         e.preventDefault()
-        if (polygonDrawing.isActive()) {
-          polygonDrawing.undoPolygonCreation()
-        } else {
-          canvasControls.handleUndo()
-        }
-      } else if (e.key === 'y') {
+        e.stopImmediatePropagation()
+        e.stopPropagation()
+        polygonDrawing.undoPolygonCreation()
+      } else if (e.key === 'y' && polygonDrawing.isActive()) {
         e.preventDefault()
-        if (polygonDrawing.isActive()) {
-          polygonDrawing.redoPolygonCreation()
-        } else {
-          canvasControls.handleRedo()
-        }
+        e.stopImmediatePropagation()
+        e.stopPropagation()
+        polygonDrawing.redoPolygonCreation()
       }
+      return
     }
   }
 
