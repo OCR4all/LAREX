@@ -624,9 +624,44 @@ const cutDropdownItems = computed(() => [
   ]
 ])
 
-const preferredCutMode = ref<'line' | 'polygon' | 'rectangle'>('line')
+type CutToolMode = 'line' | 'polygon' | 'rectangle'
+type CutShortcutId = 'cutLine' | 'cutPolygon' | 'cutRectangle'
 
-function handleToggleCutMode(mode: 'line' | 'polygon' | 'rectangle') {
+const cutToolConfig: Record<CutToolMode, { icon: string, shortcutId: CutShortcutId }> = {
+  line: {
+    icon: 'i-lucide-scissors',
+    shortcutId: 'cutLine'
+  },
+  polygon: {
+    icon: 'i-lucide-pen-tool',
+    shortcutId: 'cutPolygon'
+  },
+  rectangle: {
+    icon: 'i-lucide-square-minus',
+    shortcutId: 'cutRectangle'
+  }
+}
+
+const preferredCutMode = ref<CutToolMode>('line')
+
+const activeCutMode = computed<CutToolMode | null>(() => {
+  if (isCutLineMode.value) return 'line'
+  if (isCutPolygonMode.value) return 'polygon'
+  if (isCutRectangleMode.value) return 'rectangle'
+  return null
+})
+
+watchEffect(() => {
+  if (activeCutMode.value) {
+    preferredCutMode.value = activeCutMode.value
+  }
+})
+
+const primaryCutMode = computed<CutToolMode>(() => activeCutMode.value ?? preferredCutMode.value)
+const primaryCutToolIcon = computed(() => cutToolConfig[primaryCutMode.value].icon)
+const primaryCutTooltip = computed(() => getTooltipProps(cutToolConfig[primaryCutMode.value].shortcutId))
+
+function handleToggleCutMode(mode: CutToolMode) {
   if (!currentCanvasState.value) return
 
   preferredCutMode.value = mode
@@ -1034,7 +1069,7 @@ const moreOptionsDropdownItems = computed(() => [
 
           <div v-if="showCutTools && isFloating" data-tour="cut-tools" class="flex items-center">
             <UFieldGroup>
-              <UTooltip :delay-duration="0" v-bind="getTooltipProps('cutLine')">
+              <UTooltip :delay-duration="0" v-bind="primaryCutTooltip">
                 <UButton
                   variant="ghost"
                   size="md"
@@ -1045,7 +1080,7 @@ const moreOptionsDropdownItems = computed(() => [
                   :disabled="!currentCanvasState"
                   @click="handleToggleCutMode(preferredCutMode)"
                 >
-                  <Icon name="i-lucide-scissors" class="h-4 w-4" />
+                  <Icon :name="primaryCutToolIcon" class="h-4 w-4" />
                 </UButton>
               </UTooltip>
 

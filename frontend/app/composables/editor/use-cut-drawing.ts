@@ -1,6 +1,7 @@
 import type { Commander, CutMode } from '@/commands'
 import { CutElementsCommand } from '@/commands'
 import type { Point, ImageSize, View, AspectRatioScale } from '@/models/editor'
+import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, PreviewPoint } from '@/types/editor/rendering'
 import { getEditorSession } from '@/session/editor/editor-session'
 import { isPointWithinImageBounds, clampToWorldBounds, getImageBounds } from '@/utils/editor/coordinates'
@@ -32,7 +33,9 @@ export function useCutDrawing(
   constrainToImage: Ref<boolean> | undefined,
   imageSize: Ref<ImageSize> | undefined,
   commander: Commander,
-  canvasId: string
+  canvasId: string,
+  selectedPolygonIndex?: Ref<number>,
+  viewMode?: Ref<string>
 ) {
   const currentPoints = reactive<Point[]>([])
   const previewPoint = reactive<PreviewPoint>({ x: null, y: null })
@@ -45,6 +48,33 @@ export function useCutDrawing(
   const rectFirstClickMade = ref<boolean>(false)
 
   const cutMode = ref<CutMode>('line')
+
+  function getCurrentLevelTargetElementIds(): string[] {
+    const selectedIndex = selectedPolygonIndex?.value ?? -1
+    const selectedPolygon = selectedIndex >= 0 ? polygons[selectedIndex] : undefined
+
+    if (selectedPolygon) {
+      const childIds = polygons
+        .filter(p => p.parentId === selectedPolygon.id)
+        .map(p => p.id)
+
+      return childIds.length > 0 ? childIds : [selectedPolygon.id]
+    }
+
+    if (viewMode?.value === 'textline') {
+      return polygons
+        .filter(p => p.type === PolygonType.TEXTLINE)
+        .map(p => p.id)
+    }
+
+    if (viewMode?.value === 'baseline') {
+      return []
+    }
+
+    return polygons
+      .filter(p => !p.parentId)
+      .map(p => p.id)
+  }
 
   /**
    * Set the current cut mode
@@ -102,6 +132,7 @@ export function useCutDrawing(
     const cutCommand = new CutElementsCommand({
       mode: 'line',
       cutPoints: [...currentPoints],
+      targetElementIds: getCurrentLevelTargetElementIds(),
       minAreaThreshold
     })
 
@@ -179,6 +210,7 @@ export function useCutDrawing(
     const cutCommand = new CutElementsCommand({
       mode: 'polygon',
       cutPoints: [...currentPoints],
+      targetElementIds: getCurrentLevelTargetElementIds(),
       minAreaThreshold
     })
 
@@ -277,6 +309,7 @@ export function useCutDrawing(
     const cutCommand = new CutElementsCommand({
       mode: 'rectangle',
       cutPoints: [...rectPreviewPoints],
+      targetElementIds: getCurrentLevelTargetElementIds(),
       minAreaThreshold
     })
 

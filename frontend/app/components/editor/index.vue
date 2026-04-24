@@ -440,7 +440,7 @@ const polylineEditing = usePolylineEditing(
 
 const cutDrawing = useCutDrawing(
   polygons, view, pixelsToWorld, constrainToImage, webglRenderer.imageSize,
-  canvasControls.commander, props.canvasId
+  canvasControls.commander, props.canvasId, selectedPolygonIndex, canvasControls.viewMode
 )
 
 canvasControls.cutDrawing = cutDrawing

@@ -39,6 +39,8 @@ export interface CutElementsCommandData {
   mode: CutMode
   /** Points defining the cut shape - line for cut-line, polygon vertices for cut-polygon/rectangle */
   cutPoints: Point[]
+  /** Optional element IDs that define the current cut level. Descendants of cut regions are still affected. */
+  targetElementIds?: string[]
   /** Minimum area threshold - polygons below this area are auto-deleted */
   minAreaThreshold?: number
 }
@@ -68,6 +70,7 @@ interface UndoSnapshot {
 export class CutElementsCommand implements Command {
   private mode: CutMode
   private cutPoints: Point[]
+  private targetElementIds?: string[]
   private minAreaThreshold: number
 
   private undoSnapshot: UndoSnapshot | null = null
@@ -76,6 +79,9 @@ export class CutElementsCommand implements Command {
   constructor(data: CutElementsCommandData) {
     this.mode = data.mode
     this.cutPoints = data.cutPoints.map(p => ({ x: p.x, y: p.y }))
+    this.targetElementIds = data.targetElementIds
+      ? Array.from(new Set(data.targetElementIds))
+      : undefined
     this.minAreaThreshold = data.minAreaThreshold ?? 0.0001
   }
 
@@ -102,7 +108,11 @@ export class CutElementsCommand implements Command {
     let deletedCount = 0
     let createdCount = 0
 
-    const regionPolygons = allPolygons.filter(p => p.type === PolygonType.REGION)
+    const targetElementIdSet = this.targetElementIds ? new Set(this.targetElementIds) : null
+
+    const regionPolygons = allPolygons.filter(p =>
+      p.type === PolygonType.REGION && (!targetElementIdSet || targetElementIdSet.has(p.id))
+    )
 
     for (const regionPoly of regionPolygons) {
       if (!this.shouldCutElement(regionPoly.points)) continue
@@ -118,7 +128,9 @@ export class CutElementsCommand implements Command {
       createdCount += result.createdCount
     }
 
-    const textlinePolygons = allPolygons.filter(p => p.type === PolygonType.TEXTLINE)
+    const textlinePolygons = allPolygons.filter(p =>
+      p.type === PolygonType.TEXTLINE && (!targetElementIdSet || targetElementIdSet.has(p.id))
+    )
 
     for (const textlinePoly of textlinePolygons) {
       if (this.affectedPolygonIds.includes(textlinePoly.id)) continue
