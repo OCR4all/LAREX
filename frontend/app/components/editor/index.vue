@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
-import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay } from '#components'
+import type { WatchStopHandle } from 'vue'
+import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay, LazyEditorSlideoverMergeSettings } from '#components'
 import { triangulatePolygon } from '@/utils/editor/hit-detection'
 import { clipToWorldCoords, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
 import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
+import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
@@ -15,7 +17,8 @@ import { useEditorSession, usePageVisibilityState } from '@/session/editor/edito
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import { CompoundCommand, CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
-import { PolygonType, type Relation, type TextContentVariantData } from '@/models/editor'
+import { PolygonType, type RegionKind, type Relation, type TextContentVariantData } from '@/models/editor'
+import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
 import type { CommentOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { visibilityService } from '@/services/editor/visibility-service'
@@ -59,6 +62,8 @@ const {
   hasSuggestionsLoaded
 } = useDictionaryTokenLookup()
 const toast = useToast()
+const editorOverlay = useOverlay()
+const mergeSettingsSlideover = editorOverlay.create(LazyEditorSlideoverMergeSettings)
 
 const colorMode = useColorMode()
 const WORLD_COORD_THRESHOLD = 2.5
@@ -451,6 +456,11 @@ const moveInteraction = useMoveInteraction(
   hiddenPolygonIds, hiddenPolylineIds, canvasControls.viewMode
 )
 
+async function openContextMergeSettingsSlideover(kinds: RegionKind[]): Promise<MergeSettings | null> {
+  const instance = mergeSettingsSlideover.open({ availableKinds: kinds, defaultKind: kinds[0] })
+  return await instance.result
+}
+
 const isCollaborationHeavyInteraction = computed(() => {
   if (!isCanvasEditable.value) return false
 
@@ -467,7 +477,10 @@ const editorCommands = useEditorCommand(
   props.canvasId,
   polygons,
   polylines,
-  stateActions.clearHoverAndSelectionStates
+  stateActions.clearHoverAndSelectionStates,
+  selectedPolygonIds,
+  selectedPolylineIds,
+  openContextMergeSettingsSlideover
 )
 const contextMenuOpen = ref(false)
 

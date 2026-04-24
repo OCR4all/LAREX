@@ -1,6 +1,6 @@
 import type { Commander } from '@/commands'
 import type { CommandContext } from '@/commands/editor/types'
-import { DeletePolygonCommand, DeletePolylineCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand } from '@/commands'
+import { DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsCommand, ChangeRegionLabelCommand, ChangeRegionKindCommand, DuplicateElementCommand, SimplifyPolygonCommand, BufferPolygonCommand, FitToBoundingBoxCommand, ConvexHullCommand, ReparentElementCommand, UpdateReadingOrderCommand, CompoundCommand } from '@/commands'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
@@ -27,11 +27,19 @@ export interface ContextMenuItem {
   submenu?: ContextMenuItem[]
 }
 
-export type ContextMenuTargetType = 'polygon' | 'polyline'
+export type ContextMenuTargetType = 'polygon' | 'polyline' | 'selection'
+
+export interface ContextMenuSelection {
+  polygonIds: string[]
+  polylineIds: string[]
+  polygons: RenderablePolygon[]
+  polylines: RenderablePolyline[]
+}
 
 export interface ContextMenuTarget {
   type: ContextMenuTargetType
   element: RenderablePolygon | RenderablePolyline
+  selection?: ContextMenuSelection
 }
 
 export interface ContextMenuState {
@@ -214,6 +222,56 @@ function formatSubtypeLabel(subtype: string): string {
     .join(' ')
 }
 
+function unique(ids: string[]): string[] {
+  return Array.from(new Set(ids.filter(Boolean)))
+}
+
+function formatElementCount(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+function getCommonRegionState(regions: RenderablePolygon[]): { kind?: RegionKind, subtype?: string, custom?: string } {
+  const first = regions[0]
+  if (!first) return {}
+
+  const sameKind = regions.every(region => region.regionKind === first.regionKind)
+  const sameSubtype = regions.every(region => region.regionSubtype === first.regionSubtype)
+  const sameCustom = regions.every(region => region.regionCustom === first.regionCustom)
+
+  return {
+    kind: sameKind ? first.regionKind : undefined,
+    subtype: sameSubtype ? first.regionSubtype : undefined,
+    custom: sameCustom ? first.regionCustom : undefined
+  }
+}
+
+function parseRegionTypeMenuItemId(itemId: string): { newKind: RegionKind, newSubtype?: string } | null {
+  if (!itemId.startsWith('region-type-')) return null
+
+  const parts = itemId.replace('region-type-', '').split('-')
+  const kindParts: string[] = []
+  const subtypeParts: string[] = []
+  let foundRegion = false
+
+  for (const part of parts) {
+    if (!foundRegion) {
+      kindParts.push(part)
+      if (part === 'Region' || part.endsWith('Region')) {
+        foundRegion = true
+      }
+    } else {
+      subtypeParts.push(part)
+    }
+  }
+
+  if (kindParts.length === 0) return null
+
+  return {
+    newKind: kindParts.join('') as RegionKind,
+    newSubtype: subtypeParts.length > 0 ? subtypeParts.join('-') : undefined
+  }
+}
+
 /**
  * Composable for managing editor commands and context menus.
  * Handles command execution, undo/redo, and context menu interactions.
@@ -223,7 +281,10 @@ export function useEditorCommand(
   canvasId: string,
   polygons: RenderablePolygon[],
   polylines: RenderablePolyline[],
-  clearHoverAndSelectionCallback: () => void
+  clearHoverAndSelectionCallback: () => void,
+  selectedPolygonIds: Ref<string[]> = ref([]),
+  selectedPolylineIds: Ref<string[]> = ref([]),
+  openMergeSettingsSlideover?: (kinds: RegionKind[]) => Promise<MergeSettings | null>
 ) {
   const editorStore = useEditorStore()
   const dialogs = useOverlayDialogs()
@@ -339,10 +400,172 @@ export function useEditorCommand(
     }))
   }
 
+  function buildBulkReparentSubmenu(textlineIds: string[]): ContextMenuItem[] {
+    const selected = new Set(textlineIds)
+    const currentParents = new Set(
+      polygons
+        .filter(p => selected.has(p.id))
+        .map(p => p.parentId)
+        .filter(Boolean)
+    )
+    const validParents = polygons.filter(p =>
+      p.type === 'region'
+      && !selected.has(p.id)
+      && !(currentParents.size === 1 && currentParents.has(p.id))
+      && !!p.regionKind
+      && canContainTextLines(p.regionKind)
+    )
+
+    return validParents.map(p => ({
+      id: `reparent-to-${p.id}`,
+      label: p.label ? `${p.label} (${p.id})` : p.id,
+      icon: p.regionKind ? getRegionKindIcon(p.regionKind) : 'i-lucide-square'
+    }))
+  }
+
+  function getPolygonSelectionContext(polygon: RenderablePolygon): ContextMenuSelection | null {
+    const ids = unique(selectedPolygonIds.value)
+    if (ids.length <= 1 || !ids.includes(polygon.id)) return null
+
+    const selectedPolygons = polygons.filter(p => ids.includes(p.id))
+    if (selectedPolygons.length <= 1) return null
+
+    return {
+      polygonIds: selectedPolygons.map(p => p.id),
+      polylineIds: [],
+      polygons: selectedPolygons,
+      polylines: []
+    }
+  }
+
+  function getPolylineSelectionContext(polyline: RenderablePolyline): ContextMenuSelection | null {
+    const ids = unique(selectedPolylineIds.value)
+    if (ids.length <= 1 || !ids.includes(polyline.id)) return null
+
+    const selectedPolylines = polylines.filter(p => ids.includes(p.id))
+    if (selectedPolylines.length <= 1) return null
+
+    return {
+      polygonIds: [],
+      polylineIds: selectedPolylines.map(p => p.id),
+      polygons: [],
+      polylines: selectedPolylines
+    }
+  }
+
+  function showContextMenuForSelection(event: MouseEvent, clickedElement: RenderablePolygon | RenderablePolyline, selection: ContextMenuSelection): void {
+    const polygonCount = selection.polygonIds.length
+    const polylineCount = selection.polylineIds.length
+    const totalCount = polygonCount + polylineCount
+    const selectedPolygons = selection.polygons
+    const polygonTypes = new Set(selectedPolygons.map(p => p.type))
+    const allRegions = polygonCount > 1 && polygonTypes.size === 1 && selectedPolygons[0]?.type === PolygonType.REGION
+    const allTextLines = polygonCount > 1 && polygonTypes.size === 1 && selectedPolygons[0]?.type === PolygonType.TEXTLINE
+
+    contextMenuTarget.value = {
+      type: 'selection',
+      element: clickedElement,
+      selection
+    }
+    contextMenuX.value = event.clientX
+    contextMenuY.value = event.clientY
+
+    const menuItems: ContextMenuItem[] = []
+
+    if (allRegions) {
+      const { kind, subtype, custom } = getCommonRegionState(selectedPolygons)
+      const labelSet = editorStore.labelSet
+      const regionTypeSubmenu = labelSet && labelSet.labels.length > 0
+        ? buildLabelSetSubmenu(labelSet.labels, kind, subtype, custom)
+        : buildRegionTypeSubmenu(kind)
+      menuItems.push({
+        id: 'change-region-type',
+        label: `Change Type for ${formatElementCount(polygonCount, 'Region')}`,
+        icon: 'i-lucide-replace',
+        submenu: regionTypeSubmenu
+      })
+
+      const session = getEditorSession(canvasId)
+      const readingOrder = session?.document.value?.page?.readingOrder
+      const selectedRegionIds = selectedPolygons.map(p => p.id)
+      if (selectedRegionIds.some(id => !isRegionInReadingOrder(readingOrder, id))) {
+        menuItems.push({
+          id: 'add-selection-to-reading-order',
+          label: 'Add Selection to Reading Order',
+          icon: 'i-lucide-book-plus'
+        })
+      }
+      if (selectedRegionIds.some(id => isRegionInReadingOrder(readingOrder, id))) {
+        menuItems.push({
+          id: 'remove-selection-from-reading-order',
+          label: 'Remove Selection from Reading Order',
+          icon: 'i-lucide-book-open'
+        })
+      }
+    }
+
+    if (allTextLines) {
+      const reparentSubmenu = buildBulkReparentSubmenu(selection.polygonIds)
+      if (reparentSubmenu.length > 0) {
+        menuItems.push({
+          id: 'reparent',
+          label: `Move ${formatElementCount(polygonCount, 'Text Line')} to Region`,
+          icon: 'i-lucide-move',
+          submenu: reparentSubmenu
+        })
+      }
+    }
+
+    const mergeState = canMergeSelection(selection.polygonIds, selection.polylineIds)
+    if (mergeState.canMerge && mergeState.elementType) {
+      menuItems.push({
+        id: 'merge-selection',
+        label: `Merge ${mergeState.elementType === 'region' ? formatElementCount(polygonCount, 'Region') : formatElementCount(polygonCount, 'Text Line')}`,
+        icon: 'i-lucide-merge'
+      })
+    }
+
+    if (polygonCount > 1 && polylineCount === 0) {
+      menuItems.push({
+        id: 'shape-tools',
+        label: 'Shape Tools',
+        icon: 'i-lucide-shapes',
+        submenu: [
+          { id: 'simplify-selection', label: 'Simplify Selection', icon: 'i-lucide-minimize-2' },
+          { id: 'convex-hull-selection', label: 'Convex Hull Selection', icon: 'i-lucide-octagon' },
+          { id: 'fit-selection-to-bbox', label: 'Fit Selection to Bounding Boxes', icon: 'i-lucide-square' }
+        ]
+      })
+    }
+
+    menuItems.push(
+      {
+        id: 'duplicate-selection',
+        label: `Duplicate ${formatElementCount(totalCount, 'Element')}`,
+        icon: 'i-lucide-copy'
+      },
+      {
+        id: 'delete-selection',
+        label: `Delete ${formatElementCount(totalCount, 'Element')}`,
+        icon: 'i-lucide-trash-2',
+        danger: true
+      }
+    )
+
+    contextMenuItems.value = menuItems
+    contextMenuVisible.value = true
+  }
+
   /**
    * Show context menu for a polygon at the given screen position
    */
   function showContextMenuForPolygon(event: MouseEvent, polygon: RenderablePolygon): void {
+    const selection = getPolygonSelectionContext(polygon)
+    if (selection) {
+      showContextMenuForSelection(event, polygon, selection)
+      return
+    }
+
     const isRegion = polygon.type === 'region'
     const isTextLine = polygon.type === 'textline'
 
@@ -426,6 +649,12 @@ export function useEditorCommand(
    * Show context menu for a polyline at the given screen position
    */
   function showContextMenuForPolyline(event: MouseEvent, polyline: RenderablePolyline): void {
+    const selection = getPolylineSelectionContext(polyline)
+    if (selection) {
+      showContextMenuForSelection(event, polyline, selection)
+      return
+    }
+
     contextMenuTarget.value = {
       type: 'polyline',
       element: polyline
@@ -458,16 +687,259 @@ export function useEditorCommand(
     contextMenuItems.value = []
   }
 
+  function getCommandContext(): CommandContext | undefined {
+    const session = getEditorSession(canvasId)
+    return session ? { canvasId, session } : undefined
+  }
+
+  function clearSelectionRefs(): void {
+    selectedPolygonIds.value = []
+    selectedPolylineIds.value = []
+  }
+
+  async function confirmBulkRegionKindChange(commands: ChangeRegionKindCommand[], newKind: RegionKind): Promise<boolean> {
+    const commandCtx = getCommandContext()
+    const textLinesToRemove = commands.reduce((sum, command) => sum + command.wouldRemoveTextLines(commandCtx), 0)
+    if (textLinesToRemove <= 0) return true
+
+    return await dialogs.confirm({
+      title: 'Change Type',
+      message: `Converting to ${getRegionKindDisplayName(newKind)} will remove ${textLinesToRemove} text line${textLinesToRemove === 1 ? '' : 's'}. Continue?`,
+      confirmLabel: 'Continue',
+      cancelLabel: 'Cancel',
+      confirmColor: 'warning'
+    })
+  }
+
+  async function applyLabelDefinitionToSelection(selection: ContextMenuSelection, labelDefinition: LabelDefinition): Promise<void> {
+    const mapping = labelDefinition.mapping?.pageXml
+    const newKind = mapping?.regionType as RegionKind | undefined
+    if (!newKind) return
+
+    const selectedRegions = selection.polygons.filter(p => p.type === PolygonType.REGION)
+    if (selectedRegions.length === 0) return
+
+    const commands = selectedRegions.map((polygon) => {
+      const newSubtype = newKind === 'TextRegion'
+        ? (mapping?.textType === 'custom' ? 'other' : (mapping?.textType || undefined))
+        : (mapping?.customSubType || undefined)
+      const newCustom = buildMergedCustomForAppliedRegionLabel(polygon.regionCustom, labelDefinition)
+
+      return new ChangeRegionKindCommand({
+        regionId: polygon.id,
+        newKind,
+        newSubtype,
+        updateCustom: true,
+        newCustom
+      })
+    })
+
+    if (!(await confirmBulkRegionKindChange(commands, newKind))) return
+    commander.execute(new CompoundCommand(commands, `Change type for ${selectedRegions.length} regions`), getCommandContext())
+  }
+
+  async function applyRegionTypeToSelection(selection: ContextMenuSelection, itemId: string): Promise<void> {
+    const parsed = parseRegionTypeMenuItemId(itemId)
+    if (!parsed) return
+
+    const selectedRegions = selection.polygons.filter(p => p.type === PolygonType.REGION)
+    if (selectedRegions.length === 0) return
+
+    const commands = selectedRegions.map(polygon => new ChangeRegionKindCommand({
+      regionId: polygon.id,
+      newKind: parsed.newKind,
+      newSubtype: parsed.newSubtype,
+      updateCustom: true,
+      newCustom: clearLarexRegionLabelMetadata(polygon.regionCustom)
+    }))
+
+    if (!(await confirmBulkRegionKindChange(commands, parsed.newKind))) return
+    commander.execute(new CompoundCommand(commands, `Change type for ${selectedRegions.length} regions`), getCommandContext())
+  }
+
+  async function deleteSelection(selection: ContextMenuSelection): Promise<void> {
+    const totalCount = selection.polygonIds.length + selection.polylineIds.length
+    if (totalCount === 0) return
+
+    const childParentIds = new Set(selection.polygonIds)
+    const childCount = polygons.filter(p => p.parentId && childParentIds.has(p.parentId)).length
+      + polylines.filter(p => p.parentId && childParentIds.has(p.parentId)).length
+
+    const confirmed = await dialogs.confirm({
+      title: `Delete ${formatElementCount(totalCount, 'Element')}?`,
+      message: childCount > 0
+        ? `Delete ${totalCount} selected elements and ${childCount} associated child element${childCount === 1 ? '' : 's'}?`
+        : `Delete ${totalCount} selected element${totalCount === 1 ? '' : 's'}?`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+      confirmColor: 'error'
+    })
+    if (!confirmed) return
+
+    clearHoverAndSelectionCallback()
+    clearSelectionRefs()
+    commander.execute(new DeleteSelectedElementsCommand({
+      polygonIds: selection.polygonIds,
+      polylineIds: selection.polylineIds
+    }), getCommandContext())
+  }
+
+  function duplicateSelection(selection: ContextMenuSelection): void {
+    const commands = [
+      ...selection.polygons.map(polygon => new DuplicateElementCommand({
+        elementId: polygon.id,
+        elementType: 'polygon' as const,
+        parentId: polygon.parentId
+      })),
+      ...selection.polylines.map(polyline => new DuplicateElementCommand({
+        elementId: polyline.id,
+        elementType: 'polyline' as const,
+        parentId: polyline.parentId
+      }))
+    ]
+
+    if (commands.length === 0) return
+    commander.execute(new CompoundCommand(commands, `Duplicate ${commands.length} selected elements`), getCommandContext())
+  }
+
+  function reparentSelection(selection: ContextMenuSelection, newParentId: string): void {
+    const selectedTextLines = selection.polygons.filter(p => p.type === PolygonType.TEXTLINE)
+    if (selectedTextLines.length === 0) return
+
+    const commands = selectedTextLines.map(polygon => new ReparentElementCommand({
+      elementId: polygon.id,
+      elementType: 'textline',
+      newParentId
+    }))
+    commander.execute(new CompoundCommand(commands, `Move ${selectedTextLines.length} text lines to region`), getCommandContext())
+  }
+
+  function updateSelectionReadingOrder(selection: ContextMenuSelection, action: 'add' | 'remove'): void {
+    const session = getEditorSession(canvasId)
+    if (!session?.document.value?.page) return
+
+    const page = session.document.value.page
+    if (!page.readingOrder) {
+      page.readingOrder = {
+        root: {
+          kind: 'OrderedGroup',
+          id: 'ro_root',
+          elements: []
+        }
+      }
+    }
+
+    const selectedRegionIds = selection.polygons
+      .filter(p => p.type === PolygonType.REGION)
+      .map(p => p.id)
+
+    let nextReadingOrder = page.readingOrder
+    for (const regionId of selectedRegionIds) {
+      const inReadingOrder = isRegionInReadingOrder(nextReadingOrder, regionId)
+      if (action === 'add' && !inReadingOrder) {
+        nextReadingOrder = addToReadingOrder(nextReadingOrder, regionId)
+      } else if (action === 'remove' && inReadingOrder) {
+        nextReadingOrder = removeFromReadingOrder(nextReadingOrder, regionId)
+      }
+    }
+
+    commander.execute(new UpdateReadingOrderCommand({
+      readingOrder: nextReadingOrder
+    }), { canvasId, session })
+  }
+
+  function executePolygonSelectionShapeCommand(
+    selection: ContextMenuSelection,
+    factory: (polygon: RenderablePolygon) => SimplifyPolygonCommand | ConvexHullCommand | FitToBoundingBoxCommand,
+    description: string
+  ): void {
+    if (selection.polygons.length === 0 || selection.polylineIds.length > 0) return
+    const commands = selection.polygons.map(factory)
+    commander.execute(new CompoundCommand(commands, description), getCommandContext())
+  }
+
+  async function mergeSelection(selection: ContextMenuSelection): Promise<void> {
+    const result = await mergeSelected(selection.polygonIds, openMergeSettingsSlideover)
+    if (result) clearSelectionRefs()
+  }
+
   /**
    * Handle context menu item selection
    */
   async function handleContextMenuSelect(item: ContextMenuItem): Promise<void> {
     if (!contextMenuTarget.value) return
 
-    const session = getEditorSession(canvasId)
-    const commandCtx: CommandContext | undefined = session ? { canvasId, session } : undefined
+    const commandCtx = getCommandContext()
 
     const target = contextMenuTarget.value
+
+    if (target.type === 'selection' && target.selection) {
+      const selection = target.selection
+
+      if (item.labelDefinition) {
+        await applyLabelDefinitionToSelection(selection, item.labelDefinition)
+        return
+      }
+
+      if (item.id.startsWith('region-type-')) {
+        await applyRegionTypeToSelection(selection, item.id)
+        return
+      }
+
+      if (item.id.startsWith('reparent-to-')) {
+        reparentSelection(selection, item.id.replace('reparent-to-', ''))
+        return
+      }
+
+      switch (item.id) {
+        case 'delete-selection':
+          await deleteSelection(selection)
+          break
+        case 'duplicate-selection':
+          duplicateSelection(selection)
+          break
+        case 'merge-selection':
+          await mergeSelection(selection)
+          break
+        case 'add-selection-to-reading-order':
+          updateSelectionReadingOrder(selection, 'add')
+          break
+        case 'remove-selection-from-reading-order':
+          updateSelectionReadingOrder(selection, 'remove')
+          break
+        case 'simplify-selection':
+          executePolygonSelectionShapeCommand(
+            selection,
+            (polygon) => {
+              const elementType = polygon.type === 'region' ? 'region' : 'textline'
+              return new SimplifyPolygonCommand({ elementId: polygon.id, elementType })
+            },
+            `Simplify ${selection.polygons.length} selected polygons`
+          )
+          break
+        case 'convex-hull-selection':
+          executePolygonSelectionShapeCommand(
+            selection,
+            (polygon) => {
+              const elementType = polygon.type === 'region' ? 'region' : 'textline'
+              return new ConvexHullCommand({ elementId: polygon.id, elementType })
+            },
+            `Convex hull for ${selection.polygons.length} selected polygons`
+          )
+          break
+        case 'fit-selection-to-bbox':
+          executePolygonSelectionShapeCommand(
+            selection,
+            (polygon) => {
+              const elementType = polygon.type === 'region' ? 'region' : 'textline'
+              return new FitToBoundingBoxCommand({ elementId: polygon.id, elementType })
+            },
+            `Fit ${selection.polygons.length} selected polygons to bounding boxes`
+          )
+          break
+      }
+      return
+    }
 
     if (item.labelDefinition && target.type === 'polygon') {
       const polygon = target.element as RenderablePolygon
@@ -506,33 +978,13 @@ export function useEditorCommand(
     if (item.id.startsWith('region-type-')) {
       if (target.type === 'polygon') {
         const polygon = target.element as RenderablePolygon
-
-        const parts = item.id.replace('region-type-', '').split('-')
-        const kindParts: string[] = []
-        const subtypeParts: string[] = []
-        let foundRegion = false
-
-        for (const part of parts) {
-          if (!foundRegion) {
-            kindParts.push(part)
-            if (part === 'Region' || part.endsWith('Region')) {
-              foundRegion = true
-            }
-          } else {
-            subtypeParts.push(part)
-          }
-        }
-
-        const newKind: RegionKind = kindParts.join('') as RegionKind
-        let newSubtype: string | undefined
-        if (subtypeParts.length > 0) {
-          newSubtype = subtypeParts.join('-')
-        }
+        const parsed = parseRegionTypeMenuItemId(item.id)
+        if (!parsed) return
 
         const changeKindCommand = new ChangeRegionKindCommand({
           regionId: polygon.id,
-          newKind,
-          newSubtype,
+          newKind: parsed.newKind,
+          newSubtype: parsed.newSubtype,
           updateCustom: true,
           newCustom: clearLarexRegionLabelMetadata(polygon.regionCustom)
         })
@@ -541,7 +993,7 @@ export function useEditorCommand(
         if (textLinesToRemove > 0) {
           const confirmed = await dialogs.confirm({
             title: 'Change Type',
-            message: `Converting to ${getRegionKindDisplayName(newKind)} will remove ${textLinesToRemove} text line${textLinesToRemove === 1 ? '' : 's'}. Continue?`,
+            message: `Converting to ${getRegionKindDisplayName(parsed.newKind)} will remove ${textLinesToRemove} text line${textLinesToRemove === 1 ? '' : 's'}. Continue?`,
             confirmLabel: 'Continue',
             cancelLabel: 'Cancel',
             confirmColor: 'warning'
@@ -780,7 +1232,7 @@ export function useEditorCommand(
    */
   async function mergeSelected(
     selectedPolygonIds: string[],
-    openMergeSettingsSlideover: (kinds: RegionKind[]) => Promise<MergeSettings | null>
+    mergeSettingsCallback?: (kinds: RegionKind[]) => Promise<MergeSettings | null>
   ): Promise<{ id: string } | undefined> {
     const { canMerge, elementType } = canMergeSelection(selectedPolygonIds, [])
     if (!canMerge || !elementType) return undefined
@@ -794,10 +1246,14 @@ export function useEditorCommand(
     if (elementType === 'region') {
       const kinds = getSelectedRegionKinds(selectedPolygonIds)
       if (kinds.length > 1) {
-        const settings = await openMergeSettingsSlideover(kinds)
-        if (!settings) return undefined // User cancelled
-        targetKind = settings.targetKind
-        mergeChildren = settings.mergeChildren
+        if (mergeSettingsCallback) {
+          const settings = await mergeSettingsCallback(kinds)
+          if (!settings) return undefined // User cancelled
+          targetKind = settings.targetKind
+          mergeChildren = settings.mergeChildren
+        } else {
+          targetKind = kinds[0]
+        }
       } else {
         targetKind = kinds[0]
       }
