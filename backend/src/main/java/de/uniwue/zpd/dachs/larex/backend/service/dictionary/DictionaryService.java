@@ -37,7 +37,6 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 
 import javax.xml.parsers.DocumentBuilderFactory;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +44,7 @@ import java.text.Normalizer;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -678,19 +678,10 @@ public class DictionaryService {
     }
 
     private ParsedDictionaryImport parseTxt(String content) {
-        List<ImportedEntry> entries = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(new StringReader(content == null ? "" : content))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String trimmed = line.trim();
-                if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                    continue;
-                }
-                entries.add(new ImportedEntry(trimmed, null, null));
-            }
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to read TXT dictionary import", e);
-        }
+        List<ImportedEntry> entries = Arrays.stream((content == null ? "" : content).trim().split("\\s+"))
+                .filter(token -> !token.isBlank())
+                .map(token -> new ImportedEntry(token, null, null))
+                .toList();
         return new ParsedDictionaryImport(null, null, List.of(), false, "NFC", false, entries);
     }
 
@@ -704,10 +695,10 @@ public class DictionaryService {
         }
 
         List<String> header = rows.getFirst().stream().map(String::trim).toList();
-        boolean hasNamedFormColumn = header.stream().anyMatch(column -> "form".equalsIgnoreCase(column));
+        boolean hasNamedFormColumn = header.stream().anyMatch("form"::equalsIgnoreCase);
         int startIndex = hasNamedFormColumn ? 1 : 0;
         int formIndex = hasNamedFormColumn
-                ? header.indexOf(header.stream().filter(column -> "form".equalsIgnoreCase(column)).findFirst().orElse("form"))
+                ? header.indexOf(header.stream().filter("form"::equalsIgnoreCase).findFirst().orElse("form"))
                 : 0;
 
         List<ImportedEntry> entries = new ArrayList<>();
@@ -871,7 +862,7 @@ public class DictionaryService {
             if (!tags.isNull() && !tags.isArray()) {
                 return false;
             }
-            if (tags != null && tags.isArray()) {
+            if (tags.isArray()) {
                 for (JsonNode tag : tags) {
                     if (tag != null && !tag.isNull() && !tag.isTextual()) {
                         return false;
@@ -1013,13 +1004,11 @@ public class DictionaryService {
                     if (entryId != null) {
                         metadata.put("entryId", entryId);
                     }
-                    if (headword != null) {
-                        metadata.put("headword", headword);
-                    }
+                    metadata.put("headword", headword);
                     entries.add(new ImportedEntry(
                             form,
                             entryId,
-                            metadata.isEmpty() ? null : objectMapper.valueToTree(metadata)
+                            objectMapper.valueToTree(metadata)
                     ));
                 }
             }
@@ -1033,13 +1022,13 @@ public class DictionaryService {
                                                                      String normalizedToken,
                                                                      Integer requestedLimit) {
         DictionaryIndex index = getDictionaryIndex(dictionary);
-        int limit = requestedLimit == null ? DEFAULT_SUGGEST_LIMIT : Math.max(1, Math.min(requestedLimit, 20));
+        int limit = requestedLimit == null ? DEFAULT_SUGGEST_LIMIT : Math.clamp(requestedLimit, 1, 20);
         int maxDistance = maxSuggestionDistance(normalizedToken);
 
         return index.tree().search(normalizedToken, maxDistance).stream()
                 .sorted(Comparator
-                        .comparingInt((SuggestionCandidate candidate) -> candidate.distance())
-                        .thenComparing(candidate -> candidate.normalized(), String.CASE_INSENSITIVE_ORDER))
+                        .comparingInt(SuggestionCandidate::distance)
+                        .thenComparing(SuggestionCandidate::normalized, String.CASE_INSENSITIVE_ORDER))
                 .flatMap(candidate -> index.forms().getOrDefault(candidate.normalized(), Set.of()).stream()
                         .sorted(String.CASE_INSENSITIVE_ORDER)
                         .map(display -> new DictionaryDto.Suggestion(display, candidate.normalized(), candidate.distance())))
@@ -1172,7 +1161,7 @@ public class DictionaryService {
             boolean joiner = isTokenJoiner(cp);
             Integer next = codepoints.peekFirst();
             if (joiner
-                    && current.length() > 0
+                    && !current.isEmpty()
                     && Character.isLetterOrDigit(current.codePointBefore(current.length()))
                     && next != null
                     && Character.isLetterOrDigit(next)) {
@@ -1274,7 +1263,7 @@ public class DictionaryService {
     private boolean matchesVariantSelection(Integer rowVariantIndex, VariantSelection selection) {
         return switch (selection.mode()) {
             case ALL -> true;
-            case PRIMARY_COMPAT -> rowVariantIndex == null || rowVariantIndex.intValue() == 0;
+            case PRIMARY_COMPAT -> rowVariantIndex == null || rowVariantIndex == 0;
             case SPECIFIC_INDEX -> rowVariantIndex != null && rowVariantIndex.equals(selection.variantIndex());
             case UNINDEXED_ONLY -> rowVariantIndex == null;
         };

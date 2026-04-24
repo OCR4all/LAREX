@@ -96,7 +96,9 @@ function onHexInput(e: Event) {
 function onGradientMouseDown(e: MouseEvent) {
   updateGradient(e)
   const onMove = (ev: MouseEvent) => updateGradient(ev)
-  const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp) }
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
 }
@@ -111,7 +113,10 @@ function updateGradient(e: MouseEvent) {
 function onHueMouseDown(e: MouseEvent) {
   updateHue(e)
   const onMove = (ev: MouseEvent) => updateHue(ev)
-  const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
 }
@@ -125,7 +130,10 @@ function updateHue(e: MouseEvent) {
 function onOpacityMouseDown(e: MouseEvent) {
   updateOpacity(e)
   const onMove = (ev: MouseEvent) => updateOpacity(ev)
-  const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
   document.addEventListener('mousemove', onMove)
   document.addEventListener('mouseup', onUp)
 }
@@ -202,6 +210,6 @@ const hueColor = computed(() => hsbToHex(hue.value, 100, 100))
     linear-gradient(45deg, transparent 75%, #ccc 75%),
     linear-gradient(-45deg, transparent 75%, #ccc 75%);
   background-size: 8px 8px;
-  background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
 }
 </style>
