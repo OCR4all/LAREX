@@ -1187,7 +1187,7 @@ export function useEditorCollaboration() {
     if (!projectId || !pageId || canvas.isLoadingAnnotations) {
       return null
     }
-    const annotationContext = getAnnotationContextForCanvas(canvasId)
+    const annotationContext = resolveAnnotationContextForCanvas(canvasId)
     if (!annotationContext) {
       return null
     }
