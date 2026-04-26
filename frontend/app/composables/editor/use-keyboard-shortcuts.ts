@@ -431,6 +431,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       for (const [commandId, definition] of Object.entries(SHORTCUT_DEFINITIONS) as Array<[ShortcutCommandId, ShortcutDefinition]>) {
         if (definition.scope !== scope) continue
         if (!(resolvedBindings.value[commandId] ?? []).includes(binding)) continue
+        if (commandId === 'clearSelection' && binding === 'escape') continue
 
         const handled = runCommand(commandId, scopeState.registration)
         if (!handled) continue

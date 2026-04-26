@@ -45,6 +45,13 @@ describe('shortcut-registry', () => {
     expect(bindings.undo).toEqual(['meta_z'])
   })
 
+  it('does not bind Escape to global clear selection by default', () => {
+    const bindings = getEffectiveShortcutBindings(null)
+
+    expect(bindings.clearSelection).toEqual([])
+    expect(bindings.blurTextField).toEqual(['escape'])
+  })
+
   it('detects same-scope collisions but allows duplicates across scopes', () => {
     const bindings = getEffectiveShortcutBindings(createShortcutPreferences({
       redo: ['meta_z']

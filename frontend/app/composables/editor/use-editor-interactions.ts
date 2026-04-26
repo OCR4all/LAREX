@@ -78,6 +78,7 @@ export function useEditorInteractions(
   const marqueeRectPx = ref<{ x: number, y: number, width: number, height: number } | null>(null)
   let marqueeStartClient: { x: number, y: number } | null = null
   let marqueeContext: MarqueeContext | null = null
+  let lastSelectionEscapeTime = 0
 
   let pendingShiftMarquee = false
   let pendingShiftStartClient: { x: number, y: number } | null = null
@@ -290,47 +291,71 @@ export function useEditorInteractions(
     }
   }
 
-  function drillUpOrDeselect(viewMode: ViewMode | undefined): void {
+  function clearSelectionToRoot(): void {
+    selectedPolygonIndex.value = -1
+    selectedPolylineIndex.value = -1
+    clearSelectionSetOnly()
+  }
+
+  function getSelectedPolygonIndex(): number {
+    if (selectedPolygonIndex.value >= 0 && selectedPolygonIndex.value < polygons.length) {
+      return selectedPolygonIndex.value
+    }
+
+    if (selectedPolygonIds.value.length !== 1) return -1
+    const selectedId = selectedPolygonIds.value[0]
+    if (!selectedId) return -1
+    return polygons.findIndex(p => p.id === selectedId)
+  }
+
+  function getSelectedPolylineIndex(): number {
+    if (selectedPolylineIndex.value >= 0 && selectedPolylineIndex.value < polylines.length) {
+      return selectedPolylineIndex.value
+    }
+
+    if (selectedPolylineIds.value.length !== 1) return -1
+    const selectedId = selectedPolylineIds.value[0]
+    if (!selectedId) return -1
+    return polylines.findIndex(p => p.id === selectedId)
+  }
+
+  function selectParentPolygon(parentId: string | undefined): void {
+    if (!parentId) {
+      selectedPolygonIndex.value = -1
+      return
+    }
+
+    const parentIndex = polygons.findIndex(p => p.id === parentId)
+    selectedPolygonIndex.value = parentIndex >= 0 ? parentIndex : -1
+  }
+
+  function drillUpOneLevel(): void {
+    const activePolylineIndex = getSelectedPolylineIndex()
+    const activePolygonIndex = getSelectedPolygonIndex()
     clearSelectionSetOnly()
 
-    if (isBaselineMode(viewMode) && selectedPolylineIndex.value < 0) {
-      selectedPolygonIndex.value = -1
-      replaceSelectionFromCurrentIndices(viewMode)
-      return
-    }
-
-    if (selectedPolylineIndex.value >= 0) {
-      const selected = polylines[selectedPolylineIndex.value]
-      if (isBaselineMode(viewMode)) {
-        selectedPolylineIndex.value = -1
-        selectedPolygonIndex.value = -1
-        replaceSelectionFromCurrentIndices(viewMode)
-        return
-      }
+    if (activePolylineIndex >= 0) {
+      const selected = polylines[activePolylineIndex]
 
       selectedPolylineIndex.value = -1
-      if (selected?.parentId) {
-        const parentIndex = polygons.findIndex(p => p.id === selected.parentId)
-        selectedPolygonIndex.value = parentIndex >= 0 ? parentIndex : -1
-      } else {
-        selectedPolygonIndex.value = -1
-      }
-      replaceSelectionFromCurrentIndices(viewMode)
+      selectParentPolygon(selected?.parentId)
+      replaceSelectionFromCurrentIndices(undefined)
       return
     }
 
-    if (selectedPolygonIndex.value >= 0) {
-      const selected = polygons[selectedPolygonIndex.value]
-      if (selected?.parentId) {
-        const parentIndex = polygons.findIndex(p => p.id === selected.parentId)
-        selectedPolygonIndex.value = parentIndex >= 0 ? parentIndex : -1
-      } else {
-        selectedPolygonIndex.value = -1
-      }
+    if (activePolygonIndex >= 0) {
+      const selected = polygons[activePolygonIndex]
+      selectParentPolygon(selected?.parentId)
       selectedPolylineIndex.value = -1
-      replaceSelectionFromCurrentIndices(viewMode)
+      replaceSelectionFromCurrentIndices(undefined)
       return
     }
+
+    clearSelectionToRoot()
+  }
+
+  function getKeyboardEventTime(e: KeyboardEvent): number {
+    return Number.isFinite(e.timeStamp) && e.timeStamp > 0 ? e.timeStamp : Date.now()
   }
 
   function onWheel(e: WheelEvent): void {
@@ -922,15 +947,24 @@ export function useEditorInteractions(
       e.preventDefault()
 
       if (cancelActiveOperation()) {
+        lastSelectionEscapeTime = 0
         return
       }
 
-      const rawViewMode = canvasControls.viewMode?.value
-      const normalizedViewMode: ViewMode | undefined = normalizeViewMode(rawViewMode)
+      const eventTime = getKeyboardEventTime(e)
+      const isFastDoubleEscape = lastSelectionEscapeTime > 0
+        && eventTime - lastSelectionEscapeTime <= TIMING.CLICK_TIMEOUT
+      lastSelectionEscapeTime = isFastDoubleEscape ? 0 : eventTime
 
-      drillUpOrDeselect(normalizedViewMode)
+      if (isFastDoubleEscape) {
+        clearSelectionToRoot()
+      } else {
+        drillUpOneLevel()
+      }
       return
     }
+
+    lastSelectionEscapeTime = 0
 
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'z' && polygonDrawing.isActive()) {

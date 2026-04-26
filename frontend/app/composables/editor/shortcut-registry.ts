@@ -164,7 +164,7 @@ export const SHORTCUT_DEFINITIONS = {
     description: 'Clear selection',
     group: 'editing',
     scope: 'global',
-    defaultBindings: ['escape']
+    defaultBindings: []
   },
   selectAll: {
     description: 'Select all',

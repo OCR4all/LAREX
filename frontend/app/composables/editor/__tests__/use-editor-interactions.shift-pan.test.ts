@@ -29,12 +29,26 @@ function eventStub(overrides: Partial<MouseEvent> = {}): MouseEvent {
   } as MouseEvent
 }
 
+function escapeEvent(timeStamp: number): KeyboardEvent {
+  return {
+    key: 'Escape',
+    timeStamp,
+    preventDefault: vi.fn()
+  } as unknown as KeyboardEvent
+}
+
 async function loadUseEditorInteractions() {
   const module = await import('../use-editor-interactions')
   return module.useEditorInteractions
 }
 
-async function createHarness(mode: Mode) {
+async function createHarness(
+  mode: Mode,
+  options: {
+    polygons?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
+    polylines?: Array<{ id: string, points: Array<{ x: number, y: number }>, parentId?: string, type?: string }>
+  } = {}
+) {
   const useEditorInteractions = await loadUseEditorInteractions()
 
   const canvas = ref<HTMLCanvasElement | null>({} as HTMLCanvasElement)
@@ -47,6 +61,8 @@ async function createHarness(mode: Mode) {
   const selectedPolylineIds = ref<string[]>([])
   const hiddenPolygonIds = ref<string[]>([])
   const hiddenPolylineIds = ref<string[]>([])
+  const polygons = reactive(options.polygons ?? [])
+  const polylines = reactive(options.polylines ?? [])
 
   const isPolygonMode = ref(mode === 'polygon')
   const isRectangleMode = ref(mode === 'rectangle')
@@ -140,9 +156,9 @@ async function createHarness(mode: Mode) {
     isDragging: vi.fn(() => false),
     hoveredPolygonIndex: ref(-1),
     hoveredNodeIndex: ref(-1),
-    hoveredEdgeInfo: reactive({ edgeIndex: -1, projectedPoint: null, distanceSq: Number.POSITIVE_INFINITY }),
+    hoveredEdgeInfo: reactive({ polygonIndex: -1, edgeStartIndex: -1, t: 0 }),
     previewNodePosition: reactive({ x: null, y: null }),
-    draggedNodeInfo: reactive({ nodeIndex: -1, parentPolygonIndex: -1, isDragging: false }),
+    draggedNodeInfo: reactive({ polygonIndex: -1, nodeIndex: -1, isDragging: false }),
     isInvalidPosition: ref(false),
     justFinishedDragging: ref(false)
   }
@@ -160,8 +176,8 @@ async function createHarness(mode: Mode) {
     selectedPolylineIndex,
     hoveredPolylineIndex: ref(-1),
     hoveredNodeIndex: ref(-1),
-    hoveredSegmentInfo: reactive({ segmentIndex: -1, projectedPoint: null, distanceSq: Number.POSITIVE_INFINITY }),
-    draggedNodeInfo: reactive({ nodeIndex: -1, parentPolylineIndex: -1, isDragging: false }),
+    hoveredSegmentInfo: reactive({ polylineIndex: -1, segmentIndex: -1, distance: Number.POSITIVE_INFINITY, closestPoint: null }),
+    draggedNodeInfo: reactive({ polylineIndex: -1, nodeIndex: -1, isDragging: false, originalPoint: null }),
     isInvalidPosition: ref(false),
     justFinishedDragging: ref(false),
     previewNodePosition: reactive({ x: null, y: null })
@@ -199,9 +215,18 @@ async function createHarness(mode: Mode) {
   }
 
   const stateActions = {
-    clearSelectionSet: vi.fn(),
-    replacePolygonSelection: vi.fn(),
-    replacePolylineSelection: vi.fn(),
+    clearSelectionSet: vi.fn(() => {
+      selectedPolygonIds.value = []
+      selectedPolylineIds.value = []
+    }),
+    replacePolygonSelection: vi.fn((ids: string[]) => {
+      selectedPolylineIds.value = []
+      selectedPolygonIds.value = ids
+    }),
+    replacePolylineSelection: vi.fn((ids: string[]) => {
+      selectedPolygonIds.value = []
+      selectedPolylineIds.value = ids
+    }),
     addPolygonSelection: vi.fn(),
     addPolylineSelection: vi.fn(),
     togglePolygonSelection: vi.fn(),
@@ -214,8 +239,8 @@ async function createHarness(mode: Mode) {
     canvas,
     view,
     aspectRatioScale,
-    [],
-    [],
+    polygons,
+    polylines,
     selectedPolygonIndex,
     selectedPolylineIndex,
     selectedPolygonIds,
@@ -248,7 +273,12 @@ async function createHarness(mode: Mode) {
     rectangleDrawing,
     polylineDrawing,
     cutDrawing,
-    canvasControls
+    canvasControls,
+    stateActions,
+    selectedPolygonIndex,
+    selectedPolylineIndex,
+    selectedPolygonIds,
+    selectedPolylineIds
   }
 }
 
@@ -356,5 +386,83 @@ describe('useEditorInteractions shift-pan routing', () => {
     expect(harness.canvasControls.handleUndo).not.toHaveBeenCalled()
     expect(event.preventDefault).toHaveBeenCalledOnce()
     expect(event.stopImmediatePropagation).toHaveBeenCalledOnce()
+  })
+
+  it('moves one polygon level up on a normal Escape press', async () => {
+    const harness = await createHarness('polygon', {
+      polygons: [
+        { id: 'region-root', type: 'region', points: [] },
+        { id: 'line-a', type: 'textline', parentId: 'region-root', points: [] }
+      ]
+    })
+    harness.selectedPolygonIndex.value = 1
+    harness.selectedPolygonIds.value = ['line-a']
+    const event = escapeEvent(1000)
+
+    harness.interactions.onKeyDown(event)
+
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(harness.selectedPolygonIndex.value).toBe(0)
+    expect(harness.selectedPolylineIndex.value).toBe(-1)
+    expect(harness.stateActions.replacePolygonSelection).toHaveBeenLastCalledWith(['region-root'])
+  })
+
+  it('moves one polygon level up when only the selected polygon ID is set', async () => {
+    const harness = await createHarness('polygon', {
+      polygons: [
+        { id: 'region-root', type: 'region', points: [] },
+        { id: 'region-child', type: 'region', parentId: 'region-root', points: [] },
+        { id: 'line-a', type: 'textline', parentId: 'region-child', points: [] }
+      ]
+    })
+    harness.selectedPolygonIndex.value = -1
+    harness.selectedPolygonIds.value = ['line-a']
+    const event = escapeEvent(1000)
+
+    harness.interactions.onKeyDown(event)
+
+    expect(harness.selectedPolygonIndex.value).toBe(1)
+    expect(harness.selectedPolylineIndex.value).toBe(-1)
+    expect(harness.stateActions.replacePolygonSelection).toHaveBeenLastCalledWith(['region-child'])
+  })
+
+  it('moves from a selected baseline to its textline on a normal Escape press', async () => {
+    const harness = await createHarness('polyline', {
+      polygons: [
+        { id: 'line-a', type: 'textline', points: [] }
+      ],
+      polylines: [
+        { id: 'baseline:line-a', type: 'baseline', parentId: 'line-a', points: [] }
+      ]
+    })
+    harness.canvasControls.viewMode.value = 'baseline'
+    harness.selectedPolylineIndex.value = 0
+    harness.selectedPolylineIds.value = ['baseline:line-a']
+    const event = escapeEvent(1000)
+
+    harness.interactions.onKeyDown(event)
+
+    expect(harness.selectedPolygonIndex.value).toBe(0)
+    expect(harness.selectedPolylineIndex.value).toBe(-1)
+    expect(harness.stateActions.replacePolygonSelection).toHaveBeenLastCalledWith(['line-a'])
+    expect(harness.stateActions.replacePolylineSelection).not.toHaveBeenCalled()
+  })
+
+  it('clears directly to root level on fast double Escape', async () => {
+    const harness = await createHarness('polygon', {
+      polygons: [
+        { id: 'region-root', type: 'region', points: [] },
+        { id: 'line-a', type: 'textline', parentId: 'region-root', points: [] }
+      ]
+    })
+    harness.selectedPolygonIndex.value = 1
+    harness.selectedPolygonIds.value = ['line-a']
+
+    harness.interactions.onKeyDown(escapeEvent(1000))
+    harness.interactions.onKeyDown(escapeEvent(1100))
+
+    expect(harness.selectedPolygonIndex.value).toBe(-1)
+    expect(harness.selectedPolylineIndex.value).toBe(-1)
+    expect(harness.stateActions.clearSelectionSet).toHaveBeenCalled()
   })
 })
