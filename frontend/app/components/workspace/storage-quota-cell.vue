@@ -70,7 +70,7 @@ const progressValue = computed(() => getStorageQuotaProgressValue(quota.value?.u
 
     <div v-else-if="quota" class="space-y-1">
       <UProgress
-        :value="progressValue"
+        v-model="progressValue"
         :max="100"
         :color="progressColor"
         size="xs"
