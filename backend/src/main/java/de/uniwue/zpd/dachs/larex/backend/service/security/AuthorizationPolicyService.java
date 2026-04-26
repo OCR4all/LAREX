@@ -211,8 +211,9 @@ public class AuthorizationPolicyService {
 
     public AuthorizationCapabilitiesDto.ResourceCapabilities resolveWorkspaceResourceCapabilities(String workspaceId, String userId) {
         boolean canEdit = canManageUtilities(workspaceId, userId);
+        boolean canShare = canEdit;
         boolean canDelete = canEdit;
-        return new AuthorizationCapabilitiesDto.ResourceCapabilities(canEdit, canDelete);
+        return new AuthorizationCapabilitiesDto.ResourceCapabilities(canEdit, canShare, canDelete);
     }
 
     private Optional<AbstractWorkspace> resolveWorkspace(String workspaceId) {

@@ -61,6 +61,7 @@ public class ResourceTransferRequest {
         DICTIONARY,
         VIRTUAL_KEYBOARD,
         LABEL_SET,
+        TAG_SET,
         NORMALIZATION_PROFILE,
         VALIDATION_RULESET
     }

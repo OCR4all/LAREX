@@ -35,6 +35,7 @@ export interface TaskCapabilities {
 
 export interface ResourceCapabilities {
   canEdit: boolean
+  canShare: boolean
   canDelete: boolean
 }
 
@@ -75,5 +76,6 @@ export const DEFAULT_TASK_CAPABILITIES: TaskCapabilities = {
 
 export const DEFAULT_RESOURCE_CAPABILITIES: ResourceCapabilities = {
   canEdit: false,
+  canShare: false,
   canDelete: false
 }

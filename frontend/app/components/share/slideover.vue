@@ -10,7 +10,7 @@ interface Workspace {
 const props = defineProps<{
   resourceId: string
   resourceName: string
-  resourceType: 'PROJECT' | 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
+  resourceType: 'PROJECT' | 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'TAG_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
   currentWorkspaceId: string
 }>()
 

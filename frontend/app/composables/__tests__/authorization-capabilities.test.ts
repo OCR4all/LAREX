@@ -36,10 +36,12 @@ describe('authorization composables', () => {
 
     const caps = useResourceCapabilities(resource, 'resource')
     expect(caps.value.canEdit).toBe(false)
+    expect(caps.value.canShare).toBe(false)
     expect(caps.value.canDelete).toBe(true)
 
     resource.value = null
     expect(caps.value.canEdit).toBe(false)
+    expect(caps.value.canShare).toBe(false)
     expect(caps.value.canDelete).toBe(false)
   })
 

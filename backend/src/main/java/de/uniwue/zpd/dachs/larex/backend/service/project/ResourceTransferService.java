@@ -10,6 +10,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.library.LibraryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.normalization.NormalizationProfileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ResourceTransferRequestRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.tag.TagSetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.validation.ValidationRulesetRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.PersonalWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
@@ -36,6 +37,7 @@ public class ResourceTransferService {
     private final ControlledDictionaryRepository dictionaryRepository;
     private final VirtualKeyboardRepository virtualKeyboardRepository;
     private final LabelSetRepository labelSetRepository;
+    private final TagSetRepository tagSetRepository;
     private final NormalizationProfileRepository normalizationProfileRepository;
     private final ValidationRulesetRepository validationRulesetRepository;
     private final LibraryRepository libraryRepository;
@@ -51,6 +53,7 @@ public class ResourceTransferService {
             ControlledDictionaryRepository dictionaryRepository,
             VirtualKeyboardRepository virtualKeyboardRepository,
             LabelSetRepository labelSetRepository,
+            TagSetRepository tagSetRepository,
             NormalizationProfileRepository normalizationProfileRepository,
             ValidationRulesetRepository validationRulesetRepository,
             LibraryRepository libraryRepository,
@@ -64,6 +67,7 @@ public class ResourceTransferService {
         this.dictionaryRepository = dictionaryRepository;
         this.virtualKeyboardRepository = virtualKeyboardRepository;
         this.labelSetRepository = labelSetRepository;
+        this.tagSetRepository = tagSetRepository;
         this.normalizationProfileRepository = normalizationProfileRepository;
         this.validationRulesetRepository = validationRulesetRepository;
         this.libraryRepository = libraryRepository;
@@ -175,6 +179,7 @@ public class ResourceTransferService {
         Set<String> dictionaryIds = new HashSet<>();
         Set<String> keyboardIds = new HashSet<>();
         Set<String> labelSetIds = new HashSet<>();
+        Set<String> tagSetIds = new HashSet<>();
         Set<String> normalizationProfileIds = new HashSet<>();
         Set<String> validationRulesetIds = new HashSet<>();
 
@@ -186,6 +191,7 @@ public class ResourceTransferService {
                 case DICTIONARY -> dictionaryIds.add(request.getResourceId());
                 case VIRTUAL_KEYBOARD -> keyboardIds.add(request.getResourceId());
                 case LABEL_SET -> labelSetIds.add(request.getResourceId());
+                case TAG_SET -> tagSetIds.add(request.getResourceId());
                 case NORMALIZATION_PROFILE -> normalizationProfileIds.add(request.getResourceId());
                 case VALIDATION_RULESET -> validationRulesetIds.add(request.getResourceId());
             }
@@ -204,6 +210,9 @@ public class ResourceTransferService {
         }
         for (LabelSet labelSet : labelSetRepository.findAllById(labelSetIds)) {
             resourceNames.put(labelSet.getId(), labelSet.getName());
+        }
+        for (TagSet tagSet : tagSetRepository.findAllById(tagSetIds)) {
+            resourceNames.put(tagSet.getId(), tagSet.getName());
         }
         for (NormalizationProfile profile : normalizationProfileRepository.findAllById(normalizationProfileIds)) {
             resourceNames.put(profile.getId(), profile.getName());
@@ -251,6 +260,7 @@ public class ResourceTransferService {
             case DICTIONARY -> executeDictionaryTransfer(request);
             case VIRTUAL_KEYBOARD -> executeVirtualKeyboardTransfer(request);
             case LABEL_SET -> executeLabelSetTransfer(request);
+            case TAG_SET -> executeTagSetTransfer(request);
             case NORMALIZATION_PROFILE -> executeNormalizationProfileTransfer(request);
             case VALIDATION_RULESET -> executeValidationRulesetTransfer(request);
         }
@@ -353,6 +363,24 @@ public class ResourceTransferService {
         });
     }
 
+    private void executeTagSetTransfer(ResourceTransferRequest request) {
+        tagSetRepository.findById(request.getResourceId()).ifPresent(tagSet -> {
+            if (request.getTransferType() == ResourceTransferRequest.TransferType.COPY) {
+                TagSet newTagSet = new TagSet(
+                        request.getTargetWorkspaceId(),
+                        tagSet.getName() + " (Copy)",
+                        tagSet.getDescription(),
+                        tagSet.getDefinition()
+                );
+                newTagSet.setTags(new ArrayList<>(tagSet.getTags()));
+                tagSetRepository.save(newTagSet);
+            } else {
+                tagSet.setWorkspaceId(request.getTargetWorkspaceId());
+                tagSetRepository.save(tagSet);
+            }
+        });
+    }
+
     private void executeNormalizationProfileTransfer(ResourceTransferRequest request) {
         normalizationProfileRepository.findById(request.getResourceId()).ifPresent(profile -> {
             if (request.getTransferType() == ResourceTransferRequest.TransferType.COPY) {
@@ -417,6 +445,8 @@ public class ResourceTransferService {
                     .map(VirtualKeyboard::getWorkspaceId).orElse(null);
             case LABEL_SET -> labelSetRepository.findById(resourceId)
                     .map(LabelSet::getWorkspaceId).orElse(null);
+            case TAG_SET -> tagSetRepository.findById(resourceId)
+                    .map(TagSet::getWorkspaceId).orElse(null);
             case NORMALIZATION_PROFILE -> normalizationProfileRepository.findById(resourceId)
                     .map(NormalizationProfile::getWorkspaceId).orElse(null);
             case VALIDATION_RULESET -> validationRulesetRepository.findById(resourceId)

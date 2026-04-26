@@ -2,11 +2,12 @@
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import type { Row } from '@tanstack/vue-table'
 import type { TagSetSummary } from '@/types/tag-set'
-import { LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
+import { LazyShareSlideover, LazyUiDeleteSlideover, NuxtLink, UBadge, UButton, UDropdownMenu, UPopover } from '#components'
 
 const toast = useToast()
 const overlay = useOverlay()
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
+const shareSlideover = overlay.create(LazyShareSlideover)
 const { allow, compactGroups } = useActionVisibility()
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -163,6 +164,21 @@ const handleDelete = async (row: TagSetRow) => {
   }
 }
 
+async function handleShare(row: TagSetRow) {
+  if (!allow(row.capabilities?.canShare)) return
+
+  const instance = shareSlideover.open({
+    resourceId: row.id,
+    resourceName: row.name,
+    resourceType: 'TAG_SET',
+    currentWorkspaceId: workspaceId.value
+  })
+  const transferred = await instance.result
+  if (transferred) {
+    await refresh()
+  }
+}
+
 async function handleDeleteSelected() {
   if (!canDeleteSelected.value) return
 
@@ -206,6 +222,14 @@ const items = (row: TagSetRow): DropdownMenuItem[][] => {
       label: 'Edit',
       icon: 'i-lucide-edit',
       onSelect: () => navigateTo(`/tag-sets/${row.id}`)
+    })
+  }
+
+  if (allow(row.capabilities?.canShare)) {
+    actions.push({
+      label: 'Share',
+      icon: 'i-lucide-share-2',
+      onSelect: () => { void handleShare(row) }
     })
   }
 

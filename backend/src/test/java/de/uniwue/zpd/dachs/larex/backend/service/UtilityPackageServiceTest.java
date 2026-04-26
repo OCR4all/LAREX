@@ -140,7 +140,7 @@ class UtilityPackageServiceTest {
                 2,
                 null,
                 null,
-                new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true)
+                new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true, true)
         ));
 
         UtilityPackageDto.ImportResult result = service.importUtilityPackageFromContent(workspaceId, userId, legacyCodec);

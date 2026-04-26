@@ -260,7 +260,7 @@ public class LabelSetService {
         AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService
                 .resolveWorkspaceResourceCapabilities(labelSet.getWorkspaceId(), userId);
         if (labelSet.isSystem()) {
-            capabilities = new AuthorizationCapabilitiesDto.ResourceCapabilities(false, false);
+            capabilities = new AuthorizationCapabilitiesDto.ResourceCapabilities(false, false, false);
         }
 
         return new LabelSetDto.Response(
@@ -288,7 +288,7 @@ public class LabelSetService {
         AuthorizationCapabilitiesDto.ResourceCapabilities capabilities = authorizationPolicyService
                 .resolveWorkspaceResourceCapabilities(labelSet.getWorkspaceId(), userId);
         if (labelSet.isSystem()) {
-            capabilities = new AuthorizationCapabilitiesDto.ResourceCapabilities(false, false);
+            capabilities = new AuthorizationCapabilitiesDto.ResourceCapabilities(false, false, false);
         }
 
         return new LabelSetDto.SummaryResponse(

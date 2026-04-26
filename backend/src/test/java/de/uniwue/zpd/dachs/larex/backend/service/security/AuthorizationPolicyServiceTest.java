@@ -247,6 +247,27 @@ class AuthorizationPolicyServiceTest {
     }
 
     @Test
+    void resourceCapabilities_useWorkspaceUtilityPermissionsForSharing() {
+        String workspaceId = "ws-resource-1";
+        TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
+        when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "curator"))
+                .thenReturn(Optional.of(member("curator", WorkspaceMember.Role.CURATOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+        when(workspaceMemberRepository.findByWorkspaceIdAndUserId(workspaceId, "editor"))
+                .thenReturn(Optional.of(member("editor", WorkspaceMember.Role.EDITOR, WorkspaceMember.InvitationStatus.ACCEPTED, workspaceId)));
+
+        AuthorizationCapabilitiesDto.ResourceCapabilities curatorCaps = service.resolveWorkspaceResourceCapabilities(workspaceId, "curator");
+        assertTrue(curatorCaps.canEdit());
+        assertTrue(curatorCaps.canShare());
+        assertTrue(curatorCaps.canDelete());
+
+        AuthorizationCapabilitiesDto.ResourceCapabilities editorCaps = service.resolveWorkspaceResourceCapabilities(workspaceId, "editor");
+        assertFalse(editorCaps.canEdit());
+        assertFalse(editorCaps.canShare());
+        assertFalse(editorCaps.canDelete());
+    }
+
+    @Test
     void taskCapabilities_followManagerVsEditorRules() {
         String workspaceId = "ws-4";
         TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");

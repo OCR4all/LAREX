@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { TagSet, TagSetCreateOrUpdateRequest } from '@/types/tag-set'
-import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
+import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import {
+  LazyShareSlideover,
   LazyTagSetBuilderSlideoverMetadata,
   LazyUiDeleteSlideover,
   LazyUiConfirmSlideover
@@ -16,6 +17,7 @@ const { allow } = useActionVisibility()
 const metadataSlideover = overlay.create(LazyTagSetBuilderSlideoverMetadata)
 const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
+const shareSlideover = overlay.create(LazyShareSlideover)
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
@@ -25,7 +27,7 @@ const isNew = id === 'new'
 
 const tagSetsKey = computed(() => wsKey(workspaceId.value, 'tag-sets', 'list'))
 const tagSetKey = computed(() => wsKey(workspaceId.value, 'tag-sets', id))
-const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
+const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 
 const breadcrumbItems = computed(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
@@ -88,6 +90,7 @@ const tagSetCapabilities = computed(() => ({
   ...(loadedCapabilities.value ?? {})
 }))
 const canEditTagSet = computed(() => isNew || allow(tagSetCapabilities.value.canEdit))
+const canShareTagSet = computed(() => !isNew && allow(tagSetCapabilities.value.canShare))
 const canDeleteTagSet = computed(() => !isNew && allow(tagSetCapabilities.value.canDelete))
 
 const stripUiFields = (tagList: typeof tags.value): TagSetCreateOrUpdateRequest['tags'] => {
@@ -286,6 +289,21 @@ const handleOptimize = async () => {
   }
 }
 
+async function handleShareTagSet() {
+  if (!canShareTagSet.value) return
+
+  const instance = shareSlideover.open({
+    resourceId: id,
+    resourceName: meta.name,
+    resourceType: 'TAG_SET',
+    currentWorkspaceId: workspaceId.value
+  })
+  const transferred = await instance.result
+  if (transferred) {
+    await refreshNuxtData(tagSetsKey.value)
+  }
+}
+
 const handleDeleteTag = async (tagId: string) => {
   if (!canEditTagSet.value) return
   const tag = tags.value.find(t => t.id === tagId)
@@ -317,6 +335,7 @@ const openSettings = () => {
       <TagSetBuilderHeader
         :is-new="isNew"
         :is-read-only="!canEditTagSet"
+        :can-share="canShareTagSet"
         :breadcrumb-items="breadcrumbItems"
         help-title="About Tag Sets"
         help-description="Tag sets define reusable hierarchical taxonomies for classification, review, and downstream filtering across projects."
@@ -328,6 +347,7 @@ const openSettings = () => {
         @import="triggerImport"
         @export="exportTagSet"
         @save="handleSave"
+        @share="handleShareTagSet"
         @optimize="handleOptimize"
         @open-settings="openSettings"
       />

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { KeyboardLayout } from '@/types/virtual-keyboard'
 import type { DropdownMenuItem } from '@nuxt/ui'
-import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
+import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyUiDeleteSlideover, LazyShareSlideover } from '#components'
 
 const route = useRoute()
@@ -19,7 +19,7 @@ const isNew = id === 'new'
 
 const keyboardsKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', 'list'))
 const keyboardKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', id))
-const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
+const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 
 const breadcrumbItems = computed(() => [
   {
@@ -66,6 +66,7 @@ const keyboardCapabilities = computed(() => ({
   ...(loadedCapabilities.value ?? {})
 }))
 const canEditKeyboard = computed(() => isNew || allow(keyboardCapabilities.value.canEdit))
+const canShareKeyboard = computed(() => !isNew && allow(keyboardCapabilities.value.canShare))
 const canDeleteKeyboard = computed(() => !isNew && allow(keyboardCapabilities.value.canDelete))
 
 const builderState = useVirtualKeyboardBuilder(initialLayout)
@@ -230,6 +231,21 @@ const handleDelete = async () => {
   }
 }
 
+async function handleShare() {
+  if (!canShareKeyboard.value) return
+
+  const instance = shareSlideover.open({
+    resourceId: id,
+    resourceName: builderState.layoutName.value,
+    resourceType: 'VIRTUAL_KEYBOARD',
+    currentWorkspaceId: workspaceId.value
+  })
+  const transferred = await instance.result
+  if (transferred) {
+    await refreshNuxtData(keyboardsKey.value)
+  }
+}
+
 const actionItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = [
     {
@@ -248,11 +264,11 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   }
 
   if (!isNew) {
-    if (canEditKeyboard.value) {
+    if (canShareKeyboard.value) {
       items.push({
         label: 'Share keyboard',
         icon: 'i-lucide-share-2',
-        onSelect: () => shareSlideover.open({ resourceId: id, resourceName: builderState.layoutName.value, resourceType: 'VIRTUAL_KEYBOARD', currentWorkspaceId: workspaceId.value })
+        onSelect: () => { void handleShare() }
       })
     }
     if (canDeleteKeyboard.value) {

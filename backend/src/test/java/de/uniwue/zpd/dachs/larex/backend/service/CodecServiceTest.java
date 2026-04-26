@@ -72,7 +72,7 @@ class CodecServiceTest {
                 authorizationPolicyService
         );
         org.mockito.Mockito.lenient().when(authorizationPolicyService.resolveWorkspaceResourceCapabilities(any(), any()))
-                .thenReturn(new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true));
+                .thenReturn(new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true, true));
     }
 
     @Test

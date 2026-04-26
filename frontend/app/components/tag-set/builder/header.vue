@@ -5,9 +5,10 @@ interface BreadcrumbItem {
   to?: string
 }
 
-defineProps<{
+const props = defineProps<{
   isNew: boolean
   isReadOnly?: boolean
+  canShare?: boolean
   breadcrumbItems: BreadcrumbItem[]
   helpTitle?: string
   helpDescription?: string
@@ -18,16 +19,31 @@ const emit = defineEmits<{
   import: []
   export: []
   save: []
+  share: []
   optimize: []
   openSettings: []
 }>()
 
 const { meta, totalErrors } = useTagSetBuilder()
+
+const dropdownItems = computed(() => {
+  const actions = [
+    { label: 'Import', icon: 'i-lucide-upload', onSelect: () => emit('import') },
+    { label: 'Export', icon: 'i-lucide-download', onSelect: () => emit('export') }
+  ]
+
+  if (!props.isNew && props.canShare) {
+    actions.push({ label: 'Share', icon: 'i-lucide-share-2', onSelect: () => emit('share') })
+  }
+
+  actions.push({ label: 'Optimize Colors', icon: 'i-lucide-palette', onSelect: () => emit('optimize') })
+  return [actions]
+})
 </script>
 
 <template>
   <div>
-    <UDashboardNavbar data-tour="tag-builder-header" :title="isNew ? 'New Tag Set' : meta.name || 'Tag Set'">
+    <UDashboardNavbar data-tour="tag-builder-header" :title="props.isNew ? 'New Tag Set' : meta.name || 'Tag Set'">
       <template #leading>
         <LazyUDashboardSidebarCollapse />
       </template>
@@ -49,7 +65,7 @@ const { meta, totalErrors } = useTagSetBuilder()
               icon="i-lucide-settings"
               color="neutral"
               variant="outline"
-              :disabled="isReadOnly"
+              :disabled="props.isReadOnly"
               @click="emit('openSettings')"
             />
 
@@ -58,17 +74,13 @@ const { meta, totalErrors } = useTagSetBuilder()
               color="neutral"
               variant="outline"
               icon="i-lucide-save"
-              :disabled="isReadOnly"
+              :disabled="props.isReadOnly"
               @click="emit('save')"
             />
 
             <UDropdownMenu
-              v-if="!isReadOnly"
-              :items="[[
-                { label: 'Import', icon: 'i-lucide-upload', onSelect: () => emit('import') },
-                { label: 'Export', icon: 'i-lucide-download', onSelect: () => emit('export') },
-                { label: 'Optimize Colors', icon: 'i-lucide-palette', onSelect: () => emit('optimize') }
-              ]]"
+              v-if="!props.isReadOnly"
+              :items="dropdownItems"
             >
               <UButton
                 icon="i-lucide-chevron-down"

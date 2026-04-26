@@ -39,6 +39,7 @@ public class AuthorizationCapabilitiesDto {
 
     public record ResourceCapabilities(
             boolean canEdit,
+            boolean canShare,
             boolean canDelete
     ) {}
 }

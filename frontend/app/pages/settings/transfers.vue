@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const NuxtTime = resolveComponent('NuxtTime')
@@ -13,7 +12,7 @@ type TransferRequest = {
   projectName?: string
   resourceId?: string
   resourceName?: string
-  resourceType?: 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
+  resourceType?: 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'TAG_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
   sourceWorkspaceId: string
   sourceWorkspaceName: string
   targetWorkspaceId: string
