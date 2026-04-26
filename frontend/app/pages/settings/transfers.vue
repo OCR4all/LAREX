@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { WorkspaceUtilityResourceType } from '@/types/capabilities'
+
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const NuxtTime = resolveComponent('NuxtTime')
@@ -12,7 +14,7 @@ type TransferRequest = {
   projectName?: string
   resourceId?: string
   resourceName?: string
-  resourceType?: 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'TAG_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
+  resourceType?: WorkspaceUtilityResourceType
   sourceWorkspaceId: string
   sourceWorkspaceName: string
   targetWorkspaceId: string

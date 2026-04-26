@@ -4,21 +4,30 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 const props = defineProps<{
   isNew: boolean
   isSystem?: boolean
+  canShare?: boolean
   breadcrumbItems: { label: string, icon?: string, to?: string }[]
   helpTitle?: string
   helpDescription?: string
   helpItems?: string[]
 }>()
 
-const emit = defineEmits(['import', 'export', 'save', 'optimize', 'openSettings'])
+const emit = defineEmits(['import', 'export', 'save', 'share', 'optimize', 'openSettings'])
 
 const { labels, totalErrors } = useLabelBuilder()
 
-const actionItems = computed<DropdownMenuItem[]>(() => [
-  { label: 'Import', icon: 'i-lucide-upload', disabled: props.isSystem, onSelect: () => emit('import') },
-  { label: 'Export', icon: 'i-lucide-download', disabled: props.isSystem, onSelect: () => emit('export') },
-  { label: 'Auto-Color', icon: 'i-lucide-palette', disabled: props.isSystem, onSelect: () => emit('optimize') }
-])
+const actionItems = computed<DropdownMenuItem[]>(() => {
+  const items: DropdownMenuItem[] = [
+    { label: 'Import', icon: 'i-lucide-upload', disabled: props.isSystem, onSelect: () => emit('import') },
+    { label: 'Export', icon: 'i-lucide-download', disabled: props.isSystem, onSelect: () => emit('export') }
+  ]
+
+  if (!props.isNew && props.canShare) {
+    items.push({ label: 'Share', icon: 'i-lucide-share-2', onSelect: () => emit('share') })
+  }
+
+  items.push({ label: 'Auto-Color', icon: 'i-lucide-palette', disabled: props.isSystem, onSelect: () => emit('optimize') })
+  return items
+})
 </script>
 
 <template>

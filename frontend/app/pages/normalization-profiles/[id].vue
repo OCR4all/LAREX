@@ -2,7 +2,7 @@
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { NormalizationProfile, NormalizationProfileCreateOrUpdateRequest, NormalizationReplacementRule } from '@/types/normalization-profile'
-import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
+import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 
 type UnicodeNormalizationForm = 'NFC' | 'NFD' | 'NFKC' | 'NFKD'
 type ReplacementMode = 'plain' | 'regex'
@@ -17,7 +17,6 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
-const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 
 const id = route.params.id as string
 const isNew = id === 'new'
@@ -43,7 +42,7 @@ const defaultProfile: NormalizationProfile = {
   updated: ''
 }
 
-const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
+const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 let initial = defaultProfile
 
 if (!isNew) {
@@ -64,8 +63,8 @@ const profileCapabilities = computed(() => ({
   ...(loadedCapabilities.value ?? {})
 }))
 const canEditProfile = computed(() => isNew || allow(profileCapabilities.value.canEdit))
+const canShareProfile = computed(() => !isNew && allow(profileCapabilities.value.canShare))
 const canDeleteProfile = computed(() => !isNew && allow(profileCapabilities.value.canDelete))
-const canShareProfile = computed(() => !isNew && allow(workspaceCapabilities.value.canManageUtilities))
 
 const isSaving = ref(false)
 const isDeleting = ref(false)

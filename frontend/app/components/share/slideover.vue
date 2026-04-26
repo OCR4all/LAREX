@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { z } from 'zod'
 import type { FormSubmitEvent } from '#ui/types'
+import type { TransferableResourceType } from '@/types/capabilities'
 
 interface Workspace {
   id: string
@@ -10,7 +11,7 @@ interface Workspace {
 const props = defineProps<{
   resourceId: string
   resourceName: string
-  resourceType: 'PROJECT' | 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'TAG_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
+  resourceType: TransferableResourceType
   currentWorkspaceId: string
 }>()
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LazyCodecSlideoverAction, LazyVirtualKeyboardSlideoverGlyphPicker, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 import type { Codec, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
-import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
+import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 
 const route = useRoute()
@@ -17,7 +17,7 @@ const id = route.params.id as string
 const isNew = id === 'new'
 
 const codecKey = computed(() => wsKey(workspaceId.value, 'codecs', id))
-const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
+const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 
 const defaultCodec: Codec = {
   id: '',
@@ -49,6 +49,7 @@ const codecCapabilities = computed(() => ({
   ...(loadedCapabilities.value ?? {})
 }))
 const canEditCodec = computed(() => isNew || allow(codecCapabilities.value.canEdit))
+const canShareCodec = computed(() => !isNew && allow(codecCapabilities.value.canShare))
 const canDeleteCodec = computed(() => !isNew && allow(codecCapabilities.value.canDelete))
 
 const name = ref(initial.name)
@@ -488,7 +489,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
   }
 
   if (!isNew) {
-    if (canEditCodec.value) {
+    if (canShareCodec.value) {
       items.push({
         label: 'Share codec',
         icon: 'i-lucide-share-2',

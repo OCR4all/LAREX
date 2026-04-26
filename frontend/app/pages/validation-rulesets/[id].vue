@@ -2,7 +2,7 @@
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { ValidationRule, ValidationRuleset, ValidationRulesetCreateOrUpdateRequest, ValidationSeverity } from '@/types/validation-ruleset'
-import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
+import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 
 interface ValidationPreviewRuleResult {
   ruleId: string
@@ -29,7 +29,6 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
-const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
 
 const id = route.params.id as string
 const isNew = id === 'new'
@@ -66,7 +65,7 @@ const defaultRuleset: ValidationRuleset = {
   updated: ''
 }
 
-const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
+const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 let initial = defaultRuleset
 
 if (!isNew) {
@@ -87,8 +86,8 @@ const rulesetCapabilities = computed(() => ({
   ...(loadedCapabilities.value ?? {})
 }))
 const canEditRuleset = computed(() => isNew || allow(rulesetCapabilities.value.canEdit))
+const canShareRuleset = computed(() => !isNew && allow(rulesetCapabilities.value.canShare))
 const canDeleteRuleset = computed(() => !isNew && allow(rulesetCapabilities.value.canDelete))
-const canShareRuleset = computed(() => !isNew && allow(workspaceCapabilities.value.canManageUtilities))
 
 const isSaving = ref(false)
 const isDeleting = ref(false)

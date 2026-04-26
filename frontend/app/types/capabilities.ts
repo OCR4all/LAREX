@@ -39,6 +39,19 @@ export interface ResourceCapabilities {
   canDelete: boolean
 }
 
+export type WorkspaceUtilityResourceType
+  = | 'CODEC'
+    | 'DICTIONARY'
+    | 'VIRTUAL_KEYBOARD'
+    | 'LABEL_SET'
+    | 'TAG_SET'
+    | 'NORMALIZATION_PROFILE'
+    | 'VALIDATION_RULESET'
+
+export type TransferableResourceType
+  = | 'PROJECT'
+    | WorkspaceUtilityResourceType
+
 export const DEFAULT_WORKSPACE_CAPABILITIES: WorkspaceCapabilities = {
   canAdminWorkspace: false,
   canManageMembers: false,

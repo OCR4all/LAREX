@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { LazyShareSlideover, LazyUiDeleteSlideover } from '#components'
 import type { Dictionary, DictionaryCreateOrUpdateRequest } from '@/types/dictionary'
-import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
+import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import type { DropdownMenuItem } from '@nuxt/ui'
 
 const route = useRoute()
@@ -41,7 +41,7 @@ const defaultDictionary: Dictionary = {
   updated: ''
 }
 
-const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
+const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 let initial = defaultDictionary
 
 function applyDictionaryState(dictionary: Dictionary) {
@@ -72,6 +72,7 @@ const dictionaryCapabilities = computed(() => ({
   ...(loadedCapabilities.value ?? {})
 }))
 const canEditDictionary = computed(() => isNew || allow(dictionaryCapabilities.value.canEdit))
+const canShareDictionary = computed(() => !isNew && allow(dictionaryCapabilities.value.canShare))
 const canDeleteDictionary = computed(() => !isNew && allow(dictionaryCapabilities.value.canDelete))
 const isBusy = computed(() => isSaving.value || isImporting.value || isDeleting.value || isExporting.value)
 const hasEntries = computed(() => entryCount.value > 0)
@@ -442,7 +443,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
       onSelect: exportDictionary
     })
 
-    if (canEditDictionary.value) {
+    if (canShareDictionary.value) {
       items.push({
         label: 'Share dictionary',
         icon: 'i-lucide-share-2',

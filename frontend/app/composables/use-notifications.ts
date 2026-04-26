@@ -1,4 +1,5 @@
 import type { Notification, NotificationGroup, WorkspaceInvitation, NotificationType } from '~/types'
+import type { WorkspaceUtilityResourceType } from '@/types/capabilities'
 import { getNotificationLink } from '~/utils/notifications'
 
 const GROUPING_WINDOW_MS = 2 * 60 * 1000 // 2 minutes
@@ -10,7 +11,7 @@ interface TransferRequest {
   projectName?: string
   resourceId?: string
   resourceName?: string
-  resourceType?: 'CODEC' | 'DICTIONARY' | 'VIRTUAL_KEYBOARD' | 'LABEL_SET' | 'TAG_SET' | 'NORMALIZATION_PROFILE' | 'VALIDATION_RULESET'
+  resourceType?: WorkspaceUtilityResourceType
   sourceWorkspaceId: string
   sourceWorkspaceName: string
   targetWorkspaceId: string

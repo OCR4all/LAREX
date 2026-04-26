@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { LabelMapping, LabelScope, LabelSet, LabelSetCreateOrUpdateRequest } from '@/types/label-set'
-import { DEFAULT_RESOURCE_CAPABILITIES } from '@/types/capabilities'
+import { DEFAULT_RESOURCE_CAPABILITIES, type ResourceCapabilities } from '@/types/capabilities'
 import { LazyLabelBuilderSlideoverMetadata, LazyUiDeleteSlideover, LazyUiConfirmModal, LazyShareSlideover } from '#components'
 
 const route = useRoute()
@@ -21,7 +21,7 @@ const isNew = id === 'new'
 
 const labelSetsKey = computed(() => wsKey(workspaceId.value, 'label-sets', 'list'))
 const labelSetKey = computed(() => wsKey(workspaceId.value, 'label-sets', id))
-const loadedCapabilities = ref<{ canEdit: boolean, canDelete: boolean } | null>(null)
+const loadedCapabilities = ref<ResourceCapabilities | null>(null)
 
 const breadcrumbItems = computed(() => [
   { label: 'Home', icon: 'i-lucide-home', to: '/' },
@@ -190,6 +190,7 @@ const labelSetCapabilities = computed(() => ({
   ...(loadedCapabilities.value ?? {})
 }))
 const canEditLabelSet = computed(() => isNew || allow(labelSetCapabilities.value.canEdit))
+const canShareLabelSet = computed(() => !isNew && allow(labelSetCapabilities.value.canShare))
 const canDeleteLabelSet = computed(() => !isNew && allow(labelSetCapabilities.value.canDelete))
 const isReadOnlyLabelSet = computed(() => isSystemLabelSet.value || !canEditLabelSet.value)
 
@@ -367,6 +368,21 @@ const handleOptimize = async () => {
   }
 }
 
+async function handleShareLabelSet() {
+  if (!canShareLabelSet.value) return
+
+  const instance = shareSlideover.open({
+    resourceId: id,
+    resourceName: meta.name,
+    resourceType: 'LABEL_SET',
+    currentWorkspaceId: workspaceId.value
+  })
+  const transferred = await instance.result
+  if (transferred) {
+    await refreshNuxtData(labelSetsKey.value)
+  }
+}
+
 const handleDelete = async (labelId: string) => {
   if (isReadOnlyLabelSet.value) return
   const label = labels.value.find(l => l.id === labelId)
@@ -416,6 +432,7 @@ const openSettings = () => {
       <LabelBuilderHeader
         :is-new="isNew"
         :is-system="isReadOnlyLabelSet"
+        :can-share="canShareLabelSet"
         :breadcrumb-items="breadcrumbItems"
         help-title="About Label Sets"
         help-description="Label sets define structural annotation vocabularies and their export mappings for region and line annotation workflows."
@@ -427,6 +444,7 @@ const openSettings = () => {
         @import="triggerImport"
         @export="exportSet"
         @save="handleSave"
+        @share="handleShareLabelSet"
         @optimize="handleOptimize"
         @open-settings="openSettings"
       />
@@ -480,16 +498,8 @@ const openSettings = () => {
               icon="i-lucide-lock"
             />
 
-            <div v-if="!isNew && canEditLabelSet" class="mt-8 space-y-2 flex flex-col">
+            <div v-if="!isNew && canDeleteLabelSet" class="mt-8 space-y-2 flex flex-col">
               <UButton
-                label="Share Label Set"
-                color="neutral"
-                variant="soft"
-                icon="i-lucide-share-2"
-                @click="shareSlideover.open({ resourceId: id, resourceName: meta.name, resourceType: 'LABEL_SET', currentWorkspaceId: workspaceId })"
-              />
-              <UButton
-                v-if="canDeleteLabelSet"
                 label="Delete Label Set"
                 color="error"
                 variant="subtle"
