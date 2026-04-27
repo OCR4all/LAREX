@@ -50,6 +50,7 @@ const editorUiStore = useEditorUiStore()
 const pageSummaries = useCollaborationPageSummary()
 const toast = useToast()
 const router = useRouter()
+const { user } = useUserSession()
 
 const isCollapsed = computed(() => editorUiStore.leftCollapsed)
 const isSelected = computed(() => props.page.id === props.currentPageId)
@@ -93,10 +94,18 @@ const maxVisibleTagDots = 4
 const visibleTagDots = computed(() => displayTags.value.slice(0, maxVisibleTagDots))
 const hiddenTagDotCount = computed(() => Math.max(0, displayTags.value.length - maxVisibleTagDots))
 const collaborationSummary = computed(() => pageSummaries.getPageSummary(props.page.id, props.page.projectId))
-const collaborationEditor = computed(() => collaborationSummary.value?.editor ?? null)
+const currentUserId = computed(() => {
+  const value = user.value as { id?: string, sub?: string } | null | undefined
+  return value?.id ?? value?.sub ?? null
+})
+const collaborationEditor = computed(() => {
+  const editor = collaborationSummary.value?.editor ?? null
+  if (!editor) return null
+  return editor.user.id === currentUserId.value ? null : editor
+})
 const collaborationAvatarRingClass = computed(() => {
   const summary = collaborationSummary.value
-  if (!summary?.editor) return ''
+  if (!summary?.editor || !collaborationEditor.value) return ''
   return summary.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'
 })
 
@@ -104,11 +113,11 @@ const collaborationTooltip = computed(() => {
   const summary = collaborationSummary.value
   if (!summary) return ''
 
-  if (summary.editor) {
+  if (collaborationEditor.value) {
     const activity = summary.isLive ? 'Live' : 'Idle'
     const viewers = summary.viewerCount > 0 ? `, ${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'}` : ''
     const pending = summary.hasPendingTakeover ? ', pending request' : ''
-    return `${summary.editor.user.displayName} editing (${activity}${viewers}${pending})`
+    return `${collaborationEditor.value.user.displayName} editing (${activity}${viewers}${pending})`
   }
 
   return `${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'} watching`
