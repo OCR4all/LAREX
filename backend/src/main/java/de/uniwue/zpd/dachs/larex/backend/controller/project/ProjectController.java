@@ -11,6 +11,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.ProjectTransferRequest;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
 import de.uniwue.zpd.dachs.larex.backend.exception.StorageQuotaExceededException;
+import de.uniwue.zpd.dachs.larex.backend.service.project.LegacyOcr4allImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
@@ -51,6 +52,7 @@ public class ProjectController {
     private final ProjectTransferService projectTransferService;
     private final ProjectReadService projectReadService;
     private final ProjectPackageService projectPackageService;
+    private final LegacyOcr4allImportService legacyOcr4allImportService;
     private final DocumentExportService documentExportService;
     private final IiifImportService iiifImportService;
     private final UnifiedUploadService unifiedUploadService;
@@ -60,6 +62,7 @@ public class ProjectController {
     public ProjectController(ProjectService projectService, ProjectTransferService projectTransferService,
                            ProjectReadService projectReadService,
                            ProjectPackageService projectPackageService,
+                           LegacyOcr4allImportService legacyOcr4allImportService,
                            DocumentExportService documentExportService,
                            IiifImportService iiifImportService,
                            UnifiedUploadService unifiedUploadService,
@@ -69,6 +72,7 @@ public class ProjectController {
         this.projectTransferService = projectTransferService;
         this.projectReadService = projectReadService;
         this.projectPackageService = projectPackageService;
+        this.legacyOcr4allImportService = legacyOcr4allImportService;
         this.documentExportService = documentExportService;
         this.iiifImportService = iiifImportService;
         this.unifiedUploadService = unifiedUploadService;
@@ -459,7 +463,7 @@ public class ProjectController {
             @RequestParam(value = "projectName", required = false) String projectName,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
 
-        ProjectPackageDto.ImportResult result = projectPackageService.importLegacyOcr4allProject(
+        ProjectPackageDto.ImportResult result = legacyOcr4allImportService.importProject(
                 workspaceId,
                 userId,
                 files,
