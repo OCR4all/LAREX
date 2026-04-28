@@ -32,6 +32,7 @@ import {
   composeRegionGtFromTextLines
 } from '../shared/region-gt-sync'
 import {
+  getVisibleTextContentVariantTextareas,
   focusNextSameIndex,
   focusTextContentVariantAtOffset
 } from '../shared/text-field-navigation'
@@ -241,6 +242,16 @@ function toImagePoints(points: Point[]): Point[] {
   return points.map(p => worldToImage(p, imageSize))
 }
 
+type CreateGtPayload = {
+  gtIndex: number
+  sourceRecognitionIndex?: number
+  sourceRecognitionText?: string
+}
+
+function findFirstRecognitionCandidate(textline: { recognitionCandidates?: Array<{ index?: number, text: string }> }) {
+  return textline.recognitionCandidates?.find(candidate => candidate.text.trim().length > 0)
+}
+
 function triggerCreateGtForSelectedTextline(): boolean {
   if (!isCanvasEditable.value) return false
   const selectedId = selectedTextlineId.value
@@ -253,13 +264,72 @@ function triggerCreateGtForSelectedTextline(): boolean {
   if (collapsedRegionIds.value.has(regionId)) return false
   if (selectedLine.hasGtVariant) return false
 
-  const source = selectedLine.recognitionCandidates?.find(candidate => candidate.text.trim().length > 0)
-  if (!source) return false
-
+  const source = findFirstRecognitionCandidate(selectedLine)
   handleCreateGtFromRecognition(selectedLine.id, {
     gtIndex: gtIndexModel.value,
-    sourceRecognitionIndex: source.index
+    sourceRecognitionIndex: source?.index,
+    sourceRecognitionText: source?.text
   })
+  return true
+}
+
+function getRenderedTextlineOrder(): typeof displayTextlines.value {
+  const ordered: typeof displayTextlines.value = []
+
+  for (const region of regionMeta.value) {
+    const regionTextlines = textlinesByRegion.value.get(region.id) ?? []
+    if (searchQuery.value && regionTextlines.length === 0) continue
+    if (collapsedRegionIds.value.has(region.id)) continue
+    ordered.push(...regionTextlines)
+  }
+
+  return ordered
+}
+
+function findVisibleGtTextarea(textlineId: string): HTMLTextAreaElement | undefined {
+  const gtIndex = String(gtIndexModel.value)
+  return getVisibleTextContentVariantTextareas(rootEl)
+    .find(textarea =>
+      textarea.dataset.textlineId === textlineId
+      && textarea.dataset.textequivIndex === gtIndex
+    )
+}
+
+function focusGtTextarea(textlineId: string): void {
+  void nextTick(() => {
+    findVisibleGtTextarea(textlineId)?.focus()
+  })
+}
+
+function focusNextTextlineGtField(): boolean {
+  if (!isCanvasEditable.value) return false
+
+  const active = document.activeElement
+  if (!(active instanceof HTMLTextAreaElement)) return false
+  if (active.dataset.textequivIndex !== String(gtIndexModel.value)) return false
+
+  const currentTextlineId = active.dataset.textlineId ?? selectedTextlineId.value
+  if (!currentTextlineId) return false
+
+  const orderedTextlines = getRenderedTextlineOrder()
+  if (orderedTextlines.length === 0) return false
+
+  const currentIndex = orderedTextlines.findIndex(textline => textline.id === currentTextlineId)
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % orderedTextlines.length : 0
+  const nextTextline = orderedTextlines[nextIndex]
+  if (!nextTextline) return false
+
+  if (!nextTextline.hasGtVariant) {
+    const source = findFirstRecognitionCandidate(nextTextline)
+    const created = handleCreateGtFromRecognition(nextTextline.id, {
+      gtIndex: gtIndexModel.value,
+      sourceRecognitionIndex: source?.index,
+      sourceRecognitionText: source?.text
+    })
+    if (!created) return false
+  }
+
+  focusGtTextarea(nextTextline.id)
   return true
 }
 
@@ -271,6 +341,7 @@ useTextViewShortcutScope({
       focusTextContentVariantAtOffset(rootEl, 1)
       return true
     },
+    nextTextlineGtField: () => focusNextTextlineGtField(),
     prevTextField: () => {
       focusTextContentVariantAtOffset(rootEl, -1)
       return true
@@ -576,25 +647,29 @@ function handleCommitTextContentVariant(textlineId: string, pos: number, text: s
   commitTextContentVariants(textlineId, current)
 }
 
-function handleCreateGtFromRecognition(textlineId: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }) {
-  if (!isCanvasEditable.value) return
+function handleCreateGtFromRecognition(textlineId: string, payload: CreateGtPayload): boolean {
+  if (!isCanvasEditable.value) return false
   const runtime = getTextViewRuntimeControls(effectiveCanvasId.value, editorStore)
   const regions = runtime?.polygons ?? []
   const region = regions.find(r => r.id === textlineId)
-  if (!region) return
+  if (!region) return false
 
   const current = normalizeTextContentVariants(region.textContentVariants)
-  if (current.some(t => t.index === payload.gtIndex)) return
+  if (current.some(t => t.index === payload.gtIndex)) return false
 
-  const source = current.find(t => t.index === payload.sourceRecognitionIndex)
-  if (!source) return
+  const sourceText = typeof payload.sourceRecognitionText === 'string'
+    ? payload.sourceRecognitionText
+    : typeof payload.sourceRecognitionIndex === 'number'
+      ? current.find(t => t.index === payload.sourceRecognitionIndex)?.unicode
+      : ''
 
   current.push({
-    unicode: normalizeSingleLineText(source.unicode ?? ''),
+    unicode: normalizeSingleLineText(sourceText ?? ''),
     index: payload.gtIndex
   })
   current.sort(sortByIndex)
   commitTextContentVariants(textlineId, current)
+  return true
 }
 
 function firstFreeKeyboardCell(layout: KeyboardLayout): { x: number, y: number } | null {

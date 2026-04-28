@@ -204,6 +204,12 @@ export const SHORTCUT_DEFINITIONS = {
     scope: 'text-view',
     defaultBindings: ['tab']
   },
+  nextTextlineGtField: {
+    description: 'Next textline GT field',
+    group: 'text',
+    scope: 'text-view',
+    defaultBindings: ['enter']
+  },
   prevTextField: {
     description: 'Previous text variant field',
     group: 'text',

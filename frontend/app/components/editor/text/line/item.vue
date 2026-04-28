@@ -114,7 +114,7 @@ const emit = defineEmits<{
   moveUpTextline: [id: string]
   moveDownTextline: [id: string]
   deleteTextline: [id: string]
-  createGtFromRecognition: [id: string, payload: { gtIndex: number, sourceRecognitionIndex?: number }]
+  createGtFromRecognition: [id: string, payload: { gtIndex: number, sourceRecognitionIndex?: number, sourceRecognitionText?: string }]
   quickAddCodecChar: [char: string]
   quickAddDictionaryToken: [token: string]
   quickAddKeyboardChar: [char: string]
@@ -273,7 +273,11 @@ function createGtFromRecognition() {
   const gtIndex = typeof props.gtIndex === 'number' && props.gtIndex >= 0 ? props.gtIndex : 0
   const source = recognitionCandidates.value[0]
   if (!source) return
-  emit('createGtFromRecognition', props.textline.id, { gtIndex, sourceRecognitionIndex: source.index })
+  emit('createGtFromRecognition', props.textline.id, {
+    gtIndex,
+    sourceRecognitionIndex: source.index,
+    sourceRecognitionText: source.text
+  })
 }
 
 function openCommentEditor() {

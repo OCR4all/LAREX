@@ -1159,9 +1159,9 @@ const correctionTextareaMinHeightPx = computed(() => {
   return Math.max(40, lineHeightPx + 16)
 })
 
-const recognitionTextareaFontSizePx = computed(() => Math.max(16, Math.round(correctionFontSizePx.value * 0.78)))
-const recognitionTextareaLineHeightPx = computed(() => Math.max(20, Math.round(correctionFontSizePx.value * 0.9)))
-const recognitionTextareaMinHeightPx = computed(() => Math.max(36, recognitionTextareaLineHeightPx.value + 14))
+const recognitionTextareaFontSizePx = computed(() => correctionFontSizePx.value)
+const recognitionTextareaLineHeightPx = computed(() => Math.round(correctionFontSizePx.value * 1.2))
+const recognitionTextareaMinHeightPx = computed(() => Math.max(40, recognitionTextareaLineHeightPx.value + 16))
 
 function handleOpenKeyboardEditor(): void {
   const keyboardId = editorUiStore.selectedVirtualKeyboardId
