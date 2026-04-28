@@ -22,7 +22,7 @@ export type {
   ShortcutHelpGroupId
 } from '@/composables/editor/shortcut-registry'
 
-type TextViewShortcutHandlers = Pick<Record<ShortcutCommandId, () => boolean>, 'nextTextField' | 'nextTextlineGtField' | 'prevTextField' | 'blurTextField' | 'nextSameIndexField' | 'createGtFromRecognition'>
+type TextViewShortcutHandlers = Pick<Record<ShortcutCommandId, () => boolean>, 'nextTextField' | 'nextTextlineGtField' | 'prevTextlineGtField' | 'prevTextField' | 'blurTextField' | 'nextSameIndexField' | 'createGtFromRecognition'>
 
 interface RegisteredTextViewShortcutScope {
   rootEl: Ref<HTMLElement | null>
@@ -379,6 +379,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       case 'history':
       case 'nextTextField':
       case 'nextTextlineGtField':
+      case 'prevTextlineGtField':
       case 'prevTextField':
       case 'blurTextField':
       case 'nextSameIndexField':
@@ -398,6 +399,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     switch (commandId) {
       case 'nextTextField':
       case 'nextTextlineGtField':
+      case 'prevTextlineGtField':
       case 'prevTextField':
       case 'blurTextField':
       case 'nextSameIndexField':

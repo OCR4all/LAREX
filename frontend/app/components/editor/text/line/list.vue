@@ -301,7 +301,7 @@ function focusGtTextarea(textlineId: string): void {
   })
 }
 
-function focusNextTextlineGtField(): boolean {
+function focusAdjacentTextlineGtField(direction: 1 | -1): boolean {
   if (!isCanvasEditable.value) return false
 
   const active = document.activeElement
@@ -315,7 +315,10 @@ function focusNextTextlineGtField(): boolean {
   if (orderedTextlines.length === 0) return false
 
   const currentIndex = orderedTextlines.findIndex(textline => textline.id === currentTextlineId)
-  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % orderedTextlines.length : 0
+  const fallbackIndex = direction === 1 ? 0 : orderedTextlines.length - 1
+  const nextIndex = currentIndex >= 0
+    ? (currentIndex + direction + orderedTextlines.length) % orderedTextlines.length
+    : fallbackIndex
   const nextTextline = orderedTextlines[nextIndex]
   if (!nextTextline) return false
 
@@ -341,7 +344,8 @@ useTextViewShortcutScope({
       focusTextContentVariantAtOffset(rootEl, 1)
       return true
     },
-    nextTextlineGtField: () => focusNextTextlineGtField(),
+    nextTextlineGtField: () => focusAdjacentTextlineGtField(1),
+    prevTextlineGtField: () => focusAdjacentTextlineGtField(-1),
     prevTextField: () => {
       focusTextContentVariantAtOffset(rootEl, -1)
       return true

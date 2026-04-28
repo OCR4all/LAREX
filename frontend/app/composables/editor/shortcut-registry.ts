@@ -210,6 +210,12 @@ export const SHORTCUT_DEFINITIONS = {
     scope: 'text-view',
     defaultBindings: ['enter']
   },
+  prevTextlineGtField: {
+    description: 'Previous textline GT field',
+    group: 'text',
+    scope: 'text-view',
+    defaultBindings: ['shift_enter']
+  },
   prevTextField: {
     description: 'Previous text variant field',
     group: 'text',
