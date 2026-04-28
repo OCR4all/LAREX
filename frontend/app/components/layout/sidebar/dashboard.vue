@@ -109,6 +109,73 @@ const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaul
     class="bg-elevated/25"
     :ui="{ header: 'px-0 py-2 border-b border-default', footer: 'lg:border-t lg:border-default' }"
   >
+    <template #content>
+      <div data-slot="header" class="h-(--ui-header-height) shrink-0 flex items-center gap-1.5 px-0 py-2 border-b border-default sm:px-6">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          aria-label="Close sidebar"
+          class="shrink-0"
+          @click="sidebarOpen = false"
+        />
+
+        <div class="flex content-center w-full h-full px-4 justify-between">
+          <template v-if="isAdmin">
+            <UiLogo
+              size="32"
+              class="self-center cursor-pointer"
+              @click="navigateTo('/')"
+            />
+            <span class="font-medium inline-block self-center">Administration</span>
+          </template>
+          <template v-else>
+            <UiLogo
+              size="32"
+              class="self-center shrink-0 cursor-pointer"
+              @click="navigateTo('/')"
+            />
+            <WorkspaceMenu :collapsed="false" class="ml-2 min-w-0 flex-1" />
+          </template>
+        </div>
+      </div>
+
+      <div data-slot="body" class="flex flex-col gap-4 flex-1 overflow-y-auto px-4 py-2 sm:px-6">
+        <UDashboardSearchButton
+          :collapsed="false"
+          class="bg-transparent ring-default"
+          :kbds="['meta', 'k']"
+          data-tour="search-button"
+        />
+
+        <template v-if="isAdmin">
+          <UButton
+            to="/"
+            color="neutral"
+            variant="subtle"
+            label="Back to Application"
+            leading-icon="i-lucide-arrow-left"
+            block
+            class="justify-start"
+          />
+        </template>
+
+        <UNavigationMenu
+          :collapsed="false"
+          :items="navigation"
+          orientation="vertical"
+          tooltip
+          popover
+        />
+
+        <LayoutSidebarFavorites v-if="!isAdmin" :collapsed="false" class="mt-4" />
+      </div>
+
+      <div data-slot="footer" class="shrink-0 flex items-center gap-1.5 px-4 py-2 sm:px-6">
+        <UserMenu :collapsed="false" />
+      </div>
+    </template>
+
     <template #header="{ collapsed }">
       <div class="flex content-center w-full h-full" :class="[collapsed ? 'px-2 justify-center' : 'px-4 justify-between']">
         <template v-if="isAdmin">
