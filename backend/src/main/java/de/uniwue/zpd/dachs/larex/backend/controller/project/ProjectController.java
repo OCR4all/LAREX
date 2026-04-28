@@ -451,6 +451,24 @@ public class ProjectController {
         return ResponseEntity.ok(result);
     }
 
+    @PostMapping(value = "/import-legacy-ocr4all", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProjectPackageDto.ImportResult> importLegacyOcr4allProject(
+            @PathVariable String workspaceId,
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam("paths") List<String> paths,
+            @RequestParam(value = "projectName", required = false) String projectName,
+            @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
+
+        ProjectPackageDto.ImportResult result = projectPackageService.importLegacyOcr4allProject(
+                workspaceId,
+                userId,
+                files,
+                paths,
+                projectName
+        );
+        return ResponseEntity.ok(result);
+    }
+
     @PostMapping("/{projectId}/iiif-import/preview")
     public ResponseEntity<IiifImportDto.PreviewResponse> previewIiifImportFromUrl(
             @PathVariable String workspaceId,

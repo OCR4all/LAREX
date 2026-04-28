@@ -68,6 +68,7 @@ const deleteSlideover = overlay.create(LazyUiDeleteSlideover)
 
 const shareSlideover = overlay.create(LazyShareSlideover)
 const importProjectPackageInput = ref<HTMLInputElement | null>(null)
+const importLegacyOcr4allInput = ref<HTMLInputElement | null>(null)
 
 type ResolvedTag = {
   id: string
@@ -683,6 +684,25 @@ function triggerProjectPackageImport() {
   importProjectPackageInput.value?.click()
 }
 
+function triggerLegacyOcr4allImport() {
+  importLegacyOcr4allInput.value?.click()
+}
+
+const libraryActionItems = computed<DropdownMenuItem[][]>(() => [[
+  {
+    label: 'Import Package',
+    icon: 'i-lucide-file-up',
+    disabled: !selectedWorkspace.value,
+    onSelect: triggerProjectPackageImport
+  },
+  {
+    label: 'Import OCR4all project',
+    icon: 'i-lucide-folder-up',
+    disabled: !selectedWorkspace.value,
+    onSelect: triggerLegacyOcr4allImport
+  }
+]])
+
 async function handleProjectPackageImport(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -730,6 +750,67 @@ async function handleProjectPackageImport(event: Event) {
     input.value = ''
   }
 }
+
+async function handleLegacyOcr4allImport(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  if (files.length === 0 || !selectedWorkspace.value) {
+    input.value = ''
+    return
+  }
+
+  try {
+    const formData = new FormData()
+    const firstRelativePath = files.find(file => file.webkitRelativePath)?.webkitRelativePath ?? files[0]?.name ?? ''
+    const projectName = firstRelativePath.split('/').filter(Boolean)[0]
+
+    if (projectName) {
+      formData.append('projectName', projectName)
+    }
+
+    for (const file of files) {
+      const relativePath = file.webkitRelativePath || file.name
+      formData.append('files', file, relativePath)
+      formData.append('paths', relativePath)
+    }
+
+    const response = await fetch(`/api/upload-proxy/workspaces/${selectedWorkspace.value}/projects/import-legacy-ocr4all`, {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      let payload: unknown = null
+      try {
+        payload = await response.json()
+      } catch {
+        payload = null
+      }
+      throw new Error(extractApiMessageFromPayload(payload, `Import failed (${response.status})`))
+    }
+
+    const result = await response.json() as { projectName?: string, pageCount?: number }
+    toast.add({
+      title: 'OCR4all project imported',
+      description: result.projectName
+        ? `Created "${result.projectName}"${result.pageCount ? ` with ${result.pageCount} page${result.pageCount === 1 ? '' : 's'}` : ''}`
+        : undefined,
+      color: 'success',
+      icon: 'i-lucide-folder-up'
+    })
+
+    await refresh()
+  } catch (error: unknown) {
+    const message = extractApiErrorMessage(error, 'Failed to import OCR4all project')
+    toast.add({
+      title: 'OCR4all import failed',
+      description: message,
+      color: 'error'
+    })
+  } finally {
+    input.value = ''
+  }
+}
 </script>
 
 <template>
@@ -747,6 +828,15 @@ async function handleProjectPackageImport(event: Event) {
             accept=".zip,.larex-project.zip,application/zip,application/octet-stream"
             @change="handleProjectPackageImport"
           >
+          <input
+            ref="importLegacyOcr4allInput"
+            type="file"
+            class="hidden"
+            multiple
+            webkitdirectory
+            directory
+            @change="handleLegacyOcr4allImport"
+          >
           <UFieldGroup>
             <UButton
               v-if="canCreateProjects"
@@ -756,15 +846,13 @@ async function handleProjectPackageImport(event: Event) {
               icon="i-lucide-package-plus"
               @click="librarySlideoverCreate.open()"
             />
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-file-up"
-              :disabled="!selectedWorkspace"
-              @click="triggerProjectPackageImport"
-            >
-              Import Package
-            </UButton>
+            <UDropdownMenu :items="libraryActionItems" :content="{ align: 'end' }">
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-chevron-down"
+              />
+            </UDropdownMenu>
           </UFieldGroup>
         </template>
       </UDashboardNavbar>
