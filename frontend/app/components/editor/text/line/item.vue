@@ -48,7 +48,9 @@ interface Props {
   imageUrl: string
   padding: number
   fontSize?: number
+  cutoutHeight?: number
   layout?: TextItemLayout
+  focusMode?: boolean
   codecCharacters?: string[]
   highlightUnknownCodecChars?: boolean
   includeWhitespaceInCodecHighlight?: boolean
@@ -79,7 +81,9 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   fontSize: 18,
+  cutoutHeight: 72,
   layout: 'side-by-side',
+  focusMode: false,
   codecCharacters: () => [],
   highlightUnknownCodecChars: false,
   includeWhitespaceInCodecHighlight: false,
@@ -152,8 +156,6 @@ const cutoutRenderHeight = ref<number | null>(null)
 const isCutoutLoading = ref(false)
 const cutoutLoadFailed = ref(false)
 let cutoutRequestId = 0
-const maxCutoutScale = 4
-
 const isVertical = computed(() => props.layout === 'vertical')
 const canMutateAnnotation = computed(() => !props.readOnly)
 const baseTextFontSize = computed(() => Math.max(10, Number(props.fontSize ?? 18)))
@@ -171,7 +173,7 @@ const textViewFontVars = computed(() => ({
 // 5.5rem = index button (1.25rem) + two gaps (0.375rem each) + confidence column (3.5rem).
 const cutoutStartOffsetRem = 5.5
 const cutoutWrapperStyle = computed(() => {
-  if (!isVertical.value) return undefined
+  if (!isVertical.value || props.focusMode) return undefined
   return {
     paddingInlineStart: `${cutoutStartOffsetRem}rem`
   }
@@ -214,6 +216,10 @@ function resolveCutoutMaxHeightPx(className: string): number | null {
 }
 
 const cutoutMaxHeightPx = computed(() => resolveCutoutMaxHeightPx(effectiveCutoutMaxHeightClass.value))
+const configuredCutoutHeightPx = computed(() => {
+  const parsed = Number(props.cutoutHeight)
+  return Number.isFinite(parsed) ? Math.max(24, Math.min(220, Math.trunc(parsed))) : 72
+})
 const codecCharacterSet = computed(() => new Set(props.codecCharacters ?? []))
 const codecPreviewStyle = computed(() => {
   const nextFontSize = baseTextFontSize.value
@@ -226,6 +232,8 @@ const textReadingDirection = computed(() => normalizeReadingDirection(props.text
 const textDirectionAttributes = computed(() => getReadingDirectionTextAttributes(textReadingDirection.value))
 const textDirectionStyle = computed(() => textDirectionAttributes.value.style)
 const textDirectionDir = computed(() => textDirectionAttributes.value.dir)
+const textInputBaseWidthCh = computed(() => props.focusMode ? 48 : 56)
+const textInputMaxWidthCh = computed(() => props.focusMode ? 96 : 112)
 const normalizedTextHighlightQuery = computed(() => props.textHighlightQuery?.trim() ?? '')
 const normalizedComment = computed(() => (props.textline.comments ?? '').trim())
 const hasElementComment = computed(() => normalizedComment.value.length > 0)
@@ -411,6 +419,11 @@ const textContentVariantsWithDiff = computed(() => {
   })
 })
 
+const visibleTextContentVariantsWithDiff = computed(() => {
+  if (!props.focusMode) return textContentVariantsWithDiff.value
+  return textContentVariantsWithDiff.value.filter(variant => variantRole(variant.index) !== 'nonAssigned')
+})
+
 const boundingBox = computed(() => {
   const points = props.textline.points
   if (points.length === 0) return null
@@ -482,21 +495,11 @@ const drawCutout = () => {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
-  let containerWidth = cutoutContainerRef.value?.clientWidth ?? box.width
-  if (cutoutContainerRef.value && typeof window !== 'undefined') {
-    const style = window.getComputedStyle(cutoutContainerRef.value)
-    const paddingStart = Number.parseFloat(style.paddingInlineStart || style.paddingLeft || '0')
-    const paddingEnd = Number.parseFloat(style.paddingInlineEnd || style.paddingRight || '0')
-    containerWidth -= (Number.isFinite(paddingStart) ? paddingStart : 0) + (Number.isFinite(paddingEnd) ? paddingEnd : 0)
-  }
-  containerWidth = Math.max(1, containerWidth)
   const maxHeightPx = cutoutMaxHeightPx.value
-  let scale = Math.min(maxCutoutScale, Math.max(1, containerWidth / box.width))
-  if (typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx) && maxHeightPx > 0) {
-    const heightLimitedScale = maxHeightPx / box.height
-    if (heightLimitedScale < scale) {
-      scale = Math.max(0.1, heightLimitedScale)
-    }
+  const targetHeight = configuredCutoutHeightPx.value
+  let scale = Math.max(0.1, targetHeight / box.height)
+  if (!props.focusMode && typeof maxHeightPx === 'number' && Number.isFinite(maxHeightPx) && maxHeightPx > 0) {
+    scale = Math.min(scale, Math.max(0.1, maxHeightPx / box.height))
   }
   const displayWidth = Math.max(1, Math.round(box.width * scale))
   const displayHeight = Math.max(1, Math.round(box.height * scale))
@@ -620,6 +623,29 @@ function highlightShellClass(index: number | undefined, text: string): string {
 function highlightedSegments(text: string) {
   return getHighlightedSegments(text, normalizedTextHighlightQuery.value)
 }
+
+function getTextInputWidthStyle(text: string) {
+  const longestLineLength = Math.max(
+    1,
+    ...String(text ?? '')
+      .split(/\r?\n/)
+      .map(line => Array.from(line).length)
+  )
+  const widthCh = Math.min(
+    textInputMaxWidthCh.value,
+    Math.max(textInputBaseWidthCh.value, longestLineLength + 3)
+  )
+
+  return {
+    width: `min(100%, ${widthCh}ch)`,
+    maxWidth: '100%'
+  }
+}
+
+const textInputSkeletonStyle = computed(() => ({
+  width: `min(100%, ${textInputBaseWidthCh.value}ch)`,
+  maxWidth: '100%'
+}))
 
 type UnknownSegment = {
   text: string
@@ -927,7 +953,7 @@ watch(() => props.textline.textContentVariants, (newEquivs) => {
 
 const pointsKey = computed(() => props.textline.points.map(p => `${p.x},${p.y}`).join(';'))
 
-watch([() => props.imageUrl, () => props.padding, () => props.textline.id, pointsKey, isVisible], () => {
+watch([() => props.imageUrl, () => props.padding, () => props.cutoutHeight, () => props.textline.id, pointsKey, isVisible], () => {
   if (isVisible.value) {
     drawCutout()
   }
@@ -998,15 +1024,25 @@ onBeforeUnmount(() => {
       :style="textViewFontVars"
       class="@container group relative rounded-md border transition-all duration-150"
       :class="[
+        props.focusMode ? 'border-transparent shadow-none' : '',
         props.isSelected ? 'border-burnt-sienna-500 ring-1 ring-primary/12' : 'border-neutral-200 dark:border-neutral-800 hover:border-default/22'
       ]"
       @click="emit('selectTextline', props.textline.id)"
     >
       <template v-if="!isVisible">
-        <div class="flex-1 p-3 space-y-2">
-          <USkeleton class="h-4 w-24" />
-          <USkeleton class="h-16 w-full" />
-          <USkeleton class="h-8 w-full" />
+        <div
+          class="flex-1 space-y-2"
+          :class="props.focusMode ? 'p-1' : 'p-3'"
+        >
+          <USkeleton v-if="!props.focusMode" class="h-4 w-24" />
+          <USkeleton
+            class="h-16"
+            :style="textInputSkeletonStyle"
+          />
+          <USkeleton
+            class="h-8"
+            :style="textInputSkeletonStyle"
+          />
         </div>
       </template>
 
@@ -1015,8 +1051,14 @@ onBeforeUnmount(() => {
           class="flex min-w-0"
           :class="isVertical ? 'flex-col' : '@max-sm:flex-col'"
         >
-          <div class="min-w-0 p-3 pb-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
-            <div class="flex items-center justify-between gap-2">
+          <div
+            class="min-w-0 flex flex-col"
+            :class="[
+              props.focusMode ? 'p-1 gap-1' : 'p-3 pb-2 gap-2',
+              isVertical ? 'w-full' : '@max-sm:w-full flex-1'
+            ]"
+          >
+            <div v-if="!props.focusMode" class="flex items-center justify-between gap-2">
               <UBadge variant="subtle" color="neutral" class="font-mono">
                 <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
                 {{ props.textline.label ?? props.textline.id }}
@@ -1059,21 +1101,20 @@ onBeforeUnmount(() => {
 
             <div
               ref="cutoutContainerRef"
-              class="rounded-md overflow-hidden bg-linear-to-b from-muted/30 to-muted/10 flex items-center relative"
-              :class="isVertical ? 'justify-start' : 'justify-center'"
+              class="rounded-md overflow-x-auto overflow-y-hidden bg-linear-to-b from-muted/30 to-muted/10 flex items-center justify-start relative"
               :style="cutoutWrapperStyle"
             >
-              <USkeleton
-                v-if="isCutoutLoading"
-                class="absolute inset-0 h-full w-full"
-              />
               <div
-                class="relative max-w-full shrink-0"
+                class="relative shrink-0"
                 :style="cutoutFrameStyle"
               >
+                <USkeleton
+                  v-if="isCutoutLoading"
+                  class="absolute inset-0 h-full w-full"
+                />
                 <canvas
                   ref="canvasRef"
-                  class="cutout-canvas block h-auto max-w-full"
+                  class="cutout-canvas block h-auto"
                   :class="isCutoutLoading ? 'opacity-0' : 'opacity-100'"
                 />
                 <svg
@@ -1116,8 +1157,14 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="min-w-0 p-3 pt-2 flex flex-col gap-2" :class="isVertical ? 'w-full' : '@max-sm:w-full flex-1'">
-            <div class="flex items-center gap-1 justify-end w-full">
+          <div
+            class="min-w-0 flex flex-col"
+            :class="[
+              props.focusMode ? 'p-1 gap-1' : 'p-3 pt-2 gap-2',
+              isVertical ? 'w-full' : '@max-sm:w-full flex-1'
+            ]"
+          >
+            <div v-if="!props.focusMode" class="flex items-center gap-1 justify-end w-full">
               <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                 <UButton
                   color="success"
@@ -1193,7 +1240,7 @@ onBeforeUnmount(() => {
             </div>
 
             <UAlert
-              v-if="props.showComments && normalizedComment.length > 0"
+              v-if="!props.focusMode && props.showComments && normalizedComment.length > 0"
               color="info"
               variant="subtle"
               title="Comment"
@@ -1201,13 +1248,14 @@ onBeforeUnmount(() => {
               icon="i-lucide-message-square-quote"
             />
 
-            <div class="flex flex-col gap-2">
+            <div class="flex flex-col" :class="props.focusMode ? 'gap-1' : 'gap-2'">
               <div
-                v-for="textEquiv in textContentVariantsWithDiff"
+                v-for="textEquiv in visibleTextContentVariantsWithDiff"
                 :key="getTextContentVariantRenderKey(textEquiv)"
-                class="flex items-center gap-1.5 group/input"
+                class="flex items-center group/input"
+                :class="props.focusMode ? 'gap-1' : 'gap-1.5'"
               >
-                <UPopover :content="{ side: 'left', align: 'center' }" @update:open="(open: boolean) => { if (!open) closeIndexEditor() }">
+                <UPopover v-if="!props.focusMode" :content="{ side: 'left', align: 'center' }" @update:open="(open: boolean) => { if (!open) closeIndexEditor() }">
                   <UButton
                     variant="ghost"
                     color="neutral"
@@ -1261,7 +1309,7 @@ onBeforeUnmount(() => {
                   </template>
                 </UPopover>
 
-                <div class="shrink-0 w-14 flex justify-center">
+                <div v-if="!props.focusMode" class="shrink-0 w-14 flex justify-center">
                   <UBadge
                     v-if="getConfidencePercent(textEquiv.confidence) !== undefined"
                     variant="outline"
@@ -1274,55 +1322,56 @@ onBeforeUnmount(() => {
 
                 <div class="flex-1 min-w-0 flex flex-col gap-1">
                   <div class="flex items-center gap-1">
-                    <UTextarea
-                      :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
-                      :model-value="textEquiv.text"
-                      :rows="props.allowMultiline ? 3 : 1"
-                      autoresize
-                      placeholder="Enter transcription..."
-                      :dir="textDirectionDir"
-                      :style="textDirectionStyle"
-                      :ui="hasHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
-                      :readonly="props.readOnly || variantRole(textEquiv.index) === 'recognition'"
-                      :disabled="props.readOnly || variantRole(textEquiv.index) === 'nonAssigned'"
-                      :tabindex="isEditableVariant(textEquiv.index) ? 0 : -1"
-                      :data-textline-id="props.textline.id"
-                      :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
-                      :data-textequiv-pos="String(textEquiv.pos)"
-                      class="textline-textarea flex-1 min-w-0 min-h-9 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
-                      :class="[
-                        variantRole(textEquiv.index) === 'gt' && (hasHighlight(textEquiv.text)
-                          ? 'textline-textarea--gt border-emerald-200'
-                          : 'textline-textarea--gt border-emerald-200 bg-emerald-100/95 dark:bg-emerald-900/90'),
-                        variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
-                        variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200/70 text-muted',
-                        hasHighlight(textEquiv.text) && ['textline-textarea--has-highlight', highlightShellClass(textEquiv.index, textEquiv.text)]
-                      ]"
-                      @click.stop
-                      @focus="emit('selectTextline', props.textline.id)"
-                      @keydown.enter="(event: KeyboardEvent) => handleTextareaKeydownEnter(event, textEquiv.index)"
-                      @beforeinput="(event: InputEvent) => handleTextareaBeforeInput(event, textEquiv.index)"
-                      @paste="(event: ClipboardEvent) => handleTextareaPaste(event, textEquiv.index)"
-                      @drop="(event: DragEvent) => handleTextareaDrop(event, textEquiv.index)"
-                      @update:model-value="(value) => { if (isEditableVariant(textEquiv.index)) updateText(textEquiv.pos, String(value ?? '')) }"
-                    >
-                      <div
-                        v-if="hasHighlight(textEquiv.text)"
-                        class="textline-textarea-highlight-layer pointer-events-none absolute inset-px z-0 overflow-hidden rounded-md px-2.5 py-1.5 font-junicode text-transparent whitespace-pre-wrap break-words"
+                    <div class="shrink-0 max-w-full" :style="getTextInputWidthStyle(textEquiv.text)">
+                      <UTextarea
+                        :id="`textequiv_${props.textline.id}_${String(textEquiv.index ?? textEquiv.pos)}`"
+                        :model-value="textEquiv.text"
+                        :rows="props.allowMultiline ? 3 : 1"
+                        autoresize
+                        placeholder="Enter transcription..."
                         :dir="textDirectionDir"
                         :style="textDirectionStyle"
-                        aria-hidden="true"
+                        :ui="hasHighlight(textEquiv.text) ? { base: 'relative z-10 bg-transparent' } : { base: 'relative z-10' }"
+                        :readonly="props.readOnly || variantRole(textEquiv.index) === 'recognition'"
+                        :disabled="props.readOnly || variantRole(textEquiv.index) === 'nonAssigned'"
+                        :tabindex="isEditableVariant(textEquiv.index) ? 0 : -1"
+                        :data-textline-id="props.textline.id"
+                        :data-textequiv-index="typeof textEquiv.index === 'number' ? String(textEquiv.index) : ''"
+                        :data-textequiv-pos="String(textEquiv.pos)"
+                        class="textline-textarea w-full min-w-0 h-auto resize-none transition-colors focus:border-primary/50 focus:ring-1 focus:ring-primary/20 font-junicode"
+                        :class="[
+                          props.focusMode ? 'min-h-7' : 'min-h-9',
+                          variantRole(textEquiv.index) === 'gt' && 'textline-textarea--gt border-emerald-200',
+                          variantRole(textEquiv.index) === 'recognition' && 'textline-textarea--recognition',
+                          variantRole(textEquiv.index) === 'nonAssigned' && 'textline-textarea--non-assigned border-rose-200/70 text-muted',
+                          hasHighlight(textEquiv.text) && ['textline-textarea--has-highlight', highlightShellClass(textEquiv.index, textEquiv.text)]
+                        ]"
+                        @click.stop
+                        @focus="emit('selectTextline', props.textline.id)"
+                        @keydown.enter="(event: KeyboardEvent) => handleTextareaKeydownEnter(event, textEquiv.index)"
+                        @beforeinput="(event: InputEvent) => handleTextareaBeforeInput(event, textEquiv.index)"
+                        @paste="(event: ClipboardEvent) => handleTextareaPaste(event, textEquiv.index)"
+                        @drop="(event: DragEvent) => handleTextareaDrop(event, textEquiv.index)"
+                        @update:model-value="(value) => { if (isEditableVariant(textEquiv.index)) updateText(textEquiv.pos, String(value ?? '')) }"
                       >
-                        <template
-                          v-for="(segment, segmentIndex) in highlightedSegments(textEquiv.text)"
-                          :key="`${textEquiv.pos}_${segmentIndex}`"
+                        <div
+                          v-if="hasHighlight(textEquiv.text)"
+                          class="textline-textarea-highlight-layer pointer-events-none absolute inset-px z-0 overflow-hidden rounded-md px-2.5 py-1.5 font-junicode text-transparent whitespace-pre-wrap break-words"
+                          :dir="textDirectionDir"
+                          :style="textDirectionStyle"
+                          aria-hidden="true"
                         >
-                          <mark v-if="segment.matched" class="textline-highlight-mark">{{ segment.text }}</mark>
-                          <span v-else>{{ segment.text }}</span>
-                        </template>
-                      </div>
-                    </UTextarea>
-                    <UTooltip text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                          <template
+                            v-for="(segment, segmentIndex) in highlightedSegments(textEquiv.text)"
+                            :key="`${textEquiv.pos}_${segmentIndex}`"
+                          >
+                            <mark v-if="segment.matched" class="textline-highlight-mark">{{ segment.text }}</mark>
+                            <span v-else>{{ segment.text }}</span>
+                          </template>
+                        </div>
+                      </UTextarea>
+                    </div>
+                    <UTooltip v-if="!props.focusMode" text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                       <UButton
                         color="neutral"
                         variant="ghost"
@@ -1335,7 +1384,7 @@ onBeforeUnmount(() => {
                   </div>
 
                   <div
-                    v-if="highlightUnknownCodecChars && codecCharacterSet.size > 0"
+                    v-if="!props.focusMode && highlightUnknownCodecChars && codecCharacterSet.size > 0"
                     class="textline-ui-xs rounded-sm bg-muted/25 p-2 space-y-1"
                   >
                     <div class="flex items-center justify-between gap-2">
@@ -1435,16 +1484,17 @@ onBeforeUnmount(() => {
 
                   <div
                     v-if="canCheckDictionaryTokens && variantRole(textEquiv.index) === 'gt'"
-                    class="textline-ui-xs rounded-sm bg-muted/25 p-2 space-y-1"
+                    class="textline-ui-xs rounded-sm bg-muted/25 space-y-1"
+                    :class="props.focusMode ? 'p-1' : 'p-2'"
                   >
                     <div class="flex items-center justify-between gap-2">
                       <span class="text-muted">Dictionary check</span>
                       <USkeleton
-                        v-if="isDictionaryCheckLoading(textEquiv.text)"
+                        v-if="!props.focusMode && isDictionaryCheckLoading(textEquiv.text)"
                         class="h-5 w-20"
                       />
                       <UBadge
-                        v-else
+                        v-else-if="!props.focusMode"
                         :color="getUnknownDictionaryTokenCount(textEquiv.text) > 0 ? 'warning' : 'success'"
                         variant="soft"
                         size="xs"
@@ -1489,7 +1539,7 @@ onBeforeUnmount(() => {
                                   <span class="font-medium">{{ detail.token }}</span>
                                   <span class="text-muted"> is not in the dictionary.</span>
                                 </div>
-                                <div v-if="detail.suggestions.length > 0" class="flex flex-wrap gap-1">
+                                <div v-if="!props.focusMode && detail.suggestions.length > 0" class="flex flex-wrap gap-1">
                                   <UButton
                                     v-for="suggestion in detail.suggestions"
                                     :key="`${detail.normalized}_${suggestion.display}`"
@@ -1507,7 +1557,7 @@ onBeforeUnmount(() => {
                                 </div>
                                 <div class="flex flex-wrap gap-1">
                                   <UButton
-                                    v-if="!projectDictionaryLocked"
+                                    v-if="!props.focusMode && !projectDictionaryLocked"
                                     size="xs"
                                     color="neutral"
                                     variant="soft"
@@ -1517,6 +1567,7 @@ onBeforeUnmount(() => {
                                     Add to Dictionary
                                   </UButton>
                                   <UButton
+                                    v-if="!props.focusMode"
                                     size="xs"
                                     color="neutral"
                                     variant="ghost"
@@ -1537,7 +1588,8 @@ onBeforeUnmount(() => {
 
                   <div
                     v-if="showDiff && textEquiv.diffs"
-                    class="textline-ui-sm font-mono p-2 bg-muted/25 rounded-sm"
+                    class="textline-ui-sm font-mono bg-muted/25 rounded-sm"
+                    :class="props.focusMode ? 'p-1' : 'p-2'"
                     :dir="textDirectionDir"
                     :style="textDirectionStyle"
                   >

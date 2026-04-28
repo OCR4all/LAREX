@@ -79,6 +79,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   const textViewFontSize = ref<number>(30)
   const textViewPadding = ref<number>(10)
+  const textViewCutoutHeight = ref<number>(72)
   const textItemLayout = ref<TextItemLayout>('side-by-side')
   const textModeSubmode = ref<TextModeSubmode>('visual')
   const canvasTextCorrectionOverlaySnapToLine = ref<boolean>(true)
@@ -148,6 +149,12 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.selectedVirtualKeyboardId !== null) selectedVirtualKeyboardId.value = prefs.selectedVirtualKeyboardId
     if (prefs.textViewFontSize !== null) textViewFontSize.value = prefs.textViewFontSize
     if (prefs.textViewPadding !== null) textViewPadding.value = prefs.textViewPadding
+    if (prefs.textViewCutoutHeight !== null) {
+      const parsedCutoutHeight = Number(prefs.textViewCutoutHeight)
+      textViewCutoutHeight.value = Number.isFinite(parsedCutoutHeight)
+        ? Math.max(24, Math.min(220, Math.trunc(parsedCutoutHeight)))
+        : 72
+    }
     if (prefs.textItemLayout !== null) textItemLayout.value = prefs.textItemLayout
     if (prefs.textModeSubmode === 'expert' || prefs.textModeSubmode === 'visual') {
       textModeSubmode.value = prefs.textModeSubmode
@@ -440,6 +447,13 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     editorPreferences.updatePreference('textViewPadding', next)
   }
 
+  function setTextViewCutoutHeight(height: number) {
+    const parsed = Number(height)
+    const next = Number.isFinite(parsed) ? Math.max(24, Math.min(220, Math.trunc(parsed))) : 72
+    textViewCutoutHeight.value = next
+    editorPreferences.updatePreference('textViewCutoutHeight', next)
+  }
+
   function setTextItemLayout(layout: TextItemLayout) {
     textItemLayout.value = layout
     editorPreferences.updatePreference('textItemLayout', layout)
@@ -606,6 +620,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     temporaryHoverPolylineId,
     textViewFontSize,
     textViewPadding,
+    textViewCutoutHeight,
     textItemLayout,
     textModeSubmode,
     canvasTextCorrectionOverlaySnapToLine,
@@ -672,6 +687,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     setTemporaryHoverPolylineId,
     setTextViewFontSize,
     setTextViewPadding,
+    setTextViewCutoutHeight,
     setTextItemLayout,
     setTextModeSubmode,
     setCanvasTextCorrectionOverlaySnapToLine,

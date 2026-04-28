@@ -144,6 +144,7 @@ const textViewSettings = computed(() => sessionStore.textViewSettings)
 
 const padding = computed(() => uiStore.textViewPadding)
 const fontSize = computed(() => uiStore.textViewFontSize)
+const cutoutHeight = computed(() => uiStore.textViewCutoutHeight)
 const textItemLayout = computed(() => uiStore.textItemLayout)
 const codecCharacters = computed(() => editorStore.projectCodecCharacters ?? [])
 const hasProjectCodec = computed(() => {
@@ -225,6 +226,7 @@ const onlyMissingGtModel = computed({
 })
 
 const showCommentsModel = computed(() => textViewSettings.value.showComments)
+const focusMode = computed(() => textViewSettings.value.focusMode)
 
 function normalizeSingleLineText(value: string): string {
   return value.replace(/[ \t]*\r?\n+[ \t]*/g, ' ')
@@ -1285,6 +1287,7 @@ const sectionMenuItems = computed(() => {
 <template>
   <div ref="rootEl" data-shortcut-scope="text-view" class="flex flex-col h-full">
     <div
+      v-if="!focusMode"
       data-tour="editor-textline-list-toolbar"
       class="sticky top-0 z-30 border-b bg-default/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-default/85"
     >
@@ -1353,7 +1356,10 @@ const sectionMenuItems = computed(() => {
       </div>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+    <div
+      class="min-h-0 flex-1 overflow-y-auto"
+      :class="focusMode ? 'px-1 py-1' : 'px-3 py-2'"
+    >
       <div
         v-if="isLoadingAnnotations && displayTextlines.length === 0"
         class="flex flex-col items-center justify-center py-8 text-muted"
@@ -1393,13 +1399,14 @@ const sectionMenuItems = computed(() => {
           Try adjusting your search
         </p>
       </div>
-      <div v-else class="flex flex-col gap-3">
+      <div v-else class="flex flex-col" :class="focusMode ? 'gap-1' : 'gap-3'">
         <div
           v-for="region in regionMeta"
           :key="region.id"
         >
           <template v-if="!searchQuery || (textlinesByRegion.get(region.id)?.length ?? 0) > 0">
             <button
+              v-if="!focusMode"
               type="button"
               class="w-full flex items-center gap-3 p-2 rounded-sm hover:bg-muted/50 transition-colors group sticky top-0 z-20 bg-default/95 backdrop-blur-sm"
             >
@@ -1439,9 +1446,10 @@ const sectionMenuItems = computed(() => {
             </button>
 
             <div
-              v-show="!collapsedRegionIds.has(region.id)"
-              class="ml-3 pl-3 border-l-2 mt-2 flex flex-col gap-2"
-              :style="{ borderLeftColor: region.color }"
+              v-show="focusMode || !collapsedRegionIds.has(region.id)"
+              class="flex flex-col"
+              :class="focusMode ? 'gap-1' : 'ml-3 pl-3 border-l-2 mt-2 gap-2'"
+              :style="focusMode ? undefined : { borderLeftColor: region.color }"
             >
               <div
                 v-if="(textlinesByRegion.get(region.id) ?? []).length === 0"
@@ -1451,7 +1459,8 @@ const sectionMenuItems = computed(() => {
               </div>
               <div
                 v-else
-                class="flex flex-col gap-2"
+                class="flex flex-col"
+                :class="focusMode ? 'gap-1' : 'gap-2'"
               >
                 <template v-for="textline in (textlinesByRegion.get(region.id) ?? [])" :key="textline.id">
                   <EditorTextLineItem
@@ -1459,7 +1468,9 @@ const sectionMenuItems = computed(() => {
                     :image-url="effectiveImageUrl"
                     :padding="padding"
                     :font-size="fontSize"
+                    :cutout-height="cutoutHeight"
                     :layout="textItemLayout"
+                    :focus-mode="focusMode"
                     :codec-characters="codecCharacters"
                     :highlight-unknown-codec-chars="highlightUnknownCodecChars"
                     :include-whitespace-in-codec-highlight="includeWhitespaceInCodecHighlight"

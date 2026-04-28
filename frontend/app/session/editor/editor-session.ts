@@ -21,6 +21,7 @@ export type TextViewSettings = {
   gtIndex: number | undefined
   showDiff: boolean
   showComments: boolean
+  focusMode: boolean
   confidenceRange: [number, number]
   selectedIndices: number[]
   filterUnindexed: boolean
@@ -78,6 +79,7 @@ function createServerPlaceholderSession(canvasId: string): EditorSession {
     gtIndex: 0,
     showDiff: false,
     showComments: false,
+    focusMode: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,
@@ -114,6 +116,7 @@ export function ensureEditorSession(canvasId: string, initial?: { document?: PcG
     gtIndex: 0,
     showDiff: false,
     showComments: false,
+    focusMode: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,

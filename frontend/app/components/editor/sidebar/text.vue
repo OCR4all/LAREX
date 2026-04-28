@@ -50,9 +50,21 @@ const fontSizeModel = computed({
   set: next => uiStore.setTextViewFontSize(Number(next))
 })
 
+const cutoutHeightModel = computed({
+  get: () => uiStore.textViewCutoutHeight,
+  set: next => uiStore.setTextViewCutoutHeight(Number(next))
+})
+
 const textItemLayoutModel = computed({
   get: () => uiStore.textItemLayout,
   set: next => uiStore.setTextItemLayout(next)
+})
+
+const focusModeModel = computed({
+  get: () => textViewSettings.value?.focusMode ?? false,
+  set: (next: boolean) => {
+    sessionStore.updateTextViewSettings(current => ({ ...current, focusMode: Boolean(next) }))
+  }
 })
 
 const showCommentsModel = computed({
@@ -303,7 +315,9 @@ onBeforeUnmount(() => {
               <EditorSidebarTextSettingsPanel
                 v-model:padding="paddingModel"
                 v-model:font-size="fontSizeModel"
+                v-model:cutout-height="cutoutHeightModel"
                 v-model:text-item-layout="textItemLayoutModel"
+                v-model:focus-mode="focusModeModel"
                 v-model:show-comments="showCommentsModel"
               />
             </template>
@@ -392,7 +406,9 @@ onBeforeUnmount(() => {
           <EditorSidebarTextSettingsPanel
             v-model:padding="paddingModel"
             v-model:font-size="fontSizeModel"
+            v-model:cutout-height="cutoutHeightModel"
             v-model:text-item-layout="textItemLayoutModel"
+            v-model:focus-mode="focusModeModel"
             v-model:show-comments="showCommentsModel"
           />
         </div>

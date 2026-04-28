@@ -3,8 +3,10 @@ import type { TextItemLayout } from '@/stores/editor/types'
 
 const padding = defineModel<number>('padding', { default: 10 })
 const fontSize = defineModel<number>('fontSize', { default: 18 })
+const cutoutHeight = defineModel<number>('cutoutHeight', { default: 72 })
 const textItemLayout = defineModel<TextItemLayout>('textItemLayout', { default: 'side-by-side' })
 const showComments = defineModel<boolean>('showComments', { default: false })
+const focusMode = defineModel<boolean>('focusMode', { default: false })
 
 const layoutTabItems = [
   { label: 'Side by side', value: 'side-by-side' as const, icon: 'i-lucide-columns-2' },
@@ -41,8 +43,31 @@ const layoutTabItems = [
     </div>
 
     <div>
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-sm font-medium">Cutout Height</span>
+        <span class="text-sm font-semibold text-primary">{{ cutoutHeight }}px</span>
+      </div>
+      <USlider
+        v-model="cutoutHeight"
+        :min="24"
+        :max="220"
+        :step="4"
+      />
+    </div>
+
+    <div>
       <span class="text-sm font-medium mb-2 block">Item Layout</span>
       <UTabs v-model="textItemLayout" :items="layoutTabItems" />
+    </div>
+
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <span class="text-sm font-medium block">Focus Mode</span>
+        <span class="text-xs text-muted">
+          Show only cutouts, GT/recognition text, dictionary checks, and diffs.
+        </span>
+      </div>
+      <USwitch v-model="focusMode" />
     </div>
 
     <div class="flex items-center justify-between gap-3">

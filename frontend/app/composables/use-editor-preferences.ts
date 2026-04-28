@@ -21,6 +21,7 @@ export interface EditorPreferences {
   selectedVirtualKeyboardId: string | null
   textViewFontSize: number | null
   textViewPadding: number | null
+  textViewCutoutHeight: number | null
   textItemLayout: TextItemLayout | null
   canvasTextCorrectionOverlaySnapToLine: boolean | null
   canvasTextCorrectionOverlayXRatio: number | null
@@ -62,6 +63,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   selectedVirtualKeyboardId: null,
   textViewFontSize: null,
   textViewPadding: null,
+  textViewCutoutHeight: null,
   textItemLayout: null,
   canvasTextCorrectionOverlaySnapToLine: null,
   canvasTextCorrectionOverlayXRatio: null,

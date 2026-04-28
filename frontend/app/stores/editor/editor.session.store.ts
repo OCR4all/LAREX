@@ -12,6 +12,7 @@ export interface EditorTextViewSettings {
   searchQuery: string
   showDiff: boolean
   showComments: boolean
+  focusMode: boolean
   confidenceRange: [number, number]
   selectedIndices: number[]
   filterUnindexed: boolean
@@ -51,6 +52,7 @@ function createDefaultTextViewSettings(): EditorTextViewSettings {
     searchQuery: '',
     showDiff: false,
     showComments: false,
+    focusMode: false,
     confidenceRange: [0, 1],
     selectedIndices: [],
     filterUnindexed: false,
@@ -150,6 +152,7 @@ function normalizeTextViewSettings(value: unknown): EditorTextViewSettings {
     searchQuery: typeof candidate.searchQuery === 'string' ? candidate.searchQuery : defaults.searchQuery,
     showDiff: Boolean(candidate.showDiff ?? defaults.showDiff),
     showComments: Boolean(candidate.showComments ?? defaults.showComments),
+    focusMode: Boolean(candidate.focusMode ?? defaults.focusMode),
     confidenceRange,
     selectedIndices,
     filterUnindexed: Boolean(candidate.filterUnindexed ?? defaults.filterUnindexed),

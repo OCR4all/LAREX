@@ -77,6 +77,9 @@ public class EditorPreference {
     @Column(name = "text_view_padding")
     private Integer textViewPadding;
 
+    @Column(name = "text_view_cutout_height")
+    private Integer textViewCutoutHeight;
+
     @Column(name = "text_item_layout")
     private String textItemLayout;
 
@@ -190,6 +193,9 @@ public class EditorPreference {
 
     public Integer getTextViewPadding() { return textViewPadding; }
     public void setTextViewPadding(Integer textViewPadding) { this.textViewPadding = textViewPadding; }
+
+    public Integer getTextViewCutoutHeight() { return textViewCutoutHeight; }
+    public void setTextViewCutoutHeight(Integer textViewCutoutHeight) { this.textViewCutoutHeight = textViewCutoutHeight; }
 
     public String getTextItemLayout() { return textItemLayout; }
     public void setTextItemLayout(String textItemLayout) { this.textItemLayout = textItemLayout; }
