@@ -122,7 +122,7 @@ const rootLayoutClass = computed(() => {
 const toolbarClass = computed(() => {
   switch (editorStore.toolbarLayout) {
     case 'floating':
-      return 'fixed bottom-10 left-1/2 -translate-x-1/2 z-50'
+      return 'z-50'
 
     case 'docked-top':
       return 'row-start-1 col-span-full'

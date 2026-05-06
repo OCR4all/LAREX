@@ -5,13 +5,15 @@ import { getTooltipProps } from '@/composables/editor/use-keyboard-shortcuts'
 import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboards'
 import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
-import type { TabsItem } from '@nuxt/ui'
+import type { DropdownMenuItem, TabsItem } from '@nuxt/ui'
+import type { CSSProperties } from 'vue'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
 import type { Commander } from '@/commands/editor/commander'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import type { LayoutViewMode, VirtualKeyboardMode } from '@/stores/editor/types'
 
 const editorStore = useEditorStore()
+const uiStore = useEditorUiStore()
 
 const emit = defineEmits<{
   merge: []
@@ -107,48 +109,78 @@ const textModeSubmodeItems = computed<TabsItem[]>(() =>
   }))
 )
 
-const toolbarLayoutItems = ref([
-  {
-    label: 'Floating',
-    icon: 'i-lucide-panel-bottom-dashed',
-    onSelect() {
-      editorStore.setToolbarLayout('floating')
+function setFloatingToolbarOrientation(orientation: 'horizontal' | 'vertical') {
+  editorStore.setToolbarLayout('floating')
+  uiStore.setToolbarFloatingOrientation(orientation)
+}
+
+const toolbarLayoutItems = computed<DropdownMenuItem[][]>(() => [
+  [
+    {
+      label: 'Floating Horizontal',
+      icon: 'i-lucide-panel-bottom-dashed',
+      type: 'checkbox',
+      checked: editorStore.toolbarLayout === 'floating' && uiStore.toolbarFloatingOrientation === 'horizontal',
+      onUpdateChecked(checked: boolean) {
+        if (checked) setFloatingToolbarOrientation('horizontal')
+      },
+      onSelect(e: Event) {
+        e.preventDefault()
+        setFloatingToolbarOrientation('horizontal')
+      }
+    },
+    {
+      label: 'Floating Vertical',
+      icon: 'i-lucide-panel-left-dashed',
+      type: 'checkbox',
+      checked: editorStore.toolbarLayout === 'floating' && uiStore.toolbarFloatingOrientation === 'vertical',
+      onUpdateChecked(checked: boolean) {
+        if (checked) setFloatingToolbarOrientation('vertical')
+      },
+      onSelect(e: Event) {
+        e.preventDefault()
+        setFloatingToolbarOrientation('vertical')
+      }
     }
-  },
-  {
-    label: 'Top (Docked)',
-    icon: 'i-lucide-panel-top',
-    onSelect() {
-      editorStore.setToolbarLayout('docked-top')
+  ],
+  [
+    {
+      label: 'Top (Docked)',
+      icon: 'i-lucide-panel-top',
+      onSelect() {
+        editorStore.setToolbarLayout('docked-top')
+      }
+    },
+    {
+      label: 'Bottom (Docked)',
+      icon: 'i-lucide-panel-bottom',
+      onSelect() {
+        editorStore.setToolbarLayout('docked-bottom')
+      }
+    },
+    {
+      label: 'Left (Docked)',
+      icon: 'i-lucide-panel-left',
+      onSelect() {
+        editorStore.setToolbarLayout('docked-left')
+      }
+    },
+    {
+      label: 'Right (Docked)',
+      icon: 'i-lucide-panel-right',
+      onSelect() {
+        editorStore.setToolbarLayout('docked-right')
+      }
     }
-  },
-  {
-    label: 'Bottom (Docked)',
-    icon: 'i-lucide-panel-bottom',
-    onSelect() {
-      editorStore.setToolbarLayout('docked-bottom')
-    }
-  },
-  {
-    label: 'Left (Docked)',
-    icon: 'i-lucide-panel-left',
-    onSelect() {
-      editorStore.setToolbarLayout('docked-left')
-    }
-  },
-  {
-    label: 'Right (Docked)',
-    icon: 'i-lucide-panel-right',
-    onSelect() {
-      editorStore.setToolbarLayout('docked-right')
-    }
-  }
+  ]
 ])
 
 const toolbarLayoutIcon = computed(() => {
   switch (editorStore.toolbarLayout) {
     case 'floating':
-      return 'i-lucide-panel-bottom-dashed'
+      return uiStore.toolbarFloatingOrientation === 'vertical'
+        ? 'i-lucide-panel-left-dashed'
+        : 'i-lucide-panel-bottom-dashed'
     case 'docked-top':
       return 'i-lucide-panel-top'
     case 'docked-bottom':
@@ -175,12 +207,13 @@ const isFloating = computed(() => {
 
 const isVertical = computed(() => {
   return ['docked-left', 'docked-right'].includes(editorStore.toolbarLayout)
+    || (isFloating.value && uiStore.toolbarFloatingOrientation === 'vertical')
 })
 
 const toolbarStyle = computed(() => {
   switch (editorStore.toolbarLayout) {
     case 'floating':
-      return 'fixed bottom-0.5 left-1/2 -translate-x-1/2 z-50 border border-default rounded-sm shadow-2xl'
+      return 'border border-default rounded-sm shadow-2xl'
 
     case 'docked-top':
       return 'row-start-1 col-span-full border-b border-default'
@@ -198,6 +231,166 @@ const toolbarStyle = computed(() => {
       return 'row-start-1 col-span-full'
   }
 })
+
+const toolbarShellRef = ref<HTMLElement | null>(null)
+const isDraggingToolbar = ref(false)
+
+let dragPointerId: number | null = null
+let dragStartClientX = 0
+let dragStartClientY = 0
+let dragStartToolbarX = 0
+let dragStartToolbarY = 0
+
+const floatingToolbarStyle = computed<CSSProperties | undefined>(() => {
+  if (!isFloating.value) return undefined
+
+  const position = uiStore.toolbarFloatingPosition
+  if (position) {
+    return {
+      position: 'fixed',
+      left: `${position.x}px`,
+      top: `${position.y}px`
+    }
+  }
+
+  if (uiStore.toolbarFloatingOrientation === 'vertical') {
+    return {
+      position: 'fixed',
+      left: '16px',
+      top: '96px'
+    }
+  }
+
+  return {
+    position: 'fixed',
+    left: '50%',
+    bottom: '40px',
+    transform: 'translateX(-50%)'
+  }
+})
+
+function getViewportSize() {
+  return {
+    width: window.innerWidth || document.documentElement.clientWidth,
+    height: window.innerHeight || document.documentElement.clientHeight
+  }
+}
+
+function clampToolbarPosition(x: number, y: number) {
+  const rect = toolbarShellRef.value?.getBoundingClientRect()
+  const { width, height } = getViewportSize()
+  const toolbarWidth = rect?.width ?? 48
+  const toolbarHeight = rect?.height ?? 48
+  const maxX = Math.max(0, width - toolbarWidth - 8)
+  const maxY = Math.max(0, height - toolbarHeight - 8)
+
+  return {
+    x: Math.min(Math.max(8, x), maxX),
+    y: Math.min(Math.max(8, y), maxY)
+  }
+}
+
+function getDefaultFloatingPosition() {
+  const rect = toolbarShellRef.value?.getBoundingClientRect()
+  const { width, height } = getViewportSize()
+  const toolbarWidth = rect?.width ?? 360
+  const toolbarHeight = rect?.height ?? 48
+
+  if (uiStore.toolbarFloatingOrientation === 'vertical') {
+    return clampToolbarPosition(16, Math.round((height - toolbarHeight) / 2))
+  }
+
+  return clampToolbarPosition(
+    Math.round((width - toolbarWidth) / 2),
+    height - toolbarHeight - 40
+  )
+}
+
+function ensureFloatingToolbarPosition(options: { persist?: boolean } = {}) {
+  if (!import.meta.client || !isFloating.value) return
+
+  if (!uiStore.toolbarFloatingPosition) {
+    const position = getDefaultFloatingPosition()
+    uiStore.setToolbarFloatingPosition(position.x, position.y, options)
+    return
+  }
+
+  const position = clampToolbarPosition(uiStore.toolbarFloatingPosition.x, uiStore.toolbarFloatingPosition.y)
+  if (
+    position.x !== uiStore.toolbarFloatingPosition.x
+    || position.y !== uiStore.toolbarFloatingPosition.y
+  ) {
+    uiStore.setToolbarFloatingPosition(position.x, position.y, options)
+  }
+}
+
+function startToolbarDrag(event: PointerEvent) {
+  if (!isFloating.value) return
+
+  ensureFloatingToolbarPosition({ persist: false })
+
+  const position = uiStore.toolbarFloatingPosition ?? getDefaultFloatingPosition()
+  dragPointerId = event.pointerId
+  dragStartClientX = event.clientX
+  dragStartClientY = event.clientY
+  dragStartToolbarX = position.x
+  dragStartToolbarY = position.y
+  isDraggingToolbar.value = true
+
+  window.addEventListener('pointermove', handleToolbarDragMove)
+  window.addEventListener('pointerup', stopToolbarDrag)
+  window.addEventListener('pointercancel', stopToolbarDrag)
+}
+
+function handleToolbarDragMove(event: PointerEvent) {
+  if (!isDraggingToolbar.value || event.pointerId !== dragPointerId) return
+
+  const position = clampToolbarPosition(
+    dragStartToolbarX + event.clientX - dragStartClientX,
+    dragStartToolbarY + event.clientY - dragStartClientY
+  )
+  uiStore.setToolbarFloatingPosition(position.x, position.y, { persist: false })
+}
+
+function stopToolbarDrag(event?: PointerEvent) {
+  if (event && dragPointerId !== null && event.pointerId !== dragPointerId) return
+
+  window.removeEventListener('pointermove', handleToolbarDragMove)
+  window.removeEventListener('pointerup', stopToolbarDrag)
+  window.removeEventListener('pointercancel', stopToolbarDrag)
+
+  dragPointerId = null
+  isDraggingToolbar.value = false
+
+  const position = uiStore.toolbarFloatingPosition
+  if (position) {
+    uiStore.setToolbarFloatingPosition(position.x, position.y)
+  }
+}
+
+function handleFloatingToolbarResize() {
+  ensureFloatingToolbarPosition({ persist: false })
+}
+
+onMounted(() => {
+  if (!import.meta.client) return
+  requestAnimationFrame(() => ensureFloatingToolbarPosition({ persist: false }))
+  window.addEventListener('resize', handleFloatingToolbarResize)
+})
+
+onBeforeUnmount(() => {
+  if (!import.meta.client) return
+  window.removeEventListener('resize', handleFloatingToolbarResize)
+  stopToolbarDrag()
+})
+
+watch(
+  () => [editorStore.toolbarLayout, uiStore.toolbarFloatingOrientation] as const,
+  () => {
+    if (!import.meta.client) return
+    requestAnimationFrame(() => ensureFloatingToolbarPosition({ persist: false }))
+  }
+)
 
 const currentCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 
@@ -459,7 +652,6 @@ watchEffect(() => {
   }
 })
 
-const uiStore = useEditorUiStore()
 const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
 const { hasKeyboards } = useVirtualKeyboardAvailability()
 const isCompact = computed(() => uiStore.toolbarCompact)
@@ -492,8 +684,7 @@ watch(
     const restoreMode = forcedLayoutViewModeByCanvasId.value[canvasId]
     if (!restoreMode) return
 
-    const nextMap = { ...forcedLayoutViewModeByCanvasId.value }
-    delete nextMap[canvasId]
+    const { [canvasId]: _restoredMode, ...nextMap } = forcedLayoutViewModeByCanvasId.value
     forcedLayoutViewModeByCanvasId.value = nextMap
 
     if (restoreMode !== currentView) {
@@ -723,15 +914,41 @@ const moreOptionsDropdownItems = computed(() => [
     :class="[
       'z-50 print:hidden'
     ]"
+    :style="floatingToolbarStyle"
   >
     <div
+      ref="toolbarShellRef"
       :class="[
         'flex items-center justify-between dark:bg-neutral-900 bg-neutral-50 border-default',
         toolbarStyle,
-        isVertical ? 'flex-col px-1 py-2 overflow-y-scroll' : 'flex-row px-2 py-1 overflow-x-scroll'
+        isVertical ? 'flex-col px-1 py-2 overflow-y-auto' : 'flex-row px-2 py-1 overflow-x-auto',
+        isDraggingToolbar ? 'cursor-grabbing select-none' : ''
       ]"
     >
       <div class="flex items-center" :class="[(isVertical ? 'flex-col' : 'flex-row'), (isCompact ? 'gap-0' : 'gap-1')]">
+        <template v-if="isFloating">
+          <UTooltip :delay-duration="0" text="Drag toolbar">
+            <UButton
+              variant="ghost"
+              size="sm"
+              :icon="isVertical ? 'i-lucide-grip-horizontal' : 'i-lucide-grip-vertical'"
+              color="neutral"
+              aria-label="Drag toolbar"
+              :class="[
+                'touch-none shrink-0',
+                isDraggingToolbar ? 'cursor-grabbing' : 'cursor-grab'
+              ]"
+              @pointerdown.prevent.stop="startToolbarDrag"
+              @click.prevent.stop
+            />
+          </UTooltip>
+
+          <USeparator
+            :orientation="isVertical ? 'horizontal' : 'vertical'"
+            class="h-6 mx-1"
+          />
+        </template>
+
         <template v-if="isTextUiMode">
           <template v-if="showVirtualKeyboardControls">
             <div class="flex items-center">

@@ -108,6 +108,8 @@ const reorderEnabled = computed(() => {
 const virtualKeyboardMode = computed(() => uiStore.virtualKeyboardMode)
 const { keyboards, selectedLayout, selectedKeyboardId } = useVirtualKeyboards()
 const selectedWorkspaceId = computed(() => workspaceStore.selectedWorkspaceId as string | null)
+const { allow } = useActionVisibility()
+const canEditSelectedKeyboard = computed(() => allow(selectedLayout.value?.capabilities?.canEdit))
 
 const effectiveCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 const isLoadingAnnotations = computed(() => {
@@ -744,6 +746,8 @@ async function handleQuickAddDictionaryToken(token: string) {
 }
 
 async function handleQuickAddKeyboardCharacter(char: string) {
+  if (!canEditSelectedKeyboard.value) return
+
   const workspaceId = selectedWorkspaceId.value
   const keyboardId = selectedKeyboardId.value
   if (!workspaceId || !keyboardId) return
@@ -1491,6 +1495,7 @@ const sectionMenuItems = computed(() => {
                     :project-dictionary-unicode-normalization="editorStore.projectDictionaryUnicodeNormalization"
                     :selected-keyboard-id="selectedKeyboardId"
                     :has-virtual-keyboard="Boolean(selectedLayout)"
+                    :can-quick-add-to-keyboard="canEditSelectedKeyboard"
                     :show-reorder-buttons="reorderEnabled && region.id !== '__unassigned__'"
                     :can-move-up="canMoveTextline(region.id, textline.id, -1)"
                     :can-move-down="canMoveTextline(region.id, textline.id, 1)"
@@ -1524,6 +1529,8 @@ const sectionMenuItems = computed(() => {
       v-if="virtualKeyboardMode === 'floating' && selectedLayout"
       :layout="selectedLayout"
       :layouts="keyboards ?? []"
+      :editable="canEditSelectedKeyboard"
+      :workspace-id="selectedWorkspaceId"
       @update:layout-id="selectedKeyboardId = $event"
     />
   </div>

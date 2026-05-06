@@ -3,6 +3,7 @@ import type {
   LayoutViewMode,
   UiModeScope,
   ToolbarLayout,
+  ToolbarFloatingOrientation,
   GlobalSettings,
   ReadingOrderOverlaySettings,
   RelationsOverlaySettings,
@@ -28,6 +29,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   const toolbarLayout = ref<ToolbarLayout>('floating')
   const toolbarCompact = ref(false)
+  const toolbarFloatingOrientation = ref<ToolbarFloatingOrientation>('horizontal')
+  const toolbarFloatingPosition = ref<{ x: number, y: number } | null>(null)
 
   const globalSettings = ref<GlobalSettings>({
     constrainToImage: true,
@@ -117,6 +120,16 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     return value === 'floating' || value === 'slideover' ? 'floating' : 'off'
   }
 
+  function coerceToolbarFloatingOrientation(value: unknown): ToolbarFloatingOrientation {
+    return value === 'vertical' ? 'vertical' : 'horizontal'
+  }
+
+  function normalizeToolbarFloatingCoordinate(value: unknown): number | null {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) return null
+    return Math.max(0, Math.round(parsed))
+  }
+
   async function loadPreferences() {
     if (import.meta.server || preferencesLoaded.value) return
 
@@ -125,6 +138,14 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
     if (prefs.toolbarLayout) toolbarLayout.value = prefs.toolbarLayout
     if (prefs.toolbarCompact !== null) toolbarCompact.value = prefs.toolbarCompact
+    if (prefs.toolbarFloatingOrientation !== null) {
+      toolbarFloatingOrientation.value = coerceToolbarFloatingOrientation(prefs.toolbarFloatingOrientation)
+    }
+    const floatingX = normalizeToolbarFloatingCoordinate(prefs.toolbarFloatingX)
+    const floatingY = normalizeToolbarFloatingCoordinate(prefs.toolbarFloatingY)
+    if (floatingX !== null && floatingY !== null) {
+      toolbarFloatingPosition.value = { x: floatingX, y: floatingY }
+    }
     if (prefs.leftCollapsed !== null) leftCollapsed.value = prefs.leftCollapsed
     if (prefs.rightCollapsed !== null) rightCollapsed.value = prefs.rightCollapsed
     if (prefs.leftWidthPx !== null) leftWidthPx.value = prefs.leftWidthPx
@@ -238,6 +259,26 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   function setToolbarLayout(layout: ToolbarLayout) {
     toolbarLayout.value = layout
     editorPreferences.updatePreference('toolbarLayout', layout)
+  }
+
+  function setToolbarFloatingOrientation(orientation: ToolbarFloatingOrientation) {
+    const normalized = coerceToolbarFloatingOrientation(orientation)
+    toolbarFloatingOrientation.value = normalized
+    editorPreferences.updatePreference('toolbarFloatingOrientation', normalized)
+  }
+
+  function setToolbarFloatingPosition(x: number, y: number, options: { persist?: boolean } = {}) {
+    const normalizedX = normalizeToolbarFloatingCoordinate(x)
+    const normalizedY = normalizeToolbarFloatingCoordinate(y)
+    if (normalizedX === null || normalizedY === null) return
+
+    toolbarFloatingPosition.value = { x: normalizedX, y: normalizedY }
+
+    if (options.persist === false) return
+    editorPreferences.updatePreferences({
+      toolbarFloatingX: normalizedX,
+      toolbarFloatingY: normalizedY
+    })
   }
 
   function setToolbarCompact(compact: boolean) {
@@ -604,6 +645,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     uiModeByCanvasId,
     toolbarLayout,
     toolbarCompact,
+    toolbarFloatingOrientation,
+    toolbarFloatingPosition,
     globalSettings,
     leftCollapsed,
     rightCollapsed,
@@ -647,6 +690,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     removeCanvasUiMode,
     setUiModeScope,
     setToolbarLayout,
+    setToolbarFloatingOrientation,
+    setToolbarFloatingPosition,
     setToolbarCompact,
     toggleToolbarCompact,
     updateGlobalSettings,

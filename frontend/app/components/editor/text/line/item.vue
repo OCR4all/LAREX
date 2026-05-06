@@ -69,6 +69,7 @@ interface Props {
   projectDictionaryUnicodeNormalization?: string
   selectedKeyboardId?: string | number | null
   hasVirtualKeyboard?: boolean
+  canQuickAddToKeyboard?: boolean
   allowMultiline?: boolean
   showDragHandle?: boolean
   showDeleteButton?: boolean
@@ -98,6 +99,7 @@ const props = withDefaults(defineProps<Props>(), {
   projectDictionaryUnicodeNormalization: 'NFC',
   selectedKeyboardId: null,
   hasVirtualKeyboard: false,
+  canQuickAddToKeyboard: false,
   allowMultiline: false,
   showDragHandle: true,
   showDeleteButton: true,
@@ -1447,7 +1449,7 @@ onBeforeUnmount(() => {
                                     size="xs"
                                     color="neutral"
                                     variant="soft"
-                                    :disabled="!hasVirtualKeyboard"
+                                    :disabled="!canQuickAddToKeyboard"
                                     @click.stop="emit('quickAddKeyboardChar', detail.char)"
                                   >
                                     Add to Keyboard
