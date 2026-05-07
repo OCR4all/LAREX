@@ -1,0 +1,2 @@
+larex-action-sdk[fastapi]>=0.1,<0.2
+uvicorn[standard]==0.38.0
