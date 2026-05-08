@@ -155,6 +155,9 @@ larex:
     share-public-base-url: ${LAREX_DATASET_RELEASE_SHARE_PUBLIC_BASE_URL:${cors.allowed-origin}/api/public/dataset-releases}
   project-releases:
     share-public-base-url: ${LAREX_PROJECT_RELEASE_SHARE_PUBLIC_BASE_URL:${cors.allowed-origin}/api/public/project-releases}
+  actions:
+    public-base-url: ${LAREX_ACTIONS_PUBLIC_BASE_URL:}
+    endpoint-secrets: {}
   error-log:
     retention-days: ${LAREX_ERROR_LOG_RETENTION_DAYS:30}
     stack-trace-max-length: ${LAREX_ERROR_LOG_STACK_TRACE_MAX_LENGTH:16000}

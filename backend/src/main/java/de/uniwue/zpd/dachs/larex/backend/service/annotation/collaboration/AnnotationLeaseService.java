@@ -63,7 +63,8 @@ public class AnnotationLeaseService {
 
         String workspaceId = page.getProject().getLibrary().getWorkspaceId();
         boolean canEdit = authorizationPolicyService.canAccessWorkspace(workspaceId, userId)
-                && !page.getProject().isLocked();
+                && !page.getProject().isLocked()
+                && !page.isLocked();
         boolean canForceTakeover = authorizationPolicyService.canManageProjects(workspaceId, userId);
 
         AnnotationCollaborationDto.UserSummary user = resolveUserSummary(userId);

@@ -6,6 +6,7 @@ const adminSections = [
   { title: 'Quotas', description: 'Manage storage quotas for workspaces', icon: 'i-lucide-hard-drive', to: '/admin/quotas' },
   { title: 'Import', description: 'Import files from server directories', icon: 'i-lucide-folder-input', to: '/admin/import' },
   { title: 'Backup', description: 'Create dumps and reseed file-based data', icon: 'i-lucide-database-backup', to: '/admin/backup' },
+  { title: 'LAREX Actions', description: 'Manage processor definitions and dispatch metadata', icon: 'i-lucide-bolt', to: '/admin/actions' },
   { title: 'Storage', description: 'Clean up orphaned files and manage storage', icon: 'i-lucide-trash-2', to: '/admin/storage' },
   { title: 'Errors', description: 'Inspect captured API error events by user and workspace', icon: 'i-lucide-bug', to: '/admin/errors' },
   { title: 'Workspaces', description: 'View and manage all workspaces', icon: 'i-lucide-layers', to: '/admin/workspaces' },

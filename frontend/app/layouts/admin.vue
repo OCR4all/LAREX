@@ -81,6 +81,13 @@ const groups = computed(() => {
         open.value = false
       }
     }, {
+      id: 'go-admin-actions',
+      label: 'Go to LAREX Actions',
+      icon: 'i-lucide-bolt',
+      suffix: 'Manage Action processor definitions',
+      to: '/admin/actions',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'open-notifications',
       label: 'Open Notifications',
       icon: 'i-lucide-bell',

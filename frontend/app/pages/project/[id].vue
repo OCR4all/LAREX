@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  LazyActionSlideoverRun,
   LazyCodecSlideoverAction,
   LazyPageSlideoverEdit,
   LazyPageModalImages,
@@ -38,10 +39,12 @@ const UDropdownMenu = resolveComponent('UDropdownMenu')
 const NuxtTime = resolveComponent('NuxtTime')
 const UPopover = resolveComponent('UPopover')
 const UAvatar = resolveComponent('UAvatar')
+const UIcon = resolveComponent('UIcon')
 
 const route = useRoute()
 const toast = useToast()
 const editorStore = useEditorStore()
+const actionRunsStore = useActionRunsStore()
 const collaborationPageSummary = useCollaborationPageSummary()
 const pagePrefetch = usePagePrefetch()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
@@ -53,6 +56,12 @@ const projectId = route.params.id as string
 if (import.meta.client) {
   void collaborationPageSummary.ensureProjectSummary(projectId)
 }
+
+onMounted(() => {
+  if (selectedWorkspace.value) {
+    void actionRunsStore.refreshProjectRuns(selectedWorkspace.value, projectId, project.value?.name || projectId)
+  }
+})
 
 const projectKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId))
 const projectReleasesKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'releases'))
@@ -87,6 +96,8 @@ type ProjectData = {
     canDeletePages: boolean
     canUpload: boolean
     canExportPackage: boolean
+    canExecuteActions: boolean
+    canManageActions: boolean
   }
 }
 
@@ -162,6 +173,8 @@ type Page = {
   updated: string
   xmlFileCount: number
   imageCount: number
+  locked?: boolean
+  lockedReason?: string | null
   thumbnailUrl?: string | null
   indexingStatus?: PageIndexingStatus
 }
@@ -558,6 +571,7 @@ const bulkDeletePagesSlideover = overlay.create(LazyProjectSlideoverBulkDeletePa
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
 const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const iiifImportSlideover = overlay.create(LazyProjectSlideoverIiifImport)
+const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 
 const router = useRouter()
 const isDeletingProject = ref(false)
@@ -598,6 +612,31 @@ async function openIiifImportSlideover() {
     await refreshProjectPagesData()
   }
 }
+
+async function openActionRunSlideover(scope: ProjectActionScope = 'all') {
+  if (!project.value || !selectedWorkspace.value) return
+
+  const instance = actionRunSlideover.open({
+    workspaceId: selectedWorkspace.value,
+    projectId: project.value.id,
+    projectName: project.value.name,
+    pageIds: getScopedPageIds(scope)
+  })
+  const changed = await instance.result
+  if (changed) {
+    await refreshProjectPagesData()
+  }
+}
+
+const activeActionRunCount = computed(() => actionRunsStore.runsArray.filter(run =>
+  run.projectId === projectId && ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS'].includes(run.status)
+).length)
+
+watch(activeActionRunCount, (count, previousCount) => {
+  if ((previousCount ?? 0) > 0 && count === 0) {
+    void refreshProjectPagesData()
+  }
+})
 
 const projectNotFoundActions = computed<Array<Record<string, unknown>>>(() => [
   {
@@ -1172,6 +1211,21 @@ async function confirmLegacyPageXmlVersion(selectedVersion: string): Promise<str
 }
 
 const actionItems = computed<DropdownMenuItem[][]>(() => {
+  const larexActionItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'LAREX Actions'
+    },
+    {
+      label: 'Run Action (full project)',
+      icon: 'i-lucide-play',
+      disabled: (pages.value?.length ?? 0) === 0 || project.value?.locked || !allow(projectCapabilities.value.canExecuteActions),
+      onSelect: () => {
+        void openActionRunSlideover('all')
+      }
+    }
+  ]
+
   const utilityItems: DropdownMenuItem[] = [
     {
       type: 'label',
@@ -1305,7 +1359,7 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
     })
   }
 
-  return [projectItems, exportItems, utilityItems].filter(group => group.length > 1)
+  return [projectItems, larexActionItems, exportItems, utilityItems].filter(group => group.length > 1)
 })
 
 const autoCreatedDescription = 'Auto-created from bulk upload'
@@ -1891,6 +1945,21 @@ const resetFilters = () => {
 }
 
 const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
+  const larexActionItems: DropdownMenuItem[] = [
+    {
+      type: 'label',
+      label: 'LAREX Actions'
+    },
+    {
+      label: 'Run Action (selected pages)',
+      icon: 'i-lucide-play',
+      disabled: !hasSelection.value || project.value?.locked || !allow(projectCapabilities.value.canExecuteActions),
+      onSelect: () => {
+        void openActionRunSlideover('selection')
+      }
+    }
+  ]
+
   const exportItems: DropdownMenuItem[] = [
     {
       type: 'label',
@@ -1961,7 +2030,7 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return [exportItems, utilityItems]
+  return [larexActionItems, exportItems, utilityItems]
 })
 
 const uniqueTags = computed(() => {
@@ -2107,7 +2176,25 @@ const pageColumns = [
         }
       })
     ]),
-    cell: ({ row }: { row: { original: Page } }) => h('p', { class: 'font-medium truncate' }, row.original.name)
+    cell: ({ row }: { row: { original: Page } }) => {
+      const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, row.original.id)
+      const lockReason = row.original.lockedReason || actionLockReason || 'Page is locked'
+      const staleActionLock = Boolean(row.original.locked
+        && row.original.lockedReason?.startsWith('LAREX Action running:')
+        && !actionLockReason)
+      const locked = Boolean(actionLockReason || (row.original.locked && !staleActionLock))
+
+      return h('div', { class: 'flex min-w-0 items-center gap-2' }, [
+        locked
+          ? h(UIcon, {
+              name: 'i-lucide-lock',
+              class: 'size-4 shrink-0 text-warning',
+              title: lockReason
+            })
+          : null,
+        h('p', { class: 'font-medium truncate' }, row.original.name)
+      ])
+    }
   },
   {
     accessorKey: 'description',

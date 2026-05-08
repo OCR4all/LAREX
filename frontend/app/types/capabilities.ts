@@ -16,6 +16,8 @@ export interface ProjectCapabilities {
   canDeletePages: boolean
   canUpload: boolean
   canExportPackage: boolean
+  canExecuteActions: boolean
+  canManageActions: boolean
 }
 
 export interface DatasetCapabilities {
@@ -69,7 +71,9 @@ export const DEFAULT_PROJECT_CAPABILITIES: ProjectCapabilities = {
   canDelete: false,
   canDeletePages: false,
   canUpload: false,
-  canExportPackage: false
+  canExportPackage: false,
+  canExecuteActions: false,
+  canManageActions: false
 }
 
 export const DEFAULT_DATASET_CAPABILITIES: DatasetCapabilities = {

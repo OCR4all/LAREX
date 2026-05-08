@@ -2,6 +2,7 @@ import type { TaskCapabilities } from './capabilities'
 
 export * from './editor/rendering'
 export * from './capabilities'
+export * from './action'
 export * from './dataset'
 
 export type WorkspaceMemberRole = 'CURATOR' | 'EDITOR' | 'ADMINISTRATOR' | 'MEMBER'

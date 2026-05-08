@@ -47,6 +47,12 @@ public class Page {
     @Column(name = "locked_reason", columnDefinition = "TEXT")
     private String lockedReason;
 
+    @Column(name = "locked_by_action_run_id")
+    private String lockedByActionRunId;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
     @Column(name = "external_source_type", length = 64)
     private String externalSourceType;
 
@@ -139,6 +145,22 @@ public class Page {
 
     public void setLockedReason(String lockedReason) {
         this.lockedReason = lockedReason;
+    }
+
+    public String getLockedByActionRunId() {
+        return lockedByActionRunId;
+    }
+
+    public void setLockedByActionRunId(String lockedByActionRunId) {
+        this.lockedByActionRunId = lockedByActionRunId;
+    }
+
+    public LocalDateTime getLockedAt() {
+        return lockedAt;
+    }
+
+    public void setLockedAt(LocalDateTime lockedAt) {
+        this.lockedAt = lockedAt;
     }
 
     public String getExternalSourceType() {

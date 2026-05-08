@@ -115,7 +115,7 @@ class ProjectPackageReleaseIntegrationTest {
                 .thenAnswer(invocation -> invocation.getArgument(1, Long.class));
         doNothing().when(workspaceQuotaGuardService).syncUsageAndReleaseReservation(anyString(), org.mockito.ArgumentMatchers.anyLong());
         when(authorizationPolicyService.resolveProjectCapabilities(org.mockito.ArgumentMatchers.any(), anyString()))
-                .thenReturn(new AuthorizationCapabilitiesDto.ProjectCapabilities(true, true, true, true, true, true));
+                .thenReturn(new AuthorizationCapabilitiesDto.ProjectCapabilities(true, true, true, true, true, true, true, true));
     }
 
     @Test

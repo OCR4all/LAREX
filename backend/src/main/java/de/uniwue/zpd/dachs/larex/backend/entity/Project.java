@@ -53,6 +53,12 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String lockedReason;
 
+    @Column(name = "locked_by_action_run_id")
+    private String lockedByActionRunId;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "codec_id")
     private Codec codec;
@@ -169,6 +175,22 @@ public class Project {
 
     public void setLockedReason(String lockedReason) {
         this.lockedReason = lockedReason;
+    }
+
+    public String getLockedByActionRunId() {
+        return lockedByActionRunId;
+    }
+
+    public void setLockedByActionRunId(String lockedByActionRunId) {
+        this.lockedByActionRunId = lockedByActionRunId;
+    }
+
+    public LocalDateTime getLockedAt() {
+        return lockedAt;
+    }
+
+    public void setLockedAt(LocalDateTime lockedAt) {
+        this.lockedAt = lockedAt;
     }
 
     public Codec getCodec() {

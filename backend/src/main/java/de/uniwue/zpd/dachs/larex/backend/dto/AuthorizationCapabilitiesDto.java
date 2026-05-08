@@ -19,7 +19,9 @@ public class AuthorizationCapabilitiesDto {
             boolean canDelete,
             boolean canDeletePages,
             boolean canUpload,
-            boolean canExportPackage
+            boolean canExportPackage,
+            boolean canExecuteActions,
+            boolean canManageActions
     ) {}
 
     public record DatasetCapabilities(

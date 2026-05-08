@@ -192,6 +192,7 @@ public class PageService {
             if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 return Optional.empty();
             }
+            assertPageWritable(page);
             if (!page.getName().equals(name) && pageRepository.existsByNameAndProjectId(name, page.getProject().getId())) {
                 throw new IllegalArgumentException("Page name '" + name + "' already exists in this project");
             }
@@ -218,6 +219,7 @@ public class PageService {
             String workspaceId = page.getProject().getLibrary().getWorkspaceId();
 
             if (workspaceAccessService.isUserAdministrator(workspaceId, userId)) {
+                assertPageWritable(page);
                 String pageName = page.getName();
 
                 deletePageFiles(page);
@@ -268,6 +270,7 @@ public class PageService {
                         page.getProject().getLibrary().getWorkspaceId(),
                         userId
                 ))
+                .filter(page -> !page.getProject().isLocked() && !page.isLocked())
                 .toList();
         if (pagesToDelete.isEmpty()) {
             return 0;
@@ -341,6 +344,7 @@ public class PageService {
             if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 return false;
             }
+            assertPageWritable(page);
 
             if (!isValidXmlFile(xmlFile)) {
                 return false;
@@ -385,6 +389,7 @@ public class PageService {
             if (!workspaceAccessService.canManageProjects(workspaceId, userId)) {
                 return false;
             }
+            assertPageWritable(page);
             String projectId = page.getProject().getId();
 
             for (int i = 0; i < images.size(); i++) {
@@ -481,6 +486,8 @@ public class PageService {
         }
 
         Page targetPage = targetPageOpt.get();
+        assertPageWritable(image.getPage());
+        assertPageWritable(targetPage);
 
         // Check if both pages are in the same workspace (for security)
         String sourceWorkspaceId = image.getPage().getProject().getLibrary().getWorkspaceId();
@@ -519,6 +526,22 @@ public class PageService {
 
         return (contentType != null && (contentType.equals("text/xml") || contentType.equals("application/xml"))) ||
                 (fileName != null && fileName.toLowerCase().endsWith(".xml"));
+    }
+
+    private void assertPageWritable(Page page) {
+        if (page == null || page.getProject() == null) {
+            throw new IllegalStateException("Page is not writable");
+        }
+        if (page.getProject().isLocked()) {
+            throw new IllegalStateException(page.getProject().getLockedReason() == null
+                    ? "Project is locked"
+                    : page.getProject().getLockedReason());
+        }
+        if (page.isLocked()) {
+            throw new IllegalStateException(page.getLockedReason() == null
+                    ? "Page is locked"
+                    : page.getLockedReason());
+        }
     }
 
     private boolean isValidImageFile(MultipartFile file) {

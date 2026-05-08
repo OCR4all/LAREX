@@ -79,9 +79,11 @@ export default defineNuxtConfig({
         '@codemirror/lint',
         '@codemirror/search',
         '@codemirror/language',
+        '@codemirror/lang-yaml',
         '@lezer/highlight',
         'reka-ui',
-        '@internationalized/date'
+        '@internationalized/date',
+        'yaml'
       ]
     }
   },

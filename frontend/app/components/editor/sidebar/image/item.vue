@@ -47,6 +47,7 @@ const emit = defineEmits<{
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
+const actionRunsStore = useActionRunsStore()
 const pageSummaries = useCollaborationPageSummary()
 const toast = useToast()
 const router = useRouter()
@@ -54,6 +55,12 @@ const { user } = useUserSession()
 
 const isCollapsed = computed(() => editorUiStore.leftCollapsed)
 const isSelected = computed(() => props.page.id === props.currentPageId)
+const actionLockReason = computed(() => actionRunsStore.getPageActionLockReason(props.page.projectId, props.page.id))
+const isStaleActionLock = computed(() =>
+  Boolean(props.page.locked && props.page.lockedReason?.startsWith('LAREX Action running:') && !actionLockReason.value)
+)
+const isPageLocked = computed(() => Boolean(actionLockReason.value || (props.page.locked && !isStaleActionLock.value)))
+const pageLockReason = computed(() => actionLockReason.value || props.page.lockedReason || 'Page is locked')
 
 const pageLabel = computed(() => props.page.label || props.page.id)
 const openTasks = computed(() => props.openSubtaskCount ?? 0)
@@ -354,6 +361,19 @@ async function handleCopyPageId() {
 
           <div class="flex items-center gap-1">
             <UTooltip
+              v-if="isPageLocked"
+              :text="pageLockReason"
+              :content="{ side: 'left' }"
+              :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+            >
+              <UBadge
+                color="warning"
+                variant="subtle"
+                size="xs"
+                icon="i-lucide-lock"
+              />
+            </UTooltip>
+            <UTooltip
               v-if="collaborationEditor"
               :text="collaborationTooltip"
               :content="{ side: 'right' }"
@@ -556,6 +576,13 @@ async function handleCopyPageId() {
           ]"
           :aria-label="indexingIndicatorLabel"
         />
+        <span
+          v-if="isPageLocked"
+          class="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-warning/90 text-inverted shadow"
+          :title="pageLockReason"
+        >
+          <Icon name="i-lucide-lock" class="h-3 w-3" />
+        </span>
         <img
           v-if="previewUrl"
           :src="previewUrl"
@@ -626,6 +653,20 @@ async function handleCopyPageId() {
                 </div>
 
                 <div class="flex items-center gap-1">
+                  <UTooltip
+                    v-if="isPageLocked"
+                    :text="pageLockReason"
+                    :content="{ side: 'left' }"
+                    :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+                    :portal="false"
+                  >
+                    <UBadge
+                      color="warning"
+                      variant="subtle"
+                      size="xs"
+                      icon="i-lucide-lock"
+                    />
+                  </UTooltip>
                   <UPopover
                     v-if="displayTags.length > 0"
                     mode="hover"

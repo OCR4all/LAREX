@@ -6,6 +6,7 @@ import type { LabelSetSummary } from '@/types/label-set'
 import type { NormalizationProfileSummary } from '@/types/normalization-profile'
 import type { TagSetSummary } from '@/types/tag-set'
 import type { ValidationRulesetSummary } from '@/types/validation-ruleset'
+import type { ActionAssignmentResponse, ActionDefinitionResponse } from '@/types/action'
 
 type SelectOption = { label: string, value: string }
 
@@ -87,12 +88,20 @@ const canEditWorkspaceMetadata = computed(() => allow(workspaceCapabilities.valu
 const canSetWorkspacePresets = computed(() => allow(workspaceCapabilities.value.canSetPresets))
 const canEditWorkspaceSettings = computed(() => canEditWorkspaceMetadata.value || canSetWorkspacePresets.value)
 const canDeleteWorkspace = computed(() => allow(workspaceCapabilities.value.canAdminWorkspace))
+const canManageWorkspaceActions = computed(() => allow(workspaceCapabilities.value.canManageProjects))
 const canEditWorkspaceTextIndexDefaults = computed(() =>
   canSetWorkspacePresets.value && allow(workspaceCapabilities.value.canEditWorkspaceTextIndexDefaults)
 )
 
 const isEditing = ref(false)
 const isSaving = ref(false)
+const loadingActions = ref(false)
+const assigningAction = ref(false)
+const actionDefinitions = ref<ActionDefinitionResponse[]>([])
+const actionAssignments = ref<ActionAssignmentResponse[]>([])
+const workspaceActionProjects = ref<Array<{ id: string, name: string }>>([])
+const selectedActionDefinitionIds = ref<string[]>([])
+const selectedActionProjectId = ref('')
 
 const form = reactive({
   name: '',
@@ -118,6 +127,104 @@ function parseDefaultGtIndex(value: string | undefined): number {
   }
   return parsed
 }
+
+const actionDefinitionOptions = computed(() => actionDefinitions.value
+  .filter(definition => !actionAssignments.value.some(assignment => assignment.processor.id === definition.id))
+  .map(definition => ({
+    label: definition.name,
+    value: definition.id
+  })))
+
+const actionProjectOptions = computed(() => [
+  { label: 'Workspace default', value: '' },
+  ...workspaceActionProjects.value.map(project => ({ label: project.name, value: project.id }))
+])
+
+async function loadWorkspaceActions() {
+  if (!selectedWorkspace.value || !canManageWorkspaceActions.value) return
+  loadingActions.value = true
+  try {
+    const [definitions, assignments] = await Promise.all([
+      $fetch<ActionDefinitionResponse[]>(`/api/workspaces/${selectedWorkspace.value}/actions/processors/available`),
+      $fetch<ActionAssignmentResponse[]>(`/api/workspaces/${selectedWorkspace.value}/actions/assignments`, {
+        query: selectedActionProjectId.value ? { projectId: selectedActionProjectId.value } : undefined
+      })
+    ])
+    actionDefinitions.value = definitions
+    actionAssignments.value = assignments
+    if (selectedActionDefinitionIds.value.length === 0 && actionDefinitionOptions.value[0]) {
+      selectedActionDefinitionIds.value = [actionDefinitionOptions.value[0].value]
+    }
+    selectedActionDefinitionIds.value = selectedActionDefinitionIds.value.filter(id =>
+      actionDefinitionOptions.value.some(option => option.value === id)
+    )
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Could not load LAREX Actions.'
+    toast.add({ title: 'Failed to load Actions', description: message, color: 'error' })
+  } finally {
+    loadingActions.value = false
+  }
+}
+
+async function assignWorkspaceAction() {
+  if (!selectedWorkspace.value || selectedActionDefinitionIds.value.length === 0) return
+  assigningAction.value = true
+  try {
+    await Promise.all(selectedActionDefinitionIds.value.map(processorDefinitionId =>
+      $fetch(`/api/workspaces/${selectedWorkspace.value}/actions/assignments`, {
+        method: 'POST',
+        body: {
+          processorDefinitionId,
+          projectId: selectedActionProjectId.value || null,
+          enabled: true
+        }
+      })
+    ))
+    selectedActionDefinitionIds.value = []
+    await loadWorkspaceActions()
+    toast.add({ title: 'Action assigned', color: 'success', icon: 'i-lucide-bolt' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Could not assign Action.'
+    toast.add({ title: 'Assignment failed', description: message, color: 'error' })
+  } finally {
+    assigningAction.value = false
+  }
+}
+
+async function unassignWorkspaceAction(assignmentId: string) {
+  if (!selectedWorkspace.value) return
+  try {
+    await $fetch(`/api/workspaces/${selectedWorkspace.value}/actions/assignments/${assignmentId}`, {
+      method: 'DELETE'
+    })
+    await loadWorkspaceActions()
+    toast.add({ title: 'Action unassigned', color: 'success' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Could not unassign Action.'
+    toast.add({ title: 'Unassign failed', description: message, color: 'error' })
+  }
+}
+
+async function loadWorkspaceActionProjects() {
+  if (!selectedWorkspace.value || !canManageWorkspaceActions.value) return
+  try {
+    workspaceActionProjects.value = await $fetch<Array<{ id: string, name: string }>>(`/api/workspaces/${selectedWorkspace.value}/projects`)
+  } catch {
+    workspaceActionProjects.value = []
+  }
+}
+
+watch([selectedWorkspace, canManageWorkspaceActions], () => {
+  if (canManageWorkspaceActions.value) {
+    void loadWorkspaceActionProjects()
+    void loadWorkspaceActions()
+  }
+}, { immediate: true })
+
+watch(selectedActionProjectId, () => {
+  selectedActionDefinitionIds.value = []
+  void loadWorkspaceActions()
+})
 
 function parseRecognitionIndices(value: string | undefined, gtIndex: number): number[] {
   const parsed = String(value ?? '')
@@ -667,6 +774,76 @@ async function openDeleteSlideover() {
                 @click="startEditing"
               />
             </template>
+          </div>
+        </div>
+      </UPageCard>
+
+      <UPageCard
+        v-if="canManageWorkspaceActions"
+        title="LAREX Actions"
+        description="Assign enabled processors to this workspace."
+        variant="subtle"
+      >
+        <div class="flex flex-col gap-4">
+          <div class="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
+            <UFormField label="Assignment Scope">
+              <USelectMenu
+                v-model="selectedActionProjectId"
+                :items="actionProjectOptions"
+                value-key="value"
+                searchable
+              />
+            </UFormField>
+            <UFormField label="Available Processors">
+              <USelectMenu
+                v-model="selectedActionDefinitionIds"
+                :items="actionDefinitionOptions"
+                value-key="value"
+                multiple
+                searchable
+                :disabled="loadingActions || actionDefinitionOptions.length === 0"
+                placeholder="Select processors"
+              />
+            </UFormField>
+            <UButton
+              label="Assign"
+              icon="i-lucide-plus"
+              :loading="assigningAction"
+              :disabled="selectedActionDefinitionIds.length === 0"
+              @click="assignWorkspaceAction"
+            />
+          </div>
+
+          <div v-if="loadingActions" class="space-y-2">
+            <USkeleton class="h-10 w-full" />
+            <USkeleton class="h-10 w-full" />
+          </div>
+
+          <div v-else-if="actionAssignments.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
+            No processors are assigned for this scope.
+          </div>
+
+          <div v-else class="divide-y divide-default rounded-sm border border-default">
+            <div
+              v-for="assignment in actionAssignments"
+              :key="assignment.id"
+              class="flex items-center justify-between gap-3 p-3"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">
+                  {{ assignment.processor.name }}
+                </p>
+                <p class="truncate text-xs text-muted">
+                  {{ assignment.processor.processorKey }} · {{ assignment.processor.executeRole }} · {{ assignment.processor.lockMode }}
+                </p>
+              </div>
+              <UButton
+                color="error"
+                variant="ghost"
+                icon="i-lucide-x"
+                @click="unassignWorkspaceAction(assignment.id)"
+              />
+            </div>
           </div>
         </div>
       </UPageCard>

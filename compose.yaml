@@ -97,6 +97,8 @@ services:
       KEYCLOAK_ACTION_EMAIL_LIFESPAN_SECONDS: ${KEYCLOAK_ACTION_EMAIL_LIFESPAN_SECONDS:-43200}
       SPRING_DEVTOOLS_RESTART_ENABLED: true
       SPRING_DEVTOOLS_LIVERELOAD_ENABLED: true
+      LAREX_ACTIONS_PUBLIC_BASE_URL: http://app:8080/api/v1
+      LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1: ${LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1:-dev-mock-action-secret-change-me}
     volumes:
       - ./backend/src:/app/src:cached,Z
       - ./backend/build.gradle.kts:/app/build.gradle.kts:ro,Z
@@ -112,6 +114,24 @@ services:
       - postgres
       - keycloak
       - mailpit
+
+  mock-action-processor:
+    build:
+      context: scripts/mock-processor
+      dockerfile: Dockerfile
+    environment:
+      LAREX_DISPATCH_HMAC_SECRET: ${LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1:-dev-mock-action-secret-change-me}
+      LAREX_PROCESSOR_ID: mock-image-copy
+      LAREX_OUTPUT_IMAGE_VARIANT: action-copy
+      LAREX_HEARTBEAT_COUNT: 4
+      LAREX_HEARTBEAT_DELAY_SECONDS: 1
+    ports:
+      - "9000:9000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mock-action-processor.rule=Host(`mock-action-processor.localhost`)"
+      - "traefik.http.routers.mock-action-processor.entrypoints=web"
+      - "traefik.http.services.mock-action-processor.loadbalancer.server.port=9000"
 
   frontend:
     build:
