@@ -130,6 +130,7 @@ export interface AdminActionRun {
   errorMessage: string | null
   cancelRequested: boolean
   logText: string | null
+  logEvents: ActionRunLogEvent[]
   resultSummary: unknown
   lastHeartbeatAt: string | null
   created: string
@@ -138,8 +139,23 @@ export interface AdminActionRun {
   durationSeconds: number | null
 }
 
+export interface ActionRunLogEvent {
+  id: string
+  level: string
+  message: string
+  created: string
+}
+
 export interface ClearActionRunsResponse {
   deletedCount: number
+}
+
+export interface ActionHealthCheckResponse {
+  ok: boolean
+  statusCode: number
+  url: string
+  message: string
+  durationMillis: number
 }
 
 export const DEFAULT_ACTION_YAML = `version: 1
@@ -149,6 +165,7 @@ description: Development processor that copies the first page image and XML back
 
 endpoint:
   url: http://mock-action-processor:9000/dispatch
+  healthUrl: http://mock-action-processor:9000/health
   timeoutSeconds: 30
   auth:
     type: hmac
@@ -172,6 +189,10 @@ outputs:
     enabled: true
     variant: action-copy
     mode: upsert
+
+concurrency:
+  maxActiveRuns: 1
+  scope: PROJECT
 
 runtime:
   model:

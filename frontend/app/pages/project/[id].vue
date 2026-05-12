@@ -1974,6 +1974,14 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
       label: 'Utilities'
     },
     {
+      label: 'Add to dataset',
+      icon: 'i-lucide-database',
+      disabled: !hasSelection.value || !canManageDatasets.value,
+      onSelect: () => {
+        void openAddToDatasetSlideover()
+      }
+    },
+    {
       label: 'Generate codec (selected pages)',
       icon: 'i-lucide-wand-sparkles',
       disabled: !hasSelection.value,
@@ -2871,18 +2879,6 @@ useHead({
                 @click="handleOpenInEditor"
               >
                 <span class="hidden sm:inline">Open in Editor</span>
-              </UButton>
-              <UButton
-                v-if="canManageDatasets"
-                icon="i-lucide-database"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                class="text-neutral-50 hover:bg-white/10"
-                aria-label="Add selected pages to dataset"
-                @click="openAddToDatasetSlideover"
-              >
-                <span class="hidden sm:inline">Add To Dataset</span>
               </UButton>
               <UButton
                 icon="i-lucide-play"

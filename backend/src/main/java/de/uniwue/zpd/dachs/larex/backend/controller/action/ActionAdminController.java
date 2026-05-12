@@ -77,6 +77,11 @@ public class ActionAdminController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{definitionId}/test-endpoint")
+    public ResponseEntity<ActionDto.HealthCheckResponse> testEndpoint(@PathVariable String definitionId) {
+        return ResponseEntity.ok(definitionService.testEndpoint(definitionId));
+    }
+
     @PutMapping("/{definitionId}/global")
     public ResponseEntity<ActionDto.DefinitionResponse> setGlobalAvailable(
             @PathVariable String definitionId,

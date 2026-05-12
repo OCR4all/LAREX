@@ -21,8 +21,13 @@ import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,8 +48,10 @@ public class ActionDefinitionService {
     private final ActionRunRepository runRepository;
     private final GlobalAdminService globalAdminService;
     private final ActionEndpointAuthService endpointAuthService;
+    private final ActionAuditService actionAuditService;
     private final ObjectMapper yamlMapper;
     private final ObjectMapper jsonMapper;
+    private final HttpClient httpClient;
 
     public ActionDefinitionService(ActionProcessorDefinitionRepository definitionRepository,
                                    ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
@@ -52,6 +59,7 @@ public class ActionDefinitionService {
                                    ActionRunRepository runRepository,
                                    GlobalAdminService globalAdminService,
                                    ActionEndpointAuthService endpointAuthService,
+                                   ActionAuditService actionAuditService,
                                    ObjectMapper objectMapper) {
         this.definitionRepository = definitionRepository;
         this.availabilityRepository = availabilityRepository;
@@ -59,8 +67,10 @@ public class ActionDefinitionService {
         this.runRepository = runRepository;
         this.globalAdminService = globalAdminService;
         this.endpointAuthService = endpointAuthService;
+        this.actionAuditService = actionAuditService;
         this.yamlMapper = new ObjectMapper(new YAMLFactory());
         this.jsonMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
 
     @Transactional(readOnly = true)
@@ -90,7 +100,10 @@ public class ActionDefinitionService {
         definition.setCreatedByUserId(userId);
         definition.setUpdatedByUserId(userId);
         definition.setEnabled(request.enabled() == null || request.enabled());
-        return toDefinitionResponse(definitionRepository.save(definition));
+        ActionProcessorDefinition saved = definitionRepository.save(definition);
+        actionAuditService.record("ACTION_DEFINITION_CREATE", "SUCCESS", userId, saved.getId(), null, null, null,
+                Map.of("processorKey", saved.getProcessorKey()));
+        return toDefinitionResponse(saved);
     }
 
     public ActionDto.DefinitionResponse updateDefinition(String id, ActionDto.DefinitionRequest request, String userId) {
@@ -109,7 +122,10 @@ public class ActionDefinitionService {
         if (request.enabled() != null) {
             definition.setEnabled(request.enabled());
         }
-        return toDefinitionResponse(definitionRepository.save(definition));
+        ActionProcessorDefinition saved = definitionRepository.save(definition);
+        actionAuditService.record("ACTION_DEFINITION_UPDATE", "SUCCESS", userId, saved.getId(), null, null, null,
+                Map.of("processorKey", saved.getProcessorKey()));
+        return toDefinitionResponse(saved);
     }
 
     public ActionDto.DefinitionResponse setEnabled(String id, boolean enabled, String userId) {
@@ -118,7 +134,10 @@ public class ActionDefinitionService {
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         definition.setEnabled(enabled);
         definition.setUpdatedByUserId(userId);
-        return toDefinitionResponse(definitionRepository.save(definition));
+        ActionProcessorDefinition saved = definitionRepository.save(definition);
+        actionAuditService.record(enabled ? "ACTION_DEFINITION_ENABLE" : "ACTION_DEFINITION_DISABLE", "SUCCESS", userId,
+                saved.getId(), null, null, null, Map.of("processorKey", saved.getProcessorKey()));
+        return toDefinitionResponse(saved);
     }
 
     public ActionDto.DefinitionResponse setGlobalAvailable(String id, boolean globalAvailable, String userId) {
@@ -127,7 +146,10 @@ public class ActionDefinitionService {
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         definition.setGlobalAvailable(globalAvailable);
         definition.setUpdatedByUserId(userId);
-        return toDefinitionResponse(definitionRepository.save(definition));
+        ActionProcessorDefinition saved = definitionRepository.save(definition);
+        actionAuditService.record(globalAvailable ? "ACTION_DEFINITION_GLOBAL_ENABLE" : "ACTION_DEFINITION_GLOBAL_DISABLE",
+                "SUCCESS", userId, saved.getId(), null, null, null, Map.of("processorKey", saved.getProcessorKey()));
+        return toDefinitionResponse(saved);
     }
 
     public void deleteDefinition(String id) {
@@ -148,6 +170,8 @@ public class ActionDefinitionService {
         availabilityRepository.deleteAll(availability);
 
         definitionRepository.delete(definition);
+        actionAuditService.record("ACTION_DEFINITION_DELETE", "SUCCESS", null, id, null, null, null,
+                Map.of("processorKey", definition.getProcessorKey()));
     }
 
     @Transactional(readOnly = true)
@@ -174,7 +198,10 @@ public class ActionDefinitionService {
         if (availability.getCreatedByUserId() == null) {
             availability.setCreatedByUserId(userId);
         }
-        return toWorkspaceAvailabilityResponse(availabilityRepository.save(availability));
+        ActionProcessorWorkspaceAvailability saved = availabilityRepository.save(availability);
+        actionAuditService.record("ACTION_WORKSPACE_AVAILABILITY_ASSIGN", "SUCCESS", userId, definitionId, null,
+                request.workspaceId(), null, Map.of("enabled", saved.isEnabled()));
+        return toWorkspaceAvailabilityResponse(saved);
     }
 
     public void removeWorkspaceAvailability(String definitionId, String availabilityId) {
@@ -184,7 +211,10 @@ public class ActionDefinitionService {
         if (!definitionId.equals(availability.getProcessorDefinition().getId())) {
             throw new IllegalArgumentException("Action workspace availability not found");
         }
+        String workspaceId = availability.getWorkspaceId();
         availabilityRepository.delete(availability);
+        actionAuditService.record("ACTION_WORKSPACE_AVAILABILITY_REMOVE", "SUCCESS", null, definitionId, null,
+                workspaceId, null, Map.of());
     }
 
     @Transactional(readOnly = true)
@@ -227,6 +257,7 @@ public class ActionDefinitionService {
         } else {
             endpointUrl = requireText(document.endpoint().url(), "endpoint.url", diagnostics);
             validateEndpointUrl(endpointUrl, diagnostics);
+            validateEndpointUrl(document.endpoint().healthUrl(), "endpoint.healthUrl", diagnostics);
             validateEndpointAuth(document.endpoint(), endpointUrl, diagnostics);
             if (document.endpoint().timeoutSeconds() != null) {
                 timeoutSeconds = document.endpoint().timeoutSeconds();
@@ -260,6 +291,7 @@ public class ActionDefinitionService {
                 && Boolean.TRUE.equals(document.outputs().images().enabled());
         validateOutput(document.outputs() == null ? null : document.outputs().xml(), "outputs.xml", outputsXml, diagnostics);
         validateImageOutput(document.outputs() == null ? null : document.outputs().images(), "outputs.images", outputsImages, diagnostics);
+        validateConcurrency(document.concurrency(), diagnostics);
 
         validateParameters(document.parameters(), diagnostics);
 
@@ -335,6 +367,42 @@ public class ActionDefinitionService {
                 availability.getCreated(),
                 availability.getUpdated()
         );
+    }
+
+    public ActionDto.HealthCheckResponse testEndpoint(String definitionId) {
+        requireGlobalAdmin();
+        ActionProcessorDefinition definition = requireDefinition(definitionId);
+        ActionDefinitionDocument document = readParsedDocument(definition);
+        String url = document.endpoint() != null && document.endpoint().healthUrl() != null && !document.endpoint().healthUrl().isBlank()
+                ? document.endpoint().healthUrl()
+                : definition.getEndpointUrl();
+        long start = System.nanoTime();
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .timeout(Duration.ofSeconds(Math.min(10, Math.max(1, definition.getEndpointTimeoutSeconds()))))
+                    .method(document.endpoint() != null && document.endpoint().healthUrl() != null && !document.endpoint().healthUrl().isBlank() ? "GET" : "HEAD",
+                            HttpRequest.BodyPublishers.noBody())
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            boolean ok = response.statusCode() >= 200 && response.statusCode() < 300;
+            return new ActionDto.HealthCheckResponse(
+                    ok,
+                    response.statusCode(),
+                    url,
+                    ok ? "Endpoint is reachable" : "Endpoint returned HTTP " + response.statusCode(),
+                    Duration.ofNanos(System.nanoTime() - start).toMillis()
+            );
+        } catch (IOException e) {
+            return new ActionDto.HealthCheckResponse(false, 0, url, "Could not connect: " + e.getMessage(),
+                    Duration.ofNanos(System.nanoTime() - start).toMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new ActionDto.HealthCheckResponse(false, 0, url, "Health check interrupted",
+                    Duration.ofNanos(System.nanoTime() - start).toMillis());
+        } catch (IllegalArgumentException e) {
+            return new ActionDto.HealthCheckResponse(false, 0, url, e.getMessage(),
+                    Duration.ofNanos(System.nanoTime() - start).toMillis());
+        }
     }
 
     private ActionProcessorDefinition requireDefinition(String definitionId) {
@@ -432,6 +500,22 @@ public class ActionDefinitionService {
         }
     }
 
+    private void validateConcurrency(ActionDefinitionDocument.Concurrency concurrency,
+                                     List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (concurrency == null) {
+            return;
+        }
+        if (concurrency.maxActiveRuns() != null && (concurrency.maxActiveRuns() < 1 || concurrency.maxActiveRuns() > 100)) {
+            diagnostics.add(error("concurrency.maxActiveRuns", "maxActiveRuns must be between 1 and 100"));
+        }
+        if (concurrency.scope() != null && !concurrency.scope().isBlank()) {
+            String scope = concurrency.scope().trim().toUpperCase(Locale.ROOT);
+            if (!List.of("GLOBAL", "WORKSPACE", "PROJECT").contains(scope)) {
+                diagnostics.add(error("concurrency.scope", "scope must be GLOBAL, WORKSPACE, or PROJECT"));
+            }
+        }
+    }
+
     private void validateParameterValue(String path,
                                         ActionDefinitionDocument.Parameter parameter,
                                         Object value,
@@ -466,6 +550,10 @@ public class ActionDefinitionService {
     }
 
     private void validateEndpointUrl(String rawUrl, List<ActionDto.ValidationDiagnostic> diagnostics) {
+        validateEndpointUrl(rawUrl, "endpoint.url", diagnostics);
+    }
+
+    private void validateEndpointUrl(String rawUrl, String path, List<ActionDto.ValidationDiagnostic> diagnostics) {
         if (rawUrl == null || rawUrl.isBlank()) {
             return;
         }
@@ -473,13 +561,13 @@ public class ActionDefinitionService {
             URI uri = new URI(rawUrl);
             String scheme = uri.getScheme();
             if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
-                diagnostics.add(error("endpoint.url", "endpoint.url must use http or https"));
+                diagnostics.add(error(path, path + " must use http or https"));
             }
             if (uri.getHost() == null || uri.getHost().isBlank()) {
-                diagnostics.add(error("endpoint.url", "endpoint.url must include a host"));
+                diagnostics.add(error(path, path + " must include a host"));
             }
         } catch (URISyntaxException e) {
-            diagnostics.add(error("endpoint.url", "endpoint.url is not a valid URI"));
+            diagnostics.add(error(path, path + " is not a valid URI"));
         }
     }
 

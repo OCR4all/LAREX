@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Repository
 public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
@@ -35,4 +36,16 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
     List<ActionRun> findByStatusIn(Collection<Status> statuses);
 
     List<ActionRun> findByProcessorDefinitionIdAndStatusIn(String processorDefinitionId, Collection<Status> statuses);
+
+    long countByProcessorDefinitionIdAndStatusIn(String processorDefinitionId, Collection<Status> statuses);
+
+    long countByProcessorDefinitionIdAndWorkspaceIdAndStatusIn(String processorDefinitionId, String workspaceId, Collection<Status> statuses);
+
+    long countByProcessorDefinitionIdAndWorkspaceIdAndProjectIdAndStatusIn(String processorDefinitionId, String workspaceId, String projectId, Collection<Status> statuses);
+
+    List<ActionRun> findByStatusInAndUpdatedBefore(Collection<Status> statuses, LocalDateTime updatedBefore);
+
+    List<ActionRun> findByStatusInAndLastHeartbeatAtBefore(Collection<Status> statuses, LocalDateTime lastHeartbeatAtBefore);
+
+    List<ActionRun> findByStatusInAndCompletedAtBefore(Collection<Status> statuses, LocalDateTime completedAtBefore);
 }

@@ -146,6 +146,7 @@ public class ActionDto {
             String errorMessage,
             boolean cancelRequested,
             String logText,
+            List<ActionRunLogEventResponse> logEvents,
             Object resultSummary,
             LocalDateTime lastHeartbeatAt,
             LocalDateTime created,
@@ -156,6 +157,21 @@ public class ActionDto {
 
     public record ClearRunsResponse(
             int deletedCount
+    ) {}
+
+    public record HealthCheckResponse(
+            boolean ok,
+            int statusCode,
+            String url,
+            String message,
+            long durationMillis
+    ) {}
+
+    public record ActionRunLogEventResponse(
+            String id,
+            String level,
+            String message,
+            LocalDateTime created
     ) {}
 
     public record MachinePageFile(
@@ -188,6 +204,7 @@ public class ActionDto {
             Integer progressPercent,
             String statusMessage,
             String log,
+            String logLevel,
             String status,
             String errorMessage
     ) {}

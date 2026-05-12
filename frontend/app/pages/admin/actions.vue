@@ -13,7 +13,8 @@ import {
   type ActionValidationResponse,
   type ActionWorkspaceAvailability,
   type AdminActionRun,
-  type ClearActionRunsResponse
+  type ClearActionRunsResponse,
+  type ActionHealthCheckResponse
 } from '@/types/action'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { generateRandomActionSlug } from '@/utils/random-action-slug'
@@ -51,6 +52,7 @@ const loadingAvailability = ref(false)
 const assigningAvailability = ref(false)
 const loadingRuns = ref(false)
 const clearingRuns = ref(false)
+const testingEndpoint = ref(false)
 const diagnostics = ref<ActionValidationDiagnostic[]>([])
 const validation = ref<ActionValidationResponse | null>(null)
 const initialYaml = ref(DEFAULT_ACTION_YAML)
@@ -233,6 +235,7 @@ description: Describe what ${processorKey} does.
 
 endpoint:
   url: http://processor:9000/dispatch
+  healthUrl: http://processor:9000/health
   timeoutSeconds: 30
   auth:
     type: none
@@ -255,6 +258,10 @@ outputs:
     enabled: false
     variant: ${processorKey}
     mode: upsert
+
+concurrency:
+  maxActiveRuns: 1
+  scope: PROJECT
 
 runtime:
   model:
@@ -531,6 +538,31 @@ async function clearTerminalRuns() {
   }
 }
 
+async function testSelectedEndpoint() {
+  if (!selectedPersistedDefinition.value) return
+  testingEndpoint.value = true
+  try {
+    const result = await $fetch<ActionHealthCheckResponse>(`/api/admin/actions/processors/${selectedPersistedDefinition.value.id}/test-endpoint`, {
+      method: 'POST'
+    })
+    toast.add({
+      title: result.ok ? 'Endpoint reachable' : 'Endpoint check failed',
+      description: `${result.message} (${result.durationMillis}ms)`,
+      color: result.ok ? 'success' : 'warning',
+      icon: result.ok ? 'i-lucide-check-circle' : 'i-lucide-triangle-alert'
+    })
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Endpoint check failed',
+      description: extractApiErrorMessage(error, 'Could not test Action endpoint.'),
+      color: 'error',
+      icon: 'i-lucide-alert-circle'
+    })
+  } finally {
+    testingEndpoint.value = false
+  }
+}
+
 function openUpload() {
   fileInput.value?.click()
 }
@@ -617,6 +649,15 @@ function formatResultSummary(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
 
+function formatRunLogs(run: AdminActionRun) {
+  if (run.logEvents?.length) {
+    return run.logEvents
+      .map(event => `[${formatDate(event.created)}] ${event.level}: ${event.message}`)
+      .join('\n')
+  }
+  return run.logText || 'No logs recorded.'
+}
+
 function applyDiagnostics(items: ActionValidationDiagnostic[]) {
   if (!editorView) return
   const mapped: Diagnostic[] = items.map((item) => {
@@ -683,6 +724,16 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             @click="toggleDefinition(selectedPersistedDefinition)"
           >
             {{ selectedPersistedDefinition.enabled ? 'Disable' : 'Enable' }}
+          </UButton>
+          <UButton
+            v-if="selectedPersistedDefinition"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-heart-pulse"
+            :loading="testingEndpoint"
+            @click="testSelectedEndpoint"
+          >
+            Test Endpoint
           </UButton>
           <UPopover
             v-if="selectedDefinition"
@@ -1030,7 +1081,7 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                     <p class="mb-1 text-xs font-medium text-muted">
                       Logs
                     </p>
-                    <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ run.logText || 'No logs recorded.' }}</pre>
+                    <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatRunLogs(run) }}</pre>
                   </div>
                 </div>
               </div>

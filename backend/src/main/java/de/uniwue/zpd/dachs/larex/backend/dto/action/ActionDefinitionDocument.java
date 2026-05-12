@@ -16,11 +16,12 @@ public record ActionDefinitionDocument(
         Locking locking,
         Inputs inputs,
         Outputs outputs,
+        Concurrency concurrency,
         Runtime runtime,
         Map<String, Parameter> parameters
 ) {
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record Endpoint(String url, Integer timeoutSeconds, EndpointAuth auth) {}
+    public record Endpoint(String url, Integer timeoutSeconds, String healthUrl, EndpointAuth auth) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record EndpointAuth(String type, String secretRef) {}
@@ -42,6 +43,9 @@ public record ActionDefinitionDocument(
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record ImageOutputTarget(Boolean enabled, String variant, String mode) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record Concurrency(Integer maxActiveRuns, String scope) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Runtime(Model model) {}
