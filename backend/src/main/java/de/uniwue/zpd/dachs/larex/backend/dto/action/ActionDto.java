@@ -60,6 +60,21 @@ public class ActionDto {
             boolean outputsImages,
             boolean outputsXml,
             boolean enabled,
+            boolean global,
+            LocalDateTime created,
+            LocalDateTime updated
+    ) {}
+
+    public record WorkspaceAvailabilityRequest(
+            @NotBlank String workspaceId,
+            Boolean enabled
+    ) {}
+
+    public record WorkspaceAvailabilityResponse(
+            String id,
+            String workspaceId,
+            boolean enabled,
+            DefinitionResponse processor,
             LocalDateTime created,
             LocalDateTime updated
     ) {}
@@ -113,6 +128,34 @@ public class ActionDto {
             LocalDateTime created,
             LocalDateTime updated,
             LocalDateTime completedAt
+    ) {}
+
+    public record AdminRunResponse(
+            String id,
+            String processorDefinitionId,
+            String processorKey,
+            String processorName,
+            String workspaceId,
+            String workspaceLabel,
+            String projectId,
+            String projectLabel,
+            int pageCount,
+            Status status,
+            int progressPercent,
+            String statusMessage,
+            String errorMessage,
+            boolean cancelRequested,
+            String logText,
+            Object resultSummary,
+            LocalDateTime lastHeartbeatAt,
+            LocalDateTime created,
+            LocalDateTime updated,
+            LocalDateTime completedAt,
+            Long durationSeconds
+    ) {}
+
+    public record ClearRunsResponse(
+            int deletedCount
     ) {}
 
     public record MachinePageFile(

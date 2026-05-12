@@ -238,7 +238,6 @@ const groups = computed(() => {
     <slot />
 
     <AppNotificationsSlideover />
-    <ActionProgressPanel />
-    <ProjectUploadProgressPanel />
+    <AppStatusOverlay />
   </UDashboardGroup>
 </template>

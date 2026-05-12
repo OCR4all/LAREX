@@ -23,7 +23,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         selectedWorkspaceIdCookie.value = legacyCookie.value.selectedWorkspaceId
         legacyCookie.value = null
       }
-    } catch (e) {
+    } catch {
+      // Ignore malformed legacy workspace cookies.
     }
   }
 
@@ -36,6 +37,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     created?: string
     updated?: string
     ownerUserId: string
+    ownerUsername?: string
     isPersonal: boolean
     type?: 'personal' | 'team'
     capabilities?: WorkspaceCapabilities
@@ -136,8 +138,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       workspaces.value = Array.isArray(res) ? res : []
       hasFetched.value = true
       return workspaces.value
-    } catch (err: any) {
-      const message = err?.data?.message || err?.message || 'Failed to load workspaces'
+    } catch (err: unknown) {
+      const error = err as { data?: { message?: unknown }, message?: unknown }
+      const message = error.data?.message || error.message || 'Failed to load workspaces'
       loadError.value = String(message)
       workspaces.value = []
       return []

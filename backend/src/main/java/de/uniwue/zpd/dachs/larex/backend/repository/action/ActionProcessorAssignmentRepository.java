@@ -21,6 +21,9 @@ public interface ActionProcessorAssignmentRepository extends JpaRepository<Actio
     List<ActionProcessorAssignment> findByWorkspaceIdAndProjectIdOrderByCreatedAsc(String workspaceId, String projectId);
 
     @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionProcessorAssignment> findByWorkspaceIdOrderByCreatedAsc(String workspaceId);
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
     @Query("""
             SELECT a FROM ActionProcessorAssignment a
             WHERE a.workspaceId = :workspaceId
@@ -35,6 +38,8 @@ public interface ActionProcessorAssignmentRepository extends JpaRepository<Actio
     Optional<ActionProcessorAssignment> findByProcessorDefinitionIdAndWorkspaceIdAndProjectId(String processorDefinitionId,
                                                                                               String workspaceId,
                                                                                               String projectId);
+
+    boolean existsByProcessorDefinitionIdAndWorkspaceId(String processorDefinitionId, String workspaceId);
 
     @Query("""
             SELECT a FROM ActionProcessorAssignment a

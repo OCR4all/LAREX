@@ -8,10 +8,16 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorWorkspaceAvailability;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,16 +38,25 @@ public class ActionDefinitionService {
     private static final int DEFAULT_TOKEN_TTL_MINUTES = 1440;
 
     private final ActionProcessorDefinitionRepository definitionRepository;
+    private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
+    private final ActionProcessorAssignmentRepository assignmentRepository;
+    private final ActionRunRepository runRepository;
     private final GlobalAdminService globalAdminService;
     private final ActionEndpointAuthService endpointAuthService;
     private final ObjectMapper yamlMapper;
     private final ObjectMapper jsonMapper;
 
     public ActionDefinitionService(ActionProcessorDefinitionRepository definitionRepository,
+                                   ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
+                                   ActionProcessorAssignmentRepository assignmentRepository,
+                                   ActionRunRepository runRepository,
                                    GlobalAdminService globalAdminService,
                                    ActionEndpointAuthService endpointAuthService,
                                    ObjectMapper objectMapper) {
         this.definitionRepository = definitionRepository;
+        this.availabilityRepository = availabilityRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.runRepository = runRepository;
         this.globalAdminService = globalAdminService;
         this.endpointAuthService = endpointAuthService;
         this.yamlMapper = new ObjectMapper(new YAMLFactory());
@@ -104,6 +119,72 @@ public class ActionDefinitionService {
         definition.setEnabled(enabled);
         definition.setUpdatedByUserId(userId);
         return toDefinitionResponse(definitionRepository.save(definition));
+    }
+
+    public ActionDto.DefinitionResponse setGlobalAvailable(String id, boolean globalAvailable, String userId) {
+        requireGlobalAdmin();
+        ActionProcessorDefinition definition = definitionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        definition.setGlobalAvailable(globalAvailable);
+        definition.setUpdatedByUserId(userId);
+        return toDefinitionResponse(definitionRepository.save(definition));
+    }
+
+    public void deleteDefinition(String id) {
+        requireGlobalAdmin();
+        ActionProcessorDefinition definition = requireDefinition(id);
+        List<ActionRun> activeRuns = runRepository.findByProcessorDefinitionIdAndStatusIn(id, activeStatuses());
+        if (!activeRuns.isEmpty()) {
+            throw new IllegalStateException("Action has active runs and cannot be deleted");
+        }
+
+        List<ActionRun> terminalRuns = runRepository.findByProcessorDefinitionIdAndStatusIn(id, terminalStatuses());
+        runRepository.deleteAll(terminalRuns);
+
+        List<ActionProcessorAssignment> assignments = assignmentRepository.findByDefinitionIds(List.of(id));
+        assignmentRepository.deleteAll(assignments);
+
+        List<ActionProcessorWorkspaceAvailability> availability = availabilityRepository.findByProcessorDefinitionIdOrderByWorkspaceIdAsc(id);
+        availabilityRepository.deleteAll(availability);
+
+        definitionRepository.delete(definition);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.WorkspaceAvailabilityResponse> listWorkspaceAvailability(String definitionId) {
+        requireGlobalAdmin();
+        requireDefinition(definitionId);
+        return availabilityRepository.findByProcessorDefinitionIdOrderByWorkspaceIdAsc(definitionId)
+                .stream()
+                .map(this::toWorkspaceAvailabilityResponse)
+                .toList();
+    }
+
+    public ActionDto.WorkspaceAvailabilityResponse assignWorkspaceAvailability(String definitionId,
+                                                                              ActionDto.WorkspaceAvailabilityRequest request,
+                                                                              String userId) {
+        requireGlobalAdmin();
+        ActionProcessorDefinition definition = requireDefinition(definitionId);
+        ActionProcessorWorkspaceAvailability availability = availabilityRepository
+                .findByProcessorDefinitionIdAndWorkspaceId(definitionId, request.workspaceId())
+                .orElseGet(ActionProcessorWorkspaceAvailability::new);
+        availability.setProcessorDefinition(definition);
+        availability.setWorkspaceId(request.workspaceId());
+        availability.setEnabled(request.enabled() == null || request.enabled());
+        if (availability.getCreatedByUserId() == null) {
+            availability.setCreatedByUserId(userId);
+        }
+        return toWorkspaceAvailabilityResponse(availabilityRepository.save(availability));
+    }
+
+    public void removeWorkspaceAvailability(String definitionId, String availabilityId) {
+        requireGlobalAdmin();
+        ActionProcessorWorkspaceAvailability availability = availabilityRepository.findById(availabilityId)
+                .orElseThrow(() -> new IllegalArgumentException("Action workspace availability not found"));
+        if (!definitionId.equals(availability.getProcessorDefinition().getId())) {
+            throw new IllegalArgumentException("Action workspace availability not found");
+        }
+        availabilityRepository.delete(availability);
     }
 
     @Transactional(readOnly = true)
@@ -239,9 +320,40 @@ public class ActionDefinitionService {
                 definition.isOutputsImages(),
                 definition.isOutputsXml(),
                 definition.isEnabled(),
+                definition.isGlobalAvailable(),
                 definition.getCreated(),
                 definition.getUpdated()
         );
+    }
+
+    public ActionDto.WorkspaceAvailabilityResponse toWorkspaceAvailabilityResponse(ActionProcessorWorkspaceAvailability availability) {
+        return new ActionDto.WorkspaceAvailabilityResponse(
+                availability.getId(),
+                availability.getWorkspaceId(),
+                availability.isEnabled(),
+                toDefinitionResponse(availability.getProcessorDefinition()),
+                availability.getCreated(),
+                availability.getUpdated()
+        );
+    }
+
+    private ActionProcessorDefinition requireDefinition(String definitionId) {
+        return definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+    }
+
+    private List<ActionRun.Status> activeStatuses() {
+        return List.of(
+                ActionRun.Status.PENDING,
+                ActionRun.Status.DISPATCHING,
+                ActionRun.Status.RUNNING,
+                ActionRun.Status.IMPORTING_RESULTS,
+                ActionRun.Status.CANCEL_REQUESTED
+        );
+    }
+
+    private List<ActionRun.Status> terminalStatuses() {
+        return List.of(ActionRun.Status.COMPLETED, ActionRun.Status.FAILED, ActionRun.Status.CANCELLED);
     }
 
     private void applyParsedDefinition(ActionProcessorDefinition definition,
@@ -314,6 +426,42 @@ public class ActionDefinitionService {
             if (parameter.min() != null && parameter.max() != null && parameter.min() > parameter.max()) {
                 diagnostics.add(error("parameters." + key, "min must be less than or equal to max"));
             }
+            if (parameter.defaultValue() != null) {
+                validateParameterValue("parameters." + key + ".default", parameter, parameter.defaultValue(), diagnostics);
+            }
+        }
+    }
+
+    private void validateParameterValue(String path,
+                                        ActionDefinitionDocument.Parameter parameter,
+                                        Object value,
+                                        List<ActionDto.ValidationDiagnostic> diagnostics) {
+        String type = parameter.type() == null ? "string" : parameter.type().trim().toLowerCase(Locale.ROOT);
+        if ("boolean".equals(type)) {
+            if (!(value instanceof Boolean)) {
+                diagnostics.add(error(path, "default must be a boolean"));
+            }
+            return;
+        }
+        if ("number".equals(type) || "integer".equals(type)) {
+            if (!(value instanceof Number number)) {
+                diagnostics.add(error(path, "default must be numeric"));
+                return;
+            }
+            double numericValue = number.doubleValue();
+            if ("integer".equals(type) && Math.rint(numericValue) != numericValue) {
+                diagnostics.add(error(path, "default must be an integer"));
+            }
+            if (parameter.min() != null && numericValue < parameter.min()) {
+                diagnostics.add(error(path, "default must be greater than or equal to min"));
+            }
+            if (parameter.max() != null && numericValue > parameter.max()) {
+                diagnostics.add(error(path, "default must be less than or equal to max"));
+            }
+            return;
+        }
+        if (!(value instanceof String)) {
+            diagnostics.add(error(path, "default must be a string"));
         }
     }
 

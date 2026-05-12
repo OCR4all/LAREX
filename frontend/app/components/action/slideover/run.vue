@@ -36,6 +36,16 @@ const selectedPageIds = computed(() => props.pageIds ?? [])
 const selectedProcessor = computed(() => processors.value.find(item => item.processor.id === selectedProcessorId.value) ?? null)
 const hasSelection = computed(() => selectedPageIds.value.length > 0)
 const submittedPageIds = computed(() => scope.value === 'selection' ? selectedPageIds.value : [])
+const scopeSummary = computed(() => scope.value === 'selection' ? `${selectedPageIds.value.length} selected pages` : 'Total project')
+const scopeItems = computed(() => [
+  { label: 'All pages', value: 'all', icon: 'i-lucide-files' },
+  { label: 'Selected pages', value: 'selection', icon: 'i-lucide-check-square', disabled: !hasSelection.value }
+])
+const processorOptions = computed(() => processors.value.map(item => ({
+  label: item.processor.name,
+  value: item.processor.id,
+  disabled: !item.executable
+})))
 const parameterEntries = computed(() => {
   const yaml = selectedProcessor.value?.processor.yaml
   if (!yaml) return [] as Array<{ key: string, definition: ActionParameterDefinition }>
@@ -48,8 +58,23 @@ const parameterEntries = computed(() => {
 })
 
 const activeRuns = computed(() => runs.value.filter(run =>
-  ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS'].includes(run.status)
+  ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
 ))
+const openPanels = ref<string[]>(['parameters'])
+const accordionItems = computed(() => [
+  {
+    label: `Parameters (${parameterEntries.value.length})`,
+    value: 'parameters',
+    slot: 'parameters',
+    icon: 'i-lucide-sliders-horizontal'
+  },
+  {
+    label: `Run History (${runs.value.length})`,
+    value: 'run-history',
+    slot: 'run-history',
+    icon: 'i-lucide-history'
+  }
+])
 
 const canStart = computed(() =>
   Boolean(selectedProcessor.value?.executable)
@@ -127,8 +152,7 @@ async function startRun() {
       method: 'POST',
       body: {
         processorDefinitionId: selectedProcessor.value.processor.id,
-        pageIds: submittedPageIds.value,
-        parameters: normalizedParameters()
+        pageIds: submittedPageIds.value
       }
     })
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
@@ -162,26 +186,15 @@ async function cancelRun(run: ActionRun) {
   }
 }
 
-function normalizedParameters() {
-  const values: Record<string, unknown> = {}
-  parameterEntries.value.forEach(({ key, definition }) => {
-    const value = parameterValues[key]
-    if (definition.type === 'number') {
-      values[key] = Number(value)
-    } else if (definition.type === 'integer') {
-      values[key] = Number.parseInt(String(value), 10)
-    } else {
-      values[key] = value
-    }
-  })
-  return values
-}
-
 function statusColor(status: ActionRun['status']) {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED' || status === 'CANCELLED') return 'error'
   if (status === 'CANCEL_REQUESTED') return 'warning'
   return 'primary'
+}
+
+function isActiveRun(run: ActionRun) {
+  return ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
 }
 
 function close() {
@@ -193,31 +206,23 @@ function close() {
   <USlideover
     side="right"
     :ui="{ content: 'max-w-3xl' }"
-    title="Run LAREX Action"
+    title="Run Action"
+    icon="i-lucide-play"
     :close="{ onClick: close }"
   >
     <template #body>
-      <div class="flex flex-col gap-5">
-        <div class="rounded-sm border border-default p-3">
-          <p class="text-sm font-medium">
-            {{ projectName || projectId }}
-          </p>
-          <p class="text-xs text-muted">
-            {{ scope === 'selection' ? `${selectedPageIds.length} selected pages` : 'Full project scope' }}
-          </p>
-        </div>
-
-        <div class="flex flex-col gap-3">
-          <UFormField label="Processor">
-            <USelect
+      <div class="space-y-5">
+        <div class="space-y-4">
+          <UFormField label="Action">
+            <USelectMenu
               v-model="selectedProcessorId"
-              :items="processors.map(item => ({
-                label: item.processor.name,
-                value: item.processor.id,
-                disabled: !item.executable
-              }))"
+              :items="processorOptions"
+              value-key="value"
+              searchable
+              searchable-placeholder="Filter Actions..."
               :loading="loading"
-              placeholder="Select an Action processor"
+              placeholder="Select an Action"
+              class="w-full"
             />
           </UFormField>
 
@@ -225,7 +230,7 @@ function close() {
             v-if="!loading && processors.length === 0"
             color="neutral"
             variant="subtle"
-            icon="i-lucide-bolt"
+            icon="i-lucide-circle-play"
             title="No Actions are assigned to this project or workspace."
           />
 
@@ -237,26 +242,6 @@ function close() {
             :title="selectedProcessor.blockedReason"
           />
 
-          <div class="flex rounded-sm border border-default p-1">
-            <UButton
-              class="flex-1 justify-center"
-              :variant="scope === 'all' ? 'subtle' : 'ghost'"
-              color="neutral"
-              @click="scope = 'all'"
-            >
-              All pages
-            </UButton>
-            <UButton
-              class="flex-1 justify-center"
-              :variant="scope === 'selection' ? 'subtle' : 'ghost'"
-              color="neutral"
-              :disabled="!hasSelection"
-              @click="scope = 'selection'"
-            >
-              Selected pages
-            </UButton>
-          </div>
-
           <UAlert
             v-if="selectedProcessor"
             color="neutral"
@@ -264,95 +249,128 @@ function close() {
             icon="i-lucide-lock-keyhole"
             :title="selectedProcessor.processor.lockMode === 'PROJECT' ? 'This Action locks the full project while it runs.' : 'This Action locks the selected pages while it runs.'"
           />
-        </div>
 
-        <div class="rounded-sm border border-default p-3">
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <p class="text-sm font-medium">
-              Parameters
-            </p>
-            <UBadge size="sm" variant="soft" color="neutral">
-              {{ parameterEntries.length }}
-            </UBadge>
-          </div>
-
-          <p v-if="parameterEntries.length === 0" class="text-sm text-muted">
-            This processor does not declare parameters.
-          </p>
-
-          <div v-else class="grid gap-3">
-            <UFormField
-              v-for="entry in parameterEntries"
-              :key="entry.key"
-              :label="entry.key"
-              :hint="entry.definition.description"
-            >
-              <USwitch
-                v-if="entry.definition.type === 'boolean'"
-                :model-value="Boolean(parameterValues[entry.key])"
-                @update:model-value="parameterValues[entry.key] = $event"
+          <UFormField label="Scope">
+            <div class="space-y-2">
+              <UTabs
+                v-model="scope"
+                :items="scopeItems"
+                variant="pill"
+                color="neutral"
+                :content="false"
+                class="w-full"
               />
-              <UInput
-                v-else
-                :model-value="String(parameterValues[entry.key] ?? '')"
-                :type="entry.definition.type === 'number' || entry.definition.type === 'integer' ? 'number' : 'text'"
-                :min="entry.definition.min"
-                :max="entry.definition.max"
-                @update:model-value="parameterValues[entry.key] = $event"
-              />
-            </UFormField>
-          </div>
-        </div>
-
-        <div class="rounded-sm border border-default p-3">
-          <div class="mb-3 flex items-center justify-between gap-2">
-            <p class="text-sm font-medium">
-              Run History
-            </p>
-            <UButton icon="i-lucide-refresh-cw" color="neutral" variant="ghost" size="sm" @click="loadRuns" />
-          </div>
-
-          <p v-if="runs.length === 0" class="text-sm text-muted">
-            No Action runs for this project yet.
-          </p>
-
-          <div v-else class="divide-y divide-default">
-            <div
-              v-for="run in runs"
-              :key="run.id"
-              class="flex flex-col gap-2 py-3"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-medium">
-                    {{ run.processorName }}
-                  </p>
-                  <p class="truncate text-xs text-muted">
-                    {{ run.pageIds.length }} pages · {{ run.statusMessage || run.processorKey }}
-                  </p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
-                    {{ run.status }}
-                  </UBadge>
-                  <UButton
-                    v-if="['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)"
-                    color="warning"
-                    variant="ghost"
-                    icon="i-lucide-ban"
-                    size="sm"
-                    :loading="cancellingRunId === run.id"
-                    @click="cancelRun(run)"
-                  />
-                </div>
-              </div>
-              <UProgress :model-value="run.progressPercent" />
-              <p v-if="run.errorMessage" class="text-xs text-error">
-                {{ run.errorMessage }}
+              <p class="text-xs text-muted">
+                {{ scopeSummary }}
               </p>
             </div>
-          </div>
+          </UFormField>
         </div>
+
+        <USeparator />
+
+        <UAccordion
+          v-model="openPanels"
+          :items="accordionItems"
+          type="multiple"
+          :ui="{
+            item: 'border-b border-default last:border-b-0',
+            trigger: 'px-0 py-3 hover:bg-transparent',
+            content: 'px-0 pb-4'
+          }"
+        >
+          <template #parameters>
+            <div class="space-y-3 p-1">
+              <p v-if="parameterEntries.length > 0" class="text-sm text-muted">
+                Parameter values are fixed by the Action definition.
+              </p>
+
+              <p v-if="parameterEntries.length === 0" class="text-sm text-muted">
+                This Action does not declare parameters.
+              </p>
+
+              <div v-else class="grid gap-3">
+                <UFormField
+                  v-for="entry in parameterEntries"
+                  :key="entry.key"
+                  :label="entry.key"
+                  :hint="entry.definition.description"
+                >
+                  <USwitch
+                    v-if="entry.definition.type === 'boolean'"
+                    :model-value="Boolean(parameterValues[entry.key])"
+                    disabled
+                  />
+                  <UInput
+                    v-else
+                    :model-value="String(parameterValues[entry.key] ?? '')"
+                    :type="entry.definition.type === 'number' || entry.definition.type === 'integer' ? 'number' : 'text'"
+                    :min="entry.definition.min"
+                    :max="entry.definition.max"
+                    disabled
+                  />
+                </UFormField>
+              </div>
+            </div>
+          </template>
+
+          <template #run-history>
+            <div class="space-y-3 p-1">
+              <div class="flex justify-end">
+                <UButton
+                  icon="i-lucide-refresh-cw"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="loadRuns"
+                >
+                  Refresh
+                </UButton>
+              </div>
+
+              <p v-if="runs.length === 0" class="text-sm text-muted">
+                No Action runs for this project yet.
+              </p>
+
+              <div v-else class="divide-y divide-default">
+                <div
+                  v-for="run in runs"
+                  :key="run.id"
+                  class="space-y-2 py-3 first:pt-0 last:pb-0"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium">
+                        {{ run.processorName }}
+                      </p>
+                      <p class="truncate text-xs text-muted">
+                        {{ run.pageIds.length }} pages · {{ run.statusMessage || run.processorKey }}
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
+                        {{ run.status }}
+                      </UBadge>
+                      <UButton
+                        v-if="isActiveRun(run)"
+                        color="warning"
+                        variant="ghost"
+                        icon="i-lucide-ban"
+                        size="sm"
+                        :loading="cancellingRunId === run.id"
+                        @click="cancelRun(run)"
+                      />
+                    </div>
+                  </div>
+                  <UProgress :model-value="run.progressPercent" />
+                  <p v-if="run.errorMessage" class="text-xs text-error">
+                    {{ run.errorMessage }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </template>
+        </UAccordion>
       </div>
     </template>
 
@@ -361,7 +379,12 @@ function close() {
         <UButton color="neutral" variant="ghost" @click="close">
           Close
         </UButton>
-        <UButton icon="i-lucide-play" :loading="starting" :disabled="!canStart" @click="startRun">
+        <UButton
+          icon="i-lucide-play"
+          :loading="starting"
+          :disabled="!canStart"
+          @click="startRun"
+        >
           Start Action
         </UButton>
       </div>

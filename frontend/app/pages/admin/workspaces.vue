@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import { getWorkspaceDisplayName, getWorkspaceSearchText, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -22,9 +23,24 @@ interface AdminWorkspace {
   created: string
 }
 
+type AdminWorkspaceRow = AdminWorkspace & {
+  displayName: string
+  secondaryLabel: string | null
+  searchText: string
+}
+
 const { data: workspaces, refresh, pending } = await useFetch<AdminWorkspace[]>('/api/admin/workspaces', {
   key: globalKey('admin', 'workspaces', 'all'),
   default: () => []
+})
+
+const rows = computed<AdminWorkspaceRow[]>(() => {
+  return workspaces.value.map(workspace => ({
+    ...workspace,
+    displayName: getWorkspaceDisplayName(workspace),
+    secondaryLabel: getWorkspaceSecondaryLabel(workspace),
+    searchText: getWorkspaceSearchText(workspace)
+  }))
 })
 
 const datatableUi = {
@@ -36,7 +52,7 @@ const datatableUi = {
   separator: 'h-0'
 }
 
-const { sort, globalFilter, filteredAndSortedData } = useTableFilters(workspaces, { column: 'created', direction: 'desc' })
+const { sort, globalFilter, filteredAndSortedData } = useTableFilters(rows, { column: 'created', direction: 'desc' })
 
 const page = ref(1)
 const itemsPerPage = ref(25)
@@ -61,24 +77,25 @@ watch(totalPages, (newTotalPages) => {
   }
 })
 
-function openWorkspace(workspace: AdminWorkspace) {
+function openWorkspace(workspace: AdminWorkspaceRow) {
   workspaceStore.selectWorkspaceAsAdmin({
     id: workspace.id,
-    name: workspace.name,
+    name: workspace.displayName,
     description: workspace.description,
     isPersonal: workspace.isPersonal,
-    ownerUserId: workspace.ownerUserId
+    ownerUserId: workspace.ownerUserId,
+    ownerUsername: workspace.ownerUsername
   })
   toast.add({
     title: 'Admin Mode',
-    description: `Now viewing "${workspace.name}" as administrator`,
+    description: `Now viewing "${workspace.displayName}" as administrator`,
     color: 'warning',
     icon: 'i-lucide-shield-alert'
   })
   router.push('/')
 }
 
-function getRowActions(workspace: AdminWorkspace) {
+function getRowActions(workspace: AdminWorkspaceRow) {
   return [{
     label: 'Open',
     icon: 'i-lucide-external-link',
@@ -86,12 +103,18 @@ function getRowActions(workspace: AdminWorkspace) {
   }]
 }
 
-const columns: TableColumn<AdminWorkspace>[] = [
+const columns: TableColumn<AdminWorkspaceRow>[] = [
   {
-    accessorKey: 'name',
+    accessorKey: 'displayName',
     header: () => h('div', { class: 'flex items-center gap-2' }, [
       h('span', 'Name'),
-      h(UButton, { icon: sort.value.column === 'name' ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down') : 'i-lucide-arrow-up-down', size: 'xs', variant: 'ghost', color: sort.value.column === 'name' ? 'primary' : 'neutral', onClick: () => { sort.value = sort.value.column === 'name' ? { column: 'name', direction: sort.value.direction === 'asc' ? 'desc' : 'asc' } : { column: 'name', direction: 'asc' } } })
+      h(UButton, { icon: sort.value.column === 'displayName' ? (sort.value.direction === 'asc' ? 'i-lucide-arrow-up' : 'i-lucide-arrow-down') : 'i-lucide-arrow-up-down', size: 'xs', variant: 'ghost', color: sort.value.column === 'displayName' ? 'primary' : 'neutral', onClick: () => { sort.value = sort.value.column === 'displayName' ? { column: 'displayName', direction: sort.value.direction === 'asc' ? 'desc' : 'asc' } : { column: 'displayName', direction: 'asc' } } })
+    ]),
+    cell: ({ row }) => h('div', { class: 'min-w-52', title: row.original.id }, [
+      h('p', { class: 'font-medium' }, row.original.displayName),
+      row.original.secondaryLabel
+        ? h('p', { class: 'text-xs text-muted' }, row.original.secondaryLabel)
+        : null
     ])
   },
   {
@@ -101,7 +124,8 @@ const columns: TableColumn<AdminWorkspace>[] = [
   },
   {
     accessorKey: 'ownerUsername',
-    header: 'Owner'
+    header: 'Owner',
+    cell: ({ row }) => row.original.ownerUsername || row.original.ownerUserId
   },
   {
     accessorKey: 'memberCount',
@@ -139,13 +163,13 @@ const columns: TableColumn<AdminWorkspace>[] = [
   }
 ]
 
-const contextMenuWorkspace = ref<AdminWorkspace | null>(null)
+const contextMenuWorkspace = ref<AdminWorkspaceRow | null>(null)
 const contextMenuItems = computed<DropdownMenuItem[][]>(() => {
   if (!contextMenuWorkspace.value) return []
   return [getRowActions(contextMenuWorkspace.value)]
 })
 
-function handleRowContextMenu(_event: Event, row: { original: AdminWorkspace }) {
+function handleRowContextMenu(_event: Event, row: { original: AdminWorkspaceRow }) {
   contextMenuWorkspace.value = row.original
 }
 

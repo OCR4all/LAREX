@@ -57,6 +57,7 @@ export interface ActionDefinition {
   outputsImages: boolean
   outputsXml: boolean
   enabled: boolean
+  global: boolean
   created: string
   updated: string
 }
@@ -69,12 +70,21 @@ export interface ActionAssignment {
   processor: ActionDefinition
 }
 
+export interface ActionWorkspaceAvailability {
+  id: string
+  workspaceId: string
+  enabled: boolean
+  processor: ActionDefinition
+  created: string
+  updated: string
+}
+
 export type ActionDefinitionResponse = ActionDefinition
 export type ActionAssignmentResponse = ActionAssignment
 export type ExecutableActionProcessorResponse = ExecutableActionProcessor
 
 export interface ExecutableActionProcessor {
-  assignmentId: string
+  assignmentId: string | null
   processor: ActionDefinition
   executable: boolean
   blockedReason: string | null
@@ -102,6 +112,34 @@ export interface ActionRun {
 
 export interface StartActionRunResponse {
   run: ActionRun
+}
+
+export interface AdminActionRun {
+  id: string
+  processorDefinitionId: string
+  processorKey: string
+  processorName: string
+  workspaceId: string
+  workspaceLabel: string
+  projectId: string
+  projectLabel: string
+  pageCount: number
+  status: ActionRunStatus
+  progressPercent: number
+  statusMessage: string | null
+  errorMessage: string | null
+  cancelRequested: boolean
+  logText: string | null
+  resultSummary: unknown
+  lastHeartbeatAt: string | null
+  created: string
+  updated: string
+  completedAt: string | null
+  durationSeconds: number | null
+}
+
+export interface ClearActionRunsResponse {
+  deletedCount: number
 }
 
 export const DEFAULT_ACTION_YAML = `version: 1

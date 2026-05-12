@@ -2,10 +2,12 @@ package de.uniwue.zpd.dachs.larex.backend.controller.action;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionDefinitionService;
+import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -21,9 +23,12 @@ import java.util.List;
 public class ActionAdminController {
 
     private final ActionDefinitionService definitionService;
+    private final ActionRunService actionRunService;
 
-    public ActionAdminController(ActionDefinitionService definitionService) {
+    public ActionAdminController(ActionDefinitionService definitionService,
+                                 ActionRunService actionRunService) {
         this.definitionService = definitionService;
+        this.actionRunService = actionRunService;
     }
 
     @GetMapping
@@ -64,5 +69,60 @@ public class ActionAdminController {
             @RequestParam boolean enabled,
             @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(definitionService.setEnabled(definitionId, enabled, userId));
+    }
+
+    @DeleteMapping("/{definitionId}")
+    public ResponseEntity<Void> deleteDefinition(@PathVariable String definitionId) {
+        definitionService.deleteDefinition(definitionId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{definitionId}/global")
+    public ResponseEntity<ActionDto.DefinitionResponse> setGlobalAvailable(
+            @PathVariable String definitionId,
+            @RequestParam boolean global,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(definitionService.setGlobalAvailable(definitionId, global, userId));
+    }
+
+    @GetMapping("/{definitionId}/workspace-availability")
+    public ResponseEntity<List<ActionDto.WorkspaceAvailabilityResponse>> listWorkspaceAvailability(
+            @PathVariable String definitionId) {
+        return ResponseEntity.ok(definitionService.listWorkspaceAvailability(definitionId));
+    }
+
+    @PostMapping("/{definitionId}/workspace-availability")
+    public ResponseEntity<ActionDto.WorkspaceAvailabilityResponse> assignWorkspaceAvailability(
+            @PathVariable String definitionId,
+            @Valid @RequestBody ActionDto.WorkspaceAvailabilityRequest request,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(definitionService.assignWorkspaceAvailability(definitionId, request, userId));
+    }
+
+    @DeleteMapping("/{definitionId}/workspace-availability/{availabilityId}")
+    public ResponseEntity<Void> removeWorkspaceAvailability(
+            @PathVariable String definitionId,
+            @PathVariable String availabilityId) {
+        definitionService.removeWorkspaceAvailability(definitionId, availabilityId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{definitionId}/runs")
+    public ResponseEntity<List<ActionDto.AdminRunResponse>> listRuns(
+            @PathVariable String definitionId) {
+        return ResponseEntity.ok(actionRunService.listAdminRuns(definitionId));
+    }
+
+    @GetMapping("/{definitionId}/runs/{runId}")
+    public ResponseEntity<ActionDto.AdminRunResponse> getRun(
+            @PathVariable String definitionId,
+            @PathVariable String runId) {
+        return ResponseEntity.ok(actionRunService.getAdminRun(definitionId, runId));
+    }
+
+    @DeleteMapping("/{definitionId}/runs/terminal")
+    public ResponseEntity<ActionDto.ClearRunsResponse> clearTerminalRuns(
+            @PathVariable String definitionId) {
+        return ResponseEntity.ok(actionRunService.clearTerminalAdminRuns(definitionId));
     }
 }

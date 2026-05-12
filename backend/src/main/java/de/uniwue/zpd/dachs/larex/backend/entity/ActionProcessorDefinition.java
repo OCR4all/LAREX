@@ -81,6 +81,9 @@ public class ActionProcessorDefinition {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    @Column(nullable = false, name = "global_available", columnDefinition = "boolean default false")
+    private boolean globalAvailable = false;
+
     @Column(nullable = false, name = "created_by_user_id")
     private String createdByUserId;
 
@@ -213,6 +216,14 @@ public class ActionProcessorDefinition {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isGlobalAvailable() {
+        return globalAvailable;
+    }
+
+    public void setGlobalAvailable(boolean globalAvailable) {
+        this.globalAvailable = globalAvailable;
     }
 
     public String getCreatedByUserId() {

@@ -15,5 +15,7 @@ public interface ActionProcessorDefinitionRepository extends JpaRepository<Actio
 
     List<ActionProcessorDefinition> findByEnabledTrueOrderByNameAsc();
 
+    List<ActionProcessorDefinition> findByEnabledTrueAndGlobalAvailableTrueOrderByNameAsc();
+
     List<ActionProcessorDefinition> findAllByOrderByNameAsc();
 }

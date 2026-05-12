@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.action;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
@@ -19,6 +20,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -58,6 +60,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
@@ -85,12 +88,14 @@ public class ActionRunService {
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorAssignmentRepository assignmentRepository;
+    private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
     private final ActionRunRepository runRepository;
     private final ProjectRepository projectRepository;
     private final PageRepository pageRepository;
     private final PageImageRepository pageImageRepository;
     private final PageXmlRepository pageXmlRepository;
     private final WorkspaceAccessService workspaceAccessService;
+    private final GlobalAdminService globalAdminService;
     private final ActionDefinitionService definitionService;
     private final ActionEndpointAuthService endpointAuthService;
     private final ObjectMapper objectMapper;
@@ -111,12 +116,14 @@ public class ActionRunService {
 
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
                             ActionProcessorAssignmentRepository assignmentRepository,
+                            ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
                             ActionRunRepository runRepository,
                             ProjectRepository projectRepository,
                             PageRepository pageRepository,
                             PageImageRepository pageImageRepository,
                             PageXmlRepository pageXmlRepository,
                             WorkspaceAccessService workspaceAccessService,
+                            GlobalAdminService globalAdminService,
                             ActionDefinitionService definitionService,
                             ActionEndpointAuthService endpointAuthService,
                             ObjectMapper objectMapper,
@@ -132,12 +139,14 @@ public class ActionRunService {
                             AnnotationReadCache annotationReadCache) {
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
+        this.availabilityRepository = availabilityRepository;
         this.runRepository = runRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.workspaceAccessService = workspaceAccessService;
+        this.globalAdminService = globalAdminService;
         this.definitionService = definitionService;
         this.endpointAuthService = endpointAuthService;
         this.objectMapper = objectMapper;
@@ -160,7 +169,21 @@ public class ActionRunService {
     @Transactional(readOnly = true)
     public List<ActionDto.DefinitionResponse> listAvailableDefinitions(String workspaceId, String userId) {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
-        return definitionRepository.findByEnabledTrueOrderByNameAsc().stream()
+        LinkedHashMap<String, ActionProcessorDefinition> available = new LinkedHashMap<>();
+        definitionRepository.findByEnabledTrueAndGlobalAvailableTrueOrderByNameAsc()
+                .forEach(definition -> available.put(definition.getId(), definition));
+        availabilityRepository.findByWorkspaceIdAndEnabledTrueOrderByCreatedAsc(workspaceId).stream()
+                .map(availability -> availability.getProcessorDefinition())
+                .filter(ActionProcessorDefinition::isEnabled)
+                .filter(definition -> !definition.isGlobalAvailable())
+                .forEach(definition -> available.putIfAbsent(definition.getId(), definition));
+        assignmentRepository.findByWorkspaceIdOrderByCreatedAsc(workspaceId).stream()
+                .map(ActionProcessorAssignment::getProcessorDefinition)
+                .filter(ActionProcessorDefinition::isEnabled)
+                .filter(definition -> !definition.isGlobalAvailable())
+                .forEach(definition -> available.putIfAbsent(definition.getId(), definition));
+        return available.values().stream()
+                .sorted(Comparator.comparing(ActionProcessorDefinition::getName, String.CASE_INSENSITIVE_ORDER))
                 .map(definitionService::toDefinitionResponse)
                 .toList();
     }
@@ -183,6 +206,12 @@ public class ActionRunService {
 
         ActionProcessorDefinition definition = definitionRepository.findById(request.processorDefinitionId())
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (definition.isGlobalAvailable()) {
+            throw new IllegalArgumentException("Global Actions are available automatically and cannot be assigned");
+        }
+        if (!availabilityRepository.existsByProcessorDefinitionIdAndWorkspaceIdAndEnabledTrue(definition.getId(), workspaceId)) {
+            throw new SecurityException("Action workflow is not available to this workspace");
+        }
         ActionProcessorAssignment assignment = projectId == null
                 ? assignmentRepository.findWorkspaceAssignment(definition.getId(), workspaceId).orElseGet(ActionProcessorAssignment::new)
                 : assignmentRepository.findByProcessorDefinitionIdAndWorkspaceIdAndProjectId(definition.getId(), workspaceId, projectId)
@@ -211,16 +240,19 @@ public class ActionRunService {
     public List<ActionDto.ExecutableProcessorResponse> listExecutableProcessors(String workspaceId, String projectId, String userId) {
         Project project = requireProject(workspaceId, projectId);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        return assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
-                .collect(Collectors.toMap(
-                        assignment -> assignment.getProcessorDefinition().getId(),
-                        assignment -> assignment,
-                        (first, ignored) -> first,
-                        LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .map(assignment -> toExecutableResponse(assignment, project, userId))
+        LinkedHashMap<String, ActionDto.ExecutableProcessorResponse> executable = new LinkedHashMap<>();
+        definitionRepository.findByEnabledTrueAndGlobalAvailableTrueOrderByNameAsc()
+                .forEach(definition -> executable.put(definition.getId(), toExecutableResponse(null, definition, workspaceId, project, userId)));
+
+        assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
+                .filter(assignment -> !assignment.getProcessorDefinition().isGlobalAvailable())
+                .filter(assignment -> isWorkspaceAvailable(assignment.getProcessorDefinition().getId(), workspaceId))
+                .sorted(Comparator.comparing((ActionProcessorAssignment assignment) -> projectId.equals(assignment.getProjectId()) ? 1 : 0)
+                        .thenComparing(ActionProcessorAssignment::getCreated))
+                .forEach(assignment -> executable.put(assignment.getProcessorDefinition().getId(),
+                        toExecutableResponse(assignment, assignment.getProcessorDefinition(), workspaceId, project, userId)));
+        return executable.values().stream()
+                .sorted(Comparator.comparing(response -> response.processor().name(), String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }
 
@@ -250,7 +282,7 @@ public class ActionRunService {
         run.setStatus(Status.PENDING);
         run.setLockMode(definition.getLockMode());
         run.setPageIdsJson(writeJson(pages.stream().map(Page::getId).toList()));
-        run.setParametersJson(writeJson(request.parameters() == null ? Map.of() : request.parameters()));
+        run.setParametersJson(writeJson(resolveRunParameters(definition)));
         run.setSecretHash(sha256(rawSecret));
         run.setSecretPrefix(rawSecret.substring(0, Math.min(rawSecret.length(), 12)));
         run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(definitionService.defaultTokenTtlMinutes()));
@@ -271,6 +303,34 @@ public class ActionRunService {
                 .stream()
                 .map(this::toRunResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.AdminRunResponse> listAdminRuns(String definitionId) {
+        requireGlobalAdmin();
+        requireDefinition(definitionId);
+        return runRepository.findByProcessorDefinitionIdOrderByCreatedDesc(definitionId).stream()
+                .map(this::toAdminRunResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.AdminRunResponse getAdminRun(String definitionId, String runId) {
+        requireGlobalAdmin();
+        ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
+        if (!definitionId.equals(run.getProcessorDefinition().getId())) {
+            throw new IllegalArgumentException("Action run not found");
+        }
+        return toAdminRunResponse(run);
+    }
+
+    public ActionDto.ClearRunsResponse clearTerminalAdminRuns(String definitionId) {
+        requireGlobalAdmin();
+        requireDefinition(definitionId);
+        List<ActionRun> terminalRuns = runRepository.findByProcessorDefinitionIdAndStatusIn(definitionId, terminalStatuses());
+        runRepository.deleteAll(terminalRuns);
+        return new ActionDto.ClearRunsResponse(terminalRuns.size());
     }
 
     public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId) {
@@ -768,11 +828,33 @@ public class ActionRunService {
     }
 
     private void requireAssigned(String workspaceId, String projectId, String definitionId) {
+        ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
+        if (definition.isEnabled() && definition.isGlobalAvailable()) {
+            return;
+        }
         boolean assigned = assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
+                .filter(assignment -> isWorkspaceAvailable(assignment.getProcessorDefinition().getId(), workspaceId))
                 .anyMatch(assignment -> assignment.getProcessorDefinition().getId().equals(definitionId));
         if (!assigned) {
             throw new SecurityException("Action processor is not assigned to this project");
         }
+    }
+
+    private boolean isWorkspaceAvailable(String definitionId, String workspaceId) {
+        return availabilityRepository.existsByProcessorDefinitionIdAndWorkspaceIdAndEnabledTrue(definitionId, workspaceId)
+                || assignmentRepository.existsByProcessorDefinitionIdAndWorkspaceId(definitionId, workspaceId);
+    }
+
+    private void requireGlobalAdmin() {
+        if (!globalAdminService.isGlobalAdmin()) {
+            throw new SecurityException("Global administrator access is required");
+        }
+    }
+
+    private ActionProcessorDefinition requireDefinition(String definitionId) {
+        return definitionRepository.findById(definitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
     }
 
     private void requireExecuteAccess(ActionProcessorDefinition definition, String workspaceId, String userId) {
@@ -835,23 +917,24 @@ public class ActionRunService {
     }
 
     private ActionDto.ExecutableProcessorResponse toExecutableResponse(ActionProcessorAssignment assignment,
+                                                                       ActionProcessorDefinition definition,
+                                                                       String workspaceId,
                                                                        Project project,
                                                                        String userId) {
-        ActionProcessorDefinition definition = assignment.getProcessorDefinition();
         boolean executable = true;
         String blockedReason = null;
         if (project.isLocked()) {
             executable = false;
             blockedReason = project.getLockedReason() == null ? "Project is locked" : project.getLockedReason();
-        } else if (definition.getExecuteRole() == ExecuteRole.CURATOR && !workspaceAccessService.canManageProjects(assignment.getWorkspaceId(), userId)) {
+        } else if (definition.getExecuteRole() == ExecuteRole.CURATOR && !workspaceAccessService.canManageProjects(workspaceId, userId)) {
             executable = false;
             blockedReason = "Curator access is required";
-        } else if (definition.getExecuteRole() == ExecuteRole.EDITOR && !workspaceAccessService.hasWorkspaceAccess(assignment.getWorkspaceId(), userId)) {
+        } else if (definition.getExecuteRole() == ExecuteRole.EDITOR && !workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)) {
             executable = false;
             blockedReason = "Workspace access is required";
         }
         return new ActionDto.ExecutableProcessorResponse(
-                assignment.getId(),
+                assignment == null ? null : assignment.getId(),
                 definitionService.toDefinitionResponse(definition),
                 executable,
                 blockedReason
@@ -879,6 +962,130 @@ public class ActionRunService {
                 run.getUpdated(),
                 run.getCompletedAt()
         );
+    }
+
+    private ActionDto.AdminRunResponse toAdminRunResponse(ActionRun run) {
+        ActionProcessorDefinition definition = run.getProcessorDefinition();
+        Project project = projectRepository.findById(run.getProjectId()).orElse(null);
+        return new ActionDto.AdminRunResponse(
+                run.getId(),
+                definition.getId(),
+                definition.getProcessorKey(),
+                definition.getName(),
+                run.getWorkspaceId(),
+                run.getWorkspaceId(),
+                run.getProjectId(),
+                project == null ? run.getProjectId() : project.getName(),
+                readPageIds(run).size(),
+                run.getStatus(),
+                run.getProgressPercent(),
+                run.getStatusMessage(),
+                run.getErrorMessage(),
+                run.isCancelRequested(),
+                run.getLogText(),
+                readResultSummary(run.getResultSummaryJson()),
+                run.getLastHeartbeatAt(),
+                run.getCreated(),
+                run.getUpdated(),
+                run.getCompletedAt(),
+                durationSeconds(run)
+        );
+    }
+
+    private Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition) {
+        ActionDefinitionDocument document = definitionService.readParsedDocument(definition);
+        Map<String, ActionDefinitionDocument.Parameter> definitions = document.parameters() == null ? Map.of() : document.parameters();
+        Map<String, Object> resolved = new LinkedHashMap<>();
+
+        for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : definitions.entrySet()) {
+            resolved.put(entry.getKey(), defaultParameterValue(entry.getValue()));
+        }
+        return resolved;
+    }
+
+    private Object defaultParameterValue(ActionDefinitionDocument.Parameter parameter) {
+        if (parameter.defaultValue() != null) {
+            return coerceParameterValue("default", parameter, parameter.defaultValue());
+        }
+        return switch (parameterType(parameter)) {
+            case "boolean" -> false;
+            case "number" -> 0.0;
+            case "integer" -> 0;
+            default -> "";
+        };
+    }
+
+    private Object coerceParameterValue(String key, ActionDefinitionDocument.Parameter parameter, Object value) {
+        String type = parameterType(parameter);
+        if ("boolean".equals(type)) {
+            if (value instanceof Boolean booleanValue) {
+                return booleanValue;
+            }
+            if (value instanceof String stringValue && ("true".equalsIgnoreCase(stringValue) || "false".equalsIgnoreCase(stringValue))) {
+                return Boolean.parseBoolean(stringValue);
+            }
+            throw new IllegalArgumentException("Action parameter " + key + " must be boolean");
+        }
+
+        if ("number".equals(type) || "integer".equals(type)) {
+            double numericValue = numericParameterValue(key, value);
+            if (parameter.min() != null && numericValue < parameter.min()) {
+                throw new IllegalArgumentException("Action parameter " + key + " must be greater than or equal to " + parameter.min());
+            }
+            if (parameter.max() != null && numericValue > parameter.max()) {
+                throw new IllegalArgumentException("Action parameter " + key + " must be less than or equal to " + parameter.max());
+            }
+            if ("integer".equals(type)) {
+                if (Math.rint(numericValue) != numericValue) {
+                    throw new IllegalArgumentException("Action parameter " + key + " must be an integer");
+                }
+                return (int) numericValue;
+            }
+            return numericValue;
+        }
+
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private double numericParameterValue(String key, Object value) {
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        if (value instanceof String stringValue && !stringValue.isBlank()) {
+            try {
+                return Double.parseDouble(stringValue);
+            } catch (NumberFormatException ignored) {
+                // Fall through to the consistent validation error below.
+            }
+        }
+        throw new IllegalArgumentException("Action parameter " + key + " must be numeric");
+    }
+
+    private String parameterType(ActionDefinitionDocument.Parameter parameter) {
+        return parameter.type() == null ? "string" : parameter.type().trim().toLowerCase(Locale.ROOT);
+    }
+
+    private Object readResultSummary(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, Object.class);
+        } catch (JsonProcessingException e) {
+            return json;
+        }
+    }
+
+    private Long durationSeconds(ActionRun run) {
+        if (run.getCreated() == null) {
+            return null;
+        }
+        LocalDateTime end = run.getCompletedAt() == null ? run.getUpdated() : run.getCompletedAt();
+        return end == null ? null : ChronoUnit.SECONDS.between(run.getCreated(), end);
+    }
+
+    private List<Status> terminalStatuses() {
+        return List.of(Status.COMPLETED, Status.FAILED, Status.CANCELLED);
     }
 
     private ActionDto.MachinePageFile toMachineImageFile(String publicApiBaseUrl, String runId, PageImage image) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { LazyWorkspaceSlideoverCreate } from '#components'
 import type { DropdownMenuItem } from '@nuxt/ui'
+import { getWorkspaceDisplayName, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
 
 defineProps<{
   collapsed?: boolean
@@ -10,6 +11,10 @@ interface WorkspaceOption {
   id: string
   name: string
   label: string
+  description?: string
+  isPersonal?: boolean
+  ownerUserId?: string
+  ownerUsername?: string
 }
 
 const overlay = useOverlay()
@@ -31,7 +36,11 @@ const canCreateTeamWorkspace = computed(() => {
 
 const selectedWorkspace = computed(() => {
   if (isAdminMode.value && adminWorkspace.value) {
-    return { ...adminWorkspace.value, label: adminWorkspace.value.name }
+    return {
+      ...adminWorkspace.value,
+      label: getWorkspaceDisplayName(adminWorkspace.value),
+      description: getWorkspaceSecondaryLabel(adminWorkspace.value) || undefined
+    }
   }
   const selected = workspaces.value?.find(workspace => workspace.id === workspaceStore.selectedWorkspaceId)
   return selected || workspaces.value?.[0]
@@ -90,11 +99,16 @@ const items = computed<DropdownMenuItem[][]>(() => {
     }"
   >
     <template #default="{ modelValue }">
-      <UTooltip :text="isAdminMode ? `Admin: ${modelValue?.label}` : modelValue?.label">
+      <UTooltip :text="isAdminMode ? `Admin: ${modelValue?.label}${modelValue?.description ? ` - ${modelValue.description}` : ''}` : modelValue?.label">
         <div class="flex min-w-0 items-center gap-2 text-left">
           <UIcon v-if="isAdminMode" name="i-lucide-shield-alert" class="shrink-0" />
           <UiLogo v-else-if="collapsed" size="32" />
-          <span v-if="!collapsed" class="truncate font-medium text-left">{{ modelValue?.label }}</span>
+          <span v-if="!collapsed" class="min-w-0 text-left">
+            <span class="block truncate font-medium">{{ modelValue?.label }}</span>
+            <span v-if="isAdminMode && modelValue?.description" class="block truncate text-xs text-muted">
+              {{ modelValue.description }}
+            </span>
+          </span>
         </div>
       </UTooltip>
     </template>

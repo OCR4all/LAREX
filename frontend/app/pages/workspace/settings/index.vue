@@ -88,7 +88,10 @@ const canEditWorkspaceMetadata = computed(() => allow(workspaceCapabilities.valu
 const canSetWorkspacePresets = computed(() => allow(workspaceCapabilities.value.canSetPresets))
 const canEditWorkspaceSettings = computed(() => canEditWorkspaceMetadata.value || canSetWorkspacePresets.value)
 const canDeleteWorkspace = computed(() => allow(workspaceCapabilities.value.canAdminWorkspace))
-const canManageWorkspaceActions = computed(() => allow(workspaceCapabilities.value.canManageProjects))
+const isPersonalWorkspace = computed(() =>
+  workspace.value?.id === selectedWorkspace.value && workspace.value?.isPersonal === true
+)
+const canManageWorkspaceActions = computed(() => isPersonalWorkspace.value || allow(workspaceCapabilities.value.canManageProjects))
 const canEditWorkspaceTextIndexDefaults = computed(() =>
   canSetWorkspacePresets.value && allow(workspaceCapabilities.value.canEditWorkspaceTextIndexDefaults)
 )
@@ -129,11 +132,16 @@ function parseDefaultGtIndex(value: string | undefined): number {
 }
 
 const actionDefinitionOptions = computed(() => actionDefinitions.value
+  .filter(definition => !definition.global)
   .filter(definition => !actionAssignments.value.some(assignment => assignment.processor.id === definition.id))
   .map(definition => ({
     label: definition.name,
     value: definition.id
   })))
+
+const inheritedGlobalActionDefinitions = computed(() => actionDefinitions.value.filter(definition => definition.global))
+
+const scopedActionDefinitions = computed(() => actionDefinitions.value.filter(definition => !definition.global))
 
 const actionProjectOptions = computed(() => [
   { label: 'Workspace default', value: '' },
@@ -159,7 +167,7 @@ async function loadWorkspaceActions() {
       actionDefinitionOptions.value.some(option => option.value === id)
     )
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not load LAREX Actions.'
+    const message = error instanceof Error ? error.message : 'Could not load Actions.'
     toast.add({ title: 'Failed to load Actions', description: message, color: 'error' })
   } finally {
     loadingActions.value = false
@@ -182,7 +190,7 @@ async function assignWorkspaceAction() {
     ))
     selectedActionDefinitionIds.value = []
     await loadWorkspaceActions()
-    toast.add({ title: 'Action assigned', color: 'success', icon: 'i-lucide-bolt' })
+    toast.add({ title: 'Action assigned', color: 'success', icon: 'i-lucide-circle-play' })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Could not assign Action.'
     toast.add({ title: 'Assignment failed', description: message, color: 'error' })
@@ -780,11 +788,46 @@ async function openDeleteSlideover() {
 
       <UPageCard
         v-if="canManageWorkspaceActions"
-        title="LAREX Actions"
-        description="Assign enabled processors to this workspace."
+        title="Actions"
+        description="Manage inherited, workspace-default, and project-specific Actions."
         variant="subtle"
       >
         <div class="flex flex-col gap-4">
+          <div v-if="inheritedGlobalActionDefinitions.length > 0" class="rounded-sm border border-default p-3">
+            <div class="mb-2 flex items-center justify-between gap-2">
+              <div>
+                <p class="text-sm font-medium">
+                  Inherited Global Actions
+                </p>
+                <p class="text-xs text-muted">
+                  These Actions are available in every workspace and project.
+                </p>
+              </div>
+              <UBadge size="sm" variant="soft" color="primary">
+                Read-only
+              </UBadge>
+            </div>
+            <div class="divide-y divide-default rounded-sm border border-default">
+              <div
+                v-for="definition in inheritedGlobalActionDefinitions"
+                :key="definition.id"
+                class="flex items-center justify-between gap-3 p-3"
+              >
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-medium">
+                    {{ definition.name }}
+                  </p>
+                  <p class="truncate text-xs text-muted">
+                    {{ definition.processorKey }} · {{ definition.executeRole }} · {{ definition.lockMode }}
+                  </p>
+                </div>
+                <UBadge size="sm" variant="soft" color="primary">
+                  Global
+                </UBadge>
+              </div>
+            </div>
+          </div>
+
           <div class="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
             <UFormField label="Assignment Scope">
               <USelectMenu
@@ -794,7 +837,7 @@ async function openDeleteSlideover() {
                 searchable
               />
             </UFormField>
-            <UFormField label="Available Processors">
+            <UFormField label="Available Actions">
               <USelectMenu
                 v-model="selectedActionDefinitionIds"
                 :items="actionDefinitionOptions"
@@ -802,7 +845,7 @@ async function openDeleteSlideover() {
                 multiple
                 searchable
                 :disabled="loadingActions || actionDefinitionOptions.length === 0"
-                placeholder="Select processors"
+                placeholder="Select Actions"
               />
             </UFormField>
             <UButton
@@ -814,13 +857,17 @@ async function openDeleteSlideover() {
             />
           </div>
 
+          <p v-if="!loadingActions && scopedActionDefinitions.length === 0" class="text-sm text-muted">
+            No workspace-scoped Actions are available. A global administrator can make Actions available from the Actions admin page.
+          </p>
+
           <div v-if="loadingActions" class="space-y-2">
             <USkeleton class="h-10 w-full" />
             <USkeleton class="h-10 w-full" />
           </div>
 
           <div v-else-if="actionAssignments.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
-            No processors are assigned for this scope.
+            No Actions are assigned for this scope.
           </div>
 
           <div v-else class="divide-y divide-default rounded-sm border border-default">

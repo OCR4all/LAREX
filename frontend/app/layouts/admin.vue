@@ -82,8 +82,8 @@ const groups = computed(() => {
       }
     }, {
       id: 'go-admin-actions',
-      label: 'Go to LAREX Actions',
-      icon: 'i-lucide-bolt',
+      label: 'Go to Actions',
+      icon: 'i-lucide-circle-play',
       suffix: 'Manage Action processor definitions',
       to: '/admin/actions',
       onSelect: () => { open.value = false }
@@ -255,6 +255,7 @@ const groups = computed(() => {
     <slot />
 
     <AppNotificationsSlideover />
+    <AppStatusOverlay />
     <WorkspaceSlideoverCreate />
   </UDashboardGroup>
 </template>

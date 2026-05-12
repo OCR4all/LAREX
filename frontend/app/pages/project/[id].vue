@@ -1214,7 +1214,7 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
   const larexActionItems: DropdownMenuItem[] = [
     {
       type: 'label',
-      label: 'LAREX Actions'
+      label: 'Actions'
     },
     {
       label: 'Run Action (full project)',
@@ -1945,21 +1945,6 @@ const resetFilters = () => {
 }
 
 const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
-  const larexActionItems: DropdownMenuItem[] = [
-    {
-      type: 'label',
-      label: 'LAREX Actions'
-    },
-    {
-      label: 'Run Action (selected pages)',
-      icon: 'i-lucide-play',
-      disabled: !hasSelection.value || project.value?.locked || !allow(projectCapabilities.value.canExecuteActions),
-      onSelect: () => {
-        void openActionRunSlideover('selection')
-      }
-    }
-  ]
-
   const exportItems: DropdownMenuItem[] = [
     {
       type: 'label',
@@ -2030,7 +2015,7 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return [larexActionItems, exportItems, utilityItems]
+  return [exportItems, utilityItems]
 })
 
 const uniqueTags = computed(() => {
@@ -2898,6 +2883,18 @@ useHead({
                 @click="openAddToDatasetSlideover"
               >
                 <span class="hidden sm:inline">Add To Dataset</span>
+              </UButton>
+              <UButton
+                icon="i-lucide-play"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="text-neutral-50 hover:bg-white/10"
+                :disabled="!hasSelection || project?.locked || !allow(projectCapabilities.canExecuteActions)"
+                aria-label="Run Action on selected pages"
+                @click="openActionRunSlideover('selection')"
+              >
+                <span class="hidden sm:inline">Run Action</span>
               </UButton>
               <UDropdownMenu :items="selectionMoreActionItems" :content="{ align: 'end' }">
                 <UButton

@@ -63,8 +63,7 @@ export const useBackendHealth = () => {
     if (import.meta.server) return false
 
     isChecking.value = true
-    const success = await checkHealth()
-    return success
+    return await checkHealth()
   }
 
   if (!import.meta.server) {

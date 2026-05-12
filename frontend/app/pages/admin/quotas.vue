@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
 import { LazyAdminSlideoverEditQuota } from '#components'
+import { getWorkspaceDisplayName, getWorkspaceSearchText, getWorkspaceSecondaryLabel } from '@/utils/workspace-display'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -29,10 +30,14 @@ interface AdminQuota {
 interface AdminWorkspace {
   id: string
   name: string
+  isPersonal: boolean
+  ownerUserId: string
+  ownerUsername?: string
 }
 
 type AdminQuotaRow = AdminQuota & {
-  workspaceName: string
+  workspaceDisplayName: string
+  workspaceSecondaryLabel: string | null
   name: string
   description: string
 }
@@ -74,8 +79,8 @@ async function openEditQuotaSlideover(quota: AdminQuotaRow) {
   await instance.result
 }
 
-const workspaceNameById = computed<Record<string, string>>(() => {
-  return Object.fromEntries((adminWorkspaces.value ?? []).map(workspace => [workspace.id, workspace.name]))
+const workspaceById = computed<Record<string, AdminWorkspace>>(() => {
+  return Object.fromEntries((adminWorkspaces.value ?? []).map(workspace => [workspace.id, workspace]))
 })
 
 const datatableUi = {
@@ -89,13 +94,16 @@ const datatableUi = {
 
 const quotaRows = computed<AdminQuotaRow[]>(() => {
   return (quotas.value ?? []).map((quota) => {
-    const workspaceName = workspaceNameById.value[quota.workspaceId] || quota.workspaceId
+    const workspace = workspaceById.value[quota.workspaceId] ?? { id: quota.workspaceId, name: quota.workspaceId, isPersonal: false, ownerUserId: '' }
+    const workspaceDisplayName = getWorkspaceDisplayName(workspace)
+    const workspaceSecondaryLabel = getWorkspaceSecondaryLabel(workspace)
 
     return {
       ...quota,
-      workspaceName,
-      name: workspaceName,
-      description: `${quota.workspaceId} ${quota.currentUsageFormatted} ${quota.quotaLimitFormatted}`
+      workspaceDisplayName,
+      workspaceSecondaryLabel,
+      name: workspaceDisplayName,
+      description: `${getWorkspaceSearchText(workspace)} ${quota.currentUsageFormatted} ${quota.quotaLimitFormatted}`
     }
   })
 })
@@ -148,11 +156,13 @@ function sortableHeader(label: string, column: string, initialDirection: 'asc' |
 
 const columns: TableColumn<AdminQuotaRow>[] = [
   {
-    accessorKey: 'workspaceName',
-    header: () => sortableHeader('Workspace', 'workspaceName', 'asc'),
-    cell: ({ row }) => h('div', { class: 'min-w-52' }, [
-      h('p', { class: 'font-medium' }, row.original.workspaceName),
-      h('p', { class: 'text-xs text-muted font-mono' }, row.original.workspaceId)
+    accessorKey: 'workspaceDisplayName',
+    header: () => sortableHeader('Workspace', 'workspaceDisplayName', 'asc'),
+    cell: ({ row }) => h('div', { class: 'min-w-52', title: row.original.workspaceId }, [
+      h('p', { class: 'font-medium' }, row.original.workspaceDisplayName),
+      row.original.workspaceSecondaryLabel
+        ? h('p', { class: 'text-xs text-muted' }, row.original.workspaceSecondaryLabel)
+        : h('p', { class: 'text-xs text-muted font-mono' }, row.original.workspaceId)
     ])
   },
   {

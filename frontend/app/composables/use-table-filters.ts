@@ -2,8 +2,8 @@
  * Reusable composable for table sorting, filtering, and searching
  */
 export type TagFilterOperator = 'and' | 'or'
-type ActiveFilter =
-  | {
+type ActiveFilter
+  = | {
     type: 'global'
     label: string
     value: string
@@ -26,7 +26,7 @@ export const useTableFilters = <T extends object>(
   const globalFilter = ref('')
   const columnFilters = ref<Record<string, string | string[] | boolean>>({})
   const tagFilterOperator = ref<TagFilterOperator>('or')
-  const globalSearchFields = ['name', 'description'] as const
+  const globalSearchFields = ['name', 'description', 'searchText'] as const
 
   const getValueByPath = (obj: unknown, path: string): unknown => {
     return path.split('.').reduce<unknown>((current, key) => {
