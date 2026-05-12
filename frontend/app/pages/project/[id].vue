@@ -620,7 +620,13 @@ async function openActionRunSlideover(scope: ProjectActionScope = 'all') {
     workspaceId: selectedWorkspace.value,
     projectId: project.value.id,
     projectName: project.value.name,
-    pageIds: getScopedPageIds(scope)
+    pageIds: getScopedPageIds(scope),
+    pages: pagesSafe.value.map(page => ({
+      id: page.id,
+      name: page.name,
+      imageCount: page.imageCount ?? 0,
+      xmlFileCount: page.xmlFileCount ?? 0
+    }))
   })
   const changed = await instance.result
   if (changed) {

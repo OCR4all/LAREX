@@ -7,11 +7,19 @@ import type {
   ExecutableActionProcessorResponse
 } from '@/types/action'
 
+type ActionRunPageSummary = {
+  id: string
+  name: string
+  imageCount: number
+  xmlFileCount: number
+}
+
 const props = defineProps<{
   workspaceId: string
   projectId: string
   projectName?: string | null
   pageIds?: string[]
+  pages?: ActionRunPageSummary[]
 }>()
 
 const emit = defineEmits<{
@@ -36,6 +44,33 @@ const selectedPageIds = computed(() => props.pageIds ?? [])
 const selectedProcessor = computed(() => processors.value.find(item => item.processor.id === selectedProcessorId.value) ?? null)
 const hasSelection = computed(() => selectedPageIds.value.length > 0)
 const submittedPageIds = computed(() => scope.value === 'selection' ? selectedPageIds.value : [])
+const scopedPages = computed(() => {
+  const pages = props.pages ?? []
+  if (scope.value === 'selection') {
+    const selected = new Set(selectedPageIds.value)
+    return pages.filter(page => selected.has(page.id))
+  }
+  return pages
+})
+const compatibilityWarnings = computed(() => {
+  const processor = selectedProcessor.value?.processor
+  if (!processor || scopedPages.value.length === 0) return []
+
+  const warnings: string[] = []
+  if (processor.acceptsImages) {
+    const missingImages = scopedPages.value.filter(page => page.imageCount <= 0)
+    if (missingImages.length > 0) {
+      warnings.push(`${missingImages.length} selected page${missingImages.length === 1 ? '' : 's'} ${missingImages.length === 1 ? 'has' : 'have'} no images.`)
+    }
+  }
+  if (processor.acceptsXml) {
+    const missingXml = scopedPages.value.filter(page => page.xmlFileCount <= 0)
+    if (missingXml.length > 0) {
+      warnings.push(`${missingXml.length} selected page${missingXml.length === 1 ? '' : 's'} ${missingXml.length === 1 ? 'has' : 'have'} no XML.`)
+    }
+  }
+  return warnings
+})
 const scopeSummary = computed(() => scope.value === 'selection' ? `${selectedPageIds.value.length} selected pages` : 'Total project')
 const scopeItems = computed(() => [
   { label: 'All pages', value: 'all', icon: 'i-lucide-files' },
@@ -248,6 +283,16 @@ function close() {
             variant="subtle"
             icon="i-lucide-lock-keyhole"
             :title="selectedProcessor.processor.lockMode === 'PROJECT' ? 'This Action locks the full project while it runs.' : 'This Action locks the selected pages while it runs.'"
+          />
+
+          <UAlert
+            v-for="warning in compatibilityWarnings"
+            :key="warning"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            :title="warning"
+            description="The Action can still run, but the processor will not receive that input type for those pages."
           />
 
           <UFormField label="Scope">
