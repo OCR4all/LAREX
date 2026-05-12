@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.action;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionAuditEvent;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionAuditEventRepository;
 import org.slf4j.Logger;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -49,6 +51,40 @@ public class ActionAuditService {
             log.warn("Failed to serialize Action audit event details for {}", action, e);
         } catch (RuntimeException e) {
             log.warn("Failed to persist Action audit event {}", action, e);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.AuditEventResponse> listForDefinition(String definitionId) {
+        return auditRepository.findTop100ByProcessorDefinitionIdOrderByCreatedDesc(definitionId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private ActionDto.AuditEventResponse toResponse(ActionAuditEvent event) {
+        return new ActionDto.AuditEventResponse(
+                event.getId(),
+                event.getAction(),
+                event.getOutcome(),
+                event.getActorUserId(),
+                event.getProcessorDefinitionId(),
+                event.getRunId(),
+                event.getWorkspaceId(),
+                event.getProjectId(),
+                parseDetails(event.getDetailsJson()),
+                event.getCreated()
+        );
+    }
+
+    private Object parseDetails(String detailsJson) {
+        if (detailsJson == null || detailsJson.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(detailsJson, Object.class);
+        } catch (JsonProcessingException e) {
+            return detailsJson;
         }
     }
 }

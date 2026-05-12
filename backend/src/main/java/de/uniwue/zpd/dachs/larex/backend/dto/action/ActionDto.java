@@ -167,6 +167,19 @@ public class ActionDto {
             long durationMillis
     ) {}
 
+    public record AuditEventResponse(
+            String id,
+            String action,
+            String outcome,
+            String actorUserId,
+            String processorDefinitionId,
+            String runId,
+            String workspaceId,
+            String projectId,
+            Object details,
+            LocalDateTime created
+    ) {}
+
     public record ActionRunLogEventResponse(
             String id,
             String level,

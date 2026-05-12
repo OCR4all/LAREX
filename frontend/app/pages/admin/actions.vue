@@ -14,7 +14,8 @@ import {
   type ActionWorkspaceAvailability,
   type AdminActionRun,
   type ClearActionRunsResponse,
-  type ActionHealthCheckResponse
+  type ActionHealthCheckResponse,
+  type ActionAuditEvent
 } from '@/types/action'
 import { extractApiErrorMessage } from '@/utils/api-error'
 import { generateRandomActionSlug } from '@/utils/random-action-slug'
@@ -52,6 +53,7 @@ const loadingAvailability = ref(false)
 const assigningAvailability = ref(false)
 const loadingRuns = ref(false)
 const clearingRuns = ref(false)
+const loadingAudit = ref(false)
 const testingEndpoint = ref(false)
 const diagnostics = ref<ActionValidationDiagnostic[]>([])
 const validation = ref<ActionValidationResponse | null>(null)
@@ -61,8 +63,11 @@ const workflowFilter = ref('')
 const selectedAvailabilityWorkspaceIds = ref<string[]>([])
 const workspaceAvailability = ref<ActionWorkspaceAvailability[]>([])
 const isRunsPanelVisible = ref(false)
+const isAuditPanelVisible = ref(false)
 const runs = ref<AdminActionRun[]>([])
+const auditEvents = ref<ActionAuditEvent[]>([])
 const expandedRunIds = ref<string[]>([])
+const expandedAuditEventIds = ref<string[]>([])
 
 let editorView: EditorView | null = null
 const themeCompartment = new Compartment()
@@ -130,6 +135,9 @@ watch(selectedId, async () => {
   if (isRunsPanelVisible.value) {
     await loadRuns()
   }
+  if (isAuditPanelVisible.value) {
+    await loadAuditEvents()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -192,6 +200,7 @@ function selectDefinition(definition: ActionDefinitionResponse) {
   validation.value = null
   diagnostics.value = []
   expandedRunIds.value = []
+  expandedAuditEventIds.value = []
   void nextTick(() => replaceEditorContent(definition.yaml))
 }
 
@@ -223,7 +232,9 @@ function createNewDefinition() {
   diagnostics.value = []
   workspaceAvailability.value = []
   runs.value = []
+  auditEvents.value = []
   expandedRunIds.value = []
+  expandedAuditEventIds.value = []
   void nextTick(() => replaceEditorContent(yaml))
 }
 
@@ -493,15 +504,27 @@ function discardDraft() {
   diagnostics.value = []
   workspaceAvailability.value = []
   runs.value = []
+  auditEvents.value = []
   expandedRunIds.value = []
+  expandedAuditEventIds.value = []
   void nextTick(() => replaceEditorContent(DEFAULT_ACTION_YAML))
 }
 
 async function toggleRunsPanel() {
   if (!selectedPersistedDefinition.value) return
+  isAuditPanelVisible.value = false
   isRunsPanelVisible.value = !isRunsPanelVisible.value
   if (isRunsPanelVisible.value) {
     await loadRuns()
+  }
+}
+
+async function toggleAuditPanel() {
+  if (!selectedPersistedDefinition.value) return
+  isRunsPanelVisible.value = false
+  isAuditPanelVisible.value = !isAuditPanelVisible.value
+  if (isAuditPanelVisible.value) {
+    await loadAuditEvents()
   }
 }
 
@@ -518,6 +541,25 @@ async function loadRuns() {
     toast.add({ title: 'Run load failed', description: message, color: 'error' })
   } finally {
     loadingRuns.value = false
+  }
+}
+
+async function loadAuditEvents() {
+  if (!selectedPersistedDefinition.value) {
+    auditEvents.value = []
+    return
+  }
+  loadingAudit.value = true
+  try {
+    auditEvents.value = await $fetch<ActionAuditEvent[]>(`/api/admin/actions/processors/${selectedPersistedDefinition.value.id}/audit`)
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Audit load failed',
+      description: extractApiErrorMessage(error, 'Could not load Action audit events.'),
+      color: 'error'
+    })
+  } finally {
+    loadingAudit.value = false
   }
 }
 
@@ -597,6 +639,16 @@ function isRunExpanded(runId: string) {
   return expandedRunIds.value.includes(runId)
 }
 
+function toggleAuditEventExpanded(eventId: string) {
+  expandedAuditEventIds.value = expandedAuditEventIds.value.includes(eventId)
+    ? expandedAuditEventIds.value.filter(id => id !== eventId)
+    : [...expandedAuditEventIds.value, eventId]
+}
+
+function isAuditEventExpanded(eventId: string) {
+  return expandedAuditEventIds.value.includes(eventId)
+}
+
 function isTerminalRun(status: AdminActionRun['status']) {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
 }
@@ -647,6 +699,38 @@ function formatResultSummary(value: unknown) {
   if (value === null || value === undefined) return 'No result summary.'
   if (typeof value === 'string') return value
   return JSON.stringify(value, null, 2)
+}
+
+function formatAuditAction(action: string) {
+  return action
+    .replace(/^ACTION_/, '')
+    .split('_')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
+function auditOutcomeColor(outcome: string): 'success' | 'error' | 'neutral' | 'warning' | 'primary' {
+  if (outcome === 'SUCCESS') return 'success'
+  if (outcome === 'FAILURE') return 'error'
+  return 'neutral'
+}
+
+function auditOutcomeIcon(outcome: string) {
+  if (outcome === 'SUCCESS') return 'i-lucide-shield-check'
+  if (outcome === 'FAILURE') return 'i-lucide-shield-alert'
+  return 'i-lucide-shield'
+}
+
+function auditOutcomeTextClass(outcome: string) {
+  if (outcome === 'SUCCESS') return 'text-success'
+  if (outcome === 'FAILURE') return 'text-error'
+  return 'text-muted'
+}
+
+function formatAuditDetails(details: unknown) {
+  if (details === null || details === undefined) return 'No details recorded.'
+  if (typeof details === 'string') return details
+  return JSON.stringify(details, null, 2)
 }
 
 function formatRunLogs(run: AdminActionRun) {
@@ -876,6 +960,17 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           >
             Runs
           </UButton>
+          <UButton
+            v-if="selectedPersistedDefinition"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            :icon="isAuditPanelVisible ? 'i-lucide-panel-right-close' : 'i-lucide-shield-check'"
+            :aria-label="isAuditPanelVisible ? 'Hide audit sidebar' : 'Show audit sidebar'"
+            @click="toggleAuditPanel"
+          >
+            Audit
+          </UButton>
         </template>
       </UDashboardToolbar>
     </template>
@@ -1082,6 +1177,89 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                       Logs
                     </p>
                     <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatRunLogs(run) }}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <aside
+          v-if="isAuditPanelVisible"
+          class="w-96 shrink-0 border-l border-neutral-200 bg-neutral-50/30 dark:border-neutral-700 dark:bg-neutral-800/50 overflow-y-auto"
+        >
+          <div class="border-b border-neutral-200 p-4 dark:border-neutral-700 lg:p-5">
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <h2 class="text-sm font-semibold">
+                  Audit Events
+                </h2>
+                <p class="text-xs text-muted">
+                  Last {{ auditEvents.length }} event{{ auditEvents.length === 1 ? '' : 's' }} for this Action
+                </p>
+              </div>
+              <UButton color="neutral" variant="ghost" icon="i-lucide-x" size="sm" @click="isAuditPanelVisible = false" />
+            </div>
+            <UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" size="sm" :loading="loadingAudit" @click="loadAuditEvents">
+              Refresh
+            </UButton>
+          </div>
+
+          <div class="p-3 lg:p-4">
+            <div v-if="loadingAudit" class="space-y-2">
+              <USkeleton class="h-20 w-full" />
+              <USkeleton class="h-20 w-full" />
+            </div>
+            <div v-else-if="auditEvents.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
+              No audit events recorded for this Action.
+            </div>
+            <div v-else class="divide-y divide-default rounded-sm border border-default bg-default">
+              <div v-for="event in auditEvents" :key="event.id" class="p-3">
+                <button type="button" class="flex w-full items-start gap-3 text-left" @click="toggleAuditEventExpanded(event.id)">
+                  <UIcon :name="auditOutcomeIcon(event.outcome)" class="mt-0.5 size-4 shrink-0" :class="auditOutcomeTextClass(event.outcome)" />
+                  <span class="min-w-0 flex-1">
+                    <span class="flex items-center justify-between gap-2">
+                      <span class="truncate text-sm font-medium">{{ formatAuditAction(event.action) }}</span>
+                      <UBadge size="sm" variant="soft" :color="auditOutcomeColor(event.outcome)">
+                        {{ event.outcome }}
+                      </UBadge>
+                    </span>
+                    <span class="mt-1 block truncate text-xs text-muted">
+                      {{ event.actorUserId || 'System' }}
+                    </span>
+                    <span class="mt-1 block text-xs text-muted">
+                      {{ formatDate(event.created) }}
+                    </span>
+                  </span>
+                  <UIcon :name="isAuditEventExpanded(event.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="mt-0.5 size-4 shrink-0 text-muted" />
+                </button>
+
+                <div v-if="isAuditEventExpanded(event.id)" class="mt-3 space-y-3 border-t border-default pt-3">
+                  <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                    <dt class="text-muted">
+                      Run
+                    </dt>
+                    <dd class="truncate">
+                      {{ event.runId || 'None' }}
+                    </dd>
+                    <dt class="text-muted">
+                      Workspace
+                    </dt>
+                    <dd class="truncate">
+                      {{ event.workspaceId || 'None' }}
+                    </dd>
+                    <dt class="text-muted">
+                      Project
+                    </dt>
+                    <dd class="truncate">
+                      {{ event.projectId || 'None' }}
+                    </dd>
+                  </dl>
+                  <div>
+                    <p class="mb-1 text-xs font-medium text-muted">
+                      Details
+                    </p>
+                    <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatAuditDetails(event.details) }}</pre>
                   </div>
                 </div>
               </div>

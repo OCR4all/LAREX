@@ -88,6 +88,13 @@ public class ActionDefinitionService {
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found")));
     }
 
+    @Transactional(readOnly = true)
+    public List<ActionDto.AuditEventResponse> listAuditEvents(String id) {
+        requireGlobalAdmin();
+        requireDefinition(id);
+        return actionAuditService.listForDefinition(id);
+    }
+
     public ActionDto.DefinitionResponse createDefinition(ActionDto.DefinitionRequest request, String userId) {
         requireGlobalAdmin();
         ParsedDefinition parsed = parseAndValidate(request.yaml(), null);

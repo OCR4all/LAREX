@@ -82,6 +82,11 @@ public class ActionAdminController {
         return ResponseEntity.ok(definitionService.testEndpoint(definitionId));
     }
 
+    @GetMapping("/{definitionId}/audit")
+    public ResponseEntity<List<ActionDto.AuditEventResponse>> listAuditEvents(@PathVariable String definitionId) {
+        return ResponseEntity.ok(definitionService.listAuditEvents(definitionId));
+    }
+
     @PutMapping("/{definitionId}/global")
     public ResponseEntity<ActionDto.DefinitionResponse> setGlobalAvailable(
             @PathVariable String definitionId,

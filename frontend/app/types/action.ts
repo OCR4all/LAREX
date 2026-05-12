@@ -158,6 +158,19 @@ export interface ActionHealthCheckResponse {
   durationMillis: number
 }
 
+export interface ActionAuditEvent {
+  id: string
+  action: string
+  outcome: string
+  actorUserId: string | null
+  processorDefinitionId: string | null
+  runId: string | null
+  workspaceId: string | null
+  projectId: string | null
+  details: unknown
+  created: string
+}
+
 export const DEFAULT_ACTION_YAML = `version: 1
 id: mock-image-copy
 name: Mock Image Copy
