@@ -60,6 +60,10 @@ larex:
       create-if-missing: ${LAREX_UPLOAD_CREATE_IF_MISSING:true}
       verify-writable: ${LAREX_UPLOAD_VERIFY_WRITABLE:true}
       fail-fast: ${LAREX_UPLOAD_STARTUP_FAIL_FAST:true}
+  actions:
+    public-base-url: ${LAREX_ACTIONS_PUBLIC_BASE_URL:}
+    public-base-url-allowed-origins: ${LAREX_ACTIONS_PUBLIC_BASE_URL_ALLOWED_ORIGINS:${cors.allowed-origin}}
+    public-base-url-require-https: ${LAREX_ACTIONS_PUBLIC_BASE_URL_REQUIRE_HTTPS:true}
   backup:
     enabled: ${LAREX_BACKUP_ENABLED:true}
     allowed-paths: ${LAREX_BACKUP_ALLOWED_PATHS:/mnt/data,/mnt/data/backups}

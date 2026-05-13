@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.action;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
+import de.uniwue.zpd.dachs.larex.backend.service.action.ActionPublicBaseUrlService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +23,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -34,15 +34,15 @@ import java.nio.file.Paths;
 public class PublicActionMachineController {
 
     private final ActionRunService actionRunService;
+    private final ActionPublicBaseUrlService publicBaseUrlService;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @Value("${larex.actions.public-base-url:}")
-    private String configuredPublicBaseUrl;
-
-    public PublicActionMachineController(ActionRunService actionRunService) {
+    public PublicActionMachineController(ActionRunService actionRunService,
+                                         ActionPublicBaseUrlService publicBaseUrlService) {
         this.actionRunService = actionRunService;
+        this.publicBaseUrlService = publicBaseUrlService;
     }
 
     @GetMapping("/{runId}/input")
@@ -50,7 +50,8 @@ public class PublicActionMachineController {
             @PathVariable String runId,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             HttpServletRequest request) {
-        return ResponseEntity.ok(actionRunService.buildMachineInput(runId, authorizationHeader, publicApiBaseUrl(request)));
+        return ResponseEntity.ok(actionRunService.buildMachineInput(runId, authorizationHeader,
+                publicBaseUrlService.publicApiBaseUrl(request)));
     }
 
     @GetMapping("/{runId}/files/{type}/{fileId}")
@@ -103,15 +104,4 @@ public class PublicActionMachineController {
         }
     }
 
-    private String publicApiBaseUrl(HttpServletRequest request) {
-        if (configuredPublicBaseUrl != null && !configuredPublicBaseUrl.isBlank()) {
-            return configuredPublicBaseUrl.replaceAll("/+$", "");
-        }
-        String root = ServletUriComponentsBuilder.fromRequestUri(request)
-                .replacePath(request.getContextPath())
-                .replaceQuery(null)
-                .build()
-                .toUriString();
-        return root + "/api/v1";
-    }
 }

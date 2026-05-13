@@ -1,10 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.action;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
+import de.uniwue.zpd.dachs.larex.backend.service.action.ActionPublicBaseUrlService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 
@@ -24,12 +23,12 @@ import java.util.List;
 public class ActionProjectController {
 
     private final ActionRunService actionRunService;
+    private final ActionPublicBaseUrlService publicBaseUrlService;
 
-    @Value("${larex.actions.public-base-url:}")
-    private String configuredPublicBaseUrl;
-
-    public ActionProjectController(ActionRunService actionRunService) {
+    public ActionProjectController(ActionRunService actionRunService,
+                                   ActionPublicBaseUrlService publicBaseUrlService) {
         this.actionRunService = actionRunService;
+        this.publicBaseUrlService = publicBaseUrlService;
     }
 
     @GetMapping("/processors/available")
@@ -84,7 +83,7 @@ public class ActionProjectController {
                 projectId,
                 request,
                 userId,
-                publicApiBaseUrl(httpRequest)
+                publicBaseUrlService.publicApiBaseUrl(httpRequest)
         ));
     }
 
@@ -117,7 +116,7 @@ public class ActionProjectController {
                 projectId,
                 runId,
                 userId,
-                publicApiBaseUrl(httpRequest)
+                publicBaseUrlService.publicApiBaseUrl(httpRequest)
         ));
     }
 
@@ -130,15 +129,4 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.cancelRun(workspaceId, projectId, runId, userId));
     }
 
-    private String publicApiBaseUrl(HttpServletRequest request) {
-        if (configuredPublicBaseUrl != null && !configuredPublicBaseUrl.isBlank()) {
-            return configuredPublicBaseUrl.replaceAll("/+$", "");
-        }
-        String root = ServletUriComponentsBuilder.fromRequestUri(request)
-                .replacePath(request.getContextPath())
-                .replaceQuery(null)
-                .build()
-                .toUriString();
-        return root + "/api/v1";
-    }
 }
