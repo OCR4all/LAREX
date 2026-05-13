@@ -1,9 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.repository.page;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -71,6 +73,15 @@ public interface PageRepository extends JpaRepository<Page, String> {
 
     @EntityGraph(attributePaths = {"project"})
     List<Page> findByIdInAndProjectId(List<String> pageIds, String projectId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Page p WHERE p.project.id = :projectId ORDER BY p.id")
+    List<Page> findByProjectIdForUpdate(@Param("projectId") String projectId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Page p WHERE p.id IN :pageIds AND p.project.id = :projectId ORDER BY p.id")
+    List<Page> findByIdInAndProjectIdForUpdate(@Param("pageIds") Collection<String> pageIds,
+                                               @Param("projectId") String projectId);
 
     @EntityGraph(attributePaths = {"project"})
     List<Page> findAllByIdIn(Collection<String> pageIds);

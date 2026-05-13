@@ -305,17 +305,17 @@ public class ActionRunService {
                                                ActionDto.StartRunRequest request,
                                                String userId,
                                                String publicApiBaseUrl) {
-        Project project = requireProject(workspaceId, projectId);
-        ActionProcessorDefinition definition = definitionRepository.findById(request.processorDefinitionId())
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(request.processorDefinitionId())
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
         }
         requireAssigned(workspaceId, projectId, definition.getId());
         requireExecuteAccess(definition, workspaceId, userId);
-        enforceConcurrencyLimit(definition, workspaceId, projectId);
 
-        List<Page> pages = resolveRunPages(projectId, request.pageIds());
+        Project project = requireProjectForUpdate(workspaceId, projectId);
+        List<Page> pages = resolveRunPagesForUpdate(projectId, request.pageIds());
+        enforceConcurrencyLimit(definition, workspaceId, projectId);
         validateLocks(project, pages);
         return createRun(
                 workspaceId,
@@ -399,15 +399,17 @@ public class ActionRunService {
             throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
         }
 
-        ActionProcessorDefinition definition = sourceRun.getProcessorDefinition();
+        ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(sourceRun.getProcessorDefinition().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
         if (!definition.isEnabled()) {
             throw new IllegalArgumentException("Action processor is disabled");
         }
         requireAssigned(workspaceId, projectId, definition.getId());
         requireExecuteAccess(definition, workspaceId, userId);
-        enforceConcurrencyLimit(definition, workspaceId, projectId);
 
-        List<Page> pages = resolveRunPages(projectId, readPageIds(sourceRun));
+        project = requireProjectForUpdate(workspaceId, projectId);
+        List<Page> pages = resolveRunPagesForUpdate(projectId, readPageIds(sourceRun));
+        enforceConcurrencyLimit(definition, workspaceId, projectId);
         validateLocks(project, pages);
         return createRun(
                 workspaceId,
@@ -1087,6 +1089,26 @@ public class ActionRunService {
         return pages;
     }
 
+    private List<Page> resolveRunPagesForUpdate(String projectId, List<String> requestedPageIds) {
+        List<Page> pages;
+        if (requestedPageIds == null || requestedPageIds.isEmpty()) {
+            pages = pageRepository.findByProjectIdForUpdate(projectId);
+        } else {
+            List<String> normalized = requestedPageIds.stream()
+                    .filter(id -> id != null && !id.isBlank())
+                    .distinct()
+                    .toList();
+            pages = pageRepository.findByIdInAndProjectIdForUpdate(normalized, projectId);
+            if (pages.size() != normalized.size()) {
+                throw new IllegalArgumentException("One or more pages do not belong to this project");
+            }
+        }
+        if (pages.isEmpty()) {
+            throw new IllegalArgumentException("No pages selected");
+        }
+        return pages;
+    }
+
     private void requireAssigned(String workspaceId, String projectId, String definitionId) {
         ActionProcessorDefinition definition = definitionRepository.findById(definitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Action processor definition not found"));
@@ -1144,6 +1166,11 @@ public class ActionRunService {
 
     private Project requireProject(String workspaceId, String projectId) {
         return projectRepository.findByIdAndLibraryWorkspaceId(projectId, workspaceId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found"));
+    }
+
+    private Project requireProjectForUpdate(String workspaceId, String projectId) {
+        return projectRepository.findByIdAndLibraryWorkspaceIdForUpdate(projectId, workspaceId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
     }
 
