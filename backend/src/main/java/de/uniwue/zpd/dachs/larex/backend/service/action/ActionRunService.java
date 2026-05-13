@@ -576,6 +576,7 @@ public class ActionRunService {
         return new ActionDto.HeartbeatResponse(run.isCancelRequested());
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public ActionDto.RunResponse receiveResults(String runId,
                                                 String authorizationHeader,
                                                 ActionDto.ResultManifest manifest,
@@ -691,6 +692,7 @@ public class ActionRunService {
         } else {
             pageXml = existing.get(0);
             String previousPath = pageXml.getFilePath();
+            List<String> replacedXmlStoragePaths = new ArrayList<>();
             pageXmlVersionService.createVersion(pageXml.getId(), run.getCreatedByUserId(), "Before LAREX Action " + run.getId());
             pageXml.setFileName(storedFile.originalFilename());
             pageXml.setFilePath(storedFile.storagePath());
@@ -701,14 +703,15 @@ public class ActionRunService {
             pageXml.setSchemaVersion(validation.pageVersion());
             pageXml.setPage(page);
             annotationReadCache.evict(pageXml.getId());
-            fileStorageService.deleteStoredFile(previousPath);
+            replacedXmlStoragePaths.add(previousPath);
 
             for (int index = 1; index < existing.size(); index++) {
                 PageXml duplicate = existing.get(index);
-                fileStorageService.deleteStoredFile(duplicate.getFilePath());
+                replacedXmlStoragePaths.add(duplicate.getFilePath());
                 pageXmlRepository.delete(duplicate);
                 annotationReadCache.evict(duplicate.getId());
             }
+            deleteStoredFilesAfterCommit(replacedXmlStoragePaths);
         }
 
         pageXml = pageXmlRepository.save(pageXml);
@@ -745,6 +748,30 @@ public class ActionRunService {
         }
     }
 
+    private void deleteStoredFilesAfterCommit(Collection<String> storagePaths) {
+        if (storagePaths == null || storagePaths.isEmpty()) {
+            return;
+        }
+        List<String> paths = storagePaths.stream()
+                .filter(path -> path != null && !path.isBlank())
+                .distinct()
+                .toList();
+        if (paths.isEmpty()) {
+            return;
+        }
+        Runnable task = () -> fileStorageService.deleteStoredFiles(paths);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    importTaskExecutor.execute(task);
+                }
+            });
+        } else {
+            task.run();
+        }
+    }
+
     private Map<String, Object> storeImageResult(ActionRun run, ActionDto.ResultFile resultFile, MultipartFile file) throws IOException {
         validateResultFileSize(file);
         if (file.getContentType() == null || !file.getContentType().startsWith("image/")) {
@@ -758,13 +785,15 @@ public class ActionRunService {
         String variant = normalizeVariant(resultFile.variant(), "action");
         String originalName = chooseFileName(resultFile.fileName(), file.getOriginalFilename(), page.getName() + "-" + variant);
         List<PageImage> existing = pageImageRepository.findByPageIdAndVariant(page.getId(), variant);
+        List<String> replacedStoragePaths = new ArrayList<>();
         for (PageImage image : existing) {
-            fileStorageService.deleteStoredFile(image.getFilePath());
+            replacedStoragePaths.add(image.getFilePath());
             if (image.getThumbnailPath() != null) {
-                fileStorageService.deleteStoredFile(image.getThumbnailPath());
+                replacedStoragePaths.add(image.getThumbnailPath());
             }
             pageImageRepository.delete(image);
         }
+        deleteStoredFilesAfterCommit(replacedStoragePaths);
 
         var storedFile = fileStorageService.storeMultipartFile(new RenamedMultipartFile(file, originalName, file.getContentType()),
                 run.getWorkspaceId(), run.getProjectId(), StoredFileType.IMG, run.getCreatedByUserId());
