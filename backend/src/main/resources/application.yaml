@@ -159,6 +159,9 @@ larex:
     public-base-url: ${LAREX_ACTIONS_PUBLIC_BASE_URL:}
     public-base-url-allowed-origins: ${LAREX_ACTIONS_PUBLIC_BASE_URL_ALLOWED_ORIGINS:${cors.allowed-origin}}
     public-base-url-require-https: ${LAREX_ACTIONS_PUBLIC_BASE_URL_REQUIRE_HTTPS:true}
+    endpoint-allowed-origins: ${LAREX_ACTIONS_ENDPOINT_ALLOWED_ORIGINS:}
+    endpoint-require-https: ${LAREX_ACTIONS_ENDPOINT_REQUIRE_HTTPS:true}
+    endpoint-allow-insecure-local: ${LAREX_ACTIONS_ENDPOINT_ALLOW_INSECURE_LOCAL:true}
     endpoint-secrets: {}
   error-log:
     retention-days: ${LAREX_ERROR_LOG_RETENTION_DAYS:30}

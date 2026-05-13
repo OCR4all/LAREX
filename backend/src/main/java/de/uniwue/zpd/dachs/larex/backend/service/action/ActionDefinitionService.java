@@ -18,6 +18,7 @@ import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssign
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,9 +31,12 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Transactional
@@ -52,6 +56,15 @@ public class ActionDefinitionService {
     private final ObjectMapper yamlMapper;
     private final ObjectMapper jsonMapper;
     private final HttpClient httpClient;
+
+    @Value("${larex.actions.endpoint-allowed-origins:}")
+    private String endpointAllowedOrigins;
+
+    @Value("${larex.actions.endpoint-require-https:true}")
+    private boolean endpointRequireHttps;
+
+    @Value("${larex.actions.endpoint-allow-insecure-local:true}")
+    private boolean endpointAllowInsecureLocal;
 
     public ActionDefinitionService(ActionProcessorDefinitionRepository definitionRepository,
                                    ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
@@ -343,6 +356,14 @@ public class ActionDefinitionService {
         }
     }
 
+    public void requireEndpointUrlAllowed(String rawUrl) {
+        List<ActionDto.ValidationDiagnostic> diagnostics = new ArrayList<>();
+        validateEndpointUrl(rawUrl, "endpoint.url", diagnostics);
+        if (!diagnostics.isEmpty()) {
+            throw new SecurityException(diagnostics.get(0).message());
+        }
+    }
+
     public ActionDto.DefinitionResponse toDefinitionResponse(ActionProcessorDefinition definition) {
         return new ActionDto.DefinitionResponse(
                 definition.getId(),
@@ -385,6 +406,7 @@ public class ActionDefinitionService {
                 : definition.getEndpointUrl();
         long start = System.nanoTime();
         try {
+            requireEndpointUrlAllowed(url);
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .timeout(Duration.ofSeconds(Math.min(10, Math.max(1, definition.getEndpointTimeoutSeconds()))))
                     .method(document.endpoint() != null && document.endpoint().healthUrl() != null && !document.endpoint().healthUrl().isBlank() ? "GET" : "HEAD",
@@ -573,9 +595,68 @@ public class ActionDefinitionService {
             if (uri.getHost() == null || uri.getHost().isBlank()) {
                 diagnostics.add(error(path, path + " must include a host"));
             }
+            if (uri.getUserInfo() != null && !uri.getUserInfo().isBlank()) {
+                diagnostics.add(error(path, path + " must not include credentials"));
+            }
+            if (uri.getFragment() != null && !uri.getFragment().isBlank()) {
+                diagnostics.add(error(path, path + " must not include a fragment"));
+            }
+            validateEndpointOriginPolicy(uri, path, diagnostics);
         } catch (URISyntaxException e) {
             diagnostics.add(error(path, path + " is not a valid URI"));
         }
+    }
+
+    private void validateEndpointOriginPolicy(URI uri, String path, List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (uri.getScheme() == null || uri.getHost() == null) {
+            return;
+        }
+        boolean localOrPrivate = isLocalOrPrivateEndpoint(uri);
+        if (endpointRequireHttps
+                && !"https".equalsIgnoreCase(uri.getScheme())
+                && !(endpointAllowInsecureLocal && localOrPrivate)) {
+            diagnostics.add(error(path, path + " must use https unless it targets an allowed local endpoint"));
+        }
+
+        Set<String> allowedOrigins = configuredEndpointAllowedOrigins(diagnostics);
+        if (!allowedOrigins.isEmpty() && !allowedOrigins.contains(originOf(uri))) {
+            diagnostics.add(error(path, "Action endpoint origin is not allowlisted"));
+        }
+    }
+
+    private Set<String> configuredEndpointAllowedOrigins(List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (endpointAllowedOrigins == null || endpointAllowedOrigins.isBlank()) {
+            return Set.of();
+        }
+        Set<String> origins = new LinkedHashSet<>();
+        Arrays.stream(endpointAllowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .forEach(origin -> {
+                    try {
+                        URI uri = new URI(origin);
+                        if (uri.getScheme() == null || uri.getHost() == null || uri.getUserInfo() != null) {
+                            diagnostics.add(error("larex.actions.endpoint-allowed-origins",
+                                    "Configured Action endpoint allowed origin is invalid: " + origin));
+                            return;
+                        }
+                        origins.add(originOf(uri));
+                    } catch (URISyntaxException e) {
+                        diagnostics.add(error("larex.actions.endpoint-allowed-origins",
+                                "Configured Action endpoint allowed origin is invalid: " + origin));
+                    }
+                });
+        return origins;
+    }
+
+    private String originOf(URI uri) {
+        String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
+        String host = uri.getHost().toLowerCase(Locale.ROOT);
+        int port = uri.getPort();
+        if (port < 0) {
+            port = "https".equals(scheme) ? 443 : 80;
+        }
+        return scheme + "://" + host + ":" + port;
     }
 
     private void validateEndpointAuth(ActionDefinitionDocument.Endpoint endpoint,
@@ -624,26 +705,33 @@ public class ActionDefinitionService {
     }
 
     private boolean isExternalEndpoint(URI uri) {
+        return !isLocalOrPrivateEndpoint(uri);
+    }
+
+    private boolean isLocalOrPrivateEndpoint(URI uri) {
         String host = uri.getHost();
         if (host == null || host.isBlank()) {
-            return true;
+            return false;
         }
         String normalizedHost = host.toLowerCase(Locale.ROOT);
         if ("localhost".equals(normalizedHost)
                 || normalizedHost.endsWith(".localhost")
                 || normalizedHost.endsWith(".local")
                 || !normalizedHost.contains(".")) {
-            return false;
+            return true;
         }
         if (normalizedHost.startsWith("127.")
                 || normalizedHost.startsWith("10.")
-                || normalizedHost.startsWith("192.168.")) {
-            return false;
+                || normalizedHost.startsWith("192.168.")
+                || "::1".equals(normalizedHost)
+                || "0:0:0:0:0:0:0:1".equals(normalizedHost)
+                || normalizedHost.startsWith("fe80:")) {
+            return true;
         }
         if (normalizedHost.matches("172\\.(1[6-9]|2[0-9]|3[0-1])\\..*")) {
-            return false;
+            return true;
         }
-        return true;
+        return false;
     }
 
     private <E extends Enum<E>> E enumValue(Class<E> enumClass,

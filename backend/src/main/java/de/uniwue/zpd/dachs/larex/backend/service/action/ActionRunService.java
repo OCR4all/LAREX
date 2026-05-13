@@ -79,6 +79,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 @Service
 @Transactional
@@ -89,6 +90,8 @@ public class ActionRunService {
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {};
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final Pattern ACTION_RUN_SECRET_PATTERN = Pattern.compile("lrx_act_[A-Za-z0-9_-]{20,}");
+    private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+\\-/]+=*");
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorAssignmentRepository assignmentRepository;
@@ -561,18 +564,18 @@ public class ActionRunService {
             run.setProgressPercent(Math.max(0, Math.min(100, request.progressPercent())));
         }
         if (request.statusMessage() != null) {
-            run.setStatusMessage(limit(request.statusMessage(), 2000));
+            run.setStatusMessage(limit(redactProcessorSecrets(request.statusMessage()), 2000));
         }
         appendLog(run, request.logLevel(), request.log());
         if ("failed".equalsIgnoreCase(request.status())) {
             run.setStatus(Status.FAILED);
-            run.setErrorMessage(limit(request.errorMessage(), 4000));
+            run.setErrorMessage(limit(redactProcessorSecrets(request.errorMessage()), 4000));
             run.setCompletedAt(LocalDateTime.now());
             expireRunSecret(run);
             releaseLocks(run);
             actionAuditService.record("ACTION_RUN_HEARTBEAT_FAILED", "FAILURE", run.getCreatedByUserId(),
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
-                    Map.of("error", limit(Objects.toString(request.errorMessage(), ""), 1000)));
+                    Map.of("error", limit(Objects.toString(redactProcessorSecrets(request.errorMessage()), ""), 1000)));
         }
         runRepository.save(run);
         return new ActionDto.HeartbeatResponse(run.isCancelRequested());
@@ -633,7 +636,7 @@ public class ActionRunService {
             }
             run.setResultSummaryJson(writeJson(stored));
             run.setStatus("failed".equalsIgnoreCase(manifest.status()) ? Status.FAILED : Status.COMPLETED);
-            run.setStatusMessage(limit(manifest.message(), 2000));
+            run.setStatusMessage(limit(redactProcessorSecrets(manifest.message()), 2000));
             run.setProgressPercent(run.getStatus() == Status.COMPLETED ? 100 : run.getProgressPercent());
             run.setCompletedAt(LocalDateTime.now());
             expireRunSecret(run);
@@ -919,6 +922,7 @@ public class ActionRunService {
         payload.put("heartbeatUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/heartbeat");
         payload.put("resultUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/results");
 
+        definitionService.requireEndpointUrlAllowed(definition.getEndpointUrl());
         URI endpointUri = URI.create(definition.getEndpointUrl());
         String body = writeJson(payload);
         Map<String, String> authHeaders = endpointAuthService.buildDispatchHeaders(
@@ -1597,9 +1601,10 @@ public class ActionRunService {
         if (logMessage == null || logMessage.isBlank()) {
             return;
         }
+        String safeLogMessage = redactProcessorSecrets(logMessage).trim();
         String existing = run.getLogText() == null ? "" : run.getLogText();
-        run.setLogText(limit(existing + (existing.isEmpty() ? "" : "\n") + logMessage.trim(), 100_000));
-        appendLogEvent(run, level, logMessage);
+        run.setLogText(limit(existing + (existing.isEmpty() ? "" : "\n") + safeLogMessage, 100_000));
+        appendLogEvent(run, level, safeLogMessage);
     }
 
     private void appendLogEvent(ActionRun run, String level, String logMessage) {
@@ -1619,6 +1624,14 @@ public class ActionRunService {
         }
         String normalized = level.trim().toUpperCase(Locale.ROOT);
         return List.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR").contains(normalized) ? normalized : "INFO";
+    }
+
+    private String redactProcessorSecrets(String value) {
+        if (value == null) {
+            return null;
+        }
+        String redacted = ACTION_RUN_SECRET_PATTERN.matcher(value).replaceAll("lrx_act_[redacted]");
+        return BEARER_TOKEN_PATTERN.matcher(redacted).replaceAll("Bearer [redacted]");
     }
 
     private String limit(String value, int maxLength) {
