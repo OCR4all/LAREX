@@ -114,6 +114,14 @@ export interface StartActionRunResponse {
   run: ActionRun
 }
 
+export interface ActionRunDetail {
+  run: ActionRun
+  logText: string | null
+  logEvents: ActionRunLogEvent[]
+  resultSummary: unknown
+  durationSeconds: number | null
+}
+
 export interface AdminActionRun {
   id: string
   processorDefinitionId: string

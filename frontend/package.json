@@ -73,10 +73,13 @@
     "overrides": {
       "vue-router": "5.0.3"
     },
-    "ignoredBuiltDependencies": [
+    "onlyBuiltDependencies": [
       "@parcel/watcher",
+      "@tailwindcss/oxide",
       "esbuild",
       "maplibre-gl",
+      "sharp",
+      "unrs-resolver",
       "vue-demi"
     ]
   },

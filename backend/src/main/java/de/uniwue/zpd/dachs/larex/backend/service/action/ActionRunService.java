@@ -314,7 +314,30 @@ public class ActionRunService {
 
         List<Page> pages = resolveRunPages(projectId, request.pageIds());
         validateLocks(project, pages);
+        return createRun(
+                workspaceId,
+                projectId,
+                project,
+                definition,
+                pages,
+                userId,
+                publicApiBaseUrl,
+                resolveRunParameters(definition),
+                "ACTION_RUN_START",
+                Map.of()
+        );
+    }
 
+    private ActionDto.StartRunResponse createRun(String workspaceId,
+                                                 String projectId,
+                                                 Project project,
+                                                 ActionProcessorDefinition definition,
+                                                 List<Page> pages,
+                                                 String userId,
+                                                 String publicApiBaseUrl,
+                                                 Map<String, Object> parameters,
+                                                 String auditAction,
+                                                 Map<String, ?> auditDetails) {
         String rawSecret = "lrx_act_" + generateOpaqueToken(32);
         ActionRun run = new ActionRun();
         run.setProcessorDefinition(definition);
@@ -324,7 +347,7 @@ public class ActionRunService {
         run.setStatus(Status.PENDING);
         run.setLockMode(definition.getLockMode());
         run.setPageIdsJson(writeJson(pages.stream().map(Page::getId).toList()));
-        run.setParametersJson(writeJson(resolveRunParameters(definition)));
+        run.setParametersJson(writeJson(parameters));
         run.setSecretHash(sha256(rawSecret));
         run.setSecretPrefix(rawSecret.substring(0, Math.min(rawSecret.length(), 12)));
         run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(definitionService.defaultTokenTtlMinutes()));
@@ -333,8 +356,13 @@ public class ActionRunService {
 
         applyLocks(project, pages, run);
         ActionRun savedRun = runRepository.save(run);
-        actionAuditService.record("ACTION_RUN_START", "SUCCESS", userId, definition.getId(), savedRun.getId(),
-                workspaceId, projectId, Map.of("pageCount", pages.size()));
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("pageCount", pages.size());
+        if (auditDetails != null) {
+            details.putAll(auditDetails);
+        }
+        actionAuditService.record(auditAction, "SUCCESS", userId, definition.getId(), savedRun.getId(),
+                workspaceId, projectId, details);
         dispatchAfterCommit(savedRun.getId(), rawSecret, publicApiBaseUrl);
         return new ActionDto.StartRunResponse(toRunResponse(savedRun));
     }
@@ -347,6 +375,49 @@ public class ActionRunService {
                 .stream()
                 .map(this::toRunResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.RunDetailResponse getRunDetail(String workspaceId, String projectId, String runId, String userId) {
+        requireProject(workspaceId, projectId);
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        ActionRun run = requireRun(workspaceId, projectId, runId);
+        return toRunDetailResponse(run);
+    }
+
+    public ActionDto.StartRunResponse retryRun(String workspaceId,
+                                               String projectId,
+                                               String runId,
+                                               String userId,
+                                               String publicApiBaseUrl) {
+        Project project = requireProject(workspaceId, projectId);
+        ActionRun sourceRun = requireRun(workspaceId, projectId, runId);
+        if (sourceRun.getStatus() != Status.FAILED && sourceRun.getStatus() != Status.CANCELLED) {
+            throw new IllegalStateException("Only failed or cancelled Action runs can be retried");
+        }
+
+        ActionProcessorDefinition definition = sourceRun.getProcessorDefinition();
+        if (!definition.isEnabled()) {
+            throw new IllegalArgumentException("Action processor is disabled");
+        }
+        requireAssigned(workspaceId, projectId, definition.getId());
+        requireExecuteAccess(definition, workspaceId, userId);
+        enforceConcurrencyLimit(definition, workspaceId, projectId);
+
+        List<Page> pages = resolveRunPages(projectId, readPageIds(sourceRun));
+        validateLocks(project, pages);
+        return createRun(
+                workspaceId,
+                projectId,
+                project,
+                definition,
+                pages,
+                userId,
+                publicApiBaseUrl,
+                readObjectMap(sourceRun.getParametersJson()),
+                "ACTION_RUN_RETRY",
+                Map.of("sourceRunId", sourceRun.getId())
+        );
     }
 
     @Transactional(readOnly = true)
@@ -1127,6 +1198,18 @@ public class ActionRunService {
                 run.getCreated(),
                 run.getUpdated(),
                 run.getCompletedAt()
+        );
+    }
+
+    private ActionDto.RunDetailResponse toRunDetailResponse(ActionRun run) {
+        return new ActionDto.RunDetailResponse(
+                toRunResponse(run),
+                run.getLogText(),
+                logEventRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
+                        .map(this::toLogEventResponse)
+                        .toList(),
+                readResultSummary(run.getResultSummaryJson()),
+                durationSeconds(run)
         );
     }
 

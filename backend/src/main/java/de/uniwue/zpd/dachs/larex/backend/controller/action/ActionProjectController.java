@@ -96,6 +96,31 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.listRuns(workspaceId, projectId, userId));
     }
 
+    @GetMapping("/projects/{projectId}/runs/{runId}")
+    public ResponseEntity<ActionDto.RunDetailResponse> getRun(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.getRunDetail(workspaceId, projectId, runId, userId));
+    }
+
+    @PostMapping("/projects/{projectId}/runs/{runId}/retry")
+    public ResponseEntity<ActionDto.StartRunResponse> retryRun(
+            @PathVariable String workspaceId,
+            @PathVariable String projectId,
+            @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(actionRunService.retryRun(
+                workspaceId,
+                projectId,
+                runId,
+                userId,
+                publicApiBaseUrl(httpRequest)
+        ));
+    }
+
     @PostMapping("/projects/{projectId}/runs/{runId}/cancel")
     public ResponseEntity<ActionDto.RunResponse> cancelRun(
             @PathVariable String workspaceId,

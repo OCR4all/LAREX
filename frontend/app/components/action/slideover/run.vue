@@ -3,6 +3,7 @@ import { parse } from 'yaml'
 import type {
   ActionParameterDefinition,
   ActionRun,
+  ActionRunDetail,
   StartActionRunResponse,
   ExecutableActionProcessorResponse
 } from '@/types/action'
@@ -37,11 +38,17 @@ const scope = ref<'all' | 'selection'>((props.pageIds?.length ?? 0) > 0 ? 'selec
 const loading = ref(false)
 const starting = ref(false)
 const cancellingRunId = ref<string | null>(null)
+const retryingRunId = ref<string | null>(null)
 const changed = ref(false)
+const expandedRunIds = ref<string[]>([])
+const loadingRunDetailIds = ref<string[]>([])
+const runDetails = ref<Record<string, ActionRunDetail>>({})
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const selectedPageIds = computed(() => props.pageIds ?? [])
 const selectedProcessor = computed(() => processors.value.find(item => item.processor.id === selectedProcessorId.value) ?? null)
+const executableProcessors = computed(() => processors.value.filter(item => item.executable))
+const unavailableProcessors = computed(() => processors.value.filter(item => !item.executable))
 const hasSelection = computed(() => selectedPageIds.value.length > 0)
 const submittedPageIds = computed(() => scope.value === 'selection' ? selectedPageIds.value : [])
 const scopedPages = computed(() => {
@@ -76,10 +83,9 @@ const scopeItems = computed(() => [
   { label: 'All pages', value: 'all', icon: 'i-lucide-files' },
   { label: 'Selected pages', value: 'selection', icon: 'i-lucide-check-square', disabled: !hasSelection.value }
 ])
-const processorOptions = computed(() => processors.value.map(item => ({
+const processorOptions = computed(() => executableProcessors.value.map(item => ({
   label: item.processor.name,
-  value: item.processor.id,
-  disabled: !item.executable
+  value: item.processor.id
 })))
 const parameterEntries = computed(() => {
   const yaml = selectedProcessor.value?.processor.yaml
@@ -142,8 +148,9 @@ async function loadProcessors() {
     processors.value = await $fetch<ExecutableActionProcessorResponse[]>(
       `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/processors`
     )
-    if (!selectedProcessorId.value && processors.value[0]) {
-      selectedProcessorId.value = processors.value[0].processor.id
+    const stillExecutable = executableProcessors.value.some(item => item.processor.id === selectedProcessorId.value)
+    if (!stillExecutable) {
+      selectedProcessorId.value = executableProcessors.value[0]?.processor.id ?? ''
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Could not load assigned Actions.'
@@ -159,6 +166,12 @@ async function loadRuns() {
       `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs`
     )
     actionRunsStore.upsertRuns(runs.value, props.projectName || props.projectId)
+    for (const run of runs.value) {
+      const detail = runDetails.value[run.id]
+      if (detail) {
+        detail.run = run
+      }
+    }
   } catch {
     // Keep the current history visible if a polling request fails.
   }
@@ -221,6 +234,49 @@ async function cancelRun(run: ActionRun) {
   }
 }
 
+async function retryRun(run: ActionRun) {
+  retryingRunId.value = run.id
+  try {
+    const result = await $fetch<StartActionRunResponse>(
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs/${run.id}/retry`,
+      { method: 'POST' }
+    )
+    actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
+    changed.value = true
+    await loadRuns()
+    toast.add({ title: 'Action retry started', color: 'success', icon: 'i-lucide-rotate-cw' })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Could not retry Action run.'
+    toast.add({ title: 'Retry failed', description: message, color: 'error' })
+  } finally {
+    retryingRunId.value = null
+  }
+}
+
+async function toggleRunExpanded(run: ActionRun) {
+  expandedRunIds.value = expandedRunIds.value.includes(run.id)
+    ? expandedRunIds.value.filter(id => id !== run.id)
+    : [...expandedRunIds.value, run.id]
+  if (expandedRunIds.value.includes(run.id) && !runDetails.value[run.id]) {
+    await loadRunDetail(run.id)
+  }
+}
+
+async function loadRunDetail(runId: string) {
+  loadingRunDetailIds.value = [...loadingRunDetailIds.value, runId]
+  try {
+    const detail = await $fetch<ActionRunDetail>(
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs/${runId}`
+    )
+    runDetails.value = { ...runDetails.value, [runId]: detail }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Could not load Action run details.'
+    toast.add({ title: 'Run detail failed', description: message, color: 'error' })
+  } finally {
+    loadingRunDetailIds.value = loadingRunDetailIds.value.filter(id => id !== runId)
+  }
+}
+
 function statusColor(status: ActionRun['status']) {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED' || status === 'CANCELLED') return 'error'
@@ -230,6 +286,76 @@ function statusColor(status: ActionRun['status']) {
 
 function isActiveRun(run: ActionRun) {
   return ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
+}
+
+function canRetryRun(run: ActionRun) {
+  return run.status === 'FAILED' || run.status === 'CANCELLED'
+}
+
+function isRunExpanded(run: ActionRun) {
+  return expandedRunIds.value.includes(run.id)
+}
+
+function isRunDetailLoading(run: ActionRun) {
+  return loadingRunDetailIds.value.includes(run.id)
+}
+
+function formatDate(value: string | null) {
+  if (!value) return 'Never'
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(value))
+}
+
+function formatDuration(seconds: number | null | undefined) {
+  if (seconds === null || seconds === undefined) return 'Running'
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return `${minutes}m ${remainder}s`
+}
+
+function formatResultSummary(value: unknown) {
+  if (value === null || value === undefined) return 'No result summary.'
+  if (typeof value === 'string') return value
+  return JSON.stringify(value, null, 2)
+}
+
+function formatRunLogs(detail: ActionRunDetail) {
+  if (detail.logEvents?.length) {
+    return detail.logEvents
+      .map(event => `[${formatDate(event.created)}] ${event.level}: ${event.message}`)
+      .join('\n')
+  }
+  return detail.logText || 'No logs recorded.'
+}
+
+function runDetailFor(run: ActionRun) {
+  return runDetails.value[run.id] ?? null
+}
+
+function formatRunDetailCreated(run: ActionRun) {
+  return formatDate(runDetailFor(run)?.run.created ?? null)
+}
+
+function formatRunDetailUpdated(run: ActionRun) {
+  return formatDate(runDetailFor(run)?.run.updated ?? null)
+}
+
+function formatRunDetailDuration(run: ActionRun) {
+  return formatDuration(runDetailFor(run)?.durationSeconds)
+}
+
+function formatRunDetailResultSummary(run: ActionRun) {
+  return formatResultSummary(runDetailFor(run)?.resultSummary)
+}
+
+function formatRunDetailLogs(run: ActionRun) {
+  const detail = runDetailFor(run)
+  return detail ? formatRunLogs(detail) : 'No logs recorded.'
 }
 
 function close() {
@@ -270,12 +396,37 @@ function close() {
           />
 
           <UAlert
-            v-if="selectedProcessor?.blockedReason"
+            v-else-if="!loading && executableProcessors.length === 0"
             color="warning"
             variant="subtle"
             icon="i-lucide-lock"
-            :title="selectedProcessor.blockedReason"
+            title="No Actions are available for your role right now."
           />
+
+          <div v-if="unavailableProcessors.length > 0" class="space-y-2">
+            <p class="text-xs font-medium text-muted">
+              Unavailable Actions
+            </p>
+            <div class="divide-y divide-default rounded-sm border border-default">
+              <div
+                v-for="item in unavailableProcessors"
+                :key="item.processor.id"
+                class="flex items-center justify-between gap-3 px-3 py-2"
+              >
+                <div class="min-w-0">
+                  <p class="truncate text-sm">
+                    {{ item.processor.name }}
+                  </p>
+                  <p class="truncate text-xs text-muted">
+                    {{ item.blockedReason || 'Unavailable' }}
+                  </p>
+                </div>
+                <UBadge size="sm" variant="soft" color="neutral">
+                  Hidden
+                </UBadge>
+              </div>
+            </div>
+          </div>
 
           <UAlert
             v-if="selectedProcessor"
@@ -384,18 +535,28 @@ function close() {
                   class="space-y-2 py-3 first:pt-0 last:pb-0"
                 >
                   <div class="flex items-center justify-between gap-3">
-                    <div class="min-w-0">
+                    <button type="button" class="min-w-0 text-left" @click="toggleRunExpanded(run)">
                       <p class="truncate text-sm font-medium">
                         {{ run.processorName }}
                       </p>
                       <p class="truncate text-xs text-muted">
                         {{ run.pageIds.length }} pages · {{ run.statusMessage || run.processorKey }}
                       </p>
-                    </div>
+                    </button>
                     <div class="flex items-center gap-2">
                       <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
                         {{ run.status }}
                       </UBadge>
+                      <UButton
+                        v-if="canRetryRun(run)"
+                        color="neutral"
+                        variant="ghost"
+                        icon="i-lucide-rotate-cw"
+                        size="sm"
+                        :loading="retryingRunId === run.id"
+                        aria-label="Retry Action run"
+                        @click="retryRun(run)"
+                      />
                       <UButton
                         v-if="isActiveRun(run)"
                         color="warning"
@@ -405,12 +566,60 @@ function close() {
                         :loading="cancellingRunId === run.id"
                         @click="cancelRun(run)"
                       />
+                      <UButton
+                        color="neutral"
+                        variant="ghost"
+                        :icon="isRunExpanded(run) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                        size="sm"
+                        aria-label="Show Action run details"
+                        @click="toggleRunExpanded(run)"
+                      />
                     </div>
                   </div>
                   <UProgress :model-value="run.progressPercent" />
                   <p v-if="run.errorMessage" class="text-xs text-error">
                     {{ run.errorMessage }}
                   </p>
+                  <div v-if="isRunExpanded(run)" class="space-y-3 border-t border-default pt-3">
+                    <div v-if="isRunDetailLoading(run)" class="space-y-2">
+                      <USkeleton class="h-5 w-1/2" />
+                      <USkeleton class="h-24 w-full" />
+                    </div>
+                    <template v-else-if="runDetails[run.id]">
+                      <dl class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                        <dt class="text-muted">
+                          Created
+                        </dt>
+                        <dd>
+                          {{ formatRunDetailCreated(run) }}
+                        </dd>
+                        <dt class="text-muted">
+                          Updated
+                        </dt>
+                        <dd>
+                          {{ formatRunDetailUpdated(run) }}
+                        </dd>
+                        <dt class="text-muted">
+                          Duration
+                        </dt>
+                        <dd>
+                          {{ formatRunDetailDuration(run) }}
+                        </dd>
+                      </dl>
+                      <div>
+                        <p class="mb-1 text-xs font-medium text-muted">
+                          Result Summary
+                        </p>
+                        <pre class="max-h-40 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatRunDetailResultSummary(run) }}</pre>
+                      </div>
+                      <div>
+                        <p class="mb-1 text-xs font-medium text-muted">
+                          Logs
+                        </p>
+                        <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatRunDetailLogs(run) }}</pre>
+                      </div>
+                    </template>
+                  </div>
                 </div>
               </div>
             </div>

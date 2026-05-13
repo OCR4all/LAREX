@@ -1,0 +1,9 @@
+node_modules
+.nuxt
+.output
+.data
+.cache
+coverage
+dist
+.git
+.DS_Store

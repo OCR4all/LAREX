@@ -130,6 +130,14 @@ public class ActionDto {
             LocalDateTime completedAt
     ) {}
 
+    public record RunDetailResponse(
+            RunResponse run,
+            String logText,
+            List<ActionRunLogEventResponse> logEvents,
+            Object resultSummary,
+            Long durationSeconds
+    ) {}
+
     public record AdminRunResponse(
             String id,
             String processorDefinitionId,

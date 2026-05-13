@@ -1,14 +1,11 @@
-# Frontend Development Dockerfile
-FROM node:22-alpine
+FROM ghcr.io/pnpm/pnpm:11.1.1
 
-# Set working directory (this should match the project root)
+RUN pnpm runtime set node 22 -g
+
 WORKDIR /app
 
-# Install pnpm globally
-RUN npm install -g pnpm@latest
-
 # Copy package files first for better layer caching
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile

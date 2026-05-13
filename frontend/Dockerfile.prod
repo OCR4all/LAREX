@@ -1,12 +1,13 @@
-# Frontend Production Dockerfile
-FROM node:22-alpine AS builder
+FROM ghcr.io/pnpm/pnpm:11.1.1 AS base
+
+RUN pnpm runtime set node 22 -g
 
 WORKDIR /app
 
-RUN npm install -g pnpm@latest
+FROM base AS builder
 
 # Copy package manifests first for layer caching and deterministic installs
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Build must use the checked-in lockfile, otherwise Nuxt standalone output can
 # reference package layouts that differ from the runtime image.
@@ -16,14 +17,12 @@ COPY . .
 
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 
-FROM node:22-alpine AS runner
-
-WORKDIR /app
+FROM base AS runner
 
 COPY --from=builder /app/.output ./.output
 
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nuxt -u 1001
+RUN groupadd --gid 1001 nodejs
+RUN useradd --uid 1001 --gid nodejs --home /app nuxt
 
 RUN chown -R nuxt:nodejs /app
 USER nuxt
