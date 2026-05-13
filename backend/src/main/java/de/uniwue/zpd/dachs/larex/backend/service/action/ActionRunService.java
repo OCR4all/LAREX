@@ -549,6 +549,11 @@ public class ActionRunService {
         throw new IllegalArgumentException("Unsupported file type");
     }
 
+    @Transactional(readOnly = true)
+    public void authenticateMachineRun(String runId, String authorizationHeader) {
+        authenticateRun(runId, authorizationHeader);
+    }
+
     public ActionDto.HeartbeatResponse heartbeat(String runId, String authorizationHeader, ActionDto.HeartbeatRequest request) {
         ActionRun run = authenticateRun(runId, authorizationHeader);
         if (run.getStatus() == Status.COMPLETED || run.getStatus() == Status.FAILED || run.getStatus() == Status.CANCELLED) {

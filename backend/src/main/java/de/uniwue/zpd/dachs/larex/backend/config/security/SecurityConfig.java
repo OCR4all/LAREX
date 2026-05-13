@@ -1,19 +1,21 @@
 package de.uniwue.zpd.dachs.larex.backend.config.security;
 
+import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -29,13 +31,17 @@ public class SecurityConfig {
 
     private final JwtAuthConverter jwtAuthConverter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
+    private final ActionRunService actionRunService;
 
     @Value("${cors.allowed-origin}")
     private String allowedOrigin;
 
-    public SecurityConfig(JwtAuthConverter jwtAuthConverter, CustomAuthenticationEntryPoint customAuthenticationEntryPoint) {
+    public SecurityConfig(JwtAuthConverter jwtAuthConverter,
+                          CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
+                          ActionRunService actionRunService) {
         this.jwtAuthConverter = jwtAuthConverter;
         this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
+        this.actionRunService = actionRunService;
     }
 
     @Bean
@@ -61,6 +67,7 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .contentTypeOptions(Customizer.withDefaults())
                 )
+                .addFilterBefore(new ActionResultUploadPreAuthFilter(actionRunService), BearerTokenAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/public/**", "/api/public/**", "/api/v1/public/**").permitAll()
                         .anyRequest().authenticated()
