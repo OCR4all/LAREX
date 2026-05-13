@@ -469,6 +469,7 @@ public class ActionRunService {
             run.setStatus(Status.CANCELLED);
             run.setStatusMessage("Cancelled");
             run.setCompletedAt(LocalDateTime.now());
+            expireRunSecret(run);
         }
         releaseLocks(run);
         ActionRun saved = runRepository.save(run);
@@ -567,6 +568,7 @@ public class ActionRunService {
             run.setStatus(Status.FAILED);
             run.setErrorMessage(limit(request.errorMessage(), 4000));
             run.setCompletedAt(LocalDateTime.now());
+            expireRunSecret(run);
             releaseLocks(run);
             actionAuditService.record("ACTION_RUN_HEARTBEAT_FAILED", "FAILURE", run.getCreatedByUserId(),
                     run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
@@ -634,6 +636,7 @@ public class ActionRunService {
             run.setStatusMessage(limit(manifest.message(), 2000));
             run.setProgressPercent(run.getStatus() == Status.COMPLETED ? 100 : run.getProgressPercent());
             run.setCompletedAt(LocalDateTime.now());
+            expireRunSecret(run);
             releaseLocks(run);
             ActionRun savedRun = runRepository.save(run);
             schedulePageReindexAfterCommit(xmlResultPageIds);
@@ -643,15 +646,18 @@ public class ActionRunService {
                     Map.of("resultCount", stored.size()));
             return toRunResponse(savedRun);
         } catch (IOException | RuntimeException e) {
+            String failureMessage = describeException(e);
             run.setStatus(Status.FAILED);
             run.setStatusMessage("Result import failed");
-            run.setErrorMessage(limit(describeException(e), 4000));
+            run.setErrorMessage(limit(failureMessage, 4000));
             run.setCompletedAt(LocalDateTime.now());
+            expireRunSecret(run);
             releaseLocks(run);
             runRepository.save(run);
             actionAuditService.record("ACTION_RUN_RESULT_IMPORT_FAILED", "FAILURE", run.getCreatedByUserId(),
                     definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
-                    Map.of("error", limit(describeException(e), 1000)));
+                    Map.of("error", limit(failureMessage, 1000)));
+            scheduleResultImportFailureAfterRollback(run.getId(), failureMessage);
             throw e;
         } finally {
             workspaceQuotaGuardService.syncUsageAndReleaseReservation(run.getWorkspaceId(), reservedBytes);
@@ -769,6 +775,44 @@ public class ActionRunService {
             });
         } else {
             task.run();
+        }
+    }
+
+    private void scheduleResultImportFailureAfterRollback(String runId, String failureMessage) {
+        Runnable task = () -> persistResultImportFailure(runId, failureMessage);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                        importTaskExecutor.execute(task);
+                    }
+                }
+            });
+        } else {
+            task.run();
+        }
+    }
+
+    private void persistResultImportFailure(String runId, String failureMessage) {
+        try {
+            ActionRun run = runRepository.findWithProcessorDefinitionById(runId).orElse(null);
+            if (run == null || terminalStatuses().contains(run.getStatus())) {
+                return;
+            }
+            run.setStatus(Status.FAILED);
+            run.setStatusMessage("Result import failed");
+            run.setErrorMessage(limit(failureMessage, 4000));
+            run.setCompletedAt(LocalDateTime.now());
+            expireRunSecret(run);
+            releaseLocks(run);
+            runRepository.save(run);
+            actionAuditService.record("ACTION_RUN_RESULT_IMPORT_FAILED", "FAILURE", run.getCreatedByUserId(),
+                    run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
+                    Map.of("error", limit(failureMessage, 1000)));
+        } catch (Exception persistFailure) {
+            log.warn("Failed to persist LAREX Action result import failure for run {}: {}",
+                    runId, describeException(persistFailure), persistFailure);
         }
     }
 
@@ -932,6 +976,7 @@ public class ActionRunService {
         run.setErrorMessage(limit(describeException(e), 4000));
         run.setStatusMessage("Dispatch failed");
         run.setCompletedAt(LocalDateTime.now());
+        expireRunSecret(run);
         releaseLocks(run);
         runRepository.save(run);
         actionAuditService.record("ACTION_RUN_DISPATCH_FAILED", "FAILURE", run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(),
@@ -1130,6 +1175,7 @@ public class ActionRunService {
         run.setStatusMessage(message);
         run.setErrorMessage(message);
         run.setCompletedAt(LocalDateTime.now());
+        expireRunSecret(run);
         releaseLocks(run);
         runRepository.save(run);
         appendLogEvent(run, "WARN", message);
@@ -1166,10 +1212,20 @@ public class ActionRunService {
         if (!Objects.equals(run.getSecretHash(), sha256(rawToken))) {
             throw new SecurityException("Invalid Action run secret");
         }
+        if (terminalStatuses().contains(run.getStatus())) {
+            throw new SecurityException("Action run secret has expired");
+        }
         if (run.getSecretExpiresAt() == null || !run.getSecretExpiresAt().isAfter(LocalDateTime.now())) {
             throw new SecurityException("Action run secret has expired");
         }
         return run;
+    }
+
+    private void expireRunSecret(ActionRun run) {
+        LocalDateTime now = LocalDateTime.now();
+        if (run.getSecretExpiresAt() == null || run.getSecretExpiresAt().isAfter(now)) {
+            run.setSecretExpiresAt(now);
+        }
     }
 
     private ActionDto.AssignmentResponse toAssignmentResponse(ActionProcessorAssignment assignment) {
