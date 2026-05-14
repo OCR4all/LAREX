@@ -10,7 +10,7 @@ import type {
   PolylineEditing,
   CutDrawing
 } from './editor-interactions/types'
-import type { WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
+import type { ActionProcessingRenderTarget, WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 import type { RenderStats } from './use-render-queue'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
@@ -86,7 +86,8 @@ export function useEditorRenderer(
   isCutPolygonMode?: Ref<boolean>,
   isCutRectangleMode?: Ref<boolean>,
   moveInteraction?: { isMoving: () => boolean, state: { isInvalid: boolean, elementId: string | null } },
-  bufferPreview?: Ref<{ polygonId: string, points: Point[] } | null>
+  bufferPreview?: Ref<{ polygonId: string, points: Point[] } | null>,
+  actionProcessingTargets?: Ref<ActionProcessingRenderTarget | null>
 ): UseEditorRendererReturn {
   const editorUiStore = useEditorUiStore()
   const renderStats = ref<RenderStats | null>(null)
@@ -177,7 +178,8 @@ export function useEditorRenderer(
           }
         : undefined,
       bufferPreview: bufferPreview?.value ?? undefined,
-      confidenceHeatmap: editorUiStore.confidenceHeatmap
+      confidenceHeatmap: editorUiStore.confidenceHeatmap,
+      actionProcessingTargets: actionProcessingTargets?.value ?? null
     }
 
     webglRenderer.renderFrame(renderState, aspectRatioScale, view, triangulatePolygon)
@@ -223,6 +225,7 @@ export function useEditorRenderer(
       () => moveInteraction?.isMoving(),
       () => moveInteraction?.state.isInvalid,
       bufferPreview,
+      actionProcessingTargets,
       view,
       aspectRatioScale,
       canvasDimensions,
@@ -283,10 +286,15 @@ export function useEditorRenderer(
       () => cutDrawing?.isInvalidPosition?.value,
       isCutMode,
       () => mouseInteraction.actionState.action,
-      () => moveInteraction?.isMoving()
+      () => moveInteraction?.isMoving(),
+      () => editorUiStore.actionWandActive
     ],
     () => {
       if (enabled && !enabled.value) return
+      if (editorUiStore.actionWandActive) {
+        setCursor(canvas.value, { customCursor: 'action-wand' })
+        return
+      }
       const isCreateMode = isPolygonMode.value || isRectangleMode.value || isPolylineMode.value || isCutMode?.value
 
       setCursor(canvas.value, {

@@ -3,8 +3,8 @@ import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { WatchStopHandle } from 'vue'
 import { LazyEditorCommentsLabelsOverlay, LazyEditorReadingOrderNumbersOverlay, LazyEditorRelationsLabelsOverlay, LazyEditorSlideoverMergeSettings } from '#components'
-import { triangulatePolygon } from '@/utils/editor/hit-detection'
-import { clipToWorldCoords, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
+import { getVisiblePolygonAtPoint, triangulatePolygon } from '@/utils/editor/hit-detection'
+import { clipToWorldCoords, getWorldCoordsFromEvent, imageToWorld, pixelsToWorld, worldToClipCoords } from '@/utils/editor/coordinates'
 import { getPagePanelId, parseCanvasId } from '@/stores/editor/editor.keys'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import type { ContextMenuItem as EditorContextMenuItem } from '@/composables/editor/use-editor-command'
@@ -19,7 +19,8 @@ import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import { CompoundCommand, CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
 import { PolygonType, type RegionKind, type Relation, type TextContentVariantData } from '@/models/editor'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
-import type { CommentOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
+import type { ActionProcessingRenderTarget, CommentOverlayLabel, RenderablePolygon } from '@/types/editor/rendering'
+import type { ActionTargetSelection } from '@/types/action'
 import type { SelectionFocusMode, SelectionFocusOptions } from '@/types/editor/canvas-controls'
 import { visibilityService } from '@/services/editor/visibility-service'
 import type { CollaborationPresence, CollaborationRoomMember, CollaborationUserIdentity } from '@/types/collaboration'
@@ -53,6 +54,7 @@ const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
 const sessionStore = useEditorSessionStore()
 const workspaceStore = useWorkspaceStore()
+const actionRunsStore = useActionRunsStore()
 const collaboration = useEditorCollaboration()
 const session = useEditorSession(props.canvasId)
 const {
@@ -679,6 +681,38 @@ const bufferPreviewForRenderer = computed(() => {
   return { polygonId, points }
 })
 
+const ACTION_ACTIVE_STATUSES = new Set(['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'])
+
+const actionProcessingTargets = computed<ActionProcessingRenderTarget | null>(() => {
+  const currentProjectId = projectId.value
+  const currentPageId = pageId.value
+  if (!currentProjectId || !currentPageId) return null
+
+  let page = false
+  const polygonIds = new Set<string>()
+
+  for (const run of actionRunsStore.runsArray) {
+    if (run.projectId !== currentProjectId || !ACTION_ACTIVE_STATUSES.has(run.status)) continue
+    if (!run.pageIds.includes(currentPageId)) continue
+
+    const targetPage = run.targetSelection?.pages?.find(candidate => candidate.pageId === currentPageId)
+    if (!run.targetSelection || run.targetSelection.type === 'PAGE' || !targetPage) {
+      page = true
+      continue
+    }
+
+    if (run.targetSelection.type === 'REGION') {
+      for (const id of targetPage.regionIds ?? []) polygonIds.add(id)
+    } else if (run.targetSelection.type === 'TEXT_LINE') {
+      for (const id of targetPage.textLineIds ?? []) polygonIds.add(id)
+    }
+  }
+
+  return page || polygonIds.size > 0
+    ? { page, polygonIds: [...polygonIds] }
+    : null
+})
+
 const editorRenderer = useEditorRenderer(
   canvas, polygons, polylines, selectedPolygonIndex, selectedPolylineIndex, selectedPolygonIds, selectedPolylineIds,
   hiddenPolygonIds, hiddenPolylineIds,
@@ -697,9 +731,43 @@ const editorRenderer = useEditorRenderer(
   isCutPolygonMode,
   isCutRectangleMode,
   moveInteraction,
-  bufferPreviewForRenderer
+  bufferPreviewForRenderer,
+  actionProcessingTargets
 )
 const renderStats = computed(() => editorRenderer.renderStats.value)
+let actionProcessingAnimationFrame: number | null = null
+
+function stopActionProcessingAnimation() {
+  if (actionProcessingAnimationFrame === null) return
+  cancelAnimationFrame(actionProcessingAnimationFrame)
+  actionProcessingAnimationFrame = null
+}
+
+function startActionProcessingAnimation() {
+  if (actionProcessingAnimationFrame !== null) return
+
+  const animate = () => {
+    if (!actionProcessingTargets.value) {
+      actionProcessingAnimationFrame = null
+      nextTick(() => editorRenderer.render())
+      return
+    }
+
+    editorRenderer.render()
+    actionProcessingAnimationFrame = requestAnimationFrame(animate)
+  }
+
+  actionProcessingAnimationFrame = requestAnimationFrame(animate)
+}
+
+watch(actionProcessingTargets, (targets) => {
+  if (targets) {
+    startActionProcessingAnimation()
+  } else {
+    stopActionProcessingAnimation()
+    nextTick(() => editorRenderer.render())
+  }
+}, { immediate: true, deep: true })
 
 function getCommandContext() {
   return { canvasId: props.canvasId, session }
@@ -954,18 +1022,115 @@ useResizeObserver(canvas, (width, height) => {
 let interactionsAttached = false
 let stopUiModeWatch: WatchStopHandle | null = null
 
+function normalizeActionTargetViewMode(): 'default' | 'textline' | 'baseline' | undefined {
+  const mode = canvasControls.viewMode?.value
+  if (mode === 'default' || mode === 'textline' || mode === 'baseline') return mode
+  return undefined
+}
+
+function buildActionTargetSelectionFromPolygon(polygon: RenderablePolygon): { targetSelection: ActionTargetSelection, targetSummary: string } | null {
+  const currentPageId = pageId.value
+  if (!currentPageId) return null
+
+  if (isTextlinePolygonType(polygon.type)) {
+    return {
+      targetSelection: {
+        type: 'TEXT_LINE',
+        pages: [{ pageId: currentPageId, regionIds: [], textLineIds: [polygon.id] }]
+      },
+      targetSummary: `Textline ${polygon.label || polygon.id}`
+    }
+  }
+
+  return {
+    targetSelection: {
+      type: 'REGION',
+      pages: [{ pageId: currentPageId, regionIds: [polygon.id], textLineIds: [] }]
+    },
+    targetSummary: `${polygon.label || polygon.regionKind || 'Region'} ${polygon.id}`
+  }
+}
+
+function buildPageActionTargetSelection(): { targetSelection: ActionTargetSelection, targetSummary: string } | null {
+  const currentPageId = pageId.value
+  if (!currentPageId) return null
+  return {
+    targetSelection: {
+      type: 'PAGE',
+      pages: [{ pageId: currentPageId, regionIds: [], textLineIds: [] }]
+    },
+    targetSummary: 'Current page'
+  }
+}
+
+function dispatchActionTargetPicked(payload: { targetSelection: ActionTargetSelection, targetSummary: string }) {
+  window.dispatchEvent(new CustomEvent('larex:editor-action-target', { detail: payload }))
+}
+
+function handleActionWandMouseDown(event: MouseEvent) {
+  if (!editorUiStore.actionWandActive || event.button !== 0 || !canvas.value) return
+
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  activateEditor()
+
+  const point = getWorldCoordsFromEvent(event, canvas.value, view, aspectRatioScale.value)
+  const clickedPolygonIndex = getVisiblePolygonAtPoint(
+    polygons,
+    point,
+    -1,
+    spatialIndex,
+    normalizeActionTargetViewMode(),
+    new Set(hiddenPolygonIds.value)
+  )
+
+  let payload: { targetSelection: ActionTargetSelection, targetSummary: string } | null = null
+
+  if (clickedPolygonIndex >= 0) {
+    const polygon = polygons[clickedPolygonIndex]
+    if (polygon) {
+      handleSelectPolygon(polygon.id, { focusMode: 'none' })
+      payload = buildActionTargetSelectionFromPolygon(polygon)
+    }
+  } else {
+    stateActions.clearSelection()
+    syncCanvasSelection(null, null)
+    payload = buildPageActionTargetSelection()
+  }
+
+  editorUiStore.setActionWandActive(false)
+  if (payload) {
+    dispatchActionTargetPicked(payload)
+  } else {
+    toast.add({
+      title: 'Action target unavailable',
+      description: 'Open a page before running an Action.',
+      color: 'warning'
+    })
+  }
+}
+
+function handleActionWandKeyDown(event: KeyboardEvent) {
+  if (!editorUiStore.actionWandActive || event.key !== 'Escape') return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  editorUiStore.setActionWandActive(false)
+}
+
 function attachInteractions() {
   if (interactionsAttached) return
   const el = canvas.value
   if (!el) return
 
   el.addEventListener('wheel', editorInteractions.onWheel, { passive: false })
+  el.addEventListener('mousedown', handleActionWandMouseDown, { capture: true })
   el.addEventListener('mousedown', activateEditor)
   el.addEventListener('mousedown', editorInteractions.onMouseDown)
   el.addEventListener('dblclick', editorInteractions.onDoubleClick)
   window.addEventListener('mousemove', editorInteractions.onMouseMove)
   window.addEventListener('mouseup', editorInteractions.onMouseUp)
   window.addEventListener('mouseleave', editorInteractions.onMouseLeave)
+  window.addEventListener('keydown', handleActionWandKeyDown, true)
   window.addEventListener('keydown', editorInteractions.onKeyDown, true)
 
   interactionsAttached = true
@@ -977,6 +1142,7 @@ function detachInteractions() {
 
   if (el) {
     el.removeEventListener('wheel', editorInteractions.onWheel)
+    el.removeEventListener('mousedown', handleActionWandMouseDown, { capture: true })
     el.removeEventListener('mousedown', editorInteractions.onMouseDown)
     el.removeEventListener('mousedown', activateEditor)
     el.removeEventListener('dblclick', editorInteractions.onDoubleClick)
@@ -984,6 +1150,7 @@ function detachInteractions() {
   window.removeEventListener('mousemove', editorInteractions.onMouseMove)
   window.removeEventListener('mouseup', editorInteractions.onMouseUp)
   window.removeEventListener('mouseleave', editorInteractions.onMouseLeave)
+  window.removeEventListener('keydown', handleActionWandKeyDown, true)
   window.removeEventListener('keydown', editorInteractions.onKeyDown, true)
 
   interactionsAttached = false
@@ -2281,6 +2448,7 @@ onBeforeUnmount(() => {
   if (stopUiModeWatch) stopUiModeWatch()
 
   stopCorrectionOverlayDrag()
+  stopActionProcessingAnimation()
   mouseInteraction.cleanup()
   webglRenderer.cleanup()
 
@@ -2457,7 +2625,10 @@ watch(() => props.src, (newSrc) => {
           <canvas
             ref="canvas"
             class="block w-full h-full bg-transparent relative z-10"
-            :class="isCanvasEditable ? 'cursor-grab' : 'cursor-default pointer-events-none'"
+            :class="[
+              isCanvasEditable ? 'cursor-grab' : 'cursor-default pointer-events-none',
+              editorUiStore.actionWandActive ? 'editor-action-wand-cursor' : ''
+            ]"
             @contextmenu="(event) => { if (isCanvasEditable) editorInteractions.handleCanvasContextMenu(event) }"
           />
         </template>
@@ -3101,6 +3272,11 @@ watch(() => props.src, (newSrc) => {
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
   background-color: #c0c0c0;
+}
+
+.editor-action-wand-cursor {
+  --editor-action-wand-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 3 2 2'/%3E%3Cpath d='m19 13 2 2'/%3E%3Cpath d='M5 19 19 5'/%3E%3Cpath d='m14 4 6 6'/%3E%3Cpath d='m4 14 6 6'/%3E%3C/svg%3E") 4 4;
+  cursor: var(--editor-action-wand-cursor), crosshair !important;
 }
 
 /* Fade transition for loading indicator */

@@ -66,6 +66,9 @@ public class ActionRun {
     @Column(nullable = false, name = "page_ids_json", columnDefinition = "TEXT")
     private String pageIdsJson;
 
+    @Column(name = "target_selection_json", columnDefinition = "TEXT")
+    private String targetSelectionJson;
+
     @Column(name = "parameters_json", columnDefinition = "TEXT")
     private String parametersJson;
 
@@ -172,6 +175,14 @@ public class ActionRun {
 
     public void setPageIdsJson(String pageIdsJson) {
         this.pageIdsJson = pageIdsJson;
+    }
+
+    public String getTargetSelectionJson() {
+        return targetSelectionJson;
+    }
+
+    public void setTargetSelectionJson(String targetSelectionJson) {
+        this.targetSelectionJson = targetSelectionJson;
     }
 
     public String getParametersJson() {

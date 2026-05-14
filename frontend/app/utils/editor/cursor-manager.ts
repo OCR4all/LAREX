@@ -11,6 +11,8 @@ export type CursorType
     | 'default' // Fallback
 
 export interface CursorState {
+  customCursor?: 'action-wand'
+
   isValidPosition: boolean
 
   isDraggingNode: boolean
@@ -85,8 +87,13 @@ export function getCursorType(state: CursorState): CursorType {
 /**
  * Apply cursor to element based on state
  */
-export function setCursor(element: HTMLElement | null, state: CursorState): void {
+export function setCursor(element: HTMLElement | null, state: CursorState | { customCursor: 'action-wand' }): void {
   if (!element) return
+
+  if (state.customCursor === 'action-wand') {
+    element.style.cursor = 'var(--editor-action-wand-cursor), crosshair'
+    return
+  }
 
   element.style.cursor = getCursorType(state)
 }

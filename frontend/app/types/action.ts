@@ -1,6 +1,19 @@
 export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'PAGES' | 'PROJECT'
+export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT'
+export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
 export type ActionRunStatus = 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
+
+export interface ActionTargetSelectionPage {
+  pageId: string
+  regionIds: string[]
+  textLineIds: string[]
+}
+
+export interface ActionTargetSelection {
+  type: ActionTarget
+  pages: ActionTargetSelectionPage[]
+}
 
 export interface ActionValidationDiagnostic {
   severity: string
@@ -19,10 +32,14 @@ export interface ActionDefinitionPreview {
   endpointTimeoutSeconds: number
   executeRole: ActionExecuteRole
   lockMode: ActionLockMode
+  category: ActionCategory
+  targets: ActionTarget[]
   acceptsImages: boolean
   acceptsXml: boolean
   outputsImages: boolean
   outputsXml: boolean
+  outputsText: boolean
+  outputsLayout: boolean
   parameters: Record<string, ActionParameterDefinition>
 }
 
@@ -52,10 +69,14 @@ export interface ActionDefinition {
   endpointTimeoutSeconds: number
   executeRole: ActionExecuteRole
   lockMode: ActionLockMode
+  category: ActionCategory
+  targets: ActionTarget[]
   acceptsImages: boolean
   acceptsXml: boolean
   outputsImages: boolean
   outputsXml: boolean
+  outputsText: boolean
+  outputsLayout: boolean
   enabled: boolean
   global: boolean
   created: string
@@ -98,6 +119,7 @@ export interface ActionRun {
   workspaceId: string
   projectId: string
   pageIds: string[]
+  targetSelection: ActionTargetSelection
   status: ActionRunStatus
   lockMode: ActionLockMode
   progressPercent: number
@@ -183,6 +205,9 @@ export const DEFAULT_ACTION_YAML = `version: 1
 id: mock-image-copy
 name: Mock Image Copy
 description: Development processor that copies the first page image and XML back as Action outputs.
+category: WORKFLOW
+targets:
+  - PAGE
 
 endpoint:
   url: http://mock-action-processor:9000/dispatch

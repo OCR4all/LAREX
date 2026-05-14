@@ -6,8 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.region.RegionDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextLineDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
@@ -28,7 +34,9 @@ import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
+import de.uniwue.zpd.dachs.larex.backend.service.annotation.io.parser.PageXmlToAnnotationParser;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.ThumbnailService;
@@ -39,6 +47,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessServic
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
+import de.uniwue.zpd.dachs.larex.backend.util.TextIndexDefaultsUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,6 +68,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -89,6 +100,7 @@ public class ActionRunService {
     private static final int ACTION_PROTOCOL_VERSION = 1;
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {};
+    private static final TypeReference<ActionDto.TargetSelection> TARGET_SELECTION = new TypeReference<>() {};
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Pattern ACTION_RUN_SECRET_PATTERN = Pattern.compile("lrx_act_[A-Za-z0-9_-]{20,}");
     private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+\\-/]+=*");
@@ -117,6 +129,8 @@ public class ActionRunService {
     private final PageXmlVersionService pageXmlVersionService;
     private final PageFilterIndexService pageFilterIndexService;
     private final AnnotationReadCache annotationReadCache;
+    private final AnnotationProcessingService annotationProcessingService;
+    private final PageXmlToAnnotationParser pageXmlToAnnotationParser;
     private final ActionAuditService actionAuditService;
     private final HttpClient httpClient;
 
@@ -171,6 +185,8 @@ public class ActionRunService {
                             PageXmlVersionService pageXmlVersionService,
                             PageFilterIndexService pageFilterIndexService,
                             AnnotationReadCache annotationReadCache,
+                            AnnotationProcessingService annotationProcessingService,
+                            PageXmlToAnnotationParser pageXmlToAnnotationParser,
                             ActionAuditService actionAuditService) {
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
@@ -196,6 +212,8 @@ public class ActionRunService {
         this.pageXmlVersionService = pageXmlVersionService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.annotationReadCache = annotationReadCache;
+        this.annotationProcessingService = annotationProcessingService;
+        this.pageXmlToAnnotationParser = pageXmlToAnnotationParser;
         this.actionAuditService = actionAuditService;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
@@ -282,13 +300,21 @@ public class ActionRunService {
 
     @Transactional(readOnly = true)
     public List<ActionDto.ExecutableProcessorResponse> listExecutableProcessors(String workspaceId, String projectId, String userId) {
+        return listExecutableProcessors(workspaceId, projectId, userId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.ExecutableProcessorResponse> listExecutableProcessors(String workspaceId, String projectId, String userId, ActionTarget target) {
         Project project = requireProject(workspaceId, projectId);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         LinkedHashMap<String, ActionDto.ExecutableProcessorResponse> executable = new LinkedHashMap<>();
         definitionRepository.findByEnabledTrueAndGlobalAvailableTrueOrderByNameAsc()
+                .stream()
+                .filter(definition -> target == null || definitionService.readTargetTypes(definition).contains(target))
                 .forEach(definition -> executable.put(definition.getId(), toExecutableResponse(null, definition, workspaceId, project, userId)));
 
         assignmentRepository.findExecutableAssignments(workspaceId, projectId).stream()
+                .filter(assignment -> target == null || definitionService.readTargetTypes(assignment.getProcessorDefinition()).contains(target))
                 .filter(assignment -> !assignment.getProcessorDefinition().isGlobalAvailable())
                 .filter(assignment -> isWorkspaceAvailable(assignment.getProcessorDefinition().getId(), workspaceId))
                 .sorted(Comparator.comparing((ActionProcessorAssignment assignment) -> projectId.equals(assignment.getProjectId()) ? 1 : 0)
@@ -314,7 +340,11 @@ public class ActionRunService {
         requireExecuteAccess(definition, workspaceId, userId);
 
         Project project = requireProjectForUpdate(workspaceId, projectId);
-        List<Page> pages = resolveRunPagesForUpdate(projectId, request.pageIds());
+        ActionDto.TargetSelection targetSelection = normalizeTargetSelection(request, projectId);
+        requireTargetSupported(definition, targetSelection.type());
+        List<Page> pages = resolveRunPagesForUpdate(projectId, targetSelection.pages().stream()
+                .map(ActionDto.TargetSelectionPage::pageId)
+                .toList());
         enforceConcurrencyLimit(definition, workspaceId, projectId);
         validateLocks(project, pages);
         return createRun(
@@ -323,11 +353,12 @@ public class ActionRunService {
                 project,
                 definition,
                 pages,
+                targetSelection,
                 userId,
                 publicApiBaseUrl,
                 resolveRunParameters(definition),
                 "ACTION_RUN_START",
-                Map.of()
+                Map.of("targetType", targetSelection.type().name())
         );
     }
 
@@ -336,6 +367,7 @@ public class ActionRunService {
                                                  Project project,
                                                  ActionProcessorDefinition definition,
                                                  List<Page> pages,
+                                                 ActionDto.TargetSelection targetSelection,
                                                  String userId,
                                                  String publicApiBaseUrl,
                                                  Map<String, Object> parameters,
@@ -350,6 +382,7 @@ public class ActionRunService {
         run.setStatus(Status.PENDING);
         run.setLockMode(definition.getLockMode());
         run.setPageIdsJson(writeJson(pages.stream().map(Page::getId).toList()));
+        run.setTargetSelectionJson(writeJson(targetSelection));
         run.setParametersJson(writeJson(parameters));
         run.setSecretHash(sha256(rawSecret));
         run.setSecretPrefix(rawSecret.substring(0, Math.min(rawSecret.length(), 12)));
@@ -361,6 +394,7 @@ public class ActionRunService {
         ActionRun savedRun = runRepository.save(run);
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("pageCount", pages.size());
+        details.put("targetType", targetSelection.type().name());
         if (auditDetails != null) {
             details.putAll(auditDetails);
         }
@@ -408,6 +442,8 @@ public class ActionRunService {
         requireExecuteAccess(definition, workspaceId, userId);
 
         project = requireProjectForUpdate(workspaceId, projectId);
+        ActionDto.TargetSelection targetSelection = readTargetSelection(sourceRun);
+        requireTargetSupported(definition, targetSelection.type());
         List<Page> pages = resolveRunPagesForUpdate(projectId, readPageIds(sourceRun));
         enforceConcurrencyLimit(definition, workspaceId, projectId);
         validateLocks(project, pages);
@@ -417,6 +453,7 @@ public class ActionRunService {
                 project,
                 definition,
                 pages,
+                targetSelection,
                 userId,
                 publicApiBaseUrl,
                 readObjectMap(sourceRun.getParametersJson()),
@@ -518,6 +555,7 @@ public class ActionRunService {
                 run.getProjectId(),
                 parameters,
                 pages,
+                buildMachineTargetSelection(run),
                 run.isCancelRequested()
         );
     }
@@ -607,7 +645,8 @@ public class ActionRunService {
         List<String> pageIds = readPageIds(run);
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         List<ActionDto.ResultFile> resultFiles = manifest.files() == null ? List.of() : manifest.files();
-        validateResultManifest(resultFiles, files);
+        List<ActionDto.ResultPatch> resultPatches = manifest.patches() == null ? List.of() : manifest.patches();
+        validateResultManifest(resultFiles, resultPatches, files);
         run.setStatus(Status.IMPORTING_RESULTS);
         run.setStatusMessage("Importing results");
         runRepository.saveAndFlush(run);
@@ -615,7 +654,7 @@ public class ActionRunService {
         try {
             reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
                     run.getWorkspaceId(),
-                    resultFiles.stream().mapToLong(file -> resolveMultipart(files, file.fieldName()).getSize()).sum(),
+                    resultUploadBytes(resultFiles, resultPatches, files),
                     "larex-action-result"
             );
             List<Map<String, Object>> stored = new ArrayList<>();
@@ -640,6 +679,10 @@ public class ActionRunService {
                 } else {
                     throw new IllegalArgumentException("Unsupported result type: " + resultFile.type());
                 }
+            }
+            for (ActionDto.ResultPatch resultPatch : resultPatches) {
+                stored.addAll(applyResultPatch(run, resultPatch, files, pageIds));
+                xmlResultPageIds.add(resultPatch.pageId());
             }
             run.setResultSummaryJson(writeJson(stored));
             run.setStatus("failed".equalsIgnoreCase(manifest.status()) ? Status.FAILED : Status.COMPLETED);
@@ -871,6 +914,339 @@ public class ActionRunService {
         return Map.of("type", "image", "pageId", page.getId(), "fileId", pageImage.getId(), "variant", variant);
     }
 
+    private List<Map<String, Object>> applyResultPatch(ActionRun run,
+                                                       ActionDto.ResultPatch patch,
+                                                       MultiValueMap<String, MultipartFile> files,
+                                                       List<String> pageIds) throws IOException {
+        if (patch.pageId() == null || !pageIds.contains(patch.pageId())) {
+            throw new SecurityException("Result patch page is outside this run scope");
+        }
+        String type = normalize(patch.type());
+        if ("text_line_text".equals(type)) {
+            if (!run.getProcessorDefinition().isOutputsText()) {
+                throw new SecurityException("Text outputs are not declared for this processor");
+            }
+            return List.of(applyTextLineTextPatch(run, patch));
+        }
+        if ("layout_xml".equals(type)) {
+            if (!run.getProcessorDefinition().isOutputsLayout()) {
+                throw new SecurityException("Layout outputs are not declared for this processor");
+            }
+            return List.of(applyLayoutXmlPatch(run, patch, resolveMultipart(files, patch.fieldName())));
+        }
+        throw new IllegalArgumentException("Unsupported result patch type: " + patch.type());
+    }
+
+    private Map<String, Object> applyTextLineTextPatch(ActionRun run, ActionDto.ResultPatch patch) throws IOException {
+        if (patch.textLineId() == null || patch.textLineId().isBlank()) {
+            throw new IllegalArgumentException("Text patch textLineId is required");
+        }
+        ActionDto.TargetSelection targetSelection = readTargetSelection(run);
+        if (!isTextLineInTargetScope(targetSelection, patch.pageId(), patch.textLineId())) {
+            throw new SecurityException("Text patch textLineId is outside this run target scope");
+        }
+        PageXml xml = primaryPageXml(patch.pageId());
+        PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(xml.getId());
+        int recognitionIndex = firstRecognitionIndex(run.getProjectId());
+        PageDto updated = updateTextLineText(pageDto, patch.textLineId(), patch.text(), patch.confidence(), patch.index() == null ? recognitionIndex : patch.index());
+        annotationProcessingService.saveAnnotationToXml(xml.getId(), updated, run.getCreatedByUserId());
+        return Map.of(
+                "type", "text",
+                "pageId", patch.pageId(),
+                "textLineId", patch.textLineId(),
+                "index", patch.index() == null ? recognitionIndex : patch.index()
+        );
+    }
+
+    private Map<String, Object> applyLayoutXmlPatch(ActionRun run, ActionDto.ResultPatch patch, MultipartFile file) throws IOException {
+        validateResultFileSize(file);
+        String xmlText = new String(file.getBytes(), StandardCharsets.UTF_8);
+        var validation = pageXmlValidationService.validatePageXml(xmlText);
+        if (!validation.valid()) {
+            throw new IllegalArgumentException("Layout patch XML is invalid");
+        }
+        ActionDto.TargetSelection targetSelection = readTargetSelection(run);
+        PageXml existingXml = primaryPageXml(patch.pageId());
+        PageDto existing = annotationProcessingService.parseXmlToAnnotation(existingXml.getId());
+        PageDto incoming = parseResultPageXml(file, existingXml);
+        PageDto merged;
+        if (targetSelection.type() == ActionTarget.PAGE) {
+            merged = incoming;
+        } else if (targetSelection.type() == ActionTarget.REGION) {
+            Set<String> selectedRegionIds = targetSelection.pages().stream()
+                    .filter(page -> patch.pageId().equals(page.pageId()))
+                    .flatMap(page -> safeList(page.regionIds()).stream())
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (selectedRegionIds.isEmpty()) {
+                throw new SecurityException("Layout patch has no selected region target scope");
+            }
+            merged = replaceTargetRegionTextLines(existing, incoming, selectedRegionIds);
+        } else {
+            throw new SecurityException("Layout XML patches are not allowed for textline-targeted runs");
+        }
+        annotationProcessingService.saveAnnotationToXml(existingXml.getId(), merged, run.getCreatedByUserId());
+        return Map.of("type", "layout", "pageId", patch.pageId(), "fileId", existingXml.getId());
+    }
+
+    private PageDto parseResultPageXml(MultipartFile file, PageXml existingXml) throws IOException {
+        Path tempPath = Files.createTempFile("larex-action-layout-", ".xml");
+        try {
+            file.transferTo(tempPath);
+            return pageXmlToAnnotationParser.parse(tempPath, existingXml);
+        } finally {
+            Files.deleteIfExists(tempPath);
+        }
+    }
+
+    private PageXml primaryPageXml(String pageId) {
+        return pageXmlRepository.findByPage_Id(pageId).stream()
+                .filter(xml -> xml.getSchema() == XmlSchema.PAGE_XML)
+                .sorted(Comparator.comparing(xml -> !"original".equalsIgnoreCase(xml.getVariant())))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("No PAGE XML found for page " + pageId));
+    }
+
+    private int firstRecognitionIndex(String projectId) {
+        Project project = projectRepository.findById(projectId).orElse(null);
+        if (project == null) {
+            return TextIndexDefaultsUtil.DEFAULT_RECOGNITION_INDICES.get(0);
+        }
+        List<Integer> indices = TextIndexDefaultsUtil.effectiveRecognitionIndices(project.getDefaultRecognitionIndicesList());
+        return indices.isEmpty() ? TextIndexDefaultsUtil.DEFAULT_RECOGNITION_INDICES.get(0) : indices.get(0);
+    }
+
+    private PageDto updateTextLineText(PageDto pageDto, String textLineId, String text, Double confidence, int index) {
+        if (!containsTextLine(pageDto.regions(), textLineId)) {
+            throw new IllegalArgumentException("TextLine not found: " + textLineId);
+        }
+        List<RegionDto> regions = replaceTextLineInRegions(pageDto.regions(), textLineId, line -> replaceTextLineText(line, text, confidence, index));
+        return copyPageDto(pageDto, regions);
+    }
+
+    private TextLineDto replaceTextLineText(TextLineDto line, String text, Double confidence, int index) {
+        List<TextContentVariantDto> variants = new ArrayList<>(line.textContentVariants() == null ? List.of() : line.textContentVariants());
+        boolean replaced = false;
+        for (int i = 0; i < variants.size(); i++) {
+            TextContentVariantDto existing = variants.get(i);
+            if (Objects.equals(existing.index(), index)) {
+                variants.set(i, new TextContentVariantDto(
+                        text,
+                        existing.plainText(),
+                        confidence == null ? existing.confidence() : confidence,
+                        index,
+                        existing.dataType(),
+                        existing.dataTypeDetails(),
+                        existing.comments()
+                ));
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            variants.add(new TextContentVariantDto(text, confidence, index));
+        }
+        return copyTextLineDto(line, variants);
+    }
+
+    private PageDto replaceTargetRegionTextLines(PageDto existing, PageDto incoming, Set<String> selectedRegionIds) {
+        Map<String, RegionDto> incomingRegions = new HashMap<>();
+        collectRegions(incoming.regions(), incomingRegions);
+        List<RegionDto> regions = replaceRegions(existing.regions(), selectedRegionIds, incomingRegions);
+        return copyPageDto(existing, regions);
+    }
+
+    private List<RegionDto> replaceRegions(List<RegionDto> regions, Set<String> selectedRegionIds, Map<String, RegionDto> incomingRegions) {
+        if (regions == null) {
+            return null;
+        }
+        List<RegionDto> next = new ArrayList<>();
+        for (RegionDto region : regions) {
+            RegionDto incoming = region.id() == null ? null : incomingRegions.get(region.id());
+            if (incoming != null && selectedRegionIds.contains(region.id())) {
+                next.add(copyRegionDto(region, incoming.textLines(), region.nestedRegions()));
+            } else {
+                next.add(copyRegionDto(region, region.textLines(), replaceRegions(region.nestedRegions(), selectedRegionIds, incomingRegions)));
+            }
+        }
+        return next;
+    }
+
+    private void collectRegions(List<RegionDto> regions, Map<String, RegionDto> byId) {
+        if (regions == null) {
+            return;
+        }
+        for (RegionDto region : regions) {
+            if (region.id() != null) {
+                byId.put(region.id(), region);
+            }
+            collectRegions(region.nestedRegions(), byId);
+        }
+    }
+
+    private List<RegionDto> replaceTextLineInRegions(List<RegionDto> regions,
+                                                     String textLineId,
+                                                     java.util.function.Function<TextLineDto, TextLineDto> updater) {
+        if (regions == null) {
+            return null;
+        }
+        List<RegionDto> next = new ArrayList<>();
+        for (RegionDto region : regions) {
+            List<TextLineDto> textLines = region.textLines();
+            List<TextLineDto> nextTextLines = textLines;
+            if (textLines != null) {
+                nextTextLines = new ArrayList<>();
+                for (TextLineDto line : textLines) {
+                    if (textLineId.equals(line.id())) {
+                        nextTextLines.add(updater.apply(line));
+                    } else {
+                        nextTextLines.add(line);
+                    }
+                }
+            }
+            List<RegionDto> nextNested = replaceTextLineInRegions(region.nestedRegions(), textLineId, updater);
+            next.add(copyRegionDto(region, nextTextLines, nextNested));
+        }
+        return next;
+    }
+
+    private boolean containsTextLine(List<RegionDto> regions, String textLineId) {
+        if (regions == null) {
+            return false;
+        }
+        for (RegionDto region : regions) {
+            if (region.textLines() != null && region.textLines().stream().anyMatch(line -> textLineId.equals(line.id()))) {
+                return true;
+            }
+            if (containsTextLine(region.nestedRegions(), textLineId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private PageDto copyPageDto(PageDto source, List<RegionDto> regions) {
+        return new PageDto(
+                source.imageFilename(),
+                source.imageWidth(),
+                source.imageHeight(),
+                source.imageXResolution(),
+                source.imageYResolution(),
+                source.imageResolutionUnit(),
+                source.metadata(),
+                source.pcGtsId(),
+                source.type(),
+                source.custom(),
+                source.orientation(),
+                source.primaryLanguage(),
+                source.secondaryLanguage(),
+                source.primaryScript(),
+                source.secondaryScript(),
+                source.readingDirection(),
+                source.textLineOrder(),
+                source.confidence(),
+                source.border(),
+                source.printSpace(),
+                regions,
+                source.readingOrder(),
+                source.alternativeImages(),
+                source.labels(),
+                source.userDefined(),
+                source.textStyle(),
+                source.layers(),
+                source.relations(),
+                source.formatVersion(),
+                source.labelIds()
+        );
+    }
+
+    private RegionDto copyRegionDto(RegionDto source, List<TextLineDto> textLines, List<RegionDto> nestedRegions) {
+        return new RegionDto(
+                source.id(),
+                source.kind(),
+                source.coords(),
+                textLines,
+                source.textContentVariants(),
+                source.alternativeImages(),
+                source.labels(),
+                source.userDefined(),
+                source.roles(),
+                source.grid(),
+                source.textStyle(),
+                source.type(),
+                source.orientation(),
+                source.textColour(),
+                source.bgColour(),
+                source.reverseVideo(),
+                source.fontSize(),
+                source.fontFamily(),
+                source.serif(),
+                source.monospace(),
+                source.xHeight(),
+                source.leading(),
+                source.kerning(),
+                source.align(),
+                source.textColourRgb(),
+                source.bgColourRgb(),
+                source.readingDirection(),
+                source.readingOrientation(),
+                source.textLineOrder(),
+                source.indented(),
+                source.primaryLanguage(),
+                source.secondaryLanguage(),
+                source.primaryScript(),
+                source.secondaryScript(),
+                source.production(),
+                source.numColours(),
+                source.embText(),
+                source.colourDepth(),
+                source.lineColour(),
+                source.lineSeparators(),
+                source.rows(),
+                source.columns(),
+                source.colour(),
+                source.penColour(),
+                source.borderPresent(),
+                nestedRegions,
+                source.confidence(),
+                source.custom(),
+                source.comments(),
+                source.continuation(),
+                source.labelIds()
+        );
+    }
+
+    private TextLineDto copyTextLineDto(TextLineDto source, List<TextContentVariantDto> variants) {
+        return new TextLineDto(
+                source.id(),
+                source.coords(),
+                source.baseline(),
+                variants,
+                source.words(),
+                source.alternativeImages(),
+                source.labels(),
+                source.userDefined(),
+                source.textStyle(),
+                source.bold(),
+                source.italic(),
+                source.underlined(),
+                source.underlineStyle(),
+                source.subscript(),
+                source.superscript(),
+                source.strikethrough(),
+                source.smallCaps(),
+                source.letterSpaced(),
+                source.primaryLanguage(),
+                source.primaryScript(),
+                source.secondaryScript(),
+                source.readingDirection(),
+                source.production(),
+                source.confidence(),
+                source.index(),
+                source.custom(),
+                source.comments()
+        );
+    }
+
     private void dispatchAsync(String runId, String rawSecret, String publicApiBaseUrl) {
         importTaskExecutor.execute(() -> {
             int attempts = Math.max(1, dispatchMaxAttempts);
@@ -923,6 +1299,7 @@ public class ActionRunService {
         payload.put("workspaceId", run.getWorkspaceId());
         payload.put("projectId", run.getProjectId());
         payload.put("pageIds", readPageIds(run));
+        payload.put("targetSelection", readTargetSelection(run));
         payload.put("parameters", readObjectMap(run.getParametersJson()));
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
@@ -1309,6 +1686,7 @@ public class ActionRunService {
                 run.getWorkspaceId(),
                 run.getProjectId(),
                 readPageIds(run),
+                readTargetSelection(run),
                 run.getStatus(),
                 run.getLockMode(),
                 run.getProgressPercent(),
@@ -1480,6 +1858,236 @@ public class ActionRunService {
         );
     }
 
+    private ActionDto.TargetSelection normalizeTargetSelection(ActionDto.StartRunRequest request, String projectId) {
+        ActionDto.TargetSelection provided = request.targetSelection();
+        if (provided == null) {
+            List<Page> pages = resolveRunPages(projectId, request.pageIds());
+            return new ActionDto.TargetSelection(
+                    ActionTarget.PAGE,
+                    pages.stream()
+                            .map(page -> new ActionDto.TargetSelectionPage(page.getId(), List.of(), List.of()))
+                            .toList()
+            );
+        }
+        ActionTarget type = provided.type() == null ? ActionTarget.PAGE : provided.type();
+        List<ActionDto.TargetSelectionPage> rawPages = provided.pages() == null ? List.of() : provided.pages();
+        if (rawPages.isEmpty()) {
+            throw new IllegalArgumentException("Action targetSelection.pages must not be empty");
+        }
+        List<String> pageIds = rawPages.stream()
+                .map(ActionDto.TargetSelectionPage::pageId)
+                .filter(id -> id != null && !id.isBlank())
+                .distinct()
+                .toList();
+        if (pageIds.size() != rawPages.size()) {
+            throw new IllegalArgumentException("Each targetSelection page must include a pageId");
+        }
+        List<Page> pages = resolveRunPages(projectId, pageIds);
+        Set<String> existingPageIds = pages.stream().map(Page::getId).collect(Collectors.toSet());
+        List<ActionDto.TargetSelectionPage> normalizedPages = rawPages.stream()
+                .filter(page -> existingPageIds.contains(page.pageId()))
+                .map(page -> new ActionDto.TargetSelectionPage(
+                        page.pageId(),
+                        safeList(page.regionIds()).stream().filter(id -> id != null && !id.isBlank()).distinct().toList(),
+                        safeList(page.textLineIds()).stream().filter(id -> id != null && !id.isBlank()).distinct().toList()
+                ))
+                .toList();
+        validateTargetSelection(projectId, type, normalizedPages);
+        return new ActionDto.TargetSelection(type, normalizedPages);
+    }
+
+    private void validateTargetSelection(String projectId, ActionTarget type, List<ActionDto.TargetSelectionPage> pages) {
+        if (type == ActionTarget.PAGE) {
+            return;
+        }
+        for (ActionDto.TargetSelectionPage page : pages) {
+            PageXml xml = primaryPageXml(page.pageId());
+            PageDto pageDto;
+            try {
+                pageDto = annotationProcessingService.parseXmlToAnnotation(xml.getId());
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Could not read PAGE XML for target selection");
+            }
+            Set<String> regionIds = new LinkedHashSet<>();
+            Set<String> textLineIds = new LinkedHashSet<>();
+            collectTargetIds(pageDto.regions(), regionIds, textLineIds);
+            if (type == ActionTarget.REGION) {
+                if (safeList(page.regionIds()).isEmpty()) {
+                    throw new IllegalArgumentException("Region-targeted Actions require at least one region id");
+                }
+                for (String regionId : page.regionIds()) {
+                    if (!regionIds.contains(regionId)) {
+                        throw new IllegalArgumentException("Region does not exist on selected page: " + regionId);
+                    }
+                }
+            }
+            if (type == ActionTarget.TEXT_LINE) {
+                if (safeList(page.textLineIds()).isEmpty()) {
+                    throw new IllegalArgumentException("Textline-targeted Actions require at least one textline id");
+                }
+                for (String textLineId : page.textLineIds()) {
+                    if (!textLineIds.contains(textLineId)) {
+                        throw new IllegalArgumentException("TextLine does not exist on selected page: " + textLineId);
+                    }
+                }
+            }
+        }
+    }
+
+    private void collectTargetIds(List<RegionDto> regions, Set<String> regionIds, Set<String> textLineIds) {
+        if (regions == null) {
+            return;
+        }
+        for (RegionDto region : regions) {
+            if (region.id() != null) {
+                regionIds.add(region.id());
+            }
+            if (region.textLines() != null) {
+                for (TextLineDto line : region.textLines()) {
+                    if (line.id() != null) {
+                        textLineIds.add(line.id());
+                    }
+                }
+            }
+            collectTargetIds(region.nestedRegions(), regionIds, textLineIds);
+        }
+    }
+
+    private void requireTargetSupported(ActionProcessorDefinition definition, ActionTarget target) {
+        if (!definitionService.readTargetTypes(definition).contains(target)) {
+            throw new IllegalArgumentException("Action does not support target: " + target);
+        }
+    }
+
+    private ActionDto.TargetSelection readTargetSelection(ActionRun run) {
+        if (run.getTargetSelectionJson() != null && !run.getTargetSelectionJson().isBlank()) {
+            try {
+                return objectMapper.readValue(run.getTargetSelectionJson(), TARGET_SELECTION);
+            } catch (JsonProcessingException ignored) {
+            }
+        }
+        return new ActionDto.TargetSelection(
+                ActionTarget.PAGE,
+                readPageIds(run).stream()
+                        .map(pageId -> new ActionDto.TargetSelectionPage(pageId, List.of(), List.of()))
+                        .toList()
+        );
+    }
+
+    private ActionDto.MachineTargetSelection buildMachineTargetSelection(ActionRun run) {
+        ActionDto.TargetSelection selection = readTargetSelection(run);
+        List<ActionDto.MachineTargetPage> pages = selection.pages().stream()
+                .map(page -> buildMachineTargetPage(page, selection.type()))
+                .toList();
+        return new ActionDto.MachineTargetSelection(selection.type(), pages);
+    }
+
+    private ActionDto.MachineTargetPage buildMachineTargetPage(ActionDto.TargetSelectionPage targetPage, ActionTarget type) {
+        if (type == ActionTarget.PAGE) {
+            return new ActionDto.MachineTargetPage(targetPage.pageId(), List.of(), List.of());
+        }
+        try {
+            PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(primaryPageXml(targetPage.pageId()).getId());
+            MachineTargetCollector collector = new MachineTargetCollector(
+                    new LinkedHashSet<>(safeList(targetPage.regionIds())),
+                    new LinkedHashSet<>(safeList(targetPage.textLineIds()))
+            );
+            collector.collect(pageDto.regions());
+            return new ActionDto.MachineTargetPage(targetPage.pageId(), collector.regions, collector.textLines);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not build Action target metadata", e);
+        }
+    }
+
+    private boolean isTextLineInTargetScope(ActionDto.TargetSelection selection, String pageId, String textLineId) {
+        if (selection.type() == ActionTarget.PAGE) {
+            return selection.pages().stream().anyMatch(page -> pageId.equals(page.pageId()));
+        }
+        for (ActionDto.TargetSelectionPage page : selection.pages()) {
+            if (!pageId.equals(page.pageId())) {
+                continue;
+            }
+            if (selection.type() == ActionTarget.TEXT_LINE) {
+                return safeList(page.textLineIds()).contains(textLineId);
+            }
+            if (selection.type() == ActionTarget.REGION) {
+                try {
+                    PageDto pageDto = annotationProcessingService.parseXmlToAnnotation(primaryPageXml(pageId).getId());
+                    return textLineBelongsToRegion(pageDto.regions(), new LinkedHashSet<>(safeList(page.regionIds())), textLineId);
+                } catch (IOException e) {
+                    throw new IllegalStateException("Could not verify textline target scope", e);
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean textLineBelongsToRegion(List<RegionDto> regions, Set<String> regionIds, String textLineId) {
+        if (regions == null) {
+            return false;
+        }
+        for (RegionDto region : regions) {
+            if (regionIds.contains(region.id())
+                    && region.textLines() != null
+                    && region.textLines().stream().anyMatch(line -> textLineId.equals(line.id()))) {
+                return true;
+            }
+            if (textLineBelongsToRegion(region.nestedRegions(), regionIds, textLineId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private <T> List<T> safeList(List<T> value) {
+        return value == null ? List.of() : value;
+    }
+
+    private class MachineTargetCollector {
+        private final Set<String> selectedRegionIds;
+        private final Set<String> selectedTextLineIds;
+        private final List<ActionDto.MachineTargetRegion> regions = new ArrayList<>();
+        private final List<ActionDto.MachineTargetTextLine> textLines = new ArrayList<>();
+
+        private MachineTargetCollector(Set<String> selectedRegionIds, Set<String> selectedTextLineIds) {
+            this.selectedRegionIds = selectedRegionIds;
+            this.selectedTextLineIds = selectedTextLineIds;
+        }
+
+        private void collect(List<RegionDto> sourceRegions) {
+            collect(sourceRegions, null);
+        }
+
+        private void collect(List<RegionDto> sourceRegions, String parentRegionId) {
+            if (sourceRegions == null) {
+                return;
+            }
+            for (RegionDto region : sourceRegions) {
+                boolean includeRegion = selectedRegionIds.contains(region.id());
+                List<String> lineIds = region.textLines() == null
+                        ? List.of()
+                        : region.textLines().stream().map(TextLineDto::id).filter(Objects::nonNull).toList();
+                if (includeRegion) {
+                    regions.add(new ActionDto.MachineTargetRegion(region.id(), region.kind() == null ? null : region.kind().name(), region.coords(), lineIds));
+                }
+                if (region.textLines() != null) {
+                    for (TextLineDto line : region.textLines()) {
+                        if (selectedTextLineIds.contains(line.id()) || includeRegion) {
+                            textLines.add(new ActionDto.MachineTargetTextLine(
+                                    line.id(),
+                                    region.id(),
+                                    line.coords(),
+                                    line.baseline(),
+                                    line.textContentVariants()
+                            ));
+                        }
+                    }
+                }
+                collect(region.nestedRegions(), parentRegionId);
+            }
+        }
+    }
+
     private ActionDto.MachinePageFile toMachineImageFile(String publicApiBaseUrl, String runId, PageImage image) {
         return new ActionDto.MachinePageFile(
                 image.getId(),
@@ -1513,9 +2121,12 @@ public class ActionRunService {
         return file;
     }
 
-    private void validateResultManifest(List<ActionDto.ResultFile> resultFiles, MultiValueMap<String, MultipartFile> files) {
-        if (resultFiles.size() > maxResultFiles) {
-            throw new IllegalArgumentException("Too many Action result files: " + resultFiles.size() + " > " + maxResultFiles);
+    private void validateResultManifest(List<ActionDto.ResultFile> resultFiles,
+                                        List<ActionDto.ResultPatch> resultPatches,
+                                        MultiValueMap<String, MultipartFile> files) {
+        int fileCount = resultFiles.size() + (int) resultPatches.stream().filter(patch -> patch.fieldName() != null && !patch.fieldName().isBlank()).count();
+        if (fileCount > maxResultFiles) {
+            throw new IllegalArgumentException("Too many Action result files: " + fileCount + " > " + maxResultFiles);
         }
         long totalBytes = 0L;
         Set<String> fieldNames = new LinkedHashSet<>();
@@ -1533,6 +2144,34 @@ public class ActionRunService {
                 throw new IllegalArgumentException("Action result upload exceeds total size limit");
             }
         }
+        for (ActionDto.ResultPatch resultPatch : resultPatches) {
+            String type = normalize(resultPatch.type());
+            if ("layout_xml".equals(type)) {
+                if (resultPatch.fieldName() == null || resultPatch.fieldName().isBlank()) {
+                    throw new IllegalArgumentException("Layout XML patch fieldName is required");
+                }
+                if (!fieldNames.add(resultPatch.fieldName())) {
+                    throw new IllegalArgumentException("Duplicate result file fieldName: " + resultPatch.fieldName());
+                }
+                MultipartFile file = resolveMultipart(files, resultPatch.fieldName());
+                validateResultFileSize(file);
+                totalBytes += file.getSize();
+                if (totalBytes > maxResultTotalBytes) {
+                    throw new IllegalArgumentException("Action result upload exceeds total size limit");
+                }
+            }
+        }
+    }
+
+    private long resultUploadBytes(List<ActionDto.ResultFile> resultFiles,
+                                   List<ActionDto.ResultPatch> resultPatches,
+                                   MultiValueMap<String, MultipartFile> files) {
+        long total = resultFiles.stream().mapToLong(file -> resolveMultipart(files, file.fieldName()).getSize()).sum();
+        total += resultPatches.stream()
+                .filter(patch -> "layout_xml".equals(normalize(patch.type())))
+                .mapToLong(patch -> resolveMultipart(files, patch.fieldName()).getSize())
+                .sum();
+        return total;
     }
 
     private void validateResultFileSize(MultipartFile file) {

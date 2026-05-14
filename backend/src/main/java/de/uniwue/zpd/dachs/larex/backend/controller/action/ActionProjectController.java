@@ -1,6 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.controller.action;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionPublicBaseUrlService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -67,8 +68,9 @@ public class ActionProjectController {
     public ResponseEntity<List<ActionDto.ExecutableProcessorResponse>> listExecutableProcessors(
             @PathVariable String workspaceId,
             @PathVariable String projectId,
+            @RequestParam(required = false) ActionTarget target,
             @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(actionRunService.listExecutableProcessors(workspaceId, projectId, userId));
+        return ResponseEntity.ok(actionRunService.listExecutableProcessors(workspaceId, projectId, userId, target));
     }
 
     @PostMapping("/projects/{projectId}/runs")

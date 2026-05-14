@@ -79,6 +79,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   const temporaryHoverPolygonId = ref<string | null>(null)
   const temporaryHoverPolylineId = ref<string | null>(null)
+  const actionWandActive = ref(false)
 
   const textViewFontSize = ref<number>(30)
   const textViewPadding = ref<number>(10)
@@ -476,6 +477,17 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     temporaryHoverPolylineId.value = id
   }
 
+  function setActionWandActive(active: boolean) {
+    actionWandActive.value = active
+    if (active) {
+      cancelRelationPicking()
+    }
+  }
+
+  function toggleActionWand() {
+    setActionWandActive(!actionWandActive.value)
+  }
+
   function setTextViewFontSize(size: number) {
     textViewFontSize.value = size
     editorPreferences.updatePreference('textViewFontSize', size)
@@ -661,6 +673,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     relationsEditor,
     temporaryHoverPolygonId,
     temporaryHoverPolylineId,
+    actionWandActive,
     textViewFontSize,
     textViewPadding,
     textViewCutoutHeight,
@@ -730,6 +743,8 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     saveBackgroundAppearance,
     setTemporaryHoverPolygonId,
     setTemporaryHoverPolylineId,
+    setActionWandActive,
+    toggleActionWand,
     setTextViewFontSize,
     setTextViewPadding,
     setTextViewCutoutHeight,
