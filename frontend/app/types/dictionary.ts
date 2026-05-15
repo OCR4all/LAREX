@@ -76,20 +76,10 @@ export interface DictionaryValidateAgainstSourcesRequest {
   unindexedOnly?: boolean
 }
 
-export interface DictionaryValidateAgainstProjectRequest {
-  projectId: string
-}
-
 export interface DictionarySuggestion {
   display: string
   normalized: string
   distance: number
-}
-
-export interface DictionarySuggestResponse {
-  token: string
-  normalizedToken: string
-  suggestions: DictionarySuggestion[]
 }
 
 export interface DictionaryTokenCheckResult {
@@ -146,11 +136,4 @@ export interface DictionaryValidateAgainstSourcesResponse {
 export interface DictionaryFormEntry {
   display: string
   normalized: string
-}
-
-export interface DictionaryFormsResponse {
-  dictionaryId: string
-  caseSensitive: boolean
-  unicodeNormalization: string
-  forms: DictionaryFormEntry[]
 }

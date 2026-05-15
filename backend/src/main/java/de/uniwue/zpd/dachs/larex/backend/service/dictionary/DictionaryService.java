@@ -395,37 +395,6 @@ public class DictionaryService {
     }
 
     @Transactional(readOnly = true)
-    public DictionaryDto.FormsResponse getForms(String userId, String workspaceId, String dictionaryId) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        ControlledDictionary dictionary = requireDictionaryInWorkspace(workspaceId, dictionaryId);
-        DictionaryIndex index = getDictionaryIndex(dictionary);
-        return new DictionaryDto.FormsResponse(
-                dictionary.getId(),
-                dictionary.isCaseSensitive(),
-                dictionary.getUnicodeNormalization(),
-                index.forms().entrySet().stream()
-                        .flatMap(entry -> entry.getValue().stream()
-                                .sorted(String.CASE_INSENSITIVE_ORDER)
-                                .map(display -> new DictionaryDto.FormEntry(display, entry.getKey())))
-                        .sorted(Comparator.comparing(DictionaryDto.FormEntry::display, String.CASE_INSENSITIVE_ORDER))
-                        .toList()
-        );
-    }
-
-    @Transactional(readOnly = true)
-    public DictionaryDto.SuggestResponse suggest(String userId, String workspaceId, String dictionaryId, DictionaryDto.SuggestRequest request) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        ControlledDictionary dictionary = requireDictionaryInWorkspace(workspaceId, dictionaryId);
-        String token = normalizeSurfaceForm(request.token());
-        if (token == null) {
-            throw new IllegalArgumentException("Token is required");
-        }
-        String normalized = normalizeForDictionary(dictionary, token);
-        List<DictionaryDto.Suggestion> suggestions = suggestForNormalizedToken(dictionary, normalized, request.limit());
-        return new DictionaryDto.SuggestResponse(token, normalized, suggestions);
-    }
-
-    @Transactional(readOnly = true)
     public DictionaryDto.CheckTokensResponse checkTokens(String userId,
                                                          String workspaceId,
                                                          String dictionaryId,
@@ -569,24 +538,6 @@ public class DictionaryService {
                 projectResults,
                 unknownTokenResults,
                 valid ? "Dictionary fully covers selected sources" : "Dictionary is missing tokens from selected sources"
-        );
-    }
-
-    @Transactional(readOnly = true)
-    public DictionaryDto.ValidateAgainstSourcesResponse validateAgainstProject(String userId,
-                                                                              String workspaceId,
-                                                                              String dictionaryId,
-                                                                              DictionaryDto.ValidateAgainstProjectRequest request) {
-        return validateAgainstSources(
-                userId,
-                workspaceId,
-                dictionaryId,
-                new DictionaryDto.ValidateAgainstSourcesRequest(
-                        List.of(new DictionaryDto.ProjectScope(request.projectId(), List.of())),
-                        DictionaryDto.VariantScope.ALL,
-                        null,
-                        false
-                )
         );
     }
 

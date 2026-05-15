@@ -126,12 +126,6 @@ public class Codec {
         }
     }
 
-    public void removeCharacter(String character) {
-        if (character != null) {
-            this.characters.remove(character);
-        }
-    }
-
     public boolean hasCharacter(String character) {
         return character != null && this.characters.contains(character);
     }

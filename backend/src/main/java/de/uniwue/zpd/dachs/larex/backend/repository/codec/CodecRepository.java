@@ -29,8 +29,5 @@ public interface CodecRepository extends JpaRepository<Codec, String> {
     List<Codec> findCodecsInWorkspaceBySearch(@Param("workspaceId") String workspaceId,
                                              @Param("query") String query);
 
-    @Query("SELECT c FROM Codec c JOIN c.characters ch WHERE ch = :character AND c.library.workspaceId = :workspaceId")
-    List<Codec> findByCharacterAndWorkspace(@Param("character") String character, @Param("workspaceId") String workspaceId);
-
     boolean existsByNameAndLibraryId(String name, String libraryId);
 }

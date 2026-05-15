@@ -204,44 +204,6 @@ public class CodecService {
     }
 
     @CacheEvict(value = "codecs", allEntries = true)
-    public CodecDto.Response removeCharacter(String userId, String workspaceId, String codecId, String character) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
-
-        Codec codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
-
-        if (!codec.hasCharacter(character)) {
-            throw new IllegalArgumentException("Character '" + character + "' does not exist in codec");
-        }
-
-        codec.removeCharacter(character);
-        codec = codecRepository.save(codec);
-        return convertToCodecResponse(codec, userId);
-    }
-
-    @Transactional(readOnly = true)
-    public CodecDto.CharacterSearchResponse findCodecsContainingCharacter(String userId, String workspaceId, String character) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-
-        List<Codec> codecs = codecRepository.findByCharacterAndWorkspace(character, workspaceId);
-        List<CodecDto.CodecSummary> codecSummaries = codecs.stream()
-                .map(codec -> new CodecDto.CodecSummary(codec.getId(), codec.getName(), true))
-                .collect(Collectors.toList());
-
-        return new CodecDto.CharacterSearchResponse(codecSummaries);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean isCharacterInCodec(String userId, String workspaceId, String codecId, String character) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-
-        Codec codec = codecRepository.findByIdAndLibraryWorkspaceId(codecId, workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Codec not found: " + codecId));
-
-        return codec.hasCharacter(character);
-    }
-
-    @CacheEvict(value = "codecs", allEntries = true)
     public CodecDto.GenerateFromSourcesResponse generateFromSources(
             String userId,
             String workspaceId,
@@ -425,54 +387,6 @@ public class CodecService {
                 projectResults,
                 missingCharacterResults,
                 valid ? "Codec fully covers selected sources" : "Codec is missing characters from selected sources"
-        );
-    }
-
-    @Transactional(readOnly = true)
-    public CodecDto.GenerateFromProjectResponse generateFromProject(String userId, String workspaceId, String projectId) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-
-        List<ProjectCharacterAnalysis> analyses = analyzeSources(
-                workspaceId,
-                List.of(new CodecDto.ProjectScope(projectId, List.of())),
-                resolveVariantSelection(CodecDto.VariantScope.ALL, null, false),
-                false
-        );
-
-        Set<String> extractedCharacters = analyses.stream()
-                .flatMap(a -> a.characters().stream())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        List<String> sortedCharacters = extractedCharacters.stream().sorted().toList();
-
-        return new CodecDto.GenerateFromProjectResponse(
-                sortedCharacters,
-                sortedCharacters.size(),
-                "Generated character set from project"
-        );
-    }
-
-    @Transactional(readOnly = true)
-    public CodecDto.ValidateAgainstProjectResponse validateAgainstProject(String userId, String workspaceId, String codecId, String projectId) {
-        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-
-        CodecDto.ValidateAgainstSourcesResponse response = validateAgainstSources(
-                userId,
-                workspaceId,
-                codecId,
-                new CodecDto.ValidateAgainstSourcesRequest(
-                        List.of(new CodecDto.ProjectScope(projectId, List.of())),
-                        CodecDto.VariantScope.ALL,
-                        null,
-                        false,
-                        false
-                )
-        );
-
-        return new CodecDto.ValidateAgainstProjectResponse(
-                response.valid(),
-                response.missingCharacters(),
-                response.message()
         );
     }
 

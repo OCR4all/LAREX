@@ -58,48 +58,6 @@ public class CodecDto {
             String character
     ) {}
 
-    public record RemoveCharacterRequest(
-            @NotBlank(message = "Character is required")
-            String character
-    ) {}
-
-    public record CharacterSearchRequest(
-            @NotBlank(message = "Character is required")
-            String character
-    ) {}
-
-    public record CharacterSearchResponse(
-            List<CodecSummary> codecs
-    ) {}
-
-    public record CodecSummary(
-            String id,
-            String name,
-            boolean containsCharacter
-    ) {}
-
-    public record GenerateFromProjectRequest(
-            @NotBlank(message = "Project ID is required")
-            String projectId
-    ) {}
-
-    public record GenerateFromProjectResponse(
-            List<String> codec,
-            int characterCount,
-            String message
-    ) {}
-
-    public record ValidateAgainstProjectRequest(
-            @NotBlank(message = "Project ID is required")
-            String projectId
-    ) {}
-
-    public record ValidateAgainstProjectResponse(
-            boolean valid,
-            List<String> projectCharactersNotInCodec,
-            String message
-    ) {}
-
     public record ProjectScope(
             @NotBlank(message = "Project ID is required")
             String projectId,

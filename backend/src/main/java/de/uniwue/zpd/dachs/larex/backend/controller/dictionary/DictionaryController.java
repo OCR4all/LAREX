@@ -158,35 +158,12 @@ public class DictionaryController {
         ));
     }
 
-    @GetMapping("/{dictionaryId}/forms")
-    public ResponseEntity<DictionaryDto.FormsResponse> getForms(@PathVariable String workspaceId,
-                                                                @PathVariable String dictionaryId,
-                                                                @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(dictionaryService.getForms(userId, workspaceId, dictionaryId));
-    }
-
     @PostMapping("/{dictionaryId}/validate-against-sources")
     public ResponseEntity<DictionaryDto.ValidateAgainstSourcesResponse> validateAgainstSources(@PathVariable String workspaceId,
                                                                                                @PathVariable String dictionaryId,
                                                                                                @Valid @RequestBody DictionaryDto.ValidateAgainstSourcesRequest request,
                                                                                                @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(dictionaryService.validateAgainstSources(userId, workspaceId, dictionaryId, request));
-    }
-
-    @PostMapping("/{dictionaryId}/validate-against-project")
-    public ResponseEntity<DictionaryDto.ValidateAgainstSourcesResponse> validateAgainstProject(@PathVariable String workspaceId,
-                                                                                               @PathVariable String dictionaryId,
-                                                                                               @Valid @RequestBody DictionaryDto.ValidateAgainstProjectRequest request,
-                                                                                               @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(dictionaryService.validateAgainstProject(userId, workspaceId, dictionaryId, request));
-    }
-
-    @PostMapping("/{dictionaryId}/suggest")
-    public ResponseEntity<DictionaryDto.SuggestResponse> suggest(@PathVariable String workspaceId,
-                                                                 @PathVariable String dictionaryId,
-                                                                 @Valid @RequestBody DictionaryDto.SuggestRequest request,
-                                                                 @AuthenticationPrincipal(expression = "subject") String userId) {
-        return ResponseEntity.ok(dictionaryService.suggest(userId, workspaceId, dictionaryId, request));
     }
 
     @PostMapping("/{dictionaryId}/check-tokens")

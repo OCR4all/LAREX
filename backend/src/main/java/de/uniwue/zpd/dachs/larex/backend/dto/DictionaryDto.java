@@ -135,20 +135,6 @@ public class DictionaryDto {
     ) {
     }
 
-    public record FormEntry(
-            String display,
-            String normalized
-    ) {
-    }
-
-    public record FormsResponse(
-            String dictionaryId,
-            boolean caseSensitive,
-            String unicodeNormalization,
-            List<FormEntry> forms
-    ) {
-    }
-
     public record ProjectScope(
             @NotBlank(message = "Project ID is required")
             String projectId,
@@ -165,19 +151,6 @@ public class DictionaryDto {
     ) {
     }
 
-    public record ValidateAgainstProjectRequest(
-            @NotBlank(message = "Project ID is required")
-            String projectId
-    ) {
-    }
-
-    public record SuggestRequest(
-            @NotBlank(message = "Token is required")
-            String token,
-            Integer limit
-    ) {
-    }
-
     public record CheckTokensRequest(
             @NotEmpty(message = "At least one token is required")
             List<@NotBlank(message = "Token must not be blank") String> tokens,
@@ -190,13 +163,6 @@ public class DictionaryDto {
             String display,
             String normalized,
             int distance
-    ) {
-    }
-
-    public record SuggestResponse(
-            String token,
-            String normalizedToken,
-            List<Suggestion> suggestions
     ) {
     }
 

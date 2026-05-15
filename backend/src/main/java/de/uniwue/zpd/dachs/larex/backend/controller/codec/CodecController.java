@@ -99,49 +99,6 @@ public class CodecController {
         return ResponseEntity.ok(codec);
     }
 
-    @DeleteMapping("/{codecId}/characters")
-    public ResponseEntity<CodecDto.Response> removeCharacter(
-            @PathVariable String workspaceId,
-            @PathVariable String codecId,
-            @Valid @RequestBody CodecDto.RemoveCharacterRequest request,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        CodecDto.Response codec = codecService.removeCharacter(userId, workspaceId, codecId, request.character());
-        return ResponseEntity.ok(codec);
-    }
-
-    // Character search endpoints
-    @GetMapping("/search/by-character")
-    public ResponseEntity<CodecDto.CharacterSearchResponse> findCodecsContainingCharacter(
-            @PathVariable String workspaceId,
-            @RequestParam String character,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        CodecDto.CharacterSearchResponse response = codecService.findCodecsContainingCharacter(userId, workspaceId, character);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/{codecId}/contains-character")
-    public ResponseEntity<Boolean> isCharacterInCodec(
-            @PathVariable String workspaceId,
-            @PathVariable String codecId,
-            @RequestParam String character,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        boolean containsCharacter = codecService.isCharacterInCodec(userId, workspaceId, codecId, character);
-        return ResponseEntity.ok(containsCharacter);
-    }
-
-    @PostMapping("/generate-from-project")
-    public ResponseEntity<CodecDto.GenerateFromProjectResponse> generateFromProject(
-            @PathVariable String workspaceId,
-            @Valid @RequestBody CodecDto.GenerateFromProjectRequest request,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        CodecDto.GenerateFromProjectResponse response = codecService.generateFromProject(userId, workspaceId, request.projectId());
-        return ResponseEntity.ok(response);
-    }
-
     @PostMapping("/generate-from-sources")
     public ResponseEntity<CodecDto.GenerateFromSourcesResponse> generateFromSources(
             @PathVariable String workspaceId,
@@ -149,17 +106,6 @@ public class CodecController {
             @AuthenticationPrincipal(expression = "subject") String userId) {
 
         CodecDto.GenerateFromSourcesResponse response = codecService.generateFromSources(userId, workspaceId, request);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/{codecId}/validate-against-project")
-    public ResponseEntity<CodecDto.ValidateAgainstProjectResponse> validateAgainstProject(
-            @PathVariable String workspaceId,
-            @PathVariable String codecId,
-            @Valid @RequestBody CodecDto.ValidateAgainstProjectRequest request,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        CodecDto.ValidateAgainstProjectResponse response = codecService.validateAgainstProject(userId, workspaceId, codecId, request.projectId());
         return ResponseEntity.ok(response);
     }
 
