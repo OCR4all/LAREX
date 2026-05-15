@@ -166,6 +166,8 @@ public class AsyncUploadProcessor {
                     return;
                 }
 
+                fileRepository.save(pdfFile);
+
                 if (pdfFile.getStatus() == UploadFileStatus.COMPLETED) {
                     processedCount++;
                     session.incrementProcessedFiles();
