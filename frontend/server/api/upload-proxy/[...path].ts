@@ -9,9 +9,9 @@
  * detect the multipart boundary from the incoming stream. Setting it manually will break uploads.
  *
  * Handles endpoints:
- * - /workspaces/{workspaceId}/projects/{projectId}/unified-upload
+ * - /upload-sessions/{sessionId}/chunks
+ * - /workspaces/{workspaceId}/projects/import-package
  * - /projects/{projectId}/pages/{pageId}/images
- * - Future file upload endpoints (XML, PDF, etc.)
  */
 export default defineEventHandler(async (event) => {
   const path = event.node.req.url?.replace('/api/upload-proxy/', '') || ''

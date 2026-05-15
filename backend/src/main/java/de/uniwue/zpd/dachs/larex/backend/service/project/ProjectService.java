@@ -3,34 +3,22 @@ package de.uniwue.zpd.dachs.larex.backend.service.project;
 import de.uniwue.zpd.dachs.larex.backend.dto.BulkDeleteDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
-import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectCrudService;
-import de.uniwue.zpd.dachs.larex.backend.service.upload.UnifiedUploadService;
-import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @Transactional
 public class ProjectService {
 
     private final ProjectCrudService projectCrudService;
-    private final UnifiedUploadService unifiedUploadService;
-    private final WorkspaceAccessService workspaceAccessService;
 
-    public ProjectService(ProjectCrudService projectCrudService,
-                          UnifiedUploadService unifiedUploadService,
-                          WorkspaceAccessService workspaceAccessService) {
+    public ProjectService(ProjectCrudService projectCrudService) {
         this.projectCrudService = projectCrudService;
-        this.unifiedUploadService = unifiedUploadService;
-        this.workspaceAccessService = workspaceAccessService;
     }
 
     public List<Project> getWorkspaceProjects(String workspaceId, String userId) {
@@ -103,20 +91,6 @@ public class ProjectService {
 
     public List<Project> getProjectsByTags(String workspaceId, List<String> tags, String userId) {
         return projectCrudService.getProjectsByTags(workspaceId, tags, userId);
-    }
-
-    public Map<String, Object> bulkUploadImages(String projectId, List<MultipartFile> files, String userId) throws IOException {
-        Project project = projectCrudService.getProjectById(projectId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found or access denied"));
-        workspaceAccessService.requireManageProjectsAccess(project.getLibrary().getWorkspaceId(), userId);
-        return unifiedUploadService.bulkUploadImages(projectId, files, userId);
-    }
-
-    public Map<String, Object> importDataset(String projectId, List<MultipartFile> files, String userId) throws IOException {
-        Project project = projectCrudService.getProjectById(projectId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found or access denied"));
-        workspaceAccessService.requireManageProjectsAccess(project.getLibrary().getWorkspaceId(), userId);
-        return unifiedUploadService.importDataset(projectId, files, userId);
     }
 
     private String describeError(RuntimeException ex) {

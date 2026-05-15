@@ -8,20 +8,6 @@ import java.util.List;
 
 public class UploadConflictDto {
 
-    public record UploadResponse(
-            boolean hasConflicts,
-            List<ConflictResponse> conflicts,
-            UploadResultDto result
-    ) {}
-
-    public record UploadResultDto(
-            int totalPagesCreated,
-            int totalPagesUpdated,
-            int totalImagesProcessed,
-            int totalXmlFilesProcessed,
-            List<String> pages
-    ) {}
-
     public record ConflictResponse(
             String conflictId,
             String conflictType,

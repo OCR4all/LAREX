@@ -10,7 +10,6 @@ import de.uniwue.zpd.dachs.larex.backend.dto.UploadConflictDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.ProjectTransferRequest;
 import de.uniwue.zpd.dachs.larex.backend.exception.ResourceNotFoundException;
-import de.uniwue.zpd.dachs.larex.backend.exception.StorageQuotaExceededException;
 import de.uniwue.zpd.dachs.larex.backend.service.project.LegacyOcr4allImportService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
@@ -18,12 +17,8 @@ import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.importer.IiifImportService;
-import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
-import de.uniwue.zpd.dachs.larex.backend.service.upload.UnifiedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,7 +27,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -46,8 +40,6 @@ import java.util.Optional;
 @RequestMapping("/workspaces/{workspaceId}/projects")
 public class ProjectController {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
-
     private final ProjectService projectService;
     private final ProjectTransferService projectTransferService;
     private final ProjectReadService projectReadService;
@@ -55,9 +47,7 @@ public class ProjectController {
     private final LegacyOcr4allImportService legacyOcr4allImportService;
     private final DocumentExportService documentExportService;
     private final IiifImportService iiifImportService;
-    private final UnifiedUploadService unifiedUploadService;
     private final UploadConflictService uploadConflictService;
-    private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     public ProjectController(ProjectService projectService, ProjectTransferService projectTransferService,
                            ProjectReadService projectReadService,
@@ -65,9 +55,7 @@ public class ProjectController {
                            LegacyOcr4allImportService legacyOcr4allImportService,
                            DocumentExportService documentExportService,
                            IiifImportService iiifImportService,
-                           UnifiedUploadService unifiedUploadService,
-                           UploadConflictService uploadConflictService,
-                           WorkspaceQuotaGuardService workspaceQuotaGuardService) {
+                           UploadConflictService uploadConflictService) {
         this.projectService = projectService;
         this.projectTransferService = projectTransferService;
         this.projectReadService = projectReadService;
@@ -75,9 +63,7 @@ public class ProjectController {
         this.legacyOcr4allImportService = legacyOcr4allImportService;
         this.documentExportService = documentExportService;
         this.iiifImportService = iiifImportService;
-        this.unifiedUploadService = unifiedUploadService;
         this.uploadConflictService = uploadConflictService;
-        this.workspaceQuotaGuardService = workspaceQuotaGuardService;
     }
 
     @GetMapping
@@ -190,96 +176,6 @@ public class ProjectController {
             @Valid @RequestBody BulkDeleteDto.BulkDeleteRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(projectService.bulkDeleteProjects(workspaceId, request.ids(), userId));
-    }
-
-    @PostMapping("/{projectId}/bulk-upload")
-    public ResponseEntity<Map<String, Object>> bulkUploadImages(
-            @PathVariable String workspaceId,
-            @PathVariable String projectId,
-            @RequestParam("files") List<MultipartFile> files,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        long reservedBytes = 0L;
-        try {
-            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
-                    workspaceId,
-                    workspaceQuotaGuardService.totalMultipartBytes(files),
-                    "bulk-upload"
-            );
-            Map<String, Object> result = projectService.bulkUploadImages(projectId, files, userId);
-            return ResponseEntity.ok(result);
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } finally {
-            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
-        }
-    }
-
-    @PostMapping("/{projectId}/dataset-import")
-    public ResponseEntity<Map<String, Object>> importDataset(
-            @PathVariable String workspaceId,
-            @PathVariable String projectId,
-            @RequestParam("files") List<MultipartFile> files,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        logger.debug("Dataset import endpoint called - workspaceId={}, projectId={}, userId={}, fileCount={}", workspaceId, projectId, userId, files.size());
-
-        long reservedBytes = 0L;
-        try {
-            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
-                    workspaceId,
-                    workspaceQuotaGuardService.totalMultipartBytes(files),
-                    "dataset-import"
-            );
-            logger.debug("Storage quota check passed, calling service");
-            Map<String, Object> result = projectService.importDataset(projectId, files, userId);
-
-            logger.debug("Dataset import completed successfully for project {}", projectId);
-            return ResponseEntity.ok(result);
-        } catch (IOException e) {
-            logger.error("IOException in dataset import for project {}: {}", projectId, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "File processing error: " + e.getMessage()));
-        } catch (IllegalArgumentException e) {
-            logger.warn("IllegalArgumentException in dataset import: {}", e.getMessage());
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", e.getMessage()));
-        } catch (StorageQuotaExceededException e) {
-            throw e;
-        } catch (Exception e) {
-            logger.error("Unexpected exception in dataset import for project {}: {} - {}", projectId, e.getClass().getSimpleName(), e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Unexpected error: " + e.getMessage()));
-        } finally {
-            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
-        }
-    }
-
-    @PostMapping("/{projectId}/unified-upload")
-    public ResponseEntity<UploadConflictDto.UploadResponse> unifiedUpload(
-            @PathVariable String workspaceId,
-            @PathVariable String projectId,
-            @RequestParam("files") List<MultipartFile> files,
-            @AuthenticationPrincipal(expression = "subject") String userId) {
-
-        long reservedBytes = 0L;
-        try {
-            reservedBytes = workspaceQuotaGuardService.reserveBytesOrThrow(
-                    workspaceId,
-                    workspaceQuotaGuardService.totalMultipartBytes(files),
-                    "unified-upload"
-            );
-            UploadConflictDto.UploadResponse result = unifiedUploadService.processUpload(projectId, files, userId);
-            return ResponseEntity.ok(result);
-        } catch (StorageQuotaExceededException e) {
-            throw e;
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } finally {
-            workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
-        }
     }
 
     @GetMapping("/{projectId}/conflicts")

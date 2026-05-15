@@ -8,8 +8,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectService;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectTransferService;
-import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
-import de.uniwue.zpd.dachs.larex.backend.service.upload.UnifiedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadConflictService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,11 +42,7 @@ class ProjectControllerExportTest {
     @Mock
     private IiifImportService iiifImportService;
     @Mock
-    private UnifiedUploadService unifiedUploadService;
-    @Mock
     private UploadConflictService uploadConflictService;
-    @Mock
-    private WorkspaceQuotaGuardService workspaceQuotaGuardService;
 
     @Test
     void exportProjectOutput_returnsAttachmentHeadersAndBody() throws Exception {
@@ -60,9 +54,7 @@ class ProjectControllerExportTest {
                 legacyOcr4allImportService,
                 documentExportService,
                 iiifImportService,
-                unifiedUploadService,
-                uploadConflictService,
-                workspaceQuotaGuardService
+                uploadConflictService
         );
 
         byte[] body = "hello".getBytes();
@@ -88,9 +80,7 @@ class ProjectControllerExportTest {
                 legacyOcr4allImportService,
                 documentExportService,
                 iiifImportService,
-                unifiedUploadService,
-                uploadConflictService,
-                workspaceQuotaGuardService
+                uploadConflictService
         );
 
         Path archive = Files.createTempFile("project-release-", ".zip");

@@ -140,6 +140,9 @@ class AsyncUploadProcessorPdfTest {
 
     UploadSessionFile updated = uploadSessionFileRepository.findById(file.getId()).orElseThrow();
     assertThat(updated.getStatus()).isEqualTo(UploadSessionFile.UploadFileStatus.COMPLETED);
+
+    UploadSession updatedSession = uploadSessionRepository.findById(session.getId()).orElseThrow();
+    assertThat(updatedSession.getStatus()).isEqualTo(UploadSession.UploadSessionStatus.COMPLETED);
   }
 
   @Test
