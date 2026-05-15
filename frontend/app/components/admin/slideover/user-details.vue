@@ -12,7 +12,6 @@ interface Props {
   user: AdminUser | null
   auditEvents: AdminUserAuditEvent[]
   globalRoles: AdminGlobalRoles | null
-  patAccessUpdating: boolean
   pending: boolean
   error: string | null
 }
@@ -23,7 +22,6 @@ const emit = defineEmits<{
   close: []
   refresh: []
   globalRoleAction: [action: 'grant' | 'revoke']
-  patAccessAction: [enabled: boolean]
 }>()
 
 function displayName(user: AdminUser): string {
@@ -315,23 +313,6 @@ function handleOpenChange(open: boolean) {
                 </UBadge>
               </div>
 
-              <div class="flex items-center justify-between gap-4 rounded-lg border border-default bg-elevated/30 px-4 py-3">
-                <div class="flex min-w-0 items-center gap-3">
-                  <UIcon name="i-lucide-key-round" class="size-4 shrink-0 text-muted" />
-                  <div class="min-w-0">
-                    <div class="text-sm font-medium text-highlighted">
-                      PAT Access
-                    </div>
-                    <div class="text-sm text-muted">
-                      Can create and revoke private access tokens in account settings
-                    </div>
-                  </div>
-                </div>
-
-                <UBadge :color="user.privateAccessTokensEnabled ? 'success' : 'neutral'" variant="subtle">
-                  {{ user.privateAccessTokensEnabled ? 'Enabled' : 'Disabled' }}
-                </UBadge>
-              </div>
             </div>
 
             <p class="text-sm text-muted">
@@ -346,16 +327,6 @@ function handleOpenChange(open: boolean) {
                 @click="emit('globalRoleAction', globalRoles?.globalCurator ? 'revoke' : 'grant')"
               >
                 {{ globalRoles?.globalCurator ? 'Revoke Curator' : 'Grant Curator' }}
-              </UButton>
-
-              <UButton
-                :color="user.privateAccessTokensEnabled ? 'error' : 'primary'"
-                variant="outline"
-                :icon="user.privateAccessTokensEnabled ? 'i-lucide-toggle-left' : 'i-lucide-toggle-right'"
-                :loading="patAccessUpdating"
-                @click="emit('patAccessAction', !user.privateAccessTokensEnabled)"
-              >
-                {{ user.privateAccessTokensEnabled ? 'Disable PAT Access' : 'Enable PAT Access' }}
               </UButton>
             </div>
 

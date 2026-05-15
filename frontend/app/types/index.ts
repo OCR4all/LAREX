@@ -64,38 +64,6 @@ export interface UpdateUserProfileRequest {
   avatar?: string
 }
 
-export type PrivateAccessTokenScope = 'xml:read' | 'xml:write'
-
-export interface UserPrivateAccessTokenSummary {
-  id: string
-  workspaceId: string
-  name: string
-  secretPrefix: string
-  scopes: PrivateAccessTokenScope[]
-  createdAt: string
-  expiresAt: string
-  revokedAt?: string | null
-  lastUsedAt?: string | null
-  active: boolean
-}
-
-export interface CreateUserPrivateAccessTokenRequest {
-  workspaceId: string
-  name: string
-  expiresAt?: string
-  scopes: PrivateAccessTokenScope[]
-}
-
-export interface CreateUserPrivateAccessTokenResponse {
-  id: string
-  workspaceId: string
-  name: string
-  scopes: PrivateAccessTokenScope[]
-  createdAt: string
-  expiresAt: string
-  secret: string
-}
-
 export interface RecentProject {
   id: string
   projectId: string

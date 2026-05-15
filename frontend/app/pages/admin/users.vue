@@ -83,7 +83,6 @@ const detailPending = ref(false)
 const detailError = ref<string | null>(null)
 const activeActionKey = ref<string | null>(null)
 const isGlobalRoleModalOpen = ref(false)
-const isUpdatingPatAccess = ref(false)
 const globalRoleAction = ref<'grant' | 'revoke' | null>(null)
 const globalRoleReason = ref('')
 const isSubmittingGlobalRole = ref(false)
@@ -484,7 +483,6 @@ function closeUserDetails() {
   detailAuditEvents.value = []
   detailGlobalRoles.value = null
   detailError.value = null
-  isUpdatingPatAccess.value = false
   closeGlobalRoleModal()
 }
 
@@ -641,34 +639,6 @@ async function submitGlobalRoleAction() {
   }
 }
 
-async function updatePrivateAccessTokenAccess(enabled: boolean) {
-  if (!detailUser.value) {
-    return
-  }
-
-  isUpdatingPatAccess.value = true
-  try {
-    await $fetch<AdminUser>(`/api/admin/users/${detailUser.value.id}/private-access-tokens/access`, {
-      method: 'POST',
-      body: { enabled }
-    })
-
-    toast.add({
-      title: enabled ? 'PAT access enabled' : 'PAT access disabled',
-      color: 'success'
-    })
-
-    await refreshUsersAndDetails()
-  } catch (error: unknown) {
-    showApiErrorToast({
-      title: enabled ? 'Enable PAT access failed' : 'Disable PAT access failed',
-      error,
-      fallback: getErrorMessage(error, 'Failed to update PAT access.')
-    })
-  } finally {
-    isUpdatingPatAccess.value = false
-  }
-}
 </script>
 
 <template>
@@ -894,13 +864,11 @@ async function updatePrivateAccessTokenAccess(enabled: boolean) {
     :user="detailUser"
     :audit-events="detailAuditEvents"
     :global-roles="detailGlobalRoles"
-    :pat-access-updating="isUpdatingPatAccess"
     :pending="detailPending"
     :error="detailError"
     @close="closeUserDetails"
     @refresh="selectedUserId && loadUserDetails(selectedUserId)"
     @global-role-action="openGlobalRoleModal"
-    @pat-access-action="updatePrivateAccessTokenAccess"
   />
 
   <UModal

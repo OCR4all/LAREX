@@ -6,7 +6,6 @@ import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorEventPageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminErrorSummaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalCuratorRoleRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.AdminPrivateAccessTokenAccessRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditEventDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminWorkspaceDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserDto;
@@ -120,19 +119,6 @@ public class AdminController {
                 resolveActorUsername(authentication),
                 userId,
                 request.reason()
-        ));
-    }
-
-    @PostMapping("/users/{userId}/private-access-tokens/access")
-    public ResponseEntity<AdminUserDto> updatePrivateAccessTokenAccess(
-            Authentication authentication,
-            @PathVariable String userId,
-            @RequestBody AdminPrivateAccessTokenAccessRequest request) {
-        return ResponseEntity.ok(adminService.updatePrivateAccessTokenAccessForAdmin(
-                resolveActorUserId(authentication),
-                resolveActorUsername(authentication),
-                userId,
-                request.enabled()
         ));
     }
 

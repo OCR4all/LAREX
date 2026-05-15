@@ -148,15 +148,6 @@ public class AdminService {
         return userService.revokeGlobalCuratorForAdmin(actorUserId, actorUsername, targetUserId, reason);
     }
 
-    @Transactional
-    public AdminUserDto updatePrivateAccessTokenAccessForAdmin(
-            String actorUserId,
-            String actorUsername,
-            String targetUserId,
-            boolean enabled) {
-        return userService.updatePrivateAccessTokenAccessForAdmin(actorUserId, actorUsername, targetUserId, enabled);
-    }
-
     public AdminErrorSummaryDto getErrorSummaryForAdmin(int days) {
         return errorEventService.getSummary(days);
     }
