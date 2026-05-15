@@ -164,7 +164,6 @@ larex:
     stack-trace-max-length: ${LAREX_ERROR_LOG_STACK_TRACE_MAX_LENGTH:16000}
 
 cors:
-  enabled: true
   allowed-origin: http://larex.localhost
 
 management:
