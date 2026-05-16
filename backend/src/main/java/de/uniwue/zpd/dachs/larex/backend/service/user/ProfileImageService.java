@@ -1,17 +1,16 @@
 package de.uniwue.zpd.dachs.larex.backend.service.user;
 
+import de.uniwue.zpd.dachs.larex.backend.config.ProfileImageProperties;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.geometry.Positions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,11 +24,11 @@ public class ProfileImageService {
     private static final int MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
     private static final int TARGET_SIZE = 400; // 400x400 pixels
 
-    @Value("${app.upload.profile-images.path:uploads/profile-images}")
-    private String uploadPath;
+    private final ProfileImageProperties profileImageProperties;
 
-    @Value("${app.upload.profile-images.base-url:/api/profile/images}")
-    private String baseUrl;
+    public ProfileImageService(ProfileImageProperties profileImageProperties) {
+        this.profileImageProperties = profileImageProperties;
+    }
 
     /**
      * Upload and process a profile image
@@ -42,7 +41,7 @@ public class ProfileImageService {
             validateFile(file);
 
             // Create upload directory if it doesn't exist
-            Path uploadDir = Paths.get(uploadPath);
+            Path uploadDir = profileImageProperties.getPath().toAbsolutePath().normalize();
             logger.debug("Upload directory: {}", uploadDir.toAbsolutePath());
             Files.createDirectories(uploadDir);
 
@@ -64,7 +63,7 @@ public class ProfileImageService {
                     .toFile(filePath.toFile());
 
             // Return URL path
-            String resultUrl = baseUrl + "/" + filename;
+            String resultUrl = profileImageProperties.getBaseUrl() + "/" + filename;
             logger.debug("Upload successful, returning URL: {}", resultUrl);
             return resultUrl;
 
@@ -79,9 +78,10 @@ public class ProfileImageService {
      */
     public boolean deleteProfileImage(String imageUrl) {
         try {
+            String baseUrl = profileImageProperties.getBaseUrl();
             if (imageUrl != null && imageUrl.startsWith(baseUrl)) {
                 String filename = imageUrl.substring(baseUrl.length() + 1);
-                Path filePath = Paths.get(uploadPath).resolve(filename);
+                Path filePath = profileImageProperties.getPath().toAbsolutePath().normalize().resolve(filename);
                 return Files.deleteIfExists(filePath);
             }
         } catch (Exception e) {
