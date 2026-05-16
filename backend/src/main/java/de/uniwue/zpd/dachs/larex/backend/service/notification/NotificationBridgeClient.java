@@ -24,16 +24,12 @@ public class NotificationBridgeClient {
     private static final Logger logger = LoggerFactory.getLogger(NotificationBridgeClient.class);
 
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient;
     private final NotificationBridgeProperties properties;
 
     public NotificationBridgeClient(ObjectMapper objectMapper,
                                     NotificationBridgeProperties properties) {
         this.objectMapper = objectMapper;
         this.properties = properties;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(3))
-                .build();
     }
 
     public void pushNotification(Notification notification, String source) {
@@ -63,7 +59,7 @@ public class NotificationBridgeClient {
                     .POST(HttpRequest.BodyPublishers.ofString(payload))
                     .build();
 
-            HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            HttpResponse<Void> response = newHttpClient().send(request, HttpResponse.BodyHandlers.discarding());
             if (response.statusCode() >= 400) {
                 logger.warn("Notification bridge rejected push from source {} with status {}", source, response.statusCode());
             }
@@ -77,6 +73,12 @@ public class NotificationBridgeClient {
             }
             logger.warn("Failed to push notification to Nuxt bridge from source {}", source, error);
         }
+    }
+
+    private HttpClient newHttpClient() {
+        return HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(3))
+                .build();
     }
 
     private String signPayload(String timestamp, String payload) {
