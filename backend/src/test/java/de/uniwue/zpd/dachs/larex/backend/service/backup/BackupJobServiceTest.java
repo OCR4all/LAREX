@@ -1,19 +1,17 @@
-package de.uniwue.zpd.dachs.larex.backend.service;
+package de.uniwue.zpd.dachs.larex.backend.service.backup;
 
+import de.uniwue.zpd.dachs.larex.backend.config.BackupProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.BackupJobDto;
-import de.uniwue.zpd.dachs.larex.backend.service.backup.BackupJobProcessor;
-import de.uniwue.zpd.dachs.larex.backend.service.backup.BackupJobService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.task.AsyncTaskExecutor;
-import org.springframework.test.util.ReflectionTestUtils;
-
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,20 +26,19 @@ class BackupJobServiceTest {
     private AsyncTaskExecutor taskExecutor;
 
     private BackupJobService service;
+    private BackupProperties properties;
 
     @BeforeEach
     void setUp() {
-        service = new BackupJobService(backupJobProcessor, taskExecutor);
+        properties = new BackupProperties();
+        service = new BackupJobService(backupJobProcessor, taskExecutor, properties);
     }
 
     @Test
     void validatePath_acceptsPathWithinAllowList() throws Exception {
         Path allowed = Files.createTempDirectory("backup-allowed-");
         try {
-            ReflectionTestUtils.setField(service, "backupEnabled", true);
-            ReflectionTestUtils.setField(service, "allowedPathsConfig", allowed.toString());
-            ReflectionTestUtils.setField(service, "outputDir", allowed.resolve("out").toString());
-            ReflectionTestUtils.invokeMethod(service, "initAllowedPaths");
+            configureBackupPaths(allowed);
 
             BackupJobDto.ValidatePathResponse response = service.validatePath(
                     new BackupJobDto.ValidatePathRequest(allowed.toString(), BackupJobDto.PathRole.SOURCE)
@@ -58,10 +55,7 @@ class BackupJobServiceTest {
         Path allowed = Files.createTempDirectory("backup-allowed-");
         Path outside = Files.createTempDirectory("backup-outside-");
         try {
-            ReflectionTestUtils.setField(service, "backupEnabled", true);
-            ReflectionTestUtils.setField(service, "allowedPathsConfig", allowed.toString());
-            ReflectionTestUtils.setField(service, "outputDir", allowed.resolve("out").toString());
-            ReflectionTestUtils.invokeMethod(service, "initAllowedPaths");
+            configureBackupPaths(allowed);
 
             BackupJobDto.ValidatePathResponse response = service.validatePath(
                     new BackupJobDto.ValidatePathRequest(outside.toString(), BackupJobDto.PathRole.SOURCE)
@@ -72,5 +66,12 @@ class BackupJobServiceTest {
             Files.deleteIfExists(outside);
             Files.deleteIfExists(allowed);
         }
+    }
+
+    private void configureBackupPaths(Path allowed) {
+        properties.setEnabled(true);
+        properties.setAllowedPaths(List.of(allowed.toString()));
+        properties.setOutputDir(allowed.resolve("out").toString());
+        service.initAllowedPaths();
     }
 }

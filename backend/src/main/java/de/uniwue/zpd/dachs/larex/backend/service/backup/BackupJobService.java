@@ -1,11 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.service.backup;
 
 import de.uniwue.zpd.dachs.larex.backend.dto.BackupJobDto;
+import de.uniwue.zpd.dachs.larex.backend.config.BackupProperties;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
@@ -29,35 +29,29 @@ public class BackupJobService {
 
     private final BackupJobProcessor backupJobProcessor;
     private final AsyncTaskExecutor taskExecutor;
-
-    @Value("${larex.backup.enabled:false}")
-    private boolean backupEnabled;
-
-    @Value("${larex.backup.allowed-paths:/mnt/data,/uploads}")
-    private String allowedPathsConfig;
-
-    @Value("${larex.backup.output-dir:/mnt/data/backups}")
-    private String outputDir;
-
-    @Value("${larex.backup.max-files-per-job:500000}")
-    private int maxFilesPerJob;
+    private final BackupProperties properties;
 
     private final Map<String, BackupJobState> jobs = new ConcurrentHashMap<>();
     private final Map<String, Future<?>> futures = new ConcurrentHashMap<>();
     private final List<Path> allowedPaths = new ArrayList<>();
 
     public BackupJobService(@Lazy BackupJobProcessor backupJobProcessor,
-                            @Qualifier("importTaskExecutor") AsyncTaskExecutor taskExecutor) {
+                            @Qualifier("importTaskExecutor") AsyncTaskExecutor taskExecutor,
+                            BackupProperties properties) {
         this.backupJobProcessor = backupJobProcessor;
         this.taskExecutor = taskExecutor;
+        this.properties = properties;
     }
 
     @PostConstruct
-    private void initAllowedPaths() {
+    void initAllowedPaths() {
         allowedPaths.clear();
 
-        if (allowedPathsConfig != null && !allowedPathsConfig.isBlank()) {
-            for (String raw : allowedPathsConfig.split(",")) {
+        if (properties.getAllowedPaths() != null) {
+            for (String raw : properties.getAllowedPaths()) {
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
                 try {
                     Path path = Paths.get(raw.trim()).toAbsolutePath().normalize();
                     allowedPaths.add(path);
@@ -68,9 +62,9 @@ public class BackupJobService {
             }
         }
 
-        if (outputDir != null && !outputDir.isBlank()) {
+        if (properties.getOutputDir() != null && !properties.getOutputDir().isBlank()) {
             try {
-                Path outputPath = Paths.get(outputDir).toAbsolutePath().normalize();
+                Path outputPath = Paths.get(properties.getOutputDir()).toAbsolutePath().normalize();
                 if (!allowedPaths.contains(outputPath)) {
                     allowedPaths.add(outputPath);
                 }
@@ -80,7 +74,7 @@ public class BackupJobService {
     }
 
     public BackupJobDto.ValidatePathResponse validatePath(BackupJobDto.ValidatePathRequest request) {
-        if (!backupEnabled) {
+        if (!properties.isEnabled()) {
             return new BackupJobDto.ValidatePathResponse(false, null, "Backup features are disabled");
         }
 
@@ -129,7 +123,7 @@ public class BackupJobService {
     }
 
     public BackupJobDto.JobResponse createJob(String userId, BackupJobDto.CreateJobRequest request) {
-        if (!backupEnabled) {
+        if (!properties.isEnabled()) {
             throw new IllegalArgumentException("Backup features are disabled");
         }
 
@@ -265,11 +259,11 @@ public class BackupJobService {
     }
 
     public int getMaxFilesPerJob() {
-        return maxFilesPerJob;
+        return properties.getMaxFilesPerJob();
     }
 
     public String getOutputDir() {
-        return outputDir;
+        return properties.getOutputDir();
     }
 
     private BackupJobState requiredState(String jobId) {
