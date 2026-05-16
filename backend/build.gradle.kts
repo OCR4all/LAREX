@@ -48,6 +48,7 @@ dependencies {
 	testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
 	testImplementation("org.testcontainers:junit-jupiter")
 	testImplementation("org.testcontainers:postgresql")
+	annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

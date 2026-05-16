@@ -81,6 +81,13 @@ larex:
     quota-enforcement-enabled: ${LAREX_QUOTA_ENFORCEMENT_ENABLED:true}
     # Warning threshold percentage (default: 80%)
     quota-warning-threshold: ${LAREX_QUOTA_WARNING_THRESHOLD:80.0}
+    quota-refresh:
+      pool-size: ${LAREX_STORAGE_QUOTA_REFRESH_POOL_SIZE:1}
+  async:
+    default:
+      core-pool-size: ${LAREX_ASYNC_DEFAULT_CORE_POOL:2}
+      max-pool-size: ${LAREX_ASYNC_DEFAULT_MAX_POOL:4}
+      queue-capacity: ${LAREX_ASYNC_DEFAULT_QUEUE:100}
   # XML versioning configuration
   versioning:
     # Maximum number of versions to keep per XML file (default: 25)
@@ -138,6 +145,10 @@ larex:
     max-scan-depth: ${LAREX_IMPORT_MAX_SCAN_DEPTH:10}
     # Max files per import job (default: 100000)
     max-files-per-job: ${LAREX_IMPORT_MAX_FILES:100000}
+    async:
+      core-pool-size: ${LAREX_IMPORT_ASYNC_CORE_POOL:1}
+      max-pool-size: ${LAREX_IMPORT_ASYNC_MAX_POOL:2}
+      queue-capacity: ${LAREX_IMPORT_ASYNC_QUEUE:10}
   backup:
     # Enable admin dump/reseed feature (default: true)
     enabled: ${LAREX_BACKUP_ENABLED:true}

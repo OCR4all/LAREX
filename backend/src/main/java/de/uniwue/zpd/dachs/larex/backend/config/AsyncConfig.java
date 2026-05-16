@@ -2,151 +2,111 @@ package de.uniwue.zpd.dachs.larex.backend.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableScheduling
+@EnableConfigurationProperties({
+        AsyncExecutorProperties.class,
+        UploadAsyncProperties.class,
+        ImportAsyncProperties.class,
+        AnnotationAsyncProperties.class,
+        StorageAsyncProperties.class
+})
 public class AsyncConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(AsyncConfig.class);
 
-    @Value("${larex.upload.async.core-pool-size:2}")
-    private int corePoolSize;
+    private final AsyncExecutorProperties asyncProperties;
+    private final UploadAsyncProperties uploadProperties;
+    private final ImportAsyncProperties importProperties;
+    private final AnnotationAsyncProperties annotationProperties;
+    private final StorageAsyncProperties storageProperties;
 
-    @Value("${larex.upload.async.max-pool-size:5}")
-    private int maxPoolSize;
-
-    @Value("${larex.upload.async.queue-capacity:100}")
-    private int queueCapacity;
-
-    @Value("${larex.upload.index-async.core-pool-size:1}")
-    private int indexCorePoolSize;
-
-    @Value("${larex.upload.index-async.max-pool-size:2}")
-    private int indexMaxPoolSize;
-
-    @Value("${larex.upload.index-async.queue-capacity:200}")
-    private int indexQueueCapacity;
-
-    @Value("${larex.async.default.core-pool-size:2}")
-    private int defaultCorePoolSize;
-
-    @Value("${larex.async.default.max-pool-size:4}")
-    private int defaultMaxPoolSize;
-
-    @Value("${larex.async.default.queue-capacity:100}")
-    private int defaultQueueCapacity;
-
-    @Value("${larex.annotation.post-save.core-pool-size:1}")
-    private int annotationPostSaveCorePoolSize;
-
-    @Value("${larex.annotation.post-save.max-pool-size:2}")
-    private int annotationPostSaveMaxPoolSize;
-
-    @Value("${larex.annotation.post-save.queue-capacity:200}")
-    private int annotationPostSaveQueueCapacity;
-
-    @Value("${larex.storage.quota-refresh.pool-size:1}")
-    private int quotaRefreshPoolSize;
+    public AsyncConfig(AsyncExecutorProperties asyncProperties,
+                       UploadAsyncProperties uploadProperties,
+                       ImportAsyncProperties importProperties,
+                       AnnotationAsyncProperties annotationProperties,
+                       StorageAsyncProperties storageProperties) {
+        this.asyncProperties = asyncProperties;
+        this.uploadProperties = uploadProperties;
+        this.importProperties = importProperties;
+        this.annotationProperties = annotationProperties;
+        this.storageProperties = storageProperties;
+    }
 
     @Bean(name = "taskExecutor")
     public ThreadPoolTaskExecutor taskExecutor() {
-        logger.info("Initializing default async task executor with core pool size: {}, max pool size: {}, queue capacity: {}",
-                defaultCorePoolSize, defaultMaxPoolSize, defaultQueueCapacity);
-
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(defaultCorePoolSize);
-        executor.setMaxPoolSize(defaultMaxPoolSize);
-        executor.setQueueCapacity(defaultQueueCapacity);
-        executor.setThreadNamePrefix("async-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(60);
-        executor.initialize();
-        return executor;
+        return taskExecutor("default async", asyncProperties.getDefault(), "async-", 60, null);
     }
 
     @Bean(name = "uploadTaskExecutor")
     public ThreadPoolTaskExecutor uploadTaskExecutor() {
-        logger.info("Initializing upload task executor with core pool size: {}, max pool size: {}, queue capacity: {}",
-                corePoolSize, maxPoolSize, queueCapacity);
-
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(corePoolSize);
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setQueueCapacity(queueCapacity);
-        executor.setThreadNamePrefix("upload-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(60);
-        executor.initialize();
-        return executor;
+        return taskExecutor("upload", uploadProperties.getAsync(), "upload-", 60, null);
     }
 
     @Bean(name = "uploadIndexTaskExecutor")
     public ThreadPoolTaskExecutor uploadIndexTaskExecutor() {
-        logger.info("Initializing upload index task executor with core pool size: {}, max pool size: {}, queue capacity: {}",
-                indexCorePoolSize, indexMaxPoolSize, indexQueueCapacity);
-
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(indexCorePoolSize);
-        executor.setMaxPoolSize(indexMaxPoolSize);
-        executor.setQueueCapacity(indexQueueCapacity);
-        executor.setThreadNamePrefix("upload-index-");
-        // Apply backpressure instead of failing uploads when many pages are queued for indexing.
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(120);
-        executor.initialize();
-        return executor;
+        return taskExecutor(
+                "upload index",
+                uploadProperties.getIndexAsync(),
+                "upload-index-",
+                120,
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
     }
 
     @Bean(name = "importTaskExecutor")
     public ThreadPoolTaskExecutor importTaskExecutor() {
-        logger.info("Initializing import task executor");
-
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(1);
-        executor.setMaxPoolSize(2);
-        executor.setQueueCapacity(10);
-        executor.setThreadNamePrefix("import-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(120);
-        executor.initialize();
-        return executor;
+        return taskExecutor("import", importProperties.getAsync(), "import-", 120, null);
     }
 
     @Bean(name = "annotationPostSaveTaskExecutor")
     public ThreadPoolTaskExecutor annotationPostSaveTaskExecutor() {
-        logger.info("Initializing annotation post-save task executor with core pool size: {}, max pool size: {}, queue capacity: {}",
-                annotationPostSaveCorePoolSize, annotationPostSaveMaxPoolSize, annotationPostSaveQueueCapacity);
-
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(annotationPostSaveCorePoolSize);
-        executor.setMaxPoolSize(annotationPostSaveMaxPoolSize);
-        executor.setQueueCapacity(annotationPostSaveQueueCapacity);
-        executor.setThreadNamePrefix("annotation-post-save-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(120);
-        executor.initialize();
-        return executor;
+        return taskExecutor("annotation post-save", annotationProperties.getPostSave(), "annotation-post-save-", 120, null);
     }
 
     @Bean(name = "quotaRefreshTaskScheduler")
     public ThreadPoolTaskScheduler quotaRefreshTaskScheduler() {
-        logger.info("Initializing quota refresh task scheduler with pool size: {}", quotaRefreshPoolSize);
+        SchedulerPoolProperties quotaRefresh = storageProperties.getQuotaRefresh();
+        logger.info("Initializing quota refresh task scheduler with pool size: {}", quotaRefresh.getPoolSize());
 
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(quotaRefreshPoolSize);
+        scheduler.setPoolSize(quotaRefresh.getPoolSize());
         scheduler.setThreadNamePrefix("quota-refresh-");
         scheduler.setWaitForTasksToCompleteOnShutdown(true);
         scheduler.setAwaitTerminationSeconds(60);
         scheduler.initialize();
         return scheduler;
+    }
+
+    private ThreadPoolTaskExecutor taskExecutor(String label,
+                                                ExecutorPoolProperties pool,
+                                                String threadNamePrefix,
+                                                int awaitTerminationSeconds,
+                                                RejectedExecutionHandler rejectedExecutionHandler) {
+        logger.info("Initializing {} task executor with core pool size: {}, max pool size: {}, queue capacity: {}",
+                label, pool.getCorePoolSize(), pool.getMaxPoolSize(), pool.getQueueCapacity());
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(pool.getCorePoolSize());
+        executor.setMaxPoolSize(pool.getMaxPoolSize());
+        executor.setQueueCapacity(pool.getQueueCapacity());
+        executor.setThreadNamePrefix(threadNamePrefix);
+        if (rejectedExecutionHandler != null) {
+            executor.setRejectedExecutionHandler(rejectedExecutionHandler);
+        }
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(awaitTerminationSeconds);
+        executor.initialize();
+        return executor;
     }
 }
