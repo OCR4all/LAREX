@@ -28,6 +28,8 @@ class AsyncExecutorPropertiesTest {
                         "larex.import.async.core-pool-size=5",
                         "larex.import.async.max-pool-size=6",
                         "larex.import.async.queue-capacity=600",
+                        "larex.annotation.read-cache.maximum-size=123",
+                        "larex.annotation.read-cache.expire-after-access-minutes=20",
                         "larex.annotation.post-save.core-pool-size=6",
                         "larex.annotation.post-save.max-pool-size=7",
                         "larex.annotation.post-save.queue-capacity=700",
@@ -38,7 +40,10 @@ class AsyncExecutorPropertiesTest {
                     assertExecutorPool(context.getBean(UploadAsyncProperties.class).getAsync(), 4, 8, 400);
                     assertExecutorPool(context.getBean(UploadAsyncProperties.class).getIndexAsync(), 2, 5, 500);
                     assertExecutorPool(context.getBean(ImportAsyncProperties.class).getAsync(), 5, 6, 600);
-                    assertExecutorPool(context.getBean(AnnotationAsyncProperties.class).getPostSave(), 6, 7, 700);
+                    AnnotationProperties annotationProperties = context.getBean(AnnotationProperties.class);
+                    assertThat(annotationProperties.getReadCache().getMaximumSize()).isEqualTo(123);
+                    assertThat(annotationProperties.getReadCache().getExpireAfterAccessMinutes()).isEqualTo(20);
+                    assertExecutorPool(annotationProperties.getPostSave(), 6, 7, 700);
                     assertThat(context.getBean(StorageAsyncProperties.class).getQuotaRefresh().getPoolSize()).isEqualTo(9);
                 });
     }
@@ -64,7 +69,7 @@ class AsyncExecutorPropertiesTest {
             AsyncExecutorProperties.class,
             UploadAsyncProperties.class,
             ImportAsyncProperties.class,
-            AnnotationAsyncProperties.class,
+            AnnotationProperties.class,
             StorageAsyncProperties.class
     })
     static class TestConfig {

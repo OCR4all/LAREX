@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.annotation;
 
+import de.uniwue.zpd.dachs.larex.backend.config.AnnotationProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.cache.AnnotationReadCache;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,7 @@ class AnnotationReadCacheTest {
 
     @Test
     void getIfFresh_returnsCachedDtoWhenFingerprintMatches() throws Exception {
-        AnnotationReadCache cache = new AnnotationReadCache(10, 10);
+        AnnotationReadCache cache = new AnnotationReadCache(properties(10, 10));
         Path xmlPath = tempDir.resolve("page.xml");
         Files.writeString(xmlPath, "<PcGts/>");
 
@@ -30,7 +31,7 @@ class AnnotationReadCacheTest {
 
     @Test
     void getIfFresh_returnsNullWhenFileFingerprintChanges() throws Exception {
-        AnnotationReadCache cache = new AnnotationReadCache(10, 10);
+        AnnotationReadCache cache = new AnnotationReadCache(properties(10, 10));
         Path xmlPath = tempDir.resolve("page.xml");
         Files.writeString(xmlPath, "<PcGts/>");
 
@@ -38,6 +39,15 @@ class AnnotationReadCacheTest {
         Files.writeString(xmlPath, "<PcGts><Page imageFilename=\"updated.png\"/></PcGts>");
 
         assertNull(cache.getIfFresh("xml-1", xmlPath));
+    }
+
+    private AnnotationProperties properties(long maximumSize, long expireAfterAccessMinutes) {
+        AnnotationProperties properties = new AnnotationProperties();
+        AnnotationProperties.ReadCacheProperties readCache = new AnnotationProperties.ReadCacheProperties();
+        readCache.setMaximumSize(maximumSize);
+        readCache.setExpireAfterAccessMinutes(expireAfterAccessMinutes);
+        properties.setReadCache(readCache);
+        return properties;
     }
 
     private PageDto pageDto() {

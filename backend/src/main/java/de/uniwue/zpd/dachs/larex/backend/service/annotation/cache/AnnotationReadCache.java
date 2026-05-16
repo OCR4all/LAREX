@@ -2,8 +2,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.annotation.cache;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import de.uniwue.zpd.dachs.larex.backend.config.AnnotationProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.page.core.PageDto;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -17,12 +17,11 @@ public class AnnotationReadCache {
 
     private final Cache<String, CacheEntry> cache;
 
-    public AnnotationReadCache(
-            @Value("${larex.annotation.read-cache.maximum-size:250}") long maximumSize,
-            @Value("${larex.annotation.read-cache.expire-after-access-minutes:10}") long expireAfterAccessMinutes) {
+    public AnnotationReadCache(AnnotationProperties properties) {
+        AnnotationProperties.ReadCacheProperties readCache = properties.getReadCache();
         this.cache = Caffeine.newBuilder()
-                .maximumSize(maximumSize)
-                .expireAfterAccess(Duration.ofMinutes(expireAfterAccessMinutes))
+                .maximumSize(readCache.getMaximumSize())
+                .expireAfterAccess(Duration.ofMinutes(readCache.getExpireAfterAccessMinutes()))
                 .build();
     }
 
