@@ -1,12 +1,12 @@
 package de.uniwue.zpd.dachs.larex.backend.service.storage;
 
+import de.uniwue.zpd.dachs.larex.backend.config.StorageProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
 import java.io.File;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,22 +22,22 @@ public class StorageTrackingService {
 
     private final WorkspaceStorageQuotaService quotaService;
     private final WorkspaceQuotaRefreshService quotaRefreshService;
-
-    @Value("${larex.storage.quota-enforcement-enabled:true}")
-    private boolean quotaEnforcementEnabled;
+    private final StorageProperties storageProperties;
 
     public StorageTrackingService(
             WorkspaceStorageQuotaService quotaService,
-            WorkspaceQuotaRefreshService quotaRefreshService) {
+            WorkspaceQuotaRefreshService quotaRefreshService,
+            StorageProperties storageProperties) {
         this.quotaService = quotaService;
         this.quotaRefreshService = quotaRefreshService;
+        this.storageProperties = storageProperties;
     }
 
     /**
      * Check if file upload would exceed quota before processing
      */
     public boolean canUploadFiles(String workspaceId, List<MultipartFile> files) {
-        if (!quotaEnforcementEnabled) {
+        if (!storageProperties.isQuotaEnforcementEnabled()) {
             return true;
         }
 
@@ -52,7 +52,7 @@ public class StorageTrackingService {
      * Check if single file upload would exceed quota
      */
     public boolean canUploadFile(String workspaceId, MultipartFile file) {
-        if (!quotaEnforcementEnabled) {
+        if (!storageProperties.isQuotaEnforcementEnabled()) {
             return true;
         }
 
@@ -63,7 +63,7 @@ public class StorageTrackingService {
      * Check if file of specified size would exceed quota
      */
     public boolean canUploadFileSize(String workspaceId, long fileSize) {
-        if (!quotaEnforcementEnabled) {
+        if (!storageProperties.isQuotaEnforcementEnabled()) {
             return true;
         }
 
@@ -75,7 +75,7 @@ public class StorageTrackingService {
      */
     @Transactional
     public void trackFileAdded(String workspaceId, MultipartFile file) {
-        if (quotaEnforcementEnabled && file.getSize() > 0) {
+        if (storageProperties.isQuotaEnforcementEnabled() && file.getSize() > 0) {
             quotaRefreshService.scheduleUsageRefresh(workspaceId);
             logger.debug("Scheduled quota refresh after file addition in workspace {}", workspaceId);
         }
@@ -86,7 +86,7 @@ public class StorageTrackingService {
      */
     @Transactional
     public void trackFileAdded(String workspaceId, long fileSize) {
-        if (quotaEnforcementEnabled && fileSize > 0) {
+        if (storageProperties.isQuotaEnforcementEnabled() && fileSize > 0) {
             quotaRefreshService.scheduleUsageRefresh(workspaceId);
             logger.debug("Scheduled quota refresh after file addition in workspace {}", workspaceId);
         }
@@ -97,7 +97,7 @@ public class StorageTrackingService {
      */
     @Transactional
     public void trackFileRemoved(String workspaceId, long fileSize) {
-        if (quotaEnforcementEnabled && fileSize > 0) {
+        if (storageProperties.isQuotaEnforcementEnabled() && fileSize > 0) {
             quotaRefreshService.scheduleUsageRefresh(workspaceId);
             logger.debug("Scheduled quota refresh after file removal in workspace {}", workspaceId);
         }
@@ -122,7 +122,7 @@ public class StorageTrackingService {
                 .mapToLong(MultipartFile::getSize)
                 .sum();
         
-        if (quotaEnforcementEnabled && totalSize > 0) {
+        if (storageProperties.isQuotaEnforcementEnabled() && totalSize > 0) {
             quotaRefreshService.scheduleUsageRefresh(workspaceId);
             logger.debug("Scheduled quota refresh after {} added file(s) in workspace {}", files.size(), workspaceId);
         }
@@ -138,7 +138,7 @@ public class StorageTrackingService {
                 .mapToLong(PageImage::getFileSize)
                 .sum();
         
-        if (quotaEnforcementEnabled && totalSize > 0) {
+        if (storageProperties.isQuotaEnforcementEnabled() && totalSize > 0) {
             quotaRefreshService.scheduleUsageRefresh(workspaceId);
             logger.debug("Scheduled quota refresh after {} removed file(s) in workspace {}", pageImages.size(), workspaceId);
         }
@@ -173,7 +173,7 @@ public class StorageTrackingService {
      * Get quota enforcement status
      */
     public boolean isQuotaEnforcementEnabled() {
-        return quotaEnforcementEnabled;
+        return storageProperties.isQuotaEnforcementEnabled();
     }
 
     /**

@@ -1,9 +1,9 @@
 package de.uniwue.zpd.dachs.larex.backend.service.storage;
 
+import de.uniwue.zpd.dachs.larex.backend.config.StorageProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceStorageQuota;
 import de.uniwue.zpd.dachs.larex.backend.exception.StorageQuotaExceededException;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,16 +13,16 @@ import java.util.List;
 public class WorkspaceQuotaGuardService {
 
     private final WorkspaceStorageQuotaService quotaService;
+    private final StorageProperties storageProperties;
 
-    @Value("${larex.storage.quota-enforcement-enabled:true}")
-    private boolean quotaEnforcementEnabled;
-
-    public WorkspaceQuotaGuardService(WorkspaceStorageQuotaService quotaService) {
+    public WorkspaceQuotaGuardService(WorkspaceStorageQuotaService quotaService,
+                                      StorageProperties storageProperties) {
         this.quotaService = quotaService;
+        this.storageProperties = storageProperties;
     }
 
     public long reserveBytesOrThrow(String workspaceId, long requiredBytes, String blockedOperation) {
-        if (!quotaEnforcementEnabled || requiredBytes <= 0) {
+        if (!storageProperties.isQuotaEnforcementEnabled() || requiredBytes <= 0) {
             return 0L;
         }
 
@@ -36,14 +36,14 @@ public class WorkspaceQuotaGuardService {
     }
 
     public void releaseReservation(String workspaceId, long reservedBytes) {
-        if (!quotaEnforcementEnabled || reservedBytes <= 0) {
+        if (!storageProperties.isQuotaEnforcementEnabled() || reservedBytes <= 0) {
             return;
         }
         quotaService.releaseReservedBytes(workspaceId, reservedBytes);
     }
 
     public void syncUsageAndReleaseReservation(String workspaceId, long reservedBytes) {
-        if (!quotaEnforcementEnabled || reservedBytes <= 0) {
+        if (!storageProperties.isQuotaEnforcementEnabled() || reservedBytes <= 0) {
             return;
         }
 

@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.storage;
 
+import de.uniwue.zpd.dachs.larex.backend.config.StorageProperties;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -37,8 +37,9 @@ class WorkspaceQuotaRefreshServiceTest {
         scheduler.setThreadNamePrefix("quota-refresh-test-");
         scheduler.initialize();
 
-        service = new WorkspaceQuotaRefreshService(quotaService, scheduler);
-        ReflectionTestUtils.setField(service, "refreshDebounceMs", 50L);
+        StorageProperties storageProperties = new StorageProperties();
+        storageProperties.setQuotaRefreshDebounceMs(50L);
+        service = new WorkspaceQuotaRefreshService(quotaService, scheduler, storageProperties);
     }
 
     @AfterEach

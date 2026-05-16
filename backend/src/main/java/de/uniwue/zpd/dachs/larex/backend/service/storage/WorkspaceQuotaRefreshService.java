@@ -1,10 +1,10 @@
 package de.uniwue.zpd.dachs.larex.backend.service.storage;
 
+import de.uniwue.zpd.dachs.larex.backend.config.StorageProperties;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceStorageQuotaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -22,16 +22,16 @@ public class WorkspaceQuotaRefreshService {
 
     private final WorkspaceStorageQuotaService quotaService;
     private final TaskScheduler quotaRefreshTaskScheduler;
+    private final StorageProperties storageProperties;
     private final Map<String, PendingRefresh> pendingRefreshes = new ConcurrentHashMap<>();
-
-    @Value("${larex.storage.quota-refresh-debounce-ms:1500}")
-    private long refreshDebounceMs;
 
     public WorkspaceQuotaRefreshService(
             WorkspaceStorageQuotaService quotaService,
-            @Qualifier("quotaRefreshTaskScheduler") TaskScheduler quotaRefreshTaskScheduler) {
+            @Qualifier("quotaRefreshTaskScheduler") TaskScheduler quotaRefreshTaskScheduler,
+            StorageProperties storageProperties) {
         this.quotaService = quotaService;
         this.quotaRefreshTaskScheduler = quotaRefreshTaskScheduler;
+        this.storageProperties = storageProperties;
     }
 
     public void scheduleUsageRefresh(String workspaceId) {
@@ -61,7 +61,7 @@ public class WorkspaceQuotaRefreshService {
 
         nextRefresh.future = quotaRefreshTaskScheduler.schedule(
                 () -> runRefresh(workspaceId, nextRefresh),
-                Instant.now().plusMillis(Math.max(refreshDebounceMs, 1L))
+                Instant.now().plusMillis(Math.max(storageProperties.getQuotaRefreshDebounceMs(), 1L))
         );
     }
 

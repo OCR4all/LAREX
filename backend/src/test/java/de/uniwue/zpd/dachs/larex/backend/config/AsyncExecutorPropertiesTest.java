@@ -37,6 +37,10 @@ class AsyncExecutorPropertiesTest {
                         "larex.annotation.post-save.core-pool-size=6",
                         "larex.annotation.post-save.max-pool-size=7",
                         "larex.annotation.post-save.queue-capacity=700",
+                        "larex.storage.default-quota-bytes=42",
+                        "larex.storage.quota-enforcement-enabled=false",
+                        "larex.storage.quota-warning-threshold=75.5",
+                        "larex.storage.quota-refresh-debounce-ms=2500",
                         "larex.storage.quota-refresh.pool-size=9"
                 )
                 .run(context -> {
@@ -53,7 +57,12 @@ class AsyncExecutorPropertiesTest {
                     assertThat(annotationProperties.getReadCache().getMaximumSize()).isEqualTo(123);
                     assertThat(annotationProperties.getReadCache().getExpireAfterAccessMinutes()).isEqualTo(20);
                     assertExecutorPool(annotationProperties.getPostSave(), 6, 7, 700);
-                    assertThat(context.getBean(StorageAsyncProperties.class).getQuotaRefresh().getPoolSize()).isEqualTo(9);
+                    StorageProperties storageProperties = context.getBean(StorageProperties.class);
+                    assertThat(storageProperties.getDefaultQuotaBytes()).isEqualTo(42);
+                    assertThat(storageProperties.isQuotaEnforcementEnabled()).isFalse();
+                    assertThat(storageProperties.getQuotaWarningThreshold()).isEqualTo(75.5);
+                    assertThat(storageProperties.getQuotaRefreshDebounceMs()).isEqualTo(2500);
+                    assertThat(storageProperties.getQuotaRefresh().getPoolSize()).isEqualTo(9);
                 });
     }
 
@@ -79,7 +88,7 @@ class AsyncExecutorPropertiesTest {
             UploadAsyncProperties.class,
             ImportProperties.class,
             AnnotationProperties.class,
-            StorageAsyncProperties.class
+            StorageProperties.class
     })
     static class TestConfig {
     }

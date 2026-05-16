@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.workspace;
 
+import de.uniwue.zpd.dachs.larex.backend.config.StorageProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.WorkspaceStorageQuota;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyXmlVersionRepository;
@@ -13,7 +14,6 @@ import de.uniwue.zpd.dachs.larex.backend.repository.workspace.PersonalWorkspaceR
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,10 +41,7 @@ public class WorkspaceStorageQuotaService {
     private final ProjectPackageReleaseRepository projectPackageReleaseRepository;
     private final PersonalWorkspaceRepository personalWorkspaceRepository;
     private final TeamWorkspaceRepository teamWorkspaceRepository;
-
-    // Default quota in bytes (configurable via environment variable)
-    @Value("${larex.storage.default-quota-bytes:1073741824}") // Default: 1GB
-    private Long defaultQuotaBytes;
+    private final StorageProperties storageProperties;
 
     public WorkspaceStorageQuotaService(
             WorkspaceStorageQuotaRepository quotaRepository,
@@ -56,7 +53,8 @@ public class WorkspaceStorageQuotaService {
             DatasetReleaseRepository datasetReleaseRepository,
             ProjectPackageReleaseRepository projectPackageReleaseRepository,
             PersonalWorkspaceRepository personalWorkspaceRepository,
-            TeamWorkspaceRepository teamWorkspaceRepository) {
+            TeamWorkspaceRepository teamWorkspaceRepository,
+            StorageProperties storageProperties) {
         this.quotaRepository = quotaRepository;
         this.pageImageRepository = pageImageRepository;
         this.pageXmlRepository = pageXmlRepository;
@@ -67,6 +65,7 @@ public class WorkspaceStorageQuotaService {
         this.projectPackageReleaseRepository = projectPackageReleaseRepository;
         this.personalWorkspaceRepository = personalWorkspaceRepository;
         this.teamWorkspaceRepository = teamWorkspaceRepository;
+        this.storageProperties = storageProperties;
     }
 
     /**
@@ -101,7 +100,7 @@ public class WorkspaceStorageQuotaService {
         }
 
         // Create new quota with default values
-        WorkspaceStorageQuota newQuota = new WorkspaceStorageQuota(workspaceId, defaultQuotaBytes);
+        WorkspaceStorageQuota newQuota = new WorkspaceStorageQuota(workspaceId, storageProperties.getDefaultQuotaBytes());
         
         // Calculate current usage for existing workspace
         Long currentUsage = calculateWorkspaceUsage(workspaceId);
@@ -292,13 +291,13 @@ public class WorkspaceStorageQuotaService {
         
         for (WorkspaceStorageQuota quota : nonCustomQuotas) {
             if (!quota.getIsCustom()) {
-                quota.setQuotaLimitBytes(defaultQuotaBytes);
+                quota.setQuotaLimitBytes(storageProperties.getDefaultQuotaBytes());
                 quotaRepository.save(quota);
             }
         }
         
         logger.info("Reset {} quotas to default limit: {}MB", 
-                   nonCustomQuotas.size(), bytesToMB(defaultQuotaBytes));
+                   nonCustomQuotas.size(), bytesToMB(storageProperties.getDefaultQuotaBytes()));
     }
 
     /**
@@ -343,7 +342,7 @@ public class WorkspaceStorageQuotaService {
      * Get default quota in bytes
      */
     public Long getDefaultQuotaBytes() {
-        return defaultQuotaBytes;
+        return storageProperties.getDefaultQuotaBytes();
     }
 
     /**
