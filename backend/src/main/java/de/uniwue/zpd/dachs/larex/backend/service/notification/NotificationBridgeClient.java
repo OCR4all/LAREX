@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.notification;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.config.NotificationBridgeProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.Notification;
 import java.io.IOException;
 import java.net.URI;
@@ -15,7 +16,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,28 +25,22 @@ public class NotificationBridgeClient {
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
+    private final NotificationBridgeProperties properties;
 
-    @Value("${larex.notifications.bridge.enabled:true}")
-    private boolean enabled;
-
-    @Value("${larex.notifications.bridge.url:http://frontend:3000/api/notifications/broadcast}")
-    private String bridgeUrl;
-
-    @Value("${larex.notifications.bridge.secret:larex-notification-bridge-dev-secret}")
-    private String bridgeSecret;
-
-    public NotificationBridgeClient(ObjectMapper objectMapper) {
+    public NotificationBridgeClient(ObjectMapper objectMapper,
+                                    NotificationBridgeProperties properties) {
         this.objectMapper = objectMapper;
+        this.properties = properties;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(3))
                 .build();
     }
 
     public void pushNotification(Notification notification, String source) {
-        if (!enabled || notification == null) {
+        if (!properties.isEnabled() || notification == null) {
             return;
         }
-        if (bridgeUrl == null || bridgeUrl.isBlank() || bridgeSecret == null || bridgeSecret.isBlank()) {
+        if (!properties.isConfigured()) {
             logger.debug("Notification bridge disabled because URL or secret is missing");
             return;
         }
@@ -61,7 +55,7 @@ public class NotificationBridgeClient {
             String signature = signPayload(timestamp, payload);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(bridgeUrl))
+                    .uri(URI.create(properties.getUrl()))
                     .timeout(Duration.ofSeconds(5))
                     .header("Content-Type", "application/json")
                     .header("X-Larex-Notification-Bridge-Timestamp", timestamp)
@@ -88,7 +82,7 @@ public class NotificationBridgeClient {
     private String signPayload(String timestamp, String payload) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(bridgeSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            mac.init(new SecretKeySpec(properties.getSecret().getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] digest = mac.doFinal((timestamp + "." + payload).getBytes(StandardCharsets.UTF_8));
             return toHex(digest);
         } catch (Exception error) {
