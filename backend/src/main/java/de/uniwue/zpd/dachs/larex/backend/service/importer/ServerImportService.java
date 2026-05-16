@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.importer;
 
+import de.uniwue.zpd.dachs.larex.backend.config.ImportProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.ImportJobDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImportJob.ImportJobStatus;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImportJob;
@@ -19,7 +20,6 @@ import java.util.*;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,18 +35,7 @@ public class ServerImportService {
     private final WorkspaceStorageQuotaService quotaService;
     private final AsyncImportProcessor asyncImportProcessor;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
-
-    @Value("${larex.import.enabled:true}")
-    private boolean importEnabled;
-
-    @Value("${larex.import.allowed-paths:/data/imports,/mnt/shared/datasets}")
-    private String allowedPathsConfig;
-
-    @Value("${larex.import.max-scan-depth:10}")
-    private int maxScanDepth;
-
-    @Value("${larex.import.max-files-per-job:100000}")
-    private int maxFilesPerJob;
+    private final ImportProperties properties;
 
     private List<Path> allowedPaths;
 
@@ -55,20 +44,25 @@ public class ServerImportService {
                                PageRepository pageRepository,
                                WorkspaceStorageQuotaService quotaService,
                                AsyncImportProcessor asyncImportProcessor,
-                               WorkspaceQuotaGuardService workspaceQuotaGuardService) {
+                               WorkspaceQuotaGuardService workspaceQuotaGuardService,
+                               ImportProperties properties) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
         this.quotaService = quotaService;
         this.asyncImportProcessor = asyncImportProcessor;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
+        this.properties = properties;
     }
 
     @jakarta.annotation.PostConstruct
     private void initAllowedPaths() {
         allowedPaths = new ArrayList<>();
-        if (allowedPathsConfig != null && !allowedPathsConfig.isBlank()) {
-            for (String pathStr : allowedPathsConfig.split(",")) {
+        if (properties.getAllowedPaths() != null) {
+            for (String pathStr : properties.getAllowedPaths()) {
+                if (pathStr == null || pathStr.isBlank()) {
+                    continue;
+                }
                 try {
                     Path path = Paths.get(pathStr.trim()).toAbsolutePath().normalize();
                     allowedPaths.add(path);
@@ -84,7 +78,7 @@ public class ServerImportService {
     }
 
     public ImportJobDto.ValidatePathResponse validatePath(String pathStr) {
-        if (!importEnabled) {
+        if (!properties.isEnabled()) {
             return new ImportJobDto.ValidatePathResponse(false, null, "Server-side import is disabled");
         }
 
@@ -342,16 +336,16 @@ public class ServerImportService {
         int imageCount = 0;
         int xmlCount = 0;
 
-        try (Stream<Path> stream = Files.walk(path, maxScanDepth)) {
+        try (Stream<Path> stream = Files.walk(path, properties.getMaxScanDepth())) {
             List<Path> filePaths = stream
                     .filter(Files::isRegularFile)
                     .filter(p -> isImageFile(p) || isXmlFile(p))
-                    .limit(maxFilesPerJob + 1L)
+                    .limit(properties.getMaxFilesPerJob() + 1L)
                     .toList();
 
-            if (filePaths.size() > maxFilesPerJob) {
-                warnings.add("Directory contains more than " + maxFilesPerJob + " files. Only the first " + maxFilesPerJob + " will be imported.");
-                filePaths = filePaths.subList(0, maxFilesPerJob);
+            if (filePaths.size() > properties.getMaxFilesPerJob()) {
+                warnings.add("Directory contains more than " + properties.getMaxFilesPerJob() + " files. Only the first " + properties.getMaxFilesPerJob() + " will be imported.");
+                filePaths = filePaths.subList(0, properties.getMaxFilesPerJob());
             }
 
             Set<String> existingPageNames = new HashSet<>();

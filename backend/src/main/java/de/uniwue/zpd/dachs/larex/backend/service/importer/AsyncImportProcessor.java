@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.importer;
 
+import de.uniwue.zpd.dachs.larex.backend.config.ImportProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImportJob.ImportJobStatus;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
@@ -24,7 +25,6 @@ import java.util.*;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,12 +45,7 @@ public class AsyncImportProcessor {
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageXmlCanonicalizationService pageXmlCanonicalizationService;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
-
-    @Value("${larex.import.max-scan-depth:10}")
-    private int maxScanDepth;
-
-    @Value("${larex.import.max-files-per-job:100000}")
-    private int maxFilesPerJob;
+    private final ImportProperties properties;
 
     public AsyncImportProcessor(ImportJobRepository importJobRepository,
                                 ProjectRepository projectRepository,
@@ -62,7 +57,8 @@ public class AsyncImportProcessor {
                                 PageFilterIndexService pageFilterIndexService,
                                 HierarchicalFileStorageService hierarchicalFileStorageService,
                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
-                                WorkspaceQuotaGuardService workspaceQuotaGuardService) {
+                                WorkspaceQuotaGuardService workspaceQuotaGuardService,
+                                ImportProperties properties) {
         this.importJobRepository = importJobRepository;
         this.projectRepository = projectRepository;
         this.pageRepository = pageRepository;
@@ -74,6 +70,7 @@ public class AsyncImportProcessor {
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageXmlCanonicalizationService = pageXmlCanonicalizationService;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
+        this.properties = properties;
     }
 
     @Async("importTaskExecutor")
@@ -116,11 +113,11 @@ public class AsyncImportProcessor {
         List<Path> filesToImport = new ArrayList<>();
         long totalBytes = 0;
 
-        try (Stream<Path> stream = Files.walk(sourcePath, maxScanDepth)) {
+        try (Stream<Path> stream = Files.walk(sourcePath, properties.getMaxScanDepth())) {
             List<Path> allFiles = stream
                     .filter(Files::isRegularFile)
                     .filter(p -> isImageFile(p) || isXmlFile(p))
-                    .limit(maxFilesPerJob)
+                    .limit(properties.getMaxFilesPerJob())
                     .toList();
 
             for (Path filePath : allFiles) {

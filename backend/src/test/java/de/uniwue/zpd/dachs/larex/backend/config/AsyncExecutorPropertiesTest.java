@@ -25,6 +25,10 @@ class AsyncExecutorPropertiesTest {
                         "larex.upload.index-async.core-pool-size=2",
                         "larex.upload.index-async.max-pool-size=5",
                         "larex.upload.index-async.queue-capacity=500",
+                        "larex.import.enabled=false",
+                        "larex.import.allowed-paths=/tmp/import-a,/tmp/import-b",
+                        "larex.import.max-scan-depth=12",
+                        "larex.import.max-files-per-job=12000",
                         "larex.import.async.core-pool-size=5",
                         "larex.import.async.max-pool-size=6",
                         "larex.import.async.queue-capacity=600",
@@ -39,7 +43,12 @@ class AsyncExecutorPropertiesTest {
                     assertExecutorPool(context.getBean(AsyncExecutorProperties.class).getDefault(), 3, 6, 300);
                     assertExecutorPool(context.getBean(UploadAsyncProperties.class).getAsync(), 4, 8, 400);
                     assertExecutorPool(context.getBean(UploadAsyncProperties.class).getIndexAsync(), 2, 5, 500);
-                    assertExecutorPool(context.getBean(ImportAsyncProperties.class).getAsync(), 5, 6, 600);
+                    ImportProperties importProperties = context.getBean(ImportProperties.class);
+                    assertThat(importProperties.isEnabled()).isFalse();
+                    assertThat(importProperties.getAllowedPaths()).containsExactly("/tmp/import-a", "/tmp/import-b");
+                    assertThat(importProperties.getMaxScanDepth()).isEqualTo(12);
+                    assertThat(importProperties.getMaxFilesPerJob()).isEqualTo(12000);
+                    assertExecutorPool(importProperties.getAsync(), 5, 6, 600);
                     AnnotationProperties annotationProperties = context.getBean(AnnotationProperties.class);
                     assertThat(annotationProperties.getReadCache().getMaximumSize()).isEqualTo(123);
                     assertThat(annotationProperties.getReadCache().getExpireAfterAccessMinutes()).isEqualTo(20);
@@ -51,7 +60,7 @@ class AsyncExecutorPropertiesTest {
     @Test
     void keepsImportExecutorDefaultsWhenNoPropertiesAreConfigured() {
         contextRunner.run(context ->
-                assertExecutorPool(context.getBean(ImportAsyncProperties.class).getAsync(), 1, 2, 10)
+                assertExecutorPool(context.getBean(ImportProperties.class).getAsync(), 1, 2, 10)
         );
     }
 
@@ -68,7 +77,7 @@ class AsyncExecutorPropertiesTest {
     @EnableConfigurationProperties({
             AsyncExecutorProperties.class,
             UploadAsyncProperties.class,
-            ImportAsyncProperties.class,
+            ImportProperties.class,
             AnnotationProperties.class,
             StorageAsyncProperties.class
     })

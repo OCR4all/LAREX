@@ -17,7 +17,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableConfigurationProperties({
         AsyncExecutorProperties.class,
         UploadAsyncProperties.class,
-        ImportAsyncProperties.class,
+        ImportProperties.class,
         AnnotationProperties.class,
         StorageAsyncProperties.class
 })
@@ -27,13 +27,13 @@ public class AsyncConfig {
 
     private final AsyncExecutorProperties asyncProperties;
     private final UploadAsyncProperties uploadProperties;
-    private final ImportAsyncProperties importProperties;
+    private final ImportProperties importProperties;
     private final AnnotationProperties annotationProperties;
     private final StorageAsyncProperties storageProperties;
 
     public AsyncConfig(AsyncExecutorProperties asyncProperties,
                        UploadAsyncProperties uploadProperties,
-                       ImportAsyncProperties importProperties,
+                       ImportProperties importProperties,
                        AnnotationProperties annotationProperties,
                        StorageAsyncProperties storageProperties) {
         this.asyncProperties = asyncProperties;
