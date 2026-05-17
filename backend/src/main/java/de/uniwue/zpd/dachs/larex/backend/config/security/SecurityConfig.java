@@ -2,8 +2,6 @@ package de.uniwue.zpd.dachs.larex.backend.config.security;
 
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -25,29 +23,28 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@EnableConfigurationProperties(KeycloakAdminProperties.class)
 @Profile("!test")
 public class SecurityConfig {
 
     private final JwtAuthConverter jwtAuthConverter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final ActionRunService actionRunService;
-
-    @Value("${cors.allowed-origin}")
-    private String allowedOrigin;
+    private final CorsProperties corsProperties;
 
     public SecurityConfig(JwtAuthConverter jwtAuthConverter,
                           CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
-                          ActionRunService actionRunService) {
+                          ActionRunService actionRunService,
+                          CorsProperties corsProperties) {
         this.jwtAuthConverter = jwtAuthConverter;
         this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
         this.actionRunService = actionRunService;
+        this.corsProperties = corsProperties;
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(allowedOrigin));
+        configuration.setAllowedOrigins(List.of(corsProperties.allowedOrigin()));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

@@ -1,6 +1,5 @@
 package de.uniwue.zpd.dachs.larex.backend.config.security;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -25,9 +24,11 @@ import java.util.stream.Stream;
 public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     private final JwtGrantedAuthoritiesConverter jwtGrantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
+    private final String resourceClientId;
 
-    @Value("${keycloak.resource-client-id}")
-    private String resourceClientId;
+    public JwtAuthConverter(KeycloakResourceProperties keycloakResourceProperties) {
+        this.resourceClientId = keycloakResourceProperties.resourceClientId();
+    }
 
     @Override
     public AbstractAuthenticationToken convert(@NonNull Jwt jwt) {
