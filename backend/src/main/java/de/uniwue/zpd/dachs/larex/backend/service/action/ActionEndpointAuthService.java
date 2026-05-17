@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
+import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -29,15 +30,17 @@ public class ActionEndpointAuthService {
     private static final String HEADER_BODY_HASH = "X-LAREX-Action-Body-SHA256";
     private static final String HEADER_SIGNATURE = "X-LAREX-Action-Signature";
 
+    private final ActionProperties actionProperties;
     private final Environment environment;
     private final Clock clock;
 
     @Autowired
-    public ActionEndpointAuthService(Environment environment) {
-        this(environment, Clock.systemUTC());
+    public ActionEndpointAuthService(ActionProperties actionProperties, Environment environment) {
+        this(actionProperties, environment, Clock.systemUTC());
     }
 
-    ActionEndpointAuthService(Environment environment, Clock clock) {
+    ActionEndpointAuthService(ActionProperties actionProperties, Environment environment, Clock clock) {
+        this.actionProperties = actionProperties;
         this.environment = environment;
         this.clock = clock;
     }
@@ -104,7 +107,8 @@ public class ActionEndpointAuthService {
     private String resolveSecret(String secretRef) {
         String secret = lookupSecret(secretRef);
         if (secret == null || secret.isBlank()) {
-            throw new IllegalStateException("Action endpoint HMAC secret is not configured for secretRef: " + secretRef);
+            throw new IllegalStateException("Action endpoint HMAC secret is not configured for secretRef: "
+                    + secretRef + " (" + envNameForSecretRef(secretRef) + " or " + pluralEnvNameForSecretRef(secretRef) + ")");
         }
         return secret;
     }
@@ -113,20 +117,67 @@ public class ActionEndpointAuthService {
         if (secretRef == null || secretRef.isBlank()) {
             return null;
         }
+        String configuredSecret = configuredEndpointSecret(secretRef);
+        if (configuredSecret != null && !configuredSecret.isBlank()) {
+            return configuredSecret;
+        }
+
         String propertyValue = environment.getProperty("larex.actions.endpoint-secrets." + secretRef);
         if (propertyValue != null && !propertyValue.isBlank()) {
             return propertyValue;
         }
+        propertyValue = environment.getProperty("larex.actions.endpoint-secrets[" + secretRef + "]");
+        if (propertyValue != null && !propertyValue.isBlank()) {
+            return propertyValue;
+        }
+
         String envName = envNameForSecretRef(secretRef);
         String envValue = environment.getProperty(envName);
         if (envValue != null && !envValue.isBlank()) {
             return envValue;
         }
+        String pluralEnvName = pluralEnvNameForSecretRef(secretRef);
+        envValue = environment.getProperty(pluralEnvName);
+        if (envValue != null && !envValue.isBlank()) {
+            return envValue;
+        }
+
         envValue = System.getenv(envName);
         if (envValue != null && !envValue.isBlank()) {
             return envValue;
         }
+        envValue = System.getenv(pluralEnvName);
+        if (envValue != null && !envValue.isBlank()) {
+            return envValue;
+        }
         return null;
+    }
+
+    private String configuredEndpointSecret(String secretRef) {
+        Map<String, String> endpointSecrets = actionProperties.getEndpointSecrets();
+        String exactSecret = endpointSecrets.get(secretRef);
+        if (exactSecret != null && !exactSecret.isBlank()) {
+            return exactSecret;
+        }
+
+        String normalizedRef = normalizeSecretRefForEnv(secretRef);
+        if (normalizedRef == null) {
+            return null;
+        }
+        return endpointSecrets.entrySet().stream()
+                .filter(entry -> normalizedRef.equals(normalizeSecretRefForEnv(entry.getKey())))
+                .map(Map.Entry::getValue)
+                .filter(value -> value != null && !value.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String pluralEnvNameForSecretRef(String secretRef) {
+        String normalized = normalizeSecretRefForEnv(secretRef);
+        if (normalized == null) {
+            return "LAREX_ACTIONS_ENDPOINT_SECRETS_<SECRET_REF>";
+        }
+        return "LAREX_ACTIONS_ENDPOINT_SECRETS_" + normalized;
     }
 
     private String canonicalDispatchRequest(String method,

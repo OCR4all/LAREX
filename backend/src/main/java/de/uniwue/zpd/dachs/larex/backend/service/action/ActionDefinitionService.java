@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
@@ -18,7 +19,6 @@ import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssign
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,15 +56,7 @@ public class ActionDefinitionService {
     private final ObjectMapper yamlMapper;
     private final ObjectMapper jsonMapper;
     private final HttpClient httpClient;
-
-    @Value("${larex.actions.endpoint-allowed-origins:}")
-    private String endpointAllowedOrigins;
-
-    @Value("${larex.actions.endpoint-require-https:true}")
-    private boolean endpointRequireHttps;
-
-    @Value("${larex.actions.endpoint-allow-insecure-local:true}")
-    private boolean endpointAllowInsecureLocal;
+    private final ActionProperties actionProperties;
 
     public ActionDefinitionService(ActionProcessorDefinitionRepository definitionRepository,
                                    ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
@@ -73,7 +65,8 @@ public class ActionDefinitionService {
                                    GlobalAdminService globalAdminService,
                                    ActionEndpointAuthService endpointAuthService,
                                    ActionAuditService actionAuditService,
-                                   ObjectMapper objectMapper) {
+                                   ObjectMapper objectMapper,
+                                   ActionProperties actionProperties) {
         this.definitionRepository = definitionRepository;
         this.availabilityRepository = availabilityRepository;
         this.assignmentRepository = assignmentRepository;
@@ -84,6 +77,7 @@ public class ActionDefinitionService {
         this.yamlMapper = new ObjectMapper(new YAMLFactory());
         this.jsonMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        this.actionProperties = actionProperties;
     }
 
     @Transactional(readOnly = true)
@@ -612,9 +606,9 @@ public class ActionDefinitionService {
             return;
         }
         boolean localOrPrivate = isLocalOrPrivateEndpoint(uri);
-        if (endpointRequireHttps
+        if (actionProperties.isEndpointRequireHttps()
                 && !"https".equalsIgnoreCase(uri.getScheme())
-                && !(endpointAllowInsecureLocal && localOrPrivate)) {
+                && !(actionProperties.isEndpointAllowInsecureLocal() && localOrPrivate)) {
             diagnostics.add(error(path, path + " must use https unless it targets an allowed local endpoint"));
         }
 
@@ -625,6 +619,7 @@ public class ActionDefinitionService {
     }
 
     private Set<String> configuredEndpointAllowedOrigins(List<ActionDto.ValidationDiagnostic> diagnostics) {
+        String endpointAllowedOrigins = actionProperties.getEndpointAllowedOrigins();
         if (endpointAllowedOrigins == null || endpointAllowedOrigins.isBlank()) {
             return Set.of();
         }

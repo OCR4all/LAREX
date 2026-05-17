@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.action;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.security.GlobalAdminService;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
@@ -41,7 +42,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlValidationService;
 import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -118,34 +118,8 @@ public class ActionRunService {
     private final PageFilterIndexService pageFilterIndexService;
     private final AnnotationReadCache annotationReadCache;
     private final ActionAuditService actionAuditService;
+    private final ActionProperties actionProperties;
     private final HttpClient httpClient;
-
-    @Value("${file.upload-dir}")
-    private String uploadDir;
-
-    @Value("${larex.actions.dispatch.max-attempts:3}")
-    private int dispatchMaxAttempts;
-
-    @Value("${larex.actions.dispatch.retry-backoff-ms:3000}")
-    private long dispatchRetryBackoffMillis;
-
-    @Value("${larex.actions.timeout.dispatch-minutes:5}")
-    private long dispatchTimeoutMinutes;
-
-    @Value("${larex.actions.timeout.heartbeat-minutes:30}")
-    private long heartbeatTimeoutMinutes;
-
-    @Value("${larex.actions.retention.terminal-days:30}")
-    private long terminalRunRetentionDays;
-
-    @Value("${larex.actions.results.max-files:500}")
-    private int maxResultFiles;
-
-    @Value("${larex.actions.results.max-file-bytes:536870912}")
-    private long maxResultFileBytes;
-
-    @Value("${larex.actions.results.max-total-bytes:2147483648}")
-    private long maxResultTotalBytes;
 
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
                             ActionProcessorAssignmentRepository assignmentRepository,
@@ -171,7 +145,8 @@ public class ActionRunService {
                             PageXmlVersionService pageXmlVersionService,
                             PageFilterIndexService pageFilterIndexService,
                             AnnotationReadCache annotationReadCache,
-                            ActionAuditService actionAuditService) {
+                            ActionAuditService actionAuditService,
+                            ActionProperties actionProperties) {
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
         this.availabilityRepository = availabilityRepository;
@@ -197,6 +172,7 @@ public class ActionRunService {
         this.pageFilterIndexService = pageFilterIndexService;
         this.annotationReadCache = annotationReadCache;
         this.actionAuditService = actionAuditService;
+        this.actionProperties = actionProperties;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
@@ -456,9 +432,9 @@ public class ActionRunService {
     @Scheduled(fixedDelayString = "${larex.actions.watchdog-interval-ms:60000}")
     public void reconcileStaleRuns() {
         LocalDateTime now = LocalDateTime.now();
-        expireDispatchingRuns(now.minusMinutes(Math.max(1, dispatchTimeoutMinutes)));
-        expireHeartbeatRuns(now.minusMinutes(Math.max(1, heartbeatTimeoutMinutes)));
-        pruneTerminalRuns(now.minusDays(Math.max(1, terminalRunRetentionDays)));
+        expireDispatchingRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getDispatchMinutes())));
+        expireHeartbeatRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes())));
+        pruneTerminalRuns(now.minusDays(Math.max(1, actionProperties.getRetention().getTerminalDays())));
     }
 
     public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId) {
@@ -873,7 +849,7 @@ public class ActionRunService {
 
     private void dispatchAsync(String runId, String rawSecret, String publicApiBaseUrl) {
         importTaskExecutor.execute(() -> {
-            int attempts = Math.max(1, dispatchMaxAttempts);
+            int attempts = Math.max(1, actionProperties.getDispatch().getMaxAttempts());
             Exception lastFailure = null;
             for (int attempt = 1; attempt <= attempts; attempt++) {
                 try {
@@ -1002,7 +978,7 @@ public class ActionRunService {
 
     private void sleepBeforeDispatchRetry() {
         try {
-            Thread.sleep(Math.max(0, dispatchRetryBackoffMillis));
+            Thread.sleep(Math.max(0, actionProperties.getDispatch().getRetryBackoffMs()));
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
@@ -1514,8 +1490,8 @@ public class ActionRunService {
     }
 
     private void validateResultManifest(List<ActionDto.ResultFile> resultFiles, MultiValueMap<String, MultipartFile> files) {
-        if (resultFiles.size() > maxResultFiles) {
-            throw new IllegalArgumentException("Too many Action result files: " + resultFiles.size() + " > " + maxResultFiles);
+        if (resultFiles.size() > actionProperties.getResults().getMaxFiles()) {
+            throw new IllegalArgumentException("Too many Action result files: " + resultFiles.size() + " > " + actionProperties.getResults().getMaxFiles());
         }
         long totalBytes = 0L;
         Set<String> fieldNames = new LinkedHashSet<>();
@@ -1529,14 +1505,14 @@ public class ActionRunService {
             MultipartFile file = resolveMultipart(files, resultFile.fieldName());
             validateResultFileSize(file);
             totalBytes += file.getSize();
-            if (totalBytes > maxResultTotalBytes) {
+            if (totalBytes > actionProperties.getResults().getMaxTotalBytes()) {
                 throw new IllegalArgumentException("Action result upload exceeds total size limit");
             }
         }
     }
 
     private void validateResultFileSize(MultipartFile file) {
-        if (file.getSize() > maxResultFileBytes) {
+        if (file.getSize() > actionProperties.getResults().getMaxFileBytes()) {
             throw new IllegalArgumentException("Action result file exceeds size limit");
         }
     }

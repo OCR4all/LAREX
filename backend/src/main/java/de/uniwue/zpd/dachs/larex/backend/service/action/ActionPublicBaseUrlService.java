@@ -1,7 +1,7 @@
 package de.uniwue.zpd.dachs.larex.backend.service.action;
 
+import de.uniwue.zpd.dachs.larex.backend.config.ActionProperties;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -18,13 +18,10 @@ public class ActionPublicBaseUrlService {
     private final List<String> allowedOrigins;
     private final boolean requireHttps;
 
-    public ActionPublicBaseUrlService(
-            @Value("${larex.actions.public-base-url:}") String configuredPublicBaseUrl,
-            @Value("${larex.actions.public-base-url-allowed-origins:${cors.allowed-origin:}}") String allowedOrigins,
-            @Value("${larex.actions.public-base-url-require-https:true}") boolean requireHttps) {
-        this.configuredPublicBaseUrl = trimToNull(configuredPublicBaseUrl);
-        this.allowedOrigins = splitList(allowedOrigins);
-        this.requireHttps = requireHttps;
+    public ActionPublicBaseUrlService(ActionProperties actionProperties) {
+        this.configuredPublicBaseUrl = trimToNull(actionProperties.getPublicBaseUrl());
+        this.allowedOrigins = splitList(actionProperties.getPublicBaseUrlAllowedOrigins());
+        this.requireHttps = actionProperties.isPublicBaseUrlRequireHttps();
     }
 
     public String publicApiBaseUrl(HttpServletRequest request) {

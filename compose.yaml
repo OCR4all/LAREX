@@ -99,6 +99,7 @@ services:
       SPRING_DEVTOOLS_LIVERELOAD_ENABLED: true
       LAREX_ACTIONS_PUBLIC_BASE_URL: http://app:8080/api/v1
       LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1: ${LAREX_ACTION_ENDPOINT_SECRET_MOCK_PROCESSOR_V1:-dev-mock-action-secret-change-me}
+      LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1: ${LAREX_ACTION_ENDPOINT_SECRET_KRAKEN_SEGMENTATION_V1:-dev-kraken-segmentation-secret-change-me}
     volumes:
       - ./backend/src:/app/src:cached,Z
       - ./backend/build.gradle.kts:/app/build.gradle.kts:ro,Z
