@@ -2,6 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.service;
 
 import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.UserProvisioningMode;
+import de.uniwue.zpd.dachs.larex.backend.config.security.KeycloakAdminProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditAction;
@@ -761,13 +762,21 @@ class UserServiceTest {
     private UserService createUserService(UserProvisioningMode provisioningMode) {
         AuthProvisioningProperties properties = new AuthProvisioningProperties();
         properties.setUserProvisioningMode(provisioningMode);
+        KeycloakAdminProperties keycloakAdminProperties = new KeycloakAdminProperties(
+                "http://keycloak:8080",
+                "larex-prod",
+                "larex-backend-service",
+                "secret",
+                new KeycloakAdminProperties.ActionEmail(
+                        "larex-frontend",
+                        "http://larex.localhost/auth/keycloak",
+                        43200
+                )
+        );
 
         return new UserService(
                 keycloakAdmin,
-                "larex-prod",
-                "larex-frontend",
-                "http://larex.localhost/auth/keycloak",
-                43200,
+                keycloakAdminProperties,
                 adminUserAuditService,
                 properties
         );

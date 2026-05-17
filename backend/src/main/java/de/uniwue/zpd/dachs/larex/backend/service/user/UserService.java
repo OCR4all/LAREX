@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.AuthProvisioningProperties;
 import de.uniwue.zpd.dachs.larex.backend.config.auth.UserProvisioningMode;
+import de.uniwue.zpd.dachs.larex.backend.config.security.KeycloakAdminProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminCreateUserRequest;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminGlobalRolesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.AdminUserAuditAction;
@@ -39,7 +40,6 @@ import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -63,17 +63,16 @@ public class UserService {
 
     public UserService(
             Keycloak keycloakAdmin,
-            @Value("${keycloak.admin.realm:larex-dev}") String realm,
-            @Value("${keycloak.admin.action-email.client-id:larex-frontend}") String actionEmailClientId,
-            @Value("${keycloak.admin.action-email.redirect-uri:http://larex.localhost/auth/keycloak}") String actionEmailRedirectUri,
-            @Value("${keycloak.admin.action-email.lifespan-seconds:43200}") Integer actionEmailLifespanSeconds,
+            KeycloakAdminProperties keycloakAdminProperties,
             AdminUserAuditService adminUserAuditService,
             AuthProvisioningProperties authProvisioningProperties) {
+        KeycloakAdminProperties.ActionEmail actionEmail = keycloakAdminProperties.actionEmail();
+
         this.keycloakAdmin = keycloakAdmin;
-        this.realm = realm;
-        this.actionEmailClientId = actionEmailClientId;
-        this.actionEmailRedirectUri = actionEmailRedirectUri;
-        this.actionEmailLifespanSeconds = actionEmailLifespanSeconds;
+        this.realm = keycloakAdminProperties.realm();
+        this.actionEmailClientId = actionEmail.clientId();
+        this.actionEmailRedirectUri = actionEmail.redirectUri();
+        this.actionEmailLifespanSeconds = actionEmail.lifespanSeconds();
         this.adminUserAuditService = adminUserAuditService;
         this.authProvisioningProperties = authProvisioningProperties;
     }
