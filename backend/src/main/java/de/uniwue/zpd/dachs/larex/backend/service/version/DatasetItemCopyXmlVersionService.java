@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.version;
 
+import de.uniwue.zpd.dachs.larex.backend.config.VersioningProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlVersionDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.UserDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItemCopyFile;
@@ -34,21 +35,21 @@ public class DatasetItemCopyXmlVersionService {
     private final DatasetItemCopyFileRepository copyFileRepository;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final UserService userService;
+    private final VersioningProperties versioningProperties;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
 
-    @Value("${larex.versioning.max-versions-per-xml:25}")
-    private int maxVersionsPerXml;
-
     public DatasetItemCopyXmlVersionService(DatasetItemCopyXmlVersionRepository versionRepository,
                                             DatasetItemCopyFileRepository copyFileRepository,
                                             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
-                                            UserService userService) {
+                                            UserService userService,
+                                            VersioningProperties versioningProperties) {
         this.versionRepository = versionRepository;
         this.copyFileRepository = copyFileRepository;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.userService = userService;
+        this.versioningProperties = versioningProperties;
     }
 
     @Transactional
@@ -149,11 +150,11 @@ public class DatasetItemCopyXmlVersionService {
     @Transactional
     public void pruneOldVersions(String copyXmlFileId) {
         long count = versionRepository.countByCopyFile_Id(copyXmlFileId);
-        if (count <= maxVersionsPerXml) {
+        if (count <= versioningProperties.getMaxVersionsPerXml()) {
             return;
         }
 
-        int toDelete = (int) (count - maxVersionsPerXml);
+        int toDelete = (int) (count - versioningProperties.getMaxVersionsPerXml());
         List<DatasetItemCopyXmlVersion> oldest = versionRepository.findOldestVersions(copyXmlFileId, PageRequest.of(0, toDelete));
 
         for (DatasetItemCopyXmlVersion version : oldest) {
