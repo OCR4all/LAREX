@@ -3,8 +3,8 @@ package de.uniwue.zpd.dachs.larex.backend.controller.action;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionPublicBaseUrlService;
 import de.uniwue.zpd.dachs.larex.backend.service.action.ActionRunService;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -27,7 +27,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/public/actions/runs")
@@ -35,14 +34,14 @@ public class PublicActionMachineController {
 
     private final ActionRunService actionRunService;
     private final ActionPublicBaseUrlService publicBaseUrlService;
-
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    private final UploadPathService uploadPathService;
 
     public PublicActionMachineController(ActionRunService actionRunService,
-                                         ActionPublicBaseUrlService publicBaseUrlService) {
+                                         ActionPublicBaseUrlService publicBaseUrlService,
+                                         UploadPathService uploadPathService) {
         this.actionRunService = actionRunService;
         this.publicBaseUrlService = publicBaseUrlService;
+        this.uploadPathService = uploadPathService;
     }
 
     @GetMapping("/{runId}/input")
@@ -61,9 +60,10 @@ public class PublicActionMachineController {
             @PathVariable String fileId,
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader) throws IOException {
         ActionRunService.MachineFile file = actionRunService.resolveMachineFile(runId, authorizationHeader, type, fileId);
-        Path uploadRoot = Paths.get(uploadDir).toAbsolutePath().normalize();
-        Path path = uploadRoot.resolve(file.storagePath()).normalize();
-        if (!path.startsWith(uploadRoot)) {
+        Path path;
+        try {
+            path = uploadPathService.resolve(file.storagePath());
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         if (!Files.exists(path)) {

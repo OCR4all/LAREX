@@ -2,7 +2,7 @@ package de.uniwue.zpd.dachs.larex.backend.controller.annotation;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
-import org.springframework.beans.factory.annotation.Value;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -19,19 +19,17 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/xml")
 public class XmlController {
 
     private final PageService pageService;
+    private final UploadPathService uploadPathService;
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
-
-    public XmlController(PageService pageService) {
+    public XmlController(PageService pageService, UploadPathService uploadPathService) {
         this.pageService = pageService;
+        this.uploadPathService = uploadPathService;
     }
 
     @GetMapping("/{xmlId}/blob")
@@ -45,7 +43,7 @@ public class XmlController {
                 return ResponseEntity.notFound().build();
             }
 
-            Path filePath = Paths.get(uploadDir).resolve(xml.getFilePath());
+            Path filePath = uploadPathService.resolve(xml.getFilePath());
             if (!Files.exists(filePath)) {
                 return ResponseEntity.notFound().build();
             }
@@ -64,6 +62,8 @@ public class XmlController {
                     .build());
 
             return ResponseEntity.ok().headers(headers).body(resource);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

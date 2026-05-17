@@ -10,13 +10,13 @@ import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
 import de.uniwue.zpd.dachs.larex.backend.service.annotation.application.AnnotationProcessingService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.util.CoordinateUtils;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
@@ -25,7 +25,6 @@ import javax.imageio.ImageIO;
 import net.coobird.thumbnailator.Thumbnails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import java.awt.AlphaComposite;
@@ -44,17 +43,18 @@ public class SearchPreviewService {
 
     private final PageService pageService;
     private final AnnotationProcessingService annotationProcessingService;
+    private final UploadPathService uploadPathService;
     private final Cache<String, PreviewImage> previewCache = Caffeine.newBuilder()
             .maximumSize(1_000)
             .expireAfterWrite(Duration.ofMinutes(10))
             .build();
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
-
-    public SearchPreviewService(PageService pageService, AnnotationProcessingService annotationProcessingService) {
+    public SearchPreviewService(PageService pageService,
+                                AnnotationProcessingService annotationProcessingService,
+                                UploadPathService uploadPathService) {
         this.pageService = pageService;
         this.annotationProcessingService = annotationProcessingService;
+        this.uploadPathService = uploadPathService;
     }
 
     public PreviewImage getTextPreview(String projectId,
@@ -85,7 +85,7 @@ public class SearchPreviewService {
                 return null;
             }
 
-            Path imagePath = Paths.get(uploadDir).resolve(image.getFilePath());
+            Path imagePath = uploadPathService.resolve(image.getFilePath());
             if (!Files.exists(imagePath)) {
                 return null;
             }
