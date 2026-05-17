@@ -11,6 +11,8 @@ import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDefinitionDocument;
 import de.uniwue.zpd.dachs.larex.backend.dto.action.ActionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorAssignment;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorWorkspaceAvailability;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 @Service
 @Transactional
@@ -45,6 +48,7 @@ public class ActionDefinitionService {
     private static final int SUPPORTED_VERSION = 1;
     private static final int DEFAULT_TIMEOUT_SECONDS = 30;
     private static final int DEFAULT_TOKEN_TTL_MINUTES = 1440;
+    private static final TypeReference<List<ActionTarget>> ACTION_TARGET_LIST = new TypeReference<>() {};
 
     private final ActionProcessorDefinitionRepository definitionRepository;
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
@@ -140,6 +144,29 @@ public class ActionDefinitionService {
         actionAuditService.record("ACTION_DEFINITION_UPDATE", "SUCCESS", userId, saved.getId(), null, null, null,
                 Map.of("processorKey", saved.getProcessorKey()));
         return toDefinitionResponse(saved);
+    }
+
+    public ActionDto.DefinitionResponse upsertSystemDefinition(String processorKey,
+                                                               String yaml,
+                                                               boolean enabled,
+                                                               boolean globalAvailable,
+                                                               String userId) {
+        ActionProcessorDefinition definition = definitionRepository.findByProcessorKey(processorKey)
+                .orElseGet(ActionProcessorDefinition::new);
+        String existingId = definition.getId();
+        ParsedDefinition parsed = parseAndValidate(yaml, existingId);
+        if (!processorKey.equals(parsed.preview().processorKey())) {
+            throw new IllegalArgumentException("System Action YAML id does not match expected processor key: " + processorKey);
+        }
+
+        applyParsedDefinition(definition, parsed, yaml, userId);
+        if (definition.getCreatedByUserId() == null) {
+            definition.setCreatedByUserId(userId);
+        }
+        definition.setUpdatedByUserId(userId);
+        definition.setEnabled(enabled);
+        definition.setGlobalAvailable(globalAvailable);
+        return toDefinitionResponse(definitionRepository.save(definition));
     }
 
     public ActionDto.DefinitionResponse setEnabled(String id, boolean enabled, String userId) {
@@ -291,6 +318,13 @@ public class ActionDefinitionService {
             lockMode = enumValue(LockMode.class, document.locking().mode(), "locking.mode", diagnostics, LockMode.PAGES);
         }
 
+        ActionCategory category = ActionCategory.WORKFLOW;
+        if (document.category() != null && !document.category().isBlank()) {
+            category = enumValue(ActionCategory.class, document.category(), "category", diagnostics, ActionCategory.WORKFLOW);
+        }
+
+        List<ActionTarget> targets = parseTargets(document.targets(), diagnostics);
+
         boolean acceptsImages = document.inputs() != null && Boolean.TRUE.equals(document.inputs().images());
         boolean acceptsXml = document.inputs() != null && Boolean.TRUE.equals(document.inputs().xml());
         if (!acceptsImages && !acceptsXml) {
@@ -303,8 +337,19 @@ public class ActionDefinitionService {
         boolean outputsImages = document.outputs() != null
                 && document.outputs().images() != null
                 && Boolean.TRUE.equals(document.outputs().images().enabled());
+        boolean outputsText = document.outputs() != null
+                && document.outputs().text() != null
+                && Boolean.TRUE.equals(document.outputs().text().enabled());
+        boolean outputsLayout = document.outputs() != null
+                && document.outputs().layout() != null
+                && Boolean.TRUE.equals(document.outputs().layout().enabled());
         validateOutput(document.outputs() == null ? null : document.outputs().xml(), "outputs.xml", outputsXml, diagnostics);
         validateImageOutput(document.outputs() == null ? null : document.outputs().images(), "outputs.images", outputsImages, diagnostics);
+        validateStructuredOutput(document.outputs() == null ? null : document.outputs().text(), "outputs.text", outputsText, false, diagnostics);
+        validateStructuredOutput(document.outputs() == null ? null : document.outputs().layout(), "outputs.layout", outputsLayout, true, diagnostics);
+        if (!outputsXml && !outputsImages && !outputsText && !outputsLayout) {
+            diagnostics.add(error("outputs", "At least one output type must be enabled"));
+        }
         validateConcurrency(document.concurrency(), diagnostics);
 
         validateParameters(document.parameters(), diagnostics);
@@ -329,10 +374,14 @@ public class ActionDefinitionService {
                     timeoutSeconds,
                     executeRole,
                     lockMode,
+                    category,
+                    targets,
                     acceptsImages,
                     acceptsXml,
                     outputsImages,
                     outputsXml,
+                    outputsText,
+                    outputsLayout,
                     document.parameters() == null ? Map.of() : document.parameters()
             );
             return new ParsedDefinition(document, parsedJson, preview);
@@ -369,10 +418,14 @@ public class ActionDefinitionService {
                 definition.getEndpointTimeoutSeconds(),
                 definition.getExecuteRole(),
                 definition.getLockMode(),
+                definition.getCategory(),
+                readTargetTypes(definition),
                 definition.isAcceptsImages(),
                 definition.isAcceptsXml(),
                 definition.isOutputsImages(),
                 definition.isOutputsXml(),
+                definition.isOutputsText(),
+                definition.isOutputsLayout(),
                 definition.isEnabled(),
                 definition.isGlobalAvailable(),
                 definition.getCreated(),
@@ -461,11 +514,27 @@ public class ActionDefinitionService {
         definition.setEndpointTimeoutSeconds(preview.endpointTimeoutSeconds());
         definition.setExecuteRole(preview.executeRole());
         definition.setLockMode(preview.lockMode());
+        definition.setCategory(preview.category());
+        definition.setTargetTypesJson(writeJson(preview.targets()));
         definition.setAcceptsImages(preview.acceptsImages());
         definition.setAcceptsXml(preview.acceptsXml());
         definition.setOutputsImages(preview.outputsImages());
         definition.setOutputsXml(preview.outputsXml());
+        definition.setOutputsText(preview.outputsText());
+        definition.setOutputsLayout(preview.outputsLayout());
         definition.setUpdatedByUserId(userId);
+    }
+
+    public List<ActionTarget> readTargetTypes(ActionProcessorDefinition definition) {
+        if (definition.getTargetTypesJson() == null || definition.getTargetTypesJson().isBlank()) {
+            return List.of(ActionTarget.PAGE);
+        }
+        try {
+            List<ActionTarget> targets = jsonMapper.readValue(definition.getTargetTypesJson(), ACTION_TARGET_LIST);
+            return targets == null || targets.isEmpty() ? List.of(ActionTarget.PAGE) : targets;
+        } catch (JsonProcessingException e) {
+            return List.of(ActionTarget.PAGE);
+        }
     }
 
     private void validateOutput(ActionDefinitionDocument.OutputTarget output,
@@ -493,6 +562,44 @@ public class ActionDefinitionService {
         if (!mode.equals("upsert") && !mode.equals("append")) {
             diagnostics.add(error(path + ".mode", "mode must be upsert or append"));
         }
+    }
+
+    private void validateStructuredOutput(ActionDefinitionDocument.StructuredOutputTarget output,
+                                          String path,
+                                          boolean enabled,
+                                          boolean requireReplaceMode,
+                                          List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (!enabled) {
+            return;
+        }
+        String mode = output.mode() == null ? "replace" : output.mode().trim().toLowerCase(Locale.ROOT);
+        if (requireReplaceMode && !"replace".equals(mode)) {
+            diagnostics.add(error(path + ".mode", "mode must be replace"));
+        }
+    }
+
+    private List<ActionTarget> parseTargets(List<String> rawTargets,
+                                            List<ActionDto.ValidationDiagnostic> diagnostics) {
+        if (rawTargets == null || rawTargets.isEmpty()) {
+            return List.of(ActionTarget.PAGE);
+        }
+        List<ActionTarget> targets = new ArrayList<>();
+        Set<ActionTarget> seen = new LinkedHashSet<>();
+        for (int index = 0; index < rawTargets.size(); index++) {
+            String raw = rawTargets.get(index);
+            if (raw == null || raw.isBlank()) {
+                diagnostics.add(error("targets[" + index + "]", "target must not be blank"));
+                continue;
+            }
+            ActionTarget target = enumValue(ActionTarget.class, raw, "targets[" + index + "]", diagnostics, null);
+            if (target != null && seen.add(target)) {
+                targets.add(target);
+            }
+        }
+        if (targets.isEmpty()) {
+            diagnostics.add(error("targets", "At least one target must be declared"));
+        }
+        return targets.isEmpty() ? List.of(ActionTarget.PAGE) : targets;
     }
 
     private void validateParameters(Map<String, ActionDefinitionDocument.Parameter> parameters,
@@ -536,6 +643,14 @@ public class ActionDefinitionService {
             if (!List.of("GLOBAL", "WORKSPACE", "PROJECT").contains(scope)) {
                 diagnostics.add(error("concurrency.scope", "scope must be GLOBAL, WORKSPACE, or PROJECT"));
             }
+        }
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return jsonMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Could not serialize Action definition value", e);
         }
     }
 

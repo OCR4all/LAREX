@@ -3,6 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.dto.action;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = false)
@@ -11,6 +12,8 @@ public record ActionDefinitionDocument(
         String id,
         String name,
         String description,
+        String category,
+        List<String> targets,
         Endpoint endpoint,
         Access access,
         Locking locking,
@@ -36,13 +39,16 @@ public record ActionDefinitionDocument(
     public record Inputs(Boolean images, Boolean xml) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record Outputs(OutputTarget xml, ImageOutputTarget images) {}
+    public record Outputs(OutputTarget xml, ImageOutputTarget images, StructuredOutputTarget text, StructuredOutputTarget layout) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record OutputTarget(Boolean enabled, String mode) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record ImageOutputTarget(Boolean enabled, String variant, String mode) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record StructuredOutputTarget(Boolean enabled, String mode) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record Concurrency(Integer maxActiveRuns, String scope) {}

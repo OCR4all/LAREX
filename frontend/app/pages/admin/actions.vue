@@ -8,6 +8,7 @@ import { closeSearchPanel, highlightSelectionMatches, openSearchPanel, search, s
 import { LazyUiConfirmSlideover } from '#components'
 import {
   DEFAULT_ACTION_YAML,
+  type ActionDefinition,
   type ActionDefinitionResponse,
   type ActionValidationDiagnostic,
   type ActionValidationResponse,
@@ -207,7 +208,7 @@ function selectDefinition(definition: ActionDefinitionResponse) {
 function createNewDefinition() {
   const processorKey = generateRandomActionSlug(definitions.value.map(definition => definition.processorKey))
   const yaml = buildDraftActionYaml(processorKey)
-  draftDefinition.value = {
+  const draft: ActionDefinition = {
     id: `draft:${processorKey}`,
     processorKey,
     name: processorKey,
@@ -217,16 +218,21 @@ function createNewDefinition() {
     endpointTimeoutSeconds: 30,
     executeRole: 'CURATOR',
     lockMode: 'PAGES',
+    category: 'WORKFLOW',
+    targets: ['PAGE'],
     acceptsImages: true,
     acceptsXml: true,
     outputsImages: false,
     outputsXml: true,
+    outputsText: false,
+    outputsLayout: false,
     enabled: true,
     global: false,
     created: new Date().toISOString(),
     updated: new Date().toISOString()
   }
-  selectedId.value = draftDefinition.value.id
+  draftDefinition.value = draft
+  selectedId.value = draft.id
   initialYaml.value = yaml
   validation.value = null
   diagnostics.value = []
@@ -243,6 +249,9 @@ function buildDraftActionYaml(processorKey: string) {
 id: ${processorKey}
 name: ${processorKey}
 description: Describe what ${processorKey} does.
+category: WORKFLOW
+targets:
+  - PAGE
 
 endpoint:
   url: http://processor:9000/dispatch

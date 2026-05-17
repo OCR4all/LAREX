@@ -560,6 +560,12 @@ const handleMerge = () => {
   emit('merge')
 }
 
+const handleToggleActionWand = () => {
+  const controls = currentCanvasId.value ? getEditorSession(currentCanvasId.value)?.controls.value : null
+  controls?.toggleSelectMode?.()
+  uiStore.toggleActionWand()
+}
+
 function canActivateEntry(entry: 'region' | 'textline' | 'baseline') {
   if (entry === 'region') return canCreateRegion.value
   if (entry === 'textline') return canCreateTextline.value
@@ -701,6 +707,7 @@ const showTextlineTools = computed(() => !isCompact.value || (!!currentCanvasSta
 const showBaselineTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canCreateBaseline.value))
 const showCutTools = computed(() => !isCompact.value || !!currentCanvasState.value)
 const showMergeTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canMerge.value))
+const showActionTool = computed(() => !isCompact.value || !!currentCanvasState.value)
 const showUndoTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canUndo.value))
 const showRedoTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canRedo.value))
 const showHistoryTool = computed(() => !isCompact.value || !!currentCanvasState.value)
@@ -738,7 +745,7 @@ const vkDropdownItems = computed(() => [
   ]
 ])
 
-const regionDropdownItems = computed(() => [
+const regionDropdownItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
       label: 'Rectangle',
@@ -866,7 +873,7 @@ function handleToggleCutMode(mode: CutToolMode) {
   }
 }
 
-const moreOptionsDropdownItems = computed(() => [
+const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
       label: 'Compact toolbar',
@@ -1328,8 +1335,23 @@ const moreOptionsDropdownItems = computed(() => [
             />
           </UTooltip>
 
+          <UTooltip
+            v-if="showActionTool"
+            :delay-duration="0"
+            :text="uiStore.actionWandActive ? 'Cancel Action target picker' : 'Pick a page, region, or textline for an Action'"
+          >
+            <UButton
+              :variant="uiStore.actionWandActive ? 'soft' : 'ghost'"
+              size="sm"
+              icon="i-lucide-wand-sparkles"
+              :color="uiStore.actionWandActive ? 'primary' : 'neutral'"
+              :disabled="!currentCanvasState"
+              @click="handleToggleActionWand"
+            />
+          </UTooltip>
+
           <USeparator
-            v-if="showSelectAndMove || showRegionTools || showTextlineTools || showBaselineTool || showCutTools || showMergeTool"
+            v-if="showSelectAndMove || showRegionTools || showTextlineTools || showBaselineTool || showCutTools || showMergeTool || showActionTool"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
           />

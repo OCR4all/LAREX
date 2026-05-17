@@ -18,6 +18,7 @@ public class ActionProperties {
     private Timeout timeout = new Timeout();
     private Retention retention = new Retention();
     private Results results = new Results();
+    private Dev dev = new Dev();
 
     public String getPublicBaseUrl() {
         return publicBaseUrl;
@@ -107,6 +108,14 @@ public class ActionProperties {
         this.results = results;
     }
 
+    public Dev getDev() {
+        return dev;
+    }
+
+    public void setDev(Dev dev) {
+        this.dev = dev == null ? new Dev() : dev;
+    }
+
     public static class Dispatch {
         private int maxAttempts = 3;
         private long retryBackoffMs = 3_000;
@@ -188,6 +197,82 @@ public class ActionProperties {
 
         public void setMaxTotalBytes(long maxTotalBytes) {
             this.maxTotalBytes = maxTotalBytes;
+        }
+    }
+
+    public static class Dev {
+        private DevProcessor mockProcessor = mockProcessorDefaults();
+        private DevProcessor krakenSegmentation = krakenSegmentationDefaults();
+
+        public DevProcessor getMockProcessor() {
+            return mockProcessor;
+        }
+
+        public void setMockProcessor(DevProcessor mockProcessor) {
+            this.mockProcessor = mockProcessor == null ? mockProcessorDefaults() : mockProcessor;
+        }
+
+        public DevProcessor getKrakenSegmentation() {
+            return krakenSegmentation;
+        }
+
+        public void setKrakenSegmentation(DevProcessor krakenSegmentation) {
+            this.krakenSegmentation = krakenSegmentation == null ? krakenSegmentationDefaults() : krakenSegmentation;
+        }
+
+        private static DevProcessor mockProcessorDefaults() {
+            return new DevProcessor(
+                    true,
+                    "http://mock-action-processor:9000/dispatch",
+                    "http://mock-action-processor:9000/health"
+            );
+        }
+
+        private static DevProcessor krakenSegmentationDefaults() {
+            return new DevProcessor(
+                    true,
+                    "http://kraken-segmentation-processor:9000/dispatch",
+                    "http://kraken-segmentation-processor:9000/health"
+            );
+        }
+    }
+
+    public static class DevProcessor {
+        private boolean enabled;
+        private String endpointUrl;
+        private String healthUrl;
+
+        public DevProcessor() {
+        }
+
+        public DevProcessor(boolean enabled, String endpointUrl, String healthUrl) {
+            this.enabled = enabled;
+            this.endpointUrl = endpointUrl;
+            this.healthUrl = healthUrl;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getEndpointUrl() {
+            return endpointUrl;
+        }
+
+        public void setEndpointUrl(String endpointUrl) {
+            this.endpointUrl = endpointUrl;
+        }
+
+        public String getHealthUrl() {
+            return healthUrl;
+        }
+
+        public void setHealthUrl(String healthUrl) {
+            this.healthUrl = healthUrl;
         }
     }
 }

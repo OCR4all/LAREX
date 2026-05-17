@@ -75,6 +75,11 @@ export interface RelationRenderData {
   labels: RelationOverlayLabel[]
 }
 
+export interface ActionProcessingRenderTarget {
+  page: boolean
+  polygonIds: string[]
+}
+
 /**
  * Contract between the editor renderer (Vue state) and the WebGL renderer.
  * Keep this stable to avoid accidental behavioral regressions.
@@ -138,6 +143,7 @@ export interface WebGLRenderState {
   }
 
   confidenceHeatmap?: ConfidenceHeatmapSettings
+  actionProcessingTargets?: ActionProcessingRenderTarget | null
 }
 
 /**

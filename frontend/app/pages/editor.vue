@@ -7,6 +7,7 @@ import {
   LazyEditorVersionHistorySlideover,
   LazyProjectSlideoverXmlEditor,
   LazyCodecSlideoverAction,
+  LazyActionSlideoverRun,
   LazyUiConfirmSlideover
 } from '#components'
 
@@ -29,6 +30,7 @@ import { createSkeletonPageData, type PageResponse } from '@/services/editor/pro
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import type { ValidateCodecAgainstSourcesResponse } from '@/types/codec'
+import type { ActionTargetSelection } from '@/types/action'
 import type { Dictionary } from '@/types/dictionary'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
@@ -279,6 +281,7 @@ const unsavedProgressSlideover = overlay.create(LazyEditorSlideoverUnsavedProgre
 const versionHistorySlideover = overlay.create(LazyEditorVersionHistorySlideover)
 const xmlEditorSlideover = overlay.create(LazyProjectSlideoverXmlEditor)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
+const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 const openProjectPagesModal = overlay.create(LazyEditorModalOpenProjectPages)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
 
@@ -792,6 +795,59 @@ async function openCodecValidationForLoadedPages() {
   })
 
   await instance.result as ValidateCodecAgainstSourcesResponse | null
+}
+
+async function openActionRunForEditorTarget(payload: { targetSelection: ActionTargetSelection, targetSummary: string }) {
+  if (!selectedWorkspace.value || !currentProjectId.value) {
+    toast.add({
+      title: 'Action unavailable',
+      description: 'Open a project in the editor first.',
+      color: 'warning'
+    })
+    return
+  }
+
+  const pageIds = payload.targetSelection.pages.map(page => page.pageId)
+  const pages = pageIds.map(pageId => {
+    const page = editorStore.getPage(pageId, currentProjectId.value ?? undefined)
+    return {
+      id: pageId,
+      name: page?.label ?? pageId,
+      imageCount: page?.imageCount ?? page?.imageVariants?.length ?? 0,
+      xmlFileCount: page?.xmlFileCount ?? page?.xmlFiles?.length ?? 0
+    }
+  })
+
+  const instance = actionRunSlideover.open({
+    workspaceId: selectedWorkspace.value,
+    projectId: currentProjectId.value,
+    projectName: getProjectTitle(currentProjectId.value),
+    pageIds,
+    pages,
+    targetSelection: payload.targetSelection,
+    targetSummary: payload.targetSummary
+  })
+  const changed = await instance.result
+  if (changed) {
+    for (const pageId of pageIds) {
+      editorStore.invalidateAnnotationCache(pageId, currentProjectId.value)
+      const canvasId = getCanvasId(currentProjectId.value, pageId)
+      if (editorStore.canvases[canvasId]) {
+        await editorStore.loadPageIntoCanvas(canvasId, currentProjectId.value, pageId)
+      }
+    }
+  }
+}
+
+function handleEditorActionTargetEvent(event: Event) {
+  const customEvent = event as CustomEvent<{ targetSelection: ActionTargetSelection, targetSummary: string }>
+  if (!customEvent.detail?.targetSelection) return
+  void openActionRunForEditorTarget(customEvent.detail)
+}
+
+if (import.meta.client) {
+  onMounted(() => window.addEventListener('larex:editor-action-target', handleEditorActionTargetEvent))
+  onBeforeUnmount(() => window.removeEventListener('larex:editor-action-target', handleEditorActionTargetEvent))
 }
 
 const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {

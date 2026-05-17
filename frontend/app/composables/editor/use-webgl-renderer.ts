@@ -671,6 +671,41 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     )
   }
 
+  function drawActionProcessingTargets(
+    renderState: RenderState,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
+    view: View,
+    triangulatePolygon: (points: Point[]) => number[]
+  ): void {
+    const targets = renderState.actionProcessingTargets
+    if (!targets || (!targets.page && targets.polygonIds.length === 0) || !fillRenderer) return
+
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+    const pulse = 0.5 + Math.sin(performance.now() / 420) * 0.5
+    const fillColor: RGBA = [0.45, 0.72, 1.0, 0.10 + pulse * 0.12]
+    const strokeColor: RGBA = [0.55, 0.82, 1.0, 0.55 + pulse * 0.35]
+    const strokeWidth = RENDER_THICKNESS.POLYGON_OUTLINE_MULTI_SELECTED + pulse * 2
+
+    if (targets.page) {
+      const pagePoints: Point[] = [
+        { x: -1, y: 1 },
+        { x: 1, y: 1 },
+        { x: 1, y: -1 },
+        { x: -1, y: -1 }
+      ]
+      fillRenderer.drawFill(pagePoints, [0, 1, 2, 0, 2, 3], fillColor, scale, view)
+      drawThickLine(pagePoints, strokeColor, strokeWidth, true, aspectRatioScale, view)
+    }
+
+    const polygonIds = new Set(targets.polygonIds)
+    for (const polygon of renderState.polygons) {
+      if (!polygonIds.has(polygon.id) || polygon.points.length < 3) continue
+      const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
+      fillRenderer.drawFill(polygon.points, triangleIndices, fillColor, scale, view)
+      drawThickLine(polygon.points, strokeColor, strokeWidth, polygon.type !== PolygonType.BASELINE, aspectRatioScale, view)
+    }
+  }
+
   function drawConfidenceHeatmapPolygons(
     renderState: RenderState,
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
@@ -1577,6 +1612,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     drawBackgroundPolygons(renderState, aspectRatioScale, view)
     drawConfidenceHeatmapPolygons(renderState, aspectRatioScale, view, triangulatePolygon)
+    drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawNonSelectedPolygonOutlines(renderState, aspectRatioScale, view)
     drawMultiSelectedPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)

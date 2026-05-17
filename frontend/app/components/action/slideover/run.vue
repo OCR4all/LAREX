@@ -5,7 +5,10 @@ import type {
   ActionRun,
   ActionRunDetail,
   StartActionRunResponse,
-  ExecutableActionProcessorResponse
+  ExecutableActionProcessorResponse,
+  ActionCategory,
+  ActionTargetSelection,
+  ActionTarget
 } from '@/types/action'
 
 type ActionRunPageSummary = {
@@ -21,6 +24,8 @@ const props = defineProps<{
   projectName?: string | null
   pageIds?: string[]
   pages?: ActionRunPageSummary[]
+  targetSelection?: ActionTargetSelection | null
+  targetSummary?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -34,7 +39,8 @@ const processors = ref<ExecutableActionProcessorResponse[]>([])
 const runs = ref<ActionRun[]>([])
 const selectedProcessorId = ref('')
 const parameterValues = reactive<Record<string, unknown>>({})
-const scope = ref<'all' | 'selection'>((props.pageIds?.length ?? 0) > 0 ? 'selection' : 'all')
+const scope = ref<'all' | 'selection'>(props.targetSelection || (props.pageIds?.length ?? 0) > 0 ? 'selection' : 'all')
+const categoryFilter = ref<ActionCategory | 'ALL'>('ALL')
 const loading = ref(false)
 const starting = ref(false)
 const cancellingRunId = ref<string | null>(null)
@@ -46,11 +52,29 @@ const runDetails = ref<Record<string, ActionRunDetail>>({})
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const selectedPageIds = computed(() => props.pageIds ?? [])
+const targetType = computed<ActionTarget>(() => props.targetSelection?.type ?? 'PAGE')
 const selectedProcessor = computed(() => processors.value.find(item => item.processor.id === selectedProcessorId.value) ?? null)
-const executableProcessors = computed(() => processors.value.filter(item => item.executable))
-const unavailableProcessors = computed(() => processors.value.filter(item => !item.executable))
+const targetCompatibleProcessors = computed(() => processors.value.filter(item => item.processor.targets?.includes(targetType.value)))
+const categoryCompatibleProcessors = computed(() => targetCompatibleProcessors.value.filter(item =>
+  categoryFilter.value === 'ALL' || item.processor.category === categoryFilter.value
+))
+const executableProcessors = computed(() => categoryCompatibleProcessors.value.filter(item => item.executable))
+const unavailableProcessors = computed(() => categoryCompatibleProcessors.value.filter(item => !item.executable))
 const hasSelection = computed(() => selectedPageIds.value.length > 0)
-const submittedPageIds = computed(() => scope.value === 'selection' ? selectedPageIds.value : [])
+const submittedPageIds = computed(() => {
+  if (props.targetSelection) return props.targetSelection.pages.map(page => page.pageId)
+  return scope.value === 'selection' ? selectedPageIds.value : []
+})
+const submittedTargetSelection = computed<ActionTargetSelection | null>(() => {
+  if (props.targetSelection) return props.targetSelection
+  if (scope.value === 'selection') {
+    return {
+      type: 'PAGE',
+      pages: selectedPageIds.value.map(pageId => ({ pageId, regionIds: [], textLineIds: [] }))
+    }
+  }
+  return null
+})
 const scopedPages = computed(() => {
   const pages = props.pages ?? []
   if (scope.value === 'selection') {
@@ -79,9 +103,16 @@ const compatibilityWarnings = computed(() => {
   return warnings
 })
 const scopeSummary = computed(() => scope.value === 'selection' ? `${selectedPageIds.value.length} selected pages` : 'Total project')
+const targetSummary = computed(() => props.targetSummary || (targetType.value === 'PAGE' ? scopeSummary.value : `${targetType.value.replace('_', ' ').toLowerCase()} target`))
 const scopeItems = computed(() => [
   { label: 'All pages', value: 'all', icon: 'i-lucide-files' },
   { label: 'Selected pages', value: 'selection', icon: 'i-lucide-check-square', disabled: !hasSelection.value }
+])
+const categoryItems = computed(() => [
+  { label: 'All', value: 'ALL' },
+  { label: 'Workflow', value: 'WORKFLOW' },
+  { label: 'OCR/HTR', value: 'OCR_HTR' },
+  { label: 'Layout', value: 'LAYOUT' }
 ])
 const processorOptions = computed(() => executableProcessors.value.map(item => ({
   label: item.processor.name,
@@ -146,7 +177,8 @@ async function loadProcessors() {
   loading.value = true
   try {
     processors.value = await $fetch<ExecutableActionProcessorResponse[]>(
-      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/processors`
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/processors`,
+      { query: { target: targetType.value } }
     )
     const stillExecutable = executableProcessors.value.some(item => item.processor.id === selectedProcessorId.value)
     if (!stillExecutable) {
@@ -200,7 +232,8 @@ async function startRun() {
       method: 'POST',
       body: {
         processorDefinitionId: selectedProcessor.value.processor.id,
-        pageIds: submittedPageIds.value
+        pageIds: submittedPageIds.value,
+        targetSelection: submittedTargetSelection.value
       }
     })
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
@@ -388,6 +421,22 @@ function close() {
           </UFormField>
 
           <UAlert
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-wand-sparkles"
+            :title="`Target: ${targetSummary}`"
+            :description="`Only Actions that support ${targetType.replace('_', ' ')} targets are shown.`"
+          />
+
+          <UTabs
+            v-model="categoryFilter"
+            :items="categoryItems"
+            variant="pill"
+            color="neutral"
+            :content="false"
+          />
+
+          <UAlert
             v-if="!loading && processors.length === 0"
             color="neutral"
             variant="subtle"
@@ -449,6 +498,7 @@ function close() {
           <UFormField label="Scope">
             <div class="space-y-2">
               <UTabs
+                v-if="!props.targetSelection"
                 v-model="scope"
                 :items="scopeItems"
                 variant="pill"
@@ -457,7 +507,7 @@ function close() {
                 class="w-full"
               />
               <p class="text-xs text-muted">
-                {{ scopeSummary }}
+                {{ targetSummary }}
               </p>
             </div>
           </UFormField>

@@ -33,6 +33,18 @@ public class ActionProcessorDefinition {
         PROJECT
     }
 
+    public enum ActionCategory {
+        WORKFLOW,
+        OCR_HTR,
+        LAYOUT
+    }
+
+    public enum ActionTarget {
+        PAGE,
+        REGION,
+        TEXT_LINE
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
@@ -66,6 +78,13 @@ public class ActionProcessorDefinition {
     @Column(nullable = false, name = "lock_mode", length = 32)
     private LockMode lockMode = LockMode.PAGES;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, name = "category", length = 32, columnDefinition = "varchar(32) default 'WORKFLOW'")
+    private ActionCategory category = ActionCategory.WORKFLOW;
+
+    @Column(nullable = false, name = "target_types_json", columnDefinition = "TEXT")
+    private String targetTypesJson = "[\"PAGE\"]";
+
     @Column(nullable = false, name = "accepts_images")
     private boolean acceptsImages = false;
 
@@ -77,6 +96,12 @@ public class ActionProcessorDefinition {
 
     @Column(nullable = false, name = "outputs_xml")
     private boolean outputsXml = false;
+
+    @Column(nullable = false, name = "outputs_text", columnDefinition = "boolean default false")
+    private boolean outputsText = false;
+
+    @Column(nullable = false, name = "outputs_layout", columnDefinition = "boolean default false")
+    private boolean outputsLayout = false;
 
     @Column(nullable = false)
     private boolean enabled = true;
@@ -178,6 +203,22 @@ public class ActionProcessorDefinition {
         this.lockMode = lockMode;
     }
 
+    public ActionCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(ActionCategory category) {
+        this.category = category;
+    }
+
+    public String getTargetTypesJson() {
+        return targetTypesJson;
+    }
+
+    public void setTargetTypesJson(String targetTypesJson) {
+        this.targetTypesJson = targetTypesJson;
+    }
+
     public boolean isAcceptsImages() {
         return acceptsImages;
     }
@@ -208,6 +249,22 @@ public class ActionProcessorDefinition {
 
     public void setOutputsXml(boolean outputsXml) {
         this.outputsXml = outputsXml;
+    }
+
+    public boolean isOutputsText() {
+        return outputsText;
+    }
+
+    public void setOutputsText(boolean outputsText) {
+        this.outputsText = outputsText;
+    }
+
+    public boolean isOutputsLayout() {
+        return outputsLayout;
+    }
+
+    public void setOutputsLayout(boolean outputsLayout) {
+        this.outputsLayout = outputsLayout;
     }
 
     public boolean isEnabled() {

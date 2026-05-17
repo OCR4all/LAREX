@@ -2,7 +2,11 @@ package de.uniwue.zpd.dachs.larex.backend.dto.action;
 
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ExecuteRole;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMode;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
+import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
@@ -33,10 +37,14 @@ public class ActionDto {
             int endpointTimeoutSeconds,
             ExecuteRole executeRole,
             LockMode lockMode,
+            ActionCategory category,
+            List<ActionTarget> targets,
             boolean acceptsImages,
             boolean acceptsXml,
             boolean outputsImages,
             boolean outputsXml,
+            boolean outputsText,
+            boolean outputsLayout,
             Map<String, ActionDefinitionDocument.Parameter> parameters
     ) {}
 
@@ -55,10 +63,14 @@ public class ActionDto {
             int endpointTimeoutSeconds,
             ExecuteRole executeRole,
             LockMode lockMode,
+            ActionCategory category,
+            List<ActionTarget> targets,
             boolean acceptsImages,
             boolean acceptsXml,
             boolean outputsImages,
             boolean outputsXml,
+            boolean outputsText,
+            boolean outputsLayout,
             boolean enabled,
             boolean global,
             LocalDateTime created,
@@ -103,7 +115,19 @@ public class ActionDto {
     public record StartRunRequest(
             @NotBlank String processorDefinitionId,
             List<String> pageIds,
-            Map<String, Object> parameters
+            Map<String, Object> parameters,
+            TargetSelection targetSelection
+    ) {}
+
+    public record TargetSelection(
+            ActionTarget type,
+            List<TargetSelectionPage> pages
+    ) {}
+
+    public record TargetSelectionPage(
+            String pageId,
+            List<String> regionIds,
+            List<String> textLineIds
     ) {}
 
     public record StartRunResponse(
@@ -118,6 +142,7 @@ public class ActionDto {
             String workspaceId,
             String projectId,
             List<String> pageIds,
+            TargetSelection targetSelection,
             Status status,
             LockMode lockMode,
             int progressPercent,
@@ -211,6 +236,32 @@ public class ActionDto {
             List<MachinePageFile> xml
     ) {}
 
+    public record MachineTargetSelection(
+            ActionTarget type,
+            List<MachineTargetPage> pages
+    ) {}
+
+    public record MachineTargetPage(
+            String pageId,
+            List<MachineTargetRegion> regions,
+            List<MachineTargetTextLine> textLines
+    ) {}
+
+    public record MachineTargetRegion(
+            String id,
+            String kind,
+            PolygonDto coords,
+            List<String> textLineIds
+    ) {}
+
+    public record MachineTargetTextLine(
+            String id,
+            String parentRegionId,
+            PolygonDto coords,
+            PolygonDto baseline,
+            List<TextContentVariantDto> textContentVariants
+    ) {}
+
     public record MachineInputResponse(
             int protocolVersion,
             String runId,
@@ -218,6 +269,7 @@ public class ActionDto {
             String projectId,
             Map<String, Object> parameters,
             List<MachinePageInput> pages,
+            MachineTargetSelection targetSelection,
             boolean cancelRequested
     ) {}
 
@@ -238,7 +290,8 @@ public class ActionDto {
             Integer protocolVersion,
             String status,
             String message,
-            List<ResultFile> files
+            List<ResultFile> files,
+            List<ResultPatch> patches
     ) {}
 
     public record ResultFile(
@@ -246,6 +299,18 @@ public class ActionDto {
             String pageId,
             String type,
             String variant,
+            String fileName
+    ) {}
+
+    public record ResultPatch(
+            String type,
+            String pageId,
+            String regionId,
+            String textLineId,
+            String text,
+            Double confidence,
+            Integer index,
+            String fieldName,
             String fileName
     ) {}
 }
