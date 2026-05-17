@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 @EnableScheduling
 @EnableConfigurationProperties({
         AsyncExecutorProperties.class,
-        UploadAsyncProperties.class,
+        UploadProperties.class,
         ImportProperties.class,
         AnnotationProperties.class,
         StorageProperties.class
@@ -26,13 +26,13 @@ public class AsyncConfig {
     private static final Logger logger = LoggerFactory.getLogger(AsyncConfig.class);
 
     private final AsyncExecutorProperties asyncProperties;
-    private final UploadAsyncProperties uploadProperties;
+    private final UploadProperties uploadProperties;
     private final ImportProperties importProperties;
     private final AnnotationProperties annotationProperties;
     private final StorageProperties storageProperties;
 
     public AsyncConfig(AsyncExecutorProperties asyncProperties,
-                       UploadAsyncProperties uploadProperties,
+                       UploadProperties uploadProperties,
                        ImportProperties importProperties,
                        AnnotationProperties annotationProperties,
                        StorageProperties storageProperties) {

@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.upload.indexing;
 
+import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionEventBroadcaster;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
@@ -37,7 +38,7 @@ class UploadPageIndexDispatcherTest {
                 pageIndexStatusTracker,
                 uploadPageIndexWorker,
                 uploadSessionEventBroadcaster,
-                60_000L
+                uploadProperties(60_000L)
         );
 
         pageIndexStatusTracker.markIndexingIfAbsent("page-1");
@@ -56,7 +57,7 @@ class UploadPageIndexDispatcherTest {
                 pageIndexStatusTracker,
                 uploadPageIndexWorker,
                 uploadSessionEventBroadcaster,
-                0L
+                uploadProperties(0L)
         );
 
         pageIndexStatusTracker.markIndexingIfAbsent("page-1");
@@ -74,7 +75,7 @@ class UploadPageIndexDispatcherTest {
                 pageIndexStatusTracker,
                 uploadPageIndexWorker,
                 uploadSessionEventBroadcaster,
-                60_000L
+                uploadProperties(60_000L)
         );
         doThrow(new RuntimeException("boom"))
                 .when(uploadPageIndexWorker)
@@ -86,5 +87,13 @@ class UploadPageIndexDispatcherTest {
 
         assertFalse(pageIndexStatusTracker.isIndexing("page-1"));
         verify(uploadSessionEventBroadcaster).broadcastPageIndexState("session-1", "project-1", "page-1", "failed");
+    }
+
+    private UploadProperties uploadProperties(long staleThresholdMs) {
+        UploadProperties properties = new UploadProperties();
+        UploadProperties.IndexingProperties indexing = new UploadProperties.IndexingProperties();
+        indexing.setStaleThresholdMs(staleThresholdMs);
+        properties.setIndexing(indexing);
+        return properties;
     }
 }

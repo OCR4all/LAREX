@@ -19,12 +19,18 @@ class AsyncExecutorPropertiesTest {
                         "larex.async.default.core-pool-size=3",
                         "larex.async.default.max-pool-size=6",
                         "larex.async.default.queue-capacity=300",
+                        "larex.upload.chunk-size-bytes=2048",
+                        "larex.upload.temp-directory=/tmp/upload-temp",
+                        "larex.upload.session-timeout-hours=12",
+                        "larex.upload.batch-size=20",
+                        "larex.upload.max-concurrent-sessions=30",
                         "larex.upload.async.core-pool-size=4",
                         "larex.upload.async.max-pool-size=8",
                         "larex.upload.async.queue-capacity=400",
                         "larex.upload.index-async.core-pool-size=2",
                         "larex.upload.index-async.max-pool-size=5",
                         "larex.upload.index-async.queue-capacity=500",
+                        "larex.upload.indexing.stale-threshold-ms=30000",
                         "larex.import.enabled=false",
                         "larex.import.allowed-paths=/tmp/import-a,/tmp/import-b",
                         "larex.import.max-scan-depth=12",
@@ -45,8 +51,15 @@ class AsyncExecutorPropertiesTest {
                 )
                 .run(context -> {
                     assertExecutorPool(context.getBean(AsyncExecutorProperties.class).getDefault(), 3, 6, 300);
-                    assertExecutorPool(context.getBean(UploadAsyncProperties.class).getAsync(), 4, 8, 400);
-                    assertExecutorPool(context.getBean(UploadAsyncProperties.class).getIndexAsync(), 2, 5, 500);
+                    UploadProperties uploadProperties = context.getBean(UploadProperties.class);
+                    assertThat(uploadProperties.getChunkSizeBytes()).isEqualTo(2048);
+                    assertThat(uploadProperties.getTempDirectory()).hasToString("/tmp/upload-temp");
+                    assertThat(uploadProperties.getSessionTimeoutHours()).isEqualTo(12);
+                    assertThat(uploadProperties.getBatchSize()).isEqualTo(20);
+                    assertThat(uploadProperties.getMaxConcurrentSessions()).isEqualTo(30);
+                    assertThat(uploadProperties.getIndexing().getStaleThresholdMs()).isEqualTo(30000);
+                    assertExecutorPool(uploadProperties.getAsync(), 4, 8, 400);
+                    assertExecutorPool(uploadProperties.getIndexAsync(), 2, 5, 500);
                     ImportProperties importProperties = context.getBean(ImportProperties.class);
                     assertThat(importProperties.isEnabled()).isFalse();
                     assertThat(importProperties.getAllowedPaths()).containsExactly("/tmp/import-a", "/tmp/import-b");
@@ -85,7 +98,7 @@ class AsyncExecutorPropertiesTest {
     @Configuration
     @EnableConfigurationProperties({
             AsyncExecutorProperties.class,
-            UploadAsyncProperties.class,
+            UploadProperties.class,
             ImportProperties.class,
             AnnotationProperties.class,
             StorageProperties.class

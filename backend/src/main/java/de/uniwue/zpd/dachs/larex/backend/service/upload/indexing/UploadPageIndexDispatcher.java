@@ -1,11 +1,11 @@
 package de.uniwue.zpd.dachs.larex.backend.service.upload.indexing;
 
+import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadSessionEventBroadcaster;
 import de.uniwue.zpd.dachs.larex.backend.service.upload.events.UploadPageIndexingRequestedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -24,11 +24,11 @@ public class UploadPageIndexDispatcher {
     public UploadPageIndexDispatcher(PageIndexStatusTracker pageIndexStatusTracker,
                                      UploadPageIndexWorker uploadPageIndexWorker,
                                      UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
-                                     @Value("${larex.upload.indexing.stale-threshold-ms:60000}") long staleThresholdMs) {
+                                     UploadProperties uploadProperties) {
         this.pageIndexStatusTracker = pageIndexStatusTracker;
         this.uploadPageIndexWorker = uploadPageIndexWorker;
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
-        this.staleThresholdMs = staleThresholdMs;
+        this.staleThresholdMs = uploadProperties.getIndexing().getStaleThresholdMs();
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)

@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.storage;
 
+import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.StorageCleanupDto;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageImageRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageRepository;
@@ -39,23 +40,23 @@ public class StorageCleanupService {
     private final PageXmlRepository pageXmlRepository;
     private final PageXmlVersionRepository pageXmlVersionRepository;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
+    private final UploadProperties uploadProperties;
 
     @Value("${file.upload-dir}")
     private String uploadDir;
-
-    @Value("${larex.upload.temp-directory:${file.upload-dir}/temp}")
-    private String tempDirectory;
 
     public StorageCleanupService(PageImageRepository pageImageRepository,
                                  PageRepository pageRepository,
                                  PageXmlRepository pageXmlRepository,
                                  PageXmlVersionRepository pageXmlVersionRepository,
-                                 HierarchicalFileStorageService hierarchicalFileStorageService) {
+                                 HierarchicalFileStorageService hierarchicalFileStorageService,
+                                 UploadProperties uploadProperties) {
         this.pageImageRepository = pageImageRepository;
         this.pageRepository = pageRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionRepository = pageXmlVersionRepository;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.uploadProperties = uploadProperties;
     }
 
     /**
@@ -351,7 +352,7 @@ public class StorageCleanupService {
 
     private List<StorageCleanupDto.OrphanedFile> scanTempDirectory() {
         List<StorageCleanupDto.OrphanedFile> orphaned = new ArrayList<>();
-        Path tempPath = Paths.get(tempDirectory);
+        Path tempPath = uploadProperties.getTempDirectory();
 
         if (!Files.exists(tempPath) || !Files.isDirectory(tempPath)) {
             return orphaned;

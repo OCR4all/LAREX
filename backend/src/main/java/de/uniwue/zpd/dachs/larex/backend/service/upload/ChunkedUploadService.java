@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.upload;
 
+import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.UploadSessionDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSession.UploadSessionStatus;
@@ -18,7 +19,6 @@ import de.uniwue.zpd.dachs.larex.backend.util.ImageFileUtils;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,15 +50,8 @@ public class ChunkedUploadService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
-
-    @Value("${larex.upload.chunk-size-bytes:5242880}")
-    private long chunkSizeBytes;
-
-    @Value("${larex.upload.temp-directory:/uploads/temp}")
+    private final UploadProperties uploadProperties;
     private String tempDirectory;
-
-    @Value("${larex.upload.max-concurrent-sessions:50}")
-    private int maxConcurrentSessions;
 
     @PostConstruct
     private void initTempDirectory() {
@@ -80,7 +73,8 @@ public class ChunkedUploadService {
                                 UploadDirectoryPreflightService uploadDirectoryPreflightService,
                                 ApplicationEventPublisher applicationEventPublisher,
                                 UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
-                                WorkspaceQuotaGuardService workspaceQuotaGuardService) {
+                                WorkspaceQuotaGuardService workspaceQuotaGuardService,
+                                UploadProperties uploadProperties) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -89,6 +83,8 @@ public class ChunkedUploadService {
         this.applicationEventPublisher = applicationEventPublisher;
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
+        this.uploadProperties = uploadProperties;
+        this.tempDirectory = uploadProperties.getTempDirectory().toString();
     }
 
     public UploadSessionDto.SessionResponse createSession(String userId, String workspaceId, String projectId,
@@ -109,8 +105,8 @@ public class ChunkedUploadService {
                 UploadSessionStatus.PROCESSING
         );
         long activeSessionCount = sessionRepository.countActiveSessionsByUserId(userId, activeStatuses);
-        if (activeSessionCount >= maxConcurrentSessions) {
-            throw new IllegalArgumentException("Maximum concurrent upload sessions reached: " + maxConcurrentSessions);
+        if (activeSessionCount >= uploadProperties.getMaxConcurrentSessions()) {
+            throw new IllegalArgumentException("Maximum concurrent upload sessions reached: " + uploadProperties.getMaxConcurrentSessions());
         }
 
         // Calculate total bytes and create session
@@ -402,7 +398,7 @@ public class ChunkedUploadService {
 
     private int calculateChunkCount(long fileSize) {
         if (fileSize <= 0) return 1;
-        return (int) Math.ceil((double) fileSize / chunkSizeBytes);
+        return (int) Math.ceil((double) fileSize / uploadProperties.getChunkSizeBytes());
     }
 
     public void cleanupSessionTempFiles(String sessionId) {

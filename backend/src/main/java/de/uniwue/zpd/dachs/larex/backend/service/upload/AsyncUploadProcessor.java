@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.upload;
 
+import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.*;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSession.UploadSessionStatus;
@@ -23,7 +24,6 @@ import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -55,12 +55,7 @@ public class AsyncUploadProcessor {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UploadSessionEventBroadcaster uploadSessionEventBroadcaster;
     private final WorkspaceQuotaGuardService workspaceQuotaGuardService;
-
-    @Value("${larex.upload.temp-directory:/uploads/temp}")
-    private String tempDirectory;
-
-    @Value("${larex.upload.batch-size:10}")
-    private int batchSize;
+    private final UploadProperties uploadProperties;
 
     public AsyncUploadProcessor(UploadSessionRepository sessionRepository,
                                 UploadSessionFileRepository fileRepository,
@@ -75,7 +70,8 @@ public class AsyncUploadProcessor {
                                 PageXmlCanonicalizationService pageXmlCanonicalizationService,
                                 ApplicationEventPublisher applicationEventPublisher,
                                 UploadSessionEventBroadcaster uploadSessionEventBroadcaster,
-                                WorkspaceQuotaGuardService workspaceQuotaGuardService) {
+                                WorkspaceQuotaGuardService workspaceQuotaGuardService,
+                                UploadProperties uploadProperties) {
         this.sessionRepository = sessionRepository;
         this.fileRepository = fileRepository;
         this.projectRepository = projectRepository;
@@ -90,6 +86,7 @@ public class AsyncUploadProcessor {
         this.applicationEventPublisher = applicationEventPublisher;
         this.uploadSessionEventBroadcaster = uploadSessionEventBroadcaster;
         this.workspaceQuotaGuardService = workspaceQuotaGuardService;
+        this.uploadProperties = uploadProperties;
     }
 
     public void processUploadSession(String sessionId) {
@@ -810,7 +807,7 @@ public class AsyncUploadProcessor {
 
     private void cleanupTempFiles(String sessionId) {
         try {
-            Path sessionDir = Paths.get(tempDirectory, sessionId);
+            Path sessionDir = uploadProperties.getTempDirectory().resolve(sessionId);
             if (Files.exists(sessionDir)) {
                 Files.walk(sessionDir)
                         .sorted((a, b) -> b.compareTo(a))
@@ -834,7 +831,7 @@ public class AsyncUploadProcessor {
                 .collect(java.util.stream.Collectors.toSet());
 
         try {
-            Path sessionDir = Paths.get(tempDirectory, sessionId);
+            Path sessionDir = uploadProperties.getTempDirectory().resolve(sessionId);
             if (Files.exists(sessionDir)) {
                 // Get all files to delete (excluding conflict files)
                 List<Path> pathsToDelete = Files.walk(sessionDir)

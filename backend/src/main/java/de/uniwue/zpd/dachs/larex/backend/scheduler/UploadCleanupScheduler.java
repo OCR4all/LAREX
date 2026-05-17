@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.scheduler;
 
+import de.uniwue.zpd.dachs.larex.backend.config.UploadProperties;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImportJob;
 import de.uniwue.zpd.dachs.larex.backend.entity.ImportJob.ImportJobStatus;
 import de.uniwue.zpd.dachs.larex.backend.entity.UploadSession;
@@ -10,7 +11,6 @@ import de.uniwue.zpd.dachs.larex.backend.service.upload.ChunkedUploadService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,21 +32,18 @@ public class UploadCleanupScheduler {
     private final ImportJobRepository importJobRepository;
     private final ChunkedUploadService chunkedUploadService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
-
-    @Value("${larex.upload.session-timeout-hours:24}")
-    private int sessionTimeoutHours;
-
-    @Value("${larex.upload.temp-directory:/uploads/temp}")
-    private String tempDirectory;
+    private final UploadProperties uploadProperties;
 
     public UploadCleanupScheduler(UploadSessionRepository sessionRepository,
                                    ImportJobRepository importJobRepository,
                                    ChunkedUploadService chunkedUploadService,
-                                   HierarchicalFileStorageService hierarchicalFileStorageService) {
+                                   HierarchicalFileStorageService hierarchicalFileStorageService,
+                                   UploadProperties uploadProperties) {
         this.sessionRepository = sessionRepository;
         this.importJobRepository = importJobRepository;
         this.chunkedUploadService = chunkedUploadService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
+        this.uploadProperties = uploadProperties;
     }
 
     /**
@@ -58,7 +55,7 @@ public class UploadCleanupScheduler {
     public void cleanupStaleSessions() {
         log.info("Starting cleanup of stale upload sessions");
 
-        LocalDateTime cutoff = LocalDateTime.now().minusHours(sessionTimeoutHours);
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(uploadProperties.getSessionTimeoutHours());
 
         List<UploadSessionStatus> staleStatuses = List.of(
                 UploadSessionStatus.PENDING,
@@ -77,7 +74,7 @@ public class UploadCleanupScheduler {
 
                 // Mark session as cancelled
                 session.setStatus(UploadSessionStatus.CANCELLED);
-                session.setErrorMessage("Session timed out after " + sessionTimeoutHours + " hours");
+                session.setErrorMessage("Session timed out after " + uploadProperties.getSessionTimeoutHours() + " hours");
                 sessionRepository.save(session);
 
                 cleanedCount++;
@@ -100,7 +97,7 @@ public class UploadCleanupScheduler {
         log.info("Starting cleanup of orphaned temp directories");
 
         try {
-            Path tempPath = Paths.get(tempDirectory).toAbsolutePath();
+            Path tempPath = uploadProperties.getTempDirectory().toAbsolutePath();
             if (!Files.exists(tempPath) || !Files.isDirectory(tempPath)) {
                 return;
             }
