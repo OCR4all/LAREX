@@ -1,5 +1,6 @@
 package de.uniwue.zpd.dachs.larex.backend.service.xml;
 
+import de.uniwue.zpd.dachs.larex.backend.config.UploadDirectoryProperties;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageXmlTextDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
@@ -12,6 +13,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +21,6 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -164,7 +165,10 @@ class PageXmlRawEditServiceTest {
     }
 
     private PageXmlRawEditService service() {
-        PageXmlRawEditService service = new PageXmlRawEditService(
+        UploadDirectoryProperties uploadDirectoryProperties = new UploadDirectoryProperties();
+        uploadDirectoryProperties.setRootDirectory(tempDir);
+
+        return new PageXmlRawEditService(
                 pageService,
                 pageXmlRepository,
                 pageXmlVersionService,
@@ -172,10 +176,9 @@ class PageXmlRawEditServiceTest {
                 pageFilterIndexService,
                 pageXmlValidationService,
                 workspaceQuotaRefreshService,
-                authorizationPolicyService
+                authorizationPolicyService,
+                new UploadPathService(uploadDirectoryProperties)
         );
-        ReflectionTestUtils.setField(service, "uploadDir", tempDir.toString());
-        return service;
     }
 
     private Path prepareXmlPath(String relativePath, String content) throws Exception {

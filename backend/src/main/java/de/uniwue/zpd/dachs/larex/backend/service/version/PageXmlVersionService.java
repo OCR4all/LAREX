@@ -8,12 +8,12 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.events.PageXmlVersionCreatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.Comparator;
@@ -41,22 +40,22 @@ public class PageXmlVersionService {
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final UserService userService;
     private final VersioningProperties versioningProperties;
-
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    private final UploadPathService uploadPathService;
 
     public PageXmlVersionService(PageXmlVersionRepository versionRepository,
                                  PageXmlRepository pageXmlRepository,
                                  ApplicationEventPublisher applicationEventPublisher,
                                  WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
                                  UserService userService,
-                                 VersioningProperties versioningProperties) {
+                                 VersioningProperties versioningProperties,
+                                 UploadPathService uploadPathService) {
         this.versionRepository = versionRepository;
         this.pageXmlRepository = pageXmlRepository;
         this.applicationEventPublisher = applicationEventPublisher;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.userService = userService;
         this.versioningProperties = versioningProperties;
+        this.uploadPathService = uploadPathService;
     }
 
     @Transactional
@@ -67,7 +66,7 @@ public class PageXmlVersionService {
         }
 
         PageXml xml = xmlOpt.get();
-        Path currentXmlPath = Paths.get(uploadDir, xml.getFilePath());
+        Path currentXmlPath = uploadPathService.resolve(xml.getFilePath());
 
         if (!Files.exists(currentXmlPath)) {
             throw new IOException("XML file not found on disk: " + currentXmlPath);
@@ -75,7 +74,7 @@ public class PageXmlVersionService {
 
         int nextVersion = versionRepository.findMaxVersionNumber(pageXmlId) + 1;
         String versionRelativePath = "xml/versions/" + pageXmlId + "/" + nextVersion + ".xml";
-        Path versionPath = Paths.get(uploadDir, versionRelativePath);
+        Path versionPath = uploadPathService.resolve(versionRelativePath);
 
         Files.createDirectories(versionPath.getParent());
         Files.copy(currentXmlPath, versionPath, StandardCopyOption.REPLACE_EXISTING);
@@ -125,7 +124,7 @@ public class PageXmlVersionService {
             throw new IllegalArgumentException("Version does not belong to requested XML file");
         }
 
-        Path versionPath = Paths.get(uploadDir, version.getFilePath());
+        Path versionPath = uploadPathService.resolve(version.getFilePath());
         if (!Files.exists(versionPath)) {
             throw new IOException("Version file not found on disk: " + versionPath);
         }
@@ -156,8 +155,8 @@ public class PageXmlVersionService {
         createVersion(pageXmlId, userId, "Auto-save before restore from version " + version.getVersionNumber());
 
         // Copy version file back to canonical path
-        Path versionPath = Paths.get(uploadDir, version.getFilePath());
-        Path canonicalPath = Paths.get(uploadDir, xml.getFilePath());
+        Path versionPath = uploadPathService.resolve(version.getFilePath());
+        Path canonicalPath = uploadPathService.resolve(xml.getFilePath());
 
         Files.copy(versionPath, canonicalPath, StandardCopyOption.REPLACE_EXISTING);
 
@@ -182,7 +181,7 @@ public class PageXmlVersionService {
 
         for (PageXmlVersion version : oldest) {
             try {
-                Path versionPath = Paths.get(uploadDir, version.getFilePath());
+                Path versionPath = uploadPathService.resolve(version.getFilePath());
                 Files.deleteIfExists(versionPath);
             } catch (IOException e) {
                 log.warn("Failed to delete version file {}: {}", version.getFilePath(), e.getMessage());
@@ -227,7 +226,7 @@ public class PageXmlVersionService {
     }
 
     private Boolean deleteVersionDirectoryInternal(String pageXmlId) {
-        Path versionDir = Paths.get(uploadDir, "xml/versions/" + pageXmlId);
+        Path versionDir = uploadPathService.resolve("xml", "versions", pageXmlId);
         if (!Files.exists(versionDir)) {
             return false;
         }

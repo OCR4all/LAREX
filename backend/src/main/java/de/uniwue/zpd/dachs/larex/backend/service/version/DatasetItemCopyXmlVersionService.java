@@ -8,10 +8,10 @@ import de.uniwue.zpd.dachs.larex.backend.entity.DatasetItemCopyXmlVersion;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyFileRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dataset.DatasetItemCopyXmlVersionRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.user.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,20 +36,20 @@ public class DatasetItemCopyXmlVersionService {
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final UserService userService;
     private final VersioningProperties versioningProperties;
-
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    private final UploadPathService uploadPathService;
 
     public DatasetItemCopyXmlVersionService(DatasetItemCopyXmlVersionRepository versionRepository,
                                             DatasetItemCopyFileRepository copyFileRepository,
                                             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
                                             UserService userService,
-                                            VersioningProperties versioningProperties) {
+                                            VersioningProperties versioningProperties,
+                                            UploadPathService uploadPathService) {
         this.versionRepository = versionRepository;
         this.copyFileRepository = copyFileRepository;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.userService = userService;
         this.versioningProperties = versioningProperties;
+        this.uploadPathService = uploadPathService;
     }
 
     @Transactional
@@ -206,7 +206,7 @@ public class DatasetItemCopyXmlVersionService {
     }
 
     private Path resolvePath(String relativePath) {
-        return Paths.get(uploadDir).toAbsolutePath().normalize().resolve(relativePath).normalize();
+        return uploadPathService.resolve(relativePath);
     }
 
     private String sanitize(String value) {

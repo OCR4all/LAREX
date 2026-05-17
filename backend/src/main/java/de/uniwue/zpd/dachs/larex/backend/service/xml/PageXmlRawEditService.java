@@ -9,9 +9,9 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.PageService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexService;
 import de.uniwue.zpd.dachs.larex.backend.service.security.AuthorizationPolicyService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaRefreshService;
+import de.uniwue.zpd.dachs.larex.backend.service.upload.UploadPathService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 @Service
@@ -34,9 +33,7 @@ public class PageXmlRawEditService {
     private final PageXmlValidationService pageXmlValidationService;
     private final WorkspaceQuotaRefreshService workspaceQuotaRefreshService;
     private final AuthorizationPolicyService authorizationPolicyService;
-
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    private final UploadPathService uploadPathService;
 
     public PageXmlRawEditService(
             PageService pageService,
@@ -46,7 +43,8 @@ public class PageXmlRawEditService {
             PageFilterIndexService pageFilterIndexService,
             PageXmlValidationService pageXmlValidationService,
             WorkspaceQuotaRefreshService workspaceQuotaRefreshService,
-            AuthorizationPolicyService authorizationPolicyService) {
+            AuthorizationPolicyService authorizationPolicyService,
+            UploadPathService uploadPathService) {
         this.pageService = pageService;
         this.pageXmlRepository = pageXmlRepository;
         this.pageXmlVersionService = pageXmlVersionService;
@@ -55,6 +53,7 @@ public class PageXmlRawEditService {
         this.pageXmlValidationService = pageXmlValidationService;
         this.workspaceQuotaRefreshService = workspaceQuotaRefreshService;
         this.authorizationPolicyService = authorizationPolicyService;
+        this.uploadPathService = uploadPathService;
     }
 
     public PageXmlTextDto.XmlTextResponse getXmlText(String projectId, String pageId, String xmlId, String userId) throws IOException {
@@ -170,7 +169,7 @@ public class PageXmlRawEditService {
     }
 
     private Path resolveXmlPath(PageXml pageXml) {
-        return Paths.get(uploadDir, pageXml.getFilePath());
+        return uploadPathService.resolve(pageXml.getFilePath());
     }
 
     private String normalizeComment(String comment) {
