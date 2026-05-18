@@ -110,6 +110,20 @@ describe('editor.document.store', () => {
     expect(store.getProjectPages('project-b').map(page => page.id)).toEqual(['b-1'])
   })
 
+  it('opens the first page by sorted label when initializing an editor session', async () => {
+    const { sessionStore, store } = await createStores()
+
+    store.setPagesWithSession([
+      createPage('project-1234', 'page-0020', '0020'),
+      createPage('project-1234', 'page-0013', '0013'),
+      createPage('project-1234', 'page-0100', '0100')
+    ], 'project-1234', 'workspace-1')
+
+    expect(store.getProjectPages('project-1234').map(page => page.label)).toEqual(['0013', '0020', '0100'])
+    expect(sessionStore.getOpenedPageIds('project-1234')).toEqual(['page-0013'])
+    expect(sessionStore.getActivePageId('project-1234')).toBe('page-0013')
+  })
+
   it('returns null active metadata when active project has no metadata configured', async () => {
     const { sessionStore, store } = await createStores()
 

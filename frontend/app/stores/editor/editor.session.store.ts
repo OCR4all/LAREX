@@ -1,4 +1,5 @@
 import type { PageData } from './types'
+import { naturalSortBy } from '@/utils/natural-sort'
 
 interface ProjectSessionState {
   openedPageIds: string[]
@@ -310,7 +311,7 @@ export const useEditorSessionStore = defineStore('editor-session', () => {
   function initProjectSession(projectId: string, pages: PageData[]) {
     addOpenedProject(projectId)
     const state = ensureProject(projectId)
-    const firstPageId = pages[0]?.id ?? null
+    const firstPageId = naturalSortBy(pages, 'label')[0]?.id ?? null
     state.openedPageIds = firstPageId ? [firstPageId] : []
     state.activePageId = firstPageId
     state.selectedVariantIdByPageId = {}
