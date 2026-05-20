@@ -3,7 +3,6 @@ import type { WorkspaceUtilityResourceType } from '@/types/capabilities'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
-const NuxtTime = resolveComponent('NuxtTime')
 
 const toast = useToast()
 const { refreshUserTransfers, refreshWorkspaceTransfers } = useDataRefresh()
@@ -101,8 +100,7 @@ const columns = [
   },
   {
     accessorKey: 'created',
-    header: 'Created',
-    cell: ({ row }: { row: { original: TransferRow } }) => h(NuxtTime, { datetime: row.original.created })
+    header: 'Created'
   },
   {
     id: 'actions',

@@ -138,10 +138,11 @@ export const useEditorPreferences = () => {
   }
 
   const fetchPreferences = async () => {
-    if (import.meta.server || state.value.initialized) return state.value.preferences
+    if (state.value.initialized) return state.value.preferences
     state.value.isLoading = true
     try {
-      const data = await $fetch<EditorPreferences>('/api/editor/preferences')
+      const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+      const data = await requestFetch<EditorPreferences>('/api/editor/preferences')
       state.value.preferences = data
       state.value.initialized = true
       return data

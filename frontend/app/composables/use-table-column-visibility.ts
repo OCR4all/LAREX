@@ -43,16 +43,22 @@ function areVisibilityStatesEqual(a: VisibilityState | null | undefined, b: Visi
 
 export function usePersistentTableColumnVisibility(
   tableIdSource: MaybeRefOrGetter<string>,
-  columnIdsSource: MaybeRefOrGetter<string[]>
+  columnIdsSource: MaybeRefOrGetter<string[]>,
+  defaultVisibleColumnIdsSource?: MaybeRefOrGetter<string[] | undefined>
 ) {
   const editorPreferences = useEditorPreferences()
 
   const columnVisibility = ref<VisibilityState>({})
   const syncingFromPreferences = ref(false)
-  const preferencesReady = ref(import.meta.server ? false : editorPreferences.initialized.value)
+  const preferencesReady = ref(editorPreferences.initialized.value)
 
   const tableId = computed(() => toValue(tableIdSource).trim())
   const columnIds = computed(() => normalizeColumnIds(toValue(columnIdsSource)))
+  const defaultVisibleColumnIds = computed(() => {
+    if (!defaultVisibleColumnIdsSource) return null
+    const ids = toValue(defaultVisibleColumnIdsSource)
+    return ids ? normalizeColumnIds(ids) : null
+  })
 
   const storedVisibility = computed<VisibilityState | null>(() => {
     if (!preferencesReady.value || !tableId.value) return null
@@ -63,8 +69,14 @@ export function usePersistentTableColumnVisibility(
     return allTableVisibility[tableId.value] ?? null
   })
 
-  watch([storedVisibility, columnIds], ([stored, ids]) => {
-    const nextState = buildVisibilityState(ids, stored)
+  watch([storedVisibility, columnIds, defaultVisibleColumnIds], ([stored, ids, defaultVisible]) => {
+    const initialVisibility = stored ?? (defaultVisible
+      ? ids.reduce<VisibilityState>((acc, columnId) => {
+          acc[columnId] = defaultVisible.includes(columnId)
+          return acc
+        }, {})
+      : null)
+    const nextState = buildVisibilityState(ids, initialVisibility)
     if (areVisibilityStatesEqual(columnVisibility.value, nextState)) return
 
     syncingFromPreferences.value = true

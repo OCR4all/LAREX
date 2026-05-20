@@ -36,7 +36,6 @@ import UiColorTag from '@/components/ui/color-tag.vue'
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
-const NuxtTime = resolveComponent('NuxtTime')
 const UPopover = resolveComponent('UPopover')
 const UAvatar = resolveComponent('UAvatar')
 const UIcon = resolveComponent('UIcon')
@@ -126,6 +125,7 @@ type ConflictInfo = {
 }
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
+const DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'imageCount', 'updated']
 
 type PageIndexingStatus = 'NOT_APPLICABLE' | 'UNINDEXED' | 'INDEXING' | 'INDEXED'
 type ExportFormat = 'PAGE_XML' | 'ALTO_XML' | 'TXT' | 'PDF' | 'DOCX' | 'TEI' | 'CSV' | 'XLSX'
@@ -264,6 +264,9 @@ const isProjectNotFound = computed(() => projectErrorStatusCode.value === 404)
 const projectLoadErrorMessage = computed(() => getErrorMessage(projectError.value, 'Failed to load project.'))
 const projectCapabilities = useResourceCapabilities(project, 'project')
 const canManageDatasets = computed(() => allow(workspaceCapabilities.value.canManageProjects))
+const canUploadProject = computed(() => allow(projectCapabilities.value.canUpload))
+const canExecuteProjectActions = computed(() => allow(projectCapabilities.value.canExecuteActions))
+const canShareProject = computed(() => allow(projectCapabilities.value.canShare))
 
 const { data: pages, error: pagesError, pending: pagesPending, refresh: refreshPagesFetch } = await useFetch<Page[]>(() => `/api/projects/${projectId}/pages`, {
   key: projectPagesKey
@@ -1392,6 +1395,25 @@ const {
   resetAllFilters
 } = useTableFilters(pagesSafe, { column: 'name', direction: 'asc' })
 
+const xmlStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
+
+const xmlStatusOptions = [
+  { value: 'all', label: 'All Pages' },
+  { value: 'has_xml', label: 'With XML' },
+  { value: 'no_xml', label: 'Without XML' }
+]
+
+const filteredPages = computed(() => {
+  let result = filteredAndSortedPages.value
+  if (xmlStatusFilter.value !== 'all') {
+    result = result.filter((page) => {
+      const hasXml = page.xmlFileCount > 0
+      return xmlStatusFilter.value === 'has_xml' ? hasXml : !hasXml
+    })
+  }
+  return result
+})
+
 const selectedPageIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedPageIds.value.size > 0)
 const canBulkDeletePages = computed(() =>
@@ -1922,25 +1944,6 @@ async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
   }
 }
 
-const xmlStatusFilter = ref<'all' | 'has_xml' | 'no_xml'>('all')
-
-const xmlStatusOptions = [
-  { value: 'all', label: 'All Pages' },
-  { value: 'has_xml', label: 'With XML' },
-  { value: 'no_xml', label: 'Without XML' }
-]
-
-const filteredPages = computed(() => {
-  let result = filteredAndSortedPages.value
-  if (xmlStatusFilter.value !== 'all') {
-    result = result.filter((page) => {
-      const hasXml = page.xmlFileCount > 0
-      return xmlStatusFilter.value === 'has_xml' ? hasXml : !hasXml
-    })
-  }
-  return result
-})
-
 watch([globalFilter, columnFilters, xmlStatusFilter], () => {
   page.value = 1
 }, { deep: true })
@@ -2064,53 +2067,17 @@ const tagOperatorOptions = [
   { label: 'Match all (AND)', value: 'and' }
 ]
 
-function renderIndexingStatusBadge(status?: PageIndexingStatus) {
-  const value = status ?? 'NOT_APPLICABLE'
-  if (value === 'INDEXED') {
-    return h(UBadge, { color: 'success', variant: 'soft', size: 'sm' }, () => 'Yes')
-  }
-  if (value === 'INDEXING') {
-    return h(UBadge, { color: 'warning', variant: 'soft', size: 'sm' }, () => [
-      h('span', { class: 'inline-block w-1.5 h-1.5 rounded-full bg-warning mr-1 animate-pulse' }),
-      'Indexing'
-    ])
-  }
-  if (value === 'UNINDEXED') {
-    return h(UBadge, { color: 'error', variant: 'soft', size: 'sm' }, () => 'No')
-  }
-  return h(UBadge, { color: 'neutral', variant: 'soft', size: 'sm' }, () => 'Empty')
-}
-
-function renderCollaborationSummaryCell(page: Page) {
+function renderPageEditorIndicator(page: Page) {
   const summary = getPageCollaborationSummary(page.id)
-  if (!summary) return null
+  if (!summary?.editor) return null
 
   const detailLines = [
-    summary.editor
-      ? `${summary.editor.user.displayName} editing (${summary.isLive ? 'Live' : 'Idle'})`
-      : null,
+    `${summary.editor.user.displayName} editing (${summary.isLive ? 'Live' : 'Idle'})`,
     summary.viewerCount > 0
       ? `${summary.viewerCount} viewer${summary.viewerCount === 1 ? '' : 's'}`
       : null,
     summary.hasPendingTakeover ? 'Pending request' : null
   ].filter((value): value is string => Boolean(value))
-
-  if (!summary.editor) {
-    return h(UPopover, {
-      mode: 'hover',
-      content: { side: 'top' }
-    }, {
-      default: () => h(UBadge, {
-        color: 'info',
-        variant: 'soft',
-        size: 'sm'
-      }, () => 'Watching'),
-      content: () => h('div', { class: 'p-3 w-56 space-y-1.5' }, [
-        h('p', { class: 'text-xs font-medium text-highlighted' }, 'Page activity'),
-        ...detailLines.map(line => h('p', { class: 'text-xs text-muted' }, line))
-      ])
-    })
-  }
 
   const editor = summary.editor
   const avatarRingClass = summary.isLive ? 'ring-emerald-400/90' : 'ring-neutral-400/90'
@@ -2135,6 +2102,67 @@ function renderCollaborationSummaryCell(page: Page) {
       h('p', { class: 'text-xs font-medium text-highlighted' }, 'Page activity'),
       ...detailLines.map(line => h('p', { class: 'text-xs text-muted' }, line))
     ])
+  })
+}
+
+function renderPageXmlIndicator(page: Page) {
+  if (page.xmlFileCount <= 0) return null
+
+  return h(UPopover, {
+    mode: 'hover',
+    content: { side: 'top' }
+  }, {
+    default: () => h(UBadge, {
+      'aria-label': 'XML available',
+      'color': 'neutral',
+      'variant': 'soft',
+      'size': 'sm',
+      'class': 'px-1.5'
+    }, () => h(UIcon, { name: 'i-lucide-file-code-2', class: 'size-3.5' })),
+    content: () => h('div', { class: 'p-2 text-sm text-highlighted' }, 'XML available')
+  })
+}
+
+function renderOpenTasksContent(page: Page, count: number) {
+  const subtasks = openSubtasksByPage.value?.[page.id] || []
+
+  return h('div', { class: 'p-3 w-64' }, [
+    h('p', { class: 'text-xs text-muted mb-2' }, `Open tasks (${count})`),
+    subtasks.length > 0
+      ? h('ul', { class: 'space-y-2' }, subtasks.map(subtask =>
+          h('li', { key: subtask.id, class: 'text-sm' }, [
+            h('div', { class: 'font-medium truncate' }, subtask.title),
+            (subtask.description || subtask.taskDescription)
+              ? h('p', { class: 'text-xs text-muted mt-0.5 line-clamp-2' }, String(subtask.description || subtask.taskDescription))
+              : null
+          ])
+        ))
+      : h('p', { class: 'text-xs text-muted' }, 'Loading subtasks...')
+  ])
+}
+
+function renderPageTasksIndicator(page: Page, variant: 'icon' | 'badge' = 'icon') {
+  const count = subtaskSummary.value?.[page.id] || 0
+  if (count === 0) return null
+
+  return h(UPopover, {
+    mode: 'hover',
+    content: { side: 'top' }
+  }, {
+    default: () => variant === 'badge'
+      ? h(UBadge, {
+          color: 'warning',
+          variant: 'soft',
+          size: 'sm'
+        }, () => `${count} open`)
+      : h(UBadge, {
+          'aria-label': `${count} open task${count === 1 ? '' : 's'}`,
+          'color': 'neutral',
+          'variant': 'soft',
+          'size': 'sm',
+          'class': 'px-1.5'
+        }, () => h(UIcon, { name: 'i-lucide-list-todo', class: 'size-3.5' })),
+    content: () => renderOpenTasksContent(page, count)
   })
 }
 
@@ -2191,7 +2219,10 @@ const pageColumns = [
               title: lockReason
             })
           : null,
-        h('p', { class: 'font-medium truncate' }, row.original.name)
+        h('p', { class: 'min-w-0 truncate font-medium' }, row.original.name),
+        renderPageXmlIndicator(row.original),
+        renderPageTasksIndicator(row.original),
+        renderPageEditorIndicator(row.original)
       ])
     }
   },
@@ -2273,43 +2304,9 @@ const pageColumns = [
     }, () => row.original.xmlFileCount > 0 ? 'Yes' : 'No')
   },
   {
-    accessorKey: 'indexingStatus',
-    header: 'Indexed',
-    cell: ({ row }: { row: { original: Page } }) => renderIndexingStatusBadge(row.original.indexingStatus)
-  },
-  {
     id: 'mySubtasks',
     header: 'My Tasks',
-    cell: ({ row }: { row: { original: Page } }) => {
-      const count = subtaskSummary.value?.[row.original.id] || 0
-      if (count === 0) return null
-      const subtasks = openSubtasksByPage.value?.[row.original.id] || []
-      return h(UPopover, { mode: 'hover' }, {
-        default: () => h(UBadge, {
-          color: 'warning',
-          variant: 'soft',
-          size: 'sm'
-        }, () => `${count} open`),
-        content: () => h('div', { class: 'p-3 w-64' }, [
-          h('p', { class: 'text-xs text-muted mb-2' }, `Open tasks (${count})`),
-          subtasks.length > 0
-            ? h('ul', { class: 'space-y-2' }, subtasks.map(subtask =>
-                h('li', { key: subtask.id, class: 'text-sm' }, [
-                  h('div', { class: 'font-medium truncate' }, subtask.title),
-                  (subtask.description || subtask.taskDescription)
-                    ? h('p', { class: 'text-xs text-muted mt-0.5 line-clamp-2' }, String(subtask.description || subtask.taskDescription))
-                    : null
-                ])
-              ))
-            : h('p', { class: 'text-xs text-muted' }, 'Loading subtasks...')
-        ])
-      })
-    }
-  },
-  {
-    id: 'collaboration',
-    header: 'Editing',
-    cell: ({ row }: { row: { original: Page } }) => renderCollaborationSummaryCell(row.original)
+    cell: ({ row }: { row: { original: Page } }) => renderPageTasksIndicator(row.original, 'badge')
   },
   {
     accessorKey: 'updated',
@@ -2330,8 +2327,7 @@ const pageColumns = [
           }
         }
       })
-    ]),
-    cell: ({ row }: { row: { original: Page } }) => h(NuxtTime, { datetime: row.original.updated })
+    ])
   },
   {
     id: 'actions',
@@ -2543,7 +2539,7 @@ useHead({
               </UButton>
 
               <UButton
-                v-if="allow(projectCapabilities.canUpload)"
+                v-if="canUploadProject"
                 icon="i-lucide-upload"
                 color="neutral"
                 variant="outline"
@@ -2835,10 +2831,11 @@ useHead({
             <div v-else-if="pages">
               <UContextMenu :items="contextMenuItems as any">
                 <AppTable
-                  table-id="project-pages"
                   v-if="paginatedPages.length > 0"
+                  table-id="project-pages-v2"
                   :columns="pageColumns"
                   :data="paginatedPages"
+                  :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
                   :loading="isManualPagesRefresh"
                   class="flex-1"
                   @contextmenu="handlePageRowContextMenu"
@@ -2892,7 +2889,7 @@ useHead({
                 variant="ghost"
                 size="sm"
                 class="text-neutral-50 hover:bg-white/10"
-                :disabled="!hasSelection || project?.locked || !allow(projectCapabilities.canExecuteActions)"
+                :disabled="!hasSelection || project?.locked || !canExecuteProjectActions"
                 aria-label="Run Action on selected pages"
                 @click="openActionRunSlideover('selection')"
               >
@@ -2936,7 +2933,7 @@ useHead({
                   <span>Releases</span>
                 </div>
                 <UButton
-                  v-if="allow(projectCapabilities.canShare)"
+                  v-if="canShareProject"
                   color="neutral"
                   variant="solid"
                   size="xs"

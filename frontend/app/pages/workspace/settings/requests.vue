@@ -3,7 +3,6 @@ import type { WorkspaceUtilityResourceType } from '@/types/capabilities'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
-const NuxtTime = resolveComponent('NuxtTime')
 
 await useWorkspaceBootstrap()
 
@@ -159,8 +158,7 @@ const incomingColumns = [
   },
   {
     accessorKey: 'created',
-    header: 'Requested',
-    cell: ({ row }: { row: { original: TransferRequest } }) => h(NuxtTime, { datetime: row.original.created })
+    header: 'Requested'
   },
   {
     id: 'actions',
@@ -193,8 +191,7 @@ const outgoingColumns = [
   },
   {
     accessorKey: 'created',
-    header: 'Requested',
-    cell: ({ row }: { row: { original: TransferRequest } }) => h(NuxtTime, { datetime: row.original.created })
+    header: 'Requested'
   },
   {
     id: 'actions',

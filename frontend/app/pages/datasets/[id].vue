@@ -1566,8 +1566,8 @@ useHead({
                 </div>
 
                 <AppTable
-                  table-id="dataset-releases"
                   v-else
+                  table-id="dataset-releases"
                   :data="dataset.releases"
                   :columns="releaseColumns"
                   class="flex-1"

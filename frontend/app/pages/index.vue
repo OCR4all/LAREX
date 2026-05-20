@@ -8,7 +8,6 @@ import {
   LazyProjectSlideoverEdit,
   LazyUiDeleteSlideover,
   NuxtLink,
-  NuxtTime,
   UAvatar,
   UBadge,
   UButton,
@@ -77,6 +76,7 @@ type ResolvedTag = {
 }
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
+const DEFAULT_LIBRARY_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'pageCount', 'updated']
 
 type LibraryProject = {
   id: string
@@ -294,9 +294,10 @@ const columns: TableColumn<LibraryProject>[] = [
   {
     accessorKey: 'name',
     header: createSortableHeader('Name', 'name', sort, UButton),
-    cell: ({ row }) => h('div', { class: 'flex items-center gap-2' }, [
+    cell: ({ row }) => h('div', { class: 'flex min-w-0 items-center gap-2' }, [
       row.original.locked ? h('span', { class: 'text-warning', title: row.original.lockedReason || 'Locked' }, h(UIcon, { name: 'i-lucide-lock', class: 'w-4 h-4' })) : null,
-      h(NuxtLink, { to: `/project/${row.original.id}`, class: 'font-medium hover:underline text-primary' }, () => row.getValue('name'))
+      h(NuxtLink, { to: `/project/${row.original.id}`, class: 'min-w-0 truncate font-medium hover:underline text-primary' }, () => row.getValue('name')),
+      renderProjectEditorsCell(row.original)
     ])
   },
   {
@@ -362,24 +363,17 @@ const columns: TableColumn<LibraryProject>[] = [
     cell: ({ row }) => h('div', { class: 'text-right font-medium' }, row.getValue('pageCount'))
   },
   {
-    id: 'editing',
-    header: 'Editing',
-    cell: ({ row }) => renderProjectEditorsCell(row.original)
-  },
-  {
     accessorKey: 'storageUsedBytes',
     header: createSortableHeader('Storage', 'storageUsedBytes', sort, UButton, { align: 'end' }),
     cell: ({ row }) => h('div', { class: 'text-right text-sm text-muted' }, row.original.storageUsedFormatted || '0 B')
   },
   {
     accessorKey: 'created',
-    header: createSortableHeader('Created', 'created', sort, UButton),
-    cell: ({ row }) => h(NuxtTime, { datetime: row.original.created })
+    header: createSortableHeader('Created', 'created', sort, UButton)
   },
   {
     accessorKey: 'updated',
-    header: createSortableHeader('Updated', 'updated', sort, UButton),
-    cell: ({ row }) => h(NuxtTime, { datetime: row.original.updated })
+    header: createSortableHeader('Updated', 'updated', sort, UButton)
   },
   {
     id: 'actions',
@@ -1021,9 +1015,10 @@ async function handleLegacyOcr4allImport(event: Event) {
       <div v-else-if="data">
         <UContextMenu :items="contextMenuItems as any">
           <AppTable
-            table-id="dashboard-projects"
+            table-id="dashboard-projects-v2"
             :data="paginatedData"
             :columns="columns"
+            :default-visible-column-ids="DEFAULT_LIBRARY_VISIBLE_COLUMN_IDS"
             class="flex-1"
             @row-click="handleRowClick"
             @contextmenu="handleRowContextMenu"

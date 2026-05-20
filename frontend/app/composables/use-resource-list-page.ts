@@ -7,12 +7,10 @@ type TagOption = {
   count: number
 }
 
-type TagDescriptor =
-  | string
-  | {
-    label?: string | null
-    value: string
-  }
+type TagDescriptor = string | {
+  label?: string | null
+  value: string
+}
 
 type ResourceListPageOptions<T extends object> = {
   data: Ref<T[]> | ComputedRef<T[]>

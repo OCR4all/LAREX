@@ -638,7 +638,6 @@ async function submitGlobalRoleAction() {
     isSubmittingGlobalRole.value = false
   }
 }
-
 </script>
 
 <template>
