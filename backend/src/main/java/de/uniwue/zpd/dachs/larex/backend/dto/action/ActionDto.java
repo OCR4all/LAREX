@@ -5,8 +5,6 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.LockMo
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionCategory;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionProcessorDefinition.ActionTarget;
 import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun.Status;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.geometry.PolygonDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.page.text.TextContentVariantDto;
 import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
@@ -43,8 +41,6 @@ public class ActionDto {
             boolean acceptsXml,
             boolean outputsImages,
             boolean outputsXml,
-            boolean outputsText,
-            boolean outputsLayout,
             Map<String, ActionDefinitionDocument.Parameter> parameters
     ) {}
 
@@ -69,8 +65,6 @@ public class ActionDto {
             boolean acceptsXml,
             boolean outputsImages,
             boolean outputsXml,
-            boolean outputsText,
-            boolean outputsLayout,
             boolean enabled,
             boolean global,
             LocalDateTime created,
@@ -243,23 +237,8 @@ public class ActionDto {
 
     public record MachineTargetPage(
             String pageId,
-            List<MachineTargetRegion> regions,
-            List<MachineTargetTextLine> textLines
-    ) {}
-
-    public record MachineTargetRegion(
-            String id,
-            String kind,
-            PolygonDto coords,
+            List<String> regionIds,
             List<String> textLineIds
-    ) {}
-
-    public record MachineTargetTextLine(
-            String id,
-            String parentRegionId,
-            PolygonDto coords,
-            PolygonDto baseline,
-            List<TextContentVariantDto> textContentVariants
     ) {}
 
     public record MachineInputResponse(

@@ -414,6 +414,7 @@ const drawingMode = computed(() => currentCanvasState.value?.drawingMode?.value 
 const selectedPolygonIndex = computed(() => currentCanvasState.value?.selectedPolygonIndex?.value ?? -1)
 const canUndo = computed(() => currentCanvasState.value?.canUndo?.value || false)
 const canRedo = computed(() => currentCanvasState.value?.canRedo?.value || false)
+const canEditCurrentCanvas = computed(() => currentCanvasState.value?.isCanvasEditable?.value ?? false)
 
 const selectedRegionType = computed({
   get: () => currentCanvasState.value?.regionType?.value ?? PolygonType.REGION,
@@ -520,14 +521,14 @@ const selectedTextlineHasBaseline = computed(() => {
   return baselines.some(b => b.parentId === textlineId)
 })
 
-const canCreateRegion = computed(() => !isSelectedTextline.value)
+const canCreateRegion = computed(() => canEditCurrentCanvas.value && !isSelectedTextline.value)
 /**
  * TextLines can be created:
  * 1. When a TextRegion is selected (traditional mode)
  * 2. When in Textline view mode (auto-parent mode - will create helper region if needed)
  */
 const canCreateTextline = computed(() =>
-  isSelectedTextRegion.value || selectedViewMode.value === VIEW_MODES.TEXTLINE
+  canEditCurrentCanvas.value && (isSelectedTextRegion.value || selectedViewMode.value === VIEW_MODES.TEXTLINE)
 )
 /**
  * Baselines can be created:
@@ -535,13 +536,14 @@ const canCreateTextline = computed(() =>
  * 2. When in Baseline view mode (auto-parent mode - will create helper textline/region if needed)
  */
 const canCreateBaseline = computed(() =>
-  (isSelectedTextline.value && !selectedTextlineHasBaseline.value) || selectedViewMode.value === VIEW_MODES.BASELINE
+  canEditCurrentCanvas.value && ((isSelectedTextline.value && !selectedTextlineHasBaseline.value) || selectedViewMode.value === VIEW_MODES.BASELINE)
 )
 
 const selectedPolygonIds = computed(() => currentCanvasState.value?.selectedPolygonIds?.value ?? [])
 const selectedPolylineIds = computed(() => currentCanvasState.value?.selectedPolylineIds?.value ?? [])
 
 const canMerge = computed(() => {
+  if (!canEditCurrentCanvas.value) return false
   if (selectedPolylineIds.value.length > 0) return false
   if (selectedPolygonIds.value.length < 2) return false
 
@@ -561,12 +563,20 @@ const handleMerge = () => {
 }
 
 const handleToggleActionWand = () => {
+  if (!canEditCurrentCanvas.value) return
   const controls = currentCanvasId.value ? getEditorSession(currentCanvasId.value)?.controls.value : null
   controls?.toggleSelectMode?.()
   uiStore.toggleActionWand()
 }
 
+function cancelActionWand() {
+  if (uiStore.actionWandActive) {
+    uiStore.setActionWandActive(false)
+  }
+}
+
 function canActivateEntry(entry: 'region' | 'textline' | 'baseline') {
+  if (!canEditCurrentCanvas.value) return false
   if (entry === 'region') return canCreateRegion.value
   if (entry === 'textline') return canCreateTextline.value
   return canCreateBaseline.value
@@ -592,12 +602,14 @@ function getIconForShape(option: ShapeOption): string {
 }
 
 const handleToggleSelectMode = () => {
+  cancelActionWand()
   if (currentCanvasState.value?.toggleSelectMode) {
     currentCanvasState.value.toggleSelectMode()
   }
 }
 
 const handleToggleMoveMode = () => {
+  cancelActionWand()
   if (currentCanvasState.value?.toggleMoveMode) {
     currentCanvasState.value.toggleMoveMode()
   }
@@ -620,6 +632,7 @@ const handleRedo = () => {
 function setEntryAndMode(entry: 'region' | 'textline' | 'baseline', option?: ShapeOption) {
   if (!currentCanvasState.value) return
   if (!canActivateEntry(entry)) return
+  cancelActionWand()
 
   const next = option ?? getPrimaryShapeForEntry(entry)
 
@@ -799,7 +812,7 @@ const cutDropdownItems = computed(() => [
       label: 'Cut Line',
       icon: 'i-lucide-scissors',
       kbds: getTooltipProps('cutLine').kbds,
-      disabled: !currentCanvasState.value,
+      disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
       class: isCutLineMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
       onSelect: () => handleToggleCutMode('line')
     },
@@ -807,7 +820,7 @@ const cutDropdownItems = computed(() => [
       label: 'Cut Rectangle',
       icon: 'i-lucide-square-minus',
       kbds: getTooltipProps('cutRectangle').kbds,
-      disabled: !currentCanvasState.value,
+      disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
       class: isCutRectangleMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
       onSelect: () => handleToggleCutMode('rectangle')
     },
@@ -815,7 +828,7 @@ const cutDropdownItems = computed(() => [
       label: 'Cut Polygon',
       icon: 'i-lucide-pen-tool',
       kbds: getTooltipProps('cutPolygon').kbds,
-      disabled: !currentCanvasState.value,
+      disabled: !currentCanvasState.value || !canEditCurrentCanvas.value,
       class: isCutPolygonMode.value ? 'bg-primary-50 dark:bg-primary-900/50 text-primary-600' : '',
       onSelect: () => handleToggleCutMode('polygon')
     }
@@ -861,6 +874,7 @@ const primaryCutTooltip = computed(() => getTooltipProps(cutToolConfig[primaryCu
 
 function handleToggleCutMode(mode: CutToolMode) {
   if (!currentCanvasState.value) return
+  cancelActionWand()
 
   preferredCutMode.value = mode
 
@@ -1047,7 +1061,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 size="sm"
                 icon="i-lucide-mouse-pointer-2"
                 color="neutral"
-                :active="isSelectMode"
+                :active="isSelectMode && !uiStore.actionWandActive"
                 active-color="primary"
                 active-variant="solid"
                 :disabled="!currentCanvasState"
@@ -1064,7 +1078,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 :active="isMoveMode"
                 active-color="primary"
                 active-variant="solid"
-                :disabled="!currentCanvasState"
+                :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleMoveMode"
               />
             </UTooltip>
@@ -1257,7 +1271,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 :active="isCutLineMode"
                 active-color="primary"
                 active-variant="solid"
-                :disabled="!currentCanvasState"
+                :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('line')"
               />
             </UTooltip>
@@ -1271,7 +1285,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 :active="isCutRectangleMode"
                 active-color="primary"
                 active-variant="solid"
-                :disabled="!currentCanvasState"
+                :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('rectangle')"
               />
             </UTooltip>
@@ -1285,7 +1299,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                 :active="isCutPolygonMode"
                 active-color="primary"
                 active-variant="solid"
-                :disabled="!currentCanvasState"
+                :disabled="!currentCanvasState || !canEditCurrentCanvas"
                 @click="handleToggleCutMode('polygon')"
               />
             </UTooltip>
@@ -1301,7 +1315,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   :active="isCutMode"
                   active-color="primary"
                   active-variant="solid"
-                  :disabled="!currentCanvasState"
+                  :disabled="!currentCanvasState || !canEditCurrentCanvas"
                   @click="handleToggleCutMode(preferredCutMode)"
                 >
                   <Icon :name="primaryCutToolIcon" class="h-4 w-4" />
@@ -1317,7 +1331,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
                   :active="isCutMode"
                   active-color="primary"
                   active-variant="solid"
-                  :disabled="!currentCanvasState"
+                  :disabled="!currentCanvasState || !canEditCurrentCanvas"
                   aria-label="Cut tools"
                 />
               </UDropdownMenu>
@@ -1341,11 +1355,14 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             :text="uiStore.actionWandActive ? 'Cancel Action target picker' : 'Pick a page, region, or textline for an Action'"
           >
             <UButton
-              :variant="uiStore.actionWandActive ? 'soft' : 'ghost'"
+              variant="ghost"
               size="sm"
               icon="i-lucide-wand-sparkles"
-              :color="uiStore.actionWandActive ? 'primary' : 'neutral'"
-              :disabled="!currentCanvasState"
+              color="neutral"
+              :active="uiStore.actionWandActive"
+              active-color="primary"
+              active-variant="solid"
+              :disabled="!currentCanvasState || !canEditCurrentCanvas"
               @click="handleToggleActionWand"
             />
           </UTooltip>

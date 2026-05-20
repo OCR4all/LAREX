@@ -16,6 +16,11 @@ const editorUiStore = useEditorUiStore()
 const editorStore = useEditorStore()
 const toast = useToast()
 const dialogs = useOverlayDialogs()
+const canEditActiveCanvas = computed(() => {
+  const canvasId = editorStore.activeCanvasId
+  if (!canvasId) return false
+  return getEditorSession(canvasId)?.controls.value?.isCanvasEditable.value ?? false
+})
 
 const colorPickerOpen = ref(false)
 const BACKGROUND_SAVE_DEBOUNCE_MS = 450
@@ -127,6 +132,8 @@ const ignoreConflict = (key: string) => {
 }
 
 const applyReplacement = async (conflict: ConflictItem) => {
+  if (!canEditActiveCanvas.value) return
+
   const labelId = replacementByKey.value[conflict.key]
   if (!labelId) {
     toast.add({ title: 'Select a replacement label', color: 'warning' })
@@ -316,7 +323,7 @@ onBeforeUnmount(() => {
           size="xs"
           color="primary"
           variant="soft"
-          :disabled="!editorStore.labelSet || !editorStore.activeCanvasId"
+          :disabled="!editorStore.labelSet || !editorStore.activeCanvasId || !canEditActiveCanvas"
           @click="scanConflicts"
         >
           Scan
@@ -346,6 +353,7 @@ onBeforeUnmount(() => {
             size="xs"
             color="primary"
             variant="soft"
+            :disabled="!canEditActiveCanvas"
             @click="applyReplacement(conflict)"
           >
             Replace

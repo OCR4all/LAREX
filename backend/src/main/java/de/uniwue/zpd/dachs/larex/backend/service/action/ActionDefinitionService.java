@@ -20,6 +20,8 @@ import de.uniwue.zpd.dachs.larex.backend.entity.ActionRun;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunDismissalRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunLogEventRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionRunRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +56,8 @@ public class ActionDefinitionService {
     private final ActionProcessorWorkspaceAvailabilityRepository availabilityRepository;
     private final ActionProcessorAssignmentRepository assignmentRepository;
     private final ActionRunRepository runRepository;
+    private final ActionRunDismissalRepository runDismissalRepository;
+    private final ActionRunLogEventRepository logEventRepository;
     private final GlobalAdminService globalAdminService;
     private final ActionEndpointAuthService endpointAuthService;
     private final ActionAuditService actionAuditService;
@@ -66,6 +70,8 @@ public class ActionDefinitionService {
                                    ActionProcessorWorkspaceAvailabilityRepository availabilityRepository,
                                    ActionProcessorAssignmentRepository assignmentRepository,
                                    ActionRunRepository runRepository,
+                                   ActionRunDismissalRepository runDismissalRepository,
+                                   ActionRunLogEventRepository logEventRepository,
                                    GlobalAdminService globalAdminService,
                                    ActionEndpointAuthService endpointAuthService,
                                    ActionAuditService actionAuditService,
@@ -75,6 +81,8 @@ public class ActionDefinitionService {
         this.availabilityRepository = availabilityRepository;
         this.assignmentRepository = assignmentRepository;
         this.runRepository = runRepository;
+        this.runDismissalRepository = runDismissalRepository;
+        this.logEventRepository = logEventRepository;
         this.globalAdminService = globalAdminService;
         this.endpointAuthService = endpointAuthService;
         this.actionAuditService = actionAuditService;
@@ -202,7 +210,7 @@ public class ActionDefinitionService {
         }
 
         List<ActionRun> terminalRuns = runRepository.findByProcessorDefinitionIdAndStatusIn(id, terminalStatuses());
-        runRepository.deleteAll(terminalRuns);
+        deleteRunsWithLogs(terminalRuns);
 
         List<ActionProcessorAssignment> assignments = assignmentRepository.findByDefinitionIds(List.of(id));
         assignmentRepository.deleteAll(assignments);
@@ -213,6 +221,21 @@ public class ActionDefinitionService {
         definitionRepository.delete(definition);
         actionAuditService.record("ACTION_DEFINITION_DELETE", "SUCCESS", null, id, null, null, null,
                 Map.of("processorKey", definition.getProcessorKey()));
+    }
+
+    private void deleteRunsWithLogs(List<ActionRun> runs) {
+        if (runs == null || runs.isEmpty()) {
+            return;
+        }
+        List<String> runIds = runs.stream()
+                .map(ActionRun::getId)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+        if (!runIds.isEmpty()) {
+            runDismissalRepository.deleteByRunIds(runIds);
+            logEventRepository.deleteByRunIds(runIds);
+        }
+        runRepository.deleteAll(runs);
     }
 
     @Transactional(readOnly = true)
@@ -337,17 +360,9 @@ public class ActionDefinitionService {
         boolean outputsImages = document.outputs() != null
                 && document.outputs().images() != null
                 && Boolean.TRUE.equals(document.outputs().images().enabled());
-        boolean outputsText = document.outputs() != null
-                && document.outputs().text() != null
-                && Boolean.TRUE.equals(document.outputs().text().enabled());
-        boolean outputsLayout = document.outputs() != null
-                && document.outputs().layout() != null
-                && Boolean.TRUE.equals(document.outputs().layout().enabled());
         validateOutput(document.outputs() == null ? null : document.outputs().xml(), "outputs.xml", outputsXml, diagnostics);
         validateImageOutput(document.outputs() == null ? null : document.outputs().images(), "outputs.images", outputsImages, diagnostics);
-        validateStructuredOutput(document.outputs() == null ? null : document.outputs().text(), "outputs.text", outputsText, false, diagnostics);
-        validateStructuredOutput(document.outputs() == null ? null : document.outputs().layout(), "outputs.layout", outputsLayout, true, diagnostics);
-        if (!outputsXml && !outputsImages && !outputsText && !outputsLayout) {
+        if (!outputsXml && !outputsImages) {
             diagnostics.add(error("outputs", "At least one output type must be enabled"));
         }
         validateConcurrency(document.concurrency(), diagnostics);
@@ -380,8 +395,6 @@ public class ActionDefinitionService {
                     acceptsXml,
                     outputsImages,
                     outputsXml,
-                    outputsText,
-                    outputsLayout,
                     document.parameters() == null ? Map.of() : document.parameters()
             );
             return new ParsedDefinition(document, parsedJson, preview);
@@ -424,8 +437,6 @@ public class ActionDefinitionService {
                 definition.isAcceptsXml(),
                 definition.isOutputsImages(),
                 definition.isOutputsXml(),
-                definition.isOutputsText(),
-                definition.isOutputsLayout(),
                 definition.isEnabled(),
                 definition.isGlobalAvailable(),
                 definition.getCreated(),
@@ -520,8 +531,6 @@ public class ActionDefinitionService {
         definition.setAcceptsXml(preview.acceptsXml());
         definition.setOutputsImages(preview.outputsImages());
         definition.setOutputsXml(preview.outputsXml());
-        definition.setOutputsText(preview.outputsText());
-        definition.setOutputsLayout(preview.outputsLayout());
         definition.setUpdatedByUserId(userId);
     }
 
@@ -561,20 +570,6 @@ public class ActionDefinitionService {
         String mode = output.mode() == null ? "upsert" : output.mode().trim().toLowerCase(Locale.ROOT);
         if (!mode.equals("upsert") && !mode.equals("append")) {
             diagnostics.add(error(path + ".mode", "mode must be upsert or append"));
-        }
-    }
-
-    private void validateStructuredOutput(ActionDefinitionDocument.StructuredOutputTarget output,
-                                          String path,
-                                          boolean enabled,
-                                          boolean requireReplaceMode,
-                                          List<ActionDto.ValidationDiagnostic> diagnostics) {
-        if (!enabled) {
-            return;
-        }
-        String mode = output.mode() == null ? "replace" : output.mode().trim().toLowerCase(Locale.ROOT);
-        if (requireReplaceMode && !"replace".equals(mode)) {
-            diagnostics.add(error(path + ".mode", "mode must be replace"));
         }
     }
 

@@ -29,6 +29,7 @@ export interface SetViewModeOptions {
 export interface EditorCanvasControls {
   commander: Commander
   isCanvasEditable: ComputedRef<boolean>
+  pageLockReason: ComputedRef<string | null>
 
   drawingMode: { value: DrawingMode }
   selectedPolygonIndex: Ref<number>

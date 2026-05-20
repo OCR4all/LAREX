@@ -1,6 +1,8 @@
 import type { ToolbarLayout, ToolbarFloatingOrientation, VirtualKeyboardMode, TextItemLayout } from '@/stores/editor/types'
 import type { ShortcutPreferences } from '@/composables/editor/shortcut-registry'
 
+type TableColumnVisibilityPreferences = Record<string, Record<string, boolean>>
+
 export interface EditorPreferences {
   backgroundColor: string | null
   backgroundOpacity: number | null
@@ -33,11 +35,11 @@ export interface EditorPreferences {
   textModeSubmode: 'visual' | 'expert' | null
   highlightUnknownCodecChars: boolean | null
   shortcutBindings: ShortcutPreferences | null
-  tableColumnVisibility: Record<string, Record<string, boolean>> | null
   onboardingDashboardTourVersion: number | null
   onboardingEditorTourVersion: number | null
   onboardingTourCompletion: Record<string, true> | null
   onboardingToursOptedOut: boolean | null
+  tableColumnVisibility: TableColumnVisibilityPreferences | null
 }
 
 interface EditorPreferencesState {
@@ -78,11 +80,11 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   textModeSubmode: null,
   highlightUnknownCodecChars: null,
   shortcutBindings: null,
-  tableColumnVisibility: null,
   onboardingDashboardTourVersion: null,
   onboardingEditorTourVersion: null,
   onboardingTourCompletion: null,
-  onboardingToursOptedOut: null
+  onboardingToursOptedOut: null,
+  tableColumnVisibility: null
 }
 
 const SAVE_DEBOUNCE_MS = 1200

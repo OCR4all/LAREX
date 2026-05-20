@@ -28,6 +28,7 @@ interface Props {
   page: Page | null
   commander: Commander | null
   regions: RegionOption[]
+  readOnly?: boolean
 }
 
 const props = defineProps<Props>()
@@ -93,10 +94,12 @@ function toggleOverlayLabels(): void {
 }
 
 function updateDraftField<K extends keyof RelationDraftState>(key: K, value: RelationDraftState[K]) {
+  if (props.readOnly) return
   editorUiStore.updateRelationDraft({ [key]: value } as Partial<RelationDraftState>)
 }
 
 function updateSelectedDraftField<K extends keyof RelationDraftState>(key: K, value: RelationDraftState[K]) {
+  if (props.readOnly) return
   selectedDraft.value = {
     ...selectedDraft.value,
     [key]: value
@@ -104,7 +107,7 @@ function updateSelectedDraftField<K extends keyof RelationDraftState>(key: K, va
 }
 
 function createRelationFromDraft(): void {
-  if (!props.commander) return
+  if (!props.commander || props.readOnly) return
 
   const ctx = getCommandContext()
   const result = props.commander.execute(
@@ -124,7 +127,7 @@ function createRelationFromDraft(): void {
 }
 
 function saveSelectedRelation(): void {
-  if (!props.commander || !selectedRelation.value?.id) return
+  if (!props.commander || props.readOnly || !selectedRelation.value?.id) return
 
   const ctx = getCommandContext()
   const result = props.commander.execute(
@@ -145,7 +148,7 @@ function saveSelectedRelation(): void {
 }
 
 function deleteSelectedRelation(): void {
-  if (!props.commander || !selectedRelation.value?.id) return
+  if (!props.commander || props.readOnly || !selectedRelation.value?.id) return
 
   const deletedId = selectedRelation.value.id
   const ctx = getCommandContext()
@@ -165,22 +168,26 @@ function deleteSelectedRelation(): void {
 }
 
 function startCreatePicking(): void {
+  if (props.readOnly) return
   isCreateSectionOpen.value = true
   editorUiStore.setSelectedRelationId(null)
   editorUiStore.beginRelationCreation()
 }
 
 function openCreateSection(): void {
+  if (props.readOnly) return
   isCreateSectionOpen.value = true
   editorUiStore.setSelectedRelationId(null)
 }
 
 function startRepickSource(): void {
+  if (props.readOnly) return
   if (!selectedRelation.value?.id) return
   editorUiStore.beginRelationRepickSource(selectedRelation.value.id)
 }
 
 function startRepickTarget(): void {
+  if (props.readOnly) return
   if (!selectedRelation.value?.id) return
   editorUiStore.beginRelationRepickTarget(selectedRelation.value.id)
 }
@@ -270,6 +277,7 @@ watch(selectedRelation, (relation) => {
             size="xs"
             variant="soft"
             icon="i-lucide-plus"
+            :disabled="readOnly"
             @click="openCreateSection"
           >
             New Relation
@@ -319,6 +327,7 @@ watch(selectedRelation, (relation) => {
               variant="ghost"
               color="neutral"
               icon="i-lucide-arrow-left"
+              :disabled="readOnly"
               @click="isCreateSectionOpen = false"
             >
               Back
@@ -364,7 +373,7 @@ watch(selectedRelation, (relation) => {
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <UFormField label="Relation ID">
-            <UInput :model-value="draft.id" placeholder="Auto-generate if blank" @update:model-value="value => updateDraftField('id', value ?? '')" />
+            <UInput :model-value="draft.id" placeholder="Auto-generate if blank" :disabled="readOnly" @update:model-value="value => updateDraftField('id', value ?? '')" />
           </UFormField>
 
           <UFormField label="Type">
@@ -372,6 +381,7 @@ watch(selectedRelation, (relation) => {
               :model-value="draft.type"
               :items="draftTypeOptions"
               value-key="value"
+              :disabled="readOnly"
               @update:model-value="value => updateDraftField('type', String(value ?? 'link'))"
             />
           </UFormField>
@@ -384,6 +394,7 @@ watch(selectedRelation, (relation) => {
               :items="regions"
               value-key="value"
               searchable
+              :disabled="readOnly"
               @update:model-value="value => updateDraftField('sourceRegionRef', String(value ?? ''))"
             />
           </UFormField>
@@ -394,6 +405,7 @@ watch(selectedRelation, (relation) => {
               :items="regions"
               value-key="value"
               searchable
+              :disabled="readOnly"
               @update:model-value="value => updateDraftField('targetRegionRef', String(value ?? ''))"
             />
           </UFormField>
@@ -404,6 +416,7 @@ watch(selectedRelation, (relation) => {
             size="xs"
             variant="soft"
             icon="i-lucide-crosshair"
+            :disabled="readOnly"
             @click="startCreatePicking"
           >
             {{ isPickingCreateSource ? 'Pick Source' : isPickingCreateTarget ? 'Pick Target' : 'Pick On Canvas' }}
@@ -411,7 +424,7 @@ watch(selectedRelation, (relation) => {
           <UButton
             size="xs"
             color="primary"
-            :disabled="!canCreateDraft"
+            :disabled="readOnly || !canCreateDraft"
             @click="createRelationFromDraft"
           >
             Create Now
@@ -420,6 +433,7 @@ watch(selectedRelation, (relation) => {
             size="xs"
             variant="ghost"
             color="neutral"
+            :disabled="readOnly"
             @click="editorUiStore.resetRelationDraft()"
           >
             Reset Draft
@@ -436,15 +450,16 @@ watch(selectedRelation, (relation) => {
         </div>
 
         <UFormField label="Custom">
-          <UTextarea :model-value="draft.custom" :rows="2" @update:model-value="value => updateDraftField('custom', value ?? '')" />
+          <UTextarea :model-value="draft.custom" :rows="2" :disabled="readOnly" @update:model-value="value => updateDraftField('custom', value ?? '')" />
         </UFormField>
 
         <UFormField label="Comments">
-          <UTextarea :model-value="draft.comments" :rows="2" @update:model-value="value => updateDraftField('comments', value ?? '')" />
+          <UTextarea :model-value="draft.comments" :rows="2" :disabled="readOnly" @update:model-value="value => updateDraftField('comments', value ?? '')" />
         </UFormField>
 
         <MetadataLabelGroupsForm
           :model-value="draft.labels"
+          :read-only="readOnly"
           @update:model-value="value => updateDraftField('labels', value ?? [])"
         />
       </section>
@@ -464,6 +479,7 @@ watch(selectedRelation, (relation) => {
               size="xs"
               variant="soft"
               icon="i-lucide-plus"
+              :disabled="readOnly"
               @click="openCreateSection"
             >
               New Relation
@@ -473,6 +489,7 @@ watch(selectedRelation, (relation) => {
               color="error"
               variant="ghost"
               icon="i-lucide-trash-2"
+              :disabled="readOnly"
               @click="deleteSelectedRelation"
             >
               Delete
@@ -482,7 +499,7 @@ watch(selectedRelation, (relation) => {
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <UFormField label="Relation ID">
-            <UInput :model-value="selectedDraft.id" @update:model-value="value => updateSelectedDraftField('id', value ?? '')" />
+            <UInput :model-value="selectedDraft.id" :disabled="readOnly" @update:model-value="value => updateSelectedDraftField('id', value ?? '')" />
           </UFormField>
 
           <UFormField label="Type">
@@ -490,6 +507,7 @@ watch(selectedRelation, (relation) => {
               :model-value="selectedDraft.type"
               :items="relationTypeOptions"
               value-key="value"
+              :disabled="readOnly"
               @update:model-value="value => updateSelectedDraftField('type', String(value ?? 'link'))"
             />
           </UFormField>
@@ -502,6 +520,7 @@ watch(selectedRelation, (relation) => {
               :items="regions"
               value-key="value"
               searchable
+              :disabled="readOnly"
               @update:model-value="value => updateSelectedDraftField('sourceRegionRef', String(value ?? ''))"
             />
           </UFormField>
@@ -512,6 +531,7 @@ watch(selectedRelation, (relation) => {
               :items="regions"
               value-key="value"
               searchable
+              :disabled="readOnly"
               @update:model-value="value => updateSelectedDraftField('targetRegionRef', String(value ?? ''))"
             />
           </UFormField>
@@ -522,6 +542,7 @@ watch(selectedRelation, (relation) => {
             size="xs"
             variant="soft"
             icon="i-lucide-crosshair"
+            :disabled="readOnly"
             @click="startRepickSource"
           >
             Repick Source
@@ -530,11 +551,12 @@ watch(selectedRelation, (relation) => {
             size="xs"
             variant="soft"
             icon="i-lucide-crosshair"
+            :disabled="readOnly"
             @click="startRepickTarget"
           >
             Repick Target
           </UButton>
-          <UButton size="xs" color="primary" @click="saveSelectedRelation">
+          <UButton size="xs" color="primary" :disabled="readOnly" @click="saveSelectedRelation">
             Save Changes
           </UButton>
         </div>
@@ -547,15 +569,16 @@ watch(selectedRelation, (relation) => {
         </p>
 
         <UFormField label="Custom">
-          <UTextarea :model-value="selectedDraft.custom" :rows="2" @update:model-value="value => updateSelectedDraftField('custom', value ?? '')" />
+          <UTextarea :model-value="selectedDraft.custom" :rows="2" :disabled="readOnly" @update:model-value="value => updateSelectedDraftField('custom', value ?? '')" />
         </UFormField>
 
         <UFormField label="Comments">
-          <UTextarea :model-value="selectedDraft.comments" :rows="2" @update:model-value="value => updateSelectedDraftField('comments', value ?? '')" />
+          <UTextarea :model-value="selectedDraft.comments" :rows="2" :disabled="readOnly" @update:model-value="value => updateSelectedDraftField('comments', value ?? '')" />
         </UFormField>
 
         <MetadataLabelGroupsForm
           :model-value="selectedDraft.labels"
+          :read-only="readOnly"
           @update:model-value="value => updateSelectedDraftField('labels', value ?? [])"
         />
       </section>

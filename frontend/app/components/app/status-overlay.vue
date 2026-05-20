@@ -44,6 +44,8 @@ const toast = useToast()
 
 const minimized = useState('app.statusOverlay.minimized', () => false)
 const collapsedJobKeys = ref<Set<string>>(new Set())
+const dismissingJobKeys = ref<Set<string>>(new Set())
+const clearingCompletedJobs = ref(false)
 let actionPollTimer: ReturnType<typeof setInterval> | null = null
 
 const uploadStatusLabels: Record<string, string> = {
@@ -175,7 +177,11 @@ function isTerminalUpload(status: ActiveUpload['status']): boolean {
 }
 
 function isActiveAction(status: TrackedActionRun['status']): boolean {
-  return status === 'PENDING' || status === 'DISPATCHING' || status === 'RUNNING' || status === 'IMPORTING_RESULTS'
+  return status === 'PENDING'
+    || status === 'DISPATCHING'
+    || status === 'RUNNING'
+    || status === 'IMPORTING_RESULTS'
+    || status === 'CANCEL_REQUESTED'
 }
 
 function isTerminalAction(status: TrackedActionRun['status']): boolean {
@@ -269,6 +275,21 @@ function toggleJobCollapsed(job: StatusJob) {
   collapsedJobKeys.value = next
 }
 
+function isDismissingJob(job: StatusJob): boolean {
+  return dismissingJobKeys.value.has(getJobKey(job))
+}
+
+function setDismissingJob(job: StatusJob, value: boolean) {
+  const key = getJobKey(job)
+  const next = new Set(dismissingJobKeys.value)
+  if (value) {
+    next.add(key)
+  } else {
+    next.delete(key)
+  }
+  dismissingJobKeys.value = next
+}
+
 async function cancelJob(job: StatusJob) {
   if (!canCancelJob(job) || isCancellingJob(job)) return
   try {
@@ -288,17 +309,45 @@ async function cancelJob(job: StatusJob) {
   }
 }
 
-function dismissJob(job: StatusJob) {
-  if (job.kind === 'upload') {
-    uploadStore.removeUpload(job.id)
-  } else {
-    actionRunsStore.removeRun(job.id)
+async function dismissJob(job: StatusJob) {
+  if (isDismissingJob(job)) return
+  setDismissingJob(job, true)
+  try {
+    if (job.kind === 'upload') {
+      uploadStore.removeUpload(job.id)
+    } else {
+      await actionRunsStore.dismissRun(job.run)
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not persist dismissal.'
+    toast.add({
+      title: 'Dismissed locally',
+      description: message,
+      color: 'warning',
+      icon: 'i-lucide-alert-triangle'
+    })
+  } finally {
+    setDismissingJob(job, false)
   }
 }
 
-function clearCompletedJobs() {
-  uploadStore.clearCompletedUploads()
-  actionRunsStore.clearCompletedRuns()
+async function clearCompletedJobs() {
+  if (clearingCompletedJobs.value) return
+  clearingCompletedJobs.value = true
+  try {
+    uploadStore.clearCompletedUploads()
+    await actionRunsStore.dismissCompletedRuns()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not persist all dismissals.'
+    toast.add({
+      title: 'Cleared locally',
+      description: message,
+      color: 'warning',
+      icon: 'i-lucide-alert-triangle'
+    })
+  } finally {
+    clearingCompletedJobs.value = false
+  }
 }
 
 function toggleMinimized() {
@@ -488,6 +537,7 @@ function closeOverlay() {
                       variant="ghost"
                       size="xs"
                       icon="i-lucide-trash-2"
+                      :loading="isDismissingJob(job)"
                       @click="dismissJob(job)"
                     >
                       Dismiss
@@ -526,6 +576,7 @@ function closeOverlay() {
           size="xs"
           icon="i-lucide-check-check"
           class="w-full"
+          :loading="clearingCompletedJobs"
           @click="clearCompletedJobs"
         >
           Clear completed

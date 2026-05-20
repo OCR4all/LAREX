@@ -114,10 +114,6 @@ public class EditorPreference {
     @Column(name = "shortcut_bindings", columnDefinition = "jsonb")
     private JsonNode shortcutBindings;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "table_column_visibility", columnDefinition = "jsonb")
-    private JsonNode tableColumnVisibility;
-
     @Column(name = "onboarding_dashboard_tour_version")
     private Integer onboardingDashboardTourVersion;
 
@@ -238,9 +234,6 @@ public class EditorPreference {
 
     public JsonNode getShortcutBindings() { return shortcutBindings; }
     public void setShortcutBindings(JsonNode shortcutBindings) { this.shortcutBindings = shortcutBindings; }
-
-    public JsonNode getTableColumnVisibility() { return tableColumnVisibility; }
-    public void setTableColumnVisibility(JsonNode tableColumnVisibility) { this.tableColumnVisibility = tableColumnVisibility; }
 
     public Integer getOnboardingDashboardTourVersion() { return onboardingDashboardTourVersion; }
     public void setOnboardingDashboardTourVersion(Integer onboardingDashboardTourVersion) { this.onboardingDashboardTourVersion = onboardingDashboardTourVersion; }

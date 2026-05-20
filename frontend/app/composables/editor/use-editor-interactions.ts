@@ -369,6 +369,10 @@ export function useEditorInteractions(
       || Boolean(canvasControls.isCutMode?.value)
   }
 
+  function canMutateCanvas(): boolean {
+    return canvasControls.isCanvasEditable?.value !== false
+  }
+
   function onMouseDown(e: MouseEvent): void {
     if (e.button !== 0) return // Only main left-click
 
@@ -376,6 +380,10 @@ export function useEditorInteractions(
 
     stateActions?.setHoveredPolygonId(null)
     stateActions?.setHoveredPolylineId(null)
+
+    if (!canMutateCanvas()) {
+      return
+    }
 
     if (e.shiftKey && isShiftPanDrawingModeActive()) {
       return
@@ -439,6 +447,21 @@ export function useEditorInteractions(
 
   function onMouseMove(e: MouseEvent): void {
     mouseInteraction.handleMouseMove(e)
+
+    if (!canMutateCanvas()) {
+      if (polylineEditing.isDragging() || polygonEditing.isDragging() || moveInteraction?.isMoving()) {
+        cancelActiveOperation()
+      }
+      if (mouseInteraction.shouldStartPanning(e, false)) {
+        mouseInteraction.startPanning(e)
+      }
+      if (mouseInteraction.isPanning()) {
+        mouseInteraction.updatePanning(e, canvas.value, aspectRatioScale.value)
+      }
+      stateActions?.setHoveredPolygonId(null)
+      stateActions?.setHoveredPolylineId(null)
+      return
+    }
 
     const shiftPanIntentInDrawingMode = e.shiftKey
       && isShiftPanDrawingModeActive()
@@ -754,6 +777,8 @@ export function useEditorInteractions(
   }
 
   function onDoubleClick(e: MouseEvent): void {
+    if (!canMutateCanvas()) return
+
     if (canvasControls.isCutLineMode?.value && canvasControls.cutDrawing && canvasControls.cutDrawing.isActive()) {
       e.preventDefault()
       canvasControls.cutDrawing.handleDoubleClick(e, 'line')
@@ -775,6 +800,8 @@ export function useEditorInteractions(
   }
 
   function handleCanvasContextMenu(event: MouseEvent): void {
+    if (!canMutateCanvas()) return
+
     if (isDrawingMode.value) {
       event.preventDefault()
       return
@@ -967,6 +994,8 @@ export function useEditorInteractions(
     lastSelectionEscapeTime = 0
 
     if (e.ctrlKey || e.metaKey) {
+      if (!canMutateCanvas()) return
+
       if (e.key === 'z' && polygonDrawing.isActive()) {
         e.preventDefault()
         e.stopImmediatePropagation()
@@ -1178,6 +1207,7 @@ export function useEditorInteractions(
     centerViewOnPolygon,
     centerViewOnPolygonFitWidth,
     centerViewOnPolyline,
+    cancelActiveOperation,
 
     isMarqueeSelecting,
     marqueeRectPx

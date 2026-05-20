@@ -30,9 +30,10 @@ import { createSkeletonPageData, type PageResponse } from '@/services/editor/pro
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { LabelSet as ApiLabelSet, LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import type { ValidateCodecAgainstSourcesResponse } from '@/types/codec'
-import type { ActionTargetSelection } from '@/types/action'
+import type { ActionRun, ActionTargetSelection } from '@/types/action'
 import type { Dictionary } from '@/types/dictionary'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import type { PageIndexingStatus } from '@/stores/editor/types'
 import type { TreeItemData } from '@/components/editor/sidebar/structure-tree'
 import { getCanvasId, getPagePanelId, getProjectPanelId, parseCanvasId, parseProjectPanelId } from '@/stores/editor/editor.keys'
 import { useProjectDockviewRegistry } from '@/composables/editor/use-project-dockview-registry'
@@ -188,6 +189,7 @@ const logoMenuItems: DropdownMenuItem[][] = [[
 const pageNameFilter = ref('')
 
 const editorStore = useEditorStore()
+const actionRunsStore = useActionRunsStore()
 const editorUiStore = useEditorUiStore()
 const imageLoader = useEditorImageLoader()
 const sessionStore = useEditorSessionStore()
@@ -284,6 +286,9 @@ const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 const openProjectPagesModal = overlay.create(LazyEditorModalOpenProjectPages)
 const confirmSlideover = overlay.create(LazyUiConfirmSlideover)
+const handledActionRunTerminalEvents = ref<Set<number>>(new Set())
+let editorActionRunPollTimer: ReturnType<typeof setInterval> | null = null
+let editorActionIndexStatusTimers: Array<ReturnType<typeof setTimeout>> = []
 
 type SelectionOpenSource = 'modal' | 'project-search' | 'page-search'
 
@@ -573,6 +578,7 @@ async function openMergeSettingsSlideover(kinds: RegionKind[]): Promise<MergeSet
 async function handleMergeSelected() {
   const controls = activeControls.value
   if (!controls) return
+  if (!controls.isCanvasEditable.value) return
 
   const selectedPolygonIds = controls.selectedPolygonIds?.value ?? []
   if (selectedPolygonIds.length < 2) return
@@ -818,6 +824,37 @@ async function openActionRunForEditorTarget(payload: { targetSelection: ActionTa
     }
   })
 
+  const unsavedEntries = pageIds
+    .map(pageId => ({ pageId, canvasId: getCanvasId(currentProjectId.value as string, pageId) }))
+    .filter(entry => editorStore.canvases[entry.canvasId]?.hasUnsavedChanges === true)
+  if (unsavedEntries.length > 0) {
+    const pageNames = unsavedEntries
+      .map(entry => editorStore.getPage(entry.pageId, currentProjectId.value ?? undefined)?.label ?? entry.pageId)
+      .join(', ')
+    const confirmation = confirmSlideover.open({
+      title: 'Save before running Action?',
+      message: `Actions process the saved PAGE XML. Save changes for ${pageNames} before continuing?`,
+      confirmLabel: 'Save and Continue',
+      cancelLabel: 'Cancel',
+      confirmColor: 'primary',
+      confirmIcon: 'i-lucide-save',
+      showCancel: true
+    })
+    const confirmed = await confirmation.result
+    if (!confirmed) return
+
+    const saved = await Promise.all(unsavedEntries.map(entry => editorStore.saveAnnotations(entry.canvasId)))
+    if (!saved.every(Boolean)) {
+      toast.add({
+        title: 'Save failed',
+        description: 'Could not save all annotations. Please try again before running an Action.',
+        color: 'error',
+        icon: 'i-lucide-alert-circle'
+      })
+      return
+    }
+  }
+
   const instance = actionRunSlideover.open({
     workspaceId: selectedWorkspace.value,
     projectId: currentProjectId.value,
@@ -839,6 +876,92 @@ async function openActionRunForEditorTarget(payload: { targetSelection: ActionTa
   }
 }
 
+function isEditorActiveActionRunStatus(status: ActionRun['status']) {
+  return status === 'PENDING'
+    || status === 'DISPATCHING'
+    || status === 'RUNNING'
+    || status === 'IMPORTING_RESULTS'
+    || status === 'CANCEL_REQUESTED'
+}
+
+function actionRunTouchesOpenEditorPage(run: ActionRun) {
+  return run.pageIds.some(pageId => Boolean(editorStore.canvases[getCanvasId(run.projectId, pageId)]))
+}
+
+async function refreshOpenActionRunScopes() {
+  const scopes = new Map<string, ActionRun & { projectName?: string }>()
+  for (const run of actionRunsStore.runsArray) {
+    if (!isEditorActiveActionRunStatus(run.status) || !actionRunTouchesOpenEditorPage(run)) continue
+    scopes.set(`${run.workspaceId}:${run.projectId}`, run)
+  }
+
+  if (scopes.size === 0) return
+
+  await Promise.allSettled(Array.from(scopes.values()).map(run =>
+    actionRunsStore.refreshProjectRuns(run.workspaceId, run.projectId, run.projectName || getProjectTitle(run.projectId))
+  ))
+}
+
+async function refreshActionRunPageSummaries(projectId: string, pageIds: string[]) {
+  if (pageIds.length === 0) return
+
+  try {
+    const affectedPageIds = new Set(pageIds)
+    const pages = await $fetch<PageResponse[]>(`/api/projects/${projectId}/pages`)
+    editorStore.patchProjectPageSummaries(
+      projectId,
+      pages.filter(page => affectedPageIds.has(page.id))
+    )
+  } catch (error) {
+    console.error(`Failed to refresh page summaries after Action run for project ${projectId}:`, error)
+  }
+}
+
+async function refreshActionRunIndexStatuses(projectId: string, pageIds: string[]) {
+  if (pageIds.length === 0) return
+
+  try {
+    const affectedPageIds = new Set(pageIds)
+    const statuses = await $fetch<Record<string, PageIndexingStatus>>(`/api/projects/${projectId}/pages/index-statuses`)
+    editorStore.patchPageIndexingStatuses(
+      projectId,
+      Object.fromEntries(Object.entries(statuses).filter(([pageId]) => affectedPageIds.has(pageId)))
+    )
+  } catch (error) {
+    console.error(`Failed to refresh page index statuses after Action run for project ${projectId}:`, error)
+  }
+}
+
+function scheduleActionRunIndexStatusRefresh(projectId: string, pageIds: string[]) {
+  if (pageIds.length === 0) return
+
+  for (const delayMs of [0, 1500, 5000]) {
+    const timer = setTimeout(() => {
+      editorActionIndexStatusTimers = editorActionIndexStatusTimers.filter(candidate => candidate !== timer)
+      void refreshActionRunIndexStatuses(projectId, pageIds)
+    }, delayMs)
+    editorActionIndexStatusTimers.push(timer)
+  }
+}
+
+async function reloadPagesTouchedByActionRun(run: ActionRun) {
+  const openPageIds = run.pageIds.filter(pageId => Boolean(editorStore.canvases[getCanvasId(run.projectId, pageId)]))
+  if (openPageIds.length === 0) return
+
+  await refreshActionRunPageSummaries(run.projectId, openPageIds)
+  if (run.status === 'COMPLETED') {
+    scheduleActionRunIndexStatusRefresh(run.projectId, openPageIds)
+  }
+
+  for (const pageId of openPageIds) {
+    editorStore.invalidateAnnotationCache(pageId, run.projectId)
+    const canvasId = getCanvasId(run.projectId, pageId)
+    if (editorStore.canvases[canvasId]) {
+      await editorStore.loadPageIntoCanvas(canvasId, run.projectId, pageId)
+    }
+  }
+}
+
 function handleEditorActionTargetEvent(event: Event) {
   const customEvent = event as CustomEvent<{ targetSelection: ActionTargetSelection, targetSummary: string }>
   if (!customEvent.detail?.targetSelection) return
@@ -846,9 +969,32 @@ function handleEditorActionTargetEvent(event: Event) {
 }
 
 if (import.meta.client) {
-  onMounted(() => window.addEventListener('larex:editor-action-target', handleEditorActionTargetEvent))
-  onBeforeUnmount(() => window.removeEventListener('larex:editor-action-target', handleEditorActionTargetEvent))
+  onMounted(() => {
+    window.addEventListener('larex:editor-action-target', handleEditorActionTargetEvent)
+    editorActionRunPollTimer = setInterval(() => {
+      void refreshOpenActionRunScopes()
+    }, 2500)
+  })
+  onBeforeUnmount(() => {
+    window.removeEventListener('larex:editor-action-target', handleEditorActionTargetEvent)
+    if (editorActionRunPollTimer) {
+      clearInterval(editorActionRunPollTimer)
+      editorActionRunPollTimer = null
+    }
+    for (const timer of editorActionIndexStatusTimers) {
+      clearTimeout(timer)
+    }
+    editorActionIndexStatusTimers = []
+  })
 }
+
+watch(() => actionRunsStore.terminalEvents, (events) => {
+  for (const event of events) {
+    if (handledActionRunTerminalEvents.value.has(event.sequence)) continue
+    handledActionRunTerminalEvents.value = new Set([...handledActionRunTerminalEvents.value, event.sequence].slice(-50))
+    void reloadPagesTouchedByActionRun(event.run)
+  }
+}, { deep: false })
 
 const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
   const layoutActions: DropdownMenuItem[] = []
@@ -1404,6 +1550,10 @@ const activeCanvasCanEdit = computed(() => {
   return collaboration.canEditCanvas(canvasId)
 })
 
+const activePageLockReason = computed(() => {
+  return activeControls.value?.pageLockReason?.value ?? null
+})
+
 const activeAnnotationMode = computed<'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY' | null>(() => {
   const canvasId = activeCanvasId.value
   if (!canvasId) return null
@@ -1454,6 +1604,11 @@ const {
   onReadingOrderUpdated: () => editorUiStore.bumpReadingOrderVersion()
 })
 
+function handleApplyMetadataIfWritable(payload: Parameters<typeof handleApplyMetadata>[0]): void {
+  if (isActivePageLocked.value) return
+  handleApplyMetadata(payload)
+}
+
 const textSidebarSelectedElement = computed<Region | TextLine | RenderablePolyline | null>(() => {
   const page = activePage.value
   if (!page?.regions) return null
@@ -1480,8 +1635,15 @@ const textSidebarSelectedElement = computed<Region | TextLine | RenderablePolyli
 
 const isActivePageLocked = computed(() => {
   const pageId = activePageId.value
+  const projectId = currentProjectId.value
   if (!pageId) return false
-  return editorStore.pages.find(p => p.id === pageId)?.locked ?? false
+  const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, pageId)
+  if (actionLockReason) return true
+
+  const page = editorStore.getPage(pageId, projectId ?? undefined)
+  if (!page?.locked) return false
+
+  return !page.lockedReason?.startsWith('LAREX Action running:')
 })
 
 const {
@@ -1617,7 +1779,7 @@ const commanderForSidebar = computed<Commander | null>(() => {
 function handleApplyReadingOrder(readingOrder: ReadingOrder): void {
   const canvasId = activeCanvasId.value
   const commander = commanderForSidebar.value
-  if (!canvasId || !commander) return
+  if (!canvasId || !commander || isActivePageLocked.value) return
 
   const session = getEditorSession(canvasId)
   if (!session) return
@@ -1664,6 +1826,8 @@ if (import.meta.client) {
       },
       setDrawingMode: (mode: DrawingMode) => {
         const controls = activeControls.value
+        editorUiStore.setActionWandActive(false)
+        if (mode !== DRAWING_MODES.SELECT && controls?.isCanvasEditable.value === false) return
         if (controls?.drawingMode) {
           controls.drawingMode.value = mode
         }
@@ -1738,7 +1902,8 @@ if (import.meta.client) {
       },
       setCutMode: (mode: 'line' | 'polygon' | 'rectangle') => {
         const controls = activeControls.value
-        if (!controls) return
+        if (!controls || controls.isCanvasEditable.value === false) return
+        editorUiStore.setActionWandActive(false)
         if (mode === 'line') controls.toggleCutLineMode?.()
         else if (mode === 'polygon') controls.toggleCutPolygonMode?.()
         else controls.toggleCutRectangleMode?.()
@@ -2467,6 +2632,7 @@ const onReady = (event: DockviewReadyEvent) => {
         :editor="activeCanvasEditor"
         :pending-takeover="activePendingTakeover"
         :can-edit="activeCanvasCanEdit"
+        :page-lock-reason="activePageLockReason"
         :annotation-mode="activeAnnotationMode"
       />
 
@@ -2530,7 +2696,7 @@ const onReady = (event: DockviewReadyEvent) => {
         :is-tasks-loading="isOpenSubtasksLoading || isActivePageTasksLoading"
         :on-complete-task="completeSubtask"
         @apply-reading-order="handleApplyReadingOrder"
-        @apply-metadata="handleApplyMetadata"
+        @apply-metadata="handleApplyMetadataIfWritable"
         @select-polygon="(id, options) => activeControls?.selectPolygonById?.(id, options)"
         @select-polyline="(id, options) => activeControls?.selectPolylineById?.(id, options)"
         @hover-polygon="(id) => activeControls?.hoverPolygonById?.(id)"
@@ -2555,7 +2721,7 @@ const onReady = (event: DockviewReadyEvent) => {
         :is-page-locked="isActivePageLocked"
         :is-tasks-loading="isOpenSubtasksLoading || isActivePageTasksLoading"
         :on-complete-task="completeSubtask"
-        @apply-metadata="handleApplyMetadata"
+        @apply-metadata="handleApplyMetadataIfWritable"
       />
     </EditorRightSidebar>
   </div>

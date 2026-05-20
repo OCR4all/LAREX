@@ -111,11 +111,6 @@ public class DevActionBootstrap implements ApplicationRunner {
                     enabled: true
                     variant: action-copy
                     mode: upsert
-                  text:
-                    enabled: true
-                  layout:
-                    enabled: true
-                    mode: replace
 
                 concurrency:
                   maxActiveRuns: 2
@@ -150,15 +145,12 @@ public class DevActionBootstrap implements ApplicationRunner {
 
                 inputs:
                   images: true
-                  xml: false
+                  xml: true
 
                 outputs:
                   xml:
                     enabled: true
                     mode: upsert
-                  layout:
-                    enabled: true
-                    mode: replace
                   images:
                     enabled: false
 

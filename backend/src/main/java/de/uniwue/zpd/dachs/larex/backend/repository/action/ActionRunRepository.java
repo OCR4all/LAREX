@@ -30,6 +30,8 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
     @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByWorkspaceIdAndProjectIdOrderByCreatedDesc(String workspaceId, String projectId);
 
+    List<ActionRun> findByWorkspaceIdAndProjectIdAndStatusIn(String workspaceId, String projectId, Collection<Status> statuses);
+
     @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByProcessorDefinitionIdOrderByCreatedDesc(String processorDefinitionId);
 

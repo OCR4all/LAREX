@@ -324,6 +324,56 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     syncActiveProjectState()
   }
 
+  function patchProjectPageSummaries(
+    projectId: string,
+    summaries: Array<{
+      id: string
+      name?: string
+      thumbnail?: string
+      thumbnailUrl?: string
+      tags?: string[]
+      resolvedTags?: PageData['resolvedTags']
+      locked?: boolean
+      lockedReason?: string | null
+      imageCount?: number
+      xmlFileCount?: number
+      indexingStatus?: PageData['indexingStatus']
+    }>
+  ) {
+    if (!projectId || summaries.length === 0) return
+
+    const projectPages = pagesByProjectId.value[projectId] ?? []
+    if (projectPages.length === 0) return
+
+    const summariesById = new Map(summaries.map(summary => [summary.id, summary]))
+    let changed = false
+    const nextProjectPages = projectPages.map((page) => {
+      const summary = summariesById.get(page.id)
+      if (!summary) return page
+      changed = true
+      return {
+        ...page,
+        label: summary.name ?? page.label,
+        thumbnail: summary.thumbnailUrl ?? summary.thumbnail ?? page.thumbnail,
+        tags: summary.tags ?? page.tags,
+        resolvedTags: summary.resolvedTags ?? page.resolvedTags,
+        locked: summary.locked ?? false,
+        lockedReason: summary.lockedReason ?? null,
+        imageCount: summary.imageCount ?? page.imageCount,
+        xmlFileCount: summary.xmlFileCount ?? page.xmlFileCount,
+        indexingStatus: summary.indexingStatus ?? page.indexingStatus
+      }
+    })
+
+    if (!changed) return
+
+    pagesByProjectId.value = {
+      ...pagesByProjectId.value,
+      [projectId]: nextProjectPages
+    }
+    syncActiveProjectState()
+  }
+
   function getPage(pageId: string, projectId?: string): PageData | undefined {
     if (!projectId) {
       const parsedPagePanel = parsePagePanelId(pageId)
@@ -564,6 +614,7 @@ export const useEditorDocumentStore = defineStore('editor-document', () => {
     addPage,
     enrichPage,
     patchPageIndexingStatuses,
+    patchProjectPageSummaries,
     getPage,
     isPageLoaded,
     setSelectedVariantOverride,

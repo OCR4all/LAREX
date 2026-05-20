@@ -38,8 +38,6 @@ export interface ActionDefinitionPreview {
   acceptsXml: boolean
   outputsImages: boolean
   outputsXml: boolean
-  outputsText: boolean
-  outputsLayout: boolean
   parameters: Record<string, ActionParameterDefinition>
 }
 
@@ -75,8 +73,6 @@ export interface ActionDefinition {
   acceptsXml: boolean
   outputsImages: boolean
   outputsXml: boolean
-  outputsText: boolean
-  outputsLayout: boolean
   enabled: boolean
   global: boolean
   created: string

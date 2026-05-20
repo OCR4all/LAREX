@@ -254,6 +254,7 @@ function expandAllPanelsForOnboarding() {
 }
 
 function handleMetadataApply(payload: MetadataApplyPayload) {
+  if (props.isPageLocked) return
   emit('apply-metadata', payload)
 }
 
@@ -297,6 +298,7 @@ onBeforeUnmount(() => {
                 :document="document"
                 :page="page"
                 :selected-element="selectedElement"
+                :read-only="isPageLocked ?? false"
                 @apply="handleMetadataApply"
               />
             </template>
@@ -385,6 +387,7 @@ onBeforeUnmount(() => {
           :document="document"
           :page="page"
           :selected-element="selectedElement"
+          :read-only="isPageLocked ?? false"
           @apply="handleMetadataApply"
         />
       </template>

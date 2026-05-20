@@ -95,7 +95,9 @@ const isLoadingMatchingTextLines = ref(false)
 
 const isCanvasEditable = computed(() => {
   const canvasId = effectiveCanvasId.value
-  return canvasId ? collaboration.canEditCanvas(canvasId) : true
+  if (!canvasId) return true
+  const controls = getEditorSession(canvasId)?.controls.value
+  return controls?.isCanvasEditable?.value ?? collaboration.canEditCanvas(canvasId)
 })
 
 const reorderEnabled = computed(() => {

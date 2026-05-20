@@ -31,6 +31,7 @@ export function getTextViewRuntimeControls(
     const fallbackControls: EditorCanvasControls = {
       commander: new Commander(),
       isCanvasEditable: computed(() => false),
+      pageLockReason: computed(() => null),
       drawingMode: reactive({ value: 'select' }),
       selectedPolygonIndex: ref(-1),
       constrainToImage: ref(true),

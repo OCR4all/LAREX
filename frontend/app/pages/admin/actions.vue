@@ -224,8 +224,6 @@ function createNewDefinition() {
     acceptsXml: true,
     outputsImages: false,
     outputsXml: true,
-    outputsText: false,
-    outputsLayout: false,
     enabled: true,
     global: false,
     created: new Date().toISOString(),

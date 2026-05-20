@@ -13,6 +13,7 @@ const props = defineProps<{
   hiddenPolygonIds: string[]
   hiddenPolylineIds: string[]
   expandedRegions: Set<string>
+  readOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -215,6 +216,7 @@ watch(rowOrderSignature, () => {
               :selected-polyline-id-set="selectedPolylineIdSet"
               :hidden-polygon-id-set="hiddenPolygonIdSet"
               :hidden-polyline-id-set="hiddenPolylineIdSet"
+              :read-only="readOnly"
               @select-item="(id) => emit('select-polygon', id)"
               @select-polyline="(id) => emit('select-polyline', id)"
               @hover-item="(id) => emit('hover-polygon', id)"

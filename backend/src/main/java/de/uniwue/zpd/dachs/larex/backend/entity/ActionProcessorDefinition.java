@@ -97,12 +97,6 @@ public class ActionProcessorDefinition {
     @Column(nullable = false, name = "outputs_xml")
     private boolean outputsXml = false;
 
-    @Column(nullable = false, name = "outputs_text", columnDefinition = "boolean default false")
-    private boolean outputsText = false;
-
-    @Column(nullable = false, name = "outputs_layout", columnDefinition = "boolean default false")
-    private boolean outputsLayout = false;
-
     @Column(nullable = false)
     private boolean enabled = true;
 
@@ -249,22 +243,6 @@ public class ActionProcessorDefinition {
 
     public void setOutputsXml(boolean outputsXml) {
         this.outputsXml = outputsXml;
-    }
-
-    public boolean isOutputsText() {
-        return outputsText;
-    }
-
-    public void setOutputsText(boolean outputsText) {
-        this.outputsText = outputsText;
-    }
-
-    public boolean isOutputsLayout() {
-        return outputsLayout;
-    }
-
-    public void setOutputsLayout(boolean outputsLayout) {
-        this.outputsLayout = outputsLayout;
     }
 
     public boolean isEnabled() {

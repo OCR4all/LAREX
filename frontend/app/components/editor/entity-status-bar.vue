@@ -34,6 +34,7 @@ const props = withDefaults(defineProps<{
   editor?: CollaborationLeaseOwner | null
   pendingTakeover?: CollaborationTakeoverRequest | null
   canEdit?: boolean
+  pageLockReason?: string | null
   annotationMode?: 'PROJECT' | 'DATASET_LINK' | 'DATASET_COPY' | null
 }>(), {
   hoveredEntity: null,
@@ -43,6 +44,7 @@ const props = withDefaults(defineProps<{
   editor: null,
   pendingTakeover: null,
   canEdit: true,
+  pageLockReason: null,
   annotationMode: null
 })
 
@@ -196,6 +198,11 @@ const annotationModeInfo = computed<{
   }
   return null
 })
+
+const pageLockLabel = computed(() => {
+  if (!props.pageLockReason) return null
+  return `Read-only: ${props.pageLockReason}`
+})
 </script>
 
 <template>
@@ -204,7 +211,7 @@ const annotationModeInfo = computed<{
       <div
         v-if="displayEntity"
         :class="[
-          'flex items-center h-full gap-3 transition-colors duration-150 min-w-0',
+          'flex flex-1 items-center h-full gap-3 transition-colors duration-150 min-w-0',
           isHovered ? 'bg-neutral-100/60 dark:bg-neutral-800/60' : 'bg-transparent'
         ]"
       >
@@ -308,6 +315,25 @@ const annotationModeInfo = computed<{
             size="sm"
           >
             {{ annotationModeInfo.label }}
+          </UBadge>
+        </UTooltip>
+      </div>
+
+      <div v-if="pageLockLabel" class="flex items-center shrink-0 min-w-0 justify-end">
+        <UTooltip
+          :delay-duration="200"
+          :text="pageLockLabel"
+          :content="{ side: 'top' }"
+          :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
+        >
+          <UBadge
+            color="warning"
+            variant="subtle"
+            size="sm"
+            class="inline-flex items-center gap-1 shrink-0"
+          >
+            <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+            <span>Page locked</span>
           </UBadge>
         </UTooltip>
       </div>

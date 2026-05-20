@@ -1,3 +1,5 @@
-larex-action-sdk[fastapi]>=0.2,<0.3
+larex-action-sdk[fastapi]>=0.5,<0.6
 kraken==7.0.2
+lxml>=5,<7
+pillow>=10,<13
 uvicorn[standard]>=0.38,<0.39

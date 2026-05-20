@@ -61,6 +61,7 @@ export const useUploadStore = defineStore('upload', () => {
   const showProgressPanel = ref(false)
   const minimized = ref(false)
   const cancellingSessionIds = ref<Set<string>>(new Set())
+  const dismissedSessionIds = ref<Set<string>>(new Set())
 
   const hasActiveUploads = computed(() => {
     return Array.from(activeUploads.value.values()).some(
@@ -91,6 +92,14 @@ export const useUploadStore = defineStore('upload', () => {
     workspaceId: string,
     files: UploadUiFile[]
   ) {
+    if (dismissedSessionIds.value.has(sessionId)) {
+      return
+    }
+
+    const nextDismissed = new Set(dismissedSessionIds.value)
+    nextDismissed.delete(sessionId)
+    dismissedSessionIds.value = nextDismissed
+
     const filesCopy = files.map(f => ({ ...f }))
 
     activeUploads.value.set(sessionId, {
@@ -114,6 +123,15 @@ export const useUploadStore = defineStore('upload', () => {
     sessionId: string,
     updates: Partial<Omit<ActiveUpload, 'sessionId' | 'projectId' | 'workspaceId' | 'created'>>
   ) {
+    if (
+      dismissedSessionIds.value.has(sessionId)
+      && updates.status
+      && isTerminalStatus(updates.status)
+      && !activeUploads.value.has(sessionId)
+    ) {
+      return
+    }
+
     const upload = activeUploads.value.get(sessionId)
     if (upload) {
       const mergedUpdates = { ...updates }
@@ -201,6 +219,10 @@ export const useUploadStore = defineStore('upload', () => {
   }
 
   function completeUpload(sessionId: string, status: 'COMPLETED' | 'FAILED' | 'CANCELLED', error?: string) {
+    if (dismissedSessionIds.value.has(sessionId) && !activeUploads.value.has(sessionId)) {
+      return
+    }
+
     const upload = activeUploads.value.get(sessionId)
     if (upload) {
       if (isTerminalStatus(upload.status) && upload.status !== status) {
@@ -218,6 +240,7 @@ export const useUploadStore = defineStore('upload', () => {
   }
 
   function removeUpload(sessionId: string) {
+    acknowledgeUpload(sessionId)
     activeUploads.value.delete(sessionId)
     setCancelling(sessionId, false)
     if (activeUploads.value.size === 0) {
@@ -229,6 +252,7 @@ export const useUploadStore = defineStore('upload', () => {
     const toRemove: string[] = []
     for (const [id, upload] of activeUploads.value) {
       if (upload.status === 'COMPLETED' || upload.status === 'FAILED' || upload.status === 'CANCELLED') {
+        acknowledgeUpload(id)
         toRemove.push(id)
       }
     }
@@ -239,6 +263,14 @@ export const useUploadStore = defineStore('upload', () => {
     if (activeUploads.value.size === 0) {
       showProgressPanel.value = false
     }
+  }
+
+  function acknowledgeUpload(sessionId: string) {
+    const upload = activeUploads.value.get(sessionId)
+    if (!upload || !isTerminalStatus(upload.status)) return
+    const next = new Set(dismissedSessionIds.value)
+    next.add(sessionId)
+    dismissedSessionIds.value = next
   }
 
   function toggleMinimized() {
@@ -275,6 +307,7 @@ export const useUploadStore = defineStore('upload', () => {
     showProgressPanel,
     minimized,
     cancellingSessionIds,
+    dismissedSessionIds,
 
     hasActiveUploads,
     totalActiveUploads,
@@ -288,6 +321,7 @@ export const useUploadStore = defineStore('upload', () => {
     completeUpload,
     removeUpload,
     clearCompletedUploads,
+    acknowledgeUpload,
     toggleMinimized,
     hidePanel,
     showPanel,

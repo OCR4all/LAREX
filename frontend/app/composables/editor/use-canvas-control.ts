@@ -1,6 +1,7 @@
 import { Commander } from '@/commands'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import { useActionRunsStore } from '@/stores/action-runs.store'
 import { useEditorCollaboration } from '@/composables/editor/use-editor-collaboration'
 import type { Command, CommandContext } from '@/commands/editor/types'
 import { PolygonType } from '@/models/editor'
@@ -43,8 +44,24 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
   const commander = new Commander()
   const editorStore = useEditorStore()
   const editorUiStore = useEditorUiStore()
+  const actionRunsStore = useActionRunsStore()
   const collaboration = useEditorCollaboration()
-  const isCanvasEditable = computed(() => collaboration.canEditCanvas(canvasId))
+  const pageLockReason = computed(() => {
+    const canvas = editorStore.canvases?.[canvasId]
+    const pageId = canvas?.pageId ?? null
+    if (!pageId) return null
+
+    const projectId = canvas?.projectId ?? null
+    const actionLockReason = actionRunsStore.getPageActionLockReason(projectId, pageId)
+    if (actionLockReason) return actionLockReason
+
+    const page = editorStore.getPage(pageId, projectId ?? undefined)
+    if (!page?.locked) return null
+
+    if (page.lockedReason?.startsWith('LAREX Action running:')) return null
+    return page.lockedReason || 'Page is locked'
+  })
+  const isCanvasEditable = computed(() => collaboration.canEditCanvas(canvasId) && !pageLockReason.value)
 
   function getCommandContext(): CommandContext | undefined {
     const session = getEditorSession(canvasId)
@@ -175,6 +192,12 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
     return isCanvasEditable.value && historyState.canRedo
   })
 
+  watch(isCanvasEditable, (editable) => {
+    if (editable) return
+    drawingMode.value = DRAWING_MODES.SELECT
+    editorUiStore.setActionWandActive(false)
+  }, { immediate: true })
+
   const setConstrainToImage = (value: boolean): void => {
     constrainToImage.value = value
   }
@@ -242,6 +265,7 @@ export function useCanvasControl(canvasId: string): EditorCanvasControls {
   const controls: EditorCanvasControls = {
     commander,
     isCanvasEditable,
+    pageLockReason,
 
     drawingMode,
     selectedPolygonIndex,

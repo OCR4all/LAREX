@@ -142,6 +142,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
   let polygonVao: WebGLVertexArrayObject | null = null
   let polygonBuffer: WebGLBuffer | null = null
   let fillProgram: WebGLProgram | null = null
+  let actionProcessingProgram: WebGLProgram | null = null
 
   /**
    * Initialize the WebGL renderer and all subsystems
@@ -171,7 +172,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         throw new Error('Required resources not initialized')
       }
 
-      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool)
+      fillRenderer = new FillRenderer(gl, fillProgram, resourcePool, actionProcessingProgram)
       batchedLineRenderer = new BatchedLineRenderer(gl, lineProgram, resourcePool)
 
       if (!polygonProgram) throw new Error('Polygon program not initialized')
@@ -321,6 +322,46 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
       void main() { outColor = u_color; }`
 
     fillProgram = shaderManager.registerProgram('fill', fillVsSource, fillFsSource)
+
+    const actionProcessingVsSource = `#version 300 es
+      in vec2 a_position;
+      out vec2 v_world;
+      uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom; uniform vec2 u_rotation; uniform float u_canvasAspect;
+      void main() {
+        v_world = a_position;
+        vec2 pos = (a_position * u_zoom) + u_offset;
+        vec2 scaled = pos * u_scale;
+        vec2 clip = vec2(
+          scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
+          scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
+        );
+        gl_Position = vec4(clip, 0.0, 1.0);
+      }`
+    const actionProcessingFsSource = `#version 300 es
+      precision mediump float;
+      in vec2 v_world;
+      uniform float u_time;
+      uniform float u_intensity;
+      uniform vec4 u_bounds;
+      out vec4 outColor;
+
+      void main() {
+        vec2 uv = (v_world - u_bounds.xy) / max(u_bounds.zw, vec2(0.0001));
+        vec2 center = uv - vec2(0.5);
+        float distanceFromCenter = length(center);
+        float pulse = 0.5 + 0.5 * sin(u_time * 2.8);
+        float scan = fract((uv.x + uv.y) * 0.5 - u_time * 0.28);
+        float scanBand = smoothstep(0.42, 0.5, scan) * (1.0 - smoothstep(0.5, 0.64, scan));
+        float vignette = smoothstep(0.78, 0.12, distanceFromCenter);
+
+        vec3 base = mix(vec3(0.0, 0.62, 1.0), vec3(0.72, 0.16, 1.0), clamp(uv.x * 0.65 + uv.y * 0.35, 0.0, 1.0));
+        vec3 glow = vec3(0.45, 0.95, 1.0) * (0.28 + 0.35 * pulse * vignette + 0.58 * scanBand);
+        float alpha = (0.2 + pulse * 0.14 + scanBand * 0.16) * u_intensity;
+
+        outColor = vec4(base + glow, min(alpha, 0.68));
+      }`
+
+    actionProcessingProgram = shaderManager.registerProgram('action-processing-fill', actionProcessingVsSource, actionProcessingFsSource)
 
     polygonVao = gl.createVertexArray()
     gl.bindVertexArray(polygonVao)
@@ -682,9 +723,11 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const pulse = 0.5 + Math.sin(performance.now() / 420) * 0.5
-    const fillColor: RGBA = [0.45, 0.72, 1.0, 0.10 + pulse * 0.12]
-    const strokeColor: RGBA = [0.55, 0.82, 1.0, 0.55 + pulse * 0.35]
-    const strokeWidth = RENDER_THICKNESS.POLYGON_OUTLINE_MULTI_SELECTED + pulse * 2
+    const timeSeconds = performance.now() / 1000
+    const haloColor: RGBA = [0.16, 0.74, 1.0, 0.18 + pulse * 0.12]
+    const glowColor: RGBA = [0.46, 0.22, 1.0, 0.13 + pulse * 0.1]
+    const strokeColor: RGBA = [0.86, 0.96, 1.0, 0.58 + pulse * 0.34]
+    const strokeWidth = 2.25 + pulse * 2.25
 
     if (targets.page) {
       const pagePoints: Point[] = [
@@ -693,7 +736,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         { x: 1, y: -1 },
         { x: -1, y: -1 }
       ]
-      fillRenderer.drawFill(pagePoints, [0, 1, 2, 0, 2, 3], fillColor, scale, view)
+      fillRenderer.drawFill(pagePoints, [0, 1, 2, 0, 2, 3], haloColor, scale, view)
+      fillRenderer.drawFill(pagePoints, [0, 1, 2, 0, 2, 3], glowColor, scale, view)
+      fillRenderer.drawProcessingFill(pagePoints, [0, 1, 2, 0, 2, 3], scale, view, timeSeconds, 1.22)
       drawThickLine(pagePoints, strokeColor, strokeWidth, true, aspectRatioScale, view)
     }
 
@@ -701,7 +746,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     for (const polygon of renderState.polygons) {
       if (!polygonIds.has(polygon.id) || polygon.points.length < 3) continue
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
-      fillRenderer.drawFill(polygon.points, triangleIndices, fillColor, scale, view)
+      fillRenderer.drawFill(polygon.points, triangleIndices, haloColor, scale, view)
+      fillRenderer.drawFill(polygon.points, triangleIndices, glowColor, scale, view)
+      fillRenderer.drawProcessingFill(polygon.points, triangleIndices, scale, view, timeSeconds, 1.25)
       drawThickLine(polygon.points, strokeColor, strokeWidth, polygon.type !== PolygonType.BASELINE, aspectRatioScale, view)
     }
   }

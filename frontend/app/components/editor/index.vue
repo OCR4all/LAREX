@@ -257,6 +257,19 @@ const overlapMinAreaThreshold = computed(() => editorStore.globalSettings.cutMin
 const currentImageSrc = ref(props.src)
 
 const canvasControls = useCanvasControl(props.canvasId)
+const isCanvasWritable = computed(() => canvasControls.isCanvasEditable.value)
+const pageLockReason = computed(() => canvasControls.pageLockReason.value)
+const pageLockActionName = computed(() => {
+  const reason = pageLockReason.value
+  const prefix = 'LAREX Action running:'
+  if (!reason?.startsWith(prefix)) return null
+  return reason.slice(prefix.length).trim() || 'Action'
+})
+const pageLockDescription = computed(() => {
+  const reason = pageLockReason.value
+  if (!reason) return null
+  return pageLockActionName.value ? 'Action running' : reason
+})
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const correctionOverlayContainerRef = ref<HTMLDivElement | null>(null)
@@ -674,6 +687,13 @@ const editorInteractions = useEditorInteractions(
   editorCommands, canvasControls, webglRenderer.imageSize, moveInteraction, stateActions
 )
 
+watch(isCanvasWritable, (writable) => {
+  if (writable) return
+  editorUiStore.setActionWandActive(false)
+  editorInteractions.cancelActiveOperation?.()
+  canvasControls.toggleSelectMode?.()
+})
+
 const bufferPreviewForRenderer = computed(() => {
   const polygonId = bufferPreviewPolygonId.value
   const points = bufferPreviewPoints.value
@@ -774,6 +794,11 @@ function getCommandContext() {
 }
 
 function executeCreateRelationFromDraft() {
+  if (!isCanvasWritable.value) {
+    editorUiStore.cancelRelationPicking()
+    return
+  }
+
   const result = canvasControls.commander.execute(
     new CreateRelationCommand({
       relation: normalizeRelation(editorUiStore.relationsEditor.draft)
@@ -789,6 +814,11 @@ function executeCreateRelationFromDraft() {
 }
 
 function executeRepickRelationEndpoint(regionId: string, field: 'sourceRegionRef' | 'targetRegionRef') {
+  if (!isCanvasWritable.value) {
+    editorUiStore.cancelRelationPicking()
+    return
+  }
+
   const selectedRelationId = editorUiStore.relationsEditor.selectedRelationId
   const currentRelation = session.document.value?.page?.relations?.find(relation => relation.id === selectedRelationId)
   if (!selectedRelationId || !currentRelation) {
@@ -1069,6 +1099,10 @@ function dispatchActionTargetPicked(payload: { targetSelection: ActionTargetSele
 
 function handleActionWandMouseDown(event: MouseEvent) {
   if (!editorUiStore.actionWandActive || event.button !== 0 || !canvas.value) return
+  if (!isCanvasWritable.value) {
+    editorUiStore.setActionWandActive(false)
+    return
+  }
 
   event.preventDefault()
   event.stopImmediatePropagation()
@@ -1900,7 +1934,7 @@ function getDictionarySuggestions(token: string): string[] {
 }
 
 function applyDictionarySuggestionToGt(start: number, end: number, replacement: string): void {
-  if (!isCanvasEditable.value) return
+  if (!isCanvasWritable.value) return
   const current = correctionInputValue.value
   const nextText = `${current.slice(0, start)}${replacement}${current.slice(end)}`
   correctionInputValue.value = nextText
@@ -1953,7 +1987,7 @@ function commitTextlineVariants(textlineId: string, variants: Array<{
   dataTypeDetails?: string
   comments?: string
 }>): void {
-  if (!isCanvasEditable.value) return
+  if (!isCanvasWritable.value) return
 
   const textlineCommand = new UpdateTextContentVariantsCommand({
     elementId: textlineId,
@@ -2015,7 +2049,7 @@ function buildParentRegionSyncCommandForTextline(
 
 function ensureSelectedTextlineGtVariant(): boolean {
   const polygon = selectedTextlinePolygon.value
-  if (!polygon || !isCanvasEditable.value) return false
+  if (!polygon || !isCanvasWritable.value) return false
 
   const ensured = ensureGtVariantAtIndex(
     polygon.textContentVariants,
@@ -2034,7 +2068,7 @@ function normalizeSingleLineText(value: string): string {
 
 function updateTextlineGtTextById(textlineId: string, nextText: string) {
   const polygon = polygons.find(item => item.id === textlineId) as RenderableTextlinePolygon | undefined
-  if (!polygon || !isCanvasEditable.value) return
+  if (!polygon || !isCanvasWritable.value) return
 
   const normalizedText = normalizeSingleLineText(nextText)
   const updated = setGtVariantUnicode(
@@ -2170,7 +2204,7 @@ watch(
     const gtIndexChanged = gtIndex !== prevGtIndex
     if (!selectionChanged && !justEnabled && !gtIndexChanged) return
 
-    if (isCanvasEditable.value && (selectionChanged || justEnabled || gtIndexChanged)) {
+    if (isCanvasWritable.value && (selectionChanged || justEnabled || gtIndexChanged)) {
       ensureSelectedTextlineGtVariant()
     }
 
@@ -2501,6 +2535,31 @@ watch(() => props.src, (newSrc) => {
     </div>
 
     <div
+      v-else-if="pageLockReason"
+      class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
+    >
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
+          <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
+        </div>
+        <p class="truncate text-[13px] text-amber-50/90">Read-only view</p>
+      </div>
+
+      <div class="flex min-w-0 shrink items-center justify-end gap-2">
+        <span class="truncate text-[13px] text-amber-50/70">{{ pageLockDescription }}</span>
+        <UBadge
+          v-if="pageLockActionName"
+          color="warning"
+          variant="subtle"
+          size="sm"
+          class="max-w-80 truncate"
+        >
+          {{ pageLockActionName }}
+        </UBadge>
+      </div>
+    </div>
+
+    <div
       v-else-if="!isCanvasEditable && canvasEditor"
       class="flex min-h-10 items-center justify-between gap-3 border-b border-amber-950/60 bg-[#2b1d12] px-3 py-2 text-[13px] text-amber-50"
     >
@@ -2628,10 +2687,10 @@ watch(() => props.src, (newSrc) => {
             ref="canvas"
             class="block w-full h-full bg-transparent relative z-10"
             :class="[
-              isCanvasEditable ? 'cursor-grab' : 'cursor-default pointer-events-none',
+              isCanvasEditable ? (isCanvasWritable ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
               editorUiStore.actionWandActive ? 'editor-action-wand-cursor' : ''
             ]"
-            @contextmenu="(event) => { if (isCanvasEditable) editorInteractions.handleCanvasContextMenu(event) }"
+            @contextmenu="(event) => { if (isCanvasWritable) editorInteractions.handleCanvasContextMenu(event) }"
           />
         </template>
         <template #item-leading="{ item }">
@@ -2767,8 +2826,8 @@ watch(() => props.src, (newSrc) => {
           wrap="off"
           class="w-full min-h-10 resize-none overflow-x-auto whitespace-nowrap rounded-sm border border-emerald-300 bg-emerald-100/95 px-2.5 py-2 font-junicode text-default outline-none transition focus:border-primary/50 focus:ring-1 focus:ring-primary/20 dark:bg-emerald-900/90"
           :style="{ fontSize: `${correctionFontSizePx}px`, lineHeight: `${Math.round(correctionFontSizePx * 1.2)}px`, minHeight: `${correctionTextareaMinHeightPx}px` }"
-          :readonly="!isCanvasEditable"
-          :disabled="!isCanvasEditable"
+          :readonly="!isCanvasWritable"
+          :disabled="!isCanvasWritable"
           spellcheck="false"
           @keydown="handleCorrectionTextareaKeydown"
           @beforeinput="handleCorrectionTextareaBeforeInput"
@@ -2854,7 +2913,7 @@ watch(() => props.src, (newSrc) => {
                         color="neutral"
                         variant="soft"
                         size="xs"
-                        :disabled="!isCanvasEditable"
+                        :disabled="!isCanvasWritable"
                         @click.stop="applyDictionarySuggestionToGt(segment.start, segment.end, suggestion)"
                       >
                         {{ suggestion }}

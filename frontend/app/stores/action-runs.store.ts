@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { ActionRun } from '@/types/action'
+import type { ActionRun, ClearActionRunsResponse } from '@/types/action'
 
 type ActionRunStatus = ActionRun['status']
 
@@ -7,19 +7,31 @@ export interface TrackedActionRun extends ActionRun {
   projectName: string
 }
 
+export interface ActionRunTerminalEvent {
+  sequence: number
+  run: TrackedActionRun
+}
+
 function isTerminalStatus(status: ActionRunStatus): boolean {
   return status === 'COMPLETED' || status === 'FAILED' || status === 'CANCELLED'
 }
 
 function isActiveStatus(status: ActionRunStatus): boolean {
-  return status === 'PENDING' || status === 'DISPATCHING' || status === 'RUNNING' || status === 'IMPORTING_RESULTS'
+  return status === 'PENDING'
+    || status === 'DISPATCHING'
+    || status === 'RUNNING'
+    || status === 'IMPORTING_RESULTS'
+    || status === 'CANCEL_REQUESTED'
 }
 
 export const useActionRunsStore = defineStore('action-runs', () => {
   const runsById = ref<Map<string, TrackedActionRun>>(new Map())
+  const terminalEvents = ref<ActionRunTerminalEvent[]>([])
   const showProgressPanel = ref(false)
   const minimized = ref(false)
   const cancellingRunIds = ref<Set<string>>(new Set())
+  const dismissedRunIds = ref<Set<string>>(new Set())
+  let terminalEventSequence = 0
 
   const runsArray = computed(() => Array.from(runsById.value.values())
     .sort((left, right) => Date.parse(right.created) - Date.parse(left.created)))
@@ -33,7 +45,18 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   })
 
   function upsertRun(run: ActionRun, projectName?: string | null) {
+    if (dismissedRunIds.value.has(run.id) && isTerminalStatus(run.status)) {
+      setCancelling(run.id, false)
+      return
+    }
+    if (!isTerminalStatus(run.status) && dismissedRunIds.value.has(run.id)) {
+      const nextDismissed = new Set(dismissedRunIds.value)
+      nextDismissed.delete(run.id)
+      dismissedRunIds.value = nextDismissed
+    }
+
     const existing = runsById.value.get(run.id)
+    const existingWasActive = existing ? isActiveStatus(existing.status) : false
     const next: TrackedActionRun = {
       ...existing,
       ...run,
@@ -51,6 +74,15 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     }
     if (isTerminalStatus(next.status)) {
       setCancelling(run.id, false)
+      if (existingWasActive) {
+        terminalEvents.value = [
+          ...terminalEvents.value.slice(-49),
+          {
+            sequence: ++terminalEventSequence,
+            run: next
+          }
+        ]
+      }
     }
   }
 
@@ -88,7 +120,44 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     }
   }
 
+  async function dismissRun(run: TrackedActionRun) {
+    try {
+      if (isTerminalStatus(run.status)) {
+        await $fetch<void>(
+          `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/dismiss`,
+          { method: 'POST' }
+        )
+      }
+    } finally {
+      removeRun(run.id)
+    }
+  }
+
+  async function dismissCompletedRuns() {
+    const terminalRuns = runsArray.value.filter(run => isTerminalStatus(run.status))
+    if (terminalRuns.length === 0) return
+    const scopes = new Map<string, TrackedActionRun>()
+    terminalRuns.forEach((run) => {
+      scopes.set(`${run.workspaceId}:${run.projectId}`, run)
+    })
+    try {
+      const results = await Promise.allSettled(Array.from(scopes.values()).map(run =>
+        $fetch<ClearActionRunsResponse>(
+          `/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/history/dismiss`,
+          { method: 'POST' }
+        )
+      ))
+      const rejected = results.find(result => result.status === 'rejected')
+      if (rejected && rejected.status === 'rejected') {
+        throw rejected.reason
+      }
+    } finally {
+      clearCompletedRuns()
+    }
+  }
+
   function removeRun(runId: string) {
+    acknowledgeRun(runId)
     runsById.value.delete(runId)
     setCancelling(runId, false)
     if (runsById.value.size === 0) {
@@ -99,6 +168,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
   function clearCompletedRuns() {
     for (const run of runsArray.value) {
       if (isTerminalStatus(run.status)) {
+        acknowledgeRun(run.id)
         runsById.value.delete(run.id)
         setCancelling(run.id, false)
       }
@@ -106,6 +176,14 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     if (runsById.value.size === 0) {
       showProgressPanel.value = false
     }
+  }
+
+  function acknowledgeRun(runId: string) {
+    const run = runsById.value.get(runId)
+    if (!run || !isTerminalStatus(run.status)) return
+    const next = new Set(dismissedRunIds.value)
+    next.add(runId)
+    dismissedRunIds.value = next
   }
 
   function toggleMinimized() {
@@ -142,9 +220,11 @@ export const useActionRunsStore = defineStore('action-runs', () => {
 
   return {
     runsById,
+    terminalEvents,
     showProgressPanel,
     minimized,
     cancellingRunIds,
+    dismissedRunIds,
     runsArray,
     hasActiveRuns,
     totalActiveRuns,
@@ -154,8 +234,11 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     refreshProjectRuns,
     refreshActiveRuns,
     cancelRun,
+    dismissRun,
+    dismissCompletedRuns,
     removeRun,
     clearCompletedRuns,
+    acknowledgeRun,
     toggleMinimized,
     hidePanel,
     isCancelling,

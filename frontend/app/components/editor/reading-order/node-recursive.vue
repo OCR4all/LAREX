@@ -23,6 +23,7 @@ export interface Props {
   expandedGroups: Set<string>
   allItems: AvailableItem[]
   sortableOptions: Record<string, unknown>
+  readOnly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -48,6 +49,7 @@ type SortableChangeEvent = {
 }
 
 function handleSortableAdd(event: SortableChangeEvent): void {
+  if (props.readOnly) return
   const item = event.clonedData ?? event.data
   if (!item) return
 
@@ -62,6 +64,7 @@ function handleSortableRemove(event: SortableChangeEvent): void {
 }
 
 function handleSortableUpdate(event: SortableChangeEvent): void {
+  if (props.readOnly) return
   if (typeof event.oldIndex !== 'number' || typeof event.newIndex !== 'number') return
 
   const newElements = [...props.elements]
@@ -150,10 +153,12 @@ function handleToggleExpanded(groupId: string): void {
 }
 
 function handleDissolveGroup(groupId: string): void {
+  if (props.readOnly) return
   emit('dissolveGroup', groupId)
 }
 
 function handleRemoveItem(itemId: string): void {
+  if (props.readOnly) return
   emit('removeItem', itemId)
 }
 
@@ -169,6 +174,7 @@ function handleUnhoverRegion(): void {
 }
 
 function handleChildElementsUpdate(node: ReadingOrderNode, newElements: ReadingOrderNode[]): void {
+  if (props.readOnly) return
   const updatedElements = props.elements.map(el =>
     el.id === node.id && isGroup(el) ? { ...el, elements: newElements } : el
   )
@@ -251,6 +257,7 @@ function forwardUnhoverRegion(): void {
             variant="ghost"
             class="shrink-0"
             title="Dissolve group (keep items)"
+            :disabled="readOnly"
             @click.stop="handleDissolveGroup(node.id)"
           >
             <Icon name="i-lucide-ungroup" class="w-3 h-3" />
@@ -266,6 +273,7 @@ function forwardUnhoverRegion(): void {
             :expanded-groups="expandedGroups"
             :all-items="allItems"
             :sortable-options="sortableOptions"
+            :read-only="readOnly"
             @update:elements="handleChildElementsUpdate(node, $event)"
             @item-click="forwardItemClick"
             @toggle-expanded="forwardToggleExpanded"
@@ -302,6 +310,7 @@ function forwardUnhoverRegion(): void {
           color="error"
           class="shrink-0"
           title="Remove from reading order"
+          :disabled="readOnly"
           @click.stop="handleRemoveItem(node.id)"
         >
           <Icon name="i-lucide-trash-2" class="w-3 h-3" />

@@ -46,6 +46,7 @@ const props = defineProps<{
   document?: PcGts | null
   page?: Page | null
   selectedElement?: Region | TextLine | RenderablePolyline | null
+  readOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -123,7 +124,7 @@ const currentContext = computed<EditContext | null>(() => {
   return null
 })
 
-const canEdit = computed(() => currentContext.value !== null)
+const canEdit = computed(() => currentContext.value !== null && !props.readOnly)
 
 function formatDate(dateStr?: string): string {
   if (!dateStr) return '—'
@@ -152,7 +153,7 @@ function formatBoolean(value?: boolean): string {
 
 function startEditing() {
   const ctx = currentContext.value
-  if (!ctx) return
+  if (!ctx || props.readOnly) return
 
   editContext.value = ctx
 
@@ -198,16 +199,19 @@ function cancelEditing() {
 }
 
 function onSubmitDocument(event: FormSubmitEvent<DocumentMetadataFormState>) {
+  if (props.readOnly) return
   emit('apply', { target: 'document', data: event.data })
   cancelEditing()
 }
 
 function onSubmitPage(event: FormSubmitEvent<PageMetadataFormState>) {
+  if (props.readOnly) return
   emit('apply', { target: 'page', data: event.data })
   cancelEditing()
 }
 
 function onSubmitTextRegion(event: FormSubmitEvent<TextRegionMetadataFormState>) {
+  if (props.readOnly) return
   if (!props.selectedElement || !isRegionElement(props.selectedElement) || !isTextRegion(props.selectedElement)) return
 
   emit('apply', {
@@ -219,6 +223,7 @@ function onSubmitTextRegion(event: FormSubmitEvent<TextRegionMetadataFormState>)
 }
 
 function onSubmitGenericRegion(event: FormSubmitEvent<GenericRegionMetadataFormState>) {
+  if (props.readOnly) return
   if (!props.selectedElement || !isRegionElement(props.selectedElement)) return
 
   emit('apply', {
@@ -230,6 +235,7 @@ function onSubmitGenericRegion(event: FormSubmitEvent<GenericRegionMetadataFormS
 }
 
 function onSubmitTextLine(event: FormSubmitEvent<TextLineMetadataFormState>) {
+  if (props.readOnly) return
   if (!props.selectedElement || !isTextLineElement(props.selectedElement)) return
 
   emit('apply', {
@@ -241,6 +247,7 @@ function onSubmitTextLine(event: FormSubmitEvent<TextLineMetadataFormState>) {
 }
 
 function onSubmitBaseline(event: FormSubmitEvent<BaselineMetadataFormState>) {
+  if (props.readOnly) return
   if (!props.selectedElement || !isBaselineElement(props.selectedElement)) return
   emit('apply', {
     target: 'baseline',
@@ -370,6 +377,7 @@ function removeAt<T>(target: T[], index: number) {
 }
 
 async function handleRegionKindChange(newKind: RegionKind) {
+  if (props.readOnly) return
   if (!props.selectedElement || !isRegionElement(props.selectedElement)) return
 
   const currentKind = props.selectedElement.kind
@@ -405,6 +413,12 @@ function onRegionKindSelectChange(val: unknown) {
 
 watch(() => props.selectedElement, () => {
   if (isEditing.value) {
+    cancelEditing()
+  }
+})
+
+watch(() => props.readOnly, (readOnly) => {
+  if (readOnly && isEditing.value) {
     cancelEditing()
   }
 })

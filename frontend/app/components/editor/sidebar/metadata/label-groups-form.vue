@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { LabelsFormState } from '@/utils/editor/metadata-schema'
 
+const props = defineProps<{
+  readOnly?: boolean
+}>()
+
 const groups = defineModel<LabelsFormState[]>({ required: true })
 </script>
 
@@ -12,6 +16,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
         type="button"
         size="xs"
         variant="soft"
+        :disabled="props.readOnly"
         @click="groups.push({ externalModel: '', externalId: '', prefix: '', comments: '', labels: [] })"
       >
         Add Group
@@ -24,16 +29,16 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
       class="space-y-2 rounded-md border border-default p-2"
     >
       <UFormField label="External Model">
-        <UInput v-model="group.externalModel" placeholder="External model" />
+        <UInput v-model="group.externalModel" placeholder="External model" :disabled="props.readOnly" />
       </UFormField>
       <UFormField label="External ID">
-        <UInput v-model="group.externalId" placeholder="External ID" />
+        <UInput v-model="group.externalId" placeholder="External ID" :disabled="props.readOnly" />
       </UFormField>
       <UFormField label="Prefix">
-        <UInput v-model="group.prefix" placeholder="Prefix" />
+        <UInput v-model="group.prefix" placeholder="Prefix" :disabled="props.readOnly" />
       </UFormField>
       <UFormField label="Comments">
-        <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" />
+        <UTextarea v-model="group.comments" placeholder="Comments..." :rows="2" :disabled="props.readOnly" />
       </UFormField>
 
       <div class="space-y-2">
@@ -43,6 +48,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
             type="button"
             size="xs"
             variant="ghost"
+            :disabled="props.readOnly"
             @click="group.labels.push({ value: '', type: '', comments: '' })"
           >
             Add Label
@@ -55,19 +61,20 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
           class="space-y-2 rounded-md border border-default p-2"
         >
           <UFormField label="Value">
-            <UInput v-model="label.value" placeholder="Value" />
+            <UInput v-model="label.value" placeholder="Value" :disabled="props.readOnly" />
           </UFormField>
           <UFormField label="Type">
-            <UInput v-model="label.type" placeholder="Type" />
+            <UInput v-model="label.type" placeholder="Type" :disabled="props.readOnly" />
           </UFormField>
           <UFormField label="Comments">
-            <UInput v-model="label.comments" placeholder="Comments" />
+            <UInput v-model="label.comments" placeholder="Comments" :disabled="props.readOnly" />
           </UFormField>
           <UButton
             type="button"
             size="xs"
             color="error"
             variant="ghost"
+            :disabled="props.readOnly"
             @click="group.labels.splice(labelIndex, 1)"
           >
             Remove Label
@@ -80,6 +87,7 @@ const groups = defineModel<LabelsFormState[]>({ required: true })
         size="xs"
         color="error"
         variant="ghost"
+        :disabled="props.readOnly"
         @click="groups.splice(groupIndex, 1)"
       >
         Remove Group

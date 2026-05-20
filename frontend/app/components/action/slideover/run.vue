@@ -6,6 +6,7 @@ import type {
   ActionRunDetail,
   StartActionRunResponse,
   ExecutableActionProcessorResponse,
+  ClearActionRunsResponse,
   ActionCategory,
   ActionTargetSelection,
   ActionTarget
@@ -45,21 +46,24 @@ const loading = ref(false)
 const starting = ref(false)
 const cancellingRunId = ref<string | null>(null)
 const retryingRunId = ref<string | null>(null)
+const clearingHistory = ref(false)
 const changed = ref(false)
 const expandedRunIds = ref<string[]>([])
 const loadingRunDetailIds = ref<string[]>([])
 const runDetails = ref<Record<string, ActionRunDetail>>({})
+const runHistoryPage = ref(1)
+const runHistoryItemsPerPage = ref(5)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const selectedPageIds = computed(() => props.pageIds ?? [])
 const targetType = computed<ActionTarget>(() => props.targetSelection?.type ?? 'PAGE')
-const selectedProcessor = computed(() => processors.value.find(item => item.processor.id === selectedProcessorId.value) ?? null)
 const targetCompatibleProcessors = computed(() => processors.value.filter(item => item.processor.targets?.includes(targetType.value)))
 const categoryCompatibleProcessors = computed(() => targetCompatibleProcessors.value.filter(item =>
   categoryFilter.value === 'ALL' || item.processor.category === categoryFilter.value
 ))
 const executableProcessors = computed(() => categoryCompatibleProcessors.value.filter(item => item.executable))
 const unavailableProcessors = computed(() => categoryCompatibleProcessors.value.filter(item => !item.executable))
+const selectedProcessor = computed(() => executableProcessors.value.find(item => item.processor.id === selectedProcessorId.value) ?? null)
 const hasSelection = computed(() => selectedPageIds.value.length > 0)
 const submittedPageIds = computed(() => {
   if (props.targetSelection) return props.targetSelection.pages.map(page => page.pageId)
@@ -132,19 +136,24 @@ const parameterEntries = computed(() => {
 const activeRuns = computed(() => runs.value.filter(run =>
   ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
 ))
-const openPanels = ref<string[]>(['parameters'])
+const clearableHistoryRuns = computed(() => runs.value.filter(run => run.status === 'COMPLETED' || run.status === 'FAILED'))
+const paginatedRuns = computed(() => {
+  const start = (runHistoryPage.value - 1) * runHistoryItemsPerPage.value
+  return runs.value.slice(start, start + runHistoryItemsPerPage.value)
+})
+const openPanels = ref<string[]>(['run-history'])
 const accordionItems = computed(() => [
-  {
-    label: `Parameters (${parameterEntries.value.length})`,
-    value: 'parameters',
-    slot: 'parameters',
-    icon: 'i-lucide-sliders-horizontal'
-  },
   {
     label: `Run History (${runs.value.length})`,
     value: 'run-history',
     slot: 'run-history',
     icon: 'i-lucide-history'
+  },
+  {
+    label: `Parameters (${parameterEntries.value.length})`,
+    value: 'parameters',
+    slot: 'parameters',
+    icon: 'i-lucide-sliders-horizontal'
   }
 ])
 
@@ -173,6 +182,24 @@ watch(selectedProcessorId, () => {
   resetParameters()
 })
 
+watch(executableProcessors, () => {
+  reconcileSelectedProcessor()
+})
+
+watch(() => runs.value.length, () => {
+  const maxPage = Math.max(1, Math.ceil(runs.value.length / runHistoryItemsPerPage.value))
+  if (runHistoryPage.value > maxPage) {
+    runHistoryPage.value = maxPage
+  }
+})
+
+function reconcileSelectedProcessor() {
+  const stillExecutable = executableProcessors.value.some(item => item.processor.id === selectedProcessorId.value)
+  if (!stillExecutable) {
+    selectedProcessorId.value = executableProcessors.value[0]?.processor.id ?? ''
+  }
+}
+
 async function loadProcessors() {
   loading.value = true
   try {
@@ -180,10 +207,7 @@ async function loadProcessors() {
       `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/processors`,
       { query: { target: targetType.value } }
     )
-    const stillExecutable = executableProcessors.value.some(item => item.processor.id === selectedProcessorId.value)
-    if (!stillExecutable) {
-      selectedProcessorId.value = executableProcessors.value[0]?.processor.id ?? ''
-    }
+    reconcileSelectedProcessor()
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Could not load assigned Actions.'
     toast.add({ title: 'Failed to load Actions', description: message, color: 'error' })
@@ -206,6 +230,36 @@ async function loadRuns() {
     }
   } catch {
     // Keep the current history visible if a polling request fails.
+  }
+}
+
+async function clearRunHistory() {
+  if (clearableHistoryRuns.value.length === 0 || clearingHistory.value) return
+  clearingHistory.value = true
+  try {
+    const deletedRunIds = new Set(clearableHistoryRuns.value.map(run => run.id))
+    const result = await $fetch<ClearActionRunsResponse>(
+      `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs/history`,
+      { method: 'DELETE' }
+    )
+    runs.value = runs.value.filter(run => !deletedRunIds.has(run.id))
+    for (const runId of deletedRunIds) {
+      actionRunsStore.removeRun(runId)
+      delete runDetails.value[runId]
+    }
+    expandedRunIds.value = expandedRunIds.value.filter(runId => !deletedRunIds.has(runId))
+    await loadRuns()
+    toast.add({
+      title: 'Action history cleared',
+      description: `${result.deletedCount} completed or failed run${result.deletedCount === 1 ? '' : 's'} removed.`,
+      color: 'success',
+      icon: 'i-lucide-trash-2'
+    })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Could not clear completed and failed Action runs.'
+    toast.add({ title: 'Clear failed', description: message, color: 'error' })
+  } finally {
+    clearingHistory.value = false
   }
 }
 
@@ -562,16 +616,32 @@ function close() {
 
           <template #run-history>
             <div class="space-y-3 p-1">
-              <div class="flex justify-end">
-                <UButton
-                  icon="i-lucide-refresh-cw"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  @click="loadRuns"
-                >
-                  Refresh
-                </UButton>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-xs text-muted">
+                  {{ runs.length }} run{{ runs.length === 1 ? '' : 's' }}
+                </p>
+                <div class="flex items-center gap-2">
+                  <UButton
+                    icon="i-lucide-trash-2"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="clearableHistoryRuns.length === 0"
+                    :loading="clearingHistory"
+                    @click="clearRunHistory"
+                  >
+                    Clear completed/failed
+                  </UButton>
+                  <UButton
+                    icon="i-lucide-refresh-cw"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    @click="loadRuns"
+                  >
+                    Refresh
+                  </UButton>
+                </div>
               </div>
 
               <p v-if="runs.length === 0" class="text-sm text-muted">
@@ -580,7 +650,7 @@ function close() {
 
               <div v-else class="divide-y divide-default">
                 <div
-                  v-for="run in runs"
+                  v-for="run in paginatedRuns"
                   :key="run.id"
                   class="space-y-2 py-3 first:pt-0 last:pb-0"
                 >
@@ -671,6 +741,17 @@ function close() {
                     </template>
                   </div>
                 </div>
+              </div>
+
+              <div v-if="runs.length > runHistoryItemsPerPage" class="flex justify-end pt-1">
+                <UPagination
+                  v-model:page="runHistoryPage"
+                  :total="runs.length"
+                  :items-per-page="runHistoryItemsPerPage"
+                  show-edges
+                  :sibling-count="1"
+                  size="sm"
+                />
               </div>
             </div>
           </template>

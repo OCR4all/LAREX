@@ -70,6 +70,16 @@ public interface PageLabelIndexRepository extends JpaRepository<PageLabelIndex, 
     @Query("SELECT COUNT(DISTINCT p.page.id) FROM PageLabelIndex p WHERE p.page.project.id = :projectId")
     long countIndexedPagesByProjectId(@Param("projectId") String projectId);
 
+    @Query("""
+            SELECT DISTINCT p.page.id
+            FROM PageLabelIndex p
+            WHERE p.page.project.id = :projectId
+              AND p.page.id IN :pageIds
+            """)
+    List<String> findIndexedPageIdsByProjectIdAndPageIds(
+            @Param("projectId") String projectId,
+            @Param("pageIds") Collection<String> pageIds);
+
     /**
      * Delete all label index records for all pages in a project (used when deleting a project).
      */

@@ -42,30 +42,10 @@ async def process_run(ctx: ActionContext) -> None:
             if page.xml:
                 xml = page.xml[0]
                 xml_bytes = await ctx.download_bytes(xml)
-                if action_input.target_selection and action_input.target_selection.type == "REGION":
-                    results.add_layout_xml_bytes(
-                        page_id=page.id,
-                        content=xml_bytes,
-                        file_name=xml.file_name or f"{page.name}.xml",
-                    )
-                else:
-                    results.add_xml_bytes(
-                        page_id=page.id,
-                        content=xml_bytes,
-                        file_name=xml.file_name or f"{page.name}.xml",
-                    )
-
-    if action_input.target_selection and action_input.target_selection.type == "TEXT_LINE":
-        for target_page in action_input.target_selection.pages:
-            for text_line in target_page.text_lines:
-                current_text = ""
-                if text_line.text_content_variants:
-                    current_text = str(text_line.text_content_variants[0].get("unicode") or "")
-                results.add_text_line_text(
-                    page_id=target_page.page_id,
-                    text_line_id=text_line.id,
-                    text=current_text or f"Mock OCR for {text_line.id}",
-                    confidence=1.0,
+                results.add_xml_bytes(
+                    page_id=page.id,
+                    content=xml_bytes,
+                    file_name=xml.file_name or f"{page.name}.xml",
                 )
 
     await ctx.complete(results, result_message(results))
@@ -74,8 +54,7 @@ async def process_run(ctx: ActionContext) -> None:
 def result_message(results) -> str:
     image_count = sum(1 for file in results.files if file.type == "image")
     xml_count = sum(1 for file in results.files if file.type == "xml")
-    patch_count = len(results.patches)
-    return f"Mock processor copied {image_count} image(s), {xml_count} XML file(s), and {patch_count} patch(es)."
+    return f"Mock processor copied {image_count} image(s) and {xml_count} XML file(s)."
 
 
 app = create_larex_action_app(

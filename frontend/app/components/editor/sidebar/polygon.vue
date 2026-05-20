@@ -252,6 +252,7 @@ watch(
 )
 
 function handleReadingOrderUpdate(newReadingOrder: ReadingOrder): void {
+  if (props.isPageLocked) return
   const cloned = cloneReadingOrder(newReadingOrder)
   localReadingOrder.value = cloned
   emit('apply-reading-order', cloned)
@@ -355,7 +356,7 @@ function togglePolygonVisibility(polygonId: string): void {
 }
 
 async function deletePolygon(polygonId: string): Promise<void> {
-  if (!props.commander) return
+  if (!props.commander || props.isPageLocked) return
 
   const ctx = getCommandContext()
 
@@ -415,11 +416,12 @@ async function deletePolygon(polygonId: string): Promise<void> {
 }
 
 function handleMetadataApply(payload: MetadataApplyPayload) {
+  if (props.isPageLocked) return
   emit('apply-metadata', payload)
 }
 
 function handleRegionKindChange(payload: RegionKindChangePayload) {
-  if (!props.commander) return
+  if (!props.commander || props.isPageLocked) return
   const ctx = getCommandContext()
   props.commander.execute(
     new ChangeRegionKindCommand(payload),
@@ -497,6 +499,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
                   :hidden-polygon-ids="hiddenPolygonIds"
                   :hidden-polyline-ids="hiddenPolylineIds"
                   :expanded-regions="expandedRegions"
+                  :read-only="isPageLocked"
                   @select-polygon="selectPolygon"
                   @select-polyline="selectPolyline"
                   @hover-polygon="hoverPolygon"
@@ -515,6 +518,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
                 <EditorReadingOrderPanel
                   :model-value="localReadingOrder"
                   :all-items="allRegionsForReadingOrder"
+                  :read-only="isPageLocked"
                   @update:model-value="handleReadingOrderUpdate"
                 />
               </div>
@@ -526,6 +530,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
                   :page="page"
                   :commander="commander"
                   :regions="allRegionsForRelations"
+                  :read-only="isPageLocked"
                 />
               </div>
             </template>
@@ -535,6 +540,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
                   :document="document"
                   :page="page"
                   :selected-element="selectedElement"
+                  :read-only="isPageLocked"
                   @apply="handleMetadataApply"
                   @change-region-kind="handleRegionKindChange"
                 />
@@ -593,6 +599,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
             :hidden-polygon-ids="hiddenPolygonIds"
             :hidden-polyline-ids="hiddenPolylineIds"
             :expanded-regions="expandedRegions"
+            :read-only="isPageLocked"
             @select-polygon="selectPolygon"
             @select-polyline="selectPolyline"
             @hover-polygon="hoverPolygon"
@@ -611,6 +618,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
           <EditorReadingOrderPanel
             :model-value="localReadingOrder"
             :all-items="allRegionsForReadingOrder"
+            :read-only="isPageLocked"
             @update:model-value="handleReadingOrderUpdate"
           />
         </div>
@@ -622,6 +630,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
             :page="page"
             :commander="commander"
             :regions="allRegionsForRelations"
+            :read-only="isPageLocked"
           />
         </div>
       </template>
@@ -631,6 +640,7 @@ watch(() => props.selectedPolylineIds, (newIds) => {
             :document="document"
             :page="page"
             :selected-element="selectedElement"
+            :read-only="isPageLocked"
             @apply="handleMetadataApply"
             @change-region-kind="handleRegionKindChange"
           />

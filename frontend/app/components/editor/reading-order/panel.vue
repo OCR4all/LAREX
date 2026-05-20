@@ -23,6 +23,7 @@ export interface AvailableItem {
 export interface Props {
   modelValue: ReadingOrder
   allItems: AvailableItem[]
+  readOnly?: boolean
 }
 
 const props = defineProps<Props>()
@@ -193,6 +194,7 @@ function toggleGroupExpanded(groupId: string): void {
 }
 
 function emitUpdate(): void {
+  if (props.readOnly) return
   const seen = new Set<string>()
   const cloned = deepClone(props.modelValue)
 
@@ -215,6 +217,7 @@ function emitUpdate(): void {
 }
 
 function handleRootElementsUpdate(newElements: ReadingOrderNode[]): void {
+  if (props.readOnly) return
   const updated = deepClone(props.modelValue)
   updated.root.elements = newElements
 
@@ -240,6 +243,7 @@ function handleRootElementsUpdate(newElements: ReadingOrderNode[]): void {
 }
 
 function groupSelectedItems(ordered: boolean = true): void {
+  if (props.readOnly) return
   if (selectedIds.value.size < 1) return
 
   const newGroup: ReadingOrderGroup = ordered
@@ -295,6 +299,7 @@ function groupSelectedItems(ordered: boolean = true): void {
 }
 
 function dissolveGroup(groupId: string): void {
+  if (props.readOnly) return
   const clonedOrder = deepClone(props.modelValue)
 
   function findAndDissolve(elements: ReadingOrderNode[]): boolean {
@@ -325,6 +330,7 @@ function dissolveGroup(groupId: string): void {
 }
 
 function addItemToList(item: AvailableItem): void {
+  if (props.readOnly) return
   log.debug('addItemToList called for:', item.id)
 
   if (includedRegionRefIds.value.has(item.id)) {
@@ -353,6 +359,7 @@ function addItemToListById(id: string): void {
 }
 
 function removeItem(itemId: string): void {
+  if (props.readOnly) return
   const clonedOrder = deepClone(props.modelValue)
 
   function findAndRemove(elements: ReadingOrderNode[]): boolean {
@@ -379,6 +386,7 @@ function removeItem(itemId: string): void {
 }
 
 function removeSelectedItems(): void {
+  if (props.readOnly) return
   const clonedOrder = deepClone(props.modelValue)
   const idsToRemove = new Set(selectedIds.value)
 
@@ -413,26 +421,28 @@ function getItemLabel(id: string): string {
   return id
 }
 
-const sortableOptions = {
+const sortableOptions = computed(() => ({
   animation: 150,
+  disabled: props.readOnly,
   fallbackOnBody: true,
   swapThreshold: 0.65,
   group: {
     name: 'reading-order',
-    pull: true,
-    put: true
+    pull: !props.readOnly,
+    put: !props.readOnly
   },
   handle: '.drag-handle',
   ghostClass: 'sortable-ghost',
   chosenClass: 'sortable-chosen',
   dragClass: 'sortable-drag'
-}
+}))
 
-const availableItemsSortableOptions = {
+const availableItemsSortableOptions = computed(() => ({
   animation: 150,
+  disabled: props.readOnly,
   group: {
     name: 'reading-order',
-    pull: 'clone' as const,
+    pull: props.readOnly ? false : 'clone' as const,
     put: false
   },
   sort: false,
@@ -445,7 +455,7 @@ const availableItemsSortableOptions = {
       regionRef: item.regionRef || item.id // Use regionRef if available, fallback to id
     }
   }
-}
+}))
 
 defineExpose({
   clearSelection,
@@ -484,7 +494,7 @@ defineExpose({
       <UButton
         size="xs"
         variant="ghost"
-        :disabled="!hasSelection"
+        :disabled="props.readOnly || !hasSelection"
         title="Group selected as Ordered (preserves sequence)"
         @click="groupSelectedItems(true)"
       >
@@ -495,7 +505,7 @@ defineExpose({
       <UButton
         size="xs"
         variant="ghost"
-        :disabled="!hasSelection"
+        :disabled="props.readOnly || !hasSelection"
         title="Group selected as Unordered (no specific sequence)"
         @click="groupSelectedItems(false)"
       >
@@ -513,7 +523,7 @@ defineExpose({
         size="xs"
         variant="ghost"
         color="error"
-        :disabled="selectedIds.size === 0"
+        :disabled="props.readOnly || selectedIds.size === 0"
         title="Remove selected items from reading order"
         @click="removeSelectedItems"
       >
@@ -537,6 +547,7 @@ defineExpose({
               :expanded-groups="expandedGroups"
               :all-items="allItems"
               :sortable-options="sortableOptions"
+              :read-only="readOnly"
               @update:elements="handleRootElementsUpdate"
               @item-click="handleItemClick"
               @toggle-expanded="toggleGroupExpanded"
@@ -581,6 +592,7 @@ defineExpose({
                   variant="ghost"
                   color="primary"
                   title="Add to reading order"
+                  :disabled="props.readOnly"
                   @click="addItemToListById(regionRef.id)"
                 >
                   <Icon name="i-lucide-plus" class="w-3 h-3" />

@@ -15,6 +15,7 @@ interface TreeItemProps {
   selectedPolylineIdSet?: Set<string>
   hiddenPolygonIdSet?: Set<string>
   hiddenPolylineIdSet?: Set<string>
+  readOnly?: boolean
   /** Enable focus management for keyboard navigation */
   isFocusable?: boolean
 }
@@ -30,6 +31,7 @@ const props = withDefaults(defineProps<TreeItemProps>(), {
   selectedPolylineIdSet: () => new Set<string>(),
   hiddenPolygonIdSet: () => new Set<string>(),
   hiddenPolylineIdSet: () => new Set<string>(),
+  readOnly: false,
   isFocusable: true
 })
 
@@ -158,6 +160,7 @@ function unhoverItem(): void {
 }
 
 function deleteItem(item: TreeItemData): void {
+  if (props.readOnly) return
   emit('delete-item', item.id)
 }
 
@@ -192,6 +195,7 @@ function handleKeyDown(event: KeyboardEvent): void {
     case 'Delete':
     case 'Backspace':
       event.preventDefault()
+      if (props.readOnly) break
       deleteItem(props.item)
       break
     case 'h':
@@ -262,6 +266,7 @@ function handleKeyDown(event: KeyboardEvent): void {
           <Icon :name="getItemVisibilityIconName(item)" class="h-3 w-3" />
         </button>
         <button
+          v-if="!readOnly"
           type="button"
           class="h-5 w-5 flex items-center justify-center rounded-sm hover:bg-muted hover:text-error transition-colors focus:outline-none focus:ring-1 focus:ring-default"
           :title="`Delete ${itemType}`"

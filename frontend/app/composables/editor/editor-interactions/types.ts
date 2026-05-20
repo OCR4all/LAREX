@@ -149,6 +149,7 @@ export interface PolylineEditing {
 }
 
 export interface CanvasControls {
+  isCanvasEditable?: { readonly value: boolean }
   viewMode?: Ref<string>
   handleUndo: () => void
   handleRedo: () => void

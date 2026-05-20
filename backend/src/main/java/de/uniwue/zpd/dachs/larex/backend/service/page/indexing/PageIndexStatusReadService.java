@@ -3,6 +3,8 @@ package de.uniwue.zpd.dachs.larex.backend.service.page.indexing;
 import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
@@ -16,11 +18,17 @@ import java.util.stream.Collectors;
 public class PageIndexStatusReadService {
 
     private final PageConfidenceIndexRepository pageConfidenceIndexRepository;
+    private final PageTextContentRepository pageTextContentRepository;
+    private final PageLabelIndexRepository pageLabelIndexRepository;
     private final PageIndexStatusTracker pageIndexStatusTracker;
 
     public PageIndexStatusReadService(PageConfidenceIndexRepository pageConfidenceIndexRepository,
+                                      PageTextContentRepository pageTextContentRepository,
+                                      PageLabelIndexRepository pageLabelIndexRepository,
                                       PageIndexStatusTracker pageIndexStatusTracker) {
         this.pageConfidenceIndexRepository = pageConfidenceIndexRepository;
+        this.pageTextContentRepository = pageTextContentRepository;
+        this.pageLabelIndexRepository = pageLabelIndexRepository;
         this.pageIndexStatusTracker = pageIndexStatusTracker;
     }
 
@@ -34,10 +42,7 @@ public class PageIndexStatusReadService {
                 .filter(id -> id != null && !id.isBlank())
                 .toList();
 
-        Set<String> indexedPageIds = pageIds.isEmpty()
-                ? Set.of()
-                : pageConfidenceIndexRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds).stream()
-                    .collect(Collectors.toSet());
+        Set<String> indexedPageIds = indexedPageIds(projectId, pageIds);
         Set<String> indexingPageIds = pageIndexStatusTracker.filterIndexing(pageIds);
 
         Map<String, PageDto.PageIndexingStatus> statuses = new LinkedHashMap<>();
@@ -59,7 +64,9 @@ public class PageIndexStatusReadService {
             return PageDto.PageIndexingStatus.NOT_APPLICABLE;
         }
 
-        if (pageConfidenceIndexRepository.existsByPageId(page.getId())) {
+        if (pageConfidenceIndexRepository.existsByPageId(page.getId())
+                || pageTextContentRepository.existsByPageId(page.getId())
+                || pageLabelIndexRepository.existsByPageId(page.getId())) {
             return PageDto.PageIndexingStatus.INDEXED;
         }
 
@@ -68,6 +75,18 @@ public class PageIndexStatusReadService {
         }
 
         return PageDto.PageIndexingStatus.UNINDEXED;
+    }
+
+    private Set<String> indexedPageIds(String projectId, List<String> pageIds) {
+        if (pageIds.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<String> indexedPageIds = pageConfidenceIndexRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds).stream()
+                .collect(Collectors.toSet());
+        indexedPageIds.addAll(pageTextContentRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds));
+        indexedPageIds.addAll(pageLabelIndexRepository.findIndexedPageIdsByProjectIdAndPageIds(projectId, pageIds));
+        return indexedPageIds;
     }
 
     private PageDto.PageIndexingStatus resolveStatus(Page page,
