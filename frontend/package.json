@@ -19,9 +19,9 @@
     "@codemirror/lint": "^6.9.6",
     "@codemirror/search": "^6.7.0",
     "@codemirror/state": "^6.6.0",
-    "@codemirror/view": "^6.42.0",
-    "@iconify-json/lucide": "^1.2.105",
-    "@iconify-json/simple-icons": "^1.2.81",
+    "@codemirror/view": "^6.43.0",
+    "@iconify-json/lucide": "^1.2.108",
+    "@iconify-json/simple-icons": "^1.2.82",
     "@lezer/highlight": "^1.2.3",
     "@nuxt/a11y": "1.0.0-alpha.1",
     "@nuxt/fonts": "0.11.4",
@@ -29,7 +29,7 @@
     "@nuxt/ui": "^4.7.1",
     "@nuxtjs/tailwindcss": "7.0.0-beta.1",
     "@pinia/nuxt": "0.11.2",
-    "@tailwindcss/vite": "^4.2.4",
+    "@tailwindcss/vite": "^4.3.0",
     "@tanstack/vue-virtual": "^3.13.24",
     "@types/diff-match-patch": "^1.0.36",
     "@types/sortablejs": "^1.15.9",
@@ -39,32 +39,32 @@
     "codemirror": "^6.0.2",
     "date-fns": "^4.1.0",
     "diff-match-patch": "^1.0.5",
-    "dockview-core": "^6.0.3",
-    "dockview-vue": "^6.0.3",
+    "dockview-core": "^6.2.2",
+    "dockview-vue": "^6.2.2",
     "driver.js": "^1.4.0",
     "earcut": "^3.0.2",
     "jwt-decode": "^4.0.0",
     "martinez-polygon-clipping": "^0.8.1",
-    "nuxt": "^4.4.4",
+    "nuxt": "^4.4.5",
     "nuxt-auth-utils": "0.5.23",
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "rbush": "^4.0.1",
     "sortablejs": "^1.15.7",
-    "tailwindcss": "^4.2.4",
+    "tailwindcss": "^4.3.0",
     "vue-draggable-plus": "^0.6.1",
-    "yaml": "^2.8.4",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
     "@types/earcut": "^3.0.0",
     "@types/rbush": "^4.0.0",
-    "eslint": "^10.3.0",
+    "eslint": "^10.4.0",
     "happy-dom": "^20.9.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.5",
-    "vue-tsc": "^3.2.8"
+    "vitest": "^4.1.6",
+    "vue-tsc": "^3.2.9"
   },
   "resolutions": {
     "unimport": "4.1.1"
@@ -83,5 +83,5 @@
       "vue-demi"
     ]
   },
-  "packageManager": "pnpm@11.1.1"
+  "packageManager": "pnpm@11.1.2"
 }

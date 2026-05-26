@@ -1,3 +1,5 @@
+minimumReleaseAge: 14400
+
 allowBuilds:
   '@parcel/watcher': true
   '@tailwindcss/oxide': true
