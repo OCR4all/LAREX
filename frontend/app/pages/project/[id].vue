@@ -2114,11 +2114,11 @@ function renderPageXmlIndicator(page: Page) {
   }, {
     default: () => h(UBadge, {
       'aria-label': 'XML available',
-      'color': 'neutral',
-      'variant': 'soft',
+      'color': 'primary',
+      'variant': 'outline',
       'size': 'sm',
       'class': 'px-1.5'
-    }, () => h(UIcon, { name: 'i-lucide-file-code-2', class: 'size-3.5' })),
+    }, () => h(UIcon, { name: 'i-material-symbols-code-xml-rounded', class: 'size-3.5' })),
     content: () => h('div', { class: 'p-2 text-sm text-highlighted' }, 'XML available')
   })
 }

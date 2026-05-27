@@ -195,9 +195,6 @@ defineExpose({
   }
 })
 
-const editorPreferences = useEditorPreferences()
-await editorPreferences.fetchPreferences()
-
 const { columnVisibility } = usePersistentTableColumnVisibility(
   computed(() => props.tableId),
   computed(() => normalizedColumns.value.filter(column => column.canHide).map(column => column.id)),

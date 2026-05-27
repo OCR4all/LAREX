@@ -1,5 +1,5 @@
 import type { VisibilityState } from '@tanstack/vue-table'
-import { computed, onMounted, ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import type { MaybeRefOrGetter } from 'vue'
 import { useEditorPreferences } from '@/composables/use-editor-preferences'
 
 function normalizeColumnIds(ids: string[]): string[] {
@@ -50,7 +50,6 @@ export function usePersistentTableColumnVisibility(
 
   const columnVisibility = ref<VisibilityState>({})
   const syncingFromPreferences = ref(false)
-  const preferencesReady = ref(editorPreferences.initialized.value)
 
   const tableId = computed(() => toValue(tableIdSource).trim())
   const columnIds = computed(() => normalizeColumnIds(toValue(columnIdsSource)))
@@ -61,7 +60,7 @@ export function usePersistentTableColumnVisibility(
   })
 
   const storedVisibility = computed<VisibilityState | null>(() => {
-    if (!preferencesReady.value || !tableId.value) return null
+    if (!editorPreferences.initialized.value || !tableId.value) return null
 
     const allTableVisibility = editorPreferences.preferences.value.tableColumnVisibility
     if (!allTableVisibility) return null
@@ -85,7 +84,7 @@ export function usePersistentTableColumnVisibility(
   }, { immediate: true })
 
   watch(columnVisibility, (nextState) => {
-    if (import.meta.server || syncingFromPreferences.value || !preferencesReady.value || !tableId.value) return
+    if (import.meta.server || syncingFromPreferences.value || !editorPreferences.initialized.value || !tableId.value) return
 
     const normalizedState = buildVisibilityState(columnIds.value, nextState)
     if (!areVisibilityStatesEqual(nextState, normalizedState)) {
@@ -109,11 +108,16 @@ export function usePersistentTableColumnVisibility(
     void editorPreferences.savePreferences({ tableColumnVisibility: nextTableColumnVisibility })
   }, { deep: true })
 
+  onServerPrefetch(async () => {
+    if (!editorPreferences.initialized.value) {
+      await editorPreferences.fetchPreferences()
+    }
+  })
+
   onMounted(async () => {
     if (!editorPreferences.initialized.value) {
       await editorPreferences.fetchPreferences()
     }
-    preferencesReady.value = true
   })
 
   return {
