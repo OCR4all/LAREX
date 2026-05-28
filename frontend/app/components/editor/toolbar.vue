@@ -109,37 +109,19 @@ const textModeSubmodeItems = computed<TabsItem[]>(() =>
   }))
 )
 
-function setFloatingToolbarOrientation(orientation: 'horizontal' | 'vertical') {
-  editorStore.setToolbarLayout('floating')
-  uiStore.setToolbarFloatingOrientation(orientation)
-}
-
 const toolbarLayoutItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
-      label: 'Floating Horizontal',
+      label: 'Floating',
       icon: 'i-lucide-panel-bottom-dashed',
       type: 'checkbox',
-      checked: editorStore.toolbarLayout === 'floating' && uiStore.toolbarFloatingOrientation === 'horizontal',
+      checked: editorStore.toolbarLayout === 'floating',
       onUpdateChecked(checked: boolean) {
-        if (checked) setFloatingToolbarOrientation('horizontal')
+        if (checked) editorStore.setToolbarLayout('floating')
       },
       onSelect(e: Event) {
         e.preventDefault()
-        setFloatingToolbarOrientation('horizontal')
-      }
-    },
-    {
-      label: 'Floating Vertical',
-      icon: 'i-lucide-panel-left-dashed',
-      type: 'checkbox',
-      checked: editorStore.toolbarLayout === 'floating' && uiStore.toolbarFloatingOrientation === 'vertical',
-      onUpdateChecked(checked: boolean) {
-        if (checked) setFloatingToolbarOrientation('vertical')
-      },
-      onSelect(e: Event) {
-        e.preventDefault()
-        setFloatingToolbarOrientation('vertical')
+        editorStore.setToolbarLayout('floating')
       }
     }
   ],
@@ -178,9 +160,7 @@ const toolbarLayoutItems = computed<DropdownMenuItem[][]>(() => [
 const toolbarLayoutIcon = computed(() => {
   switch (editorStore.toolbarLayout) {
     case 'floating':
-      return uiStore.toolbarFloatingOrientation === 'vertical'
-        ? 'i-lucide-panel-left-dashed'
-        : 'i-lucide-panel-bottom-dashed'
+      return 'i-lucide-panel-bottom-dashed'
     case 'docked-top':
       return 'i-lucide-panel-top'
     case 'docked-bottom':
@@ -207,7 +187,6 @@ const isFloating = computed(() => {
 
 const isVertical = computed(() => {
   return ['docked-left', 'docked-right'].includes(editorStore.toolbarLayout)
-    || (isFloating.value && uiStore.toolbarFloatingOrientation === 'vertical')
 })
 
 const toolbarStyle = computed(() => {
@@ -253,14 +232,6 @@ const floatingToolbarStyle = computed<CSSProperties | undefined>(() => {
     }
   }
 
-  if (uiStore.toolbarFloatingOrientation === 'vertical') {
-    return {
-      position: 'fixed',
-      left: '16px',
-      top: '96px'
-    }
-  }
-
   return {
     position: 'fixed',
     left: '50%',
@@ -295,10 +266,6 @@ function getDefaultFloatingPosition() {
   const { width, height } = getViewportSize()
   const toolbarWidth = rect?.width ?? 360
   const toolbarHeight = rect?.height ?? 48
-
-  if (uiStore.toolbarFloatingOrientation === 'vertical') {
-    return clampToolbarPosition(16, Math.round((height - toolbarHeight) / 2))
-  }
 
   return clampToolbarPosition(
     Math.round((width - toolbarWidth) / 2),
@@ -385,7 +352,7 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => [editorStore.toolbarLayout, uiStore.toolbarFloatingOrientation] as const,
+  () => editorStore.toolbarLayout,
   () => {
     if (!import.meta.client) return
     requestAnimationFrame(() => ensureFloatingToolbarPosition({ persist: false }))

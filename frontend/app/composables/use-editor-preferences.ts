@@ -1,4 +1,4 @@
-import type { ToolbarLayout, ToolbarFloatingOrientation, VirtualKeyboardMode, TextItemLayout } from '@/stores/editor/types'
+import type { ToolbarLayout, VirtualKeyboardMode, TextItemLayout } from '@/stores/editor/types'
 import type { ShortcutPreferences } from '@/composables/editor/shortcut-registry'
 
 type TableColumnVisibilityPreferences = Record<string, Record<string, boolean>>
@@ -8,7 +8,6 @@ export interface EditorPreferences {
   backgroundOpacity: number | null
   toolbarLayout: ToolbarLayout | null
   toolbarCompact: boolean | null
-  toolbarFloatingOrientation: ToolbarFloatingOrientation | null
   leftCollapsed: boolean | null
   rightCollapsed: boolean | null
   leftWidthPx: number | null
@@ -52,7 +51,6 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   backgroundOpacity: null,
   toolbarLayout: null,
   toolbarCompact: null,
-  toolbarFloatingOrientation: null,
   leftCollapsed: null,
   rightCollapsed: null,
   leftWidthPx: null,

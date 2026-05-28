@@ -36,9 +36,6 @@ public class EditorPreference {
     @Column(name = "toolbar_compact")
     private Boolean toolbarCompact;
 
-    @Column(name = "toolbar_floating_orientation")
-    private String toolbarFloatingOrientation;
-
     // Sidebar states
     @Column(name = "left_collapsed")
     private Boolean leftCollapsed;
@@ -160,9 +157,6 @@ public class EditorPreference {
 
     public Boolean getToolbarCompact() { return toolbarCompact; }
     public void setToolbarCompact(Boolean toolbarCompact) { this.toolbarCompact = toolbarCompact; }
-
-    public String getToolbarFloatingOrientation() { return toolbarFloatingOrientation; }
-    public void setToolbarFloatingOrientation(String toolbarFloatingOrientation) { this.toolbarFloatingOrientation = toolbarFloatingOrientation; }
 
     public Boolean getLeftCollapsed() { return leftCollapsed; }
     public void setLeftCollapsed(Boolean leftCollapsed) { this.leftCollapsed = leftCollapsed; }
