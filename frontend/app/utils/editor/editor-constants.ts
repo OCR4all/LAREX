@@ -95,6 +95,9 @@ export const RENDER_ALPHA = {
   /** Alpha for hover fill overlays */
   FILL_HOVER: 0.5,
 
+  /** Alpha for optional label-colored background fills on regions and textlines */
+  FILL_LABEL_BACKGROUND: 0.14,
+
   /** Alpha for invalid fill overlays */
   FILL_INVALID: 0.3,
 

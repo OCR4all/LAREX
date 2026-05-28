@@ -18,6 +18,7 @@ export interface EditorPreferences {
   constrainToImage: boolean | null
   constrainToParent: boolean | null
   autoSelect: boolean | null
+  showPolygonLabelFill: boolean | null
   preventOverlapOnCreate: boolean | null
   moveWithChildren: boolean | null
   cutMinAreaThreshold: number | null
@@ -63,6 +64,7 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   constrainToImage: null,
   constrainToParent: null,
   autoSelect: null,
+  showPolygonLabelFill: null,
   preventOverlapOnCreate: null,
   moveWithChildren: null,
   cutMinAreaThreshold: null,

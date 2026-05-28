@@ -76,6 +76,8 @@ export interface GlobalSettings {
   constrainToImage: boolean
   constrainToParent: boolean
   autoSelect: boolean
+  /** Show a light label-colored fill behind region and textline polygons. */
+  showPolygonLabelFill: boolean
   /** When creating regions/textlines, subtract overlaps from visible existing polygons. */
   preventOverlapOnCreate: boolean
   /** Minimum polygon area threshold for cut operations. Polygons below this area are auto-deleted. Default: 0.0001 (0.01% of normalized space) */

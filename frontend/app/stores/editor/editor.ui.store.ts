@@ -36,6 +36,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     constrainToImage: true,
     constrainToParent: true,
     autoSelect: false,
+    showPolygonLabelFill: true,
     preventOverlapOnCreate: false,
     cutMinAreaThreshold: 0.0001,
     moveWithChildren: true,
@@ -156,6 +157,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.constrainToImage !== null) globalSettings.value.constrainToImage = prefs.constrainToImage
     if (prefs.constrainToParent !== null) globalSettings.value.constrainToParent = prefs.constrainToParent
     if (prefs.autoSelect !== null) globalSettings.value.autoSelect = prefs.autoSelect
+    if (prefs.showPolygonLabelFill !== null) globalSettings.value.showPolygonLabelFill = prefs.showPolygonLabelFill
     if (prefs.preventOverlapOnCreate !== null) globalSettings.value.preventOverlapOnCreate = prefs.preventOverlapOnCreate
     if (prefs.moveWithChildren !== null) globalSettings.value.moveWithChildren = prefs.moveWithChildren
     if (prefs.cutMinAreaThreshold !== null) globalSettings.value.cutMinAreaThreshold = prefs.cutMinAreaThreshold
@@ -297,6 +299,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
       constrainToImage: globalSettings.value.constrainToImage,
       constrainToParent: globalSettings.value.constrainToParent,
       autoSelect: globalSettings.value.autoSelect,
+      showPolygonLabelFill: globalSettings.value.showPolygonLabelFill,
       preventOverlapOnCreate: globalSettings.value.preventOverlapOnCreate,
       cutMinAreaThreshold: globalSettings.value.cutMinAreaThreshold
     })
@@ -315,6 +318,11 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
   function toggleAutoSelect() {
     globalSettings.value.autoSelect = !globalSettings.value.autoSelect
     editorPreferences.updatePreference('autoSelect', globalSettings.value.autoSelect)
+  }
+
+  function togglePolygonLabelFill() {
+    globalSettings.value.showPolygonLabelFill = !globalSettings.value.showPolygonLabelFill
+    editorPreferences.updatePreference('showPolygonLabelFill', globalSettings.value.showPolygonLabelFill)
   }
 
   function togglePreventOverlapOnCreate() {
@@ -711,6 +719,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     toggleConstrainToImage,
     toggleConstrainToParent,
     toggleAutoSelect,
+    togglePolygonLabelFill,
     togglePreventOverlapOnCreate,
     toggleMoveWithChildren,
     setDefaultLineWidth,

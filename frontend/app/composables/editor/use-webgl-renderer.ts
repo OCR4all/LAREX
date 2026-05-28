@@ -109,11 +109,6 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     return LINE_WIDTH_PRESETS[preset] ?? LINE_WIDTH_PRESETS.normal
   }
 
-  function toPointOrNull(preview: { x: number | null, y: number | null }): Point | null {
-    if (preview.x === null || preview.y === null) return null
-    return { x: preview.x, y: preview.y }
-  }
-
   function getRotationForScale(scale: AspectRatioScale): { rotationCos: number, rotationSin: number } {
     const rotationCos = (typeof scale.rotationCos === 'number' && isFinite(scale.rotationCos)) ? scale.rotationCos : 1
     const rotationSin = (typeof scale.rotationSin === 'number' && isFinite(scale.rotationSin)) ? scale.rotationSin : 0
@@ -574,38 +569,52 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
    * Draw filled polygons with colors based on their labels
    */
   function drawPolygonFills(
-    polygons: RenderablePolygon[],
-    selectedPolygonIndex: Ref<number>,
+    renderState: RenderState,
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
     view: View,
     triangulatePolygon: (points: Point[]) => number[]
   ): void {
     if (!fillRenderer) return
+    if (!editorUiStore.globalSettings.showPolygonLabelFill) return
+    if (renderState.confidenceHeatmap?.enabled) return
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const document = getActiveDocument()
+    const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
+    const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
 
-    polygons.forEach((polygon, index) => {
-      if (index === selectedPolygonIndex.value) {
+    renderState.polygons.forEach((polygon, polygonIndex) => {
+      if (polygonIndex === renderState.selectedPolygonIndex.value) {
+        return
+      }
+      if (renderState.selectedPolygonIds.value.includes(polygon.id)) {
+        return
+      }
+      if (polygon.type !== PolygonType.REGION && polygon.type !== PolygonType.TEXTLINE) {
         return
       }
 
       if (
-        !visibilityService.shouldShowNonSelectedPolygon(polygon, {
-          selectedPolygonIndex: selectedPolygonIndex.value,
-          allPolygons: polygons,
-          viewMode: undefined,
+        !visibilityService.shouldShowPolygon(polygon, {
+          selectedPolygonIndex: renderState.selectedPolygonIndex.value,
+          selectedPolylineIndex: renderState.selectedPolylineIndex.value,
+          allPolygons: renderState.polygons,
+          allPolylines: renderState.polylines,
+          viewMode: normalizeViewMode(renderState.viewMode),
+          hiddenPolygonIds: hiddenPolygonIdSet,
+          hiddenPolylineIds: hiddenPolylineIdSet,
           temporaryHoverPolygonId: editorUiStore.temporaryHoverPolygonId
         })
       ) {
         return
       }
 
-      const color = getColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype, polygon.regionCustom)
+      const strokeColor = getStrokeColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype)
+      const color: RGBA = [strokeColor[0], strokeColor[1], strokeColor[2], RENDER_ALPHA.FILL_LABEL_BACKGROUND]
 
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
 
-      if (triangleIndices.length >= 3 && fillRenderer) {
+      if (triangleIndices.length >= 3) {
         fillRenderer.drawFill(polygon.points, triangleIndices, color, scale, view)
       }
     })
@@ -1004,7 +1013,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
     const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
 
-    renderState.polygons.forEach((polygon, index) => {
+    renderState.polygons.forEach((polygon) => {
       if (!selectedIds.has(polygon.id)) return
 
       if (
@@ -1735,6 +1744,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     drawBackgroundPolygons(renderState, aspectRatioScale, view)
     drawConfidenceHeatmapPolygons(renderState, aspectRatioScale, view, triangulatePolygon)
     drawActionProcessingTargets(renderState, aspectRatioScale, view, triangulatePolygon)
+    drawPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)
 
     drawNonSelectedPolygonOutlines(renderState, aspectRatioScale, view)
     drawMultiSelectedPolygonFills(renderState, aspectRatioScale, view, triangulatePolygon)

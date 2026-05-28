@@ -287,6 +287,13 @@ onBeforeUnmount(() => {
         />
       </div>
       <div class="flex items-center justify-between">
+        <span class="text-sm">Fill Regions & Textlines</span>
+        <USwitch
+          :model-value="editorUiStore.globalSettings.showPolygonLabelFill"
+          @update:model-value="toggleSetting(() => editorUiStore.togglePolygonLabelFill())"
+        />
+      </div>
+      <div class="flex items-center justify-between">
         <span class="text-sm">Prevent Overlap</span>
         <USwitch
           :model-value="editorUiStore.globalSettings.preventOverlapOnCreate"
