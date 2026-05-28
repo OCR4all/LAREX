@@ -88,9 +88,6 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
-const LEFT_RAIL_WIDTH_PX = 64
-const RIGHT_RAIL_WIDTH_PX = 48
-
 const MIN_LEFT_WIDTH_PX = 250
 const MAX_LEFT_WIDTH_PX = 500
 const MIN_RIGHT_WIDTH_PX = 250
@@ -1234,6 +1231,7 @@ const isSavingActiveCanvas = computed(() => {
   return editorStore.canvases[id]?.isSavingAnnotations === true
 })
 const activeUiMode = computed(() => editorStore.effectiveUiMode(activeCanvasId.value))
+const useFloatingCollapsedSidebars = computed(() => activeUiMode.value !== 'text' || editorUiStore.textModeSubmode === 'visual')
 
 watch(activeUiMode, (mode) => {
   if (mode !== 'text') return
@@ -2559,7 +2557,8 @@ const onReady = (event: DockviewReadyEvent) => {
     <EditorLeftSidebar
       v-model:page-name-filter="pageNameFilter"
       v-model:filter-popover-open="editorFilterPopoverOpen"
-      :left-rail-width-px="LEFT_RAIL_WIDTH_PX"
+      :left-rail-width-px="64"
+      :use-floating-collapsed="useFloatingCollapsedSidebars"
       :logo-menu-items="logoMenuItems"
       :current-project-id="currentProjectId"
       :available-labels="availableLabelsForFilter"
@@ -2670,7 +2669,8 @@ const onReady = (event: DockviewReadyEvent) => {
     </div>
 
     <EditorRightSidebar
-      :right-rail-width-px="RIGHT_RAIL_WIDTH_PX"
+      :right-rail-width-px="48"
+      :use-floating-collapsed="useFloatingCollapsedSidebars"
       :is-saving-active-canvas="isSavingActiveCanvas"
       :can-edit-active-canvas="activeCanvasCanEdit"
       :can-open-active-canvas-xml-editor="canOpenActiveCanvasXmlEditor"
