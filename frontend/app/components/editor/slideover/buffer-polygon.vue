@@ -69,7 +69,7 @@ const cancel = () => emit('close', null)
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     :open="true"
     :modal="false"
     :close="{ onClick: cancel }"
@@ -120,5 +120,5 @@ const cancel = () => emit('close', null)
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

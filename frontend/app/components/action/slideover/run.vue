@@ -451,7 +451,7 @@ function close() {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :ui="{ content: 'max-w-3xl' }"
     :close="{ onClick: close }"
@@ -776,5 +776,5 @@ function close() {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

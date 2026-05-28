@@ -79,7 +79,7 @@ const transferTypeOptions = [
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     @close="emit('close', false)"
   >
     <template #header>
@@ -138,5 +138,5 @@ const transferTypeOptions = [
         </UButton>
       </UForm>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

@@ -60,7 +60,7 @@ function ensureFileState(fileName: string): PdfPrefixState {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close', null) }"
   >
@@ -121,5 +121,5 @@ function ensureFileState(fileName: string): PdfPrefixState {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

@@ -290,7 +290,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     v-bind="attrs"
     side="right"
     :dismissible="!lightboxOpen"
@@ -588,7 +588,7 @@ onUnmounted(() => {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>
 
 <style scoped>

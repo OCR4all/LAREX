@@ -73,7 +73,7 @@ async function confirmBulkDelete() {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close', null) }"
   >
@@ -146,5 +146,5 @@ async function confirmBulkDelete() {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

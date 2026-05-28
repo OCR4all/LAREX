@@ -28,7 +28,7 @@ const hiddenCount = computed(() => Math.max(0, props.pages.length - visiblePages
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close', 'cancel') }"
   >
@@ -84,5 +84,5 @@ const hiddenCount = computed(() => Math.max(0, props.pages.length - visiblePages
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

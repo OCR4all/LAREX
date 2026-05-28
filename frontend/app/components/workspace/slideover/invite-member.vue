@@ -106,7 +106,7 @@ function handleClose() {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     :close="{ onClick: handleClose }"
   >
     <template #header>
@@ -198,5 +198,5 @@ function handleClose() {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

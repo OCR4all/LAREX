@@ -151,7 +151,7 @@ function handleOpenChange(open: boolean) {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     :open="open"
     :close="{ onClick: () => emit('close') }"
     @update:open="handleOpenChange"
@@ -417,5 +417,5 @@ function handleOpenChange(open: boolean) {
         </template>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

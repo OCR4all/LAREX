@@ -360,7 +360,7 @@ onMounted(load)
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-6xl' }"
     :close="{ onClick: () => emit('close', null) }"
@@ -531,5 +531,5 @@ onMounted(load)
         </div>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

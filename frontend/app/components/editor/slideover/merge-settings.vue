@@ -30,7 +30,7 @@ const cancel = () => emit('close', null)
 </script>
 
 <template>
-  <USlideover :close="{ onClick: cancel }">
+  <UiResponsiveSlideover :close="{ onClick: cancel }">
     <template #header>
       <UiSlideoverHeader title="Merge Settings" icon="i-lucide-merge" />
     </template>
@@ -60,5 +60,5 @@ const cancel = () => emit('close', null)
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

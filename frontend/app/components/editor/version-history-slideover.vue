@@ -102,7 +102,7 @@ async function handleRestore(version: PageXmlVersion) {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close', 'closed') }"
   >
@@ -173,5 +173,5 @@ async function handleRestore(version: PageXmlVersion) {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

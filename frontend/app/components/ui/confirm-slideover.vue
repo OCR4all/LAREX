@@ -24,7 +24,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close', false) }"
   >
@@ -67,5 +67,5 @@ const emit = defineEmits<{
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

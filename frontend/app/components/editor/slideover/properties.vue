@@ -48,7 +48,7 @@ const canToggleReadingOrder = computed(() => {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close') }"
   >
@@ -122,5 +122,5 @@ const canToggleReadingOrder = computed(() => {
         </UPageCard>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

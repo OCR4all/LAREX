@@ -57,7 +57,7 @@ const targetItems = computed<DeleteSlideoverItem[]>(() => {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close', false) }"
   >
@@ -128,5 +128,5 @@ const targetItems = computed<DeleteSlideoverItem[]>(() => {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

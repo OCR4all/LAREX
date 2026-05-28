@@ -252,7 +252,7 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     data-tour="task-form"
     :close="{ onClick: () => emit('close') }"
   >
@@ -389,5 +389,5 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

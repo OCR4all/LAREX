@@ -273,7 +273,7 @@ function closeWithResult() {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :close="{ onClick: () => emit('close', null) }"
   >
@@ -630,5 +630,5 @@ function closeWithResult() {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

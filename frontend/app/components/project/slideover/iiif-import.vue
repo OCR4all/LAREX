@@ -582,7 +582,7 @@ function applyCanvasRange() {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     side="right"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-[92vw] xl:max-w-[1120px] flex flex-col' }"
     :close="{ onClick: () => close(shouldRefreshProjectPages()) }"
@@ -1091,5 +1091,5 @@ function applyCanvasRange() {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

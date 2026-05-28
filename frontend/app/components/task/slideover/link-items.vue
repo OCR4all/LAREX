@@ -312,7 +312,7 @@ const columns: TableColumn<Page>[] = [
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     :close="{ onClick: () => emit('close') }"
   >
     <template #header>
@@ -471,5 +471,5 @@ const columns: TableColumn<Page>[] = [
         </div>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

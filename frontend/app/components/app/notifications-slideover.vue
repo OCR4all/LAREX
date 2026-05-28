@@ -178,7 +178,7 @@ async function handleArchiveAllRead() {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     v-model:open="isNotificationsSlideoverOpen"
     side="right"
     :ui="{ overlay: 'z-[60]', content: 'z-[60]' }"
@@ -399,5 +399,5 @@ async function handleArchiveAllRead() {
         </div>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

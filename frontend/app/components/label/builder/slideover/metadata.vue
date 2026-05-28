@@ -10,7 +10,7 @@ const handleSave = () => {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     :close="{ onClick: () => emit('close') }"
   >
     <template #header>
@@ -61,5 +61,5 @@ const handleSave = () => {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

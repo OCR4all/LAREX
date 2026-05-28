@@ -192,7 +192,7 @@ const headerTitle = computed(() => props.title || `Glyph Picker${total.value ? `
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     :ui="{ content: 'max-w-7/8 md:max-w-6/8 xl:max-w-4/8' }"
     side="left"
     :close="{ onClick: () => emit('close', null) }"
@@ -230,5 +230,5 @@ const headerTitle = computed(() => props.title || `Glyph Picker${total.value ? `
         </div>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

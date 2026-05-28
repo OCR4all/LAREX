@@ -21,6 +21,7 @@ import {
 import DiffMatchPatch from 'diff-match-patch'
 import type { Diff } from 'diff-match-patch'
 import type { DropdownMenuItem, BreadcrumbItem } from '@nuxt/ui'
+import { useMediaQuery } from '@vueuse/core'
 import type { Subtask } from '~/types/index'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { createPageXmlLabelSet } from '@/models/editor'
@@ -830,29 +831,6 @@ async function downloadProjectRelease(release: ProjectPackageRelease) {
   }
 }
 
-function getReleaseCardItems(release: ProjectPackageRelease): DropdownMenuItem[] {
-  const isReady = release.status === 'READY'
-  const items: DropdownMenuItem[] = [
-    {
-      label: 'Download',
-      icon: 'i-lucide-download',
-      disabled: !isReady,
-      onSelect: () => { void downloadProjectRelease(release) }
-    }
-  ]
-
-  if (allow(projectCapabilities.value.canShare)) {
-    items.unshift({
-      label: 'Share',
-      icon: 'i-lucide-key-round',
-      disabled: !isReady,
-      onSelect: () => { void openReleaseShare(release) }
-    })
-  }
-
-  return items
-}
-
 async function exportProjectOutput(scope: ProjectActionScope = 'all') {
   if (!selectedWorkspace.value || !project.value) return
 
@@ -1109,6 +1087,26 @@ const nextReleaseTag = computed(() => {
 })
 
 const isReleaseSidebarVisible = ref(false)
+const isReleaseSlideoverOpen = ref(false)
+const useReleaseSidebarLayout = useMediaQuery('(min-width: 1280px)')
+const isReleasePanelVisible = computed(() =>
+  useReleaseSidebarLayout.value ? isReleaseSidebarVisible.value : isReleaseSlideoverOpen.value
+)
+
+function toggleReleasePanel() {
+  if (useReleaseSidebarLayout.value) {
+    isReleaseSidebarVisible.value = !isReleaseSidebarVisible.value
+    return
+  }
+
+  isReleaseSlideoverOpen.value = !isReleaseSlideoverOpen.value
+}
+
+watch(useReleaseSidebarLayout, (useSidebar) => {
+  if (useSidebar) {
+    isReleaseSlideoverOpen.value = false
+  }
+})
 
 const releasesForSidebar = computed(() => {
   const source = [...(releases.value ?? [])]
@@ -2671,11 +2669,11 @@ useHead({
 
           <UButton
             color="neutral"
-            variant="ghost"
+            :variant="isReleasePanelVisible ? 'soft' : 'ghost'"
             size="sm"
-            :icon="isReleaseSidebarVisible ? 'i-lucide-panel-right-close' : 'i-lucide-panel-right-open'"
-            :aria-label="isReleaseSidebarVisible ? 'Hide release sidebar' : 'Show release sidebar'"
-            @click="isReleaseSidebarVisible = !isReleaseSidebarVisible"
+            icon="i-lucide-box"
+            :aria-label="isReleasePanelVisible ? 'Hide releases' : 'Show releases'"
+            @click="toggleReleasePanel"
           >
             Releases
           </UButton>
@@ -2926,109 +2924,51 @@ useHead({
 
           <aside
             v-if="isReleaseSidebarVisible"
-            class="w-full shrink-0 border-t border-default bg-muted/40 xl:w-[340px] xl:self-stretch xl:border-l xl:border-t-0"
+            class="hidden w-[340px] shrink-0 self-stretch border-l border-default bg-muted/40 xl:block"
           >
-            <div class="h-full space-y-5 p-4">
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2 text-sm font-semibold text-highlighted">
-                  <UIcon name="i-lucide-box" class="size-4 text-muted" />
-                  <span>Releases</span>
-                </div>
-                <UButton
-                  v-if="canShareProject"
-                  color="neutral"
-                  variant="solid"
-                  size="xs"
-                  icon="i-lucide-plus"
-                  @click="openCreateRelease"
-                >
-                  New Release
-                </UButton>
-              </div>
-
-              <p class="text-xs text-muted">
-                {{ releaseSidebarSummary }}
-              </p>
-
-              <USeparator />
-
-              <UAlert
-                v-if="releasesError"
-                color="error"
-                variant="soft"
-                icon="i-lucide-alert-circle"
-                :title="extractApiErrorMessage(releasesError, 'Failed to load releases')"
-              />
-
-              <div v-if="releasesPending && releasesForSidebar.length === 0" class="flex items-center gap-2 py-3 text-sm text-muted">
-                <UIcon name="i-lucide-loader-2" class="size-4 animate-spin" />
-                <span>Loading releases...</span>
-              </div>
-
-              <div v-else-if="releasesForSidebar.length === 0" class="rounded-lg border border-dashed border-default p-4 text-sm text-muted">
-                No releases yet.
-              </div>
-
-              <div v-else class="space-y-2">
-                <div
-                  v-for="release in releasesForSidebar"
-                  :key="release.id"
-                  :class="[
-                    'px-3 py-3',
-                    release.id === latestReleaseId
-                      ? 'rounded-xl border border-default bg-default'
-                      : 'rounded-lg'
-                  ]"
-                >
-                  <div class="flex items-start justify-between gap-2">
-                    <div class="min-w-0 flex items-center gap-2">
-                      <UIcon name="i-lucide-git-branch" class="size-4 text-muted" />
-                      <p class="truncate text-sm font-semibold text-highlighted">
-                        {{ release.versionTag }}
-                      </p>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <UBadge
-                        v-if="release.id === latestReleaseId"
-                        color="success"
-                        variant="soft"
-                        size="sm"
-                      >
-                        Latest
-                      </UBadge>
-
-                      <UDropdownMenu
-                        :items="getReleaseCardItems(release)"
-                        :content="{ align: 'end' }"
-                      >
-                        <UButton
-                          icon="i-lucide-ellipsis-vertical"
-                          color="neutral"
-                          variant="ghost"
-                          size="xs"
-                        />
-                      </UDropdownMenu>
-                    </div>
-                  </div>
-
-                  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-                    <span class="inline-flex items-center gap-1">
-                      <UIcon name="i-lucide-clock-3" class="size-3.5" />
-                      {{ formatDate(release.created) }}
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                      <UIcon name="i-lucide-file-text" class="size-3.5" />
-                      {{ release.pageCount }} pages
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ProjectReleasePanel
+              :releases="releasesForSidebar"
+              :pending="releasesPending"
+              :error="releasesError"
+              :summary="releaseSidebarSummary"
+              :latest-release-id="latestReleaseId"
+              :can-share="canShareProject"
+              @create="openCreateRelease"
+              @share="openReleaseShare"
+              @download="downloadProjectRelease"
+            />
           </aside>
         </div>
       </div>
     </template>
   </UDashboardPanel>
+
+  <UiResponsiveSlideover
+    v-model:open="isReleaseSlideoverOpen"
+    side="bottom"
+    :ui="{ content: 'max-h-[85svh]', body: 'p-0 sm:p-0' }"
+  >
+    <template #header>
+      <UiSlideoverHeader
+        title="Releases"
+        icon="i-lucide-box"
+      />
+    </template>
+
+    <template #body>
+      <ProjectReleasePanel
+        :releases="releasesForSidebar"
+        :pending="releasesPending"
+        :error="releasesError"
+        :summary="releaseSidebarSummary"
+        :latest-release-id="latestReleaseId"
+        :can-share="canShareProject"
+        @create="openCreateRelease"
+        @share="openReleaseShare"
+        @download="downloadProjectRelease"
+      />
+    </template>
+  </UiResponsiveSlideover>
 
   <UModal v-model:open="isDictionaryValidationModalOpen" title="Dictionary Validation">
     <template #body>
@@ -3106,7 +3046,7 @@ useHead({
     </template>
   </UModal>
 
-  <USlideover
+  <UiResponsiveSlideover
     v-model:open="isNormalizationPreviewSlideoverOpen"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-6xl' }"
   >
@@ -3395,9 +3335,9 @@ useHead({
         </div>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 
-  <USlideover
+  <UiResponsiveSlideover
     v-model:open="isNormalizationRulesSlideoverOpen"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-4xl' }"
   >
@@ -3544,7 +3484,7 @@ useHead({
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 
   <UModal v-model:open="isValidationRulesetModalOpen" title="Validation Ruleset Results">
     <template #body>

@@ -198,7 +198,7 @@ function normalizeDateTimeLocal(value: string) {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     :close="{ onClick: () => emit('close', changed) }"
   >
     <template #header>
@@ -384,5 +384,5 @@ function normalizeDateTimeLocal(value: string) {
         </UButton>
       </div>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>

@@ -222,7 +222,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <USlideover
+  <UiResponsiveSlideover
     @close="emit('close', false)"
   >
     <template #header>
@@ -380,5 +380,5 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         </UButton>
       </UForm>
     </template>
-  </USlideover>
+  </UiResponsiveSlideover>
 </template>
