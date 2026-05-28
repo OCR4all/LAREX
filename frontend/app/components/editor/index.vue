@@ -1631,6 +1631,12 @@ function toggleCorrectionOverlaySnapToLine(): void {
   canvasTextCorrectionSnapToLine.value = next
 }
 
+function zoomCorrectionOverlayToFit(): void {
+  const textlineId = selectedTextlinePolygon.value?.id ?? null
+  if (!textlineId) return
+  canvasControls.selectPolygonById?.(textlineId, { focusMode: 'fit-width' })
+}
+
 function getPersistedCorrectionZoom(): number | null {
   const parsed = Number(editorUiStore.canvasTextCorrectionZoom)
   if (!Number.isFinite(parsed)) return null
@@ -2729,6 +2735,16 @@ watch(() => props.src, (newSrc) => {
               @click="toggleCorrectionOverlaySnapToLine"
             >
               Snap
+            </UButton>
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-scan-search"
+              title="Zoom to fit the selected line"
+              @click="zoomCorrectionOverlayToFit"
+            >
+              Fit
             </UButton>
             <span class="font-medium text-muted">GT #{{ activeGtIndex }}</span>
             <span class="text-muted">{{ correctionFontSizePx }}px</span>
