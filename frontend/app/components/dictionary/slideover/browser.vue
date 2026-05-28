@@ -19,7 +19,11 @@ const { data: dictionary } = await useFetch<Dictionary>(
 </script>
 
 <template>
-  <USlideover :title="dictionary?.name || 'Dictionary'" @close="emit('close')">
+  <USlideover @close="emit('close')">
+    <template #header>
+      <UiSlideoverHeader :title="dictionary?.name || 'Dictionary'" icon="i-lucide-book-open" />
+    </template>
+
     <template #body>
       <div class="space-y-4">
         <div class="flex items-center justify-between gap-3">

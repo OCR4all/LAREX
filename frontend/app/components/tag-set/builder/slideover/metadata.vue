@@ -19,9 +19,12 @@ const handleSave = () => {
 
 <template>
   <USlideover
-    title="Tag Set Settings"
     :close="{ onClick: () => emit('close') }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Tag Set Settings" icon="i-lucide-settings" />
+    </template>
+
     <template #body>
       <div class="space-y-6">
         <UFormField label="Name" required>

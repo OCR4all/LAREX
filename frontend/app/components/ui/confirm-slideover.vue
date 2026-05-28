@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   title?: string
   message?: string
   confirmLabel?: string
@@ -26,9 +26,16 @@ const emit = defineEmits<{
 <template>
   <USlideover
     side="right"
-    :title="title"
     :close="{ onClick: () => emit('close', false) }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        :title="title"
+        :icon="confirmIcon || 'i-lucide-circle-help'"
+        :icon-class="confirmColor === 'error' ? 'text-error' : confirmColor === 'warning' ? 'text-warning' : undefined"
+      />
+    </template>
+
     <template #body>
       <div class="flex flex-col gap-4 max-w-lg mx-auto">
         <p class="text-muted">

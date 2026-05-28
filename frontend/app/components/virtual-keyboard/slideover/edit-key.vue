@@ -33,10 +33,13 @@ const cancel = () => emit('close', null)
 <template>
   <USlideover
     :modal="false"
-    title="Edit Key"
     side="left"
     :close="{ onClick: cancel }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Edit Key" icon="i-lucide-keyboard" />
+    </template>
+
     <template #body>
       <div class="flex flex-col gap-4">
         <div class="grid grid-cols-2 gap-3">

@@ -47,7 +47,11 @@ function resetToDefault() {
 </script>
 
 <template>
-  <USlideover :close="{ onClick: () => emit('close') }" title="Edit Storage Quota">
+  <USlideover :close="{ onClick: () => emit('close') }">
+    <template #header>
+      <UiSlideoverHeader title="Edit Storage Quota" icon="i-lucide-database" />
+    </template>
+
     <template #body>
       <div class="space-y-6">
         <div>

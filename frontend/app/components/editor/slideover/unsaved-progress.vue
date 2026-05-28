@@ -30,9 +30,12 @@ const hiddenCount = computed(() => Math.max(0, props.pages.length - visiblePages
 <template>
   <USlideover
     side="right"
-    :title="title"
     :close="{ onClick: () => emit('close', 'cancel') }"
   >
+    <template #header>
+      <UiSlideoverHeader :title="title" icon="i-lucide-save" />
+    </template>
+
     <template #body>
       <div class="flex flex-col gap-4 max-w-lg mx-auto">
         <p class="text-muted">

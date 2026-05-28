@@ -263,6 +263,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} workspace${count === 1 ? '' : 's'}`,
     entityType: 'Workspace',
+    items: selectedWorkspaces.value.map(workspace => ({ id: workspace.id, label: workspace.name })),
     warningMessage: 'This action cannot be undone. This will permanently delete the selected workspaces, all projects, and remove all member associations.'
   })
   const confirmed = await instance.result

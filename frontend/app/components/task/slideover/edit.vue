@@ -254,9 +254,15 @@ function getDisplayName(user: UserProfile & { displayName?: string }) {
 <template>
   <USlideover
     data-tour="task-form"
-    :title="titleText"
     :close="{ onClick: () => emit('close') }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        :title="titleText"
+        :icon="isEditing ? 'i-lucide-pencil' : 'i-lucide-clipboard-plus'"
+      />
+    </template>
+
     <template #body>
       <div v-if="isLoading" class="flex items-center justify-center py-8">
         <UIcon name="i-lucide-loader-2" class="size-6 animate-spin text-muted" />

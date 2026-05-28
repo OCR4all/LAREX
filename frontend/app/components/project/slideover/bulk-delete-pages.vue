@@ -2,7 +2,7 @@
 const props = defineProps<{
   projectId: string
   projectName?: string
-  pages: Array<{ id: string, name: string }>
+  pages: Array<{ id: string, name: string, xmlFileCount?: number }>
 }>()
 
 const emit = defineEmits<{
@@ -12,11 +12,21 @@ const emit = defineEmits<{
 const toast = useToast()
 const isDeleting = ref(false)
 
+const pageLabelCollator = new Intl.Collator(undefined, { sensitivity: 'base' })
+
+function pageLabel(page: { id: string, name: string }) {
+  return page.name || page.id
+}
+
 const orderedPages = computed(() => {
-  return [...props.pages].sort((a, b) => a.name.localeCompare(b.name))
+  return [...props.pages].sort((a, b) => pageLabelCollator.compare(pageLabel(a), pageLabel(b)))
 })
 
 const requestedCount = computed(() => orderedPages.value.length)
+
+function hasXml(page: { xmlFileCount?: number }) {
+  return (page.xmlFileCount ?? 0) > 0
+}
 
 async function confirmBulkDelete() {
   const progressToast = toast.add({
@@ -65,11 +75,22 @@ async function confirmBulkDelete() {
 <template>
   <USlideover
     side="right"
-    title="Delete Pages"
-    class="bg-linear-to-tl from-error/5 from-5% to-default"
-    description="This action cannot be undone."
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <div class="flex min-w-0 items-start gap-2 pr-8">
+        <UIcon name="i-lucide-trash-2" class="mt-0.5 size-5 shrink-0 text-error" />
+        <div class="min-w-0">
+          <h2 class="text-highlighted font-semibold">
+            Delete Pages
+          </h2>
+          <p class="mt-1 text-muted text-sm">
+            This action cannot be undone.
+          </p>
+        </div>
+      </div>
+    </template>
+
     <template #body>
       <div class="space-y-4">
         <div class="flex items-start gap-3 p-4 bg-error/10 border border-error/30 rounded-sm">
@@ -84,13 +105,22 @@ async function confirmBulkDelete() {
           </div>
         </div>
 
-        <div class="h-full shadow-inner overflow-y-auto border border-neutral-200 dark:border-neutral-700 rounded-sm divide-y divide-neutral-200 dark:divide-neutral-700">
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(6.75rem,1fr))] gap-2">
           <div
             v-for="p in orderedPages"
             :key="p.id"
-            class="px-3 py-2 text-sm"
+            class="flex min-w-0 items-center gap-1.5 rounded-sm border border-neutral-200 bg-default px-2.5 py-1.5 text-xs dark:border-neutral-700"
           >
-            {{ p.name || p.id }}
+            <UTooltip
+              v-if="hasXml(p)"
+              text="XML available"
+            >
+              <UIcon
+                name="i-material-symbols-code-xml-rounded"
+                class="size-3.5 shrink-0 text-primary"
+              />
+            </UTooltip>
+            <span class="min-w-0 truncate">{{ pageLabel(p) }}</span>
           </div>
         </div>
       </div>
@@ -106,7 +136,7 @@ async function confirmBulkDelete() {
           Cancel
         </UButton>
         <UButton
-          variant="subtle"
+          variant="solid"
           icon="i-lucide-trash"
           color="error"
           :loading="isDeleting"

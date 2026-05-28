@@ -362,10 +362,13 @@ onMounted(load)
 <template>
   <USlideover
     side="right"
-    title="Add Selected Pages To Dataset"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-6xl' }"
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Add Selected Pages To Dataset" icon="i-lucide-database" />
+    </template>
+
     <template #body>
       <div v-if="loading" class="space-y-4">
         <USkeleton class="h-20 w-full rounded-lg" />

@@ -498,6 +498,7 @@ async function handleDeleteSelectedProjects() {
   const instance = deleteSlideover.open({
     name: `${count} project${count === 1 ? '' : 's'}`,
     entityType: 'Project',
+    items: projectsToDelete.map(project => ({ id: project.id, label: project.name })),
     warningDetails: [
       'All associated images and XML files',
       'All project history and annotations'

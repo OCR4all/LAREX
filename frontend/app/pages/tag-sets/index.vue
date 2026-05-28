@@ -186,6 +186,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} tag set${count === 1 ? '' : 's'}`,
     entityType: 'Tag Set',
+    items: selectedTagSets.value.map(tagSet => ({ id: tagSet.id, label: tagSet.name })),
     warningMessage: 'This action cannot be undone. All projects using these tag sets will lose their tag structure reference.'
   })
   const confirmed = await instance.result

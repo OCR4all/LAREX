@@ -181,9 +181,12 @@ async function handleArchiveAllRead() {
   <USlideover
     v-model:open="isNotificationsSlideoverOpen"
     side="right"
-    title="Notifications"
     :ui="{ overlay: 'z-[60]', content: 'z-[60]' }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Notifications" icon="i-lucide-bell" />
+    </template>
+
     <template #body>
       <div class="space-y-6">
         <div v-if="invitations.length > 0">

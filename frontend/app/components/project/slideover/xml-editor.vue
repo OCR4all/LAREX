@@ -291,9 +291,12 @@ async function closeWithGuard() {
   <USlideover
     side="right"
     :ui="{ content: 'max-w-7/8' }"
-    :title="title"
     :close="{ onClick: closeWithGuard }"
   >
+    <template #header>
+      <UiSlideoverHeader :title="title" icon="i-lucide-file-pen-line" />
+    </template>
+
     <template #body>
       <div v-if="loading" class="flex flex-col gap-3">
         <USkeleton class="h-10 w-full" />

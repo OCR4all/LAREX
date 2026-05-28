@@ -195,9 +195,12 @@ const headerTitle = computed(() => props.title || `Glyph Picker${total.value ? `
   <USlideover
     :ui="{ content: 'max-w-7/8 md:max-w-6/8 xl:max-w-4/8' }"
     side="left"
-    :title="headerTitle"
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader :title="headerTitle" icon="i-lucide-type" />
+    </template>
+
     <template #body>
       <div class="flex h-full min-h-0 flex-col gap-4">
         <div class="space-y-3 px-2">

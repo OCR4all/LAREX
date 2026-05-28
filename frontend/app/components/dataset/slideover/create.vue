@@ -159,9 +159,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <USlideover
-    title="Create Dataset"
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Create Dataset" icon="i-lucide-plus" />
+    </template>
+
     <template #body>
       <UForm
         ref="formRef"

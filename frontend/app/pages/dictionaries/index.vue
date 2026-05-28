@@ -177,6 +177,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} dictionar${count === 1 ? 'y' : 'ies'}`,
     entityType: 'Dictionary',
+    items: selectedDictionaries.value.map(dictionary => ({ id: dictionary.id, label: dictionary.name })),
     warningMessage: 'This action cannot be undone. Projects using these dictionaries will lose the dictionary reference.'
   })
   const confirmed = await instance.result

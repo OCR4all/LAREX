@@ -300,6 +300,7 @@ onUnmounted(() => {
     <template #header>
       <div class="flex items-center justify-between w-full gap-4">
         <div class="flex items-center gap-2 min-w-0 flex-1">
+          <UIcon name="i-lucide-images" class="size-5 shrink-0 text-muted" />
           <UButton
             v-if="hasMultiplePages"
             icon="i-lucide-chevron-left"

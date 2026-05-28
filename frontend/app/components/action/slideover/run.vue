@@ -454,10 +454,12 @@ function close() {
   <USlideover
     side="right"
     :ui="{ content: 'max-w-3xl' }"
-    title="Run Action"
-    icon="i-lucide-play"
     :close="{ onClick: close }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Run Action" icon="i-lucide-play" />
+    </template>
+
     <template #body>
       <div class="space-y-5">
         <div class="space-y-4">

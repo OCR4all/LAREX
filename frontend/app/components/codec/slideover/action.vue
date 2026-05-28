@@ -715,11 +715,17 @@ function closeWithResult() {
 
 <template>
   <USlideover
-    :title="mode === 'generate' ? 'Generate Codec From Sources' : 'Validate Codec Against Sources'"
-    :description="'Analyze characters from selected project scopes.'"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-6xl' }"
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        :title="mode === 'generate' ? 'Generate Codec From Sources' : 'Validate Codec Against Sources'"
+        :icon="mode === 'generate' ? 'i-lucide-wand-sparkles' : 'i-lucide-badge-check'"
+        description="Analyze characters from selected project scopes."
+      />
+    </template>
+
     <template #body>
       <div class="space-y-4">
         <UCard>

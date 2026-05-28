@@ -584,10 +584,13 @@ function applyCanvasRange() {
 <template>
   <USlideover
     side="right"
-    title="Import IIIF"
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-[92vw] xl:max-w-[1120px] flex flex-col' }"
     :close="{ onClick: () => close(shouldRefreshProjectPages()) }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Import IIIF" icon="i-lucide-image-plus" />
+    </template>
+
     <template #body>
       <div class="space-y-5">
         <template v-if="currentStep === 'source'">

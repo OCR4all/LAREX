@@ -176,6 +176,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} dataset${count === 1 ? '' : 's'}`,
     entityType: 'Dataset',
+    items: selectedDatasets.value.map(dataset => ({ id: dataset.id, label: dataset.name })),
     warningMessage: 'This action cannot be undone. Frozen dataset copies will be deleted from storage.'
   })
   const confirmed = await instance.result

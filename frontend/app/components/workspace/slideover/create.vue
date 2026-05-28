@@ -147,9 +147,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <USlideover
-    title="Create Workspace"
     :close="{ onClick: () => emit('close', false) }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Create Workspace" icon="i-bxs-layer-plus" />
+    </template>
+
     <template #body>
       <UForm
         :schema="schema"

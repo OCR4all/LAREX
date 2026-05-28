@@ -152,6 +152,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} validation ruleset${count === 1 ? '' : 's'}`,
     entityType: 'Validation Ruleset',
+    items: selectedRulesets.value.map(ruleset => ({ id: ruleset.id, label: ruleset.name })),
     warningMessage: 'This action cannot be undone. Projects and workspaces using these rulesets will lose the assignment.'
   })
   const confirmed = await instance.result

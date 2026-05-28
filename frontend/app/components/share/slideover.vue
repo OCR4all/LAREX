@@ -80,9 +80,16 @@ const transferTypeOptions = [
 
 <template>
   <USlideover
-    :description="`Share ${resourceName}`"
     @close="emit('close', false)"
   >
+    <template #header>
+      <UiSlideoverHeader
+        :title="`Share ${resourceName}`"
+        icon="i-lucide-share-2"
+        :description="resourceType"
+      />
+    </template>
+
     <template #body>
       <UForm
         :schema="schema"

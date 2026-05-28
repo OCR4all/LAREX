@@ -223,9 +223,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <USlideover
-    title="Edit Project"
     @close="emit('close', false)"
   >
+    <template #header>
+      <UiSlideoverHeader title="Edit Project" icon="i-lucide-edit" />
+    </template>
+
     <template #body>
       <UForm
         :schema="schema"

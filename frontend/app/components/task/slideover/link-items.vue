@@ -313,9 +313,12 @@ const columns: TableColumn<Page>[] = [
 
 <template>
   <USlideover
-    title="Link Pages"
     :close="{ onClick: () => emit('close') }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Link Pages" icon="i-lucide-link" />
+    </template>
+
     <template #body>
       <div class="space-y-6">
         <div v-if="projectTags.length > 0" class="space-y-2">

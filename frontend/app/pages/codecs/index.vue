@@ -155,6 +155,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} codec${count === 1 ? '' : 's'}`,
     entityType: 'Codec',
+    items: selectedCodecs.value.map(codec => ({ id: codec.id, label: codec.name })),
     warningMessage: 'This action cannot be undone. All projects using these codecs will lose their codec reference.'
   })
   const confirmed = await instance.result

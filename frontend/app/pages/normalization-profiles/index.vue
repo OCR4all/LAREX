@@ -152,6 +152,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} normalization profile${count === 1 ? '' : 's'}`,
     entityType: 'Normalization Profile',
+    items: selectedProfiles.value.map(profile => ({ id: profile.id, label: profile.name })),
     warningMessage: 'This action cannot be undone. Projects and workspaces using these profiles will lose the assignment.'
   })
   const confirmed = await instance.result

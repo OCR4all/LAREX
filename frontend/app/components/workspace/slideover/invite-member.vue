@@ -107,9 +107,12 @@ function handleClose() {
 
 <template>
   <USlideover
-    title="Invite Member"
     :close="{ onClick: handleClose }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Invite Member" icon="i-lucide-user-plus" />
+    </template>
+
     <template #body>
       <div class="space-y-4">
         <UFormField label="Find user" name="user">

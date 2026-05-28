@@ -79,9 +79,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <USlideover
-    :title="`Edit ${page.name}`"
     :close="{ onClick: () => emit('close', false) }"
   >
+    <template #header>
+      <UiSlideoverHeader :title="`Edit ${page.name}`" icon="i-lucide-edit" />
+    </template>
+
     <template #body>
       <UForm
         :schema="schema"

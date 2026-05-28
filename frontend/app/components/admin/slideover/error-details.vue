@@ -51,10 +51,13 @@ function handleOpenChange(open: boolean) {
 <template>
   <USlideover
     :open="open"
-    title="Error Details"
     :close="{ onClick: () => emit('close') }"
     @update:open="handleOpenChange"
   >
+    <template #header>
+      <UiSlideoverHeader title="Error Details" icon="i-lucide-bug" />
+    </template>
+
     <template #body>
       <div class="space-y-6">
         <div v-if="pending && !errorEvent" class="text-sm text-muted">

@@ -166,7 +166,8 @@ async function handleDeleteSelected() {
   const count = selectedKeyboards.value.length
   const instance = deleteSlideover.open({
     name: `${count} keyboard${count === 1 ? '' : 's'}`,
-    entityType: 'Keyboard'
+    entityType: 'Keyboard',
+    items: selectedKeyboards.value.map(keyboard => ({ id: keyboard.id, label: keyboard.name }))
   })
   const confirmed = await instance.result
   if (!confirmed) return

@@ -262,6 +262,7 @@ async function handleBulkDelete() {
   const instance = deleteSlideover.open({
     name: `${count} task${count > 1 ? 's' : ''}`,
     entityType: 'Task',
+    items: selectedTasks.value.map(task => ({ id: task.id, label: task.title })),
     warningMessage: `This will permanently delete ${count} task${count > 1 ? 's' : ''} and all associated data.`
   })
   const confirmed = await instance.result

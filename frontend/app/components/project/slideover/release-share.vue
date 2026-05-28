@@ -203,9 +203,12 @@ function normalizeDateTimeLocal(value: string) {
 
 <template>
   <USlideover
-    title="Release Share"
     :close="{ onClick: () => emit('close', changed) }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Release Share" icon="i-lucide-key-round" />
+    </template>
+
     <template #body>
       <div class="space-y-6">
         <section class="space-y-3">

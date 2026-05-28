@@ -1479,9 +1479,11 @@ async function openBulkDeleteSlideover() {
   if (!hasSelection.value) return
 
   const selectedPages = Array.from(selectedPageIds.value).map((pageId) => {
+    const sourcePage = pages.value?.find(p => p.id === pageId)
     return {
       id: pageId,
-      name: pages.value?.find(p => p.id === pageId)?.name || pageId
+      name: sourcePage?.name || pageId,
+      xmlFileCount: sourcePage?.xmlFileCount ?? 0
     }
   })
 
@@ -3106,10 +3108,16 @@ useHead({
 
   <USlideover
     v-model:open="isNormalizationPreviewSlideoverOpen"
-    title="Normalization"
-    description="Review and apply text rewrites for the current project scope."
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-6xl' }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        title="Normalization"
+        icon="i-lucide-wand-sparkles"
+        description="Review and apply text rewrites for the current project scope."
+      />
+    </template>
+
     <template #body>
       <div v-if="isNormalizationPreviewLoading" class="space-y-4">
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -3391,10 +3399,16 @@ useHead({
 
   <USlideover
     v-model:open="isNormalizationRulesSlideoverOpen"
-    title="Normalization Rules"
-    description="Inspect the preset and manual rules of the assigned normalization profile."
     :ui="{ content: 'w-full max-w-[96vw] sm:max-w-4xl' }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        title="Normalization Rules"
+        icon="i-lucide-list"
+        description="Inspect the preset and manual rules of the assigned normalization profile."
+      />
+    </template>
+
     <template #body>
       <div v-if="isNormalizationProfileLoading" class="space-y-3">
         <USkeleton class="h-24 w-full rounded-lg" />

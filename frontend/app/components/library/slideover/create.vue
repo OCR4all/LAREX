@@ -319,10 +319,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <USlideover
-    title="Create Project"
-    description="Configure your new project"
     :close="{ onClick: () => emit('close', false) }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        title="Create Project"
+        icon="i-lucide-package-plus"
+        description="Configure your new project"
+      />
+    </template>
+
     <template #body>
       <UForm
         ref="createProjectFormRef"

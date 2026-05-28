@@ -104,9 +104,12 @@ async function handleRestore(version: PageXmlVersion) {
 <template>
   <USlideover
     side="right"
-    title="Version History"
     :close="{ onClick: () => emit('close', 'closed') }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Version History" icon="i-lucide-history" />
+    </template>
+
     <template #body>
       <div v-if="status === 'pending'" class="flex flex-col gap-3">
         <USkeleton v-for="i in 3" :key="i" class="h-20 w-full" />

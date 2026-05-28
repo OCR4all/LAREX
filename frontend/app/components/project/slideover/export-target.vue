@@ -275,9 +275,15 @@ function closeWithResult() {
 <template>
   <USlideover
     side="right"
-    :title="props.title"
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader
+        :title="props.title"
+        :icon="props.title.toLowerCase().includes('package') ? 'i-lucide-file-archive' : 'i-lucide-file-output'"
+      />
+    </template>
+
     <template #body>
       <div class="space-y-5">
         <p class="text-sm text-muted">

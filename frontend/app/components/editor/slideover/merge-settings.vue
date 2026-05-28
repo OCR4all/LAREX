@@ -30,7 +30,11 @@ const cancel = () => emit('close', null)
 </script>
 
 <template>
-  <USlideover title="Merge Settings" :close="{ onClick: cancel }">
+  <USlideover :close="{ onClick: cancel }">
+    <template #header>
+      <UiSlideoverHeader title="Merge Settings" icon="i-lucide-merge" />
+    </template>
+
     <template #body>
       <div class="flex flex-col gap-4">
         <UFormField label="Target Region Type">

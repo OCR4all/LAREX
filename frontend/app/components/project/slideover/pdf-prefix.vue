@@ -62,9 +62,12 @@ function ensureFileState(fileName: string): PdfPrefixState {
 <template>
   <USlideover
     side="right"
-    title="PDF Page Prefix"
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader title="PDF Page Prefix" icon="i-lucide-file-type" />
+    </template>
+
     <template #body>
       <div class="space-y-4">
         <div class="text-sm text-muted">

@@ -66,9 +66,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
 <template>
   <USlideover
-    title="Create Release"
     :close="{ onClick: () => emit('close', null) }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Create Release" icon="i-lucide-plus" />
+    </template>
+
     <template #body>
       <UForm
         ref="formRef"

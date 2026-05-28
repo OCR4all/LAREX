@@ -178,6 +178,7 @@ async function handleDeleteSelected() {
   const instance = deleteSlideover.open({
     name: `${count} label set${count === 1 ? '' : 's'}`,
     entityType: 'Label Set',
+    items: selectedLabelSets.value.map(labelSet => ({ id: labelSet.id, label: labelSet.name })),
     warningMessage: 'This action cannot be undone. All projects using these label sets will lose their label configuration.'
   })
   const confirmed = await instance.result

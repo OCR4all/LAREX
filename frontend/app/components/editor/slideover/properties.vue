@@ -50,9 +50,12 @@ const canToggleReadingOrder = computed(() => {
 <template>
   <USlideover
     side="right"
-    :title="title"
     :close="{ onClick: () => emit('close') }"
   >
+    <template #header>
+      <UiSlideoverHeader :title="title" icon="i-lucide-sliders-horizontal" />
+    </template>
+
     <template #body>
       <div class="space-y-6">
         <UPageCard variant="subtle" title="Details">

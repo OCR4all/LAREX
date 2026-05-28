@@ -72,9 +72,12 @@ const cancel = () => emit('close', null)
   <USlideover
     :open="true"
     :modal="false"
-    title="Expand / Shrink"
     :close="{ onClick: cancel }"
   >
+    <template #header>
+      <UiSlideoverHeader title="Expand / Shrink" icon="i-lucide-move-diagonal" />
+    </template>
+
     <template #body>
       <div class="flex flex-col gap-4">
         <UFormField label="Distance">
