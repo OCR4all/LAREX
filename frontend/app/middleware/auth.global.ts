@@ -4,7 +4,7 @@
  * Protects routes on both server and client side.
  * Uses useUserSession() which works on both SSR and client.
  */
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const publicRoutes = [
     '/auth/keycloak',
     '/share'
@@ -20,5 +20,13 @@ export default defineNuxtRouteMiddleware((to) => {
 
   if (loggedIn.value && to.path.startsWith('/auth/keycloak')) {
     return navigateTo('/')
+  }
+
+  if (loggedIn.value && !isPublicRoute) {
+    const { initialized, fetchPreferences } = useEditorPreferences()
+
+    if (!initialized.value) {
+      await fetchPreferences()
+    }
   }
 })
