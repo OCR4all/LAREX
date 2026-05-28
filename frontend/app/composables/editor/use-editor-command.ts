@@ -4,6 +4,7 @@ import { DeletePolygonCommand, DeletePolylineCommand, DeleteSelectedElementsComm
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
+import type { ActionTargetSelection } from '@/types/action'
 import type { ReadingOrder, ReadingOrderNode, ReadingOrderGroup, RegionRef, RegionKind } from '@/models/editor'
 import { ALL_REGION_KINDS, ALL_TEXT_REGION_SUBTYPES, ALL_GRAPHIC_REGION_SUBTYPES, ALL_CHART_REGION_SUBTYPES, canContainTextLines, PolygonType } from '@/models/editor'
 import { useEditorStore } from '@/stores/editor/editor.store'
@@ -27,7 +28,7 @@ export interface ContextMenuItem {
   submenu?: ContextMenuItem[]
 }
 
-export type ContextMenuTargetType = 'polygon' | 'polyline' | 'selection'
+export type ContextMenuTargetType = 'polygon' | 'polyline' | 'selection' | 'page'
 
 export interface ContextMenuSelection {
   polygonIds: string[]
@@ -38,7 +39,7 @@ export interface ContextMenuSelection {
 
 export interface ContextMenuTarget {
   type: ContextMenuTargetType
-  element: RenderablePolygon | RenderablePolyline
+  element: RenderablePolygon | RenderablePolyline | null
   selection?: ContextMenuSelection
 }
 
@@ -453,6 +454,94 @@ export function useEditorCommand(
     }
   }
 
+  function getCurrentPageId(): string | null {
+    return editorStore.canvases[canvasId]?.pageId ?? null
+  }
+
+  function dispatchActionTargetPicked(payload: { targetSelection: ActionTargetSelection, targetSummary: string }): void {
+    window.dispatchEvent(new CustomEvent('larex:editor-action-target', { detail: payload }))
+  }
+
+  function getActionTargetForPolygon(polygon: RenderablePolygon): { targetSelection: ActionTargetSelection, targetSummary: string } | null {
+    const pageId = getCurrentPageId()
+    if (!pageId) return null
+
+    if (polygon.type === PolygonType.TEXTLINE) {
+      return {
+        targetSelection: {
+          type: 'TEXT_LINE',
+          pages: [{ pageId, regionIds: [], textLineIds: [polygon.id] }]
+        },
+        targetSummary: `Textline ${polygon.label || polygon.id}`
+      }
+    }
+
+    return {
+      targetSelection: {
+        type: 'REGION',
+        pages: [{ pageId, regionIds: [polygon.id], textLineIds: [] }]
+      },
+      targetSummary: `${polygon.label || polygon.regionKind || 'Region'} ${polygon.id}`
+    }
+  }
+
+  function getActionTargetForSelection(selection: ContextMenuSelection): { targetSelection: ActionTargetSelection, targetSummary: string } | null {
+    const pageId = getCurrentPageId()
+    if (!pageId || selection.polylineIds.length > 0 || selection.polygonIds.length === 0) return null
+
+    const polygonTypes = new Set(selection.polygons.map(p => p.type))
+    if (polygonTypes.size !== 1) return null
+
+    const [polygonType] = Array.from(polygonTypes)
+    if (polygonType === PolygonType.TEXTLINE) {
+      return {
+        targetSelection: {
+          type: 'TEXT_LINE',
+          pages: [{ pageId, regionIds: [], textLineIds: selection.polygonIds }]
+        },
+        targetSummary: `${selection.polygonIds.length} ${selection.polygonIds.length === 1 ? 'textline' : 'textlines'}`
+      }
+    }
+
+    if (polygonType === PolygonType.REGION) {
+      return {
+        targetSelection: {
+          type: 'REGION',
+          pages: [{ pageId, regionIds: selection.polygonIds, textLineIds: [] }]
+        },
+        targetSummary: `${selection.polygonIds.length} ${selection.polygonIds.length === 1 ? 'region' : 'regions'}`
+      }
+    }
+
+    return null
+  }
+
+  function getActionTargetForPage(): { targetSelection: ActionTargetSelection, targetSummary: string } | null {
+    const pageId = getCurrentPageId()
+    if (!pageId) return null
+
+    return {
+      targetSelection: {
+        type: 'PAGE',
+        pages: [{ pageId, regionIds: [], textLineIds: [] }]
+      },
+      targetSummary: 'Current page'
+    }
+  }
+
+  function runActionForContextMenuTarget(target: ContextMenuTarget): void {
+    const payload = target.type === 'selection'
+      ? (target.selection ? getActionTargetForSelection(target.selection) : null)
+      : target.type === 'polygon'
+        ? getActionTargetForPolygon(target.element as RenderablePolygon)
+        : target.type === 'page'
+          ? getActionTargetForPage()
+          : null
+
+    if (!payload) return
+    dispatchActionTargetPicked(payload)
+  }
+
   function showContextMenuForSelection(event: MouseEvent, clickedElement: RenderablePolygon | RenderablePolyline, selection: ContextMenuSelection): void {
     const polygonCount = selection.polygonIds.length
     const polylineCount = selection.polylineIds.length
@@ -514,6 +603,14 @@ export function useEditorCommand(
           submenu: reparentSubmenu
         })
       }
+    }
+
+    if (getActionTargetForSelection(selection)) {
+      menuItems.push({
+        id: 'run-action',
+        label: 'Run Action',
+        icon: 'i-lucide-wand-sparkles'
+      })
     }
 
     const mergeState = canMergeSelection(selection.polygonIds, selection.polylineIds)
@@ -615,6 +712,14 @@ export function useEditorCommand(
       })
     }
 
+    if (isRegion || isTextLine) {
+      menuItems.push({
+        id: 'run-action',
+        label: 'Run Action',
+        icon: 'i-lucide-wand-sparkles'
+      })
+    }
+
     menuItems.push(
       {
         id: 'duplicate',
@@ -642,6 +747,23 @@ export function useEditorCommand(
 
     contextMenuItems.value = menuItems
 
+    contextMenuVisible.value = true
+  }
+
+  function showContextMenuForCanvas(event: MouseEvent): void {
+    contextMenuTarget.value = {
+      type: 'page',
+      element: null
+    }
+    contextMenuX.value = event.clientX
+    contextMenuY.value = event.clientY
+    contextMenuItems.value = [
+      {
+        id: 'run-action',
+        label: 'Run Action',
+        icon: 'i-lucide-wand-sparkles'
+      }
+    ]
     contextMenuVisible.value = true
   }
 
@@ -892,6 +1014,9 @@ export function useEditorCommand(
       }
 
       switch (item.id) {
+        case 'run-action':
+          runActionForContextMenuTarget(target)
+          break
         case 'delete-selection':
           await deleteSelection(selection)
           break
@@ -1034,6 +1159,9 @@ export function useEditorCommand(
     }
 
     switch (item.id) {
+      case 'run-action':
+        runActionForContextMenuTarget(target)
+        break
       case 'delete':
         if (target.type === 'polygon') {
           await deletePolygon((target.element as RenderablePolygon).id)
@@ -1290,6 +1418,7 @@ export function useEditorCommand(
 
     showContextMenuForPolygon,
     showContextMenuForPolyline,
+    showContextMenuForCanvas,
     closeContextMenu,
     handleContextMenuSelect,
     deletePolygon,

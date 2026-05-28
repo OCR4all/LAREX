@@ -1123,12 +1123,9 @@ function handleActionWandMouseDown(event: MouseEvent) {
   if (clickedPolygonIndex >= 0) {
     const polygon = polygons[clickedPolygonIndex]
     if (polygon) {
-      handleSelectPolygon(polygon.id, { focusMode: 'none' })
       payload = buildActionTargetSelectionFromPolygon(polygon)
     }
   } else {
-    stateActions.clearSelection()
-    syncCanvasSelection(null, null)
     payload = buildPageActionTargetSelection()
   }
 
@@ -2548,7 +2545,9 @@ watch(() => props.src, (newSrc) => {
         <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/12 text-amber-400">
           <Icon name="i-lucide-lock" class="h-3.5 w-3.5" />
         </div>
-        <p class="truncate text-[13px] text-amber-50/90">Read-only view</p>
+        <p class="truncate text-[13px] text-amber-50/90">
+          Read-only view
+        </p>
       </div>
 
       <div class="flex min-w-0 shrink items-center justify-end gap-2">

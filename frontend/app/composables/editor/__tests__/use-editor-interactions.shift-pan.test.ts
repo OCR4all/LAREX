@@ -211,7 +211,8 @@ async function createHarness(
 
   const editorCommands = {
     showContextMenuForPolygon: vi.fn(),
-    showContextMenuForPolyline: vi.fn()
+    showContextMenuForPolyline: vi.fn(),
+    showContextMenuForCanvas: vi.fn()
   }
 
   const stateActions = {

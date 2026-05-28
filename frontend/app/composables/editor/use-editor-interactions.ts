@@ -883,6 +883,8 @@ export function useEditorInteractions(
         return
       }
     }
+
+    editorCommands.showContextMenuForCanvas(event)
   }
 
   function resetMarqueeState(): void {
