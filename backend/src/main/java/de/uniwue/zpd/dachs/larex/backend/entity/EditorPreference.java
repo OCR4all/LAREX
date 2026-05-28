@@ -68,6 +68,9 @@ public class EditorPreference {
     @Column(name = "auto_select")
     private Boolean autoSelect;
 
+    @Column(name = "show_polygon_label_fill")
+    private Boolean showPolygonLabelFill;
+
     @Column(name = "prevent_overlap_on_create")
     private Boolean preventOverlapOnCreate;
 
@@ -193,6 +196,9 @@ public class EditorPreference {
 
     public Boolean getAutoSelect() { return autoSelect; }
     public void setAutoSelect(Boolean autoSelect) { this.autoSelect = autoSelect; }
+
+    public Boolean getShowPolygonLabelFill() { return showPolygonLabelFill; }
+    public void setShowPolygonLabelFill(Boolean showPolygonLabelFill) { this.showPolygonLabelFill = showPolygonLabelFill; }
 
     public Boolean getPreventOverlapOnCreate() { return preventOverlapOnCreate; }
     public void setPreventOverlapOnCreate(Boolean preventOverlapOnCreate) { this.preventOverlapOnCreate = preventOverlapOnCreate; }

@@ -38,6 +38,7 @@ public class EditorPreferenceService {
         if (dto.constrainToImage() != null) pref.setConstrainToImage(dto.constrainToImage());
         if (dto.constrainToParent() != null) pref.setConstrainToParent(dto.constrainToParent());
         if (dto.autoSelect() != null) pref.setAutoSelect(dto.autoSelect());
+        if (dto.showPolygonLabelFill() != null) pref.setShowPolygonLabelFill(dto.showPolygonLabelFill());
         if (dto.preventOverlapOnCreate() != null) pref.setPreventOverlapOnCreate(dto.preventOverlapOnCreate());
         if (dto.moveWithChildren() != null) pref.setMoveWithChildren(dto.moveWithChildren());
         if (dto.cutMinAreaThreshold() != null) pref.setCutMinAreaThreshold(dto.cutMinAreaThreshold());

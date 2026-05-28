@@ -36,35 +36,23 @@ class EditorPreferenceServiceTest {
                 .put("version", 1)
                 .set("bindings", objectMapper.createObjectNode().putArray("redo").add("meta_y"));
 
-        EditorPreference updated = service.update("user-1", new EditorPreferenceDto(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                shortcutBindings,
-                null,
-                null,
-                null,
-                null,
-                null
-        ));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, null, shortcutBindings, null, null));
 
         assertEquals(shortcutBindings, updated.getShortcutBindings());
+        verify(repository).save(existing);
+    }
+
+    @Test
+    void updatePersistsPolygonLabelFillWhenProvided() {
+        EditorPreference existing = new EditorPreference("user-1");
+        when(repository.findByUserId("user-1")).thenReturn(Optional.of(existing));
+        when(repository.save(any(EditorPreference.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        EditorPreferenceService service = new EditorPreferenceService(repository);
+
+        EditorPreference updated = service.update("user-1", preferenceDto(null, true, null, null, null));
+
+        assertEquals(Boolean.TRUE, updated.getShowPolygonLabelFill());
         verify(repository).save(existing);
     }
 
@@ -80,33 +68,7 @@ class EditorPreferenceServiceTest {
 
         EditorPreferenceService service = new EditorPreferenceService(repository);
 
-        EditorPreference updated = service.update("user-1", new EditorPreferenceDto(
-                "#fff",
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        ));
+        EditorPreference updated = service.update("user-1", preferenceDto("#fff", null, null, null, null));
 
         assertEquals("#fff", updated.getBackgroundColor());
         assertEquals(existing.getShortcutBindings(), updated.getShortcutBindings());
@@ -121,33 +83,7 @@ class EditorPreferenceServiceTest {
         EditorPreferenceService service = new EditorPreferenceService(repository);
         var completion = objectMapper.createObjectNode().put("tasks-index", true).put("editor-layout", true);
 
-        EditorPreference updated = service.update("user-1", new EditorPreferenceDto(
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                completion,
-                true
-        ));
+        EditorPreference updated = service.update("user-1", preferenceDto(null, null, null, completion, true));
 
         assertEquals(completion, updated.getOnboardingTourCompletion());
         assertEquals(Boolean.TRUE, updated.getOnboardingToursOptedOut());
@@ -167,5 +103,51 @@ class EditorPreferenceServiceTest {
         assertNull(created.getShortcutBindings());
         assertNull(created.getTableColumnVisibility());
         verify(repository).save(any(EditorPreference.class));
+    }
+
+    private EditorPreferenceDto preferenceDto(
+            String backgroundColor,
+            Boolean showPolygonLabelFill,
+            com.fasterxml.jackson.databind.JsonNode shortcutBindings,
+            com.fasterxml.jackson.databind.JsonNode onboardingTourCompletion,
+            Boolean onboardingToursOptedOut
+    ) {
+        return new EditorPreferenceDto(
+                backgroundColor,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                showPolygonLabelFill,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                shortcutBindings,
+                null,
+                null,
+                null,
+                onboardingTourCompletion,
+                onboardingToursOptedOut
+        );
     }
 }
