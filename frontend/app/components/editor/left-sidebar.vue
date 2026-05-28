@@ -8,6 +8,7 @@ import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 const props = defineProps<{
   leftRailWidthPx: number
   useFloatingCollapsed: boolean
+  imagePopoverDismissKey: number
   logoMenuItems: DropdownMenuItem[][]
   currentProjectId: string | null
   pageNameFilter: string
@@ -33,6 +34,8 @@ const sidebarShellRef = ref<HTMLElement | null>(null)
 const floatingPosition = ref<{ x: number, y: number } | null>(null)
 const isDraggingSidebar = ref(false)
 const isFloatingCollapsed = computed(() => editorUiStore.leftCollapsed && props.useFloatingCollapsed)
+const floatingImagePopoverOpen = ref(false)
+const collapsedRailImagePopoverOpen = ref(false)
 
 let dragPointerId: number | null = null
 let dragStartClientX = 0
@@ -168,6 +171,11 @@ watch(() => props.useFloatingCollapsed, (enabled) => {
 
   requestAnimationFrame(() => ensureFloatingPosition())
 })
+
+watch(() => props.imagePopoverDismissKey, () => {
+  floatingImagePopoverOpen.value = false
+  collapsedRailImagePopoverOpen.value = false
+})
 </script>
 
 <template>
@@ -225,7 +233,7 @@ watch(() => props.useFloatingCollapsed, (enabled) => {
         />
       </UTooltip>
 
-      <UPopover :content="{ side: 'right', align: 'center', sideOffset: 12 }">
+      <UPopover v-model:open="floatingImagePopoverOpen" :content="{ side: 'right', align: 'center', sideOffset: 12 }">
         <template #default>
           <UTooltip text="Pages" :content="{ side: 'right' }">
             <UButton
@@ -355,7 +363,7 @@ watch(() => props.useFloatingCollapsed, (enabled) => {
             aria-label="Open command center"
             @click="emit('open-command-center')"
           />
-          <UPopover :content="{ side: 'right', align: 'start', sideOffset: 8 }">
+          <UPopover v-model:open="collapsedRailImagePopoverOpen" :content="{ side: 'right', align: 'start', sideOffset: 8 }">
             <UTooltip text="Pages" :content="{ side: 'right' }">
               <UButton
                 variant="ghost"

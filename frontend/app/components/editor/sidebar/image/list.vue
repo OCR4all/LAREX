@@ -5,6 +5,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import type { PageData } from '@/stores/editor/types'
 
+const IMAGE_CARD_ASPECT_RATIO = 4 / 3
 const emit = defineEmits<{
   'select-page': [pageId: string, variantId?: string, projectId?: string]
   'unload-page': [pageId: string, projectId?: string]
@@ -32,7 +33,7 @@ const ESTIMATED_ROW_HEIGHT = 400
 
 const currentPageId = computed(() => editorStore.currentPageId)
 const scrollMargin = ref(0)
-const measuredHeightByPageId = new Map<string, number>()
+const estimatedRowHeight = ref(ESTIMATED_ROW_HEIGHT)
 
 const filteredPages = computed<PageData[]>(() => {
   const q = props.filter.trim().toLowerCase()
@@ -87,25 +88,9 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => (
   count: filteredPages.value.length,
   getScrollElement: () => scrollElement.value,
   getItemKey: index => filteredPages.value[index]?.id ?? index,
-  estimateSize: () => ESTIMATED_ROW_HEIGHT,
+  estimateSize: () => estimatedRowHeight.value,
   overscan: 6,
-  scrollMargin: scrollMargin.value,
-  measureElement: (element, entry, instance) => {
-    const pageId = element.getAttribute('data-page-id')
-    const measuredHeight = entry?.contentRect.height ?? element.getBoundingClientRect().height
-
-    if (!pageId) {
-      return measuredHeight
-    }
-
-    const cachedHeight = measuredHeightByPageId.get(pageId)
-    if (instance.scrollDirection === 'backward' && typeof cachedHeight === 'number') {
-      return cachedHeight
-    }
-
-    measuredHeightByPageId.set(pageId, measuredHeight)
-    return measuredHeight
-  }
+  scrollMargin: scrollMargin.value
 })))
 
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
@@ -119,16 +104,17 @@ const virtualPageRows = computed<Array<{ item: VirtualItem, page: PageData }>>((
     })
 })
 
-function measureVirtualRow(el: Element | ComponentPublicInstance | null) {
-  const element = el instanceof HTMLElement
-    ? el
-    : el && '$el' in el && el.$el instanceof HTMLElement
-      ? el.$el
-      : null
+function calculateEstimatedRowHeight(): number {
+  const root = listRootRef.value
+  if (!root) return ESTIMATED_ROW_HEIGHT
 
-  if (element) {
-    rowVirtualizer.value.measureElement(element)
-  }
+  const styles = window.getComputedStyle(root)
+  const paddingLeft = Number.parseFloat(styles.paddingLeft) || 0
+  const paddingRight = Number.parseFloat(styles.paddingRight) || 0
+  const usableWidth = Math.max(0, root.clientWidth - paddingLeft - paddingRight)
+  if (usableWidth <= 0) return ESTIMATED_ROW_HEIGHT
+
+  return Math.round(usableWidth * IMAGE_CARD_ASPECT_RATIO + 12)
 }
 
 function calculateScrollMargin(): number {
@@ -150,13 +136,19 @@ function syncVirtualizerLayout(forceMeasure: boolean = false) {
     syncLayoutFrameId = null
     attachScrollElement(resolveScrollElement())
 
+    const nextEstimatedRowHeight = calculateEstimatedRowHeight()
+    const didEstimatedHeightChange = estimatedRowHeight.value !== nextEstimatedRowHeight
+    if (didEstimatedHeightChange) {
+      estimatedRowHeight.value = nextEstimatedRowHeight
+    }
+
     const nextScrollMargin = calculateScrollMargin()
     const didScrollMarginChange = scrollMargin.value !== nextScrollMargin
     if (scrollMargin.value !== nextScrollMargin) {
       scrollMargin.value = nextScrollMargin
     }
 
-    if (forceMeasure || didScrollMarginChange) {
+    if (forceMeasure || didScrollMarginChange || didEstimatedHeightChange) {
       rowVirtualizer.value.measure()
     }
   })
@@ -240,9 +232,7 @@ function handlePageUnload(page: PageData) {
       <div
         v-for="row in virtualPageRows"
         :key="String(row.item.key)"
-        :ref="measureVirtualRow"
         :data-index="row.item.index"
-        :data-page-id="row.page.id"
         class="absolute left-0 top-0 w-full pb-3"
         :style="{ transform: `translateY(${row.item.start - scrollMargin}px)` }"
       >

@@ -1232,6 +1232,7 @@ const isSavingActiveCanvas = computed(() => {
 })
 const activeUiMode = computed(() => editorStore.effectiveUiMode(activeCanvasId.value))
 const useFloatingCollapsedSidebars = computed(() => activeUiMode.value !== 'text' || editorUiStore.textModeSubmode === 'visual')
+const collapsedImagePopoverDismissKey = ref(0)
 
 watch(activeUiMode, (mode) => {
   if (mode !== 'text') return
@@ -2309,6 +2310,7 @@ async function applyEditorDeepLinkFromQuery(): Promise<void> {
 }
 
 function handleSelectPage(pageId: string, variantId?: string, projectId?: string) {
+  collapsedImagePopoverDismissKey.value++
   const targetProjectId = projectId ?? currentProjectId.value
   if (!targetProjectId) return
   void openEditorForPage(targetProjectId, pageId, variantId)
@@ -2559,6 +2561,7 @@ const onReady = (event: DockviewReadyEvent) => {
       v-model:filter-popover-open="editorFilterPopoverOpen"
       :left-rail-width-px="64"
       :use-floating-collapsed="useFloatingCollapsedSidebars"
+      :image-popover-dismiss-key="collapsedImagePopoverDismissKey"
       :logo-menu-items="logoMenuItems"
       :current-project-id="currentProjectId"
       :available-labels="availableLabelsForFilter"
