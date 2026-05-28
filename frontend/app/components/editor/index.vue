@@ -2693,8 +2693,7 @@ watch(() => props.src, (newSrc) => {
             ref="canvas"
             class="block w-full h-full bg-transparent relative z-10"
             :class="[
-              isCanvasEditable ? (isCanvasWritable ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none',
-              editorUiStore.actionWandActive ? 'editor-action-wand-cursor' : ''
+              isCanvasEditable ? (isCanvasWritable ? 'cursor-grab' : 'cursor-default') : 'cursor-default pointer-events-none'
             ]"
             @contextmenu="(event) => { if (isCanvasWritable) editorInteractions.handleCanvasContextMenu(event) }"
           />
@@ -3207,23 +3206,23 @@ watch(() => props.src, (newSrc) => {
       />
 
       <div
-        v-if="editorInteractions.isMarqueeSelecting.value && editorInteractions.marqueeRectPx.value"
+        v-if="editorInteractions?.isMarqueeSelecting?.value && editorInteractions?.marqueeRectPx?.value"
         class="absolute border border-primary/50 bg-primary/10 pointer-events-none z-[900]"
         :style="{
-          left: editorInteractions.marqueeRectPx.value.x + 'px',
-          top: editorInteractions.marqueeRectPx.value.y + 'px',
-          width: editorInteractions.marqueeRectPx.value.width + 'px',
-          height: editorInteractions.marqueeRectPx.value.height + 'px'
+          left: editorInteractions?.marqueeRectPx?.value?.x + 'px',
+          top: editorInteractions?.marqueeRectPx?.value?.y + 'px',
+          width: editorInteractions?.marqueeRectPx?.value?.width + 'px',
+          height: editorInteractions?.marqueeRectPx?.value?.height + 'px'
         }"
       />
 
       <svg
-        v-if="remoteSelectionOverlays.length > 0 || remoteCursorOverlays.length > 0"
+        v-if="(remoteSelectionOverlays?.length ?? 0) > 0 || (remoteCursorOverlays?.length ?? 0) > 0"
         class="absolute inset-0 z-[940] pointer-events-none"
         :width="canvasDimensions.width"
         :height="canvasDimensions.height"
       >
-        <g v-for="overlay in remoteSelectionOverlays" :key="overlay.key">
+        <g v-for="overlay in remoteSelectionOverlays ?? []" :key="overlay.key">
           <path
             :d="overlay.path"
             fill="none"
@@ -3253,7 +3252,7 @@ watch(() => props.src, (newSrc) => {
           </text>
         </g>
 
-        <g v-for="cursor in remoteCursorOverlays" :key="cursor.key">
+        <g v-for="cursor in remoteCursorOverlays ?? []" :key="cursor.key">
           <circle
             :cx="cursor.x"
             :cy="cursor.y"
@@ -3349,11 +3348,6 @@ watch(() => props.src, (newSrc) => {
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
   background-color: #c0c0c0;
-}
-
-.editor-action-wand-cursor {
-  --editor-action-wand-cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 3 2 2'/%3E%3Cpath d='m19 13 2 2'/%3E%3Cpath d='M5 19 19 5'/%3E%3Cpath d='m14 4 6 6'/%3E%3Cpath d='m4 14 6 6'/%3E%3C/svg%3E") 4 4;
-  cursor: var(--editor-action-wand-cursor), crosshair !important;
 }
 
 /* Fade transition for loading indicator */

@@ -11,8 +11,6 @@ export type CursorType
     | 'default' // Fallback
 
 export interface CursorState {
-  customCursor?: 'action-wand'
-
   isValidPosition: boolean
 
   isDraggingNode: boolean
@@ -32,6 +30,10 @@ export interface CursorState {
   hasSelectedPolyline: boolean
 
   interactionMode: 'select' | 'create' | 'move'
+}
+
+export interface CustomCursorState {
+  customCursor: string
 }
 
 /**
@@ -87,11 +89,11 @@ export function getCursorType(state: CursorState): CursorType {
 /**
  * Apply cursor to element based on state
  */
-export function setCursor(element: HTMLElement | null, state: CursorState | { customCursor: 'action-wand' }): void {
+export function setCursor(element: HTMLElement | null, state: CursorState | CustomCursorState): void {
   if (!element) return
 
-  if (state.customCursor === 'action-wand') {
-    element.style.cursor = 'var(--editor-action-wand-cursor), crosshair'
+  if ('customCursor' in state) {
+    element.style.cursor = state.customCursor
     return
   }
 

@@ -13,6 +13,7 @@ import type {
 import type { ActionProcessingRenderTarget, WebGLRenderState, ViewMode, RelationRenderData } from '@/types/editor/rendering'
 import type { ReadingOrderRenderData } from '@/webgl/editor/reading-order-renderer'
 import type { RenderStats } from './use-render-queue'
+import { useEditorCustomCursor } from './use-editor-custom-cursor'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 
 export type TriangulateFunction = (points: Point[]) => number[]
@@ -90,6 +91,9 @@ export function useEditorRenderer(
   actionProcessingTargets?: Ref<ActionProcessingRenderTarget | null>
 ): UseEditorRendererReturn {
   const editorUiStore = useEditorUiStore()
+  const { activeCursor: activeCustomCursor } = useEditorCustomCursor(computed(() => ({
+    actionWandActive: editorUiStore.actionWandActive
+  })))
   const renderStats = ref<RenderStats | null>(null)
 
   const isInvalidPosition = computed(() => (
@@ -287,12 +291,13 @@ export function useEditorRenderer(
       isCutMode,
       () => mouseInteraction.actionState.action,
       () => moveInteraction?.isMoving(),
-      () => editorUiStore.actionWandActive
+      () => editorUiStore.actionWandActive,
+      activeCustomCursor
     ],
     () => {
       if (enabled && !enabled.value) return
-      if (editorUiStore.actionWandActive) {
-        setCursor(canvas.value, { customCursor: 'action-wand' })
+      if (activeCustomCursor.value) {
+        setCursor(canvas.value, { customCursor: activeCustomCursor.value })
         return
       }
       const isCreateMode = isPolygonMode.value || isRectangleMode.value || isPolylineMode.value || isCutMode?.value
