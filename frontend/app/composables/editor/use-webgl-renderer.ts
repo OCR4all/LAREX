@@ -582,6 +582,25 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const document = getActiveDocument()
     const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
     const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
+    const selectedPolygon = renderState.selectedPolygonIndex.value >= 0
+      ? renderState.polygons[renderState.selectedPolygonIndex.value] ?? null
+      : null
+    const selectedPolylineParent = renderState.selectedPolylineIndex.value >= 0
+      ? renderState.polylines[renderState.selectedPolylineIndex.value]?.parentId ?? null
+      : null
+
+    const isAncestorOfActiveSelection = (polygon: RenderablePolygon): boolean => {
+      const activeSelectionParentId = selectedPolygon?.parentId ?? selectedPolylineParent
+      if (!activeSelectionParentId) return false
+
+      let currentParentId: string | undefined | null = activeSelectionParentId
+      while (currentParentId) {
+        if (currentParentId === polygon.id) return true
+        currentParentId = renderState.polygons.find(candidate => candidate.id === currentParentId)?.parentId
+      }
+
+      return false
+    }
 
     renderState.polygons.forEach((polygon, polygonIndex) => {
       if (polygonIndex === renderState.selectedPolygonIndex.value) {
@@ -591,6 +610,9 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         return
       }
       if (polygon.type !== PolygonType.REGION && polygon.type !== PolygonType.TEXTLINE) {
+        return
+      }
+      if (isAncestorOfActiveSelection(polygon)) {
         return
       }
 
