@@ -34,6 +34,17 @@ export const RENDER_SIZES = {
   PREVIEW_POINT_SIZE: 10.0
 } as const
 
+/** Screen-space shadow tuning for raster images rendered in the editor canvas */
+export const RASTER_IMAGE_SHADOW = {
+  OFFSET_X: 22.0,
+  OFFSET_Y: 34.0,
+  BLUR_X: 34.0,
+  BLUR_Y: 34.0,
+  ALPHA: 0.32,
+  MAX_RELATIVE_BLUR: 0.14,
+  MAX_RELATIVE_OFFSET: 0.12
+} as const
+
 export type RGBA = readonly [number, number, number, number]
 
 /** Line width presets (in pixels) - similar to CSS font-weight */

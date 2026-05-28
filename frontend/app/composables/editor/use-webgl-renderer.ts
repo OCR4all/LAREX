@@ -17,7 +17,7 @@ import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { getEditorSession } from '@/session/editor/editor-session'
 import type { View, ImageSize, AspectRatioScale, Point, PcGts as DocumentModel } from '@/models/editor'
-import { RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, BACKGROUND_ELEMENT, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
+import { RASTER_IMAGE_SHADOW, RENDER_SIZES, CANVAS_BACKGROUND, RENDER_THICKNESS, RENDER_COLORS, BACKGROUND_ELEMENT, AUTO_PARENT_INDICATOR, RENDER_ALPHA, LINE_WIDTH_PRESETS, type RGBA } from '@/utils/editor/editor-constants'
 import { WEBGL_CORE, WEBGL_GEOMETRY } from '@/webgl/editor/webgl-constants'
 import type { RenderablePolygon, RenderablePolyline, WebGLRenderState, ViewMode } from '@/types/editor/rendering'
 import { createScopedLogger } from '@/services/editor/logger-service'
@@ -207,6 +207,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const imageVsSource = `#version 300 es
       in vec2 a_position; in vec2 a_uv; out vec2 v_uv;
       uniform vec2 u_scale; uniform vec2 u_offset; uniform float u_zoom; uniform vec2 u_rotation; uniform float u_canvasAspect;
+      uniform vec2 u_resolution; uniform vec2 u_pixelOffset; uniform vec2 u_shadowExpand;
       void main() {
         vec2 pos = (a_position * u_zoom) + u_offset;
         vec2 scaled = pos * u_scale;
@@ -214,12 +215,49 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
           scaled.x * u_rotation.x - (scaled.y * u_rotation.y) / u_canvasAspect,
           scaled.x * u_rotation.y * u_canvasAspect + scaled.y * u_rotation.x
         );
-        gl_Position = vec4(clip, 0.0, 1.0);
+        vec2 pixelSize = 2.0 / u_resolution;
+        vec2 expand = vec2(
+          a_position.x * u_shadowExpand.x * pixelSize.x,
+          a_position.y * u_shadowExpand.y * pixelSize.y
+        );
+        vec2 clipExpand = vec2(
+          expand.x * u_rotation.x - (expand.y * u_rotation.y) / u_canvasAspect,
+          expand.x * u_rotation.y * u_canvasAspect + expand.y * u_rotation.x
+        );
+        vec2 clipOffset = vec2(
+          (u_pixelOffset.x * 2.0) / u_resolution.x,
+          (-u_pixelOffset.y * 2.0) / u_resolution.y
+        );
+        gl_Position = vec4(clip + clipOffset + clipExpand, 0.0, 1.0);
         v_uv = a_uv;
       }`
     const imageFsSource = `#version 300 es
-      precision mediump float; in vec2 v_uv; uniform sampler2D u_tex; out vec4 outColor;
-      void main() { outColor = texture(u_tex, v_uv); }`
+      precision mediump float;
+      in vec2 v_uv;
+      uniform sampler2D u_tex;
+      uniform float u_renderShadow;
+      uniform vec4 u_shadowColor;
+      uniform vec2 u_shadowBlur;
+      uniform vec2 u_shadowInset;
+      uniform vec2 u_shadowQuadSize;
+      out vec4 outColor;
+
+      float getRectangleShadowAlpha() {
+        vec2 rectMin = u_shadowInset;
+        vec2 rectMax = vec2(1.0) - u_shadowInset;
+        vec2 outsideUv = max(max(rectMin - v_uv, v_uv - rectMax), vec2(0.0));
+        vec2 outsidePx = outsideUv * u_shadowQuadSize;
+        vec2 blur = max(u_shadowBlur, vec2(1.0));
+        float normalizedDistance = length(outsidePx / blur);
+        return exp(-0.5 * normalizedDistance * normalizedDistance);
+      }
+
+      void main() {
+        vec4 texel = texture(u_tex, v_uv);
+        outColor = u_renderShadow > 0.5
+          ? vec4(u_shadowColor.rgb, getRectangleShadowAlpha() * u_shadowColor.a)
+          : texel;
+      }`
 
     imageProgram = shaderManager.registerProgram('image', imageVsSource, imageFsSource)
 
@@ -390,14 +428,51 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     gl.bindVertexArray(imageVao)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, imageTexture)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
     gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_scale'), scale.scaleX, scale.scaleY)
     gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_offset'), view.offsetX, view.offsetY)
     gl.uniform1f(gl.getUniformLocation(imageProgram, 'u_zoom'), view.zoom)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_resolution'), gl.canvas.width, gl.canvas.height)
     setProgramRotation(imageProgram, scale)
+
+    const displayZoom = Math.abs(view.zoom) || 1
+    const imageWidthPx = Math.max(Math.abs(scale.scaleX) * displayZoom * gl.canvas.width, 1)
+    const imageHeightPx = Math.max(Math.abs(scale.scaleY) * displayZoom * gl.canvas.height, 1)
+    const maxBlurX = imageWidthPx * RASTER_IMAGE_SHADOW.MAX_RELATIVE_BLUR
+    const maxBlurY = imageHeightPx * RASTER_IMAGE_SHADOW.MAX_RELATIVE_BLUR
+    const effectiveBlurX = Math.min(RASTER_IMAGE_SHADOW.BLUR_X, maxBlurX)
+    const effectiveBlurY = Math.min(RASTER_IMAGE_SHADOW.BLUR_Y, maxBlurY)
+    const effectiveOffsetX = Math.min(RASTER_IMAGE_SHADOW.OFFSET_X, imageWidthPx * RASTER_IMAGE_SHADOW.MAX_RELATIVE_OFFSET)
+    const effectiveOffsetY = Math.min(RASTER_IMAGE_SHADOW.OFFSET_Y, imageHeightPx * RASTER_IMAGE_SHADOW.MAX_RELATIVE_OFFSET)
+    const shadowExpandX = effectiveBlurX * 2.0
+    const shadowExpandY = effectiveBlurY * 2.0
+    const shadowQuadWidth = imageWidthPx + shadowExpandX * 2.0
+    const shadowQuadHeight = imageHeightPx + shadowExpandY * 2.0
+    const shadowInsetX = shadowExpandX / shadowQuadWidth
+    const shadowInsetY = shadowExpandY / shadowQuadHeight
+
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_pixelOffset'), effectiveOffsetX, effectiveOffsetY)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowExpand'), shadowExpandX, shadowExpandY)
+    gl.uniform1f(gl.getUniformLocation(imageProgram, 'u_renderShadow'), 1.0)
+    gl.uniform4f(gl.getUniformLocation(imageProgram, 'u_shadowColor'), 0.0, 0.0, 0.0, RASTER_IMAGE_SHADOW.ALPHA)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowBlur'), effectiveBlurX, effectiveBlurY)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowInset'), shadowInsetX, shadowInsetY)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowQuadSize'), shadowQuadWidth, shadowQuadHeight)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_pixelOffset'), 0.0, 0.0)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowExpand'), 0.0, 0.0)
+    gl.uniform1f(gl.getUniformLocation(imageProgram, 'u_renderShadow'), 0.0)
+    gl.uniform4f(gl.getUniformLocation(imageProgram, 'u_shadowColor'), 0.0, 0.0, 0.0, 0.0)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowBlur'), 0.0, 0.0)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowInset'), 0.0, 0.0)
+    gl.uniform2f(gl.getUniformLocation(imageProgram, 'u_shadowQuadSize'), 1.0, 1.0)
 
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
+    gl.disable(gl.BLEND)
     gl.bindVertexArray(null)
   }
 
