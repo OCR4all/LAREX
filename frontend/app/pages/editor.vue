@@ -814,7 +814,7 @@ async function openActionRunForEditorTarget(payload: { targetSelection: ActionTa
   }
 
   const pageIds = payload.targetSelection.pages.map(page => page.pageId)
-  const pages = pageIds.map(pageId => {
+  const pages = pageIds.map((pageId) => {
     const page = editorStore.getPage(pageId, currentProjectId.value ?? undefined)
     return {
       id: pageId,
@@ -1197,12 +1197,9 @@ const globalVariantItems = computed(() => {
 const {
   editorFilterPopoverOpen,
   projectAccordionPanels,
-  accordionPanels,
-  isCollapsedProjectOpen,
-  toggleCollapsedProjectPanel
+  accordionPanels
 } = useEditorSidebarState({
   openedProjectIds: computed(() => [...sessionStore.openedProjectIds]),
-  currentProjectId,
   isLeftCollapsed: computed(() => editorUiStore.leftCollapsed),
   isRightCollapsed: computed(() => editorUiStore.rightCollapsed),
   expandLeftSidebar: () => editorUiStore.toggleLeftCollapsed(),
@@ -2573,23 +2570,36 @@ const onReady = (event: DockviewReadyEvent) => {
       :total-filtered-pages-across-projects="totalFilteredPagesAcrossProjects"
       :global-variant-items="globalVariantItems"
       @open-command-center="openCommandCenter"
-      @confirm-unload-active-project="confirmAndUnloadProject"
     >
-      <EditorProjectListShell
-        v-model:project-accordion-panels="projectAccordionPanels"
-        :collapsed="editorUiStore.leftCollapsed"
-        :projects="openedProjectsForSidebar"
-        :project-accordion-items="projectAccordionItems"
-        :page-name-filter="pageNameFilter"
-        :only-with-open-subtasks="onlyWithOpenSubtasks"
-        :has-backend-filters="hasBackendFilters"
-        :backend-filtered-page-ids-by-project-id="backendFilteredPageIdsByProjectId"
-        :get-project-context-menu-items="getProjectContextMenuItems"
-        :is-collapsed-project-open="isCollapsedProjectOpen"
-        :toggle-collapsed-project-panel="toggleCollapsedProjectPanel"
-        @select-page="handleSelectPage"
-        @unload-page="handleUnloadPage"
-      />
+      <template #default>
+        <EditorProjectListShell
+          v-model:project-accordion-panels="projectAccordionPanels"
+          :projects="openedProjectsForSidebar"
+          :project-accordion-items="projectAccordionItems"
+          :page-name-filter="pageNameFilter"
+          :only-with-open-subtasks="onlyWithOpenSubtasks"
+          :has-backend-filters="hasBackendFilters"
+          :backend-filtered-page-ids-by-project-id="backendFilteredPageIdsByProjectId"
+          :get-project-context-menu-items="getProjectContextMenuItems"
+          @select-page="handleSelectPage"
+          @unload-page="handleUnloadPage"
+        />
+      </template>
+
+      <template #image-popover>
+        <EditorProjectListShell
+          v-model:project-accordion-panels="projectAccordionPanels"
+          :projects="openedProjectsForSidebar"
+          :project-accordion-items="projectAccordionItems"
+          :page-name-filter="pageNameFilter"
+          :only-with-open-subtasks="onlyWithOpenSubtasks"
+          :has-backend-filters="hasBackendFilters"
+          :backend-filtered-page-ids-by-project-id="backendFilteredPageIdsByProjectId"
+          :get-project-context-menu-items="getProjectContextMenuItems"
+          @select-page="handleSelectPage"
+          @unload-page="handleUnloadPage"
+        />
+      </template>
     </EditorLeftSidebar>
 
     <div

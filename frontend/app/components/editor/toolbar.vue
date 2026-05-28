@@ -213,7 +213,7 @@ const isVertical = computed(() => {
 const toolbarStyle = computed(() => {
   switch (editorStore.toolbarLayout) {
     case 'floating':
-      return 'border border-default rounded-sm shadow-2xl'
+      return 'border border-default rounded-xl shadow-2xl'
 
     case 'docked-top':
       return 'row-start-1 col-span-full border-b border-default'

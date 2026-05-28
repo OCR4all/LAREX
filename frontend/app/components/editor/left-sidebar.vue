@@ -23,7 +23,6 @@ const emit = defineEmits<{
   'update:pageNameFilter': [value: string]
   'update:filterPopoverOpen': [value: boolean]
   'open-command-center': []
-  'confirm-unload-active-project': [projectId: string]
 }>()
 
 const editorStore = useEditorStore()
@@ -38,6 +37,10 @@ const filterPopoverOpenModel = computed({
   get: () => props.filterPopoverOpen,
   set: (value: boolean) => emit('update:filterPopoverOpen', value)
 })
+
+function handleImageVariantChange(key: string | undefined) {
+  editorStore.setPreferredImageVariantKey(key ?? null)
+}
 </script>
 
 <template>
@@ -93,23 +96,40 @@ const filterPopoverOpenModel = computed({
             :available-tags="availableTags"
             :open-subtask-page-ids="openSubtaskPageIds"
           />
+          <UPopover :content="{ side: 'bottom', align: 'end', sideOffset: 8 }">
+            <UTooltip text="Editor settings">
+              <UButton
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-settings"
+                size="sm"
+                aria-label="Editor settings"
+              />
+            </UTooltip>
+            <template #content>
+              <div class="w-64 p-4 space-y-3">
+                <h3 class="font-semibold text-sm">
+                  Settings
+                </h3>
+                <div class="space-y-1.5">
+                  <label class="text-xs font-medium text-muted">Image Variant</label>
+                  <USelect
+                    :model-value="editorStore.preferredImageVariantKey ?? undefined"
+                    :items="globalVariantItems"
+                    placeholder="Default"
+                    size="sm"
+                    class="w-full"
+                    @update:model-value="handleImageVariantChange"
+                  />
+                </div>
+              </div>
+            </template>
+          </UPopover>
         </div>
 
         <div v-if="hasAdvancedFilters" class="text-xs text-muted flex items-center gap-1">
           <UIcon v-if="isFiltering" name="i-lucide-loader-2" class="animate-spin" />
           <span v-else>{{ totalFilteredPagesAcrossProjects }} pages match filters</span>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-muted whitespace-nowrap">Variant</span>
-          <USelect
-            :model-value="editorStore.preferredImageVariantKey ?? undefined"
-            :items="globalVariantItems"
-            placeholder="Default"
-            size="sm"
-            class="w-full"
-            @update:model-value="(key) => editorStore.setPreferredImageVariantKey(key)"
-          />
         </div>
       </div>
 
@@ -122,53 +142,84 @@ const filterPopoverOpenModel = computed({
           aria-label="Open command center"
           @click="emit('open-command-center')"
         />
-        <UTooltip v-if="currentProjectId" text="Unload active project" :content="{ side: 'right' }">
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-folder-x"
-            size="sm"
-            aria-label="Unload active project"
-            @click="currentProjectId && emit('confirm-unload-active-project', currentProjectId)"
-          />
-        </UTooltip>
-        <EditorPageFilterPopover
-          v-if="currentProjectId"
-          v-model:open="filterPopoverOpenModel"
-          v-model:page-name-filter="pageNameFilterModel"
-          :project-id="currentProjectId"
-          :available-labels="availableLabels"
-          :available-tags="availableTags"
-          :open-subtask-page-ids="openSubtaskPageIds"
-          popover-side="right"
-        />
-        <UPopover :content="{ side: 'right', align: 'start' }">
-          <UTooltip text="Image variant" :content="{ side: 'right' }">
+        <UPopover :content="{ side: 'right', align: 'start', sideOffset: 8 }">
+          <UTooltip text="Pages" :content="{ side: 'right' }">
             <UButton
               variant="ghost"
               color="neutral"
-              icon="i-lucide-image"
+              icon="i-lucide-images"
               size="sm"
-              aria-label="Image variant"
+              aria-label="Pages"
             />
           </UTooltip>
           <template #content>
-            <div class="p-3 flex flex-col gap-1" style="width: 200px">
-              <span class="text-xs font-medium text-muted">Variant</span>
-              <USelect
-                :model-value="editorStore.preferredImageVariantKey ?? undefined"
-                :items="globalVariantItems"
-                placeholder="Default"
-                size="sm"
-                class="w-full"
-                @update:model-value="(key) => editorStore.setPreferredImageVariantKey(key)"
-              />
+            <div class="w-96 max-h-[min(82vh,760px)] flex flex-col">
+              <div class="shrink-0 border-b border-default p-3 space-y-2">
+                <div class="flex items-center gap-2">
+                  <UInput
+                    v-model="pageNameFilterModel"
+                    size="sm"
+                    placeholder="Filter pages…"
+                    aria-label="Filter pages by name"
+                    class="min-w-0 flex-1"
+                  />
+                  <div class="shrink-0 flex items-center gap-1">
+                    <EditorPageFilterPopover
+                      v-if="currentProjectId"
+                      v-model:open="filterPopoverOpenModel"
+                      :project-id="currentProjectId"
+                      :available-labels="availableLabels"
+                      :available-tags="availableTags"
+                      :open-subtask-page-ids="openSubtaskPageIds"
+                      popover-side="right"
+                    />
+                    <UPopover :content="{ side: 'right', align: 'start', sideOffset: 8 }">
+                      <UTooltip text="Editor settings">
+                        <UButton
+                          variant="ghost"
+                          color="neutral"
+                          icon="i-lucide-settings"
+                          size="sm"
+                          aria-label="Editor settings"
+                        />
+                      </UTooltip>
+                      <template #content>
+                        <div class="w-64 p-4 space-y-3">
+                          <h3 class="font-semibold text-sm">
+                            Settings
+                          </h3>
+                          <div class="space-y-1.5">
+                            <label class="text-xs font-medium text-muted">Image Variant</label>
+                            <USelect
+                              :model-value="editorStore.preferredImageVariantKey ?? undefined"
+                              :items="globalVariantItems"
+                              placeholder="Default"
+                              size="sm"
+                              class="w-full"
+                              @update:model-value="handleImageVariantChange"
+                            />
+                          </div>
+                        </div>
+                      </template>
+                    </UPopover>
+                  </div>
+                </div>
+
+                <div v-if="hasAdvancedFilters" class="min-w-0 text-xs text-muted flex items-center gap-1">
+                  <UIcon v-if="isFiltering" name="i-lucide-loader-2" class="shrink-0 animate-spin" />
+                  <span v-else class="truncate">{{ totalFilteredPagesAcrossProjects }} pages match filters</span>
+                </div>
+              </div>
+
+              <div class="min-h-0 flex-1 overflow-auto editor-sidebar-image-scroll p-2">
+                <slot name="image-popover" />
+              </div>
             </div>
           </template>
         </UPopover>
       </div>
 
-      <div class="min-h-0 flex-1 overflow-auto editor-sidebar-image-scroll">
+      <div v-if="!editorUiStore.leftCollapsed" class="min-h-0 flex-1 overflow-auto editor-sidebar-image-scroll">
         <slot />
       </div>
     </div>

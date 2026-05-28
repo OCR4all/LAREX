@@ -21,6 +21,7 @@ import UiColorTag from '@/components/ui/color-tag.vue'
 import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
+import { naturalSortBy } from '@/utils/natural-sort'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -168,7 +169,6 @@ const {
 
 const selectedProjectIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedProjectIds.value.size > 0)
-const hasMultipleSelectedProjects = computed(() => selectedProjectIds.value.size > 1)
 const deletingProjectIds = ref<Set<string>>(new Set())
 const isOpeningSelectedProjectsInEditor = ref(false)
 const selectedProjects = computed(() => (data.value ?? []).filter(project => selectedProjectIds.value.has(project.id)))
@@ -181,7 +181,7 @@ const canDeleteSelectedProjects = computed(() =>
 )
 const canOpenSelectedProjectsInEditor = computed(() =>
   !isOpeningSelectedProjectsInEditor.value
-  && hasMultipleSelectedProjects.value
+  && hasSelection.value
   && selectedProjects.value.length === selectedProjectIds.value.size
   && selectedProjects.value.every(project => !project.locked && project.pageCount > 0)
 )
@@ -573,10 +573,10 @@ async function handleOpenSelectedProjectsInEditor() {
       const pages = await $fetch<PageResponse[]>(`/api/projects/${project.id}/pages`)
       return {
         project,
-        pages: createSkeletonPageData(pages, {
+        pages: naturalSortBy(createSkeletonPageData(pages, {
           projectId: project.id,
           projectName: project.name
-        })
+        }), 'label')
       }
     }))
 
@@ -605,12 +605,15 @@ async function handleOpenSelectedProjectsInEditor() {
     for (const { project, pages } of openableProjects) {
       sessionStore.addOpenedProject(project.id)
       editorStore.setProjectPages(project.id, pages, { replaceProject: true })
+      const firstProjectPage = pages[0]
+      if (firstProjectPage) {
+        sessionStore.setActivePage(project.id, firstProjectPage.id)
+      }
       openedPageCount += pages.length
     }
 
     if (firstProject && firstPage) {
       sessionStore.setActiveProject(firstProject.project.id)
-      sessionStore.addOpenedPage(firstProject.project.id, firstPage.id)
       sessionStore.setActivePage(firstProject.project.id, firstPage.id)
     }
 
@@ -1143,7 +1146,7 @@ async function handleLegacyOcr4allImport(event: Event) {
         @clear="clearSelection"
       >
         <UButton
-          v-if="hasMultipleSelectedProjects"
+          v-if="hasSelection"
           icon="i-lucide-pencil"
           color="neutral"
           variant="ghost"

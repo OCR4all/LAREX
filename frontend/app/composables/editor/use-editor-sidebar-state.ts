@@ -2,7 +2,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, type ComputedRef } fr
 
 type EditorSidebarStateOptions = {
   openedProjectIds: ComputedRef<string[]>
-  currentProjectId: ComputedRef<string | null>
   isLeftCollapsed: ComputedRef<boolean>
   isRightCollapsed: ComputedRef<boolean>
   expandLeftSidebar: () => void
@@ -12,7 +11,6 @@ type EditorSidebarStateOptions = {
 export function useEditorSidebarState(options: EditorSidebarStateOptions) {
   const editorFilterPopoverOpen = ref(false)
   const projectAccordionPanels = ref<string[]>([])
-  const collapsedProjectPanels = ref<string[]>([])
   const accordionPanels = ref<string[]>(['structure'])
 
   const openedProjectIdsSignature = computed(() => options.openedProjectIds.value.join('|'))
@@ -23,28 +21,7 @@ export function useEditorSidebarState(options: EditorSidebarStateOptions) {
     if (projectAccordionPanels.value.length === 0 && ids.length > 0) {
       projectAccordionPanels.value = [...ids]
     }
-
-    collapsedProjectPanels.value = collapsedProjectPanels.value.filter(id => ids.includes(id))
-    if (collapsedProjectPanels.value.length === 0 && ids.length > 0) {
-      const preferredProjectId = options.currentProjectId.value && ids.includes(options.currentProjectId.value)
-        ? options.currentProjectId.value
-        : ids[0]
-      collapsedProjectPanels.value = preferredProjectId ? [preferredProjectId] : []
-    }
   }, { immediate: true })
-
-  function isCollapsedProjectOpen(projectId: string): boolean {
-    return collapsedProjectPanels.value.includes(projectId)
-  }
-
-  function toggleCollapsedProjectPanel(projectId: string) {
-    if (isCollapsedProjectOpen(projectId)) {
-      collapsedProjectPanels.value = collapsedProjectPanels.value.filter(id => id !== projectId)
-      return
-    }
-
-    collapsedProjectPanels.value = [...collapsedProjectPanels.value, projectId]
-  }
 
   const handleExpandLayoutPanels = () => {
     accordionPanels.value = ['structure', 'reading-order', 'metadata', 'tasks', 'settings']
@@ -84,9 +61,6 @@ export function useEditorSidebarState(options: EditorSidebarStateOptions) {
   return {
     editorFilterPopoverOpen,
     projectAccordionPanels,
-    collapsedProjectPanels,
-    accordionPanels,
-    isCollapsedProjectOpen,
-    toggleCollapsedProjectPanel
+    accordionPanels
   }
 }

@@ -27,7 +27,6 @@ const props = withDefaults(defineProps<{
 })
 
 const editorStore = useEditorStore()
-const editorUiStore = useEditorUiStore()
 const sessionStore = useEditorSessionStore()
 const ESTIMATED_ROW_HEIGHT = 400
 
@@ -232,7 +231,7 @@ function handlePageUnload(page: PageData) {
 </script>
 
 <template>
-  <div ref="listRootRef" :class="editorUiStore.leftCollapsed ? 'px-0  space-y-0 py-0' : 'px-3  space-y-3 py-2'">
+  <div ref="listRootRef" class="px-3 space-y-3 py-2">
     <div v-if="filteredPages.length === 0" class="text-sm text-muted px-1 py-2">
       No pages match this filter.
     </div>
@@ -244,8 +243,7 @@ function handlePageUnload(page: PageData) {
         :ref="measureVirtualRow"
         :data-index="row.item.index"
         :data-page-id="row.page.id"
-        class="absolute left-0 top-0 w-full"
-        :class="editorUiStore.leftCollapsed ? 'pb-1' : 'pb-3'"
+        class="absolute left-0 top-0 w-full pb-3"
         :style="{ transform: `translateY(${row.item.start - scrollMargin}px)` }"
       >
         <ImageItem

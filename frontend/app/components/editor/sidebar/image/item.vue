@@ -2,7 +2,6 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { PageData } from '@/stores/editor/types'
 import { useEditorStore } from '@/stores/editor/editor.store'
-import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import UiColorTag from '@/components/ui/color-tag.vue'
 
 type VariantItem = { label: string, value: string }
@@ -46,14 +45,12 @@ const emit = defineEmits<{
 }>()
 
 const editorStore = useEditorStore()
-const editorUiStore = useEditorUiStore()
 const actionRunsStore = useActionRunsStore()
 const pageSummaries = useCollaborationPageSummary()
 const toast = useToast()
 const router = useRouter()
 const { user } = useUserSession()
 
-const isCollapsed = computed(() => editorUiStore.leftCollapsed)
 const isSelected = computed(() => props.page.id === props.currentPageId)
 const actionLockReason = computed(() => actionRunsStore.getPageActionLockReason(props.page.projectId, props.page.id))
 const isStaleActionLock = computed(() =>
@@ -211,41 +208,12 @@ const contextMenuItems = computed<DropdownMenuItem[][]>(() => [[
   }
 ]])
 
-const popoverOpen = ref(false)
-const selectOpen = ref(false)
-let closeTimeout: ReturnType<typeof setTimeout> | null = null
-
-function onMouseEnter() {
-  if (closeTimeout) {
-    clearTimeout(closeTimeout)
-    closeTimeout = null
-  }
-  popoverOpen.value = true
-}
-
-function onMouseLeave() {
-  if (selectOpen.value) return
-  closeTimeout = setTimeout(() => {
-    popoverOpen.value = false
-  }, 100)
-}
-
-function onSelectOpenChange(open: boolean) {
-  selectOpen.value = open
-  if (!open && closeTimeout === null) {
-    closeTimeout = setTimeout(() => {
-      popoverOpen.value = false
-    }, 100)
-  }
-}
-
 function handleVariantChange(variantId: string | null) {
   if (variantId) emit('variant-change', variantId)
 }
 
 function handleSelectPage() {
   emit('select-page', props.page)
-  popoverOpen.value = false
 }
 
 function handleUnloadPage() {
@@ -298,7 +266,7 @@ async function handleCopyPageId() {
 </script>
 
 <template>
-  <UContextMenu v-if="!isCollapsed" :items="contextMenuItems">
+  <UContextMenu :items="contextMenuItems">
     <div
       :class="[
         'group relative rounded-sm overflow-hidden cursor-pointer transition-all duration-200',
@@ -547,287 +515,4 @@ async function handleCopyPageId() {
       </div>
     </div>
   </UContextMenu>
-
-  <UPopover
-    v-else
-    v-model:open="popoverOpen"
-    :content="{ side: 'right', align: 'start', sideOffset: 8 }"
-    :ui="{ content: 'p-0 bg-transparent border-none shadow-none' }"
-  >
-    <UContextMenu :items="contextMenuItems">
-      <button
-        type="button"
-        :class="[
-          'w-full rounded-sm overflow-hidden border transition-colors relative',
-          isSelected
-            ? 'border-primary-500/60 ring-1 ring-primary-500/30'
-            : 'border-neutral-800 hover:border-neutral-700'
-        ]"
-        style="height: 48px"
-        @click="handleSelectPage"
-        @mouseenter="onMouseEnter"
-        @mouseleave="onMouseLeave"
-      >
-        <span
-          v-if="showIndexingIndicator"
-          :class="[
-            'absolute top-1 right-1 z-10 h-2.5 w-2.5 rounded-full ring-1 ring-neutral-950/90',
-            indexingIndicatorClasses
-          ]"
-          :aria-label="indexingIndicatorLabel"
-        />
-        <span
-          v-if="isPageLocked"
-          class="absolute bottom-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded-sm bg-warning/90 text-inverted shadow"
-          :title="pageLockReason"
-        >
-          <Icon name="i-lucide-lock" class="h-3 w-3" />
-        </span>
-        <img
-          v-if="previewUrl"
-          :src="previewUrl"
-          :alt="`Page ${pageLabel}`"
-          class="h-full w-full object-cover"
-          loading="lazy"
-        >
-
-        <div v-else class="h-full w-full bg-neutral-900" />
-      </button>
-    </UContextMenu>
-
-    <template #content>
-      <div
-        class="p-2"
-        style="width: 220px"
-        @mouseenter="onMouseEnter"
-        @mouseleave="onMouseLeave"
-      >
-        <UContextMenu :items="contextMenuItems">
-          <div
-            :class="[
-              'group relative rounded-sm overflow-hidden cursor-pointer transition-all duration-200',
-              'bg-neutral-900 border',
-              isSelected
-                ? 'border-primary-500 ring-2 ring-primary-500/20'
-                : 'border-neutral-800 hover:border-neutral-700'
-            ]"
-            @click="handleSelectPage"
-          >
-            <div class="relative aspect-3/4 bg-neutral-950">
-              <img
-                v-if="previewUrl"
-                :src="previewUrl"
-                :alt="`Page ${pageLabel}`"
-                class="absolute inset-0 w-full h-full object-cover"
-              >
-
-              <div
-                v-else
-                class="absolute inset-0 flex items-center justify-center bg-linear-to-br from-neutral-900 to-neutral-950 text-neutral-400"
-              >
-                <Icon name="i-lucide-file-text" class="h-5 w-5" />
-              </div>
-
-              <div class="absolute inset-x-0 top-0 p-2 flex items-start justify-between gap-2">
-                <div class="flex min-w-0 flex-col items-start gap-1">
-                  <span class="inline-flex max-w-full truncate px-1.5 py-0.5 text-sm font-mono font-medium bg-neutral-900/90 text-neutral-300 rounded border border-neutral-700/50 backdrop-blur-sm">
-                    {{ pageLabel }}
-                  </span>
-                  <UTooltip
-                    v-if="annotationModeBadge"
-                    :text="annotationModeBadge.tooltip"
-                    :content="{ side: 'right' }"
-                    :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
-                    :portal="false"
-                  >
-                    <UBadge
-                      :icon="annotationModeBadge.icon"
-                      :color="annotationModeBadge.color"
-                      variant="subtle"
-                      size="xs"
-                      class="backdrop-blur-sm"
-                    >
-                      {{ annotationModeBadge.label }}
-                    </UBadge>
-                  </UTooltip>
-                </div>
-
-                <div class="flex items-center gap-1">
-                  <UTooltip
-                    v-if="isPageLocked"
-                    :text="pageLockReason"
-                    :content="{ side: 'left' }"
-                    :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
-                    :portal="false"
-                  >
-                    <UBadge
-                      color="warning"
-                      variant="subtle"
-                      size="xs"
-                      icon="i-lucide-lock"
-                    />
-                  </UTooltip>
-                  <UPopover
-                    v-if="displayTags.length > 0"
-                    mode="hover"
-                    :open-delay="150"
-                    :close-delay="100"
-                    :content="{ side: 'right', align: 'end', sideOffset: 6 }"
-                    :ui="{ content: `${tooltipUi.content} p-2` }"
-                  >
-                    <template #default>
-                      <div class="flex items-center gap-1 px-1.5 py-1 bg-neutral-900/90 rounded border border-neutral-700/50 backdrop-blur-sm">
-                        <span
-                          v-for="tag in visibleTagDots"
-                          :key="tag.label"
-                          class="w-2 h-2 rounded-full"
-                          :style="{ backgroundColor: tag.color }"
-                        />
-                        <span v-if="hiddenTagDotCount > 0" class="text-[9px] text-neutral-400 ml-0.5">+{{ hiddenTagDotCount }}</span>
-                      </div>
-                    </template>
-                    <template #content>
-                      <div class="flex flex-col gap-1.5">
-                        <UiColorTag
-                          v-for="tag in displayTags"
-                          :key="tag.label"
-                          :color="tag.color"
-                          variant="subtle"
-                          size="sm"
-                          dot
-                        >
-                          {{ tag.label }}
-                        </UiColorTag>
-                      </div>
-                    </template>
-                  </UPopover>
-
-                  <UTooltip
-                    v-if="badges.length > 0"
-                    :delay-duration="200"
-                    :ui="{ ...tooltipUi, content: `${tooltipUi.content} p-2` }"
-                    :portal="false"
-                  >
-                    <template #default>
-                      <div class="flex items-center gap-1 px-1.5 py-1 bg-neutral-900/90 rounded border border-neutral-700/50 backdrop-blur-sm">
-                        <span
-                          v-for="badge in visibleBadges"
-                          :key="badge"
-                          :class="['w-2 h-2 rounded-full', badgeConfig[badge].dot]"
-                        />
-                        <span v-if="overflowCount > 0" class="text-[9px] text-neutral-400 ml-0.5">+{{ overflowCount }}</span>
-                      </div>
-                    </template>
-                    <template #content>
-                      <div class="flex flex-col gap-1.5">
-                        <div v-for="badge in badges" :key="badge" class="flex items-center gap-2">
-                          <span :class="['w-2 h-2 rounded-full', badgeConfig[badge].dot]" />
-                          <span class="text-xs text-neutral-300">{{ badgeConfig[badge].label }}</span>
-                        </div>
-                      </div>
-                    </template>
-                  </UTooltip>
-
-                  <UTooltip
-                    v-if="openTasks > 0"
-                    :content="{ side: 'left' }"
-                    :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
-                    :portal="false"
-                  >
-                    <template #default>
-                      <div class="flex items-center gap-1 px-1.5 py-0.5 bg-violet-500/20 border border-violet-500/30 rounded backdrop-blur-sm">
-                        <Icon name="i-lucide-list-todo" class="w-3 h-3 text-violet-400" />
-                        <span class="text-[10px] font-medium text-violet-400">{{ openTasks }}</span>
-                      </div>
-                    </template>
-                    <template #content>
-                      <span class="text-xs text-neutral-300">
-                        {{ openTasks }} open task{{ openTasks !== 1 ? 's' : '' }}
-                      </span>
-                    </template>
-                  </UTooltip>
-                </div>
-              </div>
-
-              <UTooltip
-                v-if="hasAnnotations"
-                :content="{ side: 'right' }"
-                :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
-                :portal="false"
-              >
-                <template #default>
-                  <div
-                    :class="[
-                      'absolute bottom-12 left-2 flex items-center gap-1 px-1.5 py-1 rounded backdrop-blur-sm',
-                      'bg-neutral-900/90 border',
-                      hasUnsavedChanges ? 'border-amber-500/40' : 'border-neutral-700/50'
-                    ]"
-                  >
-                    <Icon
-                      name="i-lucide-pen-line"
-                      :class="['w-3 h-3', hasUnsavedChanges ? 'text-amber-400' : 'text-cyan-400']"
-                    />
-                    <span v-if="hasUnsavedChanges" class="relative flex h-2 w-2">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                      <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                    </span>
-                  </div>
-                </template>
-                <template #content>
-                  <span class="text-xs text-neutral-300">
-                    {{ hasUnsavedChanges ? 'Annotations (unsaved changes)' : 'Annotations available' }}
-                  </span>
-                </template>
-              </UTooltip>
-
-              <UTooltip
-                v-else-if="hasUnsavedChanges"
-                :content="{ side: 'right' }"
-                :ui="{ ...tooltipUi, content: `${tooltipUi.content} px-2 py-1` }"
-                :portal="false"
-              >
-                <template #default>
-                  <div class="absolute bottom-12 left-2 flex items-center gap-1 px-1.5 py-1 rounded backdrop-blur-sm bg-neutral-900/90 border border-amber-500/40">
-                    <Icon name="i-lucide-pen-line" class="w-3 h-3 text-amber-400" />
-                    <span class="relative flex h-2 w-2">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                      <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                    </span>
-                  </div>
-                </template>
-                <template #content>
-                  <span class="text-xs text-neutral-300">Unsaved new annotations</span>
-                </template>
-              </UTooltip>
-
-              <div class="absolute inset-x-0 bottom-0 bg-linear-to-t from-neutral-950 via-neutral-950/90 to-transparent pt-6 pb-2 px-2">
-                <div v-if="variantItems.length > 0" @click.stop @pointerdown.stop>
-                  <USelect
-                    :model-value="selectedVariant ?? undefined"
-                    :items="variantItems"
-                    placeholder="Select variant"
-                    size="xs"
-                    :disabled="variantItems.length <= 1"
-                    :ui="selectUi"
-                    @update:model-value="handleVariantChange"
-                    @update:open="onSelectOpenChange"
-                  />
-                </div>
-                <div v-else class="text-[11px] text-neutral-500 px-2 py-1">
-                  No variants
-                </div>
-              </div>
-
-              <div
-                v-if="isSelected"
-                class="absolute bottom-12 right-2 w-5 h-5 rounded-full bg-primary-500 flex items-center justify-center"
-              >
-                <Icon name="i-lucide-check" class="w-3 h-3 text-white" />
-              </div>
-            </div>
-          </div>
-        </UContextMenu>
-      </div>
-    </template>
-  </UPopover>
 </template>
