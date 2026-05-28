@@ -18,6 +18,9 @@ import {
 import type { CodecProjectScope, GenerateCodecFromSourcesResponse, ValidateCodecAgainstSourcesResponse } from '@/types/codec'
 import { DEFAULT_PROJECT_CAPABILITIES } from '@/types/capabilities'
 import UiColorTag from '@/components/ui/color-tag.vue'
+import { createSkeletonPageData, type PageResponse } from '@/services/editor/project-loader'
+import { useEditorStore } from '@/stores/editor/editor.store'
+import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
@@ -37,6 +40,8 @@ const libraryKey = computed(() => {
 const overlay = useOverlay()
 const toast = useToast()
 const collaborationPageSummary = useCollaborationPageSummary()
+const editorStore = useEditorStore()
+const sessionStore = useEditorSessionStore()
 
 const librarySlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
@@ -163,7 +168,9 @@ const {
 
 const selectedProjectIds = ref<Set<string>>(new Set())
 const hasSelection = computed(() => selectedProjectIds.value.size > 0)
+const hasMultipleSelectedProjects = computed(() => selectedProjectIds.value.size > 1)
 const deletingProjectIds = ref<Set<string>>(new Set())
+const isOpeningSelectedProjectsInEditor = ref(false)
 const selectedProjects = computed(() => (data.value ?? []).filter(project => selectedProjectIds.value.has(project.id)))
 const canDeleteSelectedProjects = computed(() =>
   selectedProjects.value.length > 0
@@ -171,6 +178,12 @@ const canDeleteSelectedProjects = computed(() =>
     const capabilities = getProjectCapabilities(project)
     return allow(capabilities.canDelete) && !project.locked && !deletingProjectIds.value.has(project.id)
   })
+)
+const canOpenSelectedProjectsInEditor = computed(() =>
+  !isOpeningSelectedProjectsInEditor.value
+  && hasMultipleSelectedProjects.value
+  && selectedProjects.value.length === selectedProjectIds.value.size
+  && selectedProjects.value.every(project => !project.locked && project.pageCount > 0)
 )
 
 const allFilteredSelected = computed(() => {
@@ -546,6 +559,81 @@ async function handleDeleteSelectedProjects() {
     const nextDeleting = new Set(deletingProjectIds.value)
     ids.forEach(id => nextDeleting.delete(id))
     deletingProjectIds.value = nextDeleting
+  }
+}
+
+async function handleOpenSelectedProjectsInEditor() {
+  if (!selectedWorkspace.value || !canOpenSelectedProjectsInEditor.value) return
+
+  const projectsToOpen = [...selectedProjects.value]
+  isOpeningSelectedProjectsInEditor.value = true
+
+  try {
+    const results = await Promise.allSettled(projectsToOpen.map(async (project) => {
+      const pages = await $fetch<PageResponse[]>(`/api/projects/${project.id}/pages`)
+      return {
+        project,
+        pages: createSkeletonPageData(pages, {
+          projectId: project.id,
+          projectName: project.name
+        })
+      }
+    }))
+
+    const openableProjects = results.flatMap((result) => {
+      if (result.status !== 'fulfilled') return []
+      return result.value.pages.length > 0 ? [result.value] : []
+    })
+
+    if (openableProjects.length === 0) {
+      toast.add({
+        title: 'No projects opened',
+        description: 'No selected project pages could be loaded.',
+        color: 'warning'
+      })
+      return
+    }
+
+    editorStore.resetEditorState()
+    sessionStore.clearSession({ preserveTextViewSettings: true })
+    sessionStore.initWorkspaceSession(selectedWorkspace.value)
+
+    const firstProject = openableProjects[0]
+    const firstPage = firstProject?.pages[0]
+    let openedPageCount = 0
+
+    for (const { project, pages } of openableProjects) {
+      sessionStore.addOpenedProject(project.id)
+      editorStore.setProjectPages(project.id, pages, { replaceProject: true })
+      openedPageCount += pages.length
+    }
+
+    if (firstProject && firstPage) {
+      sessionStore.setActiveProject(firstProject.project.id)
+      sessionStore.addOpenedPage(firstProject.project.id, firstPage.id)
+      sessionStore.setActivePage(firstProject.project.id, firstPage.id)
+    }
+
+    const failedCount = results.filter(result => result.status === 'rejected').length
+    const skippedEmptyCount = results.filter(result => result.status === 'fulfilled' && result.value.pages.length === 0).length
+
+    if (failedCount > 0 || skippedEmptyCount > 0) {
+      toast.add({
+        title: 'Some projects were skipped',
+        description: `${openableProjects.length} project${openableProjects.length === 1 ? '' : 's'} opened with ${openedPageCount} page${openedPageCount === 1 ? '' : 's'}.`,
+        color: 'warning'
+      })
+    }
+
+    await navigateTo('/editor')
+  } catch (error: unknown) {
+    toast.add({
+      title: 'Failed to open editor',
+      description: extractApiErrorMessage(error, 'Could not prepare selected projects for the editor.'),
+      color: 'error'
+    })
+  } finally {
+    isOpeningSelectedProjectsInEditor.value = false
   }
 }
 
@@ -1055,15 +1143,17 @@ async function handleLegacyOcr4allImport(event: Event) {
         @clear="clearSelection"
       >
         <UButton
-          icon="i-lucide-trash"
-          color="error"
+          v-if="hasMultipleSelectedProjects"
+          icon="i-lucide-pencil"
+          color="neutral"
           variant="ghost"
           size="sm"
-          class="hover:bg-white/10"
-          :disabled="!canDeleteSelectedProjects"
-          @click="handleDeleteSelectedProjects"
+          class="text-neutral-50 hover:bg-white/10"
+          :loading="isOpeningSelectedProjectsInEditor"
+          :disabled="!canOpenSelectedProjectsInEditor"
+          @click="handleOpenSelectedProjectsInEditor"
         >
-          Delete
+          Open in Editor
         </UButton>
         <UButton
           icon="i-lucide-wand-sparkles"
@@ -1084,6 +1174,17 @@ async function handleLegacyOcr4allImport(event: Event) {
           @click="openCodecValidateSlideover"
         >
           Validate Codec
+        </UButton>
+        <UButton
+          icon="i-lucide-trash"
+          color="error"
+          variant="ghost"
+          size="sm"
+          class="hover:bg-white/10"
+          :disabled="!canDeleteSelectedProjects"
+          @click="handleDeleteSelectedProjects"
+        >
+          Delete
         </UButton>
       </UiFloatingSelectionMenu>
     </template>
