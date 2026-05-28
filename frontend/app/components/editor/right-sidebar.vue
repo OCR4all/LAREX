@@ -34,6 +34,16 @@ let dragStartClientY = 0
 let dragStartSidebarX = 0
 let dragStartSidebarY = 0
 
+function getMeasuredShellWidth() {
+  const width = sidebarShellRef.value?.getBoundingClientRect().width ?? 0
+  return width > 0 ? width : 48
+}
+
+function getMeasuredShellHeight() {
+  const height = sidebarShellRef.value?.getBoundingClientRect().height ?? 0
+  return height > 0 ? height : 320
+}
+
 function getViewportSize() {
   return {
     width: window.innerWidth || document.documentElement.clientWidth,
@@ -42,10 +52,9 @@ function getViewportSize() {
 }
 
 function clampSidebarPosition(x: number, y: number) {
-  const rect = sidebarShellRef.value?.getBoundingClientRect()
   const { width, height } = getViewportSize()
-  const shellWidth = rect?.width ?? 48
-  const shellHeight = rect?.height ?? 320
+  const shellWidth = getMeasuredShellWidth()
+  const shellHeight = getMeasuredShellHeight()
   const maxX = Math.max(8, width - shellWidth - 8)
   const maxY = Math.max(8, height - shellHeight - 8)
 
@@ -57,8 +66,7 @@ function clampSidebarPosition(x: number, y: number) {
 
 function getDefaultFloatingPosition() {
   const { width, height } = getViewportSize()
-  const rect = sidebarShellRef.value?.getBoundingClientRect()
-  const shellWidth = rect?.width ?? 48
+  const shellWidth = getMeasuredShellWidth()
 
   return clampSidebarPosition(width - shellWidth - 16, Math.round(height * 0.1))
 }

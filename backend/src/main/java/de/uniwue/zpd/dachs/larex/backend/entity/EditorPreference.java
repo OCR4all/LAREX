@@ -39,12 +39,6 @@ public class EditorPreference {
     @Column(name = "toolbar_floating_orientation")
     private String toolbarFloatingOrientation;
 
-    @Column(name = "toolbar_floating_x")
-    private Integer toolbarFloatingX;
-
-    @Column(name = "toolbar_floating_y")
-    private Integer toolbarFloatingY;
-
     // Sidebar states
     @Column(name = "left_collapsed")
     private Boolean leftCollapsed;
@@ -169,12 +163,6 @@ public class EditorPreference {
 
     public String getToolbarFloatingOrientation() { return toolbarFloatingOrientation; }
     public void setToolbarFloatingOrientation(String toolbarFloatingOrientation) { this.toolbarFloatingOrientation = toolbarFloatingOrientation; }
-
-    public Integer getToolbarFloatingX() { return toolbarFloatingX; }
-    public void setToolbarFloatingX(Integer toolbarFloatingX) { this.toolbarFloatingX = toolbarFloatingX; }
-
-    public Integer getToolbarFloatingY() { return toolbarFloatingY; }
-    public void setToolbarFloatingY(Integer toolbarFloatingY) { this.toolbarFloatingY = toolbarFloatingY; }
 
     public Boolean getLeftCollapsed() { return leftCollapsed; }
     public void setLeftCollapsed(Boolean leftCollapsed) { this.leftCollapsed = leftCollapsed; }

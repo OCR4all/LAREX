@@ -29,8 +29,6 @@ public class EditorPreferenceService {
         if (dto.toolbarLayout() != null) pref.setToolbarLayout(dto.toolbarLayout());
         if (dto.toolbarCompact() != null) pref.setToolbarCompact(dto.toolbarCompact());
         if (dto.toolbarFloatingOrientation() != null) pref.setToolbarFloatingOrientation(dto.toolbarFloatingOrientation());
-        if (dto.toolbarFloatingX() != null) pref.setToolbarFloatingX(dto.toolbarFloatingX());
-        if (dto.toolbarFloatingY() != null) pref.setToolbarFloatingY(dto.toolbarFloatingY());
         if (dto.leftCollapsed() != null) pref.setLeftCollapsed(dto.leftCollapsed());
         if (dto.rightCollapsed() != null) pref.setRightCollapsed(dto.rightCollapsed());
         if (dto.leftWidthPx() != null) pref.setLeftWidthPx(dto.leftWidthPx());

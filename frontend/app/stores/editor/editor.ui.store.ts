@@ -143,11 +143,7 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     if (prefs.toolbarFloatingOrientation !== null) {
       toolbarFloatingOrientation.value = coerceToolbarFloatingOrientation(prefs.toolbarFloatingOrientation)
     }
-    const floatingX = normalizeToolbarFloatingCoordinate(prefs.toolbarFloatingX)
-    const floatingY = normalizeToolbarFloatingCoordinate(prefs.toolbarFloatingY)
-    if (floatingX !== null && floatingY !== null) {
-      toolbarFloatingPosition.value = { x: floatingX, y: floatingY }
-    }
+    toolbarFloatingPosition.value = null
     if (prefs.leftCollapsed !== null) leftCollapsed.value = prefs.leftCollapsed
     if (prefs.rightCollapsed !== null) rightCollapsed.value = prefs.rightCollapsed
     if (prefs.leftWidthPx !== null) leftWidthPx.value = prefs.leftWidthPx
@@ -270,18 +266,12 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
     editorPreferences.updatePreference('toolbarFloatingOrientation', normalized)
   }
 
-  function setToolbarFloatingPosition(x: number, y: number, options: { persist?: boolean } = {}) {
+  function setToolbarFloatingPosition(x: number, y: number, _options: { persist?: boolean } = {}) {
     const normalizedX = normalizeToolbarFloatingCoordinate(x)
     const normalizedY = normalizeToolbarFloatingCoordinate(y)
     if (normalizedX === null || normalizedY === null) return
 
     toolbarFloatingPosition.value = { x: normalizedX, y: normalizedY }
-
-    if (options.persist === false) return
-    editorPreferences.updatePreferences({
-      toolbarFloatingX: normalizedX,
-      toolbarFloatingY: normalizedY
-    })
   }
 
   function setToolbarCompact(compact: boolean) {
@@ -436,12 +426,12 @@ export const useEditorUiStore = defineStore('editor-ui', () => {
 
   function toggleLeftCollapsed() {
     leftCollapsed.value = !leftCollapsed.value
-    editorPreferences.updatePreference('leftCollapsed', leftCollapsed.value)
+    editorPreferences.updatePreference('leftCollapsed', leftCollapsed.value, { immediate: true })
   }
 
   function toggleRightCollapsed() {
     rightCollapsed.value = !rightCollapsed.value
-    editorPreferences.updatePreference('rightCollapsed', rightCollapsed.value)
+    editorPreferences.updatePreference('rightCollapsed', rightCollapsed.value, { immediate: true })
   }
 
   function setLeftWidth(width: number) {

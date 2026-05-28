@@ -9,8 +9,6 @@ export interface EditorPreferences {
   toolbarLayout: ToolbarLayout | null
   toolbarCompact: boolean | null
   toolbarFloatingOrientation: ToolbarFloatingOrientation | null
-  toolbarFloatingX: number | null
-  toolbarFloatingY: number | null
   leftCollapsed: boolean | null
   rightCollapsed: boolean | null
   leftWidthPx: number | null
@@ -55,8 +53,6 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
   toolbarLayout: null,
   toolbarCompact: null,
   toolbarFloatingOrientation: null,
-  toolbarFloatingX: null,
-  toolbarFloatingY: null,
   leftCollapsed: null,
   rightCollapsed: null,
   leftWidthPx: null,
@@ -90,6 +86,10 @@ const DEFAULT_PREFERENCES: EditorPreferences = {
 }
 
 const SAVE_DEBOUNCE_MS = 1200
+
+type UpdatePreferenceOptions = {
+  immediate?: boolean
+}
 
 export const useEditorPreferences = () => {
   const state = useState<EditorPreferencesState>('editor-preferences', () => ({
@@ -139,6 +139,20 @@ export const useEditorPreferences = () => {
     }, SAVE_DEBOUNCE_MS)
   }
 
+  const removePendingPatchKeys = (keys: Array<keyof EditorPreferences>) => {
+    if (keys.length === 0) return
+
+    const blockedKeys = new Set<keyof EditorPreferences>(keys)
+    pendingSavePatch = Object.fromEntries(
+      Object.entries(pendingSavePatch).filter(([key]) => !blockedKeys.has(key as keyof EditorPreferences))
+    ) as Partial<EditorPreferences>
+
+    if (saveTimer && Object.keys(pendingSavePatch).length === 0) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+  }
+
   const fetchPreferences = async () => {
     if (state.value.initialized) return state.value.preferences
     state.value.isLoading = true
@@ -156,8 +170,17 @@ export const useEditorPreferences = () => {
     }
   }
 
-  const updatePreference = <K extends keyof EditorPreferences>(key: K, value: EditorPreferences[K]) => {
+  const updatePreference = <K extends keyof EditorPreferences>(
+    key: K,
+    value: EditorPreferences[K],
+    options: UpdatePreferenceOptions = {}
+  ) => {
     state.value.preferences[key] = value
+    if (options.immediate) {
+      removePendingPatchKeys([key])
+      void savePreferences({ [key]: value })
+      return
+    }
     scheduleSave({ [key]: value })
   }
 

@@ -125,8 +125,6 @@ class EditorPreferenceServiceTest {
                 null,
                 null,
                 null,
-                null,
-                null,
                 showPolygonLabelFill,
                 null,
                 null,
