@@ -32,7 +32,7 @@ const isDatasetRoute = computed(() =>
   route.path === '/datasets' || route.path.startsWith('/datasets/')
 )
 
-const isLibraryRoute = computed(() =>
+const isProjectsRoute = computed(() =>
   route.path === '/' || route.path.startsWith('/project/')
 )
 
@@ -64,7 +64,7 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
   const hasActive = (items: { active: boolean }[]) => items.some(i => i.active)
 
   return [
-    { label: 'Library', icon: 'i-lucide-library', to: '/', active: isLibraryRoute.value, onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Projects', icon: 'i-lucide-library', to: '/', active: isProjectsRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', active: isDatasetRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Tasks', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Utilities', icon: 'i-lucide-tool-case', defaultOpen: hasActive(utilitiesChildren), type: 'trigger', children: utilitiesChildren },

@@ -410,7 +410,7 @@ public class ProjectPackageService {
                 );
 
                 Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                        .orElseThrow(() -> new IllegalArgumentException("Library not found for workspace: " + workspaceId));
+                        .orElseThrow(() -> new IllegalArgumentException("Projects not found for workspace: " + workspaceId));
 
                 String projectName = uniqueProjectName(
                         manifest.project().name(),

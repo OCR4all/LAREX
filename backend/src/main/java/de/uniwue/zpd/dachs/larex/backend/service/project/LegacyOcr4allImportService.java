@@ -105,7 +105,7 @@ public class LegacyOcr4allImportService {
 
         try {
             Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                    .orElseThrow(() -> new IllegalArgumentException("Library not found for workspace: " + workspaceId));
+                    .orElseThrow(() -> new IllegalArgumentException("Projects not found for workspace: " + workspaceId));
 
             Project project = createProject(library, resolveProjectName(projectName, relativePaths));
             Map<String, Page> pagesByBaseName = createPages(project, pageBaseNames);

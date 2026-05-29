@@ -63,7 +63,7 @@ public class CodecService {
         workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Library not found for workspace: " + workspaceId));
+                .orElseThrow(() -> new ResourceNotFoundException("Projects not found for workspace: " + workspaceId));
 
         if (codecRepository.existsByNameAndLibraryId(request.name(), library.getId())) {
             throw new IllegalArgumentException("Codec with name '" + request.name() + "' already exists in this workspace");
@@ -245,7 +245,7 @@ public class CodecService {
             }
 
             Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Library not found for workspace: " + workspaceId));
+                    .orElseThrow(() -> new ResourceNotFoundException("Projects not found for workspace: " + workspaceId));
 
             if (codecRepository.existsByNameAndLibraryId(newCodecName, library.getId())) {
                 throw new IllegalArgumentException("Codec with name '" + newCodecName + "' already exists in this workspace");

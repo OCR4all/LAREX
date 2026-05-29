@@ -109,7 +109,7 @@ public class DictionaryService {
         workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
 
         Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Library not found for workspace: " + workspaceId));
+                .orElseThrow(() -> new ResourceNotFoundException("Projects not found for workspace: " + workspaceId));
 
         if (dictionaryRepository.existsByNameAndLibraryId(request.name(), library.getId())) {
             throw new IllegalArgumentException("Dictionary with name '" + request.name() + "' already exists in this workspace");
@@ -323,7 +323,7 @@ public class DictionaryService {
                 : deriveDictionaryName(file.getOriginalFilename());
 
         Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Library not found for workspace: " + workspaceId));
+                .orElseThrow(() -> new ResourceNotFoundException("Projects not found for workspace: " + workspaceId));
 
         if (dictionaryRepository.existsByNameAndLibraryId(resolvedName, library.getId())) {
             throw new IllegalArgumentException("Dictionary with name '" + resolvedName + "' already exists in this workspace");
@@ -348,7 +348,7 @@ public class DictionaryService {
                                               String targetName,
                                               DictionaryDto.PackagePayload payload) {
         Library library = libraryRepository.findByWorkspaceId(workspaceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Library not found for workspace: " + workspaceId));
+                .orElseThrow(() -> new ResourceNotFoundException("Projects not found for workspace: " + workspaceId));
 
         ControlledDictionary dictionary = new ControlledDictionary(targetName, library);
         dictionary.setDescription(trimToNull(payload.description()));

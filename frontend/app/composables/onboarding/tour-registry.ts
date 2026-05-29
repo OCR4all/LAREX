@@ -83,7 +83,7 @@ const tours: OnboardingTourDefinition[] = [
         }),
         popover: {
           title: 'Navigation Sidebar',
-          description: 'Use the sidebar to move between Library, Tasks, Utilities, Workspace, and your personal settings.',
+          description: 'Use the sidebar to move between Projects, Tasks, Utilities, Workspace, and your personal settings.',
           side: 'right',
           align: 'start'
         }
@@ -94,7 +94,7 @@ const tours: OnboardingTourDefinition[] = [
           await ensureDashboardSidebarVisible()
         }),
         popover: {
-          title: 'Library',
+          title: 'Projects',
           description: 'Open projects, browse pages, and jump into annotation work.',
           side: 'right',
           align: 'start'

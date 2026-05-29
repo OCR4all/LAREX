@@ -282,8 +282,8 @@ export function useEditorCommandCenter(options: EditorCommandCenterOptions) {
     id: 'dashboard-navigation',
     label: 'Navigation',
     items: [{
-      id: 'go-library',
-      label: 'Go to Library',
+      id: 'go-projects',
+      label: 'Go to Projects',
       icon: 'i-lucide-library',
       suffix: 'Browse your projects',
       kbds: ['G', 'H'],

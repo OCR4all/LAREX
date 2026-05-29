@@ -23,7 +23,7 @@ const EDITOR_TOUR_VERSION = 2
  * so we resolve them by text content lookup.
  */
 const NAV_SELECTOR_TO_LABEL: Record<string, string> = {
-  '[data-tour="nav-library"]': 'Library',
+  '[data-tour="nav-library"]': 'Projects',
   '[data-tour="nav-tasks"]': 'Tasks',
   '[data-tour="nav-utilities"]': 'Utilities',
   '[data-tour="nav-workspace"]': 'Workspace',

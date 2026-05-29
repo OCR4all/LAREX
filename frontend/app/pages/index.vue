@@ -33,7 +33,7 @@ onMounted(() => {
   maybeAutoStartDashboardTour()
 })
 
-const libraryKey = computed(() => {
+const projectsKey = computed(() => {
   if (!selectedWorkspace.value) return globalKey('pending', 'projects', 'list')
   return wsKey(selectedWorkspace.value, 'projects', 'list')
 })
@@ -44,7 +44,7 @@ const collaborationPageSummary = useCollaborationPageSummary()
 const editorStore = useEditorStore()
 const sessionStore = useEditorSessionStore()
 
-const librarySlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
+const projectSlideoverCreate = overlay.create(LazyLibrarySlideoverCreate)
 const codecActionSlideover = overlay.create(LazyCodecSlideoverAction)
 
 const emptyActions = computed(() => {
@@ -54,7 +54,7 @@ const emptyActions = computed(() => {
       icon: 'i-lucide-package-plus',
       label: 'Create new',
       variant: 'solid',
-      onClick: () => librarySlideoverCreate.open()
+      onClick: () => projectSlideoverCreate.open()
     })
   }
   actions.push({
@@ -82,9 +82,9 @@ type ResolvedTag = {
 }
 
 const DEFAULT_CUSTOM_TAG_COLOR = '#2563eb'
-const DEFAULT_LIBRARY_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'pageCount', 'updated']
+const DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS = ['name', 'description', 'tags', 'pageCount', 'updated']
 
-type LibraryProject = {
+type ProjectListItem = {
   id: string
   name: string
   description: string
@@ -114,9 +114,9 @@ const {
   error,
   status,
   refresh
-} = await useFetch<LibraryProject[]>(() => `/api/workspaces/${selectedWorkspace.value}/projects`,
+} = await useFetch<ProjectListItem[]>(() => `/api/workspaces/${selectedWorkspace.value}/projects`,
   {
-    key: libraryKey,
+    key: projectsKey,
     watch: [selectedWorkspace],
     default: () => [],
     immediate: !!selectedWorkspace.value
@@ -230,7 +230,7 @@ onMounted(() => {
   }
 })
 
-function renderProjectEditorsCell(project: LibraryProject) {
+function renderProjectEditorsCell(project: ProjectListItem) {
   const editors = collaborationPageSummary.getProjectEditors(project.id)
   if (editors.length === 0) {
     return null
@@ -286,7 +286,7 @@ function renderProjectEditorsCell(project: LibraryProject) {
   })
 }
 
-const columns: TableColumn<LibraryProject>[] = [
+const columns: TableColumn<ProjectListItem>[] = [
   {
     id: 'select',
     header: () => h('input', {
@@ -394,25 +394,25 @@ const columns: TableColumn<LibraryProject>[] = [
   }
 ]
 
-function handleRowClick(row: Row<LibraryProject>) {
+function handleRowClick(row: Row<ProjectListItem>) {
   navigateTo(`/project/${row.original.id}`)
 }
 
-function getProjectCapabilities(project: LibraryProject) {
+function getProjectCapabilities(project: ProjectListItem) {
   return {
     ...DEFAULT_PROJECT_CAPABILITIES,
     ...(project.capabilities ?? {})
   }
 }
 
-function toEditableProject(project: LibraryProject) {
+function toEditableProject(project: ProjectListItem) {
   return {
     ...project,
     tagSetId: project.tagSetId ?? undefined
   }
 }
 
-async function handleDeleteProject(project: LibraryProject): Promise<boolean> {
+async function handleDeleteProject(project: ProjectListItem): Promise<boolean> {
   const capabilities = getProjectCapabilities(project)
   if (!allow(capabilities.canDelete)) return false
   if (deletingProjectIds.value.has(project.id)) return false
@@ -468,7 +468,7 @@ async function handleDeleteProject(project: LibraryProject): Promise<boolean> {
       color: 'success',
       icon: 'i-lucide-trash-2'
     })
-    void refreshNuxtData(libraryKey.value)
+    void refreshNuxtData(projectsKey.value)
     return true
   } catch (error: unknown) {
     const hasProject = (data.value ?? []).some(item => item.id === project.id)
@@ -548,7 +548,7 @@ async function handleDeleteSelectedProjects() {
     }
 
     clearSelection()
-    await refreshNuxtData(libraryKey.value)
+    await refreshNuxtData(projectsKey.value)
   } catch (error: unknown) {
     toast.add({
       title: 'Delete failed',
@@ -640,7 +640,7 @@ async function handleOpenSelectedProjectsInEditor() {
   }
 }
 
-async function openEditProjectSlideover(project: LibraryProject) {
+async function openEditProjectSlideover(project: ProjectListItem) {
   const capabilities = getProjectCapabilities(project)
   if (!allow(capabilities.canEdit)) return
 
@@ -648,10 +648,10 @@ async function openEditProjectSlideover(project: LibraryProject) {
   const updated = await instance.result
   if (!updated) return
 
-  await refreshNuxtData(libraryKey.value)
+  await refreshNuxtData(projectsKey.value)
 }
 
-async function openShareSlideover(project: LibraryProject) {
+async function openShareSlideover(project: ProjectListItem) {
   const capabilities = getProjectCapabilities(project)
   if (!allow(capabilities.canShare)) return
 
@@ -665,10 +665,10 @@ async function openShareSlideover(project: LibraryProject) {
   const transferred = await instance.result
   if (!transferred) return
 
-  await refreshNuxtData(libraryKey.value)
+  await refreshNuxtData(projectsKey.value)
 }
 
-function getRowItems(row: Row<LibraryProject>) {
+function getRowItems(row: Row<ProjectListItem>) {
   const capabilities = getProjectCapabilities(row.original)
   const groups: DropdownMenuItem[][] = [[
     {
@@ -724,14 +724,14 @@ function getRowItems(row: Row<LibraryProject>) {
   return compactGroups(groups)
 }
 
-const contextMenuRow = ref<Row<LibraryProject> | null>(null)
+const contextMenuRow = ref<Row<ProjectListItem> | null>(null)
 const contextMenuItems = computed(() => {
   if (!contextMenuRow.value) return []
   return getRowItems(contextMenuRow.value)
 })
 
 function handleRowContextMenu(_event: Event, row: { original: Record<string, unknown> }) {
-  contextMenuRow.value = row as Row<LibraryProject>
+  contextMenuRow.value = row as Row<ProjectListItem>
 }
 
 const selectedSources = computed<CodecProjectScope[]>(() => {
@@ -774,7 +774,7 @@ function triggerLegacyOcr4allImport() {
   importLegacyOcr4allInput.value?.click()
 }
 
-const libraryActionItems = computed<DropdownMenuItem[][]>(() => [[
+const projectsActionItems = computed<DropdownMenuItem[][]>(() => [[
   {
     label: 'Import Package',
     icon: 'i-lucide-file-up',
@@ -900,9 +900,9 @@ async function handleLegacyOcr4allImport(event: Event) {
 </script>
 
 <template>
-  <UDashboardPanel id="library">
+  <UDashboardPanel id="projects">
     <template #header>
-      <UDashboardNavbar title="Library">
+      <UDashboardNavbar title="Projects">
         <template #leading>
           <LazyUDashboardSidebarCollapse />
         </template>
@@ -930,9 +930,9 @@ async function handleLegacyOcr4allImport(event: Event) {
               color="neutral"
               variant="outline"
               icon="i-lucide-package-plus"
-              @click="librarySlideoverCreate.open()"
+              @click="projectSlideoverCreate.open()"
             />
-            <UDropdownMenu :items="libraryActionItems" :content="{ align: 'end' }">
+            <UDropdownMenu :items="projectsActionItems" :content="{ align: 'end' }">
               <UButton
                 color="neutral"
                 variant="outline"
@@ -1110,7 +1110,7 @@ async function handleLegacyOcr4allImport(event: Event) {
             table-id="dashboard-projects-v2"
             :data="paginatedData"
             :columns="columns"
-            :default-visible-column-ids="DEFAULT_LIBRARY_VISIBLE_COLUMN_IDS"
+            :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
             class="flex-1"
             @row-click="handleRowClick"
             @contextmenu="handleRowContextMenu"

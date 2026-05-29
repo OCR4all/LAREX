@@ -68,7 +68,7 @@ const projectReleasesKey = computed(() => wsKey(selectedWorkspace.value as strin
 const projectPagesKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'pages'))
 const projectStatusKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', projectId, 'status'))
 const starredProjectsKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'starred'))
-const libraryProjectsKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'list'))
+const projectsListKey = computed(() => wsKey(selectedWorkspace.value as string, 'projects', 'list'))
 
 type ProjectData = {
   id: string
@@ -327,7 +327,7 @@ const { data: openSubtasksByPage } = await useFetch<Record<string, Subtask[]>>(
 
 const items = computed<BreadcrumbItem[]>(() => [
   {
-    label: 'Library',
+    label: 'Projects',
     to: '/'
   },
   {
@@ -580,7 +580,7 @@ const actionRunSlideover = overlay.create(LazyActionSlideoverRun)
 const router = useRouter()
 const isDeletingProject = ref(false)
 
-async function goToLibrary() {
+async function goToProjects() {
   await router.push('/')
 }
 
@@ -596,7 +596,7 @@ async function refreshProjectPagesData() {
     refreshPagesFetch(),
     refreshProject(),
     refreshProjectStatus(),
-    workspaceId ? refreshNuxtData(libraryProjectsKey.value) : Promise.resolve(),
+    workspaceId ? refreshNuxtData(projectsListKey.value) : Promise.resolve(),
     workspaceId ? refreshNuxtData(starredProjectsKey.value) : Promise.resolve(),
     workspaceId ? refreshNuxtData(wsKey(workspaceId, 'storage', 'quota')) : Promise.resolve()
   ])
@@ -651,10 +651,10 @@ watch(activeActionRunCount, (count, previousCount) => {
 const projectNotFoundActions = computed<Array<Record<string, unknown>>>(() => [
   {
     icon: 'i-lucide-arrow-left',
-    label: 'Back to library',
+    label: 'Back to projects',
     color: 'neutral' as const,
     variant: 'solid' as const,
-    onClick: goToLibrary
+    onClick: goToProjects
   },
   {
     icon: 'i-lucide-refresh-cw',
@@ -703,11 +703,11 @@ async function handleDeleteProject() {
     progress: false,
     duration: 0
   })
-  const { data: libraryProjects } = useNuxtData<ProjectData[]>(libraryProjectsKey.value)
-  const previousLibraryProjects = libraryProjects.value ? [...libraryProjects.value] : null
+  const { data: projectsList } = useNuxtData<ProjectData[]>(projectsListKey.value)
+  const previousProjectsList = projectsList.value ? [...projectsList.value] : null
 
-  if (libraryProjects.value) {
-    libraryProjects.value = libraryProjects.value.filter(item => item.id !== deletingProjectId)
+  if (projectsList.value) {
+    projectsList.value = projectsList.value.filter(item => item.id !== deletingProjectId)
   }
 
   isDeletingProject.value = true
@@ -729,8 +729,8 @@ async function handleDeleteProject() {
 
     void refreshNuxtData(wsKey(workspaceId, 'projects', 'list'))
   } catch (error: unknown) {
-    if (previousLibraryProjects) {
-      libraryProjects.value = previousLibraryProjects
+    if (previousProjectsList) {
+      projectsList.value = previousProjectsList
     }
 
     const message = error instanceof Error ? error.message : ''

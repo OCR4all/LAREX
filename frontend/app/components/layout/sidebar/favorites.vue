@@ -1,5 +1,4 @@
 <script setup lang="ts">
-
 interface Props {
   collapsed?: boolean
 }
@@ -48,7 +47,7 @@ const hasMoreProjects = computed(() => {
 const isPopoverOpen = ref(false)
 
 function showAllStarred() {
-  navigateTo('/library?starred=true')
+  navigateTo('/?starred=true')
   isPopoverOpen.value = false
 }
 
@@ -107,7 +106,7 @@ function navigateToProject(projectId: string) {
                 @click="showAllStarred"
               >
                 <UIcon name="i-lucide-external-link" class="w-4 h-4 shrink-0" />
-                <span class="font-medium">View all in Library</span>
+                <span class="font-medium">View all in Projects</span>
               </button>
             </div>
           </div>

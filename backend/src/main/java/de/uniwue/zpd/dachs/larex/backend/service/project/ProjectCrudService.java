@@ -112,7 +112,7 @@ public class ProjectCrudService {
 
         Optional<Library> libraryOpt = libraryRepository.findByWorkspaceId(workspaceId);
         if (libraryOpt.isEmpty()) {
-            throw new IllegalArgumentException("No library found for this workspace. Please contact an administrator.");
+            throw new IllegalArgumentException("No projects found for this workspace. Please contact an administrator.");
         }
 
         Library library = libraryOpt.get();
