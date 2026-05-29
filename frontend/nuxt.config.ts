@@ -60,8 +60,6 @@ export default defineNuxtConfig({
     },
     optimizeDeps: {
       include: [
-        '@vue/devtools-core',
-        '@vue/devtools-kit',
         'driver.js',
         'dockview-vue',
         'earcut',
@@ -82,7 +80,6 @@ export default defineNuxtConfig({
         '@codemirror/lang-yaml',
         '@lezer/highlight',
         'reka-ui',
-        '@internationalized/date',
         'yaml'
       ]
     }
