@@ -37,6 +37,8 @@ const isFloatingCollapsed = computed(() => editorUiStore.leftCollapsed && props.
 const floatingImagePopoverOpen = ref(false)
 const collapsedRailImagePopoverOpen = ref(false)
 
+const DEFAULT_FLOATING_SIDEBAR_TOP = 120
+
 let dragPointerId: number | null = null
 let dragStartClientX = 0
 let dragStartClientY = 0
@@ -79,8 +81,7 @@ function clampSidebarPosition(x: number, y: number) {
 }
 
 function getDefaultFloatingPosition() {
-  const { height } = getViewportSize()
-  return clampSidebarPosition(16, Math.round(height * 0.1))
+  return clampSidebarPosition(16, DEFAULT_FLOATING_SIDEBAR_TOP)
 }
 
 function ensureFloatingPosition() {
@@ -97,7 +98,7 @@ function ensureFloatingPosition() {
 const floatingSidebarStyle = computed<CSSProperties | undefined>(() => {
   if (!isFloatingCollapsed.value) return undefined
 
-  const position = floatingPosition.value ?? { x: 16, y: 96 }
+  const position = floatingPosition.value ?? { x: 16, y: DEFAULT_FLOATING_SIDEBAR_TOP }
   return {
     left: `${position.x}px`,
     top: `${position.y}px`

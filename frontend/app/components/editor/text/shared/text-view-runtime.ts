@@ -1,10 +1,10 @@
-import { computed, reactive, ref, type ComputedRef } from 'vue'
+import { computed, type ComputedRef } from 'vue'
 import { Commander } from '@/commands/editor/commander'
 import type { CommandContext } from '@/commands/editor/types'
 import type { TextContentVariantData } from '@/models/editor'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
-import type { EditorCanvasControls, SelectionFocusOptions } from '@/types/editor/canvas-controls'
+import type { SelectionFocusOptions } from '@/types/editor/canvas-controls'
 
 export type TextViewEditorStoreLike = {
   regionsByCanvasId: (canvasId: string) => RenderablePolygon[]
@@ -18,6 +18,17 @@ export type TextRuntimeControls = {
   selectPolylineById?: (id: string | null, options?: SelectionFocusOptions) => void
 }
 
+const fallbackCommanders = new Map<string, Commander>()
+
+function getFallbackCommander(canvasId: string): Commander {
+  const existing = fallbackCommanders.get(canvasId)
+  if (existing) return existing
+
+  const created = new Commander()
+  fallbackCommanders.set(canvasId, created)
+  return created
+}
+
 export function getTextViewRuntimeControls(
   canvasId: string | null | undefined,
   editorStore: TextViewEditorStoreLike
@@ -28,57 +39,9 @@ export function getTextViewRuntimeControls(
   const controls = session?.controls.value
 
   if (!controls) {
-    const fallbackControls: EditorCanvasControls = {
-      commander: new Commander(),
-      isCanvasEditable: computed(() => false),
-      pageLockReason: computed(() => null),
-      drawingMode: reactive({ value: 'select' }),
-      selectedPolygonIndex: ref(-1),
-      constrainToImage: ref(true),
-      constrainToParent: ref(true),
-      autoSelect: ref(false),
-      regionType: ref('region'),
-      // Text mode no longer has a region hierarchy workflow; keep fallback runtime textline-centric.
-      viewMode: ref('textline'),
-      historyState: reactive({
-        canUndo: false,
-        canRedo: false,
-        currentIndex: -1,
-        totalCount: 0
-      }),
-      isDrawingMode: computed(() => false),
-      isMoveMode: computed(() => false),
-      isPolygonMode: computed(() => false),
-      isRectangleMode: computed(() => false),
-      isPolylineMode: computed(() => false),
-      isCutLineMode: computed(() => false),
-      isCutPolygonMode: computed(() => false),
-      isCutRectangleMode: computed(() => false),
-      isCutMode: computed(() => false),
-      toggleSelectMode: () => {},
-      toggleMoveMode: () => {},
-      togglePolygonMode: () => {},
-      toggleRectangleMode: () => {},
-      togglePolylineMode: () => {},
-      toggleCutLineMode: () => {},
-      toggleCutPolygonMode: () => {},
-      toggleCutRectangleMode: () => {},
-      handleUndo: () => {},
-      handleRedo: () => {},
-      jumpToHistory: () => false,
-      setConstrainToImage: () => {},
-      setConstrainToParent: () => {},
-      setAutoSelect: () => {},
-      setRegionType: () => {},
-      setViewMode: () => {},
-      canUndo: computed(() => false),
-      canRedo: computed(() => false),
-      selectionInfo: computed(() => 'Mode: Select')
-    }
-    if (session) session.controls.value = fallbackControls
     return {
       polygons: editorStore.regionsByCanvasId(canvasId),
-      commander: fallbackControls.commander
+      commander: getFallbackCommander(canvasId)
     }
   }
 

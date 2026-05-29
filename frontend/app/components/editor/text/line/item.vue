@@ -275,8 +275,59 @@ const hasGtVariant = computed(() => {
   return props.textline.textContentVariants.some(v => v.index === props.gtIndex)
 })
 
+const isVerticalFocusMode = computed(() => isVertical.value && props.focusMode)
 const canCreateGtFromRecognition = computed(() => !hasGtVariant.value && recognitionCandidates.value.length > 0)
 const canAddTextContentVariant = computed(() => canMutateAnnotation.value && !hasGtVariant.value)
+const focusMoreActionItems = computed(() => {
+  const items: Array<{
+    label: string
+    icon: string
+    disabled: boolean
+    onSelect: () => void
+  }> = []
+
+  if (props.showReorderButtons) {
+    items.push(
+      {
+        label: 'Move up',
+        icon: 'i-lucide-arrow-up',
+        disabled: !canMutateAnnotation.value || !props.canMoveUp,
+        onSelect: () => { emit('moveUpTextline', props.textline.id) }
+      },
+      {
+        label: 'Move down',
+        icon: 'i-lucide-arrow-down',
+        disabled: !canMutateAnnotation.value || !props.canMoveDown,
+        onSelect: () => { emit('moveDownTextline', props.textline.id) }
+      }
+    )
+  }
+
+  items.push({
+    label: '+ Add',
+    icon: 'i-lucide-plus',
+    disabled: !canAddTextContentVariant.value,
+    onSelect: () => { addTextContentVariant() }
+  })
+
+  items.push({
+    label: hasElementComment.value ? 'Edit Comment' : 'Add Comment',
+    icon: 'i-lucide-message-square',
+    disabled: !canMutateAnnotation.value,
+    onSelect: () => { promptCommentEditFromFocusActions() }
+  })
+
+  if (props.showDeleteButton) {
+    items.push({
+      label: 'Delete textline',
+      icon: 'i-lucide-trash-2',
+      disabled: !canMutateAnnotation.value,
+      onSelect: () => { emit('deleteTextline', props.textline.id) }
+    })
+  }
+
+  return [items]
+})
 
 function createGtFromRecognition() {
   if (!canCreateGtFromRecognition.value) return
@@ -305,6 +356,13 @@ function saveCommentEdit() {
   if (!canMutateAnnotation.value) return
   emit('updateElementComment', props.textline.id, commentDraft.value)
   commentEditorOpen.value = false
+}
+
+function promptCommentEditFromFocusActions() {
+  if (!canMutateAnnotation.value || !import.meta.client) return
+  const next = window.prompt('Edit metadata comment', props.textline.comments ?? '')
+  if (next === null) return
+  emit('updateElementComment', props.textline.id, next)
 }
 
 function handleTextareaKeydownEnter(event: KeyboardEvent, variantIndex: number | undefined) {
@@ -1065,7 +1123,7 @@ onBeforeUnmount(() => {
                 <Icon name="i-lucide-hash" class="h-3 w-3 mr-1" />
                 {{ props.textline.label ?? props.textline.id }}
               </UBadge>
-              <div class="flex items-center gap-1">
+              <div v-if="isVertical" class="flex items-center gap-1">
                 <template v-if="props.showReorderButtons">
                   <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                     <UButton
@@ -1088,6 +1146,75 @@ onBeforeUnmount(() => {
                     />
                   </UTooltip>
                 </template>
+                <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="success"
+                    variant="soft"
+                    size="xs"
+                    icon="i-lucide-copy-plus"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="createGtFromRecognition"
+                  >
+                    Create GT
+                  </UButton>
+                </UTooltip>
+                <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-lucide-plus"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="addTextContentVariant"
+                  >
+                    Add
+                  </UButton>
+                </UTooltip>
+                <UPopover
+                  v-model:open="commentEditorOpen"
+                  :content="{ side: 'top', align: 'end', sideOffset: 6 }"
+                >
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-lucide-message-square"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="openCommentEditor"
+                  />
+                  <template #content>
+                    <div class="w-80 p-3 flex flex-col gap-2" @click.stop>
+                      <div class="textline-ui-xs font-medium text-muted">
+                        {{ hasElementComment ? 'Edit metadata comment' : 'Add metadata comment' }}
+                      </div>
+                      <UTextarea
+                        v-model="commentDraft"
+                        :rows="4"
+                        autoresize
+                        placeholder="Enter comment..."
+                        :disabled="!canMutateAnnotation"
+                      />
+                      <div class="flex items-center justify-end gap-2">
+                        <UButton
+                          color="neutral"
+                          variant="ghost"
+                          size="xs"
+                          @click.stop="cancelCommentEdit"
+                        >
+                          Cancel
+                        </UButton>
+                        <UButton
+                          color="primary"
+                          size="xs"
+                          :disabled="!canMutateAnnotation"
+                          @click.stop="saveCommentEdit"
+                        >
+                          Save
+                        </UButton>
+                      </div>
+                    </div>
+                  </template>
+                </UPopover>
                 <UTooltip v-if="props.showDeleteButton" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                   <UButton
                     color="error"
@@ -1101,60 +1228,89 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div
-              ref="cutoutContainerRef"
-              class="rounded-md overflow-x-auto overflow-y-hidden bg-linear-to-b from-muted/30 to-muted/10 flex items-center justify-start relative"
-              :style="cutoutWrapperStyle"
-            >
+            <div class="min-w-0" :class="isVerticalFocusMode ? 'flex items-start justify-between gap-2' : ''">
               <div
-                class="relative shrink-0"
-                :style="cutoutFrameStyle"
+                ref="cutoutContainerRef"
+                class="rounded-md overflow-x-auto overflow-y-hidden bg-linear-to-b from-muted/30 to-muted/10 flex items-center justify-start relative"
+                :class="isVerticalFocusMode ? 'min-w-0 flex-1' : ''"
+                :style="cutoutWrapperStyle"
               >
-                <USkeleton
-                  v-if="isCutoutLoading"
-                  class="absolute inset-0 h-full w-full"
-                />
-                <canvas
-                  ref="canvasRef"
-                  class="cutout-canvas block h-auto"
-                  :class="isCutoutLoading ? 'opacity-0' : 'opacity-100'"
-                />
-                <svg
-                  v-if="boundingBox && polygonPath"
-                  class="pointer-events-none absolute inset-0 h-full w-full"
-                  :viewBox="`0 0 ${boundingBox.width} ${boundingBox.height}`"
-                  preserveAspectRatio="xMinYMin meet"
-                  aria-hidden="true"
+                <div
+                  class="relative shrink-0"
+                  :style="cutoutFrameStyle"
                 >
-                  <path
-                    v-if="cutoutMaskPath"
-                    :d="cutoutMaskPath"
-                    fill="rgba(2, 6, 23, 0.14)"
-                    fill-rule="evenodd"
+                  <USkeleton
+                    v-if="isCutoutLoading"
+                    class="absolute inset-0 h-full w-full"
                   />
-                  <path
-                    :d="polygonPath"
-                    fill="none"
-                    stroke="rgba(125, 211, 252, 0.38)"
-                    stroke-width="4"
-                    vector-effect="non-scaling-stroke"
-                    stroke-linejoin="round"
+                  <canvas
+                    ref="canvasRef"
+                    class="cutout-canvas block h-auto"
+                    :class="isCutoutLoading ? 'opacity-0' : 'opacity-100'"
                   />
-                  <path
-                    :d="polygonPath"
-                    fill="rgba(255, 255, 255, 0.08)"
-                    stroke="rgba(14, 165, 233, 0.96)"
-                    stroke-width="1.5"
-                    vector-effect="non-scaling-stroke"
-                    stroke-linejoin="round"
-                  />
-                </svg>
+                  <svg
+                    v-if="boundingBox && polygonPath"
+                    class="pointer-events-none absolute inset-0 h-full w-full"
+                    :viewBox="`0 0 ${boundingBox.width} ${boundingBox.height}`"
+                    preserveAspectRatio="xMinYMin meet"
+                    aria-hidden="true"
+                  >
+                    <path
+                      v-if="cutoutMaskPath"
+                      :d="cutoutMaskPath"
+                      fill="rgba(2, 6, 23, 0.14)"
+                      fill-rule="evenodd"
+                    />
+                    <path
+                      :d="polygonPath"
+                      fill="none"
+                      stroke="rgba(125, 211, 252, 0.38)"
+                      stroke-width="4"
+                      vector-effect="non-scaling-stroke"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      :d="polygonPath"
+                      fill="rgba(255, 255, 255, 0.08)"
+                      stroke="rgba(14, 165, 233, 0.96)"
+                      stroke-width="1.5"
+                      vector-effect="non-scaling-stroke"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div
+                  v-if="cutoutLoadFailed"
+                  class="absolute inset-0 flex items-center justify-center textline-ui-xs text-muted bg-muted/20"
+                >
+                  Cutout unavailable
+                </div>
               </div>
-              <div
-                v-if="cutoutLoadFailed"
-                class="absolute inset-0 flex items-center justify-center textline-ui-xs text-muted bg-muted/20"
-              >
-                Cutout unavailable
+              <div v-if="isVerticalFocusMode" class="shrink-0 flex items-center gap-1">
+                <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="success"
+                    variant="soft"
+                    size="xs"
+                    icon="i-lucide-copy-plus"
+                    :disabled="!canMutateAnnotation"
+                    @click.stop="createGtFromRecognition"
+                  >
+                    Create GT
+                  </UButton>
+                </UTooltip>
+                <UDropdownMenu :items="focusMoreActionItems" :content="{ align: 'end' }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-lucide-ellipsis-vertical"
+                    :disabled="!canMutateAnnotation"
+                    title="More actions"
+                    aria-label="More actions"
+                    @click.stop
+                  />
+                </UDropdownMenu>
               </div>
             </div>
           </div>
@@ -1166,8 +1322,40 @@ onBeforeUnmount(() => {
               isVertical ? 'w-full' : '@max-sm:w-full flex-1'
             ]"
           >
-            <div v-if="!props.focusMode" class="flex items-center gap-1 justify-end w-full">
-              <UTooltip v-if="canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+            <div v-if="!isVerticalFocusMode" class="flex items-center gap-1 justify-end w-full">
+              <template v-if="props.showReorderButtons && !props.focusMode && (!isVertical || props.focusMode)">
+                <UTooltip text="Move up within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-lucide-arrow-up"
+                    :disabled="!canMutateAnnotation || !props.canMoveUp"
+                    @click.stop="emit('moveUpTextline', props.textline.id)"
+                  />
+                </UTooltip>
+                <UTooltip text="Move down within region" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    icon="i-lucide-arrow-down"
+                    size="xs"
+                    :disabled="!canMutateAnnotation || !props.canMoveDown"
+                    @click.stop="emit('moveDownTextline', props.textline.id)"
+                  />
+                </UTooltip>
+              </template>
+              <UTooltip v-if="props.showDeleteButton && !props.focusMode && (!isVertical || props.focusMode)" text="Delete textline" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="error"
+                  variant="ghost"
+                  icon="i-lucide-trash-2"
+                  size="xs"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="emit('deleteTextline', props.textline.id)"
+                />
+              </UTooltip>
+              <UTooltip v-if="!props.focusMode && !isVertical && canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                 <UButton
                   color="success"
                   variant="soft"
@@ -1179,11 +1367,35 @@ onBeforeUnmount(() => {
                   Create GT
                 </UButton>
               </UTooltip>
-              <UTooltip v-if="canAddTextContentVariant" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+              <UTooltip v-if="props.focusMode && canCreateGtFromRecognition" text="Create GT from first recognition variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="success"
+                  variant="soft"
+                  size="xs"
+                  icon="i-lucide-copy-plus"
+                  :disabled="!canMutateAnnotation"
+                  @click.stop="createGtFromRecognition"
+                >
+                  Create GT
+                </UButton>
+              </UTooltip>
+              <UDropdownMenu v-if="props.focusMode" :items="focusMoreActionItems" :content="{ align: 'end' }">
                 <UButton
                   color="neutral"
                   variant="ghost"
-                  size="sm"
+                  size="xs"
+                  icon="i-lucide-ellipsis-vertical"
+                  :disabled="!canMutateAnnotation"
+                  title="More actions"
+                  aria-label="More actions"
+                  @click.stop
+                />
+              </UDropdownMenu>
+              <UTooltip v-if="canAddTextContentVariant && !props.focusMode && !isVertical" text="Add another transcription variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
                   icon="i-lucide-plus"
                   :disabled="!canMutateAnnotation"
                   @click.stop="addTextContentVariant"
@@ -1192,6 +1404,7 @@ onBeforeUnmount(() => {
                 </UButton>
               </UTooltip>
               <UPopover
+                v-if="!isVertical && !props.focusMode"
                 v-model:open="commentEditorOpen"
                 :content="{ side: 'top', align: 'end', sideOffset: 6 }"
               >
@@ -1199,7 +1412,7 @@ onBeforeUnmount(() => {
                   color="neutral"
                   variant="ghost"
                   size="xs"
-                  class="h-6 px-2 textline-ui-xs text-muted hover:text-default"
+                  class="textline-ui-xs text-muted hover:text-default"
                   :disabled="!canMutateAnnotation"
                   @click.stop="openCommentEditor"
                 >
@@ -1373,7 +1586,7 @@ onBeforeUnmount(() => {
                         </div>
                       </UTextarea>
                     </div>
-                    <UTooltip v-if="!props.focusMode" text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
+                    <UTooltip text="Remove variant" :content="{ side: 'top', align: 'center', sideOffset: 6 }">
                       <UButton
                         color="neutral"
                         variant="ghost"

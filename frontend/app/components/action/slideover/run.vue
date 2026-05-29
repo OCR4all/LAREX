@@ -141,7 +141,7 @@ const paginatedRuns = computed(() => {
   const start = (runHistoryPage.value - 1) * runHistoryItemsPerPage.value
   return runs.value.slice(start, start + runHistoryItemsPerPage.value)
 })
-const openPanels = ref<string[]>(['run-history'])
+const openPanels = ref<string[]>([])
 const accordionItems = computed(() => [
   {
     label: `Run History (${runs.value.length})`,
@@ -245,8 +245,10 @@ async function clearRunHistory() {
     runs.value = runs.value.filter(run => !deletedRunIds.has(run.id))
     for (const runId of deletedRunIds) {
       actionRunsStore.removeRun(runId)
-      delete runDetails.value[runId]
     }
+    runDetails.value = Object.fromEntries(
+      Object.entries(runDetails.value).filter(([runId]) => !deletedRunIds.has(runId))
+    )
     expandedRunIds.value = expandedRunIds.value.filter(runId => !deletedRunIds.has(runId))
     await loadRuns()
     toast.add({
@@ -265,7 +267,7 @@ async function clearRunHistory() {
 
 function resetParameters() {
   Object.keys(parameterValues).forEach((key) => {
-    delete parameterValues[key]
+    parameterValues[key] = undefined
   })
   parameterEntries.value.forEach(({ key, definition }) => {
     parameterValues[key] = definition.defaultValue ?? definition.default ?? defaultParameterValue(definition)
@@ -292,8 +294,8 @@ async function startRun() {
     })
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
     changed.value = true
-    await loadRuns()
     toast.add({ title: 'Action run started', color: 'success', icon: 'i-lucide-play' })
+    close()
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Could not start Action run.'
     toast.add({ title: 'Run failed', description: message, color: 'error' })
@@ -463,19 +465,6 @@ function close() {
     <template #body>
       <div class="space-y-5">
         <div class="space-y-4">
-          <UFormField label="Action">
-            <USelectMenu
-              v-model="selectedProcessorId"
-              :items="processorOptions"
-              value-key="value"
-              searchable
-              searchable-placeholder="Filter Actions..."
-              :loading="loading"
-              placeholder="Select an Action"
-              class="w-full"
-            />
-          </UFormField>
-
           <UAlert
             color="neutral"
             variant="subtle"
@@ -491,6 +480,19 @@ function close() {
             color="neutral"
             :content="false"
           />
+
+          <UFormField label="Action">
+            <USelectMenu
+              v-model="selectedProcessorId"
+              :items="processorOptions"
+              value-key="value"
+              searchable
+              searchable-placeholder="Filter Actions..."
+              :loading="loading"
+              placeholder="Select an Action"
+              class="w-full"
+            />
+          </UFormField>
 
           <UAlert
             v-if="!loading && processors.length === 0"
@@ -551,22 +553,15 @@ function close() {
             description="The Action can still run, but the processor will not receive that input type for those pages."
           />
 
-          <UFormField label="Scope">
-            <div class="space-y-2">
-              <UTabs
-                v-if="!props.targetSelection"
-                v-model="scope"
-                :items="scopeItems"
-                variant="pill"
-                color="neutral"
-                :content="false"
-                class="w-full"
-              />
-              <p class="text-xs text-muted">
-                {{ targetSummary }}
-              </p>
-            </div>
-          </UFormField>
+          <UTabs
+            v-if="!props.targetSelection"
+            v-model="scope"
+            :items="scopeItems"
+            variant="pill"
+            color="neutral"
+            :content="false"
+            class="w-full"
+          />
         </div>
 
         <USeparator />
