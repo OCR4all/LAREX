@@ -23,6 +23,7 @@ import { PolygonType, createPageXmlLabelSet } from '@/models/editor'
 import type { Region, RegionKind } from '@/models/editor/region'
 import type { TextLine } from '@/models/editor/text'
 import { getEditorSession } from '@/session/editor/editor-session'
+import { redoSessionCommand, undoSessionCommand } from '@/session/editor/canvas-commander'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import type { Commander } from '@/commands/editor/commander'
 import type { MergeSettings } from '@/components/editor/slideover/merge-settings.vue'
@@ -1814,11 +1815,25 @@ if (import.meta.client) {
     callbacks: {
       handleUndo: () => {
         const controls = activeControls.value
-        controls?.handleUndo?.()
+        if (controls?.handleUndo) {
+          controls.handleUndo()
+          return
+        }
+
+        const canvasId = activeCanvasId.value
+        if (!canvasId) return
+        undoSessionCommand(canvasId)
       },
       handleRedo: () => {
         const controls = activeControls.value
-        controls?.handleRedo?.()
+        if (controls?.handleRedo) {
+          controls.handleRedo()
+          return
+        }
+
+        const canvasId = activeCanvasId.value
+        if (!canvasId) return
+        redoSessionCommand(canvasId)
       },
       setDrawingMode: (mode: DrawingMode) => {
         const controls = activeControls.value

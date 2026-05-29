@@ -1,4 +1,3 @@
-import { Commander } from '@/commands'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useActionRunsStore } from '@/stores/action-runs.store'
@@ -6,6 +5,7 @@ import { useEditorCollaboration } from '@/composables/editor/use-editor-collabor
 import type { Command, CommandContext } from '@/commands/editor/types'
 import { PolygonType } from '@/models/editor'
 import { getEditorSession } from '@/session/editor/editor-session'
+import { getOrCreateSessionCommander } from '@/session/editor/canvas-commander'
 import type { EditorCanvasControls, SetViewModeOptions } from '@/types/editor/canvas-controls'
 
 export const DRAWING_MODES = {
@@ -41,7 +41,7 @@ export interface DrawingModeState {
 }
 
 export function useCanvasControl(canvasId: string): EditorCanvasControls {
-  const commander = new Commander()
+  const commander = getOrCreateSessionCommander(canvasId)
   const editorStore = useEditorStore()
   const editorUiStore = useEditorUiStore()
   const actionRunsStore = useActionRunsStore()

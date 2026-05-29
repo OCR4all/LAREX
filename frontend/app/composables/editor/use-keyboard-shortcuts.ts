@@ -235,14 +235,19 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     return false
   }
 
-  const runGlobalCommand = (commandId: ShortcutCommandId): boolean => {
+  const runGlobalCommand = (
+    commandId: ShortcutCommandId,
+    options?: { allowWhileTyping?: boolean }
+  ): boolean => {
+    const allowWhileTyping = options?.allowWhileTyping === true
+
     switch (commandId) {
       case 'undo':
-        if (isInputFocused()) return false
+        if (isInputFocused() && !allowWhileTyping) return false
         callbacks.handleUndo()
         return true
       case 'redo':
-        if (isInputFocused()) return false
+        if (isInputFocused() && !allowWhileTyping) return false
         callbacks.handleRedo()
         return true
       case 'selectMode':
@@ -412,14 +417,15 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
 
   const runCommand = (
     commandId: ShortcutCommandId,
-    registration: RegisteredTextViewShortcutScope | undefined
+    registration: RegisteredTextViewShortcutScope | undefined,
+    options?: { isTextViewContext?: boolean }
   ): boolean => {
     const definition = SHORTCUT_DEFINITIONS[commandId] as ShortcutDefinition
     if (definition.scope === 'text-view') {
       return runScopedCommand(commandId, registration)
     }
 
-    return runGlobalCommand(commandId)
+    return runGlobalCommand(commandId, { allowWhileTyping: options?.isTextViewContext })
   }
 
   const onKeydown = (event: KeyboardEvent) => {
@@ -427,6 +433,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
     if (!binding) return
 
     const scopeState = resolveActiveScope(event, canvasId.value)
+    const isTextViewContext = scopeState.scope === 'text-view'
     const candidateScopes: ShortcutScope[] = scopeState.scope === 'text-view'
       ? ['text-view', 'global']
       : ['global']
@@ -437,7 +444,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
         if (!(resolvedBindings.value[commandId] ?? []).includes(binding)) continue
         if (commandId === 'clearSelection' && binding === 'escape') continue
 
-        const handled = runCommand(commandId, scopeState.registration)
+        const handled = runCommand(commandId, scopeState.registration, { isTextViewContext })
         if (!handled) continue
 
         event.preventDefault()

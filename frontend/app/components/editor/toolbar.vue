@@ -8,6 +8,12 @@ import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rende
 import type { DropdownMenuItem, TabsItem } from '@nuxt/ui'
 import type { CSSProperties } from 'vue'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
+import {
+  getOrCreateSessionCommander,
+  jumpSessionCommandHistory,
+  redoSessionCommand,
+  undoSessionCommand
+} from '@/session/editor/canvas-commander'
 import type { Commander } from '@/commands/editor/commander'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import type { LayoutViewMode, VirtualKeyboardMode } from '@/stores/editor/types'
@@ -379,8 +385,41 @@ const currentCanvasState = computed<EditorCanvasControls | undefined>(() => {
 
 const drawingMode = computed(() => currentCanvasState.value?.drawingMode?.value || DRAWING_MODES.SELECT)
 const selectedPolygonIndex = computed(() => currentCanvasState.value?.selectedPolygonIndex?.value ?? -1)
-const canUndo = computed(() => currentCanvasState.value?.canUndo?.value || false)
-const canRedo = computed(() => currentCanvasState.value?.canRedo?.value || false)
+
+const activeCommander = computed<Commander | null>(() => {
+  if (!import.meta.client) return null
+  const canvasId = currentCanvasId.value
+  if (!canvasId) return null
+  return getOrCreateSessionCommander(canvasId)
+})
+
+const detachedCommanderState = ref<ReturnType<Commander['getState']>>({
+  currentIndex: -1,
+  totalCount: 0,
+  canUndo: false,
+  canRedo: false
+})
+
+function syncDetachedCommanderState(): void {
+  const commander = activeCommander.value
+  detachedCommanderState.value = commander
+    ? commander.getState()
+    : {
+        currentIndex: -1,
+        totalCount: 0,
+        canUndo: false,
+        canRedo: false
+      }
+}
+
+const canUndo = computed(() => {
+  if (currentCanvasState.value?.canUndo) return currentCanvasState.value.canUndo.value
+  return detachedCommanderState.value.canUndo
+})
+const canRedo = computed(() => {
+  if (currentCanvasState.value?.canRedo) return currentCanvasState.value.canRedo.value
+  return detachedCommanderState.value.canRedo
+})
 const canEditCurrentCanvas = computed(() => currentCanvasState.value?.isCanvasEditable?.value ?? false)
 
 const selectedRegionType = computed({
@@ -402,7 +441,9 @@ const selectedViewMode = computed({
 const historyItems = ref<HistoryItem[]>([])
 
 const historyDropdownItems = computed(() => {
-  const currentIndex = currentCanvasState.value?.historyState?.currentIndex ?? -1
+  const currentIndex = currentCanvasState.value?.historyState?.currentIndex
+    ?? detachedCommanderState.value.currentIndex
+    ?? -1
 
   if (historyItems.value.length === 0) {
     return [{ label: 'No commands in history', disabled: true }]
@@ -424,13 +465,38 @@ const historyDropdownItems = computed(() => {
 })
 
 const updateHistoryItems = () => {
-  const commander = currentCanvasState.value?.commander
+  syncDetachedCommanderState()
+  const commander = currentCanvasState.value?.commander ?? activeCommander.value
   historyItems.value = commander ? commander.getDetailedHistory() : []
 }
+
+watch(
+  () => {
+    const canvasId = currentCanvasId.value
+    if (!canvasId || !import.meta.client) return [null, null] as const
+    const session = getEditorSession(canvasId)
+    return [
+      session?.document.value ?? null,
+      session?.controls.value?.historyState?.currentIndex ?? null
+    ] as const
+  },
+  () => {
+    updateHistoryItems()
+  },
+  { immediate: true }
+)
 
 const handleHistoryItemClick = (targetIndex: number) => {
   if (currentCanvasState.value?.jumpToHistory) {
     currentCanvasState.value.jumpToHistory(targetIndex)
+    updateHistoryItems()
+    return
+  }
+
+  const canvasId = currentCanvasId.value
+  if (!canvasId) return
+
+  if (jumpSessionCommandHistory(canvasId, targetIndex)) {
     updateHistoryItems()
   }
 }
@@ -586,12 +652,28 @@ const handleUndo = () => {
   if (currentCanvasState.value?.handleUndo) {
     currentCanvasState.value.handleUndo()
     updateHistoryItems()
+    return
+  }
+
+  const canvasId = currentCanvasId.value
+  if (!canvasId) return
+
+  if (undoSessionCommand(canvasId)) {
+    updateHistoryItems()
   }
 }
 
 const handleRedo = () => {
   if (currentCanvasState.value?.handleRedo) {
     currentCanvasState.value.handleRedo()
+    updateHistoryItems()
+    return
+  }
+
+  const canvasId = currentCanvasId.value
+  if (!canvasId) return
+
+  if (redoSessionCommand(canvasId)) {
     updateHistoryItems()
   }
 }
@@ -688,9 +770,10 @@ const showBaselineTool = computed(() => !isCompact.value || (!!currentCanvasStat
 const showCutTools = computed(() => !isCompact.value || !!currentCanvasState.value)
 const showMergeTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canMerge.value))
 const showActionTool = computed(() => !isCompact.value || !!currentCanvasState.value)
-const showUndoTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canUndo.value))
-const showRedoTool = computed(() => !isCompact.value || (!!currentCanvasState.value && canRedo.value))
-const showHistoryTool = computed(() => !isCompact.value || !!currentCanvasState.value)
+const hasUndoRedoRuntime = computed(() => Boolean(currentCanvasState.value || activeCommander.value))
+const showUndoTool = computed(() => !isCompact.value || (hasUndoRedoRuntime.value && canUndo.value))
+const showRedoTool = computed(() => !isCompact.value || (hasUndoRedoRuntime.value && canRedo.value))
+const showHistoryTool = computed(() => !isCompact.value || hasUndoRedoRuntime.value)
 const showMoreMenu = computed(() => !isCompact.value || !!currentCanvasState.value)
 
 const vkModeIcon = computed(() => {
@@ -996,6 +1079,53 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
           </UTabs>
 
           <USeparator
+            :orientation="isVertical ? 'horizontal' : 'vertical'"
+            class="h-6 mx-1"
+          />
+
+          <div
+            v-if="showUndoTool || showRedoTool || showHistoryTool"
+            data-tour="undo-redo"
+            class="flex items-center gap-1"
+            :class="isVertical ? 'flex-col' : 'flex-row'"
+          >
+            <UTooltip v-if="showUndoTool" :delay-duration="0" v-bind="getTooltipProps('undo')">
+              <UButton
+                variant="ghost"
+                icon="i-lucide-undo"
+                color="neutral"
+                size="sm"
+                :disabled="!canUndo"
+                @click="handleUndo"
+              />
+            </UTooltip>
+            <UTooltip v-if="showRedoTool" :delay-duration="0" v-bind="getTooltipProps('redo')">
+              <UButton
+                variant="ghost"
+                icon="i-lucide-redo"
+                color="neutral"
+                size="sm"
+                :disabled="!canRedo"
+                @click="handleRedo"
+              />
+            </UTooltip>
+
+            <UDropdownMenu v-if="showHistoryTool" :items="historyDropdownItems">
+              <UTooltip :delay-duration="0" v-bind="getTooltipProps('history')">
+                <UButton
+                  variant="ghost"
+                  icon="i-lucide-history"
+                  color="neutral"
+                  size="sm"
+                  :disabled="!hasUndoRedoRuntime"
+                  @click="updateHistoryItems"
+                />
+              </UTooltip>
+            </UDropdownMenu>
+          </div>
+
+          <USeparator
+            v-if="showUndoTool || showRedoTool || showHistoryTool"
             :orientation="isVertical ? 'horizontal' : 'vertical'"
             class="h-6 mx-1"
           />

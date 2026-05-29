@@ -1,9 +1,10 @@
 import { computed, type ComputedRef } from 'vue'
-import { Commander } from '@/commands/editor/commander'
+import type { Commander } from '@/commands/editor/commander'
 import type { CommandContext } from '@/commands/editor/types'
 import type { TextContentVariantData } from '@/models/editor'
 import type { RenderablePolygon } from '@/types/editor/rendering'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
+import { getOrCreateSessionCommander, getSessionCommandContext } from '@/session/editor/canvas-commander'
 import type { SelectionFocusOptions } from '@/types/editor/canvas-controls'
 
 export type TextViewEditorStoreLike = {
@@ -18,17 +19,6 @@ export type TextRuntimeControls = {
   selectPolylineById?: (id: string | null, options?: SelectionFocusOptions) => void
 }
 
-const fallbackCommanders = new Map<string, Commander>()
-
-function getFallbackCommander(canvasId: string): Commander {
-  const existing = fallbackCommanders.get(canvasId)
-  if (existing) return existing
-
-  const created = new Commander()
-  fallbackCommanders.set(canvasId, created)
-  return created
-}
-
 export function getTextViewRuntimeControls(
   canvasId: string | null | undefined,
   editorStore: TextViewEditorStoreLike
@@ -41,12 +31,12 @@ export function getTextViewRuntimeControls(
   if (!controls) {
     return {
       polygons: editorStore.regionsByCanvasId(canvasId),
-      commander: getFallbackCommander(canvasId)
+      commander: import.meta.client ? getOrCreateSessionCommander(canvasId) : undefined
     }
   }
 
-  if (!controls.commander) {
-    controls.commander = new Commander()
+  if (import.meta.client && !controls.commander) {
+    controls.commander = getOrCreateSessionCommander(canvasId)
   }
 
   return {
@@ -58,8 +48,7 @@ export function getTextViewRuntimeControls(
 
 export function createTextViewCommandContext(canvasId: string | null | undefined): CommandContext | undefined {
   if (!canvasId) return undefined
-  const session = getEditorSession(canvasId)
-  return session ? { canvasId, session } : undefined
+  return getSessionCommandContext(canvasId)
 }
 
 export function sortByIndex(a: Pick<TextContentVariantData, 'index'>, b: Pick<TextContentVariantData, 'index'>): number {
