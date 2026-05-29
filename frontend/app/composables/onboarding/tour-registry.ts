@@ -83,7 +83,7 @@ const tours: OnboardingTourDefinition[] = [
         }),
         popover: {
           title: 'Navigation Sidebar',
-          description: 'Use the sidebar to move between Projects, Tasks, Utilities, Workspace, and your personal settings.',
+          description: 'Use the sidebar to move between Projects, Tasks, Toolkit, Workspace, and your personal settings.',
           side: 'right',
           align: 'start'
         }
@@ -115,11 +115,11 @@ const tours: OnboardingTourDefinition[] = [
       {
         element: '[data-tour="nav-utilities"]',
         onHighlightStarted: withHookAction(async () => {
-          await ensureSidebarSectionExpanded('Utilities')
+          await ensureSidebarSectionExpanded('Toolkit')
         }),
         popover: {
-          title: 'Utilities',
-          description: 'Manage shared resources such as label sets, tag sets, virtual keyboards, and codecs.',
+          title: 'Toolkit',
+          description: 'Manage datasets and shared resources such as labels, tags, dictionaries, and codecs.',
           side: 'right',
           align: 'start'
         }

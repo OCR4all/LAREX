@@ -157,6 +157,13 @@ const groups = computed(() => {
       to: '/',
       onSelect: () => { open.value = false }
     }, {
+      id: 'go-datasets',
+      label: 'Go to Datasets',
+      icon: 'i-lucide-database',
+      suffix: 'Manage datasets and releases',
+      to: '/datasets',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'go-tasks',
       label: 'Go to Tasks',
       icon: 'i-lucide-clipboard-list',

@@ -28,10 +28,6 @@ const isTaskRoute = computed(() =>
   route.path === '/tasks' || route.path.startsWith('/tasks/')
 )
 
-const isDatasetRoute = computed(() =>
-  route.path === '/datasets' || route.path.startsWith('/datasets/')
-)
-
 const isProjectsRoute = computed(() =>
   route.path === '/' || route.path.startsWith('/project/')
 )
@@ -39,16 +35,36 @@ const isProjectsRoute = computed(() =>
 const withActive = <T extends { to?: string, exact?: boolean }>(items: T[]) =>
   items.map(item => ({ ...item, active: item.to ? isActive(item.to, item.exact) : false }))
 
+interface ActiveNavigationItem {
+  active?: boolean
+  children?: ActiveNavigationItem[]
+}
+
+const hasActive = (items: ActiveNavigationItem[]): boolean =>
+  items.some(item => item.active || (item.children ? hasActive(item.children) : false))
+
 const defaultNavigation = computed<NavigationMenuItem[]>(() => {
-  const utilitiesChildren = withActive([
-    { label: 'Labels', icon: 'i-lucide-tags', to: '/labels', onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets', onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Virtual Keyboards', icon: 'i-lucide-keyboard', to: '/virtual-keyboard', onSelect: () => { sidebarOpen.value = false } },
+  const toolkitTextChildren = withActive([
     { label: 'Dictionaries', icon: 'i-lucide-book-copy', to: '/dictionaries', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Codecs', icon: 'i-lucide-case-lower', to: '/codecs', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Normalization', icon: 'i-lucide-wand-sparkles', to: '/normalization-profiles', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Virtual Keyboards', icon: 'i-lucide-keyboard', to: '/virtual-keyboard', onSelect: () => { sidebarOpen.value = false } },
     { label: 'Validation', icon: 'i-lucide-shield-alert', to: '/validation-rulesets', onSelect: () => { sidebarOpen.value = false } }
   ])
+  const toolkitChildren = [
+    ...withActive([
+      { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', onSelect: () => { sidebarOpen.value = false } },
+      { label: 'Tags', icon: 'i-lucide-network', to: '/tag-sets', onSelect: () => { sidebarOpen.value = false } },
+      { label: 'Labels', icon: 'i-lucide-tags', to: '/labels', onSelect: () => { sidebarOpen.value = false } }
+    ]),
+    {
+      label: 'Text',
+      icon: 'i-lucide-file-text',
+      type: 'trigger',
+      defaultOpen: hasActive(toolkitTextChildren),
+      children: toolkitTextChildren
+    }
+  ]
   const workspaceChildren = withActive([
     { label: 'General', to: '/workspace/settings', icon: 'i-lucide-sliders-horizontal', exact: true, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Members', to: '/workspace/settings/members', icon: 'i-lucide-users', onSelect: () => { sidebarOpen.value = false } },
@@ -61,13 +77,10 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Security', to: '/settings/security', icon: 'i-lucide-shield', onSelect: () => { sidebarOpen.value = false } }
   ])
 
-  const hasActive = (items: { active: boolean }[]) => items.some(i => i.active)
-
   return [
     { label: 'Projects', icon: 'i-lucide-library', to: '/', active: isProjectsRoute.value, onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Datasets', icon: 'i-lucide-database', to: '/datasets', active: isDatasetRoute.value, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Tasks', icon: 'i-lucide-clipboard-list', to: '/tasks', active: isTaskRoute.value, onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Utilities', icon: 'i-lucide-tool-case', defaultOpen: hasActive(utilitiesChildren), type: 'trigger', children: utilitiesChildren },
+    { label: 'Toolkit', icon: 'i-lucide-tool-case', defaultOpen: hasActive(toolkitChildren), type: 'trigger', children: toolkitChildren },
     { label: 'Workspace', icon: 'i-lucide-layers', defaultOpen: hasActive(workspaceChildren), type: 'trigger', children: workspaceChildren },
     { label: 'Settings', icon: 'i-lucide-settings', defaultOpen: hasActive(settingsChildren), type: 'trigger', children: settingsChildren }
   ]

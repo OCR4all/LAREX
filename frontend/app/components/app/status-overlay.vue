@@ -5,37 +5,37 @@ import type { TrackedActionRun } from '@/stores/action-runs.store'
 type JobKind = 'upload' | 'action'
 type JobStatusColor = 'primary' | 'success' | 'error' | 'warning' | 'neutral'
 
-type StatusJob =
+type StatusJob
+  = | {
+    kind: 'upload'
+    id: string
+    title: string
+    subtitle: string
+    status: string
+    statusLabel: string
+    progress: number | null
+    progressLabel: string
+    color: JobStatusColor
+    icon: string
+    active: boolean
+    terminal: boolean
+    upload: ActiveUpload
+  }
   | {
-      kind: 'upload'
-      id: string
-      title: string
-      subtitle: string
-      status: string
-      statusLabel: string
-      progress: number | null
-      progressLabel: string
-      color: JobStatusColor
-      icon: string
-      active: boolean
-      terminal: boolean
-      upload: ActiveUpload
-    }
-  | {
-      kind: 'action'
-      id: string
-      title: string
-      subtitle: string
-      status: string
-      statusLabel: string
-      progress: number | null
-      progressLabel: string
-      color: JobStatusColor
-      icon: string
-      active: boolean
-      terminal: boolean
-      run: TrackedActionRun
-    }
+    kind: 'action'
+    id: string
+    title: string
+    subtitle: string
+    status: string
+    statusLabel: string
+    progress: number | null
+    progressLabel: string
+    color: JobStatusColor
+    icon: string
+    active: boolean
+    terminal: boolean
+    run: TrackedActionRun
+  }
 
 const uploadStore = useUploadStore()
 const uploadSessionActions = useUploadSessionActions()
@@ -375,7 +375,7 @@ function closeOverlay() {
   >
     <div
       v-if="showOverlay"
-      class="fixed bottom-4 right-4 z-50 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-sm border border-default bg-default shadow-xl"
+      class="fixed bottom-12 right-4 z-50 w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-neutral-100 dark:border-neutral-900 bg-neutral-50 dark:bg-neutral-950 shadow-md"
     >
       <div class="flex items-center justify-between gap-3 border-b border-default px-4 py-3">
         <div class="flex min-w-0 items-center gap-2">
@@ -390,7 +390,12 @@ function closeOverlay() {
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-1">
-          <UBadge v-if="activeJobs.length > 0" color="primary" size="xs" variant="soft">
+          <UBadge
+            v-if="activeJobs.length > 0"
+            color="primary"
+            size="xs"
+            variant="soft"
+          >
             {{ activeJobs.length }}
           </UBadge>
           <UButton
@@ -418,7 +423,7 @@ function closeOverlay() {
         leave-from-class="max-h-[28rem] opacity-100"
         leave-to-class="max-h-0 opacity-0"
       >
-        <div v-if="!minimized" class="max-h-[28rem] overflow-y-auto">
+        <div v-if="!minimized" class="max-h-112 overflow-y-auto">
           <div v-if="jobs.length === 0" class="px-4 py-6 text-center text-sm text-muted">
             No jobs
           </div>

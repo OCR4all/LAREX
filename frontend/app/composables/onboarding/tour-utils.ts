@@ -119,7 +119,7 @@ function findSidebarTriggerByLabel(sidebarRoot: Element, sectionLabel: string): 
   return null
 }
 
-export async function ensureSidebarSectionExpanded(sectionLabel: 'Utilities' | 'Workspace' | 'Settings'): Promise<void> {
+export async function ensureSidebarSectionExpanded(sectionLabel: 'Toolkit' | 'Workspace' | 'Settings'): Promise<void> {
   await ensureDashboardSidebarVisible()
 
   const searchButton = await waitForVisibleElement('[data-tour="search-button"]', { timeoutMs: 3000, intervalMs: 80 })
