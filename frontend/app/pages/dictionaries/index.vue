@@ -334,6 +334,9 @@ const emptyStateActions = computed(() => {
             Clear Filters
           </UButton>
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="workspace-dictionaries" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 

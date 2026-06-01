@@ -326,6 +326,9 @@ function clearFilters() {
             Clear Filters
           </UButton>
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="admin-errors" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 

@@ -1,27 +1,16 @@
 <script setup lang="ts">
-import type { DropdownMenuItem, TableColumn } from '@nuxt/ui'
+import type { TableColumn } from '@nuxt/ui'
 import type { StyleValue } from 'vue'
 import AppDateTime from '@/components/app/date-time.vue'
 import type { DateTimeInput } from '@/composables/use-local-date-time'
+import {
+  filterVisibleTableColumns,
+  getTableColumnId,
+  isTableColumnLike,
+  normalizeTableColumns
+} from '@/utils/table-columns'
 
 defineOptions({ inheritAttrs: false })
-
-type NormalizedColumn = {
-  id: string
-  label: string
-  canHide: boolean
-}
-
-type ColumnLike = {
-  id?: unknown
-  accessorKey?: unknown
-  cell?: unknown
-  header?: unknown
-  columns?: unknown
-  enableHiding?: unknown
-}
-
-const FIXED_VISIBLE_COLUMN_IDS = new Set(['select', 'actions'])
 const DEFAULT_TABLE_UI = {
   base: 'table-fixed border-separate border-spacing-0',
   thead: '[&>tr]:bg-elevated/50 [&>tr]:after:content-none',
@@ -37,10 +26,8 @@ const props = withDefaults(defineProps<{
   data?: unknown[]
   dateColumnIds?: string[]
   defaultVisibleColumnIds?: string[]
-  showColumnVisibility?: boolean
 }>(), {
-  dateColumnIds: () => ['created', 'updated'],
-  showColumnVisibility: true
+  dateColumnIds: () => ['created', 'updated']
 })
 
 // Dynamic table slots preserve their row types at each AppTable call site.
@@ -66,35 +53,13 @@ const tableUi = computed(() => ({
   ...((attrs.ui as Record<string, unknown> | undefined) ?? {})
 }))
 
-function humanizeColumnLabel(id: string): string {
-  if (id === 'select') return 'Select'
-  if (id === 'actions') return 'Actions'
-
-  return id
-    .replace(/[_-]+/g, ' ')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, char => char.toUpperCase())
-}
-
-function isColumnLike(value: unknown): value is ColumnLike {
-  return !!value && typeof value === 'object'
-}
-
-function getColumnId(column: ColumnLike): string {
-  if (typeof column.id === 'string') return column.id
-  if (typeof column.accessorKey === 'string') return column.accessorKey
-  return ''
-}
-
 function withDefaultDateCells(columns: unknown[] | undefined): unknown[] | undefined {
   if (!columns?.length) return columns
 
   const dateColumnIds = new Set(props.dateColumnIds)
 
   return columns.map((value) => {
-    if (!isColumnLike(value)) return value
+    if (!isTableColumnLike(value)) return value
 
     const column = value
     if (Array.isArray(column.columns) && column.columns.length > 0) {
@@ -104,7 +69,7 @@ function withDefaultDateCells(columns: unknown[] | undefined): unknown[] | undef
       }
     }
 
-    const id = getColumnId(column)
+    const id = getTableColumnId(column)
     if (!id || !dateColumnIds.has(id) || column.cell) return column
 
     return {
@@ -119,71 +84,7 @@ function withDefaultDateCells(columns: unknown[] | undefined): unknown[] | undef
     }
   })
 }
-
-function filterVisibleColumns(columns: unknown[] | undefined): unknown[] | undefined {
-  if (!columns?.length) return columns
-
-  return columns.flatMap((value) => {
-    if (!isColumnLike(value)) return [value]
-
-    const column = value
-    if (Array.isArray(column.columns) && column.columns.length > 0) {
-      const visibleChildColumns = filterVisibleColumns(column.columns)
-      if (!visibleChildColumns?.length) return []
-
-      return [{
-        ...column,
-        columns: visibleChildColumns
-      }]
-    }
-
-    const id = getColumnId(column)
-    if (!id || FIXED_VISIBLE_COLUMN_IDS.has(id) || columnVisibility.value[id] !== false) {
-      return [column]
-    }
-
-    return []
-  })
-}
-
-function normalizeColumns(columns: unknown[] | undefined): NormalizedColumn[] {
-  if (!columns?.length) return []
-
-  const normalized: NormalizedColumn[] = []
-  const seen = new Set<string>()
-
-  const walkColumns = (input: unknown[]) => {
-    for (const value of input) {
-      if (!isColumnLike(value)) continue
-
-      const column = value
-      if (Array.isArray(column.columns) && column.columns.length > 0) {
-        walkColumns(column.columns)
-        continue
-      }
-
-      const id = getColumnId(column)
-
-      if (!id || seen.has(id)) continue
-      seen.add(id)
-
-      const label = typeof column.header === 'string' && column.header.trim().length > 0
-        ? column.header.trim()
-        : humanizeColumnLabel(id)
-
-      normalized.push({
-        id,
-        label,
-        canHide: !FIXED_VISIBLE_COLUMN_IDS.has(id) && column.enableHiding !== false
-      })
-    }
-  }
-
-  walkColumns(columns)
-  return normalized
-}
-
-const normalizedColumns = computed(() => normalizeColumns(props.columns))
+const normalizedColumns = computed(() => normalizeTableColumns(props.columns))
 
 defineExpose({
   get $el() {
@@ -202,27 +103,9 @@ const { columnVisibility } = usePersistentTableColumnVisibility(
 )
 
 const tableColumns = computed(() => {
-  const visibleColumns = filterVisibleColumns(props.columns)
+  const visibleColumns = filterVisibleTableColumns(props.columns, columnVisibility.value)
   return withDefaultDateCells(visibleColumns) as TableColumn<unknown, unknown>[] | undefined
 })
-
-const columnVisibilityItems = computed<DropdownMenuItem[]>(() => normalizedColumns.value
-  .filter(column => column.canHide)
-  .map(column => ({
-    type: 'checkbox',
-    label: column.label,
-    checked: columnVisibility.value[column.id] !== false,
-    onUpdateChecked: (checked: boolean) => {
-      columnVisibility.value = {
-        ...columnVisibility.value,
-        [column.id]: checked
-      }
-    }
-  })))
-
-const showColumnVisibilityMenu = computed(() =>
-  props.showColumnVisibility && columnVisibilityItems.value.length > 0
-)
 </script>
 
 <template>
@@ -232,18 +115,6 @@ const showColumnVisibilityMenu = computed(() =>
     :class="wrapperClass"
     :style="wrapperStyle"
   >
-    <div v-if="showColumnVisibilityMenu" class="flex justify-end">
-      <UDropdownMenu :items="columnVisibilityItems" :content="{ align: 'end' }">
-        <UButton
-          icon="i-lucide-columns-3"
-          label="Columns"
-          color="neutral"
-          variant="outline"
-          size="xs"
-        />
-      </UDropdownMenu>
-    </div>
-
     <UTable
       ref="tableRef"
       sticky

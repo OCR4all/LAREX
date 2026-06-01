@@ -1379,15 +1379,18 @@ useHead({
                   </template>
 
                   <template #right>
-                    <UButton
-                      v-if="hasActiveFilters"
-                      color="neutral"
-                      variant="ghost"
-                      size="sm"
-                      @click="resetContentFilters"
-                    >
-                      Clear Filters
-                    </UButton>
+                    <div class="flex items-center gap-2">
+                      <UButton
+                        v-if="hasActiveFilters"
+                        color="neutral"
+                        variant="ghost"
+                        size="sm"
+                        @click="resetContentFilters"
+                      >
+                        Clear Filters
+                      </UButton>
+                      <AppTableColumnsDropdown table-id="dataset-items" :columns="itemColumns" />
+                    </div>
                   </template>
                 </UDashboardToolbar>
 
@@ -1543,16 +1546,19 @@ useHead({
               <template v-else>
                 <UDashboardToolbar>
                   <template #right>
-                    <UButton
-                      v-if="datasetCapabilities.canEdit"
-                      color="neutral"
-                      variant="outline"
-                      size="sm"
-                      icon="i-lucide-plus"
-                      @click="openCreateRelease"
-                    >
-                      New Release
-                    </UButton>
+                    <div class="flex items-center gap-2">
+                      <AppTableColumnsDropdown table-id="dataset-releases" :columns="releaseColumns" />
+                      <UButton
+                        v-if="datasetCapabilities.canEdit"
+                        color="neutral"
+                        variant="outline"
+                        size="sm"
+                        icon="i-lucide-plus"
+                        @click="openCreateRelease"
+                      >
+                        New Release
+                      </UButton>
+                    </div>
                   </template>
                 </UDashboardToolbar>
 

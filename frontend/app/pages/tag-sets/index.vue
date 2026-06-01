@@ -374,28 +374,31 @@ const emptyStateActions = computed(() => {
         </template>
 
         <template #right>
-          <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
-            <span class="text-xs text-neutral-500">Active filters:</span>
-            <component
-              :is="UBadge"
-              v-for="filter in activeFilters"
-              :key="`${filter.type}-${filter.value}`"
-              variant="soft"
-              color="neutral"
-              size="sm"
-              class="flex items-center gap-1"
-            >
-              {{ filter.label }}
+          <div class="flex items-center gap-2">
+            <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
+              <span class="text-xs text-neutral-500">Active filters:</span>
               <component
-                :is="UButton"
-                size="xs"
+                :is="UBadge"
+                v-for="filter in activeFilters"
+                :key="`${filter.type}-${filter.value}`"
+                variant="soft"
                 color="neutral"
-                variant="link"
-                icon="i-lucide-x"
-                :padded="false"
-                @click="filter.clear()"
-              />
-            </component>
+                size="sm"
+                class="flex items-center gap-1"
+              >
+                {{ filter.label }}
+                <component
+                  :is="UButton"
+                  size="xs"
+                  color="neutral"
+                  variant="link"
+                  icon="i-lucide-x"
+                  :padded="false"
+                  @click="filter.clear()"
+                />
+              </component>
+            </div>
+            <AppTableColumnsDropdown table-id="workspace-tag-sets" :columns="columns" />
           </div>
         </template>
       </UDashboardToolbar>

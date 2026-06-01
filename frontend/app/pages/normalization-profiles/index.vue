@@ -266,6 +266,9 @@ const emptyStateActions = computed(() => {
             Clear Filters
           </UButton>
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="workspace-normalization-profiles" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 

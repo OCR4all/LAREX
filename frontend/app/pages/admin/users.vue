@@ -705,9 +705,12 @@ async function submitGlobalRoleAction() {
         </template>
 
         <template #right>
-          <UBadge color="neutral" variant="subtle">
-            Service accounts hidden by default
-          </UBadge>
+          <div class="flex items-center gap-2">
+            <UBadge color="neutral" variant="subtle">
+              Service accounts hidden by default
+            </UBadge>
+            <AppTableColumnsDropdown table-id="admin-users" :columns="columns" />
+          </div>
         </template>
       </UDashboardToolbar>
     </template>

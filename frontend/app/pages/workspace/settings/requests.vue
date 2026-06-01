@@ -241,14 +241,21 @@ function handleOutgoingRowContextMenu(_event: Event, row: { original: TransferRe
       <UIcon name="i-lucide-inbox" class="mx-auto text-3xl mb-2" />
       <p>No pending incoming requests</p>
     </div>
-    <UContextMenu v-else :items="incomingContextMenuItems as any">
-      <AppTable
-        table-id="workspace-requests-incoming"
-        :columns="incomingColumns"
-        :data="incoming"
-        @contextmenu="handleIncomingRowContextMenu"
-      />
-    </UContextMenu>
+    <template v-else>
+      <UDashboardToolbar>
+        <template #right>
+          <AppTableColumnsDropdown table-id="workspace-requests-incoming" :columns="incomingColumns" />
+        </template>
+      </UDashboardToolbar>
+      <UContextMenu :items="incomingContextMenuItems as any">
+        <AppTable
+          table-id="workspace-requests-incoming"
+          :columns="incomingColumns"
+          :data="incoming"
+          @contextmenu="handleIncomingRowContextMenu"
+        />
+      </UContextMenu>
+    </template>
   </UPageCard>
   <UPageCard
     data-tour="workspace-requests-outgoing"
@@ -259,13 +266,20 @@ function handleOutgoingRowContextMenu(_event: Event, row: { original: TransferRe
       <UIcon name="i-lucide-send" class="mx-auto text-3xl mb-2" />
       <p>No pending outgoing requests</p>
     </div>
-    <UContextMenu v-else :items="outgoingContextMenuItems as any">
-      <AppTable
-        table-id="workspace-requests-outgoing"
-        :columns="outgoingColumns"
-        :data="outgoing"
-        @contextmenu="handleOutgoingRowContextMenu"
-      />
-    </UContextMenu>
+    <template v-else>
+      <UDashboardToolbar>
+        <template #right>
+          <AppTableColumnsDropdown table-id="workspace-requests-outgoing" :columns="outgoingColumns" />
+        </template>
+      </UDashboardToolbar>
+      <UContextMenu :items="outgoingContextMenuItems as any">
+        <AppTable
+          table-id="workspace-requests-outgoing"
+          :columns="outgoingColumns"
+          :data="outgoing"
+          @contextmenu="handleOutgoingRowContextMenu"
+        />
+      </UContextMenu>
+    </template>
   </UPageCard>
 </template>

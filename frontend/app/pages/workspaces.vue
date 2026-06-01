@@ -358,6 +358,9 @@ async function leaveWorkspace(ws: WorkspaceRow) {
             Clear Filters
           </UButton>
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="workspaces-list" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 

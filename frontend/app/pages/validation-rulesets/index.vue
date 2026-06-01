@@ -265,6 +265,9 @@ const emptyStateActions = computed(() => {
             Clear Filters
           </UButton>
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="workspace-validation-rulesets" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 

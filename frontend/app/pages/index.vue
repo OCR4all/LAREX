@@ -1058,6 +1058,11 @@ async function handleLegacyOcr4allImport(event: Event) {
                 />
               </UBadge>
             </div>
+            <AppTableColumnsDropdown
+              table-id="dashboard-projects-v2"
+              :columns="columns"
+              :default-visible-column-ids="DEFAULT_PROJECTS_VISIBLE_COLUMN_IDS"
+            />
           </div>
         </template>
       </UDashboardToolbar>

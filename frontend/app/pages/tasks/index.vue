@@ -493,14 +493,21 @@ const viewModeItems = [
           />
         </template>
         <template #right>
-          <UTabs
-            v-model="viewMode"
-            data-tour="tasks-view-mode"
-            size="sm"
-            color="primary"
-            :content="false"
-            :items="viewModeItems"
-          />
+          <div class="flex items-center gap-2">
+            <UTabs
+              v-model="viewMode"
+              data-tour="tasks-view-mode"
+              size="sm"
+              color="primary"
+              :content="false"
+              :items="viewModeItems"
+            />
+            <AppTableColumnsDropdown
+              v-if="viewMode === 'table'"
+              table-id="tasks-index"
+              :columns="columns"
+            />
+          </div>
         </template>
       </UDashboardToolbar>
     </template>

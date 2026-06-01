@@ -386,26 +386,29 @@ function formatBytes(bytes: number) {
         </template>
 
         <template #right>
-          <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
-            <span class="text-xs text-neutral-500">Active filters:</span>
-            <UBadge
-              v-for="filter in activeFilters"
-              :key="`${filter.type}-${filter.column || 'global'}`"
-              variant="soft"
-              color="neutral"
-              size="sm"
-              class="flex items-center gap-1"
-            >
-              {{ filter.label }}
-              <UButton
-                size="2xs"
+          <div class="flex items-center gap-2">
+            <div v-if="activeFilters.length > 0" class="flex items-center gap-2">
+              <span class="text-xs text-neutral-500">Active filters:</span>
+              <UBadge
+                v-for="filter in activeFilters"
+                :key="`${filter.type}-${filter.column || 'global'}`"
+                variant="soft"
                 color="neutral"
-                variant="link"
-                icon="i-lucide-x"
-                :padded="false"
-                @click="filter.clear()"
-              />
-            </UBadge>
+                size="sm"
+                class="flex items-center gap-1"
+              >
+                {{ filter.label }}
+                <UButton
+                  size="2xs"
+                  color="neutral"
+                  variant="link"
+                  icon="i-lucide-x"
+                  :padded="false"
+                  @click="filter.clear()"
+                />
+              </UBadge>
+            </div>
+            <AppTableColumnsDropdown table-id="admin-quotas" :columns="columns" />
           </div>
         </template>
       </UDashboardToolbar>

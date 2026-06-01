@@ -497,6 +497,7 @@ async function refreshAll() {
             >
               {{ formatBytes(filteredTotalSize) }}
             </UBadge>
+            <AppTableColumnsDropdown table-id="admin-storage-orphaned-files" :columns="columns" />
           </div>
         </template>
       </UDashboardToolbar>

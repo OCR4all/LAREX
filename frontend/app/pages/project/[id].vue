@@ -2665,6 +2665,12 @@ useHead({
             Clear Filters
           </UButton>
 
+          <AppTableColumnsDropdown
+            table-id="project-pages-v2"
+            :columns="pageColumns"
+            :default-visible-column-ids="DEFAULT_PROJECT_PAGE_VISIBLE_COLUMN_IDS"
+          />
+
           <USeparator orientation="vertical" class="h-4" />
 
           <UButton

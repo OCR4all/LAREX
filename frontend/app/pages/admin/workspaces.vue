@@ -230,6 +230,9 @@ function clearFilters() {
             Clear Filters
           </UButton>
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="admin-workspaces" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 

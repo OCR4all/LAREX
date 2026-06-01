@@ -560,6 +560,9 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
         <template #left>
           <UBreadcrumb :items="breadcrumbItems" />
         </template>
+        <template #right>
+          <AppTableColumnsDropdown table-id="codec-builder-characters" :columns="columns" />
+        </template>
       </UDashboardToolbar>
     </template>
 

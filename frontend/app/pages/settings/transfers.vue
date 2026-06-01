@@ -139,6 +139,12 @@ function handleRowContextMenu(_event: Event, row: { original: TransferRow }) {
           </UButton>
         </template>
       </UDashboardNavbar>
+
+      <UDashboardToolbar>
+        <template #right>
+          <AppTableColumnsDropdown table-id="settings-transfers" :columns="columns" />
+        </template>
+      </UDashboardToolbar>
     </template>
 
     <template #body>
