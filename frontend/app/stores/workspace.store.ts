@@ -129,6 +129,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    */
   const fetchWorkspaces = async (): Promise<Workspace[]> => {
     const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+    const previousWorkspaces = [...workspaces.value]
+    const hadExistingWorkspaces = previousWorkspaces.length > 0
 
     isLoading.value = true
     loadError.value = null
@@ -142,8 +144,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       const error = err as { data?: { message?: unknown }, message?: unknown }
       const message = error.data?.message || error.message || 'Failed to load workspaces'
       loadError.value = String(message)
-      workspaces.value = []
-      return []
+      if (!hadExistingWorkspaces) {
+        workspaces.value = []
+      }
+      return hadExistingWorkspaces ? previousWorkspaces : []
     } finally {
       isLoading.value = false
     }

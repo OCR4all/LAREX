@@ -13,6 +13,9 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const route = useRoute()
+const { isNotificationsSlideoverOpen } = useDashboard()
+const { unreadCount } = useNotifications()
+const isMobileSidebar = useMediaQuery('(max-width: 1023px)')
 
 const sidebarOpen = computed({
   get: () => props.open,
@@ -109,6 +112,10 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
 })
 
 const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaultNavigation.value)
+
+function openNotifications() {
+  isNotificationsSlideoverOpen.value = true
+}
 </script>
 
 <template>
@@ -183,6 +190,28 @@ const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaul
         />
 
         <LayoutSidebarFavorites v-if="!isAdmin" :collapsed="false" class="mt-4" />
+
+        <div v-if="isMobileSidebar" class="mt-auto flex w-full items-center justify-between">
+          <UTooltip text="Notifications" :content="{ side: 'top' }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              square
+              size="md"
+              aria-label="Open notifications"
+              @click="openNotifications"
+            >
+              <span class="relative inline-flex">
+                <UIcon name="i-lucide-bell" class="size-4" />
+                <span
+                  v-if="unreadCount > 0"
+                  class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
+                />
+              </span>
+            </UButton>
+          </UTooltip>
+          <AppStatusPopoverTrigger :collapsed="false" />
+        </div>
       </div>
 
       <div data-slot="footer" class="shrink-0 flex items-center gap-1.5 px-4 py-2 sm:px-6">
@@ -242,6 +271,31 @@ const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaul
       />
 
       <LayoutSidebarFavorites v-if="!isAdmin" :collapsed="collapsed" class="mt-4" />
+
+      <div
+        v-if="!isMobileSidebar"
+        :class="collapsed ? 'mt-auto flex flex-col items-center gap-2' : 'mt-auto flex items-center justify-between'"
+      >
+        <UTooltip :text="'Notifications'" :content="{ side: 'right' }">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            square
+            :size="collapsed ? 'sm' : 'md'"
+            aria-label="Open notifications"
+            @click="openNotifications"
+          >
+            <span class="relative inline-flex">
+              <UIcon name="i-lucide-bell" class="size-4" />
+              <span
+                v-if="unreadCount > 0"
+                class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
+              />
+            </span>
+          </UButton>
+        </UTooltip>
+        <AppStatusPopoverTrigger :collapsed="collapsed" />
+      </div>
     </template>
 
     <template #footer="{ collapsed }">

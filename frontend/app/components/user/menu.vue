@@ -7,7 +7,6 @@ defineProps<{
 
 const colorMode = useColorMode()
 const { user } = useUserSession()
-const { isNotificationsSlideoverOpen } = useDashboard()
 const { unreadCount, ensureInitialData } = useNotifications()
 
 await ensureInitialData()
@@ -32,20 +31,6 @@ const hasAdminRole = computed(() => {
   return user.value?.roles?.includes('GLOBAL_ADMIN') || false
 })
 
-const hasCuratorRole = computed(() => {
-  return user.value?.roles?.includes('GLOBAL_CURATOR') || false
-})
-
-const displayRole = computed(() => {
-  if (hasAdminRole.value) {
-    return 'Global Administrator'
-  }
-  if (hasCuratorRole.value) {
-    return 'Curator'
-  }
-  return 'User'
-})
-
 const items = computed<DropdownMenuItem[][]>(() => {
   const settingsItems: DropdownMenuItem[] = [{
     label: 'Settings',
@@ -62,10 +47,6 @@ const items = computed<DropdownMenuItem[][]>(() => {
       text: avatarFallback.value
     },
     slot: 'user-label'
-  }], [{
-    label: 'Notifications',
-    icon: 'i-lucide-bell',
-    onSelect() { isNotificationsSlideoverOpen.value = true }
   }], settingsItems]
 
   if (hasAdminRole.value) {

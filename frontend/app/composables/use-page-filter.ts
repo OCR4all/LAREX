@@ -5,6 +5,7 @@
  */
 
 import { normalizeLegacyLabelFilterValues } from '@/utils/editor/page-filter-tokens'
+import { extractApiErrorMessage } from '@/utils/api-error'
 
 export const PAGE_CONFIDENCE_ELEMENT_TYPE_OPTIONS = [
   { label: 'Page', value: 'PAGE' },
@@ -77,6 +78,8 @@ const globalIsFiltering = ref(false)
 const globalFilterError = ref<string | null>(null)
 const globalCurrentProjectId = ref<string | null>(null)
 const globalFiltersApplied = ref(false)
+const globalIndexStatsCache = ref<Record<string, IndexStats>>({})
+const globalAvailableLabelsCache = ref<Record<string, LabelWithCount[]>>({})
 
 let watchersInitialized = false
 
@@ -128,6 +131,28 @@ export function buildPageFilterRequestBody(state: PageFilterState): Record<strin
 }
 
 export function usePageFilter(projectId: Ref<string | undefined>) {
+  const { reportIssue, resolveIssue } = useStatusIssues()
+
+  const pageFilterIssueId = (suffix: string) => `page-filter:${projectId.value || 'unknown'}:${suffix}`
+
+  const reportPageFilterIssue = (
+    suffix: string,
+    title: string,
+    fallback: string,
+    error: unknown,
+    retry?: () => Promise<unknown>
+  ) => {
+    reportIssue({
+      id: pageFilterIssueId(suffix),
+      source: 'page-filter',
+      severity: 'warning',
+      title,
+      message: extractApiErrorMessage(error, fallback),
+      retryLabel: retry ? 'Retry' : undefined,
+      retry
+    })
+  }
+
   if (!watchersInitialized) {
     watchersInitialized = true
 
@@ -327,10 +352,25 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     if (!projectId.value) return null
 
     try {
-      return await $fetch<IndexStats>(`/api/projects/${projectId.value}/pages/index-stats`)
+      const stats = await $fetch<IndexStats>(`/api/projects/${projectId.value}/pages/index-stats`)
+      globalIndexStatsCache.value = {
+        ...globalIndexStatsCache.value,
+        [projectId.value]: stats
+      }
+      resolveIssue(pageFilterIssueId('index-stats'))
+      return stats
     } catch (error) {
       console.error('Failed to fetch index stats:', error)
-      return null
+      reportPageFilterIssue(
+        'index-stats',
+        'Page filter stats unavailable',
+        'Could not refresh page filter index statistics. Last known values are still shown when available.',
+        error,
+        async () => {
+          await fetchIndexStats()
+        }
+      )
+      return globalIndexStatsCache.value[projectId.value] ?? null
     }
   }
 
@@ -338,10 +378,25 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
     if (!projectId.value) return []
 
     try {
-      return await $fetch<LabelWithCount[]>(`/api/projects/${projectId.value}/pages/available-labels`)
+      const labels = await $fetch<LabelWithCount[]>(`/api/projects/${projectId.value}/pages/available-labels`)
+      globalAvailableLabelsCache.value = {
+        ...globalAvailableLabelsCache.value,
+        [projectId.value]: labels
+      }
+      resolveIssue(pageFilterIssueId('available-labels'))
+      return labels
     } catch (error) {
       console.error('Failed to fetch available labels:', error)
-      return []
+      reportPageFilterIssue(
+        'available-labels',
+        'Available labels unavailable',
+        'Could not refresh available page filter labels. Last known labels are still shown when available.',
+        error,
+        async () => {
+          await fetchAvailableLabels()
+        }
+      )
+      return globalAvailableLabelsCache.value[projectId.value] ?? []
     }
   }
 
@@ -352,9 +407,19 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
       await $fetch(`/api/projects/${projectId.value}/pages/rebuild-index`, {
         method: 'POST'
       })
+      resolveIssue(pageFilterIssueId('rebuild-index'))
       return true
     } catch (error) {
       console.error('Failed to rebuild index:', error)
+      reportPageFilterIssue(
+        'rebuild-index',
+        'Page filter rebuild failed',
+        'Could not rebuild the page filter index.',
+        error,
+        async () => {
+          await rebuildIndex()
+        }
+      )
       return false
     }
   }
@@ -371,9 +436,19 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
           params: { textContent: globalFilterState.value.textContent }
         }
       )
+      resolveIssue(pageFilterIssueId('matching-textlines'))
       return response.textLineIds
     } catch (error) {
       console.error('Failed to get matching text lines:', error)
+      reportPageFilterIssue(
+        'matching-textlines',
+        'Text line highlights unavailable',
+        'Could not load matching text line highlights for the current filter.',
+        error,
+        async () => {
+          await getMatchingTextLineIds(pageId)
+        }
+      )
       return []
     }
   }
@@ -390,9 +465,19 @@ export function usePageFilter(projectId: Ref<string | undefined>) {
           params: { textContent: globalFilterState.value.textContent }
         }
       )
+      resolveIssue(pageFilterIssueId('matching-textregions'))
       return response.regionIds
     } catch (error) {
       console.error('Failed to get matching text regions:', error)
+      reportPageFilterIssue(
+        'matching-textregions',
+        'Text region highlights unavailable',
+        'Could not load matching text region highlights for the current filter.',
+        error,
+        async () => {
+          await getMatchingTextRegionIds(pageId)
+        }
+      )
       return []
     }
   }

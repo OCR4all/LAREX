@@ -244,7 +244,7 @@ const groups = computed(() => {
 
     <slot />
 
+    <AppStatusOverlayPanel />
     <AppNotificationsSlideover />
-    <AppStatusOverlay />
   </UDashboardGroup>
 </template>

@@ -72,7 +72,10 @@ const isLoadingStats = ref(false)
 watch(isOpen, async (open) => {
   if (open && !indexStats.value) {
     isLoadingStats.value = true
-    indexStats.value = await fetchIndexStats()
+    const stats = await fetchIndexStats()
+    if (stats) {
+      indexStats.value = stats
+    }
     isLoadingStats.value = false
   }
 })
@@ -133,7 +136,10 @@ async function handleRebuildIndex() {
   isRebuilding.value = false
   if (success) {
     emit('rebuild-index')
-    indexStats.value = await fetchIndexStats()
+    const stats = await fetchIndexStats()
+    if (stats) {
+      indexStats.value = stats
+    }
   }
 }
 

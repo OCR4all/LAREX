@@ -1,6 +1,7 @@
 import type { Notification, NotificationGroup, WorkspaceInvitation, NotificationType } from '~/types'
 import type { WorkspaceUtilityResourceType } from '@/types/capabilities'
 import { getNotificationLink } from '~/utils/notifications'
+import { extractApiErrorMessage } from '@/utils/api-error'
 
 const GROUPING_WINDOW_MS = 2 * 60 * 1000 // 2 minutes
 let notificationRealtimeUnsubscribe: (() => void) | null = null
@@ -37,6 +38,7 @@ interface NotificationState {
  * Provides a centralized state that can be accessed from anywhere.
  */
 export const useNotifications = () => {
+  const { reportIssue, resolveIssue } = useStatusIssues()
   const state = useState<NotificationState>('notifications.state', () => ({
     notifications: [],
     invitations: [],
@@ -52,6 +54,21 @@ export const useNotifications = () => {
   const shownToastKeys = useState<Set<string>>('notifications.shownToastKeys', () => new Set())
   const requestFetch = import.meta.server ? useRequestFetch() : $fetch
   const realtime = useRealtimeSocket()
+  const notificationIssueId = 'notifications-sync'
+
+  const reportNotificationIssue = (fallback: string, error: unknown) => {
+    reportIssue({
+      id: notificationIssueId,
+      source: 'notifications',
+      severity: 'warning',
+      title: 'Notifications may be outdated',
+      message: extractApiErrorMessage(error, fallback),
+      retryLabel: 'Retry sync',
+      retry: async () => {
+        await refresh()
+      }
+    })
+  }
 
   const rememberShownToast = (key: string) => {
     const next = new Set(shownToastKeys.value)
@@ -128,7 +145,7 @@ export const useNotifications = () => {
   /**
    * Fetch notifications from API
    */
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (): Promise<boolean> => {
     try {
       const existingNotificationIds = new Set(state.value.notifications.map(n => n.id))
       const data = await requestFetch<Notification[]>('/api/notifications')
@@ -145,15 +162,18 @@ export const useNotifications = () => {
           maybeShowNotificationToast(notification)
         }
       }
+      return true
     } catch (error) {
       console.error('Failed to fetch notifications:', error)
+      reportNotificationIssue('Could not refresh notifications. Existing items are still shown.', error)
+      return false
     }
   }
 
   /**
    * Fetch pending invitations from API
    */
-  const fetchInvitations = async () => {
+  const fetchInvitations = async (): Promise<boolean> => {
     try {
       const existingInvitationIds = new Set(state.value.invitations.map(inv => inv.id))
       const data = await requestFetch<WorkspaceInvitation[]>('/api/workspaces/invitations')
@@ -170,22 +190,26 @@ export const useNotifications = () => {
           maybeShowInvitationToast(invitation)
         }
       }
+      return true
     } catch (error) {
       console.error('Failed to fetch invitations:', error)
+      reportNotificationIssue('Could not refresh workspace invitations. Existing items are still shown.', error)
+      return false
     }
   }
 
   /**
    * Fetch incoming transfer requests for workspaces where user is admin
    */
-  const fetchIncomingTransfers = async () => {
+  const fetchIncomingTransfers = async (): Promise<boolean> => {
     try {
       const workspaceStore = useWorkspaceStore()
       const workspaceId = workspaceStore.selectedWorkspaceId
       if (!workspaceId) {
         state.value.incomingTransfers = []
         updateUnreadCount()
-        return
+        resolveIssue(notificationIssueId)
+        return true
       }
 
       const [projectTransfers, resourceTransfers] = await Promise.all([
@@ -194,30 +218,39 @@ export const useNotifications = () => {
       ])
       state.value.incomingTransfers = [...(projectTransfers || []), ...(resourceTransfers || [])]
       updateUnreadCount()
+      return true
     } catch (error) {
       console.error('Failed to fetch incoming transfers:', error)
+      reportNotificationIssue('Could not refresh transfer requests. Existing items are still shown.', error)
+      return false
     }
   }
 
   /**
    * Refresh all notification data
    */
-  const refresh = async () => {
+  const refresh = async (): Promise<boolean> => {
     isLoading.value = true
     try {
-      await Promise.all([fetchNotifications(), fetchInvitations(), fetchIncomingTransfers()])
+      const results = await Promise.all([fetchNotifications(), fetchInvitations(), fetchIncomingTransfers()])
+      const allSucceeded = results.every(Boolean)
+      if (allSucceeded) {
+        resolveIssue(notificationIssueId)
+      }
+      return allSucceeded
     } finally {
       isLoading.value = false
     }
   }
 
-  const ensureInitialData = async () => {
+  const ensureInitialData = async (): Promise<boolean> => {
     if (hasLoadedInitialData.value) {
-      return
+      return true
     }
 
-    await refresh()
-    hasLoadedInitialData.value = true
+    const loaded = await refresh()
+    hasLoadedInitialData.value = loaded
+    return loaded
   }
 
   /**
@@ -344,11 +377,19 @@ export const useNotifications = () => {
    */
   const initialize = async () => {
     const { fetchPreferences } = useNotificationPreferences()
-    await fetchPreferences()
-    await ensureInitialData()
+    try {
+      await fetchPreferences()
+    } catch (error) {
+      reportNotificationIssue('Could not load notification preferences.', error)
+    }
+
+    const loaded = await ensureInitialData()
     connectWebSocket()
 
     startPolling()
+    if (loaded) {
+      resolveIssue(notificationIssueId)
+    }
   }
 
   watch(() => realtime.connectionStatus.value, (status) => {

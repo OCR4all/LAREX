@@ -30,6 +30,8 @@ const emit = defineEmits<{
 
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
+const { isNotificationsSlideoverOpen } = useDashboard()
+const { unreadCount } = useNotifications()
 const sidebarShellRef = ref<HTMLElement | null>(null)
 const floatingPosition = ref<{ x: number, y: number } | null>(null)
 const isDraggingSidebar = ref(false)
@@ -57,6 +59,10 @@ const filterPopoverOpenModel = computed({
 
 function handleImageVariantChange(key: string | undefined) {
   editorStore.setPreferredImageVariantKey(key ?? null)
+}
+
+function openNotifications() {
+  isNotificationsSlideoverOpen.value = true
 }
 
 function getViewportSize() {
@@ -315,6 +321,28 @@ watch(() => props.imagePopoverDismissKey, () => {
 
       <USeparator orientation="horizontal" class="my-1 w-6" />
 
+      <div class="mb-2 flex flex-col items-center gap-2">
+        <UTooltip text="Notifications" :content="{ side: 'right' }">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            square
+            size="sm"
+            aria-label="Open notifications"
+            @click="openNotifications"
+          >
+            <span class="relative inline-flex">
+              <UIcon name="i-lucide-bell" class="size-4" />
+              <span
+                v-if="unreadCount > 0"
+                class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
+              />
+            </span>
+          </UButton>
+        </UTooltip>
+        <AppStatusPopoverTrigger collapsed />
+      </div>
+
       <div class="flex justify-center">
         <UserMenu :collapsed="true" />
       </div>
@@ -442,7 +470,29 @@ watch(() => props.imagePopoverDismissKey, () => {
         </div>
       </div>
 
-      <div class="shrink-0 border-t border-default p-2">
+      <div class="shrink-0 border-t border-default p-2 space-y-2">
+        <div class="flex flex-col items-center gap-2">
+          <UTooltip text="Notifications" :content="{ side: 'right' }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              square
+              size="sm"
+              aria-label="Open notifications"
+              @click="openNotifications"
+            >
+              <span class="relative inline-flex">
+                <UIcon name="i-lucide-bell" class="size-4" />
+                <span
+                  v-if="unreadCount > 0"
+                  class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
+                />
+              </span>
+            </UButton>
+          </UTooltip>
+          <AppStatusPopoverTrigger collapsed />
+        </div>
+        <div class="border-t border-default" />
         <UserMenu :collapsed="true" />
       </div>
     </template>
@@ -537,7 +587,29 @@ watch(() => props.imagePopoverDismissKey, () => {
         </div>
       </div>
 
-      <div class="shrink-0 border-t border-default p-2">
+      <div class="shrink-0 border-t border-default p-2 space-y-2">
+        <div class="flex items-center justify-between">
+          <UTooltip text="Notifications" :content="{ side: 'top' }">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              square
+              size="md"
+              aria-label="Open notifications"
+              @click="openNotifications"
+            >
+              <span class="relative inline-flex">
+                <UIcon name="i-lucide-bell" class="size-4" />
+                <span
+                  v-if="unreadCount > 0"
+                  class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
+                />
+              </span>
+            </UButton>
+          </UTooltip>
+          <AppStatusPopoverTrigger :collapsed="false" />
+        </div>
+        <div class="border-t border-default" />
         <UserMenu :collapsed="false" />
       </div>
     </template>

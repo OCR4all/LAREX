@@ -8,6 +8,8 @@
  * - Starts background health monitoring
  * - Initializes notifications polling
  */
+import { extractApiErrorMessage } from '@/utils/api-error'
+
 export default defineNuxtPlugin({
   name: 'app-init',
   enforce: 'post', // Run after other plugins (including Pinia)
@@ -22,18 +24,25 @@ export default defineNuxtPlugin({
 
 async function initializeApp() {
   const isInitialized = useState<boolean>('app.isInitialized', () => false)
+  const isInitializing = useState<boolean>('app.isInitializing', () => false)
+  const { reportIssue, resolveIssue } = useStatusIssues()
+  const issueId = 'startup-incomplete'
 
-  if (isInitialized.value) {
+  if (isInitialized.value || isInitializing.value) {
     return
   }
 
   const { loggedIn } = useUserSession()
 
   if (!loggedIn.value) {
+    resolveIssue(issueId)
     return
   }
 
+  isInitializing.value = true
+  let failedStep = 'finish startup'
   try {
+    failedStep = 'refresh your session'
     await $fetch('/api/auth/refresh-profile', {
       method: 'POST'
     })
@@ -45,6 +54,7 @@ async function initializeApp() {
     const baseDelay = 1000
 
     while (attempts < maxAttempts) {
+      failedStep = 'reach the backend'
       const isHealthy = await checkHealth(true)
 
       if (isHealthy) {
@@ -60,16 +70,35 @@ async function initializeApp() {
       await new Promise(resolve => setTimeout(resolve, delay))
     }
 
+    failedStep = 'load your workspace selection'
     const workspaceStore = useWorkspaceStore()
     await workspaceStore.validateAndSelectWorkspace()
 
     startMonitoring(15000)
 
+    failedStep = 'load notifications'
     const { initialize: initNotifications } = useNotifications()
     await initNotifications()
 
     isInitialized.value = true
-  } catch {
-    // Initialization errors are handled by individual feature fallbacks.
+    resolveIssue(issueId)
+  } catch (error) {
+    isInitialized.value = false
+    reportIssue({
+      id: issueId,
+      source: 'startup',
+      severity: 'error',
+      title: 'App startup incomplete',
+      message: extractApiErrorMessage(
+        error,
+        `Could not ${failedStep}. Some data may be stale or unavailable until this is retried.`
+      ),
+      retryLabel: 'Retry startup',
+      retry: async () => {
+        await initializeApp()
+      }
+    })
+  } finally {
+    isInitializing.value = false
   }
 }

@@ -6,7 +6,7 @@ useDashboard()
   <div class="h-screen w-screen">
     <slot />
 
-    <AppStatusOverlay />
+    <AppStatusOverlayPanel />
     <AppNotificationsSlideover />
   </div>
 </template>
