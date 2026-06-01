@@ -113,6 +113,27 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
 
 const navigation = computed(() => isAdmin.value ? adminNavigation.value : defaultNavigation.value)
 
+const collapsedNavigation = computed<NavigationMenuItem[]>(() => {
+  if (isAdmin.value) return adminNavigation.value
+
+  return defaultNavigation.value.map((item) => {
+    if (item.label !== 'Toolkit' || !Array.isArray(item.children)) {
+      return item
+    }
+
+    const flattenedChildren: NavigationMenuItem[] = []
+    for (const child of item.children as NavigationMenuItem[]) {
+      if (child.label === 'Text' && Array.isArray(child.children)) {
+        flattenedChildren.push(...(child.children as NavigationMenuItem[]))
+      } else {
+        flattenedChildren.push(child)
+      }
+    }
+
+    return { ...item, children: flattenedChildren }
+  })
+})
+
 function openNotifications() {
   isNotificationsSlideoverOpen.value = true
 }
@@ -264,7 +285,7 @@ function openNotifications() {
 
       <UNavigationMenu
         :collapsed="collapsed"
-        :items="navigation"
+        :items="collapsed ? collapsedNavigation : navigation"
         orientation="vertical"
         tooltip
         popover
