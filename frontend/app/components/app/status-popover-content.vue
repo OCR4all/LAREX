@@ -190,7 +190,7 @@ function toggleMinimized() {
   <div
     :class="[
       minimized ? 'w-[min(16rem,calc(100vw-2rem))]' : 'w-[min(28rem,calc(100vw-2rem))]',
-      'overflow-hidden rounded-lg border border-neutral-100 bg-neutral-50 shadow-md dark:border-neutral-900 dark:bg-neutral-950'
+      'overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950'
     ]"
   >
     <div :class="['flex items-center justify-between gap-3 border-b border-default', minimized ? 'px-3 py-2' : 'px-4 py-3']">
@@ -258,7 +258,7 @@ function toggleMinimized() {
       />
     </div>
 
-    <div v-else class="max-h-[28rem] overflow-y-auto">
+    <div v-else class="max-h-110 overflow-y-auto">
       <div v-if="issues.length === 0 && jobs.length === 0" class="px-4 py-6 text-center text-sm text-muted">
         All clear
       </div>
