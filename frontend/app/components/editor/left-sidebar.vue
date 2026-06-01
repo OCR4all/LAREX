@@ -31,7 +31,7 @@ const emit = defineEmits<{
 const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
 const { isNotificationsSlideoverOpen } = useDashboard()
-const { unreadCount } = useNotifications()
+const { unreadCount, ensureInitialData } = useNotifications()
 const sidebarShellRef = ref<HTMLElement | null>(null)
 const floatingPosition = ref<{ x: number, y: number } | null>(null)
 const isDraggingSidebar = ref(false)
@@ -40,6 +40,8 @@ const floatingImagePopoverOpen = ref(false)
 const collapsedRailImagePopoverOpen = ref(false)
 
 const DEFAULT_FLOATING_SIDEBAR_TOP = 120
+
+await ensureInitialData()
 
 let dragPointerId: number | null = null
 let dragStartClientX = 0
@@ -323,22 +325,23 @@ watch(() => props.imagePopoverDismissKey, () => {
 
       <div class="mb-2 flex flex-col items-center gap-2">
         <UTooltip text="Notifications" :content="{ side: 'right' }">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            square
-            size="sm"
-            aria-label="Open notifications"
-            @click="openNotifications"
+          <UChip
+            inset
+            :show="unreadCount > 0"
+            :text="unreadCount"
+            color="error"
           >
-            <span class="relative inline-flex">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              square
+              size="sm"
+              aria-label="Open notifications"
+              @click="openNotifications"
+            >
               <UIcon name="i-lucide-bell" class="size-4" />
-              <span
-                v-if="unreadCount > 0"
-                class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
-              />
-            </span>
-          </UButton>
+            </UButton>
+          </UChip>
         </UTooltip>
         <AppStatusPopoverTrigger collapsed />
       </div>
@@ -473,22 +476,23 @@ watch(() => props.imagePopoverDismissKey, () => {
       <div class="shrink-0 border-t border-default p-2 space-y-2">
         <div class="flex flex-col items-center gap-2">
           <UTooltip text="Notifications" :content="{ side: 'right' }">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              square
-              size="sm"
-              aria-label="Open notifications"
-              @click="openNotifications"
+            <UChip
+              inset
+              :show="unreadCount > 0"
+              :text="unreadCount"
+              color="error"
+              position="top-right"
             >
-              <span class="relative inline-flex">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                aria-label="Open notifications"
+                @click="openNotifications"
+              >
                 <UIcon name="i-lucide-bell" class="size-4" />
-                <span
-                  v-if="unreadCount > 0"
-                  class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
-                />
-              </span>
-            </UButton>
+              </UButton>
+            </UChip>
           </UTooltip>
           <AppStatusPopoverTrigger collapsed />
         </div>
@@ -590,22 +594,23 @@ watch(() => props.imagePopoverDismissKey, () => {
       <div class="shrink-0 border-t border-default p-2 space-y-2">
         <div class="flex items-center justify-between">
           <UTooltip text="Notifications" :content="{ side: 'top' }">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              square
-              size="md"
-              aria-label="Open notifications"
-              @click="openNotifications"
+            <UChip
+              :show="unreadCount > 0"
+              :text="unreadCount"
+              color="error"
+              position="top-right"
             >
-              <span class="relative inline-flex">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                square
+                size="md"
+                aria-label="Open notifications"
+                @click="openNotifications"
+              >
                 <UIcon name="i-lucide-bell" class="size-4" />
-                <span
-                  v-if="unreadCount > 0"
-                  class="absolute -right-0.5 -top-0.5 inline-flex h-2 w-2 rounded-full bg-error"
-                />
-              </span>
-            </UButton>
+              </UButton>
+            </UChip>
           </UTooltip>
           <AppStatusPopoverTrigger :collapsed="false" />
         </div>

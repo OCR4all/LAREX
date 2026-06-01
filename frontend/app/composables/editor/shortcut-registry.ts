@@ -314,13 +314,13 @@ export const SHORTCUT_DEFINITIONS = {
     defaultBindings: ['meta_s']
   },
   nextImage: {
-    description: 'Next image',
+    description: 'Next page',
     group: 'navigation',
     scope: 'global',
     defaultBindings: ['meta_arrowdown']
   },
   prevImage: {
-    description: 'Previous image',
+    description: 'Previous page',
     group: 'navigation',
     scope: 'global',
     defaultBindings: ['meta_arrowup']
@@ -330,6 +330,18 @@ export const SHORTCUT_DEFINITIONS = {
     group: 'panels',
     scope: 'global',
     defaultBindings: ['alt_w']
+  },
+  closeActiveTabAndNextPage: {
+    description: 'Close current tab and open next page',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['meta_ctrl_arrowdown']
+  },
+  closeActiveTabAndPrevPage: {
+    description: 'Close current tab and open previous page',
+    group: 'navigation',
+    scope: 'global',
+    defaultBindings: ['meta_ctrl_arrowup']
   },
   showHelp: {
     description: 'Open keyboard shortcuts',
@@ -390,6 +402,30 @@ const DISPLAY_KEY_MAP: Record<string, string> = {
   backspace: 'Backspace'
 }
 
+const CODE_TOKEN_MAP: Record<string, string> = {
+  Backquote: '`',
+  Minus: '-',
+  Equal: '=',
+  BracketLeft: '[',
+  BracketRight: ']',
+  Backslash: '\\',
+  Semicolon: ';',
+  Quote: '\'',
+  Comma: ',',
+  Period: '.',
+  Slash: '/',
+  Space: 'space',
+  Escape: 'escape',
+  Enter: 'enter',
+  Tab: 'tab',
+  Backspace: 'backspace',
+  Delete: 'delete',
+  ArrowUp: 'arrowup',
+  ArrowDown: 'arrowdown',
+  ArrowLeft: 'arrowleft',
+  ArrowRight: 'arrowright'
+}
+
 const RESERVED_SHORTCUT_BINDINGS = new Set([
   'meta_r',
   'meta_shift_r',
@@ -425,6 +461,19 @@ function normalizeKeyToken(token: string): string | null {
   if (normalized === 'option') return 'alt'
 
   return SHIFTED_SYMBOL_MAP[normalized] ?? normalized
+}
+
+function normalizeCodeToken(code: string | undefined): string | null {
+  if (!code) return null
+  if (code in CODE_TOKEN_MAP) return CODE_TOKEN_MAP[code]
+
+  const letterMatch = /^Key([A-Z])$/.exec(code)
+  if (letterMatch) return letterMatch[1]?.toLowerCase() ?? null
+
+  const digitMatch = /^Digit([0-9])$/.exec(code)
+  if (digitMatch) return digitMatch[1] ?? null
+
+  return null
 }
 
 function sortAndNormalizeModifiers(tokens: string[]): string[] {
@@ -533,19 +582,22 @@ export function getResolvedShortcutDefinitions(preferences: ShortcutPreferences 
 }
 
 export function serializeKeyboardEventToBinding(
-  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
+  event: Pick<KeyboardEvent, 'key' | 'code' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey'>,
   options?: { platform?: 'mac' | 'other' }
 ): string | null {
-  const key = normalizeKeyToken(event.key)
-  if (!key || ['meta', 'ctrl', 'alt', 'shift'].includes(key)) return null
-
-  const modifiers: string[] = []
   const isMac = isMacLikePlatform(options?.platform)
+  const modifiers: string[] = []
 
   if (isMac ? event.metaKey : event.ctrlKey) modifiers.push('meta')
   if (isMac ? event.ctrlKey : event.metaKey) modifiers.push('ctrl')
   if (event.altKey) modifiers.push('alt')
   if (event.shiftKey) modifiers.push('shift')
+
+  const hasNonShiftModifier = modifiers.some(modifier => modifier !== 'shift')
+  const key = hasNonShiftModifier
+    ? normalizeCodeToken(event.code) ?? normalizeKeyToken(event.key)
+    : normalizeKeyToken(event.key) ?? normalizeCodeToken(event.code)
+  if (!key || ['meta', 'ctrl', 'alt', 'shift'].includes(key)) return null
 
   return normalizeShortcutBinding([...modifiers, key].join('_'))
 }

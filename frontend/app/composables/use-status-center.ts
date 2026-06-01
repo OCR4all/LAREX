@@ -39,11 +39,11 @@ export function useStatusCenter() {
 
   const headerTitle = computed(() => {
     if (issues.value.length > 0 && activeJobs.value.length === 0) {
-      return issues.value[0]?.severity === 'error' ? 'Attention required' : 'Status'
+      return issues.value[0]?.severity === 'error' ? 'Attention required' : 'Jobs'
     }
-    if (activeJobs.value.length === 0) return 'Status'
-    if (activeJobs.value.length === 1) return activeJobs.value[0]?.statusLabel || 'Status'
-    return 'Status'
+    if (activeJobs.value.length === 0) return 'Jobs'
+    if (activeJobs.value.length === 1) return activeJobs.value[0]?.statusLabel || 'Jobs'
+    return 'Jobs'
   })
 
   const overallProgress = computed(() => {

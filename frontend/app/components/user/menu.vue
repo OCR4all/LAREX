@@ -7,9 +7,6 @@ defineProps<{
 
 const colorMode = useColorMode()
 const { user } = useUserSession()
-const { unreadCount, ensureInitialData } = useNotifications()
-
-await ensureInitialData()
 
 const displayName = computed(() => {
   return user.value?.name || user.value?.login || 'User'
@@ -115,8 +112,7 @@ const items = computed<DropdownMenuItem[][]>(() => {
         avatar: {
           src: avatarSrc,
           alt: displayName,
-          text: avatarFallback,
-          chip: unreadCount > 0 ? { text: String(unreadCount), color: 'error', size: 'xl' } : false
+          text: avatarFallback
         },
         label: collapsed ? undefined : displayName,
         trailingIcon: collapsed ? undefined : 'i-lucide-chevrons-up-down'

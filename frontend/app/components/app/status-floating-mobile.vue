@@ -14,18 +14,18 @@ const isMobile = useMediaQuery('(max-width: 1023px)')
 
 const buttonLabel = computed(() => {
   if (hasActiveJobs.value) {
-    return `Status (${activeJobs.value.length} running)`
+    return `Jobs (${activeJobs.value.length} running)`
   }
   if (hasIssues.value) {
-    return `Status (${issues.value.length} issue${issues.value.length === 1 ? '' : 's'})`
+    return `Jobs (${issues.value.length} issue${issues.value.length === 1 ? '' : 's'})`
   }
-  return 'Status'
+  return 'Jobs'
 })
 </script>
 
 <template>
   <div v-if="isMobile" class="fixed bottom-4 right-4 z-50">
-    <UTooltip text="Status" :content="{ side: 'left' }">
+    <UTooltip text="Jobs" :content="{ side: 'left' }">
       <UButton
         color="neutral"
         variant="soft"

@@ -16,12 +16,12 @@ const {
 
 const buttonLabel = computed(() => {
   if (hasActiveJobs.value) {
-    return `Status (${activeJobs.value.length} running)`
+    return `Jobs (${activeJobs.value.length} running)`
   }
   if (hasIssues.value) {
-    return `Status (${issues.value.length} issue${issues.value.length === 1 ? '' : 's'})`
+    return `Jobs (${issues.value.length} issue${issues.value.length === 1 ? '' : 's'})`
   }
-  return 'Status'
+  return 'Jobs'
 })
 </script>
 

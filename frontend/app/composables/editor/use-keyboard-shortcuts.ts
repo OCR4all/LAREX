@@ -68,6 +68,8 @@ export interface KeyboardShortcutsOptions {
     nextImage?: () => void
     prevImage?: () => void
     closeActiveTab?: () => void
+    closeActiveTabAndNextPage?: () => void
+    closeActiveTabAndPrevPage?: () => void
   }
 }
 
@@ -376,6 +378,14 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions) {
       case 'closeActiveTab':
         if (isInputFocused()) return false
         callbacks.closeActiveTab?.()
+        return true
+      case 'closeActiveTabAndNextPage':
+        if (isInputFocused()) return false
+        callbacks.closeActiveTabAndNextPage?.()
+        return true
+      case 'closeActiveTabAndPrevPage':
+        if (isInputFocused()) return false
+        callbacks.closeActiveTabAndPrevPage?.()
         return true
       case 'showHelp':
         if (isInputFocused()) return false

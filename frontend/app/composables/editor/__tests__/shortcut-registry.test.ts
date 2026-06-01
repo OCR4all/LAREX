@@ -11,6 +11,7 @@ describe('shortcut-registry', () => {
   it('serializes keyboard events to canonical bindings', () => {
     expect(serializeKeyboardEventToBinding({
       key: 'Z',
+      code: 'KeyZ',
       ctrlKey: true,
       metaKey: false,
       altKey: false,
@@ -19,6 +20,7 @@ describe('shortcut-registry', () => {
 
     expect(serializeKeyboardEventToBinding({
       key: '?',
+      code: 'Slash',
       ctrlKey: false,
       metaKey: false,
       altKey: false,
@@ -27,11 +29,23 @@ describe('shortcut-registry', () => {
 
     expect(serializeKeyboardEventToBinding({
       key: 'g',
+      code: 'KeyG',
       ctrlKey: false,
       metaKey: true,
       altKey: true,
       shiftKey: false
     }, { platform: 'mac' })).toBe('meta_alt_g')
+  })
+
+  it('uses keyboard code for modified shortcuts when the key is layout-shifted', () => {
+    expect(serializeKeyboardEventToBinding({
+      key: '∑',
+      code: 'KeyW',
+      ctrlKey: false,
+      metaKey: false,
+      altKey: true,
+      shiftKey: false
+    }, { platform: 'mac' })).toBe('alt_w')
   })
 
   it('merges defaults with per-user overrides', () => {
@@ -72,5 +86,12 @@ describe('shortcut-registry', () => {
 
     expect(definitions.save.bindings).toEqual(['alt_s'])
     expect(definitions.undo.bindings).toEqual(['meta_z'])
+  })
+
+  it('exposes default bindings for close-and-advance page shortcuts', () => {
+    const bindings = getEffectiveShortcutBindings(null)
+
+    expect(bindings.closeActiveTabAndNextPage).toEqual(['meta_ctrl_arrowdown'])
+    expect(bindings.closeActiveTabAndPrevPage).toEqual(['meta_ctrl_arrowup'])
   })
 })

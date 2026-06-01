@@ -52,6 +52,7 @@ import { useEditorCollaboration } from '@/composables/editor/use-editor-collabor
 import { UpdateReadingOrderCommand } from '@/commands'
 import type { ReadingOrder } from '@/models/editor'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
+import { resolveAdjacentPageId } from '@/utils/editor/page-navigation'
 
 definePageMeta({ layout: 'editor' })
 
@@ -1214,15 +1215,70 @@ onBeforeUnmount(() => {
 function navigateImage(direction: 'next' | 'prev') {
   const projectId = currentProjectId.value
   if (!projectId) return
-  const pages = editorStore.getProjectPages(projectId)
-  if (pages.length === 0) return
-  const currentIdx = pages.findIndex(p => p.id === editorStore.currentPageId)
-  const newIdx = direction === 'next'
-    ? Math.min(currentIdx + 1, pages.length - 1)
-    : Math.max(currentIdx - 1, 0)
-  if (newIdx !== currentIdx && pages[newIdx]) {
-    void openEditorForPage(projectId, pages[newIdx].id)
+  const allPages = editorStore.getProjectPages(projectId)
+  if (allPages.length === 0) return
+
+  const availablePages = getFilteredPagesForProject(projectId)
+  const nextPageId = resolveAdjacentPageId({
+    allPages,
+    availablePages,
+    currentPageId: editorStore.currentPageId,
+    direction
+  })
+
+  if (nextPageId) {
+    void openEditorForPage(projectId, nextPageId)
   }
+}
+
+function resolveAdjacentPageForCurrentTab(direction: 'next' | 'prev'): { projectId: string, pageId: string } | null {
+  const projectId = currentProjectId.value
+  const currentPageId = editorStore.currentPageId
+  if (!projectId || !currentPageId) return null
+
+  const allPages = editorStore.getProjectPages(projectId)
+  if (allPages.length === 0) return null
+
+  const availablePages = getFilteredPagesForProject(projectId)
+  const pageId = resolveAdjacentPageId({
+    allPages,
+    availablePages,
+    currentPageId,
+    direction
+  })
+
+  return pageId ? { projectId, pageId } : null
+}
+
+async function closeCurrentTab(): Promise<boolean> {
+  const canvasId = activeCanvasId.value
+  if (!canvasId) return false
+
+  const canvas = editorStore.canvases[canvasId]
+  const projectId = canvas?.projectId ?? null
+  const pageId = canvas?.pageId ?? null
+  if (!projectId || !pageId) return false
+
+  const innerApi = projectDockviewRegistry.get(projectId)
+  if (!innerApi) return false
+
+  const panelId = getPagePanelId(projectId, pageId)
+  const panel = innerApi.getPanel(panelId)
+  if (!panel) return false
+
+  await handleCloseRequest({ panelApi: panel.api, projectId, pageId })
+  return waitForCondition(() =>
+    !projectDockviewRegistry.get(projectId)?.getPanel(panelId)
+    && !editorStore.canvases[canvasId]
+    && !sessionStore.getOpenedPageIds(projectId).includes(pageId)
+  )
+}
+
+async function closeCurrentTabAndOpenAdjacentPage(direction: 'next' | 'prev') {
+  const adjacent = resolveAdjacentPageForCurrentTab(direction)
+  const closed = await closeCurrentTab()
+  if (!closed || !adjacent) return
+  await openEditorForPage(adjacent.projectId, adjacent.pageId)
 }
 
 const activeCanvasId = computed(() => editorStore.activeCanvasId)
@@ -1913,7 +1969,7 @@ if (import.meta.client) {
       },
       setCutMode: (mode: 'line' | 'polygon' | 'rectangle') => {
         const controls = activeControls.value
-        if (!controls || controls.isCanvasEditable.value === false) return
+        if (!controls || !controls.isCanvasEditable.value) return
         editorUiStore.setActionWandActive(false)
         if (mode === 'line') controls.toggleCutLineMode?.()
         else if (mode === 'polygon') controls.toggleCutPolygonMode?.()
@@ -1930,21 +1986,9 @@ if (import.meta.client) {
       nextImage: () => navigateImage('next'),
       prevImage: () => navigateImage('prev'),
       toggleShortcutsHelp: () => editorUiStore.toggleShortcutsHelp(),
-      closeActiveTab: () => {
-        const canvasId = activeCanvasId.value
-        if (!canvasId) return
-        const canvas = editorStore.canvases[canvasId]
-        const projectId = canvas?.projectId ?? null
-        const pageId = canvas?.pageId ?? null
-        if (!projectId || !pageId) return
-
-        const innerApi = projectDockviewRegistry.get(projectId)
-        if (!innerApi) return
-
-        const panel = innerApi.getPanel(getPagePanelId(projectId, pageId))
-        if (!panel) return
-        handleCloseRequest({ panelApi: panel.api, projectId, pageId })
-      }
+      closeActiveTab: () => { void closeCurrentTab() },
+      closeActiveTabAndNextPage: () => { void closeCurrentTabAndOpenAdjacentPage('next') },
+      closeActiveTabAndPrevPage: () => { void closeCurrentTabAndOpenAdjacentPage('prev') }
     }
   })
 }

@@ -47,7 +47,7 @@ const showColumnVisibilityMenu = computed(() =>
     <UButton
       icon="i-lucide-columns-3"
       color="neutral"
-      variant="outline"
+      variant="ghost"
       size="xs"
       square
       aria-label="Columns"

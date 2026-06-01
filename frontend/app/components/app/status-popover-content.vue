@@ -219,7 +219,7 @@ function toggleMinimized() {
           :icon="minimized ? 'i-lucide-chevron-up' : 'i-lucide-minus'"
           variant="ghost"
           size="xs"
-          :aria-label="minimized ? 'Expand status' : 'Minimize status'"
+          :aria-label="minimized ? 'Expand jobs panel' : 'Minimize jobs panel'"
           @click="toggleMinimized"
         />
         <UButton
@@ -227,7 +227,7 @@ function toggleMinimized() {
           icon="i-lucide-x"
           variant="ghost"
           size="xs"
-          aria-label="Close status"
+          aria-label="Close jobs panel"
           @click="closePanel"
         />
       </div>
