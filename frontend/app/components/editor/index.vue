@@ -13,7 +13,12 @@ import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import { useEditorSessionStore } from '@/stores/editor/editor.session.store'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import { normalizeRelation } from '@/utils/editor/relations'
-import { useEditorSession, usePageVisibilityState } from '@/session/editor/editor-session'
+import {
+  registerEditorFloatingAnchor,
+  unregisterEditorFloatingAnchor,
+  useEditorSession,
+  usePageVisibilityState
+} from '@/session/editor/editor-session'
 import { useRelationsVisualization } from '@/composables/editor/use-relations-visualization'
 import { useMoveInteraction } from '@/composables/editor/use-move-interaction'
 import { CompoundCommand, CreateRelationCommand, UpdateRelationCommand, UpdateTextContentVariantsCommand } from '@/commands'
@@ -275,6 +280,24 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 const correctionOverlayContainerRef = ref<HTMLDivElement | null>(null)
 const webglRenderer = useWebglRenderer(canvas)
 const suppressCorrectionZoomPreferenceUpdate = ref(false)
+let registeredFloatingAnchorElement: HTMLDivElement | null = null
+
+function syncFloatingAnchorRegistration(): void {
+  if (!import.meta.client) return
+
+  const nextElement = correctionOverlayContainerRef.value
+  if (registeredFloatingAnchorElement === nextElement) return
+
+  if (registeredFloatingAnchorElement) {
+    unregisterEditorFloatingAnchor(props.canvasId, registeredFloatingAnchorElement)
+  }
+
+  registeredFloatingAnchorElement = nextElement
+
+  if (registeredFloatingAnchorElement) {
+    registerEditorFloatingAnchor(props.canvasId, registeredFloatingAnchorElement)
+  }
+}
 
 const editorState = useEditorState(session.spatialIndex)
 const {
@@ -2437,6 +2460,7 @@ watch(
 
 onMounted(() => {
   editorStore.registerCanvas(props.canvasId)
+  syncFloatingAnchorRegistration()
 
   webglRenderer.initGL(triangulatePolygon)
   registerGeometryCacheManager(props.canvasId, {
@@ -2496,7 +2520,16 @@ onBeforeUnmount(() => {
 
   unregisterGeometryCacheManager(props.canvasId)
 
+  if (registeredFloatingAnchorElement) {
+    unregisterEditorFloatingAnchor(props.canvasId, registeredFloatingAnchorElement)
+    registeredFloatingAnchorElement = null
+  }
+
   session.controls.value = null
+})
+
+watch(() => correctionOverlayContainerRef.value, () => {
+  syncFloatingAnchorRegistration()
 })
 
 watch(() => props.src, (newSrc) => {

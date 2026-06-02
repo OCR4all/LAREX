@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
-import type { CSSProperties } from 'vue'
+import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
 const props = defineProps<{
   leftRailWidthPx: number
@@ -33,21 +34,17 @@ const editorUiStore = useEditorUiStore()
 const { isNotificationsSlideoverOpen } = useDashboard()
 const { unreadCount, ensureInitialData } = useNotifications()
 const sidebarShellRef = ref<HTMLElement | null>(null)
-const floatingPosition = ref<{ x: number, y: number } | null>(null)
-const isDraggingSidebar = ref(false)
+const floatingOffset = ref<{ dx: number, dy: number } | null>(null)
+const currentCanvasId = computed(() => editorStore.activeCanvasId)
 const isFloatingCollapsed = computed(() => editorUiStore.leftCollapsed && props.useFloatingCollapsed)
 const floatingImagePopoverOpen = ref(false)
 const collapsedRailImagePopoverOpen = ref(false)
 
 const DEFAULT_FLOATING_SIDEBAR_TOP = 120
+const DEFAULT_FLOATING_LEFT_SIDEBAR_GAP = 24
+const DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT = 24
 
 await ensureInitialData()
-
-let dragPointerId: number | null = null
-let dragStartClientX = 0
-let dragStartClientY = 0
-let dragStartSidebarX = 0
-let dragStartSidebarY = 0
 
 const pageNameFilterModel = computed({
   get: () => props.pageNameFilter,
@@ -67,118 +64,23 @@ function openNotifications() {
   isNotificationsSlideoverOpen.value = true
 }
 
-function getViewportSize() {
-  return {
-    width: window.innerWidth || document.documentElement.clientWidth,
-    height: window.innerHeight || document.documentElement.clientHeight
+const {
+  style: floatingSidebarStyle,
+  isDragging: isDraggingSidebar,
+  startDrag: startSidebarDrag
+} = useFloatingAnchorPosition({
+  enabled: isFloatingCollapsed,
+  canvasId: currentCanvasId,
+  shellRef: sidebarShellRef,
+  placement: 'left-sidebar',
+  fallbackSize: { width: 48, height: 240 },
+  gap: DEFAULT_FLOATING_LEFT_SIDEBAR_GAP,
+  sidebarTop: DEFAULT_FLOATING_SIDEBAR_TOP,
+  viewportMargin: { left: DEFAULT_FLOATING_LEFT_SIDEBAR_LEFT },
+  getOffset: () => floatingOffset.value,
+  setOffset: (offset: FloatingControlOffset | null) => {
+    floatingOffset.value = offset
   }
-}
-
-function clampSidebarPosition(x: number, y: number) {
-  const rect = sidebarShellRef.value?.getBoundingClientRect()
-  const { width, height } = getViewportSize()
-  const shellWidth = rect?.width ?? 48
-  const shellHeight = rect?.height ?? 240
-  const maxX = Math.max(8, width - shellWidth - 8)
-  const maxY = Math.max(8, height - shellHeight - 8)
-
-  return {
-    x: Math.min(Math.max(8, x), maxX),
-    y: Math.min(Math.max(8, y), maxY)
-  }
-}
-
-function getDefaultFloatingPosition() {
-  return clampSidebarPosition(16, DEFAULT_FLOATING_SIDEBAR_TOP)
-}
-
-function ensureFloatingPosition() {
-  if (!import.meta.client || !isFloatingCollapsed.value) return
-
-  if (!floatingPosition.value) {
-    floatingPosition.value = getDefaultFloatingPosition()
-    return
-  }
-
-  floatingPosition.value = clampSidebarPosition(floatingPosition.value.x, floatingPosition.value.y)
-}
-
-const floatingSidebarStyle = computed<CSSProperties | undefined>(() => {
-  if (!isFloatingCollapsed.value) return undefined
-
-  const position = floatingPosition.value ?? { x: 16, y: DEFAULT_FLOATING_SIDEBAR_TOP }
-  return {
-    left: `${position.x}px`,
-    top: `${position.y}px`
-  }
-})
-
-function handleSidebarDragMove(event: PointerEvent) {
-  if (!isDraggingSidebar.value || event.pointerId !== dragPointerId) return
-
-  floatingPosition.value = clampSidebarPosition(
-    dragStartSidebarX + event.clientX - dragStartClientX,
-    dragStartSidebarY + event.clientY - dragStartClientY
-  )
-}
-
-function stopSidebarDrag(event?: PointerEvent) {
-  if (event && dragPointerId !== null && event.pointerId !== dragPointerId) return
-
-  window.removeEventListener('pointermove', handleSidebarDragMove)
-  window.removeEventListener('pointerup', stopSidebarDrag)
-  window.removeEventListener('pointercancel', stopSidebarDrag)
-
-  dragPointerId = null
-  isDraggingSidebar.value = false
-}
-
-function startSidebarDrag(event: PointerEvent) {
-  if (!isFloatingCollapsed.value) return
-
-  ensureFloatingPosition()
-
-  const position = floatingPosition.value ?? getDefaultFloatingPosition()
-  dragPointerId = event.pointerId
-  dragStartClientX = event.clientX
-  dragStartClientY = event.clientY
-  dragStartSidebarX = position.x
-  dragStartSidebarY = position.y
-  isDraggingSidebar.value = true
-
-  window.addEventListener('pointermove', handleSidebarDragMove)
-  window.addEventListener('pointerup', stopSidebarDrag)
-  window.addEventListener('pointercancel', stopSidebarDrag)
-}
-
-function handleFloatingSidebarResize() {
-  ensureFloatingPosition()
-}
-
-onMounted(() => {
-  if (!import.meta.client) return
-
-  requestAnimationFrame(() => ensureFloatingPosition())
-  window.addEventListener('resize', handleFloatingSidebarResize)
-})
-
-onBeforeUnmount(() => {
-  if (!import.meta.client) return
-
-  window.removeEventListener('resize', handleFloatingSidebarResize)
-  stopSidebarDrag()
-})
-
-watch(() => editorUiStore.leftCollapsed, (collapsed) => {
-  if (!import.meta.client || !collapsed || !props.useFloatingCollapsed) return
-
-  requestAnimationFrame(() => ensureFloatingPosition())
-})
-
-watch(() => props.useFloatingCollapsed, (enabled) => {
-  if (!import.meta.client || !enabled || !editorUiStore.leftCollapsed) return
-
-  requestAnimationFrame(() => ensureFloatingPosition())
 })
 
 watch(() => props.imagePopoverDismissKey, () => {

@@ -6,7 +6,7 @@ import { useVirtualKeyboardAvailability } from '@/composables/use-virtual-keyboa
 import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { DropdownMenuItem, TabsItem } from '@nuxt/ui'
-import type { CSSProperties } from 'vue'
+import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
 import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
 import {
   getOrCreateSessionCommander,
@@ -17,6 +17,7 @@ import {
 import type { Commander } from '@/commands/editor/commander'
 import type { EditorCanvasControls } from '@/types/editor/canvas-controls'
 import type { LayoutViewMode, VirtualKeyboardMode } from '@/stores/editor/types'
+import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
 const editorStore = useEditorStore()
 const uiStore = useEditorUiStore()
@@ -187,6 +188,8 @@ const props = defineProps({
   }
 })
 
+const currentCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
+
 const isFloating = computed(() => {
   return editorStore.toolbarLayout === 'floating'
 })
@@ -218,154 +221,27 @@ const toolbarStyle = computed(() => {
 })
 
 const toolbarShellRef = ref<HTMLElement | null>(null)
-const isDraggingToolbar = ref(false)
-
-let dragPointerId: number | null = null
-let dragStartClientX = 0
-let dragStartClientY = 0
-let dragStartToolbarX = 0
-let dragStartToolbarY = 0
-
-const floatingToolbarStyle = computed<CSSProperties | undefined>(() => {
-  if (!isFloating.value) return undefined
-
-  const position = uiStore.toolbarFloatingPosition
-  if (position) {
-    return {
-      position: 'fixed',
-      left: `${position.x}px`,
-      top: `${position.y}px`
-    }
-  }
-
-  return {
-    position: 'fixed',
-    left: '50%',
-    bottom: '40px',
-    transform: 'translateX(-50%)'
+const DEFAULT_FLOATING_TOOLBAR_BOTTOM_GAP = 56
+const DEFAULT_FLOATING_TOOLBAR_BOTTOM = 56
+const {
+  style: floatingToolbarStyle,
+  isDragging: isDraggingToolbar,
+  startDrag: startToolbarDrag
+} = useFloatingAnchorPosition({
+  enabled: isFloating,
+  canvasId: currentCanvasId,
+  shellRef: toolbarShellRef,
+  placement: 'toolbar',
+  fallbackSize: { width: 360, height: 48 },
+  gap: DEFAULT_FLOATING_TOOLBAR_BOTTOM_GAP,
+  includeFixedPosition: true,
+  viewportMargin: { bottom: DEFAULT_FLOATING_TOOLBAR_BOTTOM },
+  getOffset: () => uiStore.toolbarFloatingOffset,
+  setOffset: (offset: FloatingControlOffset | null) => {
+    if (!offset) return
+    uiStore.setToolbarFloatingOffset(offset.dx, offset.dy, { persist: false })
   }
 })
-
-function getViewportSize() {
-  return {
-    width: window.innerWidth || document.documentElement.clientWidth,
-    height: window.innerHeight || document.documentElement.clientHeight
-  }
-}
-
-function clampToolbarPosition(x: number, y: number) {
-  const rect = toolbarShellRef.value?.getBoundingClientRect()
-  const { width, height } = getViewportSize()
-  const toolbarWidth = rect?.width ?? 48
-  const toolbarHeight = rect?.height ?? 48
-  const maxX = Math.max(0, width - toolbarWidth - 8)
-  const maxY = Math.max(0, height - toolbarHeight - 8)
-
-  return {
-    x: Math.min(Math.max(8, x), maxX),
-    y: Math.min(Math.max(8, y), maxY)
-  }
-}
-
-function getDefaultFloatingPosition() {
-  const rect = toolbarShellRef.value?.getBoundingClientRect()
-  const { width, height } = getViewportSize()
-  const toolbarWidth = rect?.width ?? 360
-  const toolbarHeight = rect?.height ?? 48
-
-  return clampToolbarPosition(
-    Math.round((width - toolbarWidth) / 2),
-    height - toolbarHeight - 40
-  )
-}
-
-function ensureFloatingToolbarPosition(options: { persist?: boolean } = {}) {
-  if (!import.meta.client || !isFloating.value) return
-
-  if (!uiStore.toolbarFloatingPosition) {
-    const position = getDefaultFloatingPosition()
-    uiStore.setToolbarFloatingPosition(position.x, position.y, options)
-    return
-  }
-
-  const position = clampToolbarPosition(uiStore.toolbarFloatingPosition.x, uiStore.toolbarFloatingPosition.y)
-  if (
-    position.x !== uiStore.toolbarFloatingPosition.x
-    || position.y !== uiStore.toolbarFloatingPosition.y
-  ) {
-    uiStore.setToolbarFloatingPosition(position.x, position.y, options)
-  }
-}
-
-function startToolbarDrag(event: PointerEvent) {
-  if (!isFloating.value) return
-
-  ensureFloatingToolbarPosition({ persist: false })
-
-  const position = uiStore.toolbarFloatingPosition ?? getDefaultFloatingPosition()
-  dragPointerId = event.pointerId
-  dragStartClientX = event.clientX
-  dragStartClientY = event.clientY
-  dragStartToolbarX = position.x
-  dragStartToolbarY = position.y
-  isDraggingToolbar.value = true
-
-  window.addEventListener('pointermove', handleToolbarDragMove)
-  window.addEventListener('pointerup', stopToolbarDrag)
-  window.addEventListener('pointercancel', stopToolbarDrag)
-}
-
-function handleToolbarDragMove(event: PointerEvent) {
-  if (!isDraggingToolbar.value || event.pointerId !== dragPointerId) return
-
-  const position = clampToolbarPosition(
-    dragStartToolbarX + event.clientX - dragStartClientX,
-    dragStartToolbarY + event.clientY - dragStartClientY
-  )
-  uiStore.setToolbarFloatingPosition(position.x, position.y, { persist: false })
-}
-
-function stopToolbarDrag(event?: PointerEvent) {
-  if (event && dragPointerId !== null && event.pointerId !== dragPointerId) return
-
-  window.removeEventListener('pointermove', handleToolbarDragMove)
-  window.removeEventListener('pointerup', stopToolbarDrag)
-  window.removeEventListener('pointercancel', stopToolbarDrag)
-
-  dragPointerId = null
-  isDraggingToolbar.value = false
-
-  const position = uiStore.toolbarFloatingPosition
-  if (position) {
-    uiStore.setToolbarFloatingPosition(position.x, position.y)
-  }
-}
-
-function handleFloatingToolbarResize() {
-  ensureFloatingToolbarPosition({ persist: false })
-}
-
-onMounted(() => {
-  if (!import.meta.client) return
-  requestAnimationFrame(() => ensureFloatingToolbarPosition({ persist: false }))
-  window.addEventListener('resize', handleFloatingToolbarResize)
-})
-
-onBeforeUnmount(() => {
-  if (!import.meta.client) return
-  window.removeEventListener('resize', handleFloatingToolbarResize)
-  stopToolbarDrag()
-})
-
-watch(
-  () => editorStore.toolbarLayout,
-  () => {
-    if (!import.meta.client) return
-    requestAnimationFrame(() => ensureFloatingToolbarPosition({ persist: false }))
-  }
-)
-
-const currentCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
 
 const effectiveUiMode = computed(() => editorStore.effectiveUiMode(currentCanvasId.value))
 
