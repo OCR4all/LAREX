@@ -9,9 +9,10 @@ import { TextureManager } from '@/webgl/editor/texture-manager'
 import { ShaderProgramManager } from '@/webgl/editor/shader-program-manager'
 import { GeometryCache } from '@/webgl/editor/geometry-cache'
 import { ReadingOrderRenderer } from '@/webgl/editor/reading-order-renderer'
+import { drawPolygonOutlineWithStyle } from '@/webgl/editor/polygon-outline-dispatch'
+import { resolvePolygonRenderStyle, withAlpha, type PolygonRenderPhase, type ResolvedPolygonRenderStyle } from '@/webgl/editor/polygon-style-resolver'
 import { PolygonType } from '@/models/editor'
 import { visibilityService } from '@/services/editor/visibility-service'
-import { getColorForLabel, getStrokeColorForLabel } from '@/utils/editor/label-utils'
 import { computeElementConfidence, confidenceToHeatRgba, scaleConfidenceForHeatmap } from '@/utils/editor/confidence-heatmap'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
@@ -489,6 +490,41 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     thickLineRenderer.drawThickLine(points, color, thickness, isClosed, scale, view)
   }
 
+  function getResolvedPolygonStyle(
+    polygon: RenderablePolygon,
+    options: { invalid?: boolean, renderPhase?: PolygonRenderPhase } = {},
+    document: DocumentModel | undefined = getActiveDocument(),
+    labelSet = getActiveLabelSet()
+  ): ResolvedPolygonRenderStyle {
+    return resolvePolygonRenderStyle(polygon, {
+      document,
+      labelSet,
+      showPersistentFill: editorUiStore.globalSettings.showPolygonLabelFill,
+      ...options
+    })
+  }
+
+  function drawPolygonOutline(
+    polygon: RenderablePolygon,
+    style: ResolvedPolygonRenderStyle,
+    baseLineWidth: number,
+    aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
+    view: View
+  ): void {
+    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
+
+    drawPolygonOutlineWithStyle({
+      points: polygon.points,
+      style,
+      baseLineWidth,
+      isClosed: polygon.type !== PolygonType.BASELINE,
+      aspectRatioScale: scale,
+      view,
+      thickLineRenderer,
+      dashedLineRenderer
+    })
+  }
+
   /**
    * Get triangulation with caching (if available)
    * Falls back to direct triangulation if cache is not initialized
@@ -557,8 +593,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const hoveredPoly = polygonToHover.points
     const triangleIndices = getCachedTriangulation(polygonToHover, triangulatePolygon)
 
-    const document = getActiveDocument()
-    const hoverColor = getColorForLabel(polygonToHover.label, document, getActiveLabelSet(), polygonToHover.regionKind, polygonToHover.regionSubtype, polygonToHover.regionCustom)
+    const polygonStyle = getResolvedPolygonStyle(polygonToHover)
+    const hoverColor = withAlpha(polygonStyle.strokeColor, 0.3)
 
     if (fillRenderer) {
       fillRenderer.drawFill(hoveredPoly, triangleIndices, hoverColor, scale, view)
@@ -577,6 +613,7 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     if (!fillRenderer) return
     if (!editorUiStore.globalSettings.showPolygonLabelFill) return
     if (renderState.confidenceHeatmap?.enabled) return
+    const localFillRenderer = fillRenderer
 
     const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const document = getActiveDocument()
@@ -631,13 +668,15 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         return
       }
 
-      const strokeColor = getStrokeColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype)
-      const color: RGBA = [strokeColor[0], strokeColor[1], strokeColor[2], RENDER_ALPHA.FILL_LABEL_BACKGROUND]
+      const polygonStyle = getResolvedPolygonStyle(polygon, {}, document)
+      if (!polygonStyle.persistentFill) {
+        return
+      }
 
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
 
       if (triangleIndices.length >= 3) {
-        fillRenderer.drawFill(polygon.points, triangleIndices, color, scale, view)
+        localFillRenderer.drawFill(polygon.points, triangleIndices, polygonStyle.persistentFill, scale, view)
       }
     })
   }
@@ -654,16 +693,12 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     aspectRatioScale: Ref<AspectRatioScale> | AspectRatioScale,
     view: View
   ): void {
-    if (!dashedLineRenderer) return
-    const localDashedLineRenderer = dashedLineRenderer
-
     const viewMode = normalizeViewMode(renderState.viewMode)
     if (!viewMode || viewMode === 'default') return
 
     const hasSelection = renderState.selectedPolygonIndex.value >= 0 || renderState.selectedPolylineIndex.value >= 0
     if (hasSelection) return
 
-    const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
     const document = getActiveDocument()
     const hiddenPolygonIdSet = new Set(renderState.hiddenPolygonIds.value)
     const hiddenPolylineIdSet = new Set(renderState.hiddenPolylineIds.value)
@@ -683,21 +718,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         return
       }
 
-      const labelColor = getColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype, polygon.regionCustom)
-      const color = [labelColor[0], labelColor[1], labelColor[2], BACKGROUND_ELEMENT.LINE_ALPHA]
-
-      const isClosed = true
-
-      localDashedLineRenderer.drawDashedLine(
-        polygon.points,
-        color,
-        getLineWidth() * 0.7,
-        isClosed,
-        BACKGROUND_ELEMENT.DASH_LENGTH,
-        BACKGROUND_ELEMENT.GAP_LENGTH,
-        scale,
-        view
-      )
+      const polygonStyle = getResolvedPolygonStyle(polygon, { renderPhase: 'background' }, document)
+      drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view)
     })
   }
 
@@ -962,10 +984,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         return
       }
 
-      const labelColor = getColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype, polygon.regionCustom)
-      const color = [labelColor[0], labelColor[1], labelColor[2], 1.0] // Full opacity for outline
-      const isClosed = polygon.type !== PolygonType.BASELINE
-      drawThickLine(polygon.points, color, getLineWidth(), isClosed, aspectRatioScale, view)
+      const polygonStyle = getResolvedPolygonStyle(polygon, {}, document)
+      drawPolygonOutline(polygon, polygonStyle, getLineWidth(), aspectRatioScale, view)
     })
   }
 
@@ -1010,8 +1030,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         return
       }
 
-      const labelColor = getColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype, polygon.regionCustom)
-      const color: RGBA = [labelColor[0], labelColor[1], labelColor[2], RENDER_ALPHA.FILL_MULTI_SELECTED]
+      const polygonStyle = getResolvedPolygonStyle(polygon, {}, document)
+      const color = withAlpha(polygonStyle.strokeColor, RENDER_ALPHA.FILL_MULTI_SELECTED)
       const triangleIndices = getCachedTriangulation(polygon, triangulatePolygon)
 
       if (triangleIndices.length >= 3) {
@@ -1053,10 +1073,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
         return
       }
 
-      const labelColor = getStrokeColorForLabel(polygon.label, document, getActiveLabelSet(), polygon.regionKind, polygon.regionSubtype)
-      const color: RGBA = [labelColor[0], labelColor[1], labelColor[2], 1.0]
-      const isClosed = polygon.type !== PolygonType.BASELINE
-      drawThickLine(polygon.points, color, getLineWidth() * 1.4, isClosed, aspectRatioScale, view)
+      const polygonStyle = getResolvedPolygonStyle(polygon, {}, document)
+      drawPolygonOutline(polygon, polygonStyle, getLineWidth() * 1.4, aspectRatioScale, view)
     })
   }
 
@@ -1101,14 +1119,10 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
           && renderState.moveState.isInvalid
           && renderState.moveState.elementId === selectedPolygon.id
         const document = getActiveDocument()
-        const labelColor = getColorForLabel(selectedPolygon.label, document, getActiveLabelSet(), selectedPolygon.regionKind, selectedPolygon.regionSubtype, selectedPolygon.regionCustom)
-        const color: RGBA = isMovingInvalid
-          ? [1.0, 0.2, 0.2, 1.0]
-          : [labelColor[0], labelColor[1], labelColor[2], 1.0]
-        const isClosed = selectedPolygon.type !== PolygonType.BASELINE
-        drawThickLine(selectedPolygon.points, color, getLineWidth(), isClosed, aspectRatioScale, view)
+        const polygonStyle = getResolvedPolygonStyle(selectedPolygon, { invalid: isMovingInvalid }, document)
+        drawPolygonOutline(selectedPolygon, polygonStyle, getLineWidth(), aspectRatioScale, view)
 
-        if (isMovingInvalid && fillRenderer && isClosed) {
+        if (isMovingInvalid && fillRenderer && selectedPolygon.type !== PolygonType.BASELINE) {
           const scale = 'value' in aspectRatioScale ? aspectRatioScale.value : aspectRatioScale
           const triangleIndices = getCachedTriangulation(selectedPolygon, triangulatePolygon)
           if (triangleIndices.length >= 3) {
@@ -1131,8 +1145,8 @@ export function useWebglRenderer(canvasRef: Ref<HTMLCanvasElement | null>): UseW
     const isPolylineSelected = renderState.selectedPolylineIndex.value >= 0
     if (renderState.selectedPolygonIndex.value >= 0 && !isPolylineSelected) {
       const selectedPolygon = renderState.polygons[renderState.selectedPolygonIndex.value]
-      const nodeColor = selectedPolygon?.label && document
-        ? getStrokeColorForLabel(selectedPolygon.label, document, getActiveLabelSet(), selectedPolygon.regionKind, selectedPolygon.regionSubtype)
+      const nodeColor = selectedPolygon
+        ? getResolvedPolygonStyle(selectedPolygon, {}, document).nodeColor
         : undefined
 
       polygonRenderer.drawPolygonNodes(

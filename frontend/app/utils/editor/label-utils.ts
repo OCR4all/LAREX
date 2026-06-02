@@ -10,14 +10,6 @@ import { getRegionColor, hexToRgba } from '@/utils/editor/region-colors'
 import { findRegionLabelDefinitionForRegion } from '@/utils/editor/page-label-mapping'
 
 /**
- * Default colors for element types (not region kinds)
- */
-const DEFAULT_ELEMENT_COLORS: Record<string, string> = {
-  textline: '#2196F3',
-  baseline: '#FF9800'
-}
-
-/**
  * Get the color for a region based on its label (which encodes kind and subtype)
  * Label format: "RegionKind" or "RegionKind:subtype"
  * @param label The region's label/name
@@ -63,10 +55,8 @@ export function getColorForLabel(
     }
   }
 
-  const lowerLabel = label.toLowerCase()
-  if (lowerLabel in DEFAULT_ELEMENT_COLORS) {
-    const defaultColor = DEFAULT_ELEMENT_COLORS[lowerLabel as keyof typeof DEFAULT_ELEMENT_COLORS]
-    if (defaultColor) return hexToRgba(defaultColor, 0.3)
+  if (regionKind) {
+    return hexToRgba(getRegionColor(regionKind, regionSubtype), 0.3)
   }
 
   const [kind, subtype] = label.includes(':') ? label.split(':') : [label, undefined]
