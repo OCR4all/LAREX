@@ -45,6 +45,7 @@ const uploadStatusLabels: Record<string, string> = {
 }
 
 const actionStatusLabels: Record<string, string> = {
+  QUEUED: 'Queued',
   PENDING: 'Pending',
   DISPATCHING: 'Dispatching',
   RUNNING: 'Running',
@@ -64,7 +65,8 @@ export function isTerminalUpload(status: ActiveUpload['status']): boolean {
 }
 
 export function isActiveAction(status: TrackedActionRun['status']): boolean {
-  return status === 'PENDING'
+  return status === 'QUEUED'
+    || status === 'PENDING'
     || status === 'DISPATCHING'
     || status === 'RUNNING'
     || status === 'IMPORTING_RESULTS'
@@ -84,7 +86,7 @@ export function getUploadStatusColor(status: ActiveUpload['status']): JobStatusC
 export function getActionStatusColor(status: TrackedActionRun['status']): JobStatusColor {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED' || status === 'CANCELLED') return 'error'
-  if (status === 'CANCEL_REQUESTED') return 'warning'
+  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
   return 'primary'
 }
 

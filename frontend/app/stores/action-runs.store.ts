@@ -17,6 +17,15 @@ function isTerminalStatus(status: ActionRunStatus): boolean {
 }
 
 function isActiveStatus(status: ActionRunStatus): boolean {
+  return status === 'QUEUED'
+    || status === 'PENDING'
+    || status === 'DISPATCHING'
+    || status === 'RUNNING'
+    || status === 'IMPORTING_RESULTS'
+    || status === 'CANCEL_REQUESTED'
+}
+
+function isLockingStatus(status: ActionRunStatus): boolean {
   return status === 'PENDING'
     || status === 'DISPATCHING'
     || status === 'RUNNING'
@@ -212,7 +221,7 @@ export const useActionRunsStore = defineStore('action-runs', () => {
     if (!projectId || !pageId) return null
     const run = runsArray.value.find(candidate =>
       candidate.projectId === projectId
-      && isActiveStatus(candidate.status)
+      && isLockingStatus(candidate.status)
       && candidate.pageIds.includes(pageId)
     )
     return run ? `LAREX Action running: ${run.processorName}` : null

@@ -1356,6 +1356,7 @@ const moreOptionsDropdownItems = computed<DropdownMenuItem[][]>(() => [
             :items="viewModeItems"
           >
             <template #item="{ item }">
+              dasds
               <UTooltip :delay-duration="0" :text="getTabTooltipText(item)" :kbds="getTabTooltipKbds(item)">
                 <div class="flex items-center gap-1.5">
                   <Icon v-if="getTabIcon(item)" :name="getTabIcon(item) ?? ''" class="size-4 shrink-0" />

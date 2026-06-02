@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 public class ActionRun {
 
     public enum Status {
+        QUEUED,
         PENDING,
         DISPATCHING,
         RUNNING,
@@ -71,6 +72,9 @@ public class ActionRun {
 
     @Column(name = "parameters_json", columnDefinition = "TEXT")
     private String parametersJson;
+
+    @Column(name = "public_api_base_url", columnDefinition = "TEXT")
+    private String publicApiBaseUrl;
 
     @Column(nullable = false, name = "secret_hash", length = 64)
     private String secretHash;
@@ -191,6 +195,14 @@ public class ActionRun {
 
     public void setParametersJson(String parametersJson) {
         this.parametersJson = parametersJson;
+    }
+
+    public String getPublicApiBaseUrl() {
+        return publicApiBaseUrl;
+    }
+
+    public void setPublicApiBaseUrl(String publicApiBaseUrl) {
+        this.publicApiBaseUrl = publicApiBaseUrl;
     }
 
     public String getSecretHash() {

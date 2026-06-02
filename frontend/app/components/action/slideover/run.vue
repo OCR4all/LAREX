@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parse } from 'yaml'
+import { extractApiErrorDetails } from '@/utils/api-error'
 import type {
   ActionParameterDefinition,
   ActionRun,
@@ -134,7 +135,7 @@ const parameterEntries = computed(() => {
 })
 
 const activeRuns = computed(() => runs.value.filter(run =>
-  ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
+  ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
 ))
 const clearableHistoryRuns = computed(() => runs.value.filter(run => run.status === 'COMPLETED' || run.status === 'FAILED'))
 const paginatedRuns = computed(() => {
@@ -280,8 +281,16 @@ function defaultParameterValue(definition: ActionParameterDefinition) {
   return ''
 }
 
-async function startRun() {
-  if (!selectedProcessor.value || !canStart.value) return
+function concurrencyErrorDetails(error: unknown) {
+  const details = extractApiErrorDetails(error, 'This Action has reached its concurrency limit.')
+  const normalizedMessage = details.message.toLowerCase()
+  const isConcurrencyError = details.code === 'ACTION_CONCURRENCY_LIMIT_REACHED'
+    || (details.status === 409 && normalizedMessage.includes('concurrency limit'))
+  return { details, isConcurrencyError }
+}
+
+async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
+  if (!selectedProcessor.value || !canStart.value) return null
   starting.value = true
   try {
     const result = await $fetch<StartActionRunResponse>(`/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs`, {
@@ -289,19 +298,56 @@ async function startRun() {
       body: {
         processorDefinitionId: selectedProcessor.value.processor.id,
         pageIds: submittedPageIds.value,
-        targetSelection: submittedTargetSelection.value
+        targetSelection: submittedTargetSelection.value,
+        enqueueIfBusy: options.enqueueIfBusy ?? false
       }
     })
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
     changed.value = true
-    toast.add({ title: 'Action run started', color: 'success', icon: 'i-lucide-play' })
+    toast.add({
+      title: result.run.status === 'QUEUED' ? 'Action run queued' : 'Action run started',
+      description: result.run.status === 'QUEUED' ? 'The Action will start automatically when a slot becomes available.' : undefined,
+      color: result.run.status === 'QUEUED' ? 'warning' : 'success',
+      icon: result.run.status === 'QUEUED' ? 'i-lucide-list-ordered' : 'i-lucide-play'
+    })
     close()
+    return result
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not start Action run.'
-    toast.add({ title: 'Run failed', description: message, color: 'error' })
+    const { details, isConcurrencyError } = concurrencyErrorDetails(error)
+    if (!options.enqueueIfBusy && isConcurrencyError) {
+      toast.add({
+        title: 'Action is already running',
+        description: details.message,
+        color: 'warning',
+        icon: 'i-lucide-clock-3',
+        actions: [
+          {
+            label: 'Schedule',
+            color: 'warning',
+            variant: 'solid',
+            onClick: () => {
+              void submitRun({ enqueueIfBusy: true })
+            }
+          },
+          {
+            label: 'Later',
+            color: 'neutral',
+            variant: 'outline',
+            onClick: () => {}
+          }
+        ]
+      })
+      return null
+    }
+    toast.add({ title: 'Run failed', description: details.message, color: 'error' })
+    return null
   } finally {
     starting.value = false
   }
+}
+
+async function startRun() {
+  await submitRun()
 }
 
 async function cancelRun(run: ActionRun) {
@@ -323,20 +369,55 @@ async function cancelRun(run: ActionRun) {
   }
 }
 
-async function retryRun(run: ActionRun) {
+async function retryRun(run: ActionRun, options: { enqueueIfBusy?: boolean } = {}) {
   retryingRunId.value = run.id
   try {
     const result = await $fetch<StartActionRunResponse>(
       `/api/workspaces/${props.workspaceId}/actions/projects/${props.projectId}/runs/${run.id}/retry`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        query: {
+          enqueueIfBusy: options.enqueueIfBusy ?? false
+        }
+      }
     )
     actionRunsStore.upsertRun(result.run, props.projectName || props.projectId)
     changed.value = true
     await loadRuns()
-    toast.add({ title: 'Action retry started', color: 'success', icon: 'i-lucide-rotate-cw' })
+    toast.add({
+      title: result.run.status === 'QUEUED' ? 'Action retry queued' : 'Action retry started',
+      description: result.run.status === 'QUEUED' ? 'The retry will start automatically when a slot becomes available.' : undefined,
+      color: result.run.status === 'QUEUED' ? 'warning' : 'success',
+      icon: result.run.status === 'QUEUED' ? 'i-lucide-list-ordered' : 'i-lucide-rotate-cw'
+    })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Could not retry Action run.'
-    toast.add({ title: 'Retry failed', description: message, color: 'error' })
+    const { details, isConcurrencyError } = concurrencyErrorDetails(error)
+    if (!options.enqueueIfBusy && isConcurrencyError) {
+      toast.add({
+        title: 'Action is already running',
+        description: details.message,
+        color: 'warning',
+        icon: 'i-lucide-clock-3',
+        actions: [
+          {
+            label: 'Schedule',
+            color: 'warning',
+            variant: 'solid',
+            onClick: () => {
+              void retryRun(run, { enqueueIfBusy: true })
+            }
+          },
+          {
+            label: 'Later',
+            color: 'neutral',
+            variant: 'outline',
+            onClick: () => {}
+          }
+        ]
+      })
+      return
+    }
+    toast.add({ title: 'Retry failed', description: details.message, color: 'error' })
   } finally {
     retryingRunId.value = null
   }
@@ -369,12 +450,12 @@ async function loadRunDetail(runId: string) {
 function statusColor(status: ActionRun['status']) {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED' || status === 'CANCELLED') return 'error'
-  if (status === 'CANCEL_REQUESTED') return 'warning'
+  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
   return 'primary'
 }
 
 function isActiveRun(run: ActionRun) {
-  return ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
+  return ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
 }
 
 function canRetryRun(run: ActionRun) {

@@ -127,12 +127,14 @@ public class ActionProjectController {
             @PathVariable String workspaceId,
             @PathVariable String projectId,
             @PathVariable String runId,
+            @RequestParam(defaultValue = "false") boolean enqueueIfBusy,
             @AuthenticationPrincipal(expression = "subject") String userId,
             HttpServletRequest httpRequest) {
         return ResponseEntity.ok(actionRunService.retryRun(
                 workspaceId,
                 projectId,
                 runId,
+                enqueueIfBusy,
                 userId,
                 publicBaseUrlService.publicApiBaseUrl(httpRequest)
         ));

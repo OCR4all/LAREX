@@ -2,7 +2,7 @@ export type ActionExecuteRole = 'EDITOR' | 'CURATOR'
 export type ActionLockMode = 'PAGES' | 'PROJECT'
 export type ActionCategory = 'WORKFLOW' | 'OCR_HTR' | 'LAYOUT'
 export type ActionTarget = 'PAGE' | 'REGION' | 'TEXT_LINE'
-export type ActionRunStatus = 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
+export type ActionRunStatus = 'QUEUED' | 'PENDING' | 'DISPATCHING' | 'RUNNING' | 'IMPORTING_RESULTS' | 'COMPLETED' | 'FAILED' | 'CANCEL_REQUESTED' | 'CANCELLED'
 
 export interface ActionTargetSelectionPage {
   pageId: string

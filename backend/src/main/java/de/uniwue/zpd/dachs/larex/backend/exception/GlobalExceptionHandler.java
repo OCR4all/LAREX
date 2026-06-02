@@ -164,6 +164,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errorResponse);
     }
 
+    @ExceptionHandler(ActionConcurrencyLimitException.class)
+    public ResponseEntity<ErrorResponseDto> handleActionConcurrencyLimitException(
+            ActionConcurrencyLimitException ex, HttpServletRequest request) {
+
+        ErrorResponseDto errorResponse = new ErrorResponseDto(
+                HttpStatus.CONFLICT.value(),
+                "Concurrency limit reached",
+                ex.getMessage(),
+                request.getRequestURI(),
+                "ACTION_CONCURRENCY_LIMIT_REACHED"
+        );
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
     /**
      * Handle malformed JSON / unreadable request bodies.
      * This includes cases like unknown properties when DTOs are configured strictly.

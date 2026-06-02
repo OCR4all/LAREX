@@ -26,6 +26,7 @@ import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.StoredFile.StoredFileType;
 import de.uniwue.zpd.dachs.larex.backend.entity.XmlSchema;
+import de.uniwue.zpd.dachs.larex.backend.exception.ActionConcurrencyLimitException;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorAssignmentRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorDefinitionRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.action.ActionProcessorWorkspaceAvailabilityRepository;
@@ -60,6 +61,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -91,6 +93,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
@@ -139,6 +142,8 @@ public class ActionRunService {
     private final ActionAuditService actionAuditService;
     private final ActionProperties actionProperties;
     private final HttpClient httpClient;
+    private final TransactionTemplate transactionTemplate;
+    private final ReentrantLock queuedDispatchLock = new ReentrantLock();
 
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
                             ActionProcessorAssignmentRepository assignmentRepository,
@@ -170,7 +175,8 @@ public class ActionRunService {
                             AnnotationProcessingService annotationProcessingService,
                             PageXmlToAnnotationParser pageXmlToAnnotationParser,
                             ActionAuditService actionAuditService,
-                            ActionProperties actionProperties) {
+                            ActionProperties actionProperties,
+                            TransactionTemplate transactionTemplate) {
         this.definitionRepository = definitionRepository;
         this.assignmentRepository = assignmentRepository;
         this.availabilityRepository = availabilityRepository;
@@ -202,6 +208,7 @@ public class ActionRunService {
         this.pageXmlToAnnotationParser = pageXmlToAnnotationParser;
         this.actionAuditService = actionAuditService;
         this.actionProperties = actionProperties;
+        this.transactionTemplate = transactionTemplate;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .followRedirects(HttpClient.Redirect.NORMAL)
@@ -332,8 +339,14 @@ public class ActionRunService {
         List<Page> pages = resolveRunPagesForUpdate(projectId, targetSelection.pages().stream()
                 .map(ActionDto.TargetSelectionPage::pageId)
                 .toList());
-        enforceConcurrencyLimit(definition, workspaceId, projectId);
-        validateLocks(project, pages);
+        ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
+        boolean dispatchImmediately = concurrency.available();
+        if (!dispatchImmediately && !Boolean.TRUE.equals(request.enqueueIfBusy())) {
+            throw new ActionConcurrencyLimitException(concurrency.message());
+        }
+        if (dispatchImmediately) {
+            validateLocks(project, pages);
+        }
         return createRun(
                 workspaceId,
                 projectId,
@@ -344,8 +357,14 @@ public class ActionRunService {
                 userId,
                 publicApiBaseUrl,
                 resolveRunParameters(definition),
+                dispatchImmediately ? Status.PENDING : Status.QUEUED,
+                dispatchImmediately ? "Created" : "Queued; waiting for an available slot",
                 "ACTION_RUN_START",
-                Map.of("targetType", targetSelection.type().name())
+                Map.of(
+                        "targetType", targetSelection.type().name(),
+                        "queued", !dispatchImmediately
+                ),
+                dispatchImmediately
         );
     }
 
@@ -358,26 +377,29 @@ public class ActionRunService {
                                                  String userId,
                                                  String publicApiBaseUrl,
                                                  Map<String, Object> parameters,
+                                                 Status initialStatus,
+                                                 String initialStatusMessage,
                                                  String auditAction,
-                                                 Map<String, ?> auditDetails) {
-        String rawSecret = "lrx_act_" + generateOpaqueToken(32);
+                                                 Map<String, ?> auditDetails,
+                                                 boolean dispatchImmediately) {
         ActionRun run = new ActionRun();
         run.setProcessorDefinition(definition);
         run.setWorkspaceId(workspaceId);
         run.setProjectId(projectId);
         run.setCreatedByUserId(userId);
-        run.setStatus(Status.PENDING);
+        run.setStatus(initialStatus);
         run.setLockMode(definition.getLockMode());
         run.setPageIdsJson(writeJson(pages.stream().map(Page::getId).toList()));
         run.setTargetSelectionJson(writeJson(targetSelection));
         run.setParametersJson(writeJson(parameters));
-        run.setSecretHash(sha256(rawSecret));
-        run.setSecretPrefix(rawSecret.substring(0, Math.min(rawSecret.length(), 12)));
-        run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(definitionService.defaultTokenTtlMinutes()));
-        run.setStatusMessage("Created");
+        run.setPublicApiBaseUrl(publicApiBaseUrl);
+        String rawSecret = issueRunSecret(run);
+        run.setStatusMessage(initialStatusMessage);
         run = runRepository.save(run);
 
-        applyLocks(project, pages, run);
+        if (dispatchImmediately) {
+            applyLocks(project, pages, run);
+        }
         ActionRun savedRun = runRepository.save(run);
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("pageCount", pages.size());
@@ -387,7 +409,11 @@ public class ActionRunService {
         }
         actionAuditService.record(auditAction, "SUCCESS", userId, definition.getId(), savedRun.getId(),
                 workspaceId, projectId, details);
-        dispatchAfterCommit(savedRun.getId(), rawSecret, publicApiBaseUrl);
+        if (dispatchImmediately) {
+            dispatchAfterCommit(savedRun.getId(), rawSecret, publicApiBaseUrl);
+        } else {
+            dispatchQueuedRunsAfterCommit();
+        }
         return new ActionDto.StartRunResponse(toRunResponse(savedRun));
     }
 
@@ -414,6 +440,7 @@ public class ActionRunService {
     public ActionDto.StartRunResponse retryRun(String workspaceId,
                                                String projectId,
                                                String runId,
+                                               boolean enqueueIfBusy,
                                                String userId,
                                                String publicApiBaseUrl) {
         Project project = requireProject(workspaceId, projectId);
@@ -434,8 +461,14 @@ public class ActionRunService {
         ActionDto.TargetSelection targetSelection = readTargetSelection(sourceRun);
         requireTargetSupported(definition, targetSelection.type());
         List<Page> pages = resolveRunPagesForUpdate(projectId, readPageIds(sourceRun));
-        enforceConcurrencyLimit(definition, workspaceId, projectId);
-        validateLocks(project, pages);
+        ConcurrencyDecision concurrency = evaluateConcurrency(definition, workspaceId, projectId);
+        boolean dispatchImmediately = concurrency.available();
+        if (!dispatchImmediately && !enqueueIfBusy) {
+            throw new ActionConcurrencyLimitException(concurrency.message());
+        }
+        if (dispatchImmediately) {
+            validateLocks(project, pages);
+        }
         return createRun(
                 workspaceId,
                 projectId,
@@ -446,8 +479,14 @@ public class ActionRunService {
                 userId,
                 publicApiBaseUrl,
                 readObjectMap(sourceRun.getParametersJson()),
+                dispatchImmediately ? Status.PENDING : Status.QUEUED,
+                dispatchImmediately ? "Created" : "Queued; waiting for an available slot",
                 "ACTION_RUN_RETRY",
-                Map.of("sourceRunId", sourceRun.getId())
+                Map.of(
+                        "sourceRunId", sourceRun.getId(),
+                        "queued", !dispatchImmediately
+                ),
+                dispatchImmediately
         );
     }
 
@@ -521,6 +560,7 @@ public class ActionRunService {
         expireDispatchingRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getDispatchMinutes())));
         expireHeartbeatRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes())));
         pruneTerminalRuns(now.minusDays(Math.max(1, actionProperties.getRetention().getTerminalDays())));
+        dispatchQueuedRunsAsync();
     }
 
     public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId) {
@@ -528,7 +568,8 @@ public class ActionRunService {
         workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
         ActionRun run = requireRun(workspaceId, projectId, runId);
         run.setCancelRequested(true);
-        if (run.getStatus() == Status.PENDING
+        if (run.getStatus() == Status.QUEUED
+                || run.getStatus() == Status.PENDING
                 || run.getStatus() == Status.DISPATCHING
                 || run.getStatus() == Status.RUNNING
                 || run.getStatus() == Status.IMPORTING_RESULTS
@@ -542,6 +583,7 @@ public class ActionRunService {
         ActionRun saved = runRepository.save(run);
         actionAuditService.record("ACTION_RUN_CANCEL", "SUCCESS", userId, run.getProcessorDefinition().getId(), run.getId(),
                 workspaceId, projectId, Map.of("status", saved.getStatus().name()));
+        dispatchQueuedRunsAfterCommit();
         return toRunResponse(saved);
     }
 
@@ -648,6 +690,9 @@ public class ActionRunService {
                     Map.of("error", limit(Objects.toString(redactProcessorSecrets(request.errorMessage()), ""), 1000)));
         }
         runRepository.save(run);
+        if (run.getStatus() == Status.FAILED || run.getStatus() == Status.CANCELLED) {
+            dispatchQueuedRunsAfterCommit();
+        }
         return new ActionDto.HeartbeatResponse(run.isCancelRequested());
     }
 
@@ -721,6 +766,7 @@ public class ActionRunService {
                     run.getStatus() == Status.COMPLETED ? "SUCCESS" : "FAILURE",
                     run.getCreatedByUserId(), definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("resultCount", stored.size()));
+            dispatchQueuedRunsAfterCommit();
             return toRunResponse(savedRun);
         } catch (IOException | RuntimeException e) {
             String failureMessage = describeException(e);
@@ -735,6 +781,7 @@ public class ActionRunService {
                     definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("error", limit(failureMessage, 1000)));
             scheduleResultImportFailureAfterRollback(run.getId(), failureMessage);
+            dispatchQueuedRunsAfterCommit();
             throw e;
         } finally {
             workspaceQuotaGuardService.syncUsageAndReleaseReservation(run.getWorkspaceId(), reservedBytes);
@@ -1193,6 +1240,79 @@ public class ActionRunService {
         );
     }
 
+    private void dispatchQueuedRunsAsync() {
+        importTaskExecutor.execute(() -> {
+            if (!queuedDispatchLock.tryLock()) {
+                return;
+            }
+            try {
+                for (ActionRun queuedRun : runRepository.findByStatusOrderByCreatedAsc(Status.QUEUED)) {
+                    try {
+                        tryActivateQueuedRun(queuedRun.getId());
+                    } catch (RuntimeException error) {
+                        log.warn("Failed to promote queued LAREX Action run {}: {}", queuedRun.getId(), describeException(error), error);
+                    }
+                }
+            } finally {
+                queuedDispatchLock.unlock();
+            }
+        });
+    }
+
+    private void dispatchQueuedRunsAfterCommit() {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            dispatchQueuedRunsAsync();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                dispatchQueuedRunsAsync();
+            }
+        });
+    }
+
+    private void tryActivateQueuedRun(String runId) {
+        transactionTemplate.executeWithoutResult(status -> {
+            ActionRun run = runRepository.findWithProcessorDefinitionByIdForUpdate(runId).orElse(null);
+            if (run == null || run.getStatus() != Status.QUEUED) {
+                return;
+            }
+            if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED) {
+                return;
+            }
+
+            Project project = requireProjectForUpdate(run.getWorkspaceId(), run.getProjectId());
+            List<Page> pages = resolveRunPagesForUpdate(run.getProjectId(), readPageIds(run));
+            ConcurrencyDecision concurrency = evaluateConcurrency(run.getProcessorDefinition(), run.getWorkspaceId(), run.getProjectId());
+            if (!concurrency.available() || hasBlockingLocks(project, pages)) {
+                return;
+            }
+            if (run.getPublicApiBaseUrl() == null || run.getPublicApiBaseUrl().isBlank()) {
+                run.setStatus(Status.FAILED);
+                run.setStatusMessage("Queued run failed");
+                run.setErrorMessage("Queued Action run is missing its public API base URL");
+                run.setCompletedAt(LocalDateTime.now());
+                expireRunSecret(run);
+                runRepository.save(run);
+                actionAuditService.record("ACTION_RUN_QUEUE_FAILED", "FAILURE", run.getCreatedByUserId(),
+                        run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
+                        Map.of("error", "Queued Action run is missing its public API base URL"));
+                return;
+            }
+
+            String rawSecret = issueRunSecret(run);
+            run.setStatus(Status.PENDING);
+            run.setStatusMessage("Created");
+            applyLocks(project, pages, run);
+            ActionRun savedRun = runRepository.saveAndFlush(run);
+            actionAuditService.record("ACTION_RUN_QUEUE_DEQUEUED", "SUCCESS", run.getCreatedByUserId(),
+                    run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
+                    Map.of("pageCount", pages.size()));
+            dispatchAfterCommit(savedRun.getId(), rawSecret, savedRun.getPublicApiBaseUrl());
+        });
+    }
+
     private void dispatchAsync(String runId, String rawSecret, String publicApiBaseUrl) {
         importTaskExecutor.execute(() -> {
             int attempts = Math.max(1, actionProperties.getDispatch().getMaxAttempts());
@@ -1231,6 +1351,7 @@ public class ActionRunService {
                 .orElseThrow(() -> new IllegalStateException("Action run not found"));
         if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED) {
             releaseLocks(run);
+            dispatchQueuedRunsAsync();
             return;
         }
         ActionProcessorDefinition definition = run.getProcessorDefinition();
@@ -1287,6 +1408,7 @@ public class ActionRunService {
         run = runRepository.findById(runId).orElseThrow();
         if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED) {
             releaseLocks(run);
+            dispatchQueuedRunsAsync();
             return;
         }
         run.setStatus(Status.RUNNING);
@@ -1315,6 +1437,7 @@ public class ActionRunService {
         runRepository.save(run);
         actionAuditService.record("ACTION_RUN_DISPATCH_FAILED", "FAILURE", run.getCreatedByUserId(), run.getProcessorDefinition().getId(), run.getId(),
                 run.getWorkspaceId(), run.getProjectId(), Map.of("error", limit(describeException(e), 1000)));
+        dispatchQueuedRunsAsync();
     }
 
     private boolean isRunCancelled(String runId) {
@@ -1392,6 +1515,13 @@ public class ActionRunService {
         }
     }
 
+    private boolean hasBlockingLocks(Project project, List<Page> pages) {
+        if (project.isLocked()) {
+            return true;
+        }
+        return pages.stream().anyMatch(Page::isLocked);
+    }
+
     private List<Page> resolveRunPages(String projectId, List<String> requestedPageIds) {
         List<Page> pages;
         if (requestedPageIds == null || requestedPageIds.isEmpty()) {
@@ -1446,7 +1576,15 @@ public class ActionRunService {
         }
     }
 
-    private void enforceConcurrencyLimit(ActionProcessorDefinition definition, String workspaceId, String projectId) {
+    private String issueRunSecret(ActionRun run) {
+        String rawSecret = "lrx_act_" + generateOpaqueToken(32);
+        run.setSecretHash(sha256(rawSecret));
+        run.setSecretPrefix(rawSecret.substring(0, Math.min(rawSecret.length(), 12)));
+        run.setSecretExpiresAt(LocalDateTime.now().plusMinutes(definitionService.defaultTokenTtlMinutes()));
+        return rawSecret;
+    }
+
+    private ConcurrencyDecision evaluateConcurrency(ActionProcessorDefinition definition, String workspaceId, String projectId) {
         ActionDefinitionDocument.Concurrency concurrency = definitionService.readParsedDocument(definition).concurrency();
         int maxActiveRuns = concurrency == null || concurrency.maxActiveRuns() == null ? 1 : concurrency.maxActiveRuns();
         String scope = concurrency == null || concurrency.scope() == null || concurrency.scope().isBlank()
@@ -1457,9 +1595,7 @@ public class ActionRunService {
             case "WORKSPACE" -> runRepository.countByProcessorDefinitionIdAndWorkspaceIdAndStatusIn(definition.getId(), workspaceId, activeStatuses());
             default -> runRepository.countByProcessorDefinitionIdAndWorkspaceIdAndProjectIdAndStatusIn(definition.getId(), workspaceId, projectId, activeStatuses());
         };
-        if (active >= maxActiveRuns) {
-            throw new IllegalStateException("Action concurrency limit reached (" + active + "/" + maxActiveRuns + " active " + scope.toLowerCase(Locale.ROOT) + " run(s))");
-        }
+        return new ConcurrencyDecision(active < maxActiveRuns, active, maxActiveRuns, scope);
     }
 
     private boolean isWorkspaceAvailable(String definitionId, String workspaceId) {
@@ -1540,6 +1676,7 @@ public class ActionRunService {
         appendLogEvent(run, "WARN", message);
         actionAuditService.record("ACTION_RUN_WATCHDOG_FAILED", "FAILURE", run.getCreatedByUserId(),
                 run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of("message", message));
+        dispatchQueuedRunsAfterCommit();
     }
 
     private void pruneTerminalRuns(LocalDateTime cutoff) {
@@ -1854,6 +1991,12 @@ public class ActionRunService {
                 Status.IMPORTING_RESULTS,
                 Status.CANCEL_REQUESTED
         );
+    }
+
+    private record ConcurrencyDecision(boolean available, long active, int maxActiveRuns, String scope) {
+        private String message() {
+            return "Action concurrency limit reached (" + active + "/" + maxActiveRuns + " active " + scope.toLowerCase(Locale.ROOT) + " run(s))";
+        }
     }
 
     private ActionDto.TargetSelection normalizeTargetSelection(ActionDto.StartRunRequest request, String projectId) {

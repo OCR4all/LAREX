@@ -499,6 +499,7 @@ public class ActionDefinitionService {
 
     private List<ActionRun.Status> activeStatuses() {
         return List.of(
+                ActionRun.Status.QUEUED,
                 ActionRun.Status.PENDING,
                 ActionRun.Status.DISPATCHING,
                 ActionRun.Status.RUNNING,

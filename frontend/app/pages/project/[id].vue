@@ -639,7 +639,7 @@ async function openActionRunSlideover(scope: ProjectActionScope = 'all') {
 }
 
 const activeActionRunCount = computed(() => actionRunsStore.runsArray.filter(run =>
-  run.projectId === projectId && ['PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS'].includes(run.status)
+  run.projectId === projectId && ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS'].includes(run.status)
 ).length)
 
 watch(activeActionRunCount, (count, previousCount) => {

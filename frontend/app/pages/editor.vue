@@ -876,7 +876,8 @@ async function openActionRunForEditorTarget(payload: { targetSelection: ActionTa
 }
 
 function isEditorActiveActionRunStatus(status: ActionRun['status']) {
-  return status === 'PENDING'
+  return status === 'QUEUED'
+    || status === 'PENDING'
     || status === 'DISPATCHING'
     || status === 'RUNNING'
     || status === 'IMPORTING_RESULTS'

@@ -81,6 +81,15 @@ describe('status-center utils', () => {
     expect(jobs[1]?.terminal).toBe(true)
   })
 
+  it('treats queued action runs as active warning jobs', () => {
+    const jobs = buildStatusJobs([], [createRun({ status: 'QUEUED', progressPercent: 0 })])
+
+    expect(jobs[0]?.kind).toBe('action')
+    expect(jobs[0]?.active).toBe(true)
+    expect(jobs[0]?.statusLabel).toBe('Queued')
+    expect(jobs[0]?.color).toBe('warning')
+  })
+
   it('auto-opens only when active job count increases', () => {
     expect(shouldAutoOpenStatusPopover(0, 1)).toBe(true)
     expect(shouldAutoOpenStatusPopover(1, 2)).toBe(true)

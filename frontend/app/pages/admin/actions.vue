@@ -664,7 +664,7 @@ function statusColor(status: AdminActionRun['status']): 'success' | 'error' | 'n
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED') return 'error'
   if (status === 'CANCELLED') return 'neutral'
-  if (status === 'CANCEL_REQUESTED') return 'warning'
+  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'warning'
   return 'primary'
 }
 
@@ -672,6 +672,7 @@ function statusIcon(status: AdminActionRun['status']) {
   if (status === 'COMPLETED') return 'i-lucide-check-circle'
   if (status === 'FAILED') return 'i-lucide-x-circle'
   if (status === 'CANCELLED') return 'i-lucide-circle-slash'
+  if (status === 'QUEUED') return 'i-lucide-list-ordered'
   if (status === 'CANCEL_REQUESTED') return 'i-lucide-ban'
   return 'i-lucide-loader-circle'
 }
@@ -680,7 +681,7 @@ function runStatusTextClass(status: AdminActionRun['status']) {
   if (status === 'COMPLETED') return 'text-success'
   if (status === 'FAILED') return 'text-error'
   if (status === 'CANCELLED') return 'text-muted'
-  if (status === 'CANCEL_REQUESTED') return 'text-warning'
+  if (status === 'QUEUED' || status === 'CANCEL_REQUESTED') return 'text-warning'
   return 'text-primary'
 }
 

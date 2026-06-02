@@ -110,7 +110,8 @@ public class ActionDto {
             @NotBlank String processorDefinitionId,
             List<String> pageIds,
             Map<String, Object> parameters,
-            TargetSelection targetSelection
+            TargetSelection targetSelection,
+            Boolean enqueueIfBusy
     ) {}
 
     public record TargetSelection(

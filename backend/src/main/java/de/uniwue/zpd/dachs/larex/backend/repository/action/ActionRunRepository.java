@@ -37,6 +37,9 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
 
     List<ActionRun> findByStatusIn(Collection<Status> statuses);
 
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByStatusOrderByCreatedAsc(Status status);
+
     List<ActionRun> findByProcessorDefinitionIdAndStatusIn(String processorDefinitionId, Collection<Status> statuses);
 
     long countByProcessorDefinitionIdAndStatusIn(String processorDefinitionId, Collection<Status> statuses);
