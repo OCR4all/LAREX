@@ -28,6 +28,7 @@ pids
 
 # Common JS caches and dependencies
 node_modules/
+.pnpm-store/
 .cache/
 .npm/
 .nyc_output/
