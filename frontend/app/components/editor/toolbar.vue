@@ -7,7 +7,7 @@ import { PolygonType } from '@/models/editor'
 import type { RenderablePolygon, RenderablePolyline } from '@/types/editor/rendering'
 import type { DropdownMenuItem, TabsItem } from '@nuxt/ui'
 import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
-import { ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
+import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID, ensureEditorSession, getEditorSession } from '@/session/editor/editor-session'
 import {
   getOrCreateSessionCommander,
   jumpSessionCommandHistory,
@@ -189,6 +189,7 @@ const props = defineProps({
 })
 
 const currentCanvasId = computed(() => props.canvasId ?? editorStore.activeCanvasId)
+const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
 
 const isFloating = computed(() => {
   return editorStore.toolbarLayout === 'floating'
@@ -229,7 +230,7 @@ const {
   startDrag: startToolbarDrag
 } = useFloatingAnchorPosition({
   enabled: isFloating,
-  canvasId: currentCanvasId,
+  anchorId: floatingAnchorId,
   shellRef: toolbarShellRef,
   placement: 'toolbar',
   fallbackSize: { width: 360, height: 48 },

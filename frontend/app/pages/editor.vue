@@ -19,10 +19,15 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
+import {
+  EDITOR_WORKSPACE_FLOATING_ANCHOR_ID,
+  getEditorSession,
+  registerEditorFloatingAnchor,
+  unregisterEditorFloatingAnchor
+} from '@/session/editor/editor-session'
 import { PolygonType, createPageXmlLabelSet } from '@/models/editor'
 import type { Region, RegionKind } from '@/models/editor/region'
 import type { TextLine } from '@/models/editor/text'
-import { getEditorSession } from '@/session/editor/editor-session'
 import { redoSessionCommand, undoSessionCommand } from '@/session/editor/canvas-commander'
 import { MergeElementsCommand } from '@/commands/editor/merge-elements-command'
 import type { Commander } from '@/commands/editor/commander'
@@ -100,6 +105,25 @@ const resizingSide = ref<ResizeSide | null>(null)
 let resizeStartX = 0
 let resizeStartWidth = 0
 let rafLayoutId: number | null = null
+const editorWorkspaceAnchorRef = ref<HTMLElement | null>(null)
+let registeredEditorWorkspaceAnchorElement: HTMLElement | null = null
+
+function syncEditorWorkspaceAnchorRegistration(): void {
+  if (!import.meta.client) return
+
+  const nextElement = editorWorkspaceAnchorRef.value
+  if (registeredEditorWorkspaceAnchorElement === nextElement) return
+
+  if (registeredEditorWorkspaceAnchorElement) {
+    unregisterEditorFloatingAnchor(EDITOR_WORKSPACE_FLOATING_ANCHOR_ID, registeredEditorWorkspaceAnchorElement)
+  }
+
+  registeredEditorWorkspaceAnchorElement = nextElement
+
+  if (registeredEditorWorkspaceAnchorElement) {
+    registerEditorFloatingAnchor(EDITOR_WORKSPACE_FLOATING_ANCHOR_ID, registeredEditorWorkspaceAnchorElement)
+  }
+}
 
 const rootLayoutClass = computed(() => {
   switch (editorStore.toolbarLayout) {
@@ -1206,11 +1230,25 @@ const {
   expandRightSidebar: () => editorUiStore.toggleRightCollapsed()
 })
 
+onMounted(() => {
+  syncEditorWorkspaceAnchorRegistration()
+})
+
 onBeforeUnmount(() => {
   for (const projectId of previousPrefetchScopeProjectIds) {
     editorStore.setAdjacentPrefetchPageScope(projectId, null)
   }
   previousPrefetchScopeProjectIds = []
+
+  if (registeredEditorWorkspaceAnchorElement) {
+    unregisterEditorFloatingAnchor(EDITOR_WORKSPACE_FLOATING_ANCHOR_ID, registeredEditorWorkspaceAnchorElement)
+    registeredEditorWorkspaceAnchorElement = null
+  }
+})
+
+watch(() => editorWorkspaceAnchorRef.value, () => {
+  if (!import.meta.client) return
+  syncEditorWorkspaceAnchorRegistration()
 })
 
 function navigateImage(direction: 'next' | 'prev') {
@@ -2679,6 +2717,7 @@ const onReady = (event: DockviewReadyEvent) => {
     </div>
 
     <main
+      ref="editorWorkspaceAnchorRef"
       class="flex-1 min-w-0 min-h-0 overflow-hidden relative"
       :class="rootLayoutClass"
     >

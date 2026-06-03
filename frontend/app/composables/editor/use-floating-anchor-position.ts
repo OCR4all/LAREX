@@ -17,7 +17,7 @@ import {
 
 type UseFloatingAnchorPositionOptions = {
   enabled: ComputedRef<boolean>
-  canvasId: ComputedRef<string | null | undefined>
+  anchorId: ComputedRef<string | null | undefined>
   shellRef: Ref<HTMLElement | null>
   placement: FloatingControlPlacement
   fallbackSize: FloatingControlSize
@@ -65,7 +65,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
   function getDefaultPosition(): FloatingControlPosition {
     return computeFloatingDefaultPosition({
       placement: options.placement,
-      anchorRect: getEditorFloatingAnchorRect(options.canvasId.value),
+      anchorRect: getEditorFloatingAnchorRect(options.anchorId.value),
       controlSize: getControlSize(),
       viewport: getViewportSize(),
       gap: options.gap,
@@ -114,7 +114,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
 
     if (!import.meta.client || typeof ResizeObserver === 'undefined') return
 
-    const anchorElement = getEditorFloatingAnchorElement(options.canvasId.value)
+    const anchorElement = getEditorFloatingAnchorElement(options.anchorId.value)
     if (!anchorElement) return
 
     anchorResizeObserver = new ResizeObserver(() => {
@@ -197,7 +197,7 @@ export function useFloatingAnchorPosition(options: UseFloatingAnchorPositionOpti
   })
 
   watch(
-    () => [options.enabled.value, options.canvasId.value, registryVersion.value] as const,
+    () => [options.enabled.value, options.anchorId.value, registryVersion.value] as const,
     ([enabled]) => {
       if (!import.meta.client) return
       if (!enabled) {

@@ -17,9 +17,11 @@ export interface EditorSession {
 }
 
 export interface EditorFloatingAnchor {
-  canvasId: string
+  anchorId: string
   element: HTMLElement
 }
+
+export const EDITOR_WORKSPACE_FLOATING_ANCHOR_ID = 'editor-workspace'
 
 export type TextViewSettings = {
   mode: 'textline'
@@ -38,7 +40,7 @@ export type TextViewSettings = {
 const sessions = new Map<string, EditorSession>()
 
 const pageVisibilityByPageId = new Map<string, ReturnType<typeof shallowRef<PageVisibilityState>>>()
-const floatingAnchorsByCanvasId = new Map<string, EditorFloatingAnchor>()
+const floatingAnchorsById = new Map<string, EditorFloatingAnchor>()
 const floatingAnchorRegistryVersion = shallowRef(0)
 
 function bumpFloatingAnchorRegistryVersion(): void {
@@ -61,38 +63,38 @@ export function useEditorFloatingAnchorRegistryVersion(): ReturnType<typeof shal
   return floatingAnchorRegistryVersion
 }
 
-export function registerEditorFloatingAnchor(canvasId: string, element: HTMLElement): void {
+export function registerEditorFloatingAnchor(anchorId: string, element: HTMLElement): void {
   if (import.meta.server) return
 
-  const current = floatingAnchorsByCanvasId.get(canvasId)
+  const current = floatingAnchorsById.get(anchorId)
   if (current?.element === element) return
 
-  floatingAnchorsByCanvasId.set(canvasId, { canvasId, element })
+  floatingAnchorsById.set(anchorId, { anchorId, element })
   bumpFloatingAnchorRegistryVersion()
 }
 
-export function unregisterEditorFloatingAnchor(canvasId: string, element?: HTMLElement): void {
+export function unregisterEditorFloatingAnchor(anchorId: string, element?: HTMLElement): void {
   if (import.meta.server) return
 
-  const current = floatingAnchorsByCanvasId.get(canvasId)
+  const current = floatingAnchorsById.get(anchorId)
   if (!current) return
   if (element && current.element !== element) return
 
-  floatingAnchorsByCanvasId.delete(canvasId)
+  floatingAnchorsById.delete(anchorId)
   bumpFloatingAnchorRegistryVersion()
 }
 
-export function getEditorFloatingAnchor(canvasId: string | null | undefined): EditorFloatingAnchor | null {
-  if (import.meta.server || !canvasId) return null
-  return floatingAnchorsByCanvasId.get(canvasId) ?? null
+export function getEditorFloatingAnchor(anchorId: string | null | undefined): EditorFloatingAnchor | null {
+  if (import.meta.server || !anchorId) return null
+  return floatingAnchorsById.get(anchorId) ?? null
 }
 
-export function getEditorFloatingAnchorElement(canvasId: string | null | undefined): HTMLElement | null {
-  return getEditorFloatingAnchor(canvasId)?.element ?? null
+export function getEditorFloatingAnchorElement(anchorId: string | null | undefined): HTMLElement | null {
+  return getEditorFloatingAnchor(anchorId)?.element ?? null
 }
 
-export function getEditorFloatingAnchorRect(canvasId: string | null | undefined): DOMRect | null {
-  const element = getEditorFloatingAnchorElement(canvasId)
+export function getEditorFloatingAnchorRect(anchorId: string | null | undefined): DOMRect | null {
+  const element = getEditorFloatingAnchorElement(anchorId)
   return element ? element.getBoundingClientRect() : null
 }
 

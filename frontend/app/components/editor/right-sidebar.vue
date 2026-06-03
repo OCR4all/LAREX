@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
-import { useEditorStore } from '@/stores/editor/editor.store'
+import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID } from '@/session/editor/editor-session'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
 
@@ -24,11 +24,10 @@ const props = defineProps<{
   actionItems: DropdownMenuItem[][]
 }>()
 
-const editorStore = useEditorStore()
 const editorUiStore = useEditorUiStore()
 const sidebarShellRef = ref<HTMLElement | null>(null)
 const floatingOffset = ref<{ dx: number, dy: number } | null>(null)
-const currentCanvasId = computed(() => editorStore.activeCanvasId)
+const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
 const isFloatingCollapsed = computed(() => editorUiStore.rightCollapsed && props.useFloatingCollapsed)
 
 const DEFAULT_FLOATING_SIDEBAR_TOP = 120
@@ -40,7 +39,7 @@ const {
   startDrag: startSidebarDrag
 } = useFloatingAnchorPosition({
   enabled: isFloatingCollapsed,
-  canvasId: currentCanvasId,
+  anchorId: floatingAnchorId,
   shellRef: sidebarShellRef,
   placement: 'right-sidebar',
   fallbackSize: { width: 48, height: 320 },

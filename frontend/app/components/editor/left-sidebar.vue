@@ -2,6 +2,7 @@
 import type { DropdownMenuItem } from '@nuxt/ui'
 import type { LabelDefinition as ApiLabelDefinition } from '@/types/label-set'
 import { useFloatingAnchorPosition } from '@/composables/editor/use-floating-anchor-position'
+import { EDITOR_WORKSPACE_FLOATING_ANCHOR_ID } from '@/session/editor/editor-session'
 import { useEditorStore } from '@/stores/editor/editor.store'
 import { useEditorUiStore } from '@/stores/editor/editor.ui.store'
 import type { FloatingControlOffset } from '@/utils/editor/floating-anchor-position'
@@ -35,7 +36,7 @@ const { isNotificationsSlideoverOpen } = useDashboard()
 const { unreadCount, ensureInitialData } = useNotifications()
 const sidebarShellRef = ref<HTMLElement | null>(null)
 const floatingOffset = ref<{ dx: number, dy: number } | null>(null)
-const currentCanvasId = computed(() => editorStore.activeCanvasId)
+const floatingAnchorId = computed(() => EDITOR_WORKSPACE_FLOATING_ANCHOR_ID)
 const isFloatingCollapsed = computed(() => editorUiStore.leftCollapsed && props.useFloatingCollapsed)
 const floatingImagePopoverOpen = ref(false)
 const collapsedRailImagePopoverOpen = ref(false)
@@ -70,7 +71,7 @@ const {
   startDrag: startSidebarDrag
 } = useFloatingAnchorPosition({
   enabled: isFloatingCollapsed,
-  canvasId: currentCanvasId,
+  anchorId: floatingAnchorId,
   shellRef: sidebarShellRef,
   placement: 'left-sidebar',
   fallbackSize: { width: 48, height: 240 },
