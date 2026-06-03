@@ -309,7 +309,7 @@ const emptyStateActions = computed(() => {
           </UButton>
         </UiFloatingSelectionMenu>
 
-        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+        <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
             <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} profiles</span>
           </div>
@@ -325,6 +325,7 @@ const emptyStateActions = computed(() => {
               v-model:page="page"
               :total="totalItems"
               :items-per-page="itemsPerPage"
+              :disabled="totalPages <= 1"
               show-edges
               :sibling-count="1"
             />

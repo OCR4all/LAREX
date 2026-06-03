@@ -130,13 +130,18 @@ const { data: orphanedFiles, refresh: refreshOrphaned, pending: orphanedPending 
 const currentPageFiles = computed(() => orphanedFiles.value?.files ?? [])
 const totalItems = computed(() => orphanedFiles.value?.totalCount ?? 0)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const filteredTotalSize = computed(() => orphanedFiles.value?.totalSizeBytes ?? 0)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
 const hasActiveFilters = computed(() => Boolean(typeFilter.value || searchQuery.value.trim()))
 
-watch([typeFilter, searchQuery, itemsPerPage], () => {
+watch([typeFilter, searchQuery], () => {
   page.value = 1
+  clearSelection()
+})
+
+watch(itemsPerPage, () => {
   clearSelection()
 })
 
@@ -646,7 +651,7 @@ async function refreshAll() {
 
           <div class="flex items-center gap-4">
             <USelect
-              v-model="itemsPerPage"
+              v-model="itemsPerPageModel"
               :items="itemsPerPageOptions"
               value-key="value"
               class="w-32"
@@ -657,6 +662,7 @@ async function refreshAll() {
               v-model:page="page"
               :total="totalItems"
               :items-per-page="itemsPerPage"
+              :disabled="totalPages <= 1"
               show-edges
               :sibling-count="1"
             />

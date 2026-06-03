@@ -1441,12 +1441,13 @@ function clearSelection() {
 }
 
 const page = ref(1)
-const itemsPerPage = ref(25)
+const itemsPerPageRef = ref(10)
 const totalItems = computed(() => filteredPages.value.length)
-const totalPagesCount = computed(() => Math.ceil(totalItems.value / itemsPerPage.value))
+const totalPagesCount = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
+const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
 const paginatedPages = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  return filteredPages.value.slice(start, start + itemsPerPage.value)
+  const start = (page.value - 1) * itemsPerPageRef.value
+  return filteredPages.value.slice(start, start + itemsPerPageRef.value)
 })
 
 async function openAddToDatasetSlideover() {
@@ -1947,6 +1948,12 @@ async function openValidationRulesetModal(scope: ProjectActionScope = 'all') {
 watch([globalFilter, columnFilters, xmlStatusFilter], () => {
   page.value = 1
 }, { deep: true })
+
+watch(totalPagesCount, (value) => {
+  if (page.value > value) {
+    page.value = value
+  }
+})
 
 const resetFilters = () => {
   resetAllFilters()
@@ -2848,7 +2855,7 @@ useHead({
                 />
               </UContextMenu>
 
-              <div v-if="totalPagesCount > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+              <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
                 <div class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
                   <span>Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} pages</span>
                 </div>
@@ -2856,7 +2863,7 @@ useHead({
                 <div class="flex items-center gap-4">
                   <USelect
                     v-model="itemsPerPage"
-                    :items="[10, 25, 50, 100]"
+                    :items="[5, 10, 15, 20, 50, 100]"
                     class="w-32"
                     size="sm"
                   />
@@ -2865,6 +2872,7 @@ useHead({
                     v-model:page="page"
                     :total="totalItems"
                     :items-per-page="itemsPerPage"
+                    :disabled="totalPagesCount <= 1"
                     show-edges
                     :sibling-count="1"
                   />

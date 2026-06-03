@@ -114,6 +114,7 @@ const page = ref(1)
 const itemsPerPage = ref(25)
 const totalItems = computed(() => filteredAndSortedData.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
 const paginatedRows = computed(() => {
@@ -121,7 +122,7 @@ const paginatedRows = computed(() => {
   return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
 })
 
-watch([globalFilter, columnFilters, itemsPerPage], () => {
+watch([globalFilter, columnFilters], () => {
   page.value = 1
 }, { deep: true })
 
@@ -472,7 +473,7 @@ function formatBytes(bytes: number) {
 
           <div class="flex items-center gap-4">
             <USelect
-              v-model="itemsPerPage"
+              v-model="itemsPerPageModel"
               :items="itemsPerPageOptions"
               value-key="value"
               class="w-32"
@@ -483,6 +484,7 @@ function formatBytes(bytes: number) {
               v-model:page="page"
               :total="totalItems"
               :items-per-page="itemsPerPage"
+              :disabled="totalPages <= 1"
               show-edges
               :sibling-count="1"
             />

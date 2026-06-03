@@ -349,13 +349,14 @@ const statusFilterOptions = computed(() =>
 )
 
 const page = ref(1)
-const itemsPerPage = ref(10)
+const itemsPerPageRef = ref(10)
 
 const totalItems = computed(() => filteredAndSortedData.value.length)
-const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
+const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
 const paginatedRows = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
+  const start = (page.value - 1) * itemsPerPageRef.value
+  return filteredAndSortedData.value.slice(start, start + itemsPerPageRef.value)
 })
 
 const selectedItemIds = ref<Set<string>>(new Set())
@@ -485,6 +486,12 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
 watch([globalFilter, columnFilters], () => {
   page.value = 1
 }, { deep: true })
+
+watch(totalPages, (value) => {
+  if (page.value > value) {
+    page.value = value
+  }
+})
 
 const itemColumns = computed<TableColumn<DatasetTableRow>[]>(() => [
   {
@@ -1520,7 +1527,7 @@ useHead({
                     </UButton>
                   </UiFloatingSelectionMenu>
 
-                  <div v-if="filteredAndSortedData.length > 0 && totalPages > 1" class="flex items-center justify-between border-t border-default pt-4">
+                  <div v-if="totalItems > 0" class="flex items-center justify-between border-t border-default pt-4">
                     <div class="text-sm text-muted">
                       Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} items
                     </div>
@@ -1537,6 +1544,7 @@ useHead({
                         v-model:page="page"
                         :total="totalItems"
                         :items-per-page="itemsPerPage"
+                        :disabled="totalPages <= 1"
                       />
                     </div>
                   </div>

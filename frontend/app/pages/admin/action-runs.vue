@@ -39,7 +39,7 @@ watch(searchInput, useDebounceFn((value: string) => {
   page.value = 1
 }, 250))
 
-watch([statusFilter, processorFilter, workspaceFilter, itemsPerPage], () => {
+watch([statusFilter, processorFilter, workspaceFilter], () => {
   page.value = 1
 })
 
@@ -91,6 +91,7 @@ const filteredRuns = computed(() => runs.value
 
 const totalItems = computed(() => filteredRuns.value.length)
 const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPage.value)))
+const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const paginatedRuns = computed(() => {
   const start = (page.value - 1) * itemsPerPage.value
   return filteredRuns.value.slice(start, start + itemsPerPage.value)
@@ -397,7 +398,7 @@ function setCancellingRun(runId: string, value: boolean) {
             </div>
             <div class="flex items-center gap-4">
               <USelect
-                v-model="itemsPerPage"
+                v-model="itemsPerPageModel"
                 :items="[10, 25, 50, 100]"
                 class="w-24"
                 size="sm"
@@ -406,6 +407,7 @@ function setCancellingRun(runId: string, value: boolean) {
                 v-model:page="page"
                 :total="totalItems"
                 :items-per-page="itemsPerPage"
+                :disabled="totalPages <= 1"
               />
             </div>
           </div>

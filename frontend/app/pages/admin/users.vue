@@ -140,6 +140,7 @@ const creationAllowed = computed(() => usersPage.value?.creationAllowed ?? true)
 const setupEmailAllowed = computed(() => usersPage.value?.setupEmailAllowed ?? true)
 const totalItems = computed(() => usersPage.value?.totalElements ?? 0)
 const totalPages = computed(() => Math.max(1, usersPage.value?.totalPages ?? 1))
+const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const visibleActiveCount = computed(() => users.value.filter(user => user.onboardingState === 'ACTIVE').length)
 const visiblePendingCount = computed(() => users.value.filter(user => user.onboardingState === 'PENDING_SETUP').length)
 const visibleDisabledCount = computed(() => users.value.filter(user => user.onboardingState === 'DISABLED').length)
@@ -152,7 +153,7 @@ watch(searchInput, useDebounceFn((value: string) => {
   page.value = 1
 }, 300))
 
-watch([statusFilter, itemsPerPage], () => {
+watch(statusFilter, () => {
   page.value = 1
 })
 
@@ -775,7 +776,7 @@ async function submitGlobalRoleAction() {
             </div>
 
             <USelect
-              v-model="itemsPerPage"
+              v-model="itemsPerPageModel"
               :items="itemsPerPageOptions"
               value-key="value"
               class="w-32"
@@ -786,6 +787,7 @@ async function submitGlobalRoleAction() {
               v-model:page="page"
               :total="totalItems"
               :items-per-page="itemsPerPage"
+              :disabled="totalPages <= 1"
               show-edges
               :sibling-count="1"
             />

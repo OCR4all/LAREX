@@ -34,7 +34,7 @@ watch(searchInput, useDebounceFn((value: string) => {
   page.value = 1
 }, 250))
 
-watch([itemsPerPage, dayWindow, statusFilter, userFilter, workspaceFilter], () => {
+watch([dayWindow, statusFilter, userFilter, workspaceFilter], () => {
   page.value = 1
 })
 
@@ -142,6 +142,7 @@ const { data: detailData, pending: detailPending, refresh: refreshDetail } = awa
 const rows = computed(() => errorsPage.value.items || [])
 const totalItems = computed(() => errorsPage.value.totalElements || 0)
 const totalPages = computed(() => Math.max(1, errorsPage.value.totalPages || 1))
+const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, totalItems)
 const showingFrom = computed(() => totalItems.value === 0 ? 0 : (page.value - 1) * itemsPerPage.value + 1)
 const showingTo = computed(() => Math.min(page.value * itemsPerPage.value, totalItems.value))
 const hasActiveFilters = computed(() =>
@@ -389,8 +390,13 @@ function clearFilters() {
           </div>
 
           <div class="flex items-center gap-4">
-            <USelect v-model="itemsPerPage" :items="[10, 25, 50, 100]" class="w-24" />
-            <UPagination v-model:page="page" :items-per-page="itemsPerPage" :total="totalItems" />
+            <USelect v-model="itemsPerPageModel" :items="[10, 25, 50, 100]" class="w-24" />
+            <UPagination
+              v-model:page="page"
+              :items-per-page="itemsPerPage"
+              :total="totalItems"
+              :disabled="totalPages <= 1"
+            />
           </div>
         </div>
 

@@ -70,19 +70,26 @@ export function useResourceListPage<T extends object>(options: ResourceListPageO
   })
 
   const page = ref(1)
-  const itemsPerPage = ref(10)
+  const itemsPerPageRef = ref(10)
 
   const totalItems = computed(() => filters.filteredAndSortedData.value.length)
-  const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value))
+  const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
+  const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
   const paginatedData = computed(() => {
-    const start = (page.value - 1) * itemsPerPage.value
-    const end = start + itemsPerPage.value
+    const start = (page.value - 1) * itemsPerPageRef.value
+    const end = start + itemsPerPageRef.value
     return filters.filteredAndSortedData.value.slice(start, end)
   })
 
   watch([filters.globalFilter, filters.columnFilters], () => {
     page.value = 1
   }, { deep: true })
+
+  watch(totalPages, (value) => {
+    if (page.value > value) {
+      page.value = value
+    }
+  })
 
   return {
     ...filters,

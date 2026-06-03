@@ -21,6 +21,7 @@ const debouncedSearch = ref('')
 const statusFilter = ref<'ALL' | ActionRunStatus>('ALL')
 const page = ref(1)
 const itemsPerPage = ref(25)
+const itemsPerPageModel = useItemsPerPageModel(page, itemsPerPage, computed(() => filteredRuns.value.length))
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const workspaceRunsKey = computed(() => globalKey('workspace', 'action-runs', selectedWorkspace.value || 'none'))
@@ -43,7 +44,7 @@ watch(searchInput, useDebounceFn((value: string) => {
   page.value = 1
 }, 250))
 
-watch([statusFilter, itemsPerPage], () => {
+watch(statusFilter, () => {
   page.value = 1
 })
 
@@ -397,7 +398,7 @@ function formatDurationFromRun(run: ActionRun) {
             </div>
             <div class="flex items-center gap-4">
               <USelect
-                v-model="itemsPerPage"
+                v-model="itemsPerPageModel"
                 :items="[10, 25, 50, 100]"
                 class="w-24"
                 size="sm"
@@ -406,6 +407,7 @@ function formatDurationFromRun(run: ActionRun) {
                 v-model:page="page"
                 :total="totalItems"
                 :items-per-page="itemsPerPage"
+                :disabled="totalPages <= 1"
               />
             </div>
           </div>

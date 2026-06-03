@@ -58,13 +58,14 @@ const {
 } = useTableFilters(rows, { column: 'name', direction: 'asc' })
 
 const page = ref(1)
-const itemsPerPage = ref(10)
+const itemsPerPageRef = ref(10)
 
 const totalItems = computed(() => filteredAndSortedData.value.length)
-const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value))
+const totalPages = computed(() => Math.max(1, Math.ceil(totalItems.value / itemsPerPageRef.value)))
+const itemsPerPage = useItemsPerPageModel(page, itemsPerPageRef, totalItems)
 const paginatedData = computed(() => {
-  const start = (page.value - 1) * itemsPerPage.value
-  return filteredAndSortedData.value.slice(start, start + itemsPerPage.value)
+  const start = (page.value - 1) * itemsPerPageRef.value
+  return filteredAndSortedData.value.slice(start, start + itemsPerPageRef.value)
 })
 
 const selectedWorkspaceIds = ref<Set<string>>(new Set())
@@ -84,6 +85,11 @@ const somePageSelected = computed(() =>
 
 watch(globalFilter, () => {
   page.value = 1
+})
+watch(totalPages, (value) => {
+  if (page.value > value) {
+    page.value = value
+  }
 })
 watch(rows, (nextRows) => {
   const validIds = new Set(nextRows.map(workspace => workspace.id))
@@ -393,7 +399,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
           </UButton>
         </UiFloatingSelectionMenu>
 
-        <div v-if="totalPages > 1" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
+        <div v-if="totalItems > 0" class="flex justify-between items-center p-4 border-t border-neutral-200 dark:border-neutral-800">
           <span class="text-sm text-neutral-600 dark:text-neutral-400">
             Showing {{ (page - 1) * itemsPerPage + 1 }} to {{ Math.min(page * itemsPerPage, totalItems) }} of {{ totalItems }} workspaces
           </span>
@@ -408,6 +414,7 @@ async function leaveWorkspace(ws: WorkspaceRow) {
               v-model:page="page"
               :total="totalItems"
               :items-per-page="itemsPerPage"
+              :disabled="totalPages <= 1"
               show-edges
               :sibling-count="1"
             />
