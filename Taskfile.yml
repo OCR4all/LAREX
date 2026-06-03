@@ -15,6 +15,7 @@ vars:
   COMPOSE_PROD_LOCAL_FILE: compose.prod.local.yaml
   COMPOSE_PROD_LOCAL_DOCS_FILE: compose.prod.local.docs.yaml
   COMPOSE_PROD_DOCS_FILE: compose.prod.docs.yaml
+  COMPOSE_PROD_KRAKEN_FILE: compose.prod.kraken.yaml
   COMPOSE_PROD_NGINX_FILE: compose.prod.nginx.yaml
 
 includes:
@@ -150,6 +151,11 @@ tasks:
     cmds:
       - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} up -d
 
+  docker:prod:up:kraken:
+    desc: Start opinionated production services with the bundled Kraken segmentation processor
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_KRAKEN_FILE}} up -d
+
   docker:prod:down:
     desc: Stop opinionated production services
     cmds:
@@ -170,6 +176,16 @@ tasks:
     cmds:
       - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_DOCS_FILE}} logs -f docs
 
+  docker:prod:down:kraken:
+    desc: Stop opinionated production services with the bundled Kraken segmentation processor
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_KRAKEN_FILE}} down
+
+  docker:prod:logs:kraken:
+    desc: View Kraken processor logs for the opinionated production stack
+    cmds:
+      - docker compose --env-file .env.prod -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_PUBLISH_FILE}} -f {{.COMPOSE_PROD_KRAKEN_FILE}} logs -f kraken-segmentation-processor
+
   docker:prod:local:up:
     desc: Start production-like local stack (Traefik + local hostnames + Mailpit)
     cmds:
@@ -184,6 +200,11 @@ tasks:
     desc: Start production-like local stack with self-hosted docs
     cmds:
       - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} up -d
+
+  docker:prod:local:up:kraken:
+    desc: Start production-like local stack with the bundled Kraken segmentation processor
+    cmds:
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_KRAKEN_FILE}} up -d
 
   docker:prod:local:down:
     desc: Stop production-like local stack
@@ -204,6 +225,16 @@ tasks:
     desc: View logs for production-like local stack with docs
     cmds:
       - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_LOCAL_DOCS_FILE}} logs -f docs
+
+  docker:prod:local:down:kraken:
+    desc: Stop production-like local stack with the bundled Kraken segmentation processor
+    cmds:
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_KRAKEN_FILE}} down
+
+  docker:prod:local:logs:kraken:
+    desc: View Kraken processor logs for the production-like local stack
+    cmds:
+      - docker compose --env-file .env.prod.local -f {{.COMPOSE_PROD_BASE_FILE}} -f {{.COMPOSE_PROD_AUTH_BUNDLED_FILE}} -f {{.COMPOSE_PROD_LOCAL_FILE}} -f {{.COMPOSE_PROD_KRAKEN_FILE}} logs -f kraken-segmentation-processor
 
   docker:prod:external-keycloak:up:
     desc: Start opinionated production services with external Keycloak
