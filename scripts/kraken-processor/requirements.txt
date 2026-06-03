@@ -1,4 +1,4 @@
-larex-action-sdk[fastapi]>=0.5,<0.6
+larex-action-sdk[fastapi]>=0.6,<0.7
 kraken==7.0.2
 lxml>=5,<7
 pillow>=10,<13

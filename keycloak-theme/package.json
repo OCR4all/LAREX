@@ -1,7 +1,7 @@
 {
   "name": "keycloakify-larex",
   "version": "0.1.0",
-  "packageManager": "pnpm@11.1.1",
+  "packageManager": "pnpm@11.1.2",
   "description": "Keycloak theme for LAREX",
   "repository": {
     "type": "git",

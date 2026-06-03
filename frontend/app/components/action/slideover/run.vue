@@ -289,6 +289,26 @@ function concurrencyErrorDetails(error: unknown) {
   return { details, isConcurrencyError }
 }
 
+function queuePositionText(run: Pick<ActionRun, 'queuePosition'>) {
+  if (!run.queuePosition || run.queuePosition < 1) return null
+  return `Queue position ${run.queuePosition}`
+}
+
+function runSummaryText(run: ActionRun) {
+  const queueText = queuePositionText(run)
+  if (queueText) {
+    return `${run.pageIds.length} pages · ${queueText}`
+  }
+  return `${run.pageIds.length} pages · ${run.statusMessage || run.processorKey}`
+}
+
+function queuedToastDescription(run: ActionRun) {
+  const queueText = queuePositionText(run)
+  return queueText
+    ? `${queueText}. The Action will start automatically when a slot becomes available.`
+    : 'The Action will start automatically when a slot becomes available.'
+}
+
 async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
   if (!selectedProcessor.value || !canStart.value) return null
   starting.value = true
@@ -306,7 +326,7 @@ async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
     changed.value = true
     toast.add({
       title: result.run.status === 'QUEUED' ? 'Action run queued' : 'Action run started',
-      description: result.run.status === 'QUEUED' ? 'The Action will start automatically when a slot becomes available.' : undefined,
+      description: result.run.status === 'QUEUED' ? queuedToastDescription(result.run) : undefined,
       color: result.run.status === 'QUEUED' ? 'warning' : 'success',
       icon: result.run.status === 'QUEUED' ? 'i-lucide-list-ordered' : 'i-lucide-play'
     })
@@ -386,7 +406,7 @@ async function retryRun(run: ActionRun, options: { enqueueIfBusy?: boolean } = {
     await loadRuns()
     toast.add({
       title: result.run.status === 'QUEUED' ? 'Action retry queued' : 'Action retry started',
-      description: result.run.status === 'QUEUED' ? 'The retry will start automatically when a slot becomes available.' : undefined,
+      description: result.run.status === 'QUEUED' ? queuedToastDescription(result.run) : undefined,
       color: result.run.status === 'QUEUED' ? 'warning' : 'success',
       icon: result.run.status === 'QUEUED' ? 'i-lucide-list-ordered' : 'i-lucide-rotate-cw'
     })
@@ -456,6 +476,10 @@ function statusColor(status: ActionRun['status']) {
 
 function isActiveRun(run: ActionRun) {
   return ['QUEUED', 'PENDING', 'DISPATCHING', 'RUNNING', 'IMPORTING_RESULTS', 'CANCEL_REQUESTED'].includes(run.status)
+}
+
+function canCancelRun(run: ActionRun) {
+  return run.canCancel && isActiveRun(run)
 }
 
 function canRetryRun(run: ActionRun) {
@@ -738,7 +762,7 @@ function close() {
                         {{ run.processorName }}
                       </p>
                       <p class="truncate text-xs text-muted">
-                        {{ run.pageIds.length }} pages · {{ run.statusMessage || run.processorKey }}
+                        {{ runSummaryText(run) }}
                       </p>
                     </button>
                     <div class="flex items-center gap-2">
@@ -756,7 +780,7 @@ function close() {
                         @click="retryRun(run)"
                       />
                       <UButton
-                        v-if="isActiveRun(run)"
+                        v-if="canCancelRun(run)"
                         color="warning"
                         variant="ghost"
                         icon="i-lucide-ban"

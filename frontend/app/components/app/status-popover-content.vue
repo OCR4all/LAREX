@@ -25,6 +25,7 @@ const uploadStore = useUploadStore()
 const uploadSessionActions = useUploadSessionActions()
 const actionRunsStore = useActionRunsStore()
 const toast = useToast()
+const UChatShimmer = resolveComponent('UChatShimmer')
 const {
   issues,
   retryIssue,
@@ -78,7 +79,9 @@ function formatBytes(bytes: number): string {
 }
 
 function canCancelJob(job: StatusJob): boolean {
-  return job.kind === 'upload' ? isActiveUpload(job.upload.status) : isActiveAction(job.run.status)
+  return job.kind === 'upload'
+    ? isActiveUpload(job.upload.status)
+    : job.run.canCancel && isActiveAction(job.run.status)
 }
 
 function isCancellingJob(job: StatusJob): boolean {
@@ -183,6 +186,17 @@ function closePanel() {
 
 function toggleMinimized() {
   emit('toggleMinimized')
+}
+
+function actionStatusDetail(job: Extract<StatusJob, { kind: 'action' }>) {
+  if (job.run.queuePosition && job.run.queuePosition > 0) {
+    return `Queue position ${job.run.queuePosition}`
+  }
+  return job.run.statusMessage || job.run.processorKey
+}
+
+function shouldUseJobShimmer(job: StatusJob) {
+  return job.kind === 'action' && job.active
 }
 </script>
 
@@ -336,7 +350,12 @@ function toggleMinimized() {
               />
               <UIcon :name="job.icon" class="mt-0.5 size-4 shrink-0 text-muted" />
               <div class="min-w-0">
-                <p class="truncate text-sm font-medium">
+                <UChatShimmer
+                  v-if="shouldUseJobShimmer(job)"
+                  :text="job.title"
+                  class="max-w-full text-sm font-medium"
+                />
+                <p v-else class="truncate text-sm font-medium">
                   {{ job.title }}
                 </p>
                 <p class="truncate text-xs text-muted">
@@ -362,7 +381,7 @@ function toggleMinimized() {
                 <div class="mb-1 flex items-center justify-between gap-2 text-xs text-muted">
                   <span class="truncate">
                     <template v-if="job.kind === 'action'">
-                      {{ job.run.statusMessage || job.run.processorKey }}
+                      {{ actionStatusDetail(job) }}
                     </template>
                     <template v-else>
                       {{ job.progressLabel }}

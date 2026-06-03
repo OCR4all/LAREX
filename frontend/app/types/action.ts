@@ -114,13 +114,17 @@ export interface ActionRun {
   processorName: string
   workspaceId: string
   projectId: string
+  projectLabel: string
+  pageCount: number
   pageIds: string[]
   targetSelection: ActionTargetSelection
   status: ActionRunStatus
   lockMode: ActionLockMode
   progressPercent: number
+  queuePosition: number | null
   statusMessage: string | null
   errorMessage: string | null
+  canCancel: boolean
   cancelRequested: boolean
   lastHeartbeatAt: string | null
   created: string
@@ -152,8 +156,10 @@ export interface AdminActionRun {
   pageCount: number
   status: ActionRunStatus
   progressPercent: number
+  queuePosition: number | null
   statusMessage: string | null
   errorMessage: string | null
+  canCancel: boolean
   cancelRequested: boolean
   logText: string | null
   logEvents: ActionRunLogEvent[]
@@ -174,6 +180,10 @@ export interface ActionRunLogEvent {
 
 export interface ClearActionRunsResponse {
   deletedCount: number
+}
+
+export interface BulkCancelActionRunsResponse {
+  cancelledCount: number
 }
 
 export interface ActionHealthCheckResponse {

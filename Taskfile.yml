@@ -21,6 +21,9 @@ includes:
   backend:
     taskfile: ./backend/Taskfile.yml
     dir: ./backend
+  docs:
+    taskfile: ./docs/Taskfile.yml
+    dir: ./docs
   frontend:
     taskfile: ./frontend/Taskfile.yml
     dir: ./frontend
@@ -48,6 +51,7 @@ tasks:
   install:
     desc: Install all dependencies
     cmds:
+      - task: docs:install
       - task: frontend:install
       - task: theme:install
       - echo "All dependencies installed."
@@ -236,15 +240,21 @@ tasks:
   # ============================================================================
 
   test:
-    desc: Run all tests (backend + frontend)
+    desc: Run all checks (backend + frontend + docs)
     cmds:
       - task: test:backend
+      - task: test:docs
       - task: test:frontend
 
   test:backend:
     desc: Run backend tests
     cmds:
       - task: backend:test
+
+  test:docs:
+    desc: Verify docs build
+    cmds:
+      - task: docs:test
 
   test:frontend:
     desc: Run frontend lint and typecheck
@@ -260,6 +270,7 @@ tasks:
     desc: Build all projects
     cmds:
       - task: backend:build
+      - task: docs:build
       - task: frontend:build
       - task: theme:build
 
@@ -346,6 +357,7 @@ tasks:
     desc: Clean all build artifacts
     cmds:
       - task: backend:clean
+      - task: docs:clean
       - task: frontend:clean
       - task: theme:clean
       - echo "All build artifacts cleaned."

@@ -216,6 +216,13 @@ const groups = computed(() => {
       to: '/workspace/settings',
       onSelect: () => { open.value = false }
     }, {
+      id: 'go-workspace-queue',
+      label: 'Go to Workspace Queue',
+      icon: 'i-lucide-list-ordered',
+      suffix: 'View workspace Action runs',
+      to: '/workspace/queue',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'go-members',
       label: 'Go to Members',
       icon: 'i-lucide-users',

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 
-from larex_actions import ActionContext
+from larex_actions import ActionCancelled, ActionContext
 from larex_actions.fastapi import create_larex_action_app
 from lxml import etree
 from PIL import Image
@@ -34,86 +34,91 @@ IMAGE_EXTENSIONS = {
 
 
 async def process_run(ctx: ActionContext) -> None:
-    action_input = await ctx.pull_input()
-    if not action_input.pages:
-        await ctx.complete(ctx.result_builder(), "Kraken segmentation received no pages.")
-        return
+    try:
+        action_input = await ctx.pull_input()
+        if not action_input.pages:
+            await ctx.complete(ctx.result_builder(), "Kraken segmentation received no pages.")
+            return
 
-    results = ctx.result_builder()
-    total = len(action_input.pages)
+        results = ctx.result_builder()
+        total = len(action_input.pages)
 
-    with tempfile.TemporaryDirectory(prefix="larex-kraken-") as temp_dir:
-        work_dir = Path(temp_dir)
-        for index, page in enumerate(action_input.pages, start=1):
-            if not page.images:
-                raise ValueError(f"Page {page.id} does not expose an image input.")
+        with tempfile.TemporaryDirectory(prefix="larex-kraken-") as temp_dir:
+            work_dir = Path(temp_dir)
+            for index, page in enumerate(action_input.pages, start=1):
+                await ctx.check_cancelled()
+                if not page.images:
+                    raise ValueError(f"Page {page.id} does not expose an image input.")
 
-            progress = int(((index - 1) / total) * 95)
-            await ctx.heartbeat(progress, f"Segmenting page {index}/{total}: {page.name}", raise_on_cancel=True)
+                progress = int(((index - 1) / total) * 95)
+                await ctx.heartbeat(progress, f"Segmenting page {index}/{total}: {page.name}", raise_on_cancel=True)
 
-            async with ctx.step(f"Kraken segmentation for {page.name}"):
-                image = page.images[0]
-                image_path = work_dir / safe_file_name(image.file_name, page.name, image.mime_type)
-                output_path = work_dir / f"{safe_stem(page.name or page.id)}.xml"
-                image_bytes = await ctx.download_bytes(image)
-                image_path.write_bytes(image_bytes)
+                async with ctx.step(f"Kraken segmentation for {page.name}"):
+                    image = page.images[0]
+                    image_path = work_dir / safe_file_name(image.file_name, page.name, image.mime_type)
+                    output_path = work_dir / f"{safe_stem(page.name or page.id)}.xml"
+                    image_bytes = await ctx.download_bytes(image)
+                    image_path.write_bytes(image_bytes)
 
-                if action_input.target_selection and action_input.target_selection.type == "REGION":
-                    if not page.xml:
-                        raise ValueError(f"Page {page.id} does not expose PAGE XML for scoped region import.")
-                    xml_bytes = await ctx.download_bytes(page.xml[0])
-                    page_image_size = page_xml_image_size(xml_bytes)
-                    target_pages = [
-                        target_page
-                        for target_page in action_input.target_selection.pages
-                        if target_page.page_id == page.id
-                    ]
-                    for target_page in target_pages:
-                        region_ids = list(target_page.region_ids)
-                        if not region_ids:
-                            raise ValueError(f"Region-targeted run for page {page.id} does not contain region ids.")
-                        for region_id in region_ids:
-                            region_points = page_xml_region_points(xml_bytes, region_id)
-                            crop = crop_target_image(
-                                image_bytes,
-                                region_points,
-                                source_size=page_image_size,
-                            )
-                            crop_path = work_dir / f"{safe_stem(region_id)}.png"
-                            crop_output_path = work_dir / f"{safe_stem(region_id)}.xml"
-                            crop_path.write_bytes(crop.content)
-                            await run_kraken(crop_path, crop_output_path)
-                            xml_bytes = merge_region_layout_xml(
-                                xml_bytes,
-                                crop_output_path.read_bytes(),
-                                region_id,
-                                crop.offset_x,
-                                crop.offset_y,
-                                crop.scale_x,
-                                crop.scale_y,
-                            )
+                    if action_input.target_selection and action_input.target_selection.type == "REGION":
+                        if not page.xml:
+                            raise ValueError(f"Page {page.id} does not expose PAGE XML for scoped region import.")
+                        xml_bytes = await ctx.download_bytes(page.xml[0])
+                        page_image_size = page_xml_image_size(xml_bytes)
+                        target_pages = [
+                            target_page
+                            for target_page in action_input.target_selection.pages
+                            if target_page.page_id == page.id
+                        ]
+                        for target_page in target_pages:
+                            region_ids = list(target_page.region_ids)
+                            if not region_ids:
+                                raise ValueError(f"Region-targeted run for page {page.id} does not contain region ids.")
+                            for region_id in region_ids:
+                                await ctx.check_cancelled()
+                                region_points = page_xml_region_points(xml_bytes, region_id)
+                                crop = crop_target_image(
+                                    image_bytes,
+                                    region_points,
+                                    source_size=page_image_size,
+                                )
+                                crop_path = work_dir / f"{safe_stem(region_id)}.png"
+                                crop_output_path = work_dir / f"{safe_stem(region_id)}.xml"
+                                crop_path.write_bytes(crop.content)
+                                await run_kraken(ctx, crop_path, crop_output_path)
+                                xml_bytes = merge_region_layout_xml(
+                                    xml_bytes,
+                                    crop_output_path.read_bytes(),
+                                    region_id,
+                                    crop.offset_x,
+                                    crop.offset_y,
+                                    crop.scale_x,
+                                    crop.scale_y,
+                                )
+                        results.add_xml_bytes(
+                            page_id=page.id,
+                            content=xml_bytes,
+                            file_name=f"{safe_stem(page.name or page.id)}.xml",
+                        )
+                        continue
+
+                    await run_kraken(ctx, image_path, output_path)
+
                     results.add_xml_bytes(
                         page_id=page.id,
-                        content=xml_bytes,
+                        content=output_path.read_bytes(),
                         file_name=f"{safe_stem(page.name or page.id)}.xml",
                     )
-                    continue
 
-                await run_kraken(image_path, output_path)
+                progress = int((index / total) * 95)
+                await ctx.heartbeat(progress, f"Finished segmentation for page {index}/{total}", raise_on_cancel=True)
 
-                results.add_xml_bytes(
-                    page_id=page.id,
-                    content=output_path.read_bytes(),
-                    file_name=f"{safe_stem(page.name or page.id)}.xml",
-                )
-
-            progress = int((index / total) * 95)
-            await ctx.heartbeat(progress, f"Finished segmentation for page {index}/{total}", raise_on_cancel=True)
-
-    await ctx.complete(results, result_message(results))
+        await ctx.complete(results, result_message(results))
+    except ActionCancelled:
+        raise
 
 
-async def run_kraken(image_path: Path, output_path: Path) -> None:
+async def run_kraken(ctx: ActionContext, image_path: Path, output_path: Path) -> None:
     command = [
         "kraken",
         "-x",
@@ -132,21 +137,18 @@ async def run_kraken(image_path: Path, output_path: Path) -> None:
     if SEGMENTATION_MODEL:
         command.extend(["-i", SEGMENTATION_MODEL])
 
-    process = await asyncio.create_subprocess_exec(
-        *command,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+    result = await ctx.run_subprocess(
+        command,
+        timeout=MAX_PROCESS_SECONDS,
+        terminate_grace_seconds=5.0,
+        capture_output=True,
     )
-    try:
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=MAX_PROCESS_SECONDS)
-    except asyncio.TimeoutError as exc:
-        process.kill()
-        await process.communicate()
-        raise TimeoutError(f"Kraken segmentation exceeded {MAX_PROCESS_SECONDS} seconds") from exc
 
-    if process.returncode != 0:
-        output = (stderr or stdout).decode("utf-8", errors="replace").strip()
-        raise RuntimeError(f"Kraken segmentation failed with exit code {process.returncode}: {output}")
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", errors="replace") if result.stderr else ""
+        stdout = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+        output = (stderr or stdout).strip()
+        raise RuntimeError(f"Kraken segmentation failed with exit code {result.returncode}: {output}")
 
     if not output_path.exists() or output_path.stat().st_size == 0:
         raise RuntimeError("Kraken segmentation did not produce PAGE XML output.")

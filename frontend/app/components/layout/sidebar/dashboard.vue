@@ -73,7 +73,8 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
   const workspaceChildren = withActive([
     { label: 'General', to: '/workspace/settings', icon: 'i-lucide-sliders-horizontal', exact: true, onSelect: () => { sidebarOpen.value = false } },
     { label: 'Members', to: '/workspace/settings/members', icon: 'i-lucide-users', onSelect: () => { sidebarOpen.value = false } },
-    { label: 'Requests', to: '/workspace/settings/requests', icon: 'i-lucide-git-pull-request', onSelect: () => { sidebarOpen.value = false } }
+    { label: 'Requests', to: '/workspace/settings/requests', icon: 'i-lucide-git-pull-request', onSelect: () => { sidebarOpen.value = false } },
+    { label: 'Queue', to: '/workspace/queue', icon: 'i-lucide-list-ordered', onSelect: () => { sidebarOpen.value = false } }
   ])
   const settingsChildren = withActive([
     { label: 'Profile', to: '/settings', icon: 'i-lucide-user', exact: true, onSelect: () => { sidebarOpen.value = false } },
@@ -105,6 +106,7 @@ const adminNavigation = computed<NavigationMenuItem[]>(() => {
     { label: 'Actuator', icon: 'i-lucide-heart-pulse', to: '/admin/actuator', active: isActive('/admin/actuator') },
     { label: 'Errors', icon: 'i-lucide-bug', to: '/admin/errors', active: isActive('/admin/errors') },
     { label: 'Actions', icon: 'i-lucide-circle-play', to: '/admin/actions', active: isActive('/admin/actions') },
+    { label: 'Action Runs', icon: 'i-lucide-list-ordered', to: '/admin/action-runs', active: isActive('/admin/action-runs') },
     { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index', active: isActive('/admin/search-index') },
     { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas', active: isActive('/admin/quotas') },
     { label: 'Data Management', icon: 'i-lucide-database', defaultOpen: hasActive(dataManagementChildren), type: 'trigger', children: dataManagementChildren },

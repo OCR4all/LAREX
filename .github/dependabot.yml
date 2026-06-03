@@ -34,6 +34,20 @@ updates:
         dependency-type: "development"
 
   - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    groups:
+      nuxt:
+        patterns:
+          - "@nuxt/*"
+          - "nuxt*"
+      dev-dependencies:
+        dependency-type: "development"
+
+  - package-ecosystem: "npm"
     directory: "/keycloak-theme"
     schedule:
       interval: "weekly"

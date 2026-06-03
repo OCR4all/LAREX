@@ -1,6 +1,6 @@
 {
   "name": "docs",
-  "packageManager": "pnpm@11.1.1",
+  "packageManager": "pnpm@11.1.2",
   "scripts": {
     "dev": "nuxt dev --extends docus",
     "build": "nuxt build --extends docus",

@@ -4,6 +4,8 @@ import de.uniwue.zpd.dachs.larex.backend.dto.PageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageXml;
 import de.uniwue.zpd.dachs.larex.backend.repository.page.PageConfidenceIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageLabelIndexRepository;
+import de.uniwue.zpd.dachs.larex.backend.repository.page.PageTextContentRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusReadService;
 import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageIndexStatusTracker;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,13 +29,24 @@ class PageIndexStatusReadServiceTest {
     @Mock
     private PageConfidenceIndexRepository pageConfidenceIndexRepository;
 
+    @Mock
+    private PageTextContentRepository pageTextContentRepository;
+
+    @Mock
+    private PageLabelIndexRepository pageLabelIndexRepository;
+
     private PageIndexStatusTracker tracker;
     private PageIndexStatusReadService service;
 
     @BeforeEach
     void setUp() {
         tracker = new PageIndexStatusTracker();
-        service = new PageIndexStatusReadService(pageConfidenceIndexRepository, tracker);
+        service = new PageIndexStatusReadService(
+                pageConfidenceIndexRepository,
+                pageTextContentRepository,
+                pageLabelIndexRepository,
+                tracker
+        );
     }
 
     @Test
@@ -46,6 +59,10 @@ class PageIndexStatusReadServiceTest {
         tracker.markIndexingIfAbsent(indexing.getId());
         when(pageConfidenceIndexRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
                 .thenReturn(List.of("p3", "p4"));
+        when(pageTextContentRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
+                .thenReturn(List.of());
+        when(pageLabelIndexRepository.findIndexedPageIdsByProjectIdAndPageIds("project-1", List.of("p1", "p2", "p3", "p4")))
+                .thenReturn(List.of());
 
         Map<String, PageDto.PageIndexingStatus> result = service.resolveStatusesForProjectPages(
                 "project-1",

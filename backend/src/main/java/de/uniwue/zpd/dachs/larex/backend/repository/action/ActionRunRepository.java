@@ -30,15 +30,30 @@ public interface ActionRunRepository extends JpaRepository<ActionRun, String> {
     @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByWorkspaceIdAndProjectIdOrderByCreatedDesc(String workspaceId, String projectId);
 
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByWorkspaceIdOrderByCreatedDesc(String workspaceId);
+
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findByWorkspaceIdAndStatusIn(String workspaceId, Collection<Status> statuses);
+
     List<ActionRun> findByWorkspaceIdAndProjectIdAndStatusIn(String workspaceId, String projectId, Collection<Status> statuses);
 
     @EntityGraph(attributePaths = {"processorDefinition"})
     List<ActionRun> findByProcessorDefinitionIdOrderByCreatedDesc(String processorDefinitionId);
 
+    @EntityGraph(attributePaths = {"processorDefinition"})
+    List<ActionRun> findAllByOrderByCreatedDesc();
+
     List<ActionRun> findByStatusIn(Collection<Status> statuses);
 
+    @Query("SELECT r.id FROM ActionRun r WHERE r.status = :status ORDER BY r.created ASC")
+    List<String> findIdsByStatusOrderByCreatedAsc(@Param("status") Status status);
+
     @EntityGraph(attributePaths = {"processorDefinition"})
-    List<ActionRun> findByStatusOrderByCreatedAsc(Status status);
+    List<ActionRun> findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(String processorDefinitionId, Status status);
+
+    @Query(value = "SELECT id FROM action_runs WHERE id = :runId AND status = 'QUEUED' FOR UPDATE SKIP LOCKED", nativeQuery = true)
+    Optional<String> claimQueuedRunId(@Param("runId") String runId);
 
     List<ActionRun> findByProcessorDefinitionIdAndStatusIn(String processorDefinitionId, Collection<Status> statuses);
 

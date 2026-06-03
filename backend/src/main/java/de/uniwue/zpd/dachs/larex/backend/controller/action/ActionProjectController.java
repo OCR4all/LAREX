@@ -97,6 +97,20 @@ public class ActionProjectController {
         return ResponseEntity.ok(actionRunService.listRuns(workspaceId, projectId, userId));
     }
 
+    @GetMapping("/runs")
+    public ResponseEntity<List<ActionDto.RunResponse>> listWorkspaceRuns(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.listWorkspaceRuns(workspaceId, userId));
+    }
+
+    @PostMapping("/runs/history/dismiss")
+    public ResponseEntity<ActionDto.ClearRunsResponse> dismissWorkspaceRunHistory(
+            @PathVariable String workspaceId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.dismissWorkspaceRunHistory(workspaceId, userId));
+    }
+
     @DeleteMapping("/projects/{projectId}/runs/history")
     public ResponseEntity<ActionDto.ClearRunsResponse> clearRunHistory(
             @PathVariable String workspaceId,
@@ -120,6 +134,14 @@ public class ActionProjectController {
             @PathVariable String runId,
             @AuthenticationPrincipal(expression = "subject") String userId) {
         return ResponseEntity.ok(actionRunService.getRunDetail(workspaceId, projectId, runId, userId));
+    }
+
+    @GetMapping("/runs/{runId}")
+    public ResponseEntity<ActionDto.RunDetailResponse> getWorkspaceRun(
+            @PathVariable String workspaceId,
+            @PathVariable String runId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.getWorkspaceRunDetail(workspaceId, runId, userId));
     }
 
     @PostMapping("/projects/{projectId}/runs/{runId}/retry")

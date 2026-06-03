@@ -88,6 +88,13 @@ const groups = computed(() => {
       to: '/admin/actions',
       onSelect: () => { open.value = false }
     }, {
+      id: 'go-admin-action-runs',
+      label: 'Go to Action Runs',
+      icon: 'i-lucide-list-ordered',
+      suffix: 'Inspect queued, active, and finished Action runs',
+      to: '/admin/action-runs',
+      onSelect: () => { open.value = false }
+    }, {
       id: 'open-notifications',
       label: 'Open Notifications',
       icon: 'i-lucide-bell',
@@ -209,6 +216,13 @@ const groups = computed(() => {
       icon: 'i-lucide-bug',
       suffix: 'Inspect captured API errors',
       to: '/admin/errors',
+      onSelect: () => { open.value = false }
+    }, {
+      id: 'go-admin-action-runs-nav',
+      label: 'Go to Action Runs',
+      icon: 'i-lucide-list-ordered',
+      suffix: 'Inspect Action queues and history',
+      to: '/admin/action-runs',
       onSelect: () => { open.value = false }
     }, {
       id: 'go-admin-storage',

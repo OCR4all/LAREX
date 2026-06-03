@@ -15,6 +15,7 @@ import {
   type ActionWorkspaceAvailability,
   type AdminActionRun,
   type ClearActionRunsResponse,
+  type BulkCancelActionRunsResponse,
   type ActionHealthCheckResponse,
   type ActionAuditEvent
 } from '@/types/action'
@@ -28,6 +29,7 @@ type AdminWorkspace = {
   name: string
 }
 
+const route = useRoute()
 const toast = useToast()
 const colorMode = useColorMode()
 const overlay = useOverlay()
@@ -54,6 +56,7 @@ const loadingAvailability = ref(false)
 const assigningAvailability = ref(false)
 const loadingRuns = ref(false)
 const clearingRuns = ref(false)
+const bulkCancellingRuns = ref(false)
 const loadingAudit = ref(false)
 const testingEndpoint = ref(false)
 const diagnostics = ref<ActionValidationDiagnostic[]>([])
@@ -67,8 +70,8 @@ const isRunsPanelVisible = ref(false)
 const isAuditPanelVisible = ref(false)
 const runs = ref<AdminActionRun[]>([])
 const auditEvents = ref<ActionAuditEvent[]>([])
-const expandedRunIds = ref<string[]>([])
 const expandedAuditEventIds = ref<string[]>([])
+const cancellingRunIds = ref<Set<string>>(new Set())
 
 let editorView: EditorView | null = null
 const themeCompartment = new Compartment()
@@ -98,19 +101,37 @@ const filteredDefinitions = computed(() => {
     || (definition.description ?? '').toLowerCase().includes(needle)
   )
 })
+const recentRuns = computed(() => runs.value.slice(0, 8))
+const queuedRuns = computed(() => runs.value
+  .filter(run => run.status === 'QUEUED')
+  .sort((left, right) => {
+    const leftPosition = left.queuePosition ?? Number.MAX_SAFE_INTEGER
+    const rightPosition = right.queuePosition ?? Number.MAX_SAFE_INTEGER
+    if (leftPosition !== rightPosition) return leftPosition - rightPosition
+    return Date.parse(left.created) - Date.parse(right.created)
+  }))
 const terminalRuns = computed(() => runs.value.filter(run => isTerminalRun(run.status)))
-const activeRuns = computed(() => runs.value.filter(run => !isTerminalRun(run.status)))
+const activeRuns = computed(() => runs.value.filter(run => !isTerminalRun(run.status) && run.status !== 'QUEUED'))
+const hasInterruptibleRuns = computed(() => queuedRuns.value.length + activeRuns.value.length > 0)
 const runPanelSummary = computed(() => {
   if (runs.value.length === 0) return 'No runs recorded for this Action.'
-  return `${activeRuns.value.length} active, ${terminalRuns.value.length} completed`
+  const parts = []
+  if (queuedRuns.value.length > 0) {
+    parts.push(`${queuedRuns.value.length} queued`)
+  }
+  parts.push(`${activeRuns.value.length} active`)
+  parts.push(`${terminalRuns.value.length} history`)
+  return parts.join(', ')
 })
 
 onMounted(() => {
-  const firstDefinition = definitions.value[0]
-  if (firstDefinition) {
-    selectDefinition(firstDefinition)
-  } else {
-    createNewDefinition()
+  if (!syncDefinitionSelectionFromRoute()) {
+    const firstDefinition = definitions.value[0]
+    if (firstDefinition) {
+      selectDefinition(firstDefinition)
+    } else {
+      createNewDefinition()
+    }
   }
 })
 
@@ -121,6 +142,9 @@ watch(() => colorMode.value, () => {
 })
 
 watch(definitions, (items) => {
+  if (syncDefinitionSelectionFromRoute(items)) {
+    return
+  }
   if (isDraftSelected.value || selectedPersistedDefinition.value) {
     return
   }
@@ -128,6 +152,12 @@ watch(definitions, (items) => {
   if (firstDefinition) {
     selectDefinition(firstDefinition)
   }
+})
+
+watch(() => route.query.definitionId, () => {
+  void nextTick(() => {
+    syncDefinitionSelectionFromRoute()
+  })
 })
 
 watch(selectedId, async () => {
@@ -200,9 +230,19 @@ function selectDefinition(definition: ActionDefinitionResponse) {
   initialYaml.value = definition.yaml
   validation.value = null
   diagnostics.value = []
-  expandedRunIds.value = []
   expandedAuditEventIds.value = []
   void nextTick(() => replaceEditorContent(definition.yaml))
+}
+
+function syncDefinitionSelectionFromRoute(items: ActionDefinitionResponse[] = definitions.value) {
+  const requestedDefinitionId = typeof route.query.definitionId === 'string'
+    ? route.query.definitionId
+    : null
+  if (!requestedDefinitionId) return false
+  const requestedDefinition = items.find(definition => definition.id === requestedDefinitionId)
+  if (!requestedDefinition || selectedId.value === requestedDefinition.id) return false
+  selectDefinition(requestedDefinition)
+  return true
 }
 
 function createNewDefinition() {
@@ -237,7 +277,6 @@ function createNewDefinition() {
   workspaceAvailability.value = []
   runs.value = []
   auditEvents.value = []
-  expandedRunIds.value = []
   expandedAuditEventIds.value = []
   void nextTick(() => replaceEditorContent(yaml))
 }
@@ -512,7 +551,6 @@ function discardDraft() {
   workspaceAvailability.value = []
   runs.value = []
   auditEvents.value = []
-  expandedRunIds.value = []
   expandedAuditEventIds.value = []
   void nextTick(() => replaceEditorContent(DEFAULT_ACTION_YAML))
 }
@@ -587,6 +625,66 @@ async function clearTerminalRuns() {
   }
 }
 
+function isCancellingRun(runId: string) {
+  return cancellingRunIds.value.has(runId)
+}
+
+function setCancellingRun(runId: string, value: boolean) {
+  const next = new Set(cancellingRunIds.value)
+  if (value) {
+    next.add(runId)
+  } else {
+    next.delete(runId)
+  }
+  cancellingRunIds.value = next
+}
+
+function canCancelAdminRun(run: AdminActionRun) {
+  return run.canCancel && !isTerminalRun(run.status)
+}
+
+async function cancelAdminRun(run: AdminActionRun) {
+  if (!canCancelAdminRun(run) || isCancellingRun(run.id)) return
+  setCancellingRun(run.id, true)
+  try {
+    await $fetch(`/api/workspaces/${run.workspaceId}/actions/projects/${run.projectId}/runs/${run.id}/cancel`, {
+      method: 'POST'
+    })
+    await loadRuns()
+    toast.add({
+      title: run.status === 'QUEUED' || run.status === 'PENDING' ? 'Run cancelled' : 'Cancellation requested',
+      color: 'success',
+      icon: 'i-lucide-ban'
+    })
+  } catch (error: unknown) {
+    const message = extractApiErrorMessage(error, 'Could not cancel Action run.')
+    toast.add({ title: 'Cancel failed', description: message, color: 'error' })
+  } finally {
+    setCancellingRun(run.id, false)
+  }
+}
+
+async function cancelActiveRuns() {
+  if (!selectedPersistedDefinition.value || (queuedRuns.value.length + activeRuns.value.length) === 0) return
+  bulkCancellingRuns.value = true
+  try {
+    const result = await $fetch<BulkCancelActionRunsResponse>(`/api/admin/actions/processors/${selectedPersistedDefinition.value.id}/runs/cancel-active`, {
+      method: 'POST'
+    })
+    await loadRuns()
+    toast.add({
+      title: `Requested cancellation for ${result.cancelledCount} run${result.cancelledCount === 1 ? '' : 's'}`,
+      color: 'success',
+      icon: 'i-lucide-ban'
+    })
+  } catch (error: unknown) {
+    const message = extractApiErrorMessage(error, 'Could not cancel active Action runs.')
+    toast.add({ title: 'Bulk cancel failed', description: message, color: 'error' })
+  } finally {
+    bulkCancellingRuns.value = false
+  }
+}
+
 async function testSelectedEndpoint() {
   if (!selectedPersistedDefinition.value) return
   testingEndpoint.value = true
@@ -636,16 +734,6 @@ function toggleFindReplacePanel() {
   }
 }
 
-function toggleRunExpanded(runId: string) {
-  expandedRunIds.value = expandedRunIds.value.includes(runId)
-    ? expandedRunIds.value.filter(id => id !== runId)
-    : [...expandedRunIds.value, runId]
-}
-
-function isRunExpanded(runId: string) {
-  return expandedRunIds.value.includes(runId)
-}
-
 function toggleAuditEventExpanded(eventId: string) {
   expandedAuditEventIds.value = expandedAuditEventIds.value.includes(eventId)
     ? expandedAuditEventIds.value.filter(id => id !== eventId)
@@ -685,6 +773,21 @@ function runStatusTextClass(status: AdminActionRun['status']) {
   return 'text-primary'
 }
 
+function runPrimaryLabel(run: AdminActionRun) {
+  if (run.status === 'QUEUED' && run.queuePosition) {
+    return `Queued · position ${run.queuePosition}`
+  }
+  return run.statusMessage || run.status
+}
+
+function runSecondaryLabel(run: AdminActionRun) {
+  const base = `${run.projectLabel} · ${run.pageCount} page${run.pageCount === 1 ? '' : 's'}`
+  if (run.status === 'QUEUED' && run.queuePosition) {
+    return `${base} · Queue position ${run.queuePosition}`
+  }
+  return base
+}
+
 function formatDate(value: string | null) {
   if (!value) return 'Never'
   return new Intl.DateTimeFormat(undefined, {
@@ -701,12 +804,6 @@ function formatDuration(seconds: number | null) {
   const minutes = Math.floor(seconds / 60)
   const remainder = seconds % 60
   return `${minutes}m ${remainder}s`
-}
-
-function formatResultSummary(value: unknown) {
-  if (value === null || value === undefined) return 'No result summary.'
-  if (typeof value === 'string') return value
-  return JSON.stringify(value, null, 2)
 }
 
 function formatAuditAction(action: string) {
@@ -739,15 +836,6 @@ function formatAuditDetails(details: unknown) {
   if (details === null || details === undefined) return 'No details recorded.'
   if (typeof details === 'string') return details
   return JSON.stringify(details, null, 2)
-}
-
-function formatRunLogs(run: AdminActionRun) {
-  if (run.logEvents?.length) {
-    return run.logEvents
-      .map(event => `[${formatDate(event.created)}] ${event.level}: ${event.message}`)
-      .join('\n')
-  }
-  return run.logText || 'No logs recorded.'
 }
 
 function applyDiagnostics(items: ActionValidationDiagnostic[]) {
@@ -787,10 +875,22 @@ function lineColumnToOffset(source: string, line: number, column: number) {
           <UButton icon="i-lucide-plus" @click="createNewDefinition">
             New Action
           </UButton>
-          <UButton color="neutral" variant="outline" icon="i-lucide-upload" :disabled="saving" @click="openUpload">
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-upload"
+            :disabled="saving"
+            @click="openUpload"
+          >
             Upload YAML
           </UButton>
-          <input ref="fileInput" type="file" accept=".yaml,.yml,text/yaml" class="hidden" @change="uploadYaml">
+          <input
+            ref="fileInput"
+            type="file"
+            accept=".yaml,.yml,text/yaml"
+            class="hidden"
+            @change="uploadYaml"
+          >
         </template>
       </UDashboardNavbar>
 
@@ -942,7 +1042,13 @@ function lineColumnToOffset(source: string, line: number, column: number) {
               </div>
             </template>
           </UPopover>
-          <UButton color="primary" icon="i-lucide-save" :loading="saving" :disabled="!isDraftSelected && !isDirty && !!selectedDefinition" @click="saveDefinition">
+          <UButton
+            color="primary"
+            icon="i-lucide-save"
+            :loading="saving"
+            :disabled="!isDraftSelected && !isDirty && !!selectedDefinition"
+            @click="saveDefinition"
+          >
             Save
           </UButton>
           <UButton
@@ -1000,7 +1106,12 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                 YAML v1
               </UBadge>
             </div>
-            <UInput v-model="workflowFilter" icon="i-lucide-search" size="sm" placeholder="Filter Actions" />
+            <UInput
+              v-model="workflowFilter"
+              icon="i-lucide-search"
+              size="sm"
+              placeholder="Filter Actions"
+            />
           </div>
 
           <div class="p-2">
@@ -1021,10 +1132,20 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                 <span class="block truncate font-medium">{{ definition.name }}</span>
                 <span class="block truncate text-xs text-muted">{{ definition.processorKey }}</span>
               </span>
-              <UBadge v-if="definition.global" size="sm" variant="soft" color="primary">
+              <UBadge
+                v-if="definition.global"
+                size="sm"
+                variant="soft"
+                color="primary"
+              >
                 Global
               </UBadge>
-              <UBadge v-if="draftDefinition?.id === definition.id" size="sm" variant="soft" color="warning">
+              <UBadge
+                v-if="draftDefinition?.id === definition.id"
+                size="sm"
+                variant="soft"
+                color="warning"
+              >
                 Draft
               </UBadge>
             </button>
@@ -1064,10 +1185,23 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                     </p>
                   </div>
                   <div class="flex items-center gap-2">
-                    <UButton color="neutral" variant="ghost" size="sm" icon="i-lucide-search" @click="toggleFindReplacePanel">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      icon="i-lucide-search"
+                      @click="toggleFindReplacePanel"
+                    >
                       Find
                     </UButton>
-                    <UButton color="neutral" variant="outline" size="sm" icon="i-lucide-badge-check" :loading="validating" @click="validateYaml">
+                    <UButton
+                      color="neutral"
+                      variant="outline"
+                      size="sm"
+                      icon="i-lucide-badge-check"
+                      :loading="validating"
+                      @click="validateYaml"
+                    >
                       Validate
                     </UButton>
                   </div>
@@ -1101,7 +1235,6 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                   </li>
                 </ul>
               </section>
-
             </div>
           </div>
         </section>
@@ -1120,11 +1253,46 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                   {{ runPanelSummary }}
                 </p>
               </div>
-              <UButton color="neutral" variant="ghost" icon="i-lucide-x" size="sm" @click="isRunsPanelVisible = false" />
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-x"
+                size="sm"
+                @click="isRunsPanelVisible = false"
+              />
             </div>
-            <div class="flex gap-2">
-              <UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" size="sm" :loading="loadingRuns" @click="loadRuns">
+            <UFieldGroup class="w-full">
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-refresh-cw"
+                size="sm"
+                :loading="loadingRuns"
+                @click="loadRuns"
+              >
                 Refresh
+              </UButton>
+              <UButton
+                color="neutral"
+                variant="outline"
+                icon="i-lucide-table-properties"
+                size="sm"
+                :to="selectedPersistedDefinition ? `/admin/action-runs?definitionId=${selectedPersistedDefinition.id}` : '/admin/action-runs'"
+              >
+                Open Full Table
+              </UButton>
+            </UFieldGroup>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <UButton
+                color="warning"
+                variant="outline"
+                icon="i-lucide-ban"
+                size="sm"
+                :loading="bulkCancellingRuns"
+                :disabled="!hasInterruptibleRuns"
+                @click="cancelActiveRuns"
+              >
+                Cancel active jobs
               </UButton>
               <UButton
                 color="neutral"
@@ -1148,46 +1316,76 @@ function lineColumnToOffset(source: string, line: number, column: number) {
             <div v-else-if="runs.length === 0" class="rounded-sm border border-default p-3 text-sm text-muted">
               No runs recorded for this Action.
             </div>
-            <div v-else class="divide-y divide-default rounded-sm border border-default bg-default">
-              <div v-for="run in runs" :key="run.id" class="p-3">
-                <button type="button" class="flex w-full items-start gap-3 text-left" @click="toggleRunExpanded(run.id)">
-                  <UIcon :name="statusIcon(run.status)" class="mt-0.5 size-4 shrink-0" :class="runStatusTextClass(run.status)" />
-                  <span class="min-w-0 flex-1">
-                    <span class="flex items-center justify-between gap-2">
-                      <span class="truncate text-sm font-medium">{{ run.statusMessage || run.status }}</span>
-                      <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
-                        {{ run.progressPercent }}%
-                      </UBadge>
-                    </span>
-                    <span class="mt-1 block truncate text-xs text-muted">
-                      {{ run.projectLabel }} · {{ run.pageCount }} page{{ run.pageCount === 1 ? '' : 's' }}
-                    </span>
-                    <span class="mt-1 block text-xs text-muted">
-                      {{ formatDate(run.created) }} · {{ formatDuration(run.durationSeconds) }}
-                    </span>
-                  </span>
-                  <UIcon :name="isRunExpanded(run.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'" class="mt-0.5 size-4 shrink-0 text-muted" />
-                </button>
-
-                <div v-if="isRunExpanded(run.id)" class="mt-3 space-y-3 border-t border-default pt-3">
-                  <UProgress :model-value="run.progressPercent" :color="statusColor(run.status)" />
-                  <p v-if="run.errorMessage" class="text-sm text-error">
-                    {{ run.errorMessage }}
+            <div v-else class="space-y-4">
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="rounded-sm border border-default bg-default p-3">
+                  <p class="text-xs uppercase tracking-wide text-muted">
+                    Queued
                   </p>
-                  <div>
-                    <p class="mb-1 text-xs font-medium text-muted">
-                      Result Summary
-                    </p>
-                    <pre class="max-h-40 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatResultSummary(run.resultSummary) }}</pre>
-                  </div>
-                  <div>
-                    <p class="mb-1 text-xs font-medium text-muted">
-                      Logs
-                    </p>
-                    <pre class="max-h-56 overflow-auto rounded-sm bg-elevated p-2 text-xs">{{ formatRunLogs(run) }}</pre>
-                  </div>
+                  <p class="mt-2 text-lg font-semibold text-warning">
+                    {{ queuedRuns.length }}
+                  </p>
+                </div>
+                <div class="rounded-sm border border-default bg-default p-3">
+                  <p class="text-xs uppercase tracking-wide text-muted">
+                    Active
+                  </p>
+                  <p class="mt-2 text-lg font-semibold text-primary">
+                    {{ activeRuns.length }}
+                  </p>
+                </div>
+                <div class="rounded-sm border border-default bg-default p-3">
+                  <p class="text-xs uppercase tracking-wide text-muted">
+                    History
+                  </p>
+                  <p class="mt-2 text-lg font-semibold text-muted">
+                    {{ terminalRuns.length }}
+                  </p>
                 </div>
               </div>
+
+              <section class="rounded-sm border border-default bg-default">
+                <div class="border-b border-default px-3 py-2">
+                  <p class="text-sm font-medium">
+                    Recent Runs
+                  </p>
+                </div>
+                <div class="divide-y divide-default">
+                  <div v-for="run in recentRuns" :key="run.id" class="flex items-start gap-3 p-3">
+                    <UIcon
+                      :name="statusIcon(run.status)"
+                      class="mt-0.5 size-4 shrink-0"
+                      :class="runStatusTextClass(run.status)"
+                    />
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <p class="truncate text-sm font-medium">
+                          {{ runPrimaryLabel(run) }}
+                        </p>
+                        <UBadge size="sm" variant="soft" :color="statusColor(run.status)">
+                          {{ run.progressPercent }}%
+                        </UBadge>
+                      </div>
+                      <p class="mt-1 truncate text-xs text-muted">
+                        {{ runSecondaryLabel(run) }}
+                      </p>
+                      <p class="mt-1 text-xs text-muted">
+                        {{ formatDate(run.created) }} · {{ formatDuration(run.durationSeconds) }}
+                      </p>
+                    </div>
+                    <UButton
+                      v-if="canCancelAdminRun(run)"
+                      color="warning"
+                      variant="ghost"
+                      icon="i-lucide-ban"
+                      size="sm"
+                      :loading="isCancellingRun(run.id)"
+                      aria-label="Cancel Action run"
+                      @click="cancelAdminRun(run)"
+                    />
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </aside>
@@ -1206,9 +1404,22 @@ function lineColumnToOffset(source: string, line: number, column: number) {
                   Last {{ auditEvents.length }} event{{ auditEvents.length === 1 ? '' : 's' }} for this Action
                 </p>
               </div>
-              <UButton color="neutral" variant="ghost" icon="i-lucide-x" size="sm" @click="isAuditPanelVisible = false" />
+              <UButton
+                color="neutral"
+                variant="ghost"
+                icon="i-lucide-x"
+                size="sm"
+                @click="isAuditPanelVisible = false"
+              />
             </div>
-            <UButton color="neutral" variant="outline" icon="i-lucide-refresh-cw" size="sm" :loading="loadingAudit" @click="loadAuditEvents">
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-refresh-cw"
+              size="sm"
+              :loading="loadingAudit"
+              @click="loadAuditEvents"
+            >
               Refresh
             </UButton>
           </div>

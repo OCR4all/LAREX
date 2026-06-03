@@ -93,7 +93,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 
@@ -143,7 +142,6 @@ public class ActionRunService {
     private final ActionProperties actionProperties;
     private final HttpClient httpClient;
     private final TransactionTemplate transactionTemplate;
-    private final ReentrantLock queuedDispatchLock = new ReentrantLock();
 
     public ActionRunService(ActionProcessorDefinitionRepository definitionRepository,
                             ActionProcessorAssignmentRepository assignmentRepository,
@@ -414,27 +412,57 @@ public class ActionRunService {
         } else {
             dispatchQueuedRunsAfterCommit();
         }
-        return new ActionDto.StartRunResponse(toRunResponse(savedRun));
+        return new ActionDto.StartRunResponse(toRunResponse(savedRun, project.getName(), userId));
     }
 
     @Transactional(readOnly = true)
     public List<ActionDto.RunResponse> listRuns(String workspaceId, String projectId, String userId) {
-        requireProject(workspaceId, projectId);
+        Project project = requireProject(workspaceId, projectId);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         List<ActionRun> runs = runRepository.findByWorkspaceIdAndProjectIdOrderByCreatedDesc(workspaceId, projectId);
         Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
+        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
         return runs.stream()
                 .filter(run -> !dismissedRunIds.contains(run.getId()))
-                .map(this::toRunResponse)
+                .map(run -> toRunResponse(run, project.getName(), userId, queuePositions))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.RunResponse> listWorkspaceRuns(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        List<ActionRun> runs = runRepository.findByWorkspaceIdOrderByCreatedDesc(workspaceId);
+        Set<String> dismissedRunIds = dismissedTerminalRunIds(userId, runs);
+        Map<String, String> projectLabels = projectLabelsById(workspaceId);
+        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
+        return runs.stream()
+                .filter(run -> !dismissedRunIds.contains(run.getId()))
+                .map(run -> toRunResponse(
+                        run,
+                        projectLabels.getOrDefault(run.getProjectId(), run.getProjectId()),
+                        userId,
+                        queuePositions
+                ))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public ActionDto.RunDetailResponse getRunDetail(String workspaceId, String projectId, String runId, String userId) {
-        requireProject(workspaceId, projectId);
+        Project project = requireProject(workspaceId, projectId);
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
         ActionRun run = requireRun(workspaceId, projectId, runId);
-        return toRunDetailResponse(run);
+        return toRunDetailResponse(run, project.getName(), userId);
+    }
+
+    @Transactional(readOnly = true)
+    public ActionDto.RunDetailResponse getWorkspaceRunDetail(String workspaceId, String runId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
+                .orElseThrow(() -> new IllegalArgumentException("Action run not found"));
+        if (!workspaceId.equals(run.getWorkspaceId())) {
+            throw new IllegalArgumentException("Action run not found");
+        }
+        return toRunDetailResponse(run, resolveProjectLabel(run.getProjectId()), userId);
     }
 
     public ActionDto.StartRunResponse retryRun(String workspaceId,
@@ -494,9 +522,35 @@ public class ActionRunService {
     public List<ActionDto.AdminRunResponse> listAdminRuns(String definitionId) {
         requireGlobalAdmin();
         requireDefinition(definitionId);
-        return runRepository.findByProcessorDefinitionIdOrderByCreatedDesc(definitionId).stream()
-                .map(this::toAdminRunResponse)
+        List<ActionRun> runs = runRepository.findByProcessorDefinitionIdOrderByCreatedDesc(definitionId);
+        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
+        return runs.stream()
+                .map(run -> toAdminRunResponse(run, queuePositions))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActionDto.AdminRunResponse> listAllAdminRuns() {
+        requireGlobalAdmin();
+        List<ActionRun> runs = runRepository.findAllByOrderByCreatedDesc();
+        Map<String, Integer> queuePositions = queuePositionsByRunId(runs);
+        return runs.stream()
+                .map(run -> toAdminRunResponse(run, queuePositions))
+                .toList();
+    }
+
+    public ActionDto.BulkCancelRunsResponse cancelActiveAdminRuns(String definitionId, String userId) {
+        requireGlobalAdmin();
+        requireDefinition(definitionId);
+        List<ActionRun> runs = runRepository.findByProcessorDefinitionIdAndStatusIn(definitionId, cancelableStatuses());
+        int cancelledCount = 0;
+        for (ActionRun run : runs) {
+            ActionDto.RunResponse result = cancelRun(run.getWorkspaceId(), run.getProjectId(), run.getId(), userId);
+            if (result.status() == Status.CANCELLED || result.status() == Status.CANCEL_REQUESTED) {
+                cancelledCount += 1;
+            }
+        }
+        return new ActionDto.BulkCancelRunsResponse(cancelledCount);
     }
 
     @Transactional(readOnly = true)
@@ -554,37 +608,29 @@ public class ActionRunService {
         return new ActionDto.ClearRunsResponse(dismissed);
     }
 
+    public ActionDto.ClearRunsResponse dismissWorkspaceRunHistory(String workspaceId, String userId) {
+        workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
+        List<ActionRun> terminalRuns = runRepository.findByWorkspaceIdAndStatusIn(workspaceId, terminalStatuses());
+        int dismissed = dismissRuns(terminalRuns, userId);
+        return new ActionDto.ClearRunsResponse(dismissed);
+    }
+
     @Scheduled(fixedDelayString = "${larex.actions.watchdog-interval-ms:60000}")
     public void reconcileStaleRuns() {
         LocalDateTime now = LocalDateTime.now();
         expireDispatchingRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getDispatchMinutes())));
         expireHeartbeatRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes())));
+        expireCancellationRuns(now.minusMinutes(Math.max(1, actionProperties.getTimeout().getHeartbeatMinutes())));
         pruneTerminalRuns(now.minusDays(Math.max(1, actionProperties.getRetention().getTerminalDays())));
         dispatchQueuedRunsAsync();
     }
 
     public ActionDto.RunResponse cancelRun(String workspaceId, String projectId, String runId, String userId) {
         requireProject(workspaceId, projectId);
-        workspaceAccessService.requireManageProjectsAccess(workspaceId, userId);
         ActionRun run = requireRun(workspaceId, projectId, runId);
-        run.setCancelRequested(true);
-        if (run.getStatus() == Status.QUEUED
-                || run.getStatus() == Status.PENDING
-                || run.getStatus() == Status.DISPATCHING
-                || run.getStatus() == Status.RUNNING
-                || run.getStatus() == Status.IMPORTING_RESULTS
-                || run.getStatus() == Status.CANCEL_REQUESTED) {
-            run.setStatus(Status.CANCELLED);
-            run.setStatusMessage("Cancelled");
-            run.setCompletedAt(LocalDateTime.now());
-            expireRunSecret(run);
-        }
-        releaseLocks(run);
-        ActionRun saved = runRepository.save(run);
-        actionAuditService.record("ACTION_RUN_CANCEL", "SUCCESS", userId, run.getProcessorDefinition().getId(), run.getId(),
-                workspaceId, projectId, Map.of("status", saved.getStatus().name()));
-        dispatchQueuedRunsAfterCommit();
-        return toRunResponse(saved);
+        requireCancelAccess(workspaceId, run, userId);
+        ActionRun saved = cancelRunInternal(run, userId, "ACTION_RUN_CANCEL");
+        return toRunResponse(saved, resolveProjectLabel(saved.getProjectId()), userId);
     }
 
     @Transactional(readOnly = true)
@@ -679,6 +725,18 @@ public class ActionRunService {
             run.setStatusMessage(limit(redactProcessorSecrets(request.statusMessage()), 2000));
         }
         appendLog(run, request.logLevel(), request.log());
+        if ("cancelled".equalsIgnoreCase(request.status())) {
+            run.setProgressPercent(Math.max(run.getProgressPercent(), request.progressPercent() == null ? run.getProgressPercent() : request.progressPercent()));
+            run.setStatusMessage(limit(redactProcessorSecrets(
+                    request.statusMessage() == null || request.statusMessage().isBlank() ? "Cancelled" : request.statusMessage()
+            ), 2000));
+            finalizeCancelledRun(run, run.getStatusMessage());
+            runRepository.save(run);
+            actionAuditService.record("ACTION_RUN_HEARTBEAT_CANCELLED", "SUCCESS", run.getCreatedByUserId(),
+                    run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of());
+            dispatchQueuedRunsAfterCommit();
+            return new ActionDto.HeartbeatResponse(true);
+        }
         if ("failed".equalsIgnoreCase(request.status())) {
             run.setStatus(Status.FAILED);
             run.setErrorMessage(limit(redactProcessorSecrets(request.errorMessage()), 4000));
@@ -1242,19 +1300,12 @@ public class ActionRunService {
 
     private void dispatchQueuedRunsAsync() {
         importTaskExecutor.execute(() -> {
-            if (!queuedDispatchLock.tryLock()) {
-                return;
-            }
-            try {
-                for (ActionRun queuedRun : runRepository.findByStatusOrderByCreatedAsc(Status.QUEUED)) {
-                    try {
-                        tryActivateQueuedRun(queuedRun.getId());
-                    } catch (RuntimeException error) {
-                        log.warn("Failed to promote queued LAREX Action run {}: {}", queuedRun.getId(), describeException(error), error);
-                    }
+            for (String runId : runRepository.findIdsByStatusOrderByCreatedAsc(Status.QUEUED)) {
+                try {
+                    tryActivateQueuedRun(runId);
+                } catch (RuntimeException error) {
+                    log.warn("Failed to promote queued LAREX Action run {}: {}", runId, describeException(error), error);
                 }
-            } finally {
-                queuedDispatchLock.unlock();
             }
         });
     }
@@ -1274,6 +1325,10 @@ public class ActionRunService {
 
     private void tryActivateQueuedRun(String runId) {
         transactionTemplate.executeWithoutResult(status -> {
+            if (runRepository.claimQueuedRunId(runId).isEmpty()) {
+                return;
+            }
+
             ActionRun run = runRepository.findWithProcessorDefinitionByIdForUpdate(runId).orElse(null);
             if (run == null || run.getStatus() != Status.QUEUED) {
                 return;
@@ -1282,9 +1337,13 @@ public class ActionRunService {
                 return;
             }
 
+            ActionProcessorDefinition definition = definitionRepository.findByIdForUpdate(run.getProcessorDefinition().getId())
+                    .orElseThrow(() -> new IllegalStateException("Action processor definition not found"));
+            run.setProcessorDefinition(definition);
+
             Project project = requireProjectForUpdate(run.getWorkspaceId(), run.getProjectId());
             List<Page> pages = resolveRunPagesForUpdate(run.getProjectId(), readPageIds(run));
-            ConcurrencyDecision concurrency = evaluateConcurrency(run.getProcessorDefinition(), run.getWorkspaceId(), run.getProjectId());
+            ConcurrencyDecision concurrency = evaluateConcurrency(definition, run.getWorkspaceId(), run.getProjectId());
             if (!concurrency.available() || hasBlockingLocks(project, pages)) {
                 return;
             }
@@ -1307,7 +1366,7 @@ public class ActionRunService {
             applyLocks(project, pages, run);
             ActionRun savedRun = runRepository.saveAndFlush(run);
             actionAuditService.record("ACTION_RUN_QUEUE_DEQUEUED", "SUCCESS", run.getCreatedByUserId(),
-                    run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
+                    definition.getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(),
                     Map.of("pageCount", pages.size()));
             dispatchAfterCommit(savedRun.getId(), rawSecret, savedRun.getPublicApiBaseUrl());
         });
@@ -1349,8 +1408,13 @@ public class ActionRunService {
     private void dispatch(String runId, String rawSecret, String publicApiBaseUrl, int attempt, int attempts) throws IOException, InterruptedException {
         ActionRun run = runRepository.findWithProcessorDefinitionById(runId)
                 .orElseThrow(() -> new IllegalStateException("Action run not found"));
-        if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED) {
-            releaseLocks(run);
+        if (run.getStatus() == Status.CANCELLED) {
+            dispatchQueuedRunsAsync();
+            return;
+        }
+        if (run.isCancelRequested() || run.getStatus() == Status.CANCEL_REQUESTED) {
+            finalizeCancelledRun(run, "Cancelled");
+            runRepository.save(run);
             dispatchQueuedRunsAsync();
             return;
         }
@@ -1406,9 +1470,14 @@ public class ActionRunService {
         }
 
         run = runRepository.findById(runId).orElseThrow();
-        if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED) {
-            releaseLocks(run);
+        if (run.getStatus() == Status.CANCELLED) {
             dispatchQueuedRunsAsync();
+            return;
+        }
+        if (run.isCancelRequested() || run.getStatus() == Status.CANCEL_REQUESTED) {
+            run.setStatus(Status.CANCEL_REQUESTED);
+            run.setStatusMessage("Cancellation requested");
+            runRepository.save(run);
             return;
         }
         run.setStatus(Status.RUNNING);
@@ -1424,8 +1493,13 @@ public class ActionRunService {
         if (run == null) {
             return;
         }
-        if (run.isCancelRequested() || run.getStatus() == Status.CANCELLED) {
-            releaseLocks(run);
+        if (run.getStatus() == Status.CANCELLED) {
+            return;
+        }
+        if (run.isCancelRequested() || run.getStatus() == Status.CANCEL_REQUESTED) {
+            run.setStatus(Status.CANCEL_REQUESTED);
+            run.setStatusMessage("Cancellation requested");
+            runRepository.save(run);
             return;
         }
         run.setStatus(Status.FAILED);
@@ -1654,11 +1728,18 @@ public class ActionRunService {
 
     private void expireHeartbeatRuns(LocalDateTime cutoff) {
         List<ActionRun> stale = runRepository.findByStatusInAndLastHeartbeatAtBefore(
-                List.of(Status.RUNNING, Status.IMPORTING_RESULTS, Status.CANCEL_REQUESTED),
+                List.of(Status.RUNNING, Status.IMPORTING_RESULTS),
                 cutoff
         );
         for (ActionRun run : stale) {
             failRunFromWatchdog(run, "Action heartbeat timed out");
+        }
+    }
+
+    private void expireCancellationRuns(LocalDateTime cutoff) {
+        List<ActionRun> stale = runRepository.findByStatusInAndUpdatedBefore(List.of(Status.CANCEL_REQUESTED), cutoff);
+        for (ActionRun run : stale) {
+            cancelRunFromWatchdog(run, "Action cancellation timed out");
         }
     }
 
@@ -1675,6 +1756,18 @@ public class ActionRunService {
         runRepository.save(run);
         appendLogEvent(run, "WARN", message);
         actionAuditService.record("ACTION_RUN_WATCHDOG_FAILED", "FAILURE", run.getCreatedByUserId(),
+                run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of("message", message));
+        dispatchQueuedRunsAfterCommit();
+    }
+
+    private void cancelRunFromWatchdog(ActionRun run, String message) {
+        if (run.getStatus() == Status.CANCELLED) {
+            return;
+        }
+        finalizeCancelledRun(run, "Cancelled");
+        runRepository.save(run);
+        appendLogEvent(run, "WARN", message);
+        actionAuditService.record("ACTION_RUN_WATCHDOG_CANCELLED", "SUCCESS", run.getCreatedByUserId(),
                 run.getProcessorDefinition().getId(), run.getId(), run.getWorkspaceId(), run.getProjectId(), Map.of("message", message));
         dispatchQueuedRunsAfterCommit();
     }
@@ -1812,7 +1905,21 @@ public class ActionRunService {
     }
 
     private ActionDto.RunResponse toRunResponse(ActionRun run) {
+        return toRunResponse(run, resolveProjectLabel(run.getProjectId()), null);
+    }
+
+    private ActionDto.RunResponse toRunResponse(ActionRun run, String projectLabel, String userId) {
+        return toRunResponse(run, projectLabel, userId, Map.of());
+    }
+
+    private ActionDto.RunResponse toRunResponse(
+            ActionRun run,
+            String projectLabel,
+            String userId,
+            Map<String, Integer> queuePositions
+    ) {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
+        List<String> pageIds = readPageIds(run);
         return new ActionDto.RunResponse(
                 run.getId(),
                 definition.getId(),
@@ -1820,13 +1927,17 @@ public class ActionRunService {
                 definition.getName(),
                 run.getWorkspaceId(),
                 run.getProjectId(),
-                readPageIds(run),
+                projectLabel,
+                pageIds.size(),
+                pageIds,
                 readTargetSelection(run),
                 run.getStatus(),
                 run.getLockMode(),
                 run.getProgressPercent(),
+                queuePosition(run, queuePositions),
                 run.getStatusMessage(),
                 run.getErrorMessage(),
+                canCancelRun(run.getWorkspaceId(), run, userId),
                 run.isCancelRequested(),
                 run.getLastHeartbeatAt(),
                 run.getCreated(),
@@ -1835,9 +1946,9 @@ public class ActionRunService {
         );
     }
 
-    private ActionDto.RunDetailResponse toRunDetailResponse(ActionRun run) {
+    private ActionDto.RunDetailResponse toRunDetailResponse(ActionRun run, String projectLabel, String userId) {
         return new ActionDto.RunDetailResponse(
-                toRunResponse(run),
+                toRunResponse(run, projectLabel, userId),
                 run.getLogText(),
                 logEventRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
                         .map(this::toLogEventResponse)
@@ -1848,6 +1959,10 @@ public class ActionRunService {
     }
 
     private ActionDto.AdminRunResponse toAdminRunResponse(ActionRun run) {
+        return toAdminRunResponse(run, Map.of());
+    }
+
+    private ActionDto.AdminRunResponse toAdminRunResponse(ActionRun run, Map<String, Integer> queuePositions) {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         Project project = projectRepository.findById(run.getProjectId()).orElse(null);
         return new ActionDto.AdminRunResponse(
@@ -1862,8 +1977,10 @@ public class ActionRunService {
                 readPageIds(run).size(),
                 run.getStatus(),
                 run.getProgressPercent(),
+                queuePosition(run, queuePositions),
                 run.getStatusMessage(),
                 run.getErrorMessage(),
+                globalAdminService.isGlobalAdmin(),
                 run.isCancelRequested(),
                 run.getLogText(),
                 logEventRepository.findByRunIdOrderByCreatedAsc(run.getId()).stream()
@@ -1993,10 +2110,162 @@ public class ActionRunService {
         );
     }
 
+    private List<Status> cancelableStatuses() {
+        return List.of(
+                Status.QUEUED,
+                Status.PENDING,
+                Status.DISPATCHING,
+                Status.RUNNING,
+                Status.IMPORTING_RESULTS,
+                Status.CANCEL_REQUESTED
+        );
+    }
+
     private record ConcurrencyDecision(boolean available, long active, int maxActiveRuns, String scope) {
         private String message() {
             return "Action concurrency limit reached (" + active + "/" + maxActiveRuns + " active " + scope.toLowerCase(Locale.ROOT) + " run(s))";
         }
+    }
+
+    private Integer queuePosition(ActionRun run) {
+        return queuePosition(run, Map.of());
+    }
+
+    private Integer queuePosition(ActionRun run, Map<String, Integer> queuePositions) {
+        if (run.getStatus() != Status.QUEUED) {
+            return null;
+        }
+        Integer precomputed = queuePositions.get(run.getId());
+        if (precomputed != null) {
+            return precomputed;
+        }
+
+        ActionProcessorDefinition definition = run.getProcessorDefinition();
+        String scope = concurrencyScope(definition);
+        int position = 0;
+        for (ActionRun queuedRun : runRepository.findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(definition.getId(), Status.QUEUED)) {
+            if (!sameConcurrencyScope(run, queuedRun, scope)) {
+                continue;
+            }
+            position += 1;
+            if (run.getId().equals(queuedRun.getId())) {
+                return position;
+            }
+        }
+        return null;
+    }
+
+    private Map<String, Integer> queuePositionsByRunId(List<ActionRun> runs) {
+        Set<String> definitionIds = runs.stream()
+                .filter(run -> run.getStatus() == Status.QUEUED)
+                .map(run -> run.getProcessorDefinition().getId())
+                .collect(Collectors.toSet());
+        if (definitionIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<String, Integer> positions = new HashMap<>();
+        for (String definitionId : definitionIds) {
+            List<ActionRun> queuedRuns = runRepository.findByProcessorDefinitionIdAndStatusOrderByCreatedAsc(definitionId, Status.QUEUED);
+            if (queuedRuns.isEmpty()) {
+                continue;
+            }
+            String scope = concurrencyScope(queuedRuns.getFirst().getProcessorDefinition());
+            Map<String, Integer> perScopeCounters = new HashMap<>();
+            for (ActionRun queuedRun : queuedRuns) {
+                String scopeKey = queueScopeKey(scope, queuedRun);
+                int position = perScopeCounters.merge(scopeKey, 1, Integer::sum);
+                positions.put(queuedRun.getId(), position);
+            }
+        }
+        return positions;
+    }
+
+    private String queueScopeKey(String scope, ActionRun run) {
+        return switch (scope) {
+            case "GLOBAL" -> "GLOBAL";
+            case "WORKSPACE" -> run.getWorkspaceId();
+            default -> run.getWorkspaceId() + "::" + run.getProjectId();
+        };
+    }
+
+    private String concurrencyScope(ActionProcessorDefinition definition) {
+        ActionDefinitionDocument.Concurrency concurrency = definitionService.readParsedDocument(definition).concurrency();
+        return concurrency == null || concurrency.scope() == null || concurrency.scope().isBlank()
+                ? "PROJECT"
+                : concurrency.scope().trim().toUpperCase(Locale.ROOT);
+    }
+
+    private boolean sameConcurrencyScope(ActionRun left, ActionRun right, String scope) {
+        if (!Objects.equals(left.getProcessorDefinition().getId(), right.getProcessorDefinition().getId())) {
+            return false;
+        }
+        return switch (scope) {
+            case "GLOBAL" -> true;
+            case "WORKSPACE" -> Objects.equals(left.getWorkspaceId(), right.getWorkspaceId());
+            default -> Objects.equals(left.getWorkspaceId(), right.getWorkspaceId())
+                    && Objects.equals(left.getProjectId(), right.getProjectId());
+        };
+    }
+
+    private Map<String, String> projectLabelsById(String workspaceId) {
+        return projectRepository.findByLibraryWorkspaceId(workspaceId).stream()
+                .collect(Collectors.toMap(Project::getId, Project::getName, (left, ignored) -> left, LinkedHashMap::new));
+    }
+
+    private String resolveProjectLabel(String projectId) {
+        return projectRepository.findById(projectId)
+                .map(Project::getName)
+                .orElse(projectId);
+    }
+
+    private void requireCancelAccess(String workspaceId, ActionRun run, String userId) {
+        if (!canCancelRun(workspaceId, run, userId)) {
+            throw new SecurityException("You do not have permission to cancel this Action run");
+        }
+    }
+
+    private boolean canCancelRun(String workspaceId, ActionRun run, String userId) {
+        if (userId == null || userId.isBlank()) {
+            return false;
+        }
+        if (globalAdminService.isGlobalAdmin()) {
+            return true;
+        }
+        if (workspaceAccessService.canManageProjects(workspaceId, userId)) {
+            return true;
+        }
+        return workspaceAccessService.hasWorkspaceAccess(workspaceId, userId)
+                && userId.equals(run.getCreatedByUserId());
+    }
+
+    private ActionRun cancelRunInternal(ActionRun run, String actorUserId, String auditAction) {
+        if (terminalStatuses().contains(run.getStatus())) {
+            return run;
+        }
+        run.setCancelRequested(true);
+        if (run.getStatus() == Status.QUEUED || run.getStatus() == Status.PENDING) {
+            finalizeCancelledRun(run, "Cancelled");
+        } else {
+            run.setStatus(Status.CANCEL_REQUESTED);
+            run.setStatusMessage("Cancellation requested");
+        }
+        ActionRun saved = runRepository.save(run);
+        actionAuditService.record(auditAction, "SUCCESS", actorUserId, run.getProcessorDefinition().getId(), run.getId(),
+                run.getWorkspaceId(), run.getProjectId(), Map.of("status", saved.getStatus().name()));
+        if (saved.getStatus() == Status.CANCELLED) {
+            dispatchQueuedRunsAfterCommit();
+        }
+        return saved;
+    }
+
+    private void finalizeCancelledRun(ActionRun run, String statusMessage) {
+        run.setCancelRequested(true);
+        run.setStatus(Status.CANCELLED);
+        run.setStatusMessage(statusMessage == null || statusMessage.isBlank() ? "Cancelled" : statusMessage);
+        run.setCompletedAt(LocalDateTime.now());
+        expireRunSecret(run);
+        releaseLocks(run);
     }
 
     private ActionDto.TargetSelection normalizeTargetSelection(ActionDto.StartRunRequest request, String projectId) {

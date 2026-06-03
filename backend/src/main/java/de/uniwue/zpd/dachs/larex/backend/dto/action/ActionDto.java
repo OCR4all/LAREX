@@ -136,13 +136,17 @@ public class ActionDto {
             String processorName,
             String workspaceId,
             String projectId,
+            String projectLabel,
+            int pageCount,
             List<String> pageIds,
             TargetSelection targetSelection,
             Status status,
             LockMode lockMode,
             int progressPercent,
+            Integer queuePosition,
             String statusMessage,
             String errorMessage,
+            boolean canCancel,
             boolean cancelRequested,
             LocalDateTime lastHeartbeatAt,
             LocalDateTime created,
@@ -170,8 +174,10 @@ public class ActionDto {
             int pageCount,
             Status status,
             int progressPercent,
+            Integer queuePosition,
             String statusMessage,
             String errorMessage,
+            boolean canCancel,
             boolean cancelRequested,
             String logText,
             List<ActionRunLogEventResponse> logEvents,
@@ -185,6 +191,10 @@ public class ActionDto {
 
     public record ClearRunsResponse(
             int deletedCount
+    ) {}
+
+    public record BulkCancelRunsResponse(
+            int cancelledCount
     ) {}
 
     public record HealthCheckResponse(

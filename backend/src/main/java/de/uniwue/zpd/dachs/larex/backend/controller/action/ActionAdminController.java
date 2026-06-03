@@ -135,4 +135,11 @@ public class ActionAdminController {
             @PathVariable String definitionId) {
         return ResponseEntity.ok(actionRunService.clearTerminalAdminRuns(definitionId));
     }
+
+    @PostMapping("/{definitionId}/runs/cancel-active")
+    public ResponseEntity<ActionDto.BulkCancelRunsResponse> cancelActiveRuns(
+            @PathVariable String definitionId,
+            @AuthenticationPrincipal(expression = "subject") String userId) {
+        return ResponseEntity.ok(actionRunService.cancelActiveAdminRuns(definitionId, userId));
+    }
 }

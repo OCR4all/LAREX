@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  PNPM_VERSION: 11.1.2
+
 jobs:
   backend:
     name: Backend Tests
@@ -74,7 +77,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -112,7 +115,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -134,6 +137,36 @@ jobs:
         with:
           name: keycloak-theme
           path: keycloak-theme/build_keycloak/
+
+  docs:
+    name: Docs Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: docs/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: docs
+        run: pnpm install --frozen-lockfile
+
+      - name: Build docs
+        working-directory: docs
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm build
 
   compose-validation:
     name: Compose Validation
