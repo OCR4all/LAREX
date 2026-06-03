@@ -105,6 +105,8 @@ public class ActionRunService {
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> OBJECT_MAP = new TypeReference<>() {};
     private static final TypeReference<ActionDto.TargetSelection> TARGET_SELECTION = new TypeReference<>() {};
+    private static final TypeReference<ActionDto.ImageVariantSelection> IMAGE_VARIANT_SELECTION = new TypeReference<>() {};
+    private static final String IMAGE_VARIANT_SELECTION_PARAMETER_KEY = "_larexImageVariantSelection";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Pattern ACTION_RUN_SECRET_PATTERN = Pattern.compile("lrx_act_[A-Za-z0-9_-]{20,}");
     private static final Pattern BEARER_TOKEN_PATTERN = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+\\-/]+=*");
@@ -354,7 +356,7 @@ public class ActionRunService {
                 targetSelection,
                 userId,
                 publicApiBaseUrl,
-                resolveRunParameters(definition),
+                resolveRunParameters(definition, request.imageVariantSelection()),
                 dispatchImmediately ? Status.PENDING : Status.QUEUED,
                 dispatchImmediately ? "Created" : "Queued; waiting for an available slot",
                 "ACTION_RUN_START",
@@ -639,6 +641,7 @@ public class ActionRunService {
         ActionProcessorDefinition definition = run.getProcessorDefinition();
         List<String> pageIds = readPageIds(run);
         Map<String, Object> parameters = readObjectMap(run.getParametersJson());
+        ActionDto.ImageVariantSelection imageVariantSelection = readImageVariantSelection(parameters);
 
         Map<String, List<PageImage>> imagesByPage = definition.isAcceptsImages()
                 ? pageImageRepository.findByPageIdIn(pageIds).stream().collect(Collectors.groupingBy(image -> image.getPage().getId()))
@@ -649,26 +652,22 @@ public class ActionRunService {
 
         List<ActionDto.MachinePageInput> pages = pageRepository.findByIdInAndProjectId(pageIds, run.getProjectId()).stream()
                 .sorted(Comparator.comparing(Page::getName))
-                .map(page -> new ActionDto.MachinePageInput(
-                        page.getId(),
-                        page.getName(),
-                        imagesByPage.getOrDefault(page.getId(), List.of()).stream()
-                                .map(image -> toMachineImageFile(publicApiBaseUrl, runId, image))
-                                .toList(),
-                        xmlByPage.getOrDefault(page.getId(), List.of()).stream()
-                                .map(xml -> toMachineXmlFile(publicApiBaseUrl, runId, xml))
-                                .toList()
-                ))
+                .map(page -> toMachinePageInput(page, imagesByPage, xmlByPage, imageVariantSelection, definition, publicApiBaseUrl, runId))
+                .flatMap(Optional::stream)
                 .toList();
+        Set<String> includedPageIds = pages.stream()
+                .map(ActionDto.MachinePageInput::id)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         return new ActionDto.MachineInputResponse(
                 ACTION_PROTOCOL_VERSION,
                 run.getId(),
                 definition.getProcessorKey(),
                 run.getProjectId(),
-                parameters,
+                processorParameters(parameters),
                 pages,
-                buildMachineTargetSelection(run),
+                buildMachineTargetSelection(run, includedPageIds),
+                imageVariantSelection,
                 run.isCancelRequested()
         );
     }
@@ -1419,6 +1418,10 @@ public class ActionRunService {
             return;
         }
         ActionProcessorDefinition definition = run.getProcessorDefinition();
+        Map<String, Object> runParameters = readObjectMap(run.getParametersJson());
+        ActionDto.ImageVariantSelection imageVariantSelection = readImageVariantSelection(runParameters);
+        List<String> processorPageIds = processorPageIds(run, definition, imageVariantSelection);
+        Set<String> processorPageIdSet = new LinkedHashSet<>(processorPageIds);
         run.setStatus(Status.DISPATCHING);
         run.setStatusMessage(attempts > 1 ? "Dispatching (attempt " + attempt + "/" + attempts + ")" : "Dispatching");
         runRepository.save(run);
@@ -1429,9 +1432,10 @@ public class ActionRunService {
         payload.put("processorId", definition.getProcessorKey());
         payload.put("workspaceId", run.getWorkspaceId());
         payload.put("projectId", run.getProjectId());
-        payload.put("pageIds", readPageIds(run));
-        payload.put("targetSelection", readTargetSelection(run));
-        payload.put("parameters", readObjectMap(run.getParametersJson()));
+        payload.put("pageIds", processorPageIds);
+        payload.put("targetSelection", buildMachineTargetSelection(run, processorPageIdSet));
+        payload.put("parameters", processorParameters(runParameters));
+        payload.put("imageVariantSelection", imageVariantSelection);
         payload.put("secret", rawSecret);
         payload.put("pullUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/input");
         payload.put("heartbeatUrl", publicApiBaseUrl + "/public/actions/runs/" + run.getId() + "/heartbeat");
@@ -2004,7 +2008,8 @@ public class ActionRunService {
         );
     }
 
-    private Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition) {
+    private Map<String, Object> resolveRunParameters(ActionProcessorDefinition definition,
+                                                     ActionDto.ImageVariantSelection imageVariantSelection) {
         ActionDefinitionDocument document = definitionService.readParsedDocument(definition);
         Map<String, ActionDefinitionDocument.Parameter> definitions = document.parameters() == null ? Map.of() : document.parameters();
         Map<String, Object> resolved = new LinkedHashMap<>();
@@ -2012,7 +2017,30 @@ public class ActionRunService {
         for (Map.Entry<String, ActionDefinitionDocument.Parameter> entry : definitions.entrySet()) {
             resolved.put(entry.getKey(), defaultParameterValue(entry.getValue()));
         }
+        if (imageVariantSelection != null) {
+            resolved.put(IMAGE_VARIANT_SELECTION_PARAMETER_KEY, normalizeImageVariantSelection(imageVariantSelection));
+        }
         return resolved;
+    }
+
+    private ActionDto.ImageVariantSelection normalizeImageVariantSelection(ActionDto.ImageVariantSelection selection) {
+        String mode = selection.mode() == null ? "GLOBAL" : selection.mode().trim().toUpperCase(Locale.ROOT);
+        if (!"PER_PAGE".equals(mode)) {
+            mode = "GLOBAL";
+        }
+        String variant = selection.variant() == null ? null : selection.variant().trim();
+        Map<String, String> pageVariants = selection.pageVariants() == null
+                ? Map.of()
+                : selection.pageVariants().entrySet().stream()
+                .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank())
+                .filter(entry -> entry.getValue() != null && !entry.getValue().isBlank())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().trim(),
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        return new ActionDto.ImageVariantSelection(mode, variant, pageVariants, Boolean.TRUE.equals(selection.fallbackImage()));
     }
 
     private Object defaultParameterValue(ActionDefinitionDocument.Parameter parameter) {
@@ -2384,9 +2412,10 @@ public class ActionRunService {
         );
     }
 
-    private ActionDto.MachineTargetSelection buildMachineTargetSelection(ActionRun run) {
+    private ActionDto.MachineTargetSelection buildMachineTargetSelection(ActionRun run, Set<String> includedPageIds) {
         ActionDto.TargetSelection selection = readTargetSelection(run);
         List<ActionDto.MachineTargetPage> pages = selection.pages().stream()
+                .filter(page -> includedPageIds == null || includedPageIds.contains(page.pageId()))
                 .map(page -> buildMachineTargetPage(page, selection.type()))
                 .toList();
         return new ActionDto.MachineTargetSelection(selection.type(), pages);
@@ -2405,6 +2434,84 @@ public class ActionRunService {
 
     private <T> List<T> safeList(List<T> value) {
         return value == null ? List.of() : value;
+    }
+
+    private Optional<ActionDto.MachinePageInput> toMachinePageInput(Page page,
+                                                                   Map<String, List<PageImage>> imagesByPage,
+                                                                   Map<String, List<PageXml>> xmlByPage,
+                                                                   ActionDto.ImageVariantSelection imageVariantSelection,
+                                                                   ActionProcessorDefinition definition,
+                                                                   String publicApiBaseUrl,
+                                                                   String runId) {
+        List<PageImage> images = imagesByPage.getOrDefault(page.getId(), List.of());
+        List<PageImage> selectedImages = definition.isAcceptsImages()
+                ? selectImagesForPage(page.getId(), images, imageVariantSelection)
+                : List.of();
+        if (definition.isAcceptsImages() && imageVariantSelection != null && selectedImages.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ActionDto.MachinePageInput(
+                page.getId(),
+                page.getName(),
+                selectedImages.stream()
+                        .map(image -> toMachineImageFile(publicApiBaseUrl, runId, image))
+                        .toList(),
+                xmlByPage.getOrDefault(page.getId(), List.of()).stream()
+                        .map(xml -> toMachineXmlFile(publicApiBaseUrl, runId, xml))
+                        .toList()
+        ));
+    }
+
+    private List<String> processorPageIds(ActionRun run,
+                                          ActionProcessorDefinition definition,
+                                          ActionDto.ImageVariantSelection imageVariantSelection) {
+        List<String> pageIds = readPageIds(run);
+        if (!definition.isAcceptsImages() || imageVariantSelection == null) {
+            return pageIds;
+        }
+        Map<String, List<PageImage>> imagesByPage = pageImageRepository.findByPageIdIn(pageIds).stream()
+                .collect(Collectors.groupingBy(image -> image.getPage().getId()));
+        return pageIds.stream()
+                .filter(pageId -> !selectImagesForPage(
+                        pageId,
+                        imagesByPage.getOrDefault(pageId, List.of()),
+                        imageVariantSelection
+                ).isEmpty())
+                .toList();
+    }
+
+    private List<PageImage> selectImagesForPage(String pageId,
+                                                List<PageImage> images,
+                                                ActionDto.ImageVariantSelection selection) {
+        List<PageImage> sortedImages = images.stream()
+                .sorted(Comparator.comparing(PageImage::getVariant, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(PageImage::getFileName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+        if (selection == null) {
+            return sortedImages;
+        }
+        String wantedVariant = wantedImageVariant(pageId, selection);
+        if (wantedVariant == null || wantedVariant.isBlank()) {
+            return sortedImages;
+        }
+        List<PageImage> matching = sortedImages.stream()
+                .filter(image -> wantedVariant.equals(image.getVariant()))
+                .toList();
+        if (!matching.isEmpty()) {
+            return matching;
+        }
+        if (Boolean.TRUE.equals(selection.fallbackImage()) && !sortedImages.isEmpty()) {
+            return List.of(sortedImages.getFirst());
+        }
+        return List.of();
+    }
+
+    private String wantedImageVariant(String pageId, ActionDto.ImageVariantSelection selection) {
+        String mode = selection.mode() == null ? "GLOBAL" : selection.mode().trim().toUpperCase(Locale.ROOT);
+        if ("PER_PAGE".equals(mode)) {
+            return selection.pageVariants() == null ? null : selection.pageVariants().get(pageId);
+        }
+        return selection.variant();
     }
 
     private ActionDto.MachinePageFile toMachineImageFile(String publicApiBaseUrl, String runId, PageImage image) {
@@ -2492,6 +2599,23 @@ public class ActionRunService {
         } catch (JsonProcessingException e) {
             return Map.of();
         }
+    }
+
+    private ActionDto.ImageVariantSelection readImageVariantSelection(Map<String, Object> parameters) {
+        Object value = parameters.get(IMAGE_VARIANT_SELECTION_PARAMETER_KEY);
+        if (value == null) {
+            return null;
+        }
+        return objectMapper.convertValue(value, IMAGE_VARIANT_SELECTION);
+    }
+
+    private Map<String, Object> processorParameters(Map<String, Object> parameters) {
+        if (!parameters.containsKey(IMAGE_VARIANT_SELECTION_PARAMETER_KEY)) {
+            return parameters;
+        }
+        Map<String, Object> result = new LinkedHashMap<>(parameters);
+        result.remove(IMAGE_VARIANT_SELECTION_PARAMETER_KEY);
+        return result;
     }
 
     private String writeJson(Object value) {

@@ -15,6 +15,15 @@ export interface ActionTargetSelection {
   pages: ActionTargetSelectionPage[]
 }
 
+export type ActionImageVariantSelectionMode = 'GLOBAL' | 'PER_PAGE'
+
+export interface ActionImageVariantSelection {
+  mode: ActionImageVariantSelectionMode
+  variant?: string | null
+  pageVariants?: Record<string, string>
+  fallbackImage: boolean
+}
+
 export interface ActionValidationDiagnostic {
   severity: string
   path: string

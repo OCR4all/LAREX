@@ -10,14 +10,22 @@ import type {
   ClearActionRunsResponse,
   ActionCategory,
   ActionTargetSelection,
-  ActionTarget
+  ActionTarget,
+  ActionImageVariantSelection
 } from '@/types/action'
+
+type ActionRunPageImageVariantSummary = {
+  id: string
+  fileName: string
+  variant?: string | null
+}
 
 type ActionRunPageSummary = {
   id: string
   name: string
   imageCount: number
   xmlFileCount: number
+  imageVariants?: ActionRunPageImageVariantSummary[]
 }
 
 const props = defineProps<{
@@ -43,6 +51,10 @@ const selectedProcessorId = ref('')
 const parameterValues = reactive<Record<string, unknown>>({})
 const scope = ref<'all' | 'selection'>(props.targetSelection || (props.pageIds?.length ?? 0) > 0 ? 'selection' : 'all')
 const categoryFilter = ref<ActionCategory | 'ALL'>('ALL')
+const imageVariantMode = ref<'global' | 'perPage'>('global')
+const selectedImageVariant = ref('')
+const fallbackImage = ref(false)
+const pageImageVariants = reactive<Record<string, string>>({})
 const loading = ref(false)
 const starting = ref(false)
 const cancellingRunId = ref<string | null>(null)
@@ -98,6 +110,11 @@ const compatibilityWarnings = computed(() => {
     if (missingImages.length > 0) {
       warnings.push(`${missingImages.length} selected page${missingImages.length === 1 ? '' : 's'} ${missingImages.length === 1 ? 'has' : 'have'} no images.`)
     }
+    if (pagesMissingSelectedVariant.value.length > 0) {
+      warnings.push(fallbackImage.value
+        ? `${pagesMissingSelectedVariant.value.length} selected page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will use a fallback image.`
+        : `${pagesMissingSelectedVariant.value.length} selected page${pagesMissingSelectedVariant.value.length === 1 ? '' : 's'} will be skipped because the selected image variant is missing.`)
+    }
   }
   if (processor.acceptsXml) {
     const missingXml = scopedPages.value.filter(page => page.xmlFileCount <= 0)
@@ -123,6 +140,72 @@ const processorOptions = computed(() => executableProcessors.value.map(item => (
   label: item.processor.name,
   value: item.processor.id
 })))
+const selectedProcessorAcceptsImages = computed(() => selectedProcessor.value?.processor.acceptsImages === true)
+const imageVariantOptions = computed(() => {
+  const variants = new Set<string>()
+  for (const page of scopedPages.value) {
+    for (const image of page.imageVariants ?? []) {
+      const variant = image.variant?.trim()
+      if (variant) variants.add(variant)
+    }
+  }
+  return Array.from(variants)
+    .sort((left, right) => left.localeCompare(right))
+    .map(variant => ({ label: variant, value: variant }))
+})
+const imageVariantModeItems = computed(() => [
+  { label: 'Global', value: 'global', icon: 'i-lucide-globe' },
+  { label: 'Per page', value: 'perPage', icon: 'i-lucide-files' }
+])
+const imageVariantByPageId = computed(() => {
+  const result: Record<string, Set<string>> = {}
+  for (const page of scopedPages.value) {
+    result[page.id] = new Set((page.imageVariants ?? [])
+      .map(image => image.variant?.trim())
+      .filter((variant): variant is string => Boolean(variant)))
+  }
+  return result
+})
+const pagesMissingSelectedVariant = computed(() => {
+  if (!selectedProcessorAcceptsImages.value) return []
+  return scopedPages.value.filter((page) => {
+    const available = imageVariantByPageId.value[page.id] ?? new Set<string>()
+    const wanted = imageVariantMode.value === 'global' ? selectedImageVariant.value : pageImageVariants[page.id]
+    return typeof wanted === 'string' && wanted.length > 0 && !available.has(wanted)
+  })
+})
+const selectedImageVariantSummary = computed(() => {
+  if (!selectedProcessorAcceptsImages.value || imageVariantOptions.value.length === 0) return null
+  const missing = pagesMissingSelectedVariant.value.length
+  if (imageVariantMode.value === 'global') {
+    return `${selectedImageVariant.value || 'No variant'} · ${fallbackImage.value ? 'fallback enabled' : 'missing pages skipped'}${missing > 0 ? ` · ${missing} missing` : ''}`
+  }
+  return `${scopedPages.value.length} page variants · ${fallbackImage.value ? 'fallback enabled' : 'missing pages skipped'}${missing > 0 ? ` · ${missing} missing` : ''}`
+})
+const submittedImageVariantSelection = computed<ActionImageVariantSelection | null>(() => {
+  if (!selectedProcessorAcceptsImages.value || imageVariantOptions.value.length === 0) return null
+  if (imageVariantMode.value === 'global') {
+    if (!selectedImageVariant.value) return null
+    return {
+      mode: 'GLOBAL',
+      variant: selectedImageVariant.value,
+      fallbackImage: fallbackImage.value
+    }
+  }
+  const pageVariants: Record<string, string> = {}
+  for (const page of scopedPages.value) {
+    const variant = pageImageVariants[page.id]
+    if (variant) {
+      pageVariants[page.id] = variant
+    }
+  }
+  if (Object.keys(pageVariants).length === 0) return null
+  return {
+    mode: 'PER_PAGE',
+    pageVariants,
+    fallbackImage: fallbackImage.value
+  }
+})
 const parameterEntries = computed(() => {
   const yaml = selectedProcessor.value?.processor.yaml
   if (!yaml) return [] as Array<{ key: string, definition: ActionParameterDefinition }>
@@ -143,20 +226,30 @@ const paginatedRuns = computed(() => {
   return runs.value.slice(start, start + runHistoryItemsPerPage.value)
 })
 const openPanels = ref<string[]>([])
-const accordionItems = computed(() => [
-  {
+const accordionItems = computed(() => {
+  const items = []
+  if (selectedProcessorAcceptsImages.value) {
+    items.push({
+      label: 'Images',
+      value: 'images',
+      slot: 'images',
+      icon: 'i-lucide-image'
+    })
+  }
+  items.push({
     label: `Run History (${runs.value.length})`,
     value: 'run-history',
     slot: 'run-history',
     icon: 'i-lucide-history'
-  },
-  {
+  })
+  items.push({
     label: `Parameters (${parameterEntries.value.length})`,
     value: 'parameters',
     slot: 'parameters',
     icon: 'i-lucide-sliders-horizontal'
-  }
-])
+  })
+  return items
+})
 
 const canStart = computed(() =>
   Boolean(selectedProcessor.value?.executable)
@@ -181,11 +274,16 @@ onBeforeUnmount(() => {
 
 watch(selectedProcessorId, () => {
   resetParameters()
+  reconcileImageVariantSelection()
 })
 
 watch(executableProcessors, () => {
   reconcileSelectedProcessor()
 })
+
+watch([scopedPages, imageVariantOptions], () => {
+  reconcileImageVariantSelection()
+}, { immediate: true })
 
 watch(() => runs.value.length, () => {
   const maxPage = Math.max(1, Math.ceil(runs.value.length / runHistoryItemsPerPage.value))
@@ -199,6 +297,43 @@ function reconcileSelectedProcessor() {
   if (!stillExecutable) {
     selectedProcessorId.value = executableProcessors.value[0]?.processor.id ?? ''
   }
+  reconcileImageVariantSelection()
+}
+
+function reconcileImageVariantSelection() {
+  const options = imageVariantOptions.value
+  if (options.length === 0) {
+    selectedImageVariant.value = ''
+    Object.keys(pageImageVariants).forEach(key => Reflect.deleteProperty(pageImageVariants, key))
+    return
+  }
+
+  if (!options.some(item => item.value === selectedImageVariant.value)) {
+    selectedImageVariant.value = options[0]?.value ?? ''
+  }
+
+  const scopedPageIds = new Set(scopedPages.value.map(page => page.id))
+  Object.keys(pageImageVariants).forEach((pageId) => {
+    if (!scopedPageIds.has(pageId)) {
+      Reflect.deleteProperty(pageImageVariants, pageId)
+    }
+  })
+
+  for (const page of scopedPages.value) {
+    const available = Array.from(imageVariantByPageId.value[page.id] ?? [])
+    if (available.length === 0) continue
+    const current = pageImageVariants[page.id]
+    if (!current || !available.includes(current)) {
+      pageImageVariants[page.id] = available.includes(selectedImageVariant.value)
+        ? selectedImageVariant.value
+        : (available[0] ?? selectedImageVariant.value)
+    }
+  }
+}
+
+function imageVariantOptionsForPage(page: ActionRunPageSummary) {
+  const variants = Array.from(imageVariantByPageId.value[page.id] ?? [])
+  return variants.map(variant => ({ label: variant, value: variant }))
 }
 
 async function loadProcessors() {
@@ -319,6 +454,7 @@ async function submitRun(options: { enqueueIfBusy?: boolean } = {}) {
         processorDefinitionId: selectedProcessor.value.processor.id,
         pageIds: submittedPageIds.value,
         targetSelection: submittedTargetSelection.value,
+        imageVariantSelection: submittedImageVariantSelection.value,
         enqueueIfBusy: options.enqueueIfBusy ?? false
       }
     })
@@ -681,6 +817,80 @@ function close() {
             content: 'px-0 pb-4'
           }"
         >
+          <template #images>
+            <div class="space-y-4 p-1">
+              <UAlert
+                v-if="imageVariantOptions.length === 0"
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-image-off"
+                title="No image variants found for this scope."
+                description="The processor will receive image inputs as they are currently stored."
+              />
+
+              <template v-else>
+                <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <UFormField label="Variant scope">
+                    <UTabs
+                      v-model="imageVariantMode"
+                      :items="imageVariantModeItems"
+                      variant="pill"
+                      color="neutral"
+                      :content="false"
+                    />
+                  </UFormField>
+
+                  <UFormField label="Fallback Image">
+                    <USwitch v-model="fallbackImage" />
+                  </UFormField>
+                </div>
+
+                <UFormField
+                  v-if="imageVariantMode === 'global'"
+                  label="Image variant"
+                  :hint="selectedImageVariantSummary || undefined"
+                >
+                  <USelectMenu
+                    v-model="selectedImageVariant"
+                    :items="imageVariantOptions"
+                    value-key="value"
+                    searchable
+                    searchable-placeholder="Filter variants..."
+                    class="w-full"
+                  />
+                </UFormField>
+
+                <div v-else class="space-y-2">
+                  <div
+                    v-for="page in scopedPages"
+                    :key="page.id"
+                    class="grid gap-2 rounded-sm border border-default p-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)] sm:items-center"
+                  >
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium">
+                        {{ page.name }}
+                      </p>
+                      <p class="truncate text-xs text-muted">
+                        {{ imageVariantOptionsForPage(page).length }} variant{{ imageVariantOptionsForPage(page).length === 1 ? '' : 's' }}
+                      </p>
+                    </div>
+                    <USelectMenu
+                      v-if="imageVariantOptionsForPage(page).length > 0"
+                      v-model="pageImageVariants[page.id]"
+                      :items="imageVariantOptionsForPage(page)"
+                      value-key="value"
+                      searchable
+                      searchable-placeholder="Filter variants..."
+                    />
+                    <UBadge v-else color="warning" variant="soft">
+                      No images
+                    </UBadge>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+
           <template #parameters>
             <div class="space-y-3 p-1">
               <p v-if="parameterEntries.length > 0" class="text-sm text-muted">

@@ -111,7 +111,15 @@ public class ActionDto {
             List<String> pageIds,
             Map<String, Object> parameters,
             TargetSelection targetSelection,
+            ImageVariantSelection imageVariantSelection,
             Boolean enqueueIfBusy
+    ) {}
+
+    public record ImageVariantSelection(
+            String mode,
+            String variant,
+            Map<String, String> pageVariants,
+            Boolean fallbackImage
     ) {}
 
     public record TargetSelection(
@@ -260,6 +268,7 @@ public class ActionDto {
             Map<String, Object> parameters,
             List<MachinePageInput> pages,
             MachineTargetSelection targetSelection,
+            ImageVariantSelection imageVariantSelection,
             boolean cancelRequested
     ) {}
 

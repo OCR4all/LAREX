@@ -178,6 +178,11 @@ type Page = {
   lockedReason?: string | null
   thumbnailUrl?: string | null
   indexingStatus?: PageIndexingStatus
+  imageVariants?: Array<{
+    id: string
+    fileName: string
+    variant?: string | null
+  }>
 }
 
 function getPageCollaborationSummary(pageId: string) {
@@ -529,7 +534,8 @@ async function handleOpenInEditor() {
       resolvedTags: page.resolvedTags ?? null,
       imageCount: page.imageCount,
       xmlFileCount: page.xmlFileCount,
-      indexingStatus: page.indexingStatus
+      indexingStatus: page.indexingStatus,
+      imageVariants: page.imageVariants ?? []
     }))
 
     const skeletonPages = createSkeletonPageData(pageResponses, {
@@ -629,7 +635,8 @@ async function openActionRunSlideover(scope: ProjectActionScope = 'all') {
       id: page.id,
       name: page.name,
       imageCount: page.imageCount ?? 0,
-      xmlFileCount: page.xmlFileCount ?? 0
+      xmlFileCount: page.xmlFileCount ?? 0,
+      imageVariants: page.imageVariants ?? []
     }))
   })
   const changed = await instance.result

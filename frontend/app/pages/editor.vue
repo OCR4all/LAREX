@@ -843,7 +843,12 @@ async function openActionRunForEditorTarget(payload: { targetSelection: ActionTa
       id: pageId,
       name: page?.label ?? pageId,
       imageCount: page?.imageCount ?? page?.imageVariants?.length ?? 0,
-      xmlFileCount: page?.xmlFileCount ?? page?.xmlFiles?.length ?? 0
+      xmlFileCount: page?.xmlFileCount ?? page?.xmlFiles?.length ?? 0,
+      imageVariants: (page?.imageVariants ?? []).map(variant => ({
+        id: variant.id,
+        fileName: variant.fileName ?? variant.label,
+        variant: variant.type ?? variant.label
+      }))
     }
   })
 
