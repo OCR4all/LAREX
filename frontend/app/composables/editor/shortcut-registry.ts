@@ -57,7 +57,7 @@ export const SHORTCUT_HELP_GROUPS: Array<{
   {
     id: 'modes',
     title: 'Modes',
-    description: 'Switch editor modes and utility overlays.',
+    description: 'Switch editor modes and toolkit overlays.',
     icon: 'i-lucide-layout-dashboard'
   }
 ]

@@ -115,8 +115,8 @@ class ResourceTransferServiceTest {
         keyboard.addItem(item);
 
         when(virtualKeyboardRepository.findById("keyboard-1")).thenReturn(Optional.of(keyboard));
-        when(authorizationPolicyService.canManageUtilities(sourceWorkspaceId, userId)).thenReturn(true);
-        when(authorizationPolicyService.canManageUtilities(targetWorkspaceId, userId)).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit(sourceWorkspaceId, userId)).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit(targetWorkspaceId, userId)).thenReturn(true);
         when(workspaceQueryService.findWorkspaceById(targetWorkspaceId)).thenReturn(Optional.of(workspace(targetWorkspaceId)));
         when(transferRequestRepository.existsByResourceIdAndResourceTypeAndStatus(
                 "keyboard-1",
@@ -172,8 +172,8 @@ class ResourceTransferServiceTest {
         VirtualKeyboard keyboard = keyboard("keyboard-1", sourceWorkspaceId);
 
         when(virtualKeyboardRepository.findById("keyboard-1")).thenReturn(Optional.of(keyboard));
-        when(authorizationPolicyService.canManageUtilities(sourceWorkspaceId, userId)).thenReturn(true);
-        when(authorizationPolicyService.canManageUtilities(targetWorkspaceId, userId)).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit(sourceWorkspaceId, userId)).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit(targetWorkspaceId, userId)).thenReturn(true);
         when(workspaceQueryService.findWorkspaceById(targetWorkspaceId)).thenReturn(Optional.of(workspace(targetWorkspaceId)));
         when(transferRequestRepository.existsByResourceIdAndResourceTypeAndStatus(
                 "keyboard-1",
@@ -213,8 +213,8 @@ class ResourceTransferServiceTest {
         tagSet.setTags(List.of("editorial", "review"));
 
         when(tagSetRepository.findById("tag-set-1")).thenReturn(Optional.of(tagSet));
-        when(authorizationPolicyService.canManageUtilities(sourceWorkspaceId, userId)).thenReturn(true);
-        when(authorizationPolicyService.canManageUtilities(targetWorkspaceId, userId)).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit(sourceWorkspaceId, userId)).thenReturn(true);
+        when(authorizationPolicyService.canManageToolkit(targetWorkspaceId, userId)).thenReturn(true);
         when(workspaceQueryService.findWorkspaceById(targetWorkspaceId)).thenReturn(Optional.of(workspace(targetWorkspaceId)));
         when(transferRequestRepository.existsByResourceIdAndResourceTypeAndStatus(
                 "tag-set-1",

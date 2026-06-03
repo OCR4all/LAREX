@@ -345,7 +345,7 @@ async function exportProfile() {
   if (isExporting.value || isNew) return
   try {
     isExporting.value = true
-    const response = await fetch(`/api/workspaces/${workspaceId.value}/utilities/export`, {
+    const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ selectors: [{ type: 'NORMALIZATION_PROFILE', ids: [id] }] })
@@ -355,7 +355,7 @@ async function exportProfile() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${name.value || 'normalization-profile'}.larex-utilities.json`
+    link.download = `${name.value || 'normalization-profile'}.larex-toolkit.json`
     link.click()
     window.URL.revokeObjectURL(url)
     toast.add({ title: 'Normalization profile exported', color: 'success' })
@@ -376,7 +376,7 @@ async function exportProfile() {
         </template>
         <template #right>
           <div class="flex items-center gap-2">
-            <UtilityHelpPopover
+            <ToolkitHelpPopover
               title="About Normalization Profiles"
               description="Normalization profiles define reusable cleanup passes that can run before dictionary checks, search preparation, and export."
               :items="[

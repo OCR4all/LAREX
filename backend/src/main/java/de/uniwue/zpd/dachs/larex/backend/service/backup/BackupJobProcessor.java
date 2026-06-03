@@ -3,14 +3,14 @@ package de.uniwue.zpd.dachs.larex.backend.service.backup;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.BackupJobDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Project;
 import de.uniwue.zpd.dachs.larex.backend.entity.workspace.AbstractWorkspace;
 import de.uniwue.zpd.dachs.larex.backend.repository.project.ProjectRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.PersonalWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.workspace.TeamWorkspaceRepository;
 import de.uniwue.zpd.dachs.larex.backend.service.project.ProjectPackageService;
-import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +37,7 @@ public class BackupJobProcessor {
     private final TeamWorkspaceRepository teamWorkspaceRepository;
     private final ArchiveIoService archiveIoService;
     private final ProjectPackageService projectPackageService;
-    private final UtilityPackageService utilityPackageService;
+    private final ToolkitPackageService toolkitPackageService;
     private final ObjectMapper objectMapper;
 
     public BackupJobProcessor(BackupJobService backupJobService,
@@ -46,7 +46,7 @@ public class BackupJobProcessor {
                               TeamWorkspaceRepository teamWorkspaceRepository,
                               ArchiveIoService archiveIoService,
                               ProjectPackageService projectPackageService,
-                              UtilityPackageService utilityPackageService,
+                              ToolkitPackageService toolkitPackageService,
                               ObjectMapper objectMapper) {
         this.backupJobService = backupJobService;
         this.projectRepository = projectRepository;
@@ -54,7 +54,7 @@ public class BackupJobProcessor {
         this.teamWorkspaceRepository = teamWorkspaceRepository;
         this.archiveIoService = archiveIoService;
         this.projectPackageService = projectPackageService;
-        this.utilityPackageService = utilityPackageService;
+        this.toolkitPackageService = toolkitPackageService;
         this.objectMapper = objectMapper;
     }
 
@@ -100,15 +100,15 @@ public class BackupJobProcessor {
                 }
 
                 String workspaceId = workspace.getId();
-                String utilitiesEntry = "dump/utilities/" + workspaceId + ".larex-utilities.json";
-                UtilityPackageDto.UtilityPackage utilityPackage = utilityPackageService.buildUtilityPackage(
+                String toolkitEntry = "dump/toolkit/" + workspaceId + ".larex-toolkit.json";
+                ToolkitPackageDto.ToolkitPackage toolkitPackage = toolkitPackageService.buildToolkitPackage(
                         workspaceId,
-                        new UtilityPackageDto.ExportRequest(null, true)
+                        new ToolkitPackageDto.ExportRequest(null, true)
                 );
-                archiveIoService.writeJsonEntry(zipOut, utilitiesEntry, utilityPackage);
+                archiveIoService.writeJsonEntry(zipOut, toolkitEntry, toolkitPackage);
 
                 processed[0]++;
-                backupJobService.updateProgress(jobId, processed[0], totalItems, "Exported utilities for " + workspaceId);
+                backupJobService.updateProgress(jobId, processed[0], totalItems, "Exported toolkit resources for " + workspaceId);
 
                 List<Project> projects = projectRepository.findByLibraryWorkspaceId(workspaceId).stream()
                         .sorted(Comparator.comparing(Project::getName, String.CASE_INSENSITIVE_ORDER))
@@ -137,7 +137,7 @@ public class BackupJobProcessor {
                 workspaceEntries.add(new DumpWorkspaceEntry(
                         workspaceId,
                         workspace.getName(),
-                        utilitiesEntry,
+                        toolkitEntry,
                         projectEntries
                 ));
             }
@@ -201,20 +201,20 @@ public class BackupJobProcessor {
                     continue;
                 }
 
-                if (workspaceEntry.utilitiesPath() != null) {
-                    Path utilitiesPath = tempDir.resolve(archiveIoService.normalizeArchivePath(workspaceEntry.utilitiesPath()));
-                    if (Files.exists(utilitiesPath)) {
-                        String content = Files.readString(utilitiesPath);
-                        utilityPackageService.importUtilityPackageFromContentInternal(targetWorkspaceId, userId, content);
+                if (workspaceEntry.toolkitPath() != null) {
+                    Path toolkitPath = tempDir.resolve(archiveIoService.normalizeArchivePath(workspaceEntry.toolkitPath()));
+                    if (Files.exists(toolkitPath)) {
+                        String content = Files.readString(toolkitPath);
+                        toolkitPackageService.importToolkitPackageFromContentInternal(targetWorkspaceId, userId, content);
                     } else {
                         backupJobService.addWarning(jobId,
-                                "Utilities package missing for workspace " + workspaceEntry.workspaceId());
+                                "Toolkit package missing for workspace " + workspaceEntry.workspaceId());
                     }
                 }
 
                 processed++;
                 backupJobService.updateProgress(jobId, processed, totalItems,
-                        "Imported utilities into " + targetWorkspaceId);
+                        "Imported toolkit into " + targetWorkspaceId);
 
                 if (workspaceEntry.projects() != null) {
                     for (DumpProjectEntry projectEntry : workspaceEntry.projects()) {
@@ -330,7 +330,7 @@ public class BackupJobProcessor {
     private record DumpWorkspaceEntry(
             String workspaceId,
             String workspaceName,
-            String utilitiesPath,
+            String toolkitPath,
             List<DumpProjectEntry> projects
     ) {
     }

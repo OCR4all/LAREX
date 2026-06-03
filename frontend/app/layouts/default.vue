@@ -70,7 +70,7 @@ const groups = computed(() => {
       }
     })
   }
-  if (workspace.canManageUtilities) {
+  if (workspace.canManageToolkit) {
     actionItems.push({
       id: 'new-label-set',
       label: 'New Label Set',

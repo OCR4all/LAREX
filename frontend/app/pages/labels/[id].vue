@@ -261,7 +261,7 @@ const handleImportFile = async (e: Event) => {
     const content = await file.text()
     const result = await $fetch<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
-    }>(`/api/workspaces/${selectedWorkspace.value}/utilities/import`, {
+    }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
       method: 'POST',
       body: { content }
     })
@@ -292,7 +292,7 @@ const exportSet = async () => {
   }
 
   try {
-    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/utilities/export`, {
+    const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -306,7 +306,7 @@ const exportSet = async () => {
     }
 
     const blob = await response.blob()
-    const fallbackName = `${getString(asRecord(meta).name, 'label-set').replace(/\\s+/g, '-').toLowerCase()}.larex-utilities.json`
+    const fallbackName = `${getString(asRecord(meta).name, 'label-set').replace(/\\s+/g, '-').toLowerCase()}.larex-toolkit.json`
     const contentDisposition = response.headers.get('content-disposition')
     const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
     const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
@@ -439,7 +439,7 @@ const openSettings = () => {
         :help-items="[
           'Use scopes and mappings to align labels with your PAGE and ALTO export model.',
           'Keep labels visually distinct so annotators can read segmentation state quickly.',
-          'Import, export, and share label sets as reusable workspace utilities.'
+          'Import, export, and share label sets as reusable workspace toolkit resources.'
         ]"
         @import="triggerImport"
         @export="exportSet"

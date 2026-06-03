@@ -11,7 +11,7 @@ const deletingDictionaryIds = ref<Set<string>>(new Set())
 
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
+const canManageToolkit = computed(() => allow(workspaceCapabilities.value.canManageToolkit))
 const dictionariesKey = computed(() =>
   selectedWorkspace.value
     ? wsKey(selectedWorkspace.value, 'dictionaries', 'list')
@@ -267,7 +267,7 @@ const emptyStateActions = computed(() => {
     }
   ]
 
-  if (canManageUtilities.value) {
+  if (canManageToolkit.value) {
     actions.unshift({
       icon: 'i-lucide-plus',
       label: 'Create new',
@@ -289,7 +289,7 @@ const emptyStateActions = computed(() => {
         </template>
         <template #right>
           <UButton
-            v-if="canManageUtilities"
+            v-if="canManageToolkit"
             label="New Dictionary"
             color="neutral"
             variant="outline"

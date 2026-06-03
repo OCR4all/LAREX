@@ -117,10 +117,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return workspace.capabilities?.canManageTasks ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageTasks
   })
 
-  const canManageUtilities = computed(() => {
+  const canManageToolkit = computed(() => {
     const workspace = currentWorkspace.value
     if (!workspace) return false
-    return workspace.capabilities?.canManageUtilities ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageUtilities
+    return workspace.capabilities?.canManageToolkit ?? DEFAULT_WORKSPACE_CAPABILITIES.canManageToolkit
   })
 
   /**
@@ -223,7 +223,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     canManageMembers,
     canManageProjects,
     canManageTasks,
-    canManageUtilities,
+    canManageToolkit,
     selectWorkspace,
     selectWorkspaceAsAdmin,
     exitAdminMode,

@@ -1,5 +1,5 @@
 import type { Notification, NotificationGroup, WorkspaceInvitation, NotificationType } from '~/types'
-import type { WorkspaceUtilityResourceType } from '@/types/capabilities'
+import type { WorkspaceToolkitResourceType } from '@/types/capabilities'
 import { getNotificationLink } from '~/utils/notifications'
 import { extractApiErrorMessage } from '@/utils/api-error'
 
@@ -12,7 +12,7 @@ interface TransferRequest {
   projectName?: string
   resourceId?: string
   resourceName?: string
-  resourceType?: WorkspaceUtilityResourceType
+  resourceType?: WorkspaceToolkitResourceType
   sourceWorkspaceId: string
   sourceWorkspaceName: string
   targetWorkspaceId: string

@@ -1054,7 +1054,7 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   }
 
-  const utilityActions: DropdownMenuItem[] = [
+  const toolkitActions: DropdownMenuItem[] = [
     {
       label: 'Check Codec',
       icon: 'i-lucide-badge-check',
@@ -1065,7 +1065,7 @@ const rightSidebarActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return layoutActions.length > 0 ? [layoutActions, utilityActions] : [utilityActions]
+  return layoutActions.length > 0 ? [layoutActions, toolkitActions] : [toolkitActions]
 })
 
 const backendFilteredPageIdsByProjectId = ref<Record<string, string[]>>({})

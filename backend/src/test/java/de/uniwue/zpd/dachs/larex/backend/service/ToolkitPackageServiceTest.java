@@ -3,7 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.AuthorizationCapabilitiesDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryEntryRepository;
 import de.uniwue.zpd.dachs.larex.backend.repository.dictionary.ControlledDictionaryRepository;
@@ -20,7 +20,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.keyboard.VirtualKeyboardService
 import de.uniwue.zpd.dachs.larex.backend.service.label.LabelSetService;
 import de.uniwue.zpd.dachs.larex.backend.service.normalization.NormalizationProfileService;
 import de.uniwue.zpd.dachs.larex.backend.service.tag.TagSetService;
-import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.validation.ValidationRulesetService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +42,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class UtilityPackageServiceTest {
+class ToolkitPackageServiceTest {
 
     @Mock
     private WorkspaceAccessService workspaceAccessService;
@@ -88,13 +88,13 @@ class UtilityPackageServiceTest {
     @Mock
     private VirtualKeyboardService virtualKeyboardService;
 
-    private UtilityPackageService service;
+    private ToolkitPackageService service;
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     @BeforeEach
     void setUp() {
-        service = new UtilityPackageService(
+        service = new ToolkitPackageService(
                 workspaceAccessService,
                 workspaceQueryService,
                 codecRepository,
@@ -117,7 +117,7 @@ class UtilityPackageServiceTest {
     }
 
     @Test
-    void importUtilityPackageFromContent_legacyCodec_createsCodec() throws Exception {
+    void importToolkitPackageFromContent_legacyCodec_createsCodec() throws Exception {
         String workspaceId = "ws-1";
         String userId = "u-1";
 
@@ -143,7 +143,7 @@ class UtilityPackageServiceTest {
                 new AuthorizationCapabilitiesDto.ResourceCapabilities(true, true, true)
         ));
 
-        UtilityPackageDto.ImportResult result = service.importUtilityPackageFromContent(workspaceId, userId, legacyCodec);
+        ToolkitPackageDto.ImportResult result = service.importToolkitPackageFromContent(workspaceId, userId, legacyCodec);
 
         assertEquals(1, result.importedCount());
         assertEquals(0, result.reusedCount());
@@ -153,7 +153,7 @@ class UtilityPackageServiceTest {
     }
 
     @Test
-    void importUtilityPackage_existingCodecWithSamePayload_reusesCodec() throws Exception {
+    void importToolkitPackage_existingCodecWithSamePayload_reusesCodec() throws Exception {
         String workspaceId = "ws-1";
         String userId = "u-1";
 
@@ -185,7 +185,7 @@ class UtilityPackageServiceTest {
 
         when(codecRepository.findByNameAndLibraryWorkspaceId("Shared Codec", workspaceId)).thenReturn(Optional.of(existing));
 
-        UtilityPackageDto.ImportResult result = service.importUtilityPackageFromContent(workspaceId, userId, packageJson);
+        ToolkitPackageDto.ImportResult result = service.importToolkitPackageFromContent(workspaceId, userId, packageJson);
 
         assertEquals(0, result.importedCount());
         assertEquals(1, result.reusedCount());

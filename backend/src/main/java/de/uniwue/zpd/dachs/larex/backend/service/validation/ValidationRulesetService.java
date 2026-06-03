@@ -97,7 +97,7 @@ public class ValidationRulesetService {
     public ValidationRulesetDto.Response createRuleset(String userId,
                                                        String workspaceId,
                                                        ValidationRulesetDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         String name = request.name().trim();
         if (validationRulesetRepository.existsByNameAndWorkspaceId(name, workspaceId)) {
             throw new IllegalArgumentException("Validation ruleset with name '" + name + "' already exists in this workspace");
@@ -113,7 +113,7 @@ public class ValidationRulesetService {
                                                        String workspaceId,
                                                        String rulesetId,
                                                        ValidationRulesetDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         ValidationRuleset ruleset = requireRuleset(workspaceId, rulesetId);
         String nextName = request.name().trim();
         if (!ruleset.getName().equals(nextName) && validationRulesetRepository.existsByNameAndWorkspaceId(nextName, workspaceId)) {
@@ -125,7 +125,7 @@ public class ValidationRulesetService {
 
     @Transactional
     public void deleteRuleset(String userId, String workspaceId, String rulesetId) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         ValidationRuleset ruleset = requireRuleset(workspaceId, rulesetId);
         clearAssignments(workspaceId, rulesetId);
         validationRulesetRepository.delete(ruleset);

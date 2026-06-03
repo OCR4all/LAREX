@@ -1,5 +1,5 @@
 /**
- * Utilities for working with labels and label sets
+ * Helpers for working with labels and label sets
  */
 
 import type { LabelSet, LabelDefinition } from '@/models/editor/labels'

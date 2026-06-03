@@ -47,7 +47,7 @@ public class LabelSetService {
 
     @CacheEvict(value = "labelSets", allEntries = true)
     public LabelSetDto.Response createLabelSet(String userId, String workspaceId, JsonNode requestJson) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         LabelSetDto.CreateOrUpdateRequest request = parseAndValidateRequest(requestJson);
 
@@ -67,7 +67,7 @@ public class LabelSetService {
 
     @CacheEvict(value = "labelSets", allEntries = true)
     public LabelSetDto.Response updateLabelSet(String userId, String workspaceId, String labelSetId, JsonNode requestJson) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         LabelSetDto.CreateOrUpdateRequest request = parseAndValidateRequest(requestJson);
 
@@ -165,7 +165,7 @@ public class LabelSetService {
 
     @CacheEvict(value = "labelSets", allEntries = true)
     public void deleteLabelSet(String userId, String workspaceId, String labelSetId) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         LabelSet labelSet = labelSetRepository.findByIdAndWorkspaceId(labelSetId, workspaceId)
             .orElseThrow(() -> new ResourceNotFoundException("Label set not found: " + labelSetId));

@@ -125,7 +125,7 @@ public class AuthorizationPolicyService {
         return canManageWorkspaceOperations(workspaceId, userId);
     }
 
-    public boolean canManageUtilities(String workspaceId, String userId) {
+    public boolean canManageToolkit(String workspaceId, String userId) {
         return canManageWorkspaceOperations(workspaceId, userId);
     }
 
@@ -141,7 +141,7 @@ public class AuthorizationPolicyService {
         boolean canEditWorkspaceTextIndexDefaults = canEditWorkspaceTextIndexDefaults(workspaceId, userId);
         boolean canManageProjects = canManageProjects(workspaceId, userId);
         boolean canManageTasks = canManageTasks(workspaceId, userId);
-        boolean canManageUtilities = canManageUtilities(workspaceId, userId);
+        boolean canManageToolkit = canManageToolkit(workspaceId, userId);
         boolean canSetPresets = canSetPresets(workspaceId, userId);
 
         return new AuthorizationCapabilitiesDto.WorkspaceCapabilities(
@@ -151,7 +151,7 @@ public class AuthorizationPolicyService {
                 canEditWorkspaceTextIndexDefaults,
                 canManageProjects,
                 canManageTasks,
-                canManageUtilities,
+                canManageToolkit,
                 canSetPresets
         );
     }
@@ -214,7 +214,7 @@ public class AuthorizationPolicyService {
     }
 
     public AuthorizationCapabilitiesDto.ResourceCapabilities resolveWorkspaceResourceCapabilities(String workspaceId, String userId) {
-        boolean canEdit = canManageUtilities(workspaceId, userId);
+        boolean canEdit = canManageToolkit(workspaceId, userId);
         boolean canShare = canEdit;
         boolean canDelete = canEdit;
         return new AuthorizationCapabilitiesDto.ResourceCapabilities(canEdit, canShare, canDelete);

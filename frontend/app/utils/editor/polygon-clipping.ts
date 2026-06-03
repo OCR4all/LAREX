@@ -1,5 +1,5 @@
 /**
- * Polygon Clipping and Intersection Utilities
+ * Polygon clipping and intersection helpers
  *
  * This library provides geometric operations for polygon clipping,
  * intersection testing, shape reduction operations, and cut operations

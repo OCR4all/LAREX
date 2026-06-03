@@ -78,13 +78,13 @@ public class WorkspaceAccessService {
         }
     }
 
-    public boolean canManageUtilities(String workspaceId, String userId) {
-        return authorizationPolicyService.canManageUtilities(workspaceId, userId);
+    public boolean canManageToolkit(String workspaceId, String userId) {
+        return authorizationPolicyService.canManageToolkit(workspaceId, userId);
     }
 
-    public void requireManageUtilitiesAccess(String workspaceId, String userId) {
-        if (!canManageUtilities(workspaceId, userId)) {
-            throw new SecurityException("Utility management access required for workspace: " + workspaceId);
+    public void requireManageToolkitAccess(String workspaceId, String userId) {
+        if (!canManageToolkit(workspaceId, userId)) {
+            throw new SecurityException("Toolkit management access required for workspace: " + workspaceId);
         }
     }
 

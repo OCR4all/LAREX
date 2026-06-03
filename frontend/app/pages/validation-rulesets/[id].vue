@@ -323,7 +323,7 @@ async function exportRuleset() {
   if (isExporting.value || isNew) return
   try {
     isExporting.value = true
-    const response = await fetch(`/api/workspaces/${workspaceId.value}/utilities/export`, {
+    const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ selectors: [{ type: 'VALIDATION_RULESET', ids: [id] }] })
@@ -333,7 +333,7 @@ async function exportRuleset() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${name.value || 'validation-ruleset'}.larex-utilities.json`
+    link.download = `${name.value || 'validation-ruleset'}.larex-toolkit.json`
     link.click()
     window.URL.revokeObjectURL(url)
     toast.add({ title: 'Validation ruleset exported', color: 'success' })
@@ -354,7 +354,7 @@ async function exportRuleset() {
         </template>
         <template #right>
           <div class="flex items-center gap-2">
-            <UtilityHelpPopover
+            <ToolkitHelpPopover
               title="About Validation Rulesets"
               description="Validation rulesets define reusable QA checks for suspicious transcription patterns above the codec layer."
               :items="[

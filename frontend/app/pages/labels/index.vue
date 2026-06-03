@@ -12,7 +12,7 @@ const { allow, compactGroups } = useActionVisibility()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
+const canManageToolkit = computed(() => allow(workspaceCapabilities.value.canManageToolkit))
 const labelSetsKey = computed(() => wsKey(workspaceId.value, 'label-sets', 'list'))
 
 const { data: labelSets } = await useFetch<LabelSetSummary[]>(() => `/api/workspaces/${workspaceId.value}/label-sets`, {
@@ -295,7 +295,7 @@ const emptyStateActions = computed(() => {
     }
   ]
 
-  if (canManageUtilities.value) {
+  if (canManageToolkit.value) {
     actions.unshift({
       icon: 'i-lucide-plus',
       label: 'Create new',
@@ -317,7 +317,7 @@ const emptyStateActions = computed(() => {
         </template>
         <template #right>
           <UButton
-            v-if="canManageUtilities"
+            v-if="canManageToolkit"
             data-tour="labels-new"
             label="New Label Set"
             color="neutral"

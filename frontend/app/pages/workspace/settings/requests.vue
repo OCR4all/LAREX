@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkspaceUtilityResourceType } from '@/types/capabilities'
+import type { WorkspaceToolkitResourceType } from '@/types/capabilities'
 
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -17,7 +17,7 @@ type TransferRequest = {
   projectName?: string
   resourceId?: string
   resourceName?: string
-  resourceType?: WorkspaceUtilityResourceType
+  resourceType?: WorkspaceToolkitResourceType
   sourceWorkspaceId: string
   sourceWorkspaceName: string
   targetWorkspaceId: string

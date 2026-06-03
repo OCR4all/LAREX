@@ -12,7 +12,7 @@ const { allow, compactGroups } = useActionVisibility()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
+const canManageToolkit = computed(() => allow(workspaceCapabilities.value.canManageToolkit))
 const codecsKey = computed(() => wsKey(workspaceId.value, 'codecs', 'list'))
 
 const { data: codecs } = await useFetch<CodecSummary[]>(() => `/api/workspaces/${workspaceId.value}/codecs`, {
@@ -228,7 +228,7 @@ const emptyStateActions = computed(() => {
     }
   ]
 
-  if (canManageUtilities.value) {
+  if (canManageToolkit.value) {
     actions.unshift({
       icon: 'i-lucide-plus',
       label: 'Create new',
@@ -250,7 +250,7 @@ const emptyStateActions = computed(() => {
         </template>
         <template #right>
           <UButton
-            v-if="canManageUtilities"
+            v-if="canManageToolkit"
             data-tour="codecs-new"
             label="New Codec"
             color="neutral"

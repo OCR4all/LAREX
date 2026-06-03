@@ -3,7 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.project;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
 import de.uniwue.zpd.dachs.larex.backend.entity.ControlledDictionary;
 import de.uniwue.zpd.dachs.larex.backend.entity.LabelSet;
@@ -37,7 +37,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.export.DocumentExportService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
-import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlConversionService;
@@ -99,7 +99,7 @@ public class ProjectPackageService {
     private final ValidationRulesetRepository validationRulesetRepository;
     private final WorkspaceAccessService workspaceAccessService;
     private final ArchiveIoService archiveIoService;
-    private final UtilityPackageService utilityPackageService;
+    private final ToolkitPackageService toolkitPackageService;
     private final HierarchicalFileStorageService hierarchicalFileStorageService;
     private final PageFilterIndexService pageFilterIndexService;
     private final StorageTrackingService storageTrackingService;
@@ -129,7 +129,7 @@ public class ProjectPackageService {
                                  ValidationRulesetRepository validationRulesetRepository,
                                  WorkspaceAccessService workspaceAccessService,
                                  ArchiveIoService archiveIoService,
-                                 UtilityPackageService utilityPackageService,
+                                 ToolkitPackageService toolkitPackageService,
                                  HierarchicalFileStorageService hierarchicalFileStorageService,
                                  PageFilterIndexService pageFilterIndexService,
                                  StorageTrackingService storageTrackingService,
@@ -152,7 +152,7 @@ public class ProjectPackageService {
         this.validationRulesetRepository = validationRulesetRepository;
         this.workspaceAccessService = workspaceAccessService;
         this.archiveIoService = archiveIoService;
-        this.utilityPackageService = utilityPackageService;
+        this.toolkitPackageService = toolkitPackageService;
         this.hierarchicalFileStorageService = hierarchicalFileStorageService;
         this.pageFilterIndexService = pageFilterIndexService;
         this.storageTrackingService = storageTrackingService;
@@ -401,11 +401,11 @@ public class ProjectPackageService {
             );
 
             try {
-                UtilityPackageDto.ImportResult utilityImportResult = importUtilityReferencesFromPackage(
+                ToolkitPackageDto.ImportResult toolkitImportResult = importToolkitReferencesFromPackage(
                         workspaceId,
                         userId,
                         tempDir,
-                        manifest.utilityReferences(),
+                        manifest.toolkitReferences(),
                         manifest.sourceWorkspaceName()
                 );
 
@@ -424,7 +424,7 @@ public class ProjectPackageService {
                 project.setTags(new ArrayList<>(manifest.project().tags() == null ? List.of() : manifest.project().tags()));
                 project.setLocked(manifest.project().locked());
                 project.setLockedReason(manifest.project().lockedReason());
-                applyUtilityReferences(project, utilityImportResult.sourceToTargetIds(), manifest.utilityReferences());
+                applyToolkitReferences(project, toolkitImportResult.sourceToTargetIds(), manifest.toolkitReferences());
                 project = projectRepository.save(project);
 
                 Map<String, Page> pageBySourceId = importPages(project, manifest.pages());
@@ -440,7 +440,7 @@ public class ProjectPackageService {
                 if (manifest.warnings() != null) {
                     warnings.addAll(manifest.warnings());
                 }
-                warnings.addAll(utilityImportResult.warnings());
+                warnings.addAll(toolkitImportResult.warnings());
 
                 return new ProjectPackageDto.ImportResult(
                         workspaceId,
@@ -451,7 +451,7 @@ public class ProjectPackageService {
                         xmlCount,
                         xmlVersionCount,
                         warnings,
-                        utilityImportResult.sourceToTargetIds()
+                        toolkitImportResult.sourceToTargetIds()
                 );
             } finally {
                 workspaceQuotaGuardService.syncUsageAndReleaseReservation(workspaceId, reservedBytes);
@@ -605,7 +605,7 @@ public class ProjectPackageService {
             }
         }
 
-        UtilityPackageDto.UtilityPackage utilitySnapshot = utilityPackageService.buildProjectUtilitySnapshot(
+        ToolkitPackageDto.ToolkitPackage toolkitSnapshot = toolkitPackageService.buildProjectToolkitSnapshot(
                 project.getLibrary().getWorkspaceId(),
                 project.getCodec() == null ? null : project.getCodec().getId(),
                 project.getLabelSet() == null ? null : project.getLabelSet().getId(),
@@ -615,13 +615,13 @@ public class ProjectPackageService {
                 project.getValidationRuleset() == null ? null : project.getValidationRuleset().getId()
         );
 
-        Map<String, UtilityPackageDto.UtilityResource> utilityResourcesByPath = new LinkedHashMap<>();
-        Map<UtilityPackageDto.UtilityType, ProjectPackageDto.UtilityReference> utilityRefByType = new LinkedHashMap<>();
+        Map<String, ToolkitPackageDto.ToolkitResource> toolkitResourcesByPath = new LinkedHashMap<>();
+        Map<ToolkitPackageDto.ToolkitType, ProjectPackageDto.ToolkitReference> toolkitRefByType = new LinkedHashMap<>();
 
-        for (UtilityPackageDto.UtilityResource resource : utilitySnapshot.resources()) {
-            String snapshotPath = "utilities/" + resource.type().name().toLowerCase() + "-" + resource.sourceId() + ".json";
-            utilityResourcesByPath.put(snapshotPath, resource);
-            utilityRefByType.put(resource.type(), new ProjectPackageDto.UtilityReference(
+        for (ToolkitPackageDto.ToolkitResource resource : toolkitSnapshot.resources()) {
+            String snapshotPath = "toolkit/" + resource.type().name().toLowerCase() + "-" + resource.sourceId() + ".json";
+            toolkitResourcesByPath.put(snapshotPath, resource);
+            toolkitRefByType.put(resource.type(), new ProjectPackageDto.ToolkitReference(
                     resource.sourceId(),
                     resource.name(),
                     resource.sourceCreated(),
@@ -630,20 +630,20 @@ public class ProjectPackageService {
             ));
         }
 
-        ProjectPackageDto.UtilityReferences utilityReferences = new ProjectPackageDto.UtilityReferences(
-                utilityRefByType.get(UtilityPackageDto.UtilityType.CODEC),
-                utilityRefByType.get(UtilityPackageDto.UtilityType.LABEL_SET),
-                utilityRefByType.get(UtilityPackageDto.UtilityType.DICTIONARY),
-                utilityRefByType.get(UtilityPackageDto.UtilityType.TAG_SET),
-                utilityRefByType.get(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE),
-                utilityRefByType.get(UtilityPackageDto.UtilityType.VALIDATION_RULESET)
+        ProjectPackageDto.ToolkitReferences toolkitReferences = new ProjectPackageDto.ToolkitReferences(
+                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.CODEC),
+                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.LABEL_SET),
+                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.DICTIONARY),
+                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.TAG_SET),
+                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE),
+                toolkitRefByType.get(ToolkitPackageDto.ToolkitType.VALIDATION_RULESET)
         );
 
         ProjectPackageDto.PackageManifest manifest = new ProjectPackageDto.PackageManifest(
                 ProjectPackageDto.DEFAULT_SCHEMA_VERSION,
                 LocalDateTime.now(),
                 project.getLibrary().getWorkspaceId(),
-                utilitySnapshot.meta() == null ? project.getLibrary().getWorkspaceId() : utilitySnapshot.meta().workspaceName(),
+                toolkitSnapshot.meta() == null ? project.getLibrary().getWorkspaceId() : toolkitSnapshot.meta().workspaceName(),
                 new ProjectPackageDto.ProjectSnapshot(
                         project.getId(),
                         project.getName(),
@@ -655,13 +655,13 @@ public class ProjectPackageService {
                         project.getLockedReason()
                 ),
                 pageSnapshots,
-                utilityReferences,
+                toolkitReferences,
                 fileEntries,
                 versionEntries,
                 buildManifestWarnings(legacyTarget, targetPageXmlVersion)
         );
 
-        return new ExportBundle(manifest, fileSourcePathByArchivePath, versionPathByArchivePath, utilityResourcesByPath, imageBySourceId);
+        return new ExportBundle(manifest, fileSourcePathByArchivePath, versionPathByArchivePath, toolkitResourcesByPath, imageBySourceId);
     }
 
     private List<String> buildManifestWarnings(boolean legacyTarget,
@@ -709,90 +709,90 @@ public class ProjectPackageService {
         return hierarchicalFileStorageService.resolveUploadPath(image.getThumbnailPath());
     }
 
-    private UtilityPackageDto.ImportResult importUtilityReferencesFromPackage(String workspaceId,
+    private ToolkitPackageDto.ImportResult importToolkitReferencesFromPackage(String workspaceId,
                                                                               String userId,
                                                                               Path tempDir,
-                                                                              ProjectPackageDto.UtilityReferences utilityReferences,
+                                                                              ProjectPackageDto.ToolkitReferences toolkitReferences,
                                                                               String sourceWorkspaceName) throws IOException {
-        if (utilityReferences == null) {
-            return new UtilityPackageDto.ImportResult(workspaceId, 0, 0, List.of(), List.of(), Map.of());
+        if (toolkitReferences == null) {
+            return new ToolkitPackageDto.ImportResult(workspaceId, 0, 0, List.of(), List.of(), Map.of());
         }
 
-        List<UtilityPackageDto.UtilityResource> resources = new ArrayList<>();
-        loadUtilityResource(tempDir, utilityReferences.codec(), resources);
-        loadUtilityResource(tempDir, utilityReferences.labelSet(), resources);
-        loadUtilityResource(tempDir, utilityReferences.dictionary(), resources);
-        loadUtilityResource(tempDir, utilityReferences.tagSet(), resources);
-        loadUtilityResource(tempDir, utilityReferences.normalizationProfile(), resources);
-        loadUtilityResource(tempDir, utilityReferences.validationRuleset(), resources);
+        List<ToolkitPackageDto.ToolkitResource> resources = new ArrayList<>();
+        loadToolkitResource(tempDir, toolkitReferences.codec(), resources);
+        loadToolkitResource(tempDir, toolkitReferences.labelSet(), resources);
+        loadToolkitResource(tempDir, toolkitReferences.dictionary(), resources);
+        loadToolkitResource(tempDir, toolkitReferences.tagSet(), resources);
+        loadToolkitResource(tempDir, toolkitReferences.normalizationProfile(), resources);
+        loadToolkitResource(tempDir, toolkitReferences.validationRuleset(), resources);
 
         if (resources.isEmpty()) {
-            return new UtilityPackageDto.ImportResult(workspaceId, 0, 0, List.of(), List.of(), Map.of());
+            return new ToolkitPackageDto.ImportResult(workspaceId, 0, 0, List.of(), List.of(), Map.of());
         }
 
-        UtilityPackageDto.UtilityPackage utilityPackage = new UtilityPackageDto.UtilityPackage(
-                new UtilityPackageDto.PackageMeta("1.0", LocalDateTime.now(), workspaceId, sourceWorkspaceName),
+        ToolkitPackageDto.ToolkitPackage toolkitPackage = new ToolkitPackageDto.ToolkitPackage(
+                new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), workspaceId, sourceWorkspaceName),
                 resources
         );
 
-        return utilityPackageService.importUtilityPackage(workspaceId, userId, utilityPackage);
+        return toolkitPackageService.importToolkitPackage(workspaceId, userId, toolkitPackage);
     }
 
-    private void loadUtilityResource(Path tempDir,
-                                     ProjectPackageDto.UtilityReference utilityReference,
-                                     List<UtilityPackageDto.UtilityResource> target) throws IOException {
-        if (utilityReference == null || utilityReference.snapshotPath() == null) {
+    private void loadToolkitResource(Path tempDir,
+                                     ProjectPackageDto.ToolkitReference toolkitReference,
+                                     List<ToolkitPackageDto.ToolkitResource> target) throws IOException {
+        if (toolkitReference == null || toolkitReference.snapshotPath() == null) {
             return;
         }
 
-        Path resourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(utilityReference.snapshotPath()));
+        Path resourcePath = tempDir.resolve(archiveIoService.normalizeArchivePath(toolkitReference.snapshotPath()));
         if (!Files.exists(resourcePath)) {
             return;
         }
 
-        UtilityPackageDto.UtilityResource resource = objectMapper.readValue(resourcePath.toFile(), UtilityPackageDto.UtilityResource.class);
+        ToolkitPackageDto.ToolkitResource resource = objectMapper.readValue(resourcePath.toFile(), ToolkitPackageDto.ToolkitResource.class);
         target.add(resource);
     }
 
-    private void applyUtilityReferences(Project project,
+    private void applyToolkitReferences(Project project,
                                         Map<String, String> sourceToTarget,
-                                        ProjectPackageDto.UtilityReferences utilityReferences) {
-        if (utilityReferences == null) {
+                                        ProjectPackageDto.ToolkitReferences toolkitReferences) {
+        if (toolkitReferences == null) {
             return;
         }
 
-        String codecId = mapSourceUtilityId(utilityReferences.codec(), sourceToTarget);
+        String codecId = mapSourceToolkitId(toolkitReferences.codec(), sourceToTarget);
         if (codecId != null) {
             codecRepository.findById(codecId).ifPresent(project::setCodec);
         }
 
-        String labelSetId = mapSourceUtilityId(utilityReferences.labelSet(), sourceToTarget);
+        String labelSetId = mapSourceToolkitId(toolkitReferences.labelSet(), sourceToTarget);
         if (labelSetId != null) {
             labelSetRepository.findById(labelSetId).ifPresent(project::setLabelSet);
         }
 
-        String dictionaryId = mapSourceUtilityId(utilityReferences.dictionary(), sourceToTarget);
+        String dictionaryId = mapSourceToolkitId(toolkitReferences.dictionary(), sourceToTarget);
         if (dictionaryId != null) {
             dictionaryRepository.findById(dictionaryId).ifPresent(project::setDictionary);
         }
 
-        String tagSetId = mapSourceUtilityId(utilityReferences.tagSet(), sourceToTarget);
+        String tagSetId = mapSourceToolkitId(toolkitReferences.tagSet(), sourceToTarget);
         if (tagSetId != null) {
             tagSetRepository.findById(tagSetId).ifPresent(project::setTagSet);
         }
 
-        String normalizationProfileId = mapSourceUtilityId(utilityReferences.normalizationProfile(), sourceToTarget);
+        String normalizationProfileId = mapSourceToolkitId(toolkitReferences.normalizationProfile(), sourceToTarget);
         if (normalizationProfileId != null) {
             normalizationProfileRepository.findById(normalizationProfileId).ifPresent(project::setNormalizationProfile);
         }
 
-        String validationRulesetId = mapSourceUtilityId(utilityReferences.validationRuleset(), sourceToTarget);
+        String validationRulesetId = mapSourceToolkitId(toolkitReferences.validationRuleset(), sourceToTarget);
         if (validationRulesetId != null) {
             validationRulesetRepository.findById(validationRulesetId).ifPresent(project::setValidationRuleset);
         }
     }
 
-    private String mapSourceUtilityId(ProjectPackageDto.UtilityReference reference,
+    private String mapSourceToolkitId(ProjectPackageDto.ToolkitReference reference,
                                       Map<String, String> sourceToTarget) {
         if (reference == null || reference.sourceId() == null) {
             return null;
@@ -1401,7 +1401,7 @@ public class ProjectPackageService {
             }
         }
 
-        for (Map.Entry<String, UtilityPackageDto.UtilityResource> entry : packageSnapshot.exportBundle().utilityResourceByPath().entrySet()) {
+        for (Map.Entry<String, ToolkitPackageDto.ToolkitResource> entry : packageSnapshot.exportBundle().toolkitResourceByPath().entrySet()) {
             archiveIoService.writeJsonEntry(zipOut, entry.getKey(), entry.getValue());
         }
 
@@ -1594,7 +1594,7 @@ public class ProjectPackageService {
             ProjectPackageDto.PackageManifest manifest,
             Map<String, Path> filePathByArchivePath,
             Map<String, Path> versionPathByArchivePath,
-            Map<String, UtilityPackageDto.UtilityResource> utilityResourceByPath,
+            Map<String, ToolkitPackageDto.ToolkitResource> toolkitResourceByPath,
             Map<String, PageImage> imageBySourceId
     ) {
     }

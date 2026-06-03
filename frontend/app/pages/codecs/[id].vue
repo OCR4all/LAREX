@@ -290,7 +290,7 @@ const handleCodecImport = async (event: Event) => {
     const content = await file.text()
     const result = await $fetch<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
-    }>(`/api/workspaces/${selectedWorkspace.value}/utilities/import`, {
+    }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
       method: 'POST',
       body: { content }
     })
@@ -334,7 +334,7 @@ const handleCodecExport = () => {
 
   void (async () => {
     try {
-      const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/utilities/export`, {
+      const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -348,7 +348,7 @@ const handleCodecExport = () => {
       }
 
       const blob = await response.blob()
-      const fallbackName = `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}.larex-utilities.json`
+      const fallbackName = `${name.value.replace(/\\s+/g, '-').toLowerCase() || 'codec'}.larex-toolkit.json`
       const contentDisposition = response.headers.get('content-disposition')
       const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
       const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
@@ -522,17 +522,17 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             ref="importCodecInput"
             type="file"
             class="hidden"
-            accept=".json,.larex-utilities.json,application/json"
+            accept=".json,.larex-toolkit.json,application/json"
             @change="handleCodecImport"
           >
           <div class="flex items-center gap-2">
-            <UtilityHelpPopover
+            <ToolkitHelpPopover
               title="About Codecs"
               description="Codecs define the character inventory that a project is allowed to use during transcription and QA."
               :items="[
                 'Curate the allowed character set directly or generate it from project sources.',
                 'Validate codec coverage against sources before assigning it to a project.',
-                'Share and export codecs as reusable workspace utilities.'
+                'Share and export codecs as reusable workspace toolkit resources.'
               ]"
             />
             <UFieldGroup>

@@ -13,7 +13,7 @@ const { allow, compactGroups } = useActionVisibility()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
+const canManageToolkit = computed(() => allow(workspaceCapabilities.value.canManageToolkit))
 const tagSetsKey = computed(() => wsKey(workspaceId.value, 'tag-sets', 'list'))
 
 const { data: tagSets, refresh } = await useFetch<TagSetSummary[]>(() => `/api/workspaces/${workspaceId.value}/tag-sets`, {
@@ -267,7 +267,7 @@ const emptyStateActions = computed(() => {
     }
   ]
 
-  if (canManageUtilities.value) {
+  if (canManageToolkit.value) {
     actions.unshift({
       icon: 'i-lucide-plus',
       label: 'Create new',
@@ -289,7 +289,7 @@ const emptyStateActions = computed(() => {
         </template>
         <template #right>
           <UButton
-            v-if="canManageUtilities"
+            v-if="canManageToolkit"
             data-tour="tag-sets-new"
             label="New Tag Set"
             color="neutral"

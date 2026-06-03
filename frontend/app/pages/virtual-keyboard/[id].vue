@@ -129,7 +129,7 @@ const handleExportLayout = () => {
 
   void (async () => {
     try {
-      const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/utilities/export`, {
+      const response = await fetch(`/api/workspaces/${selectedWorkspace.value}/toolkit/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -143,7 +143,7 @@ const handleExportLayout = () => {
       }
 
       const blob = await response.blob()
-      const fallbackName = `${builderState.layoutName.value.replace(/\s+/g, '-').toLowerCase()}.larex-utilities.json`
+      const fallbackName = `${builderState.layoutName.value.replace(/\s+/g, '-').toLowerCase()}.larex-toolkit.json`
       const contentDisposition = response.headers.get('content-disposition')
       const match = contentDisposition?.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i)
       const fileName = match ? decodeURIComponent(match[1]!) : fallbackName
@@ -182,7 +182,7 @@ const handleImportLayout = async (event: Event) => {
     const content = await file.text()
     const result = await $fetch<{
       resources?: Array<{ type: string, targetId: string, targetName: string }>
-    }>(`/api/workspaces/${selectedWorkspace.value}/utilities/import`, {
+    }>(`/api/workspaces/${selectedWorkspace.value}/toolkit/import`, {
       method: 'POST',
       body: { content }
     })
@@ -301,13 +301,13 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
             @change="handleImportLayout"
           >
           <div class="flex items-center gap-2">
-            <UtilityHelpPopover
+            <ToolkitHelpPopover
               title="About Virtual Keyboards"
               description="Virtual keyboards provide reusable on-screen input layouts for transcription and special-character entry."
               :items="[
                 'Design key layouts for the character repertoire your project needs most often.',
                 'Use the preview tab to test typing behavior before assigning a keyboard to projects.',
-                'Import, export, and share layouts as reusable workspace utilities.'
+                'Import, export, and share layouts as reusable workspace toolkit resources.'
               ]"
             />
             <UFieldGroup>

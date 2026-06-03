@@ -1,4 +1,4 @@
-package de.uniwue.zpd.dachs.larex.backend.service.utility;
+package de.uniwue.zpd.dachs.larex.backend.service.toolkit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +8,7 @@ import de.uniwue.zpd.dachs.larex.backend.dto.CodecDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.DictionaryDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.KeyboardItemDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.NormalizationProfileDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ValidationRulesetDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.VirtualKeyboardDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Codec;
@@ -61,7 +61,7 @@ import java.util.function.Predicate;
 
 @Service
 @Transactional
-public class UtilityPackageService {
+public class ToolkitPackageService {
 
     private final WorkspaceAccessService workspaceAccessService;
     private final WorkspaceQueryService workspaceQueryService;
@@ -82,7 +82,7 @@ public class UtilityPackageService {
     private final VirtualKeyboardService virtualKeyboardService;
     private final ObjectMapper objectMapper;
 
-    public UtilityPackageService(WorkspaceAccessService workspaceAccessService,
+    public ToolkitPackageService(WorkspaceAccessService workspaceAccessService,
                                  WorkspaceQueryService workspaceQueryService,
                                  CodecRepository codecRepository,
                                  ControlledDictionaryEntryRepository dictionaryEntryRepository,
@@ -121,97 +121,97 @@ public class UtilityPackageService {
     }
 
     @Transactional(readOnly = true)
-    public byte[] exportUtilityPackage(String workspaceId,
+    public byte[] exportToolkitPackage(String workspaceId,
                                        String userId,
-                                       UtilityPackageDto.ExportRequest request) throws IOException {
+                                       ToolkitPackageDto.ExportRequest request) throws IOException {
         workspaceAccessService.requireWorkspaceAccess(workspaceId, userId);
-        UtilityPackageDto.UtilityPackage utilityPackage = buildUtilityPackage(workspaceId, request);
-        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(utilityPackage);
+        ToolkitPackageDto.ToolkitPackage toolkitPackage = buildToolkitPackage(workspaceId, request);
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(toolkitPackage);
     }
 
     @Transactional(readOnly = true)
-    public UtilityPackageDto.UtilityPackage buildUtilityPackage(String workspaceId,
-                                                                UtilityPackageDto.ExportRequest request) {
+    public ToolkitPackageDto.ToolkitPackage buildToolkitPackage(String workspaceId,
+                                                                ToolkitPackageDto.ExportRequest request) {
         String workspaceName = workspaceQueryService.findWorkspaceById(workspaceId)
                 .map(AbstractWorkspace::getName)
                 .orElse(workspaceId);
 
-        Map<UtilityPackageDto.UtilityType, Set<String>> selectors = parseSelectors(request == null ? null : request.selectors());
+        Map<ToolkitPackageDto.ToolkitType, Set<String>> selectors = parseSelectors(request == null ? null : request.selectors());
         boolean includeAll = request == null || request.includeAllResolved() || selectors.isEmpty();
 
-        List<UtilityPackageDto.UtilityResource> resources = new ArrayList<>();
+        List<ToolkitPackageDto.ToolkitResource> resources = new ArrayList<>();
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.CODEC)) {
+        if (includeAll || selectors.containsKey(ToolkitPackageDto.ToolkitType.CODEC)) {
             Collection<Codec> codecs = includeAll
                     ? codecRepository.findByLibraryWorkspaceId(workspaceId)
                     : codecRepository.findByLibraryWorkspaceId(workspaceId).stream()
-                    .filter(c -> selectors.getOrDefault(UtilityPackageDto.UtilityType.CODEC, Set.of()).contains(c.getId()))
+                    .filter(c -> selectors.getOrDefault(ToolkitPackageDto.ToolkitType.CODEC, Set.of()).contains(c.getId()))
                     .toList();
             codecs.stream()
                     .map(this::toCodecResource)
                     .forEach(resources::add);
         }
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.DICTIONARY)) {
+        if (includeAll || selectors.containsKey(ToolkitPackageDto.ToolkitType.DICTIONARY)) {
             Collection<ControlledDictionary> dictionaries = includeAll
                     ? dictionaryRepository.findByLibraryWorkspaceId(workspaceId)
                     : dictionaryRepository.findByLibraryWorkspaceId(workspaceId).stream()
-                    .filter(d -> selectors.getOrDefault(UtilityPackageDto.UtilityType.DICTIONARY, Set.of()).contains(d.getId()))
+                    .filter(d -> selectors.getOrDefault(ToolkitPackageDto.ToolkitType.DICTIONARY, Set.of()).contains(d.getId()))
                     .toList();
             dictionaries.stream()
                     .map(this::toDictionaryResource)
                     .forEach(resources::add);
         }
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.LABEL_SET)) {
+        if (includeAll || selectors.containsKey(ToolkitPackageDto.ToolkitType.LABEL_SET)) {
             Collection<LabelSet> labelSets = includeAll
                     ? labelSetRepository.findByWorkspaceId(workspaceId)
                     : labelSetRepository.findByWorkspaceId(workspaceId).stream()
-                    .filter(l -> selectors.getOrDefault(UtilityPackageDto.UtilityType.LABEL_SET, Set.of()).contains(l.getId()))
+                    .filter(l -> selectors.getOrDefault(ToolkitPackageDto.ToolkitType.LABEL_SET, Set.of()).contains(l.getId()))
                     .toList();
             labelSets.stream()
                     .map(this::toLabelSetResource)
                     .forEach(resources::add);
         }
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.TAG_SET)) {
+        if (includeAll || selectors.containsKey(ToolkitPackageDto.ToolkitType.TAG_SET)) {
             Collection<TagSet> tagSets = includeAll
                     ? tagSetRepository.findByWorkspaceId(workspaceId)
                     : tagSetRepository.findByWorkspaceId(workspaceId).stream()
-                    .filter(t -> selectors.getOrDefault(UtilityPackageDto.UtilityType.TAG_SET, Set.of()).contains(t.getId()))
+                    .filter(t -> selectors.getOrDefault(ToolkitPackageDto.ToolkitType.TAG_SET, Set.of()).contains(t.getId()))
                     .toList();
             tagSets.stream()
                     .map(this::toTagSetResource)
                     .forEach(resources::add);
         }
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE)) {
+        if (includeAll || selectors.containsKey(ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE)) {
             Collection<NormalizationProfile> profiles = includeAll
                     ? normalizationProfileRepository.findByWorkspaceId(workspaceId)
                     : normalizationProfileRepository.findByWorkspaceId(workspaceId).stream()
-                    .filter(p -> selectors.getOrDefault(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE, Set.of()).contains(p.getId()))
+                    .filter(p -> selectors.getOrDefault(ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE, Set.of()).contains(p.getId()))
                     .toList();
             profiles.stream()
                     .map(this::toNormalizationProfileResource)
                     .forEach(resources::add);
         }
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.VALIDATION_RULESET)) {
+        if (includeAll || selectors.containsKey(ToolkitPackageDto.ToolkitType.VALIDATION_RULESET)) {
             Collection<ValidationRuleset> rulesets = includeAll
                     ? validationRulesetRepository.findByWorkspaceId(workspaceId)
                     : validationRulesetRepository.findByWorkspaceId(workspaceId).stream()
-                    .filter(r -> selectors.getOrDefault(UtilityPackageDto.UtilityType.VALIDATION_RULESET, Set.of()).contains(r.getId()))
+                    .filter(r -> selectors.getOrDefault(ToolkitPackageDto.ToolkitType.VALIDATION_RULESET, Set.of()).contains(r.getId()))
                     .toList();
             rulesets.stream()
                     .map(this::toValidationRulesetResource)
                     .forEach(resources::add);
         }
 
-        if (includeAll || selectors.containsKey(UtilityPackageDto.UtilityType.VIRTUAL_KEYBOARD)) {
+        if (includeAll || selectors.containsKey(ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD)) {
             Collection<VirtualKeyboard> keyboards = includeAll
                     ? virtualKeyboardRepository.findByWorkspaceId(workspaceId)
                     : virtualKeyboardRepository.findByWorkspaceId(workspaceId).stream()
-                    .filter(v -> selectors.getOrDefault(UtilityPackageDto.UtilityType.VIRTUAL_KEYBOARD, Set.of()).contains(v.getId()))
+                    .filter(v -> selectors.getOrDefault(ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD, Set.of()).contains(v.getId()))
                     .toList();
             keyboards.stream()
                     .map(this::toVirtualKeyboardResource)
@@ -219,11 +219,11 @@ public class UtilityPackageService {
         }
 
         resources.sort(Comparator
-                .comparing((UtilityPackageDto.UtilityResource r) -> r.type().name())
-                .thenComparing(UtilityPackageDto.UtilityResource::name, Comparator.nullsLast(String::compareToIgnoreCase)));
+                .comparing((ToolkitPackageDto.ToolkitResource r) -> r.type().name())
+                .thenComparing(ToolkitPackageDto.ToolkitResource::name, Comparator.nullsLast(String::compareToIgnoreCase)));
 
-        return new UtilityPackageDto.UtilityPackage(
-                new UtilityPackageDto.PackageMeta(
+        return new ToolkitPackageDto.ToolkitPackage(
+                new ToolkitPackageDto.PackageMeta(
                         "1.0",
                         LocalDateTime.now(),
                         workspaceId,
@@ -234,81 +234,81 @@ public class UtilityPackageService {
     }
 
     @Transactional(readOnly = true)
-    public UtilityPackageDto.UtilityPackage buildProjectUtilitySnapshot(String workspaceId,
+    public ToolkitPackageDto.ToolkitPackage buildProjectToolkitSnapshot(String workspaceId,
                                                                         String codecId,
                                                                         String labelSetId,
                                                                         String dictionaryId,
                                                                         String tagSetId,
                                                                         String normalizationProfileId,
                                                                         String validationRulesetId) {
-        List<UtilityPackageDto.ResourceSelector> selectors = new ArrayList<>();
+        List<ToolkitPackageDto.ResourceSelector> selectors = new ArrayList<>();
         if (codecId != null && !codecId.isBlank()) {
-            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.CODEC, List.of(codecId)));
+            selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.CODEC, List.of(codecId)));
         }
         if (labelSetId != null && !labelSetId.isBlank()) {
-            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.LABEL_SET, List.of(labelSetId)));
+            selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.LABEL_SET, List.of(labelSetId)));
         }
         if (dictionaryId != null && !dictionaryId.isBlank()) {
-            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.DICTIONARY, List.of(dictionaryId)));
+            selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.DICTIONARY, List.of(dictionaryId)));
         }
         if (tagSetId != null && !tagSetId.isBlank()) {
-            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.TAG_SET, List.of(tagSetId)));
+            selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.TAG_SET, List.of(tagSetId)));
         }
         if (normalizationProfileId != null && !normalizationProfileId.isBlank()) {
-            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE, List.of(normalizationProfileId)));
+            selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE, List.of(normalizationProfileId)));
         }
         if (validationRulesetId != null && !validationRulesetId.isBlank()) {
-            selectors.add(new UtilityPackageDto.ResourceSelector(UtilityPackageDto.UtilityType.VALIDATION_RULESET, List.of(validationRulesetId)));
+            selectors.add(new ToolkitPackageDto.ResourceSelector(ToolkitPackageDto.ToolkitType.VALIDATION_RULESET, List.of(validationRulesetId)));
         }
-        return buildUtilityPackage(workspaceId, new UtilityPackageDto.ExportRequest(selectors, false));
+        return buildToolkitPackage(workspaceId, new ToolkitPackageDto.ExportRequest(selectors, false));
     }
 
-    public UtilityPackageDto.ImportResult importUtilityPackageFromContent(String workspaceId,
+    public ToolkitPackageDto.ImportResult importToolkitPackageFromContent(String workspaceId,
                                                                            String userId,
                                                                            String content) throws IOException {
         workspaceAccessService.requireAdminAccess(workspaceId, userId);
-        return importUtilityPackageFromContentInternal(workspaceId, userId, content);
+        return importToolkitPackageFromContentInternal(workspaceId, userId, content);
     }
 
-    public UtilityPackageDto.ImportResult importUtilityPackageFromContentInternal(String workspaceId,
+    public ToolkitPackageDto.ImportResult importToolkitPackageFromContentInternal(String workspaceId,
                                                                                    String userId,
                                                                                    String content) throws IOException {
         JsonNode root = objectMapper.readTree(content);
-        UtilityPackageDto.UtilityPackage utilityPackage = parsePackageOrLegacy(workspaceId, root);
-        return doImportUtilityPackage(workspaceId, userId, utilityPackage);
+        ToolkitPackageDto.ToolkitPackage toolkitPackage = parsePackageOrLegacy(workspaceId, root);
+        return doImportToolkitPackage(workspaceId, userId, toolkitPackage);
     }
 
-    public UtilityPackageDto.ImportResult importUtilityPackage(String workspaceId,
+    public ToolkitPackageDto.ImportResult importToolkitPackage(String workspaceId,
                                                                 String userId,
-                                                                UtilityPackageDto.UtilityPackage utilityPackage) {
+                                                                ToolkitPackageDto.ToolkitPackage toolkitPackage) {
         workspaceAccessService.requireAdminAccess(workspaceId, userId);
-        return doImportUtilityPackage(workspaceId, userId, utilityPackage);
+        return doImportToolkitPackage(workspaceId, userId, toolkitPackage);
     }
 
-    public UtilityPackageDto.ImportResult importUtilityPackageInternal(String workspaceId,
+    public ToolkitPackageDto.ImportResult importToolkitPackageInternal(String workspaceId,
                                                                        String userId,
-                                                                       UtilityPackageDto.UtilityPackage utilityPackage) {
-        return doImportUtilityPackage(workspaceId, userId, utilityPackage);
+                                                                       ToolkitPackageDto.ToolkitPackage toolkitPackage) {
+        return doImportToolkitPackage(workspaceId, userId, toolkitPackage);
     }
 
-    private UtilityPackageDto.ImportResult doImportUtilityPackage(String workspaceId,
+    private ToolkitPackageDto.ImportResult doImportToolkitPackage(String workspaceId,
                                                                   String userId,
-                                                                  UtilityPackageDto.UtilityPackage utilityPackage) {
-        List<UtilityPackageDto.ImportedResource> resources = new ArrayList<>();
+                                                                  ToolkitPackageDto.ToolkitPackage toolkitPackage) {
+        List<ToolkitPackageDto.ImportedResource> resources = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         Map<String, String> sourceToTarget = new LinkedHashMap<>();
 
-        if (utilityPackage == null || utilityPackage.resources() == null) {
-            return new UtilityPackageDto.ImportResult(workspaceId, 0, 0, List.of(), warnings, sourceToTarget);
+        if (toolkitPackage == null || toolkitPackage.resources() == null) {
+            return new ToolkitPackageDto.ImportResult(workspaceId, 0, 0, List.of(), warnings, sourceToTarget);
         }
 
-        for (UtilityPackageDto.UtilityResource resource : utilityPackage.resources()) {
+        for (ToolkitPackageDto.ToolkitResource resource : toolkitPackage.resources()) {
             if (resource == null || resource.type() == null || resource.payload() == null) {
-                warnings.add("Skipped invalid utility entry");
+                warnings.add("Skipped invalid toolkit entry");
                 continue;
             }
 
-            UtilityPackageDto.ImportedResource imported = switch (resource.type()) {
+            ToolkitPackageDto.ImportedResource imported = switch (resource.type()) {
                 case CODEC -> importCodec(workspaceId, userId, resource);
                 case DICTIONARY -> importDictionary(workspaceId, userId, resource);
                 case LABEL_SET -> importLabelSet(workspaceId, userId, resource);
@@ -326,7 +326,7 @@ public class UtilityPackageService {
         int reusedCount = (int) resources.stream().filter(r -> "REUSED".equals(r.action())).count();
         int importedCount = resources.size() - reusedCount;
 
-        return new UtilityPackageDto.ImportResult(
+        return new ToolkitPackageDto.ImportResult(
                 workspaceId,
                 importedCount,
                 reusedCount,
@@ -336,17 +336,17 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importCodec(String workspaceId,
+    private ToolkitPackageDto.ImportedResource importCodec(String workspaceId,
                                                            String userId,
-                                                           UtilityPackageDto.UtilityResource resource) {
+                                                           ToolkitPackageDto.ToolkitResource resource) {
         CodecDto.CreateOrUpdateRequest request = objectMapper.convertValue(resource.payload(), CodecDto.CreateOrUpdateRequest.class);
         String sourceName = normalizeName(request.name(), resource.name(), "Imported Codec");
 
         Optional<Codec> existingOpt = codecRepository.findByNameAndLibraryWorkspaceId(sourceName, workspaceId);
         if (existingOpt.isPresent() && payloadEquals(codecPayload(existingOpt.get()), codecPayloadFromRequest(request, sourceName))) {
             Codec existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.CODEC,
+            return new ToolkitPackageDto.ImportedResource(
+                    ToolkitPackageDto.ToolkitType.CODEC,
                     resource.sourceId(),
                     existing.getId(),
                     sourceName,
@@ -368,8 +368,8 @@ public class UtilityPackageService {
         );
 
         CodecDto.Response created = codecService.createCodec(userId, workspaceId, createRequest);
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.CODEC,
+        return new ToolkitPackageDto.ImportedResource(
+                ToolkitPackageDto.ToolkitType.CODEC,
                 resource.sourceId(),
                 created.id(),
                 sourceName,
@@ -379,17 +379,17 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importDictionary(String workspaceId,
+    private ToolkitPackageDto.ImportedResource importDictionary(String workspaceId,
                                                                 String userId,
-                                                                UtilityPackageDto.UtilityResource resource) {
+                                                                ToolkitPackageDto.ToolkitResource resource) {
         DictionaryDto.PackagePayload payload = objectMapper.convertValue(sanitizeDictionaryPayload(resource.payload()), DictionaryDto.PackagePayload.class);
         String sourceName = normalizeName(payload.name(), resource.name(), "Imported Dictionary");
 
         Optional<ControlledDictionary> existingOpt = dictionaryRepository.findByNameAndLibraryWorkspaceId(sourceName, workspaceId);
         if (existingOpt.isPresent() && payloadEquals(dictionaryPayload(existingOpt.get()), dictionaryPayloadFromPayload(payload, sourceName))) {
             ControlledDictionary existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.DICTIONARY,
+            return new ToolkitPackageDto.ImportedResource(
+                    ToolkitPackageDto.ToolkitType.DICTIONARY,
                     resource.sourceId(),
                     existing.getId(),
                     sourceName,
@@ -404,8 +404,8 @@ public class UtilityPackageService {
                 : sourceName;
 
         String createdId = dictionaryService.importDictionaryFromPackage(userId, workspaceId, targetName, payload);
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.DICTIONARY,
+        return new ToolkitPackageDto.ImportedResource(
+                ToolkitPackageDto.ToolkitType.DICTIONARY,
                 resource.sourceId(),
                 createdId,
                 sourceName,
@@ -415,9 +415,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importLabelSet(String workspaceId,
+    private ToolkitPackageDto.ImportedResource importLabelSet(String workspaceId,
                                                               String userId,
-                                                              UtilityPackageDto.UtilityResource resource) {
+                                                              ToolkitPackageDto.ToolkitResource resource) {
         ObjectNode requestNode = sanitizeLabelPayload(resource.payload());
         ObjectNode meta = ensureObject(requestNode, "meta");
         String sourceName = normalizeName(meta.path("name").asText(null), resource.name(), "Imported Label Set");
@@ -425,8 +425,8 @@ public class UtilityPackageService {
         Optional<LabelSet> existingOpt = labelSetRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
         if (existingOpt.isPresent() && payloadEquals(labelSetPayload(existingOpt.get()), requestNode)) {
             LabelSet existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.LABEL_SET,
+            return new ToolkitPackageDto.ImportedResource(
+                    ToolkitPackageDto.ToolkitType.LABEL_SET,
                     resource.sourceId(),
                     existing.getId(),
                     sourceName,
@@ -443,8 +443,8 @@ public class UtilityPackageService {
 
         var created = labelSetService.createLabelSet(userId, workspaceId, requestNode);
 
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.LABEL_SET,
+        return new ToolkitPackageDto.ImportedResource(
+                ToolkitPackageDto.ToolkitType.LABEL_SET,
                 resource.sourceId(),
                 created.id(),
                 sourceName,
@@ -454,9 +454,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importTagSet(String workspaceId,
+    private ToolkitPackageDto.ImportedResource importTagSet(String workspaceId,
                                                             String userId,
-                                                            UtilityPackageDto.UtilityResource resource) {
+                                                            ToolkitPackageDto.ToolkitResource resource) {
         ObjectNode requestNode = sanitizeTagPayload(resource.payload());
         ObjectNode meta = ensureObject(requestNode, "meta");
         String sourceName = normalizeName(meta.path("name").asText(null), resource.name(), "Imported Tag Set");
@@ -464,8 +464,8 @@ public class UtilityPackageService {
         Optional<TagSet> existingOpt = tagSetRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
         if (existingOpt.isPresent() && payloadEquals(tagSetPayload(existingOpt.get()), requestNode)) {
             TagSet existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.TAG_SET,
+            return new ToolkitPackageDto.ImportedResource(
+                    ToolkitPackageDto.ToolkitType.TAG_SET,
                     resource.sourceId(),
                     existing.getId(),
                     sourceName,
@@ -482,8 +482,8 @@ public class UtilityPackageService {
 
         var created = tagSetService.createTagSet(userId, workspaceId, requestNode);
 
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.TAG_SET,
+        return new ToolkitPackageDto.ImportedResource(
+                ToolkitPackageDto.ToolkitType.TAG_SET,
                 resource.sourceId(),
                 created.id(),
                 sourceName,
@@ -493,9 +493,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importNormalizationProfile(String workspaceId,
+    private ToolkitPackageDto.ImportedResource importNormalizationProfile(String workspaceId,
                                                                           String userId,
-                                                                          UtilityPackageDto.UtilityResource resource) {
+                                                                          ToolkitPackageDto.ToolkitResource resource) {
         NormalizationProfileDto.CreateOrUpdateRequest request = objectMapper.convertValue(
                 sanitizeNormalizationProfilePayload(resource.payload()),
                 NormalizationProfileDto.CreateOrUpdateRequest.class
@@ -505,8 +505,8 @@ public class UtilityPackageService {
         Optional<NormalizationProfile> existingOpt = normalizationProfileRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
         if (existingOpt.isPresent() && payloadEquals(normalizationProfilePayload(existingOpt.get()), normalizationProfilePayloadFromRequest(request, sourceName))) {
             NormalizationProfile existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE,
+            return new ToolkitPackageDto.ImportedResource(
+                    ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE,
                     resource.sourceId(),
                     existing.getId(),
                     sourceName,
@@ -537,8 +537,8 @@ public class UtilityPackageService {
         );
 
         NormalizationProfileDto.Response created = normalizationProfileService.createProfile(userId, workspaceId, createRequest);
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE,
+        return new ToolkitPackageDto.ImportedResource(
+                ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE,
                 resource.sourceId(),
                 created.id(),
                 sourceName,
@@ -548,9 +548,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importValidationRuleset(String workspaceId,
+    private ToolkitPackageDto.ImportedResource importValidationRuleset(String workspaceId,
                                                                        String userId,
-                                                                       UtilityPackageDto.UtilityResource resource) {
+                                                                       ToolkitPackageDto.ToolkitResource resource) {
         ValidationRulesetDto.CreateOrUpdateRequest request = objectMapper.convertValue(
                 sanitizeValidationRulesetPayload(resource.payload()),
                 ValidationRulesetDto.CreateOrUpdateRequest.class
@@ -560,8 +560,8 @@ public class UtilityPackageService {
         Optional<ValidationRuleset> existingOpt = validationRulesetRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
         if (existingOpt.isPresent() && payloadEquals(validationRulesetPayload(existingOpt.get()), validationRulesetPayloadFromRequest(request, sourceName))) {
             ValidationRuleset existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.VALIDATION_RULESET,
+            return new ToolkitPackageDto.ImportedResource(
+                    ToolkitPackageDto.ToolkitType.VALIDATION_RULESET,
                     resource.sourceId(),
                     existing.getId(),
                     sourceName,
@@ -583,8 +583,8 @@ public class UtilityPackageService {
         );
 
         ValidationRulesetDto.Response created = validationRulesetService.createRuleset(userId, workspaceId, createRequest);
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.VALIDATION_RULESET,
+        return new ToolkitPackageDto.ImportedResource(
+                ToolkitPackageDto.ToolkitType.VALIDATION_RULESET,
                 resource.sourceId(),
                 created.id(),
                 sourceName,
@@ -594,17 +594,17 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.ImportedResource importVirtualKeyboard(String workspaceId,
+    private ToolkitPackageDto.ImportedResource importVirtualKeyboard(String workspaceId,
                                                                      String userId,
-                                                                     UtilityPackageDto.UtilityResource resource) {
+                                                                     ToolkitPackageDto.ToolkitResource resource) {
         VirtualKeyboardDto dto = objectMapper.convertValue(sanitizeVirtualKeyboardPayload(resource.payload()), VirtualKeyboardDto.class);
         String sourceName = normalizeName(dto.getName(), resource.name(), "Imported Keyboard");
 
         Optional<VirtualKeyboard> existingOpt = virtualKeyboardRepository.findByNameAndWorkspaceId(sourceName, workspaceId);
         if (existingOpt.isPresent() && payloadEquals(virtualKeyboardPayload(existingOpt.get()), virtualKeyboardPayloadFromDto(dto, sourceName))) {
             VirtualKeyboard existing = existingOpt.get();
-            return new UtilityPackageDto.ImportedResource(
-                    UtilityPackageDto.UtilityType.VIRTUAL_KEYBOARD,
+            return new ToolkitPackageDto.ImportedResource(
+                    ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD,
                     resource.sourceId(),
                     existing.getId(),
                     sourceName,
@@ -625,8 +625,8 @@ public class UtilityPackageService {
         }
 
         VirtualKeyboardDto created = virtualKeyboardService.createKeyboard(userId, workspaceId, dto);
-        return new UtilityPackageDto.ImportedResource(
-                UtilityPackageDto.UtilityType.VIRTUAL_KEYBOARD,
+        return new ToolkitPackageDto.ImportedResource(
+                ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD,
                 resource.sourceId(),
                 created.getId(),
                 sourceName,
@@ -636,18 +636,18 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.UtilityPackage parsePackageOrLegacy(String workspaceId, JsonNode root) {
+    private ToolkitPackageDto.ToolkitPackage parsePackageOrLegacy(String workspaceId, JsonNode root) {
         if (root != null && root.has("resources")) {
-            return objectMapper.convertValue(root, UtilityPackageDto.UtilityPackage.class);
+            return objectMapper.convertValue(root, ToolkitPackageDto.ToolkitPackage.class);
         }
 
-        UtilityPackageDto.UtilityType type = detectLegacyType(root);
+        ToolkitPackageDto.ToolkitType type = detectLegacyType(root);
         if (type == null) {
-            throw new IllegalArgumentException("Unsupported utility import payload");
+            throw new IllegalArgumentException("Unsupported toolkit import payload");
         }
 
         String name = extractLegacyName(root, type);
-        UtilityPackageDto.UtilityResource resource = new UtilityPackageDto.UtilityResource(
+        ToolkitPackageDto.ToolkitResource resource = new ToolkitPackageDto.ToolkitResource(
                 type,
                 null,
                 name,
@@ -660,41 +660,41 @@ public class UtilityPackageService {
                 .map(AbstractWorkspace::getName)
                 .orElse(workspaceId);
 
-        return new UtilityPackageDto.UtilityPackage(
-                new UtilityPackageDto.PackageMeta("1.0", LocalDateTime.now(), workspaceId, workspaceName),
+        return new ToolkitPackageDto.ToolkitPackage(
+                new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), workspaceId, workspaceName),
                 List.of(resource)
         );
     }
 
-    private UtilityPackageDto.UtilityType detectLegacyType(JsonNode root) {
+    private ToolkitPackageDto.ToolkitType detectLegacyType(JsonNode root) {
         if (root == null || root.isNull() || !root.isObject()) {
             return null;
         }
         if (root.has("codec") && root.has("name")) {
-            return UtilityPackageDto.UtilityType.CODEC;
+            return ToolkitPackageDto.ToolkitType.CODEC;
         }
         if (root.has("labels") && root.has("meta")) {
-            return UtilityPackageDto.UtilityType.LABEL_SET;
+            return ToolkitPackageDto.ToolkitType.LABEL_SET;
         }
         if (root.has("items") && root.has("cols") && root.has("rows")) {
-            return UtilityPackageDto.UtilityType.VIRTUAL_KEYBOARD;
+            return ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD;
         }
         if (root.has("tags") && root.has("meta") && root.path("tags").isArray()) {
             JsonNode first = root.path("tags").isEmpty() ? null : root.path("tags").get(0);
             if (first == null || first.has("title") || first.has("children")) {
-                return UtilityPackageDto.UtilityType.TAG_SET;
+                return ToolkitPackageDto.ToolkitType.TAG_SET;
             }
         }
         if (root.has("unicodeNormalization") && root.has("collapseWhitespace")) {
-            return UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE;
+            return ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE;
         }
         if (root.has("rules") && root.path("rules").isArray()) {
-            return UtilityPackageDto.UtilityType.VALIDATION_RULESET;
+            return ToolkitPackageDto.ToolkitType.VALIDATION_RULESET;
         }
         return null;
     }
 
-    private String extractLegacyName(JsonNode root, UtilityPackageDto.UtilityType type) {
+    private String extractLegacyName(JsonNode root, ToolkitPackageDto.ToolkitType type) {
         if (root == null) {
             return null;
         }
@@ -704,7 +704,7 @@ public class UtilityPackageService {
         };
     }
 
-    private JsonNode normalizeLegacyPayload(UtilityPackageDto.UtilityType type, JsonNode root) {
+    private JsonNode normalizeLegacyPayload(ToolkitPackageDto.ToolkitType type, JsonNode root) {
         return switch (type) {
             case CODEC -> sanitizeCodecPayload(root);
             case DICTIONARY -> sanitizeDictionaryPayload(root);
@@ -716,9 +716,9 @@ public class UtilityPackageService {
         };
     }
 
-    private UtilityPackageDto.UtilityResource toCodecResource(Codec codec) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.CODEC,
+    private ToolkitPackageDto.ToolkitResource toCodecResource(Codec codec) {
+        return new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.CODEC,
                 codec.getId(),
                 codec.getName(),
                 codec.getCreated(),
@@ -727,9 +727,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.UtilityResource toDictionaryResource(ControlledDictionary dictionary) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.DICTIONARY,
+    private ToolkitPackageDto.ToolkitResource toDictionaryResource(ControlledDictionary dictionary) {
+        return new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.DICTIONARY,
                 dictionary.getId(),
                 dictionary.getName(),
                 dictionary.getCreated(),
@@ -738,9 +738,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.UtilityResource toLabelSetResource(LabelSet labelSet) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.LABEL_SET,
+    private ToolkitPackageDto.ToolkitResource toLabelSetResource(LabelSet labelSet) {
+        return new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.LABEL_SET,
                 labelSet.getId(),
                 labelSet.getName(),
                 labelSet.getCreated(),
@@ -749,9 +749,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.UtilityResource toTagSetResource(TagSet tagSet) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.TAG_SET,
+    private ToolkitPackageDto.ToolkitResource toTagSetResource(TagSet tagSet) {
+        return new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.TAG_SET,
                 tagSet.getId(),
                 tagSet.getName(),
                 tagSet.getCreated(),
@@ -760,9 +760,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.UtilityResource toNormalizationProfileResource(NormalizationProfile profile) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.NORMALIZATION_PROFILE,
+    private ToolkitPackageDto.ToolkitResource toNormalizationProfileResource(NormalizationProfile profile) {
+        return new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.NORMALIZATION_PROFILE,
                 profile.getId(),
                 profile.getName(),
                 profile.getCreated(),
@@ -771,9 +771,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.UtilityResource toValidationRulesetResource(ValidationRuleset ruleset) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.VALIDATION_RULESET,
+    private ToolkitPackageDto.ToolkitResource toValidationRulesetResource(ValidationRuleset ruleset) {
+        return new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.VALIDATION_RULESET,
                 ruleset.getId(),
                 ruleset.getName(),
                 ruleset.getCreated(),
@@ -782,9 +782,9 @@ public class UtilityPackageService {
         );
     }
 
-    private UtilityPackageDto.UtilityResource toVirtualKeyboardResource(VirtualKeyboard keyboard) {
-        return new UtilityPackageDto.UtilityResource(
-                UtilityPackageDto.UtilityType.VIRTUAL_KEYBOARD,
+    private ToolkitPackageDto.ToolkitResource toVirtualKeyboardResource(VirtualKeyboard keyboard) {
+        return new ToolkitPackageDto.ToolkitResource(
+                ToolkitPackageDto.ToolkitType.VIRTUAL_KEYBOARD,
                 keyboard.getId(),
                 keyboard.getName(),
                 null,
@@ -1229,13 +1229,13 @@ public class UtilityPackageService {
         return node;
     }
 
-    private Map<UtilityPackageDto.UtilityType, Set<String>> parseSelectors(List<UtilityPackageDto.ResourceSelector> selectors) {
-        Map<UtilityPackageDto.UtilityType, Set<String>> byType = new EnumMap<>(UtilityPackageDto.UtilityType.class);
+    private Map<ToolkitPackageDto.ToolkitType, Set<String>> parseSelectors(List<ToolkitPackageDto.ResourceSelector> selectors) {
+        Map<ToolkitPackageDto.ToolkitType, Set<String>> byType = new EnumMap<>(ToolkitPackageDto.ToolkitType.class);
         if (selectors == null) {
             return byType;
         }
 
-        for (UtilityPackageDto.ResourceSelector selector : selectors) {
+        for (ToolkitPackageDto.ResourceSelector selector : selectors) {
             if (selector == null || selector.type() == null) {
                 continue;
             }

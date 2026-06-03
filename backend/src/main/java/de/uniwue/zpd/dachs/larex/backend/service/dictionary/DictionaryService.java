@@ -106,7 +106,7 @@ public class DictionaryService {
     }
 
     public DictionaryDto.Response createDictionary(String userId, String workspaceId, DictionaryDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         Library library = libraryRepository.findByWorkspaceId(workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Projects not found for workspace: " + workspaceId));
@@ -123,7 +123,7 @@ public class DictionaryService {
     }
 
     public DictionaryDto.Response updateDictionary(String userId, String workspaceId, String dictionaryId, DictionaryDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         ControlledDictionary dictionary = dictionaryRepository.findByIdAndLibraryWorkspaceId(dictionaryId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dictionary not found: " + dictionaryId));
@@ -141,7 +141,7 @@ public class DictionaryService {
     }
 
     public void deleteDictionary(String userId, String workspaceId, String dictionaryId) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         ControlledDictionary dictionary = dictionaryRepository.findByIdAndLibraryWorkspaceId(dictionaryId, workspaceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dictionary not found: " + dictionaryId));
@@ -229,7 +229,7 @@ public class DictionaryService {
     }
 
     public DictionaryDto.EntryResponse addEntry(String userId, String workspaceId, String dictionaryId, DictionaryDto.EntryCreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         ControlledDictionary dictionary = requireDictionaryInWorkspace(workspaceId, dictionaryId);
         if (Boolean.TRUE.equals(request.fromEditor()) && dictionary.isLocked()) {
             throw new IllegalArgumentException("This dictionary is locked for editor additions");
@@ -249,7 +249,7 @@ public class DictionaryService {
     }
 
     public DictionaryDto.EntryResponse updateEntry(String userId, String workspaceId, String dictionaryId, String entryId, DictionaryDto.EntryCreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         ControlledDictionary dictionary = requireDictionaryInWorkspace(workspaceId, dictionaryId);
         ControlledDictionaryEntry entry = entryRepository.findByIdAndDictionaryId(entryId, dictionaryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dictionary entry not found: " + entryId));
@@ -272,7 +272,7 @@ public class DictionaryService {
     }
 
     public void deleteEntry(String userId, String workspaceId, String dictionaryId, String entryId) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         requireDictionaryInWorkspace(workspaceId, dictionaryId);
         ControlledDictionaryEntry entry = entryRepository.findByIdAndDictionaryId(entryId, dictionaryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Dictionary entry not found: " + entryId));
@@ -286,7 +286,7 @@ public class DictionaryService {
                                                            MultipartFile file,
                                                            DictionaryDto.ImportFormat format,
                                                            DictionaryDto.ImportMode mode) throws IOException {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         ControlledDictionary dictionary = requireDictionaryInWorkspace(workspaceId, dictionaryId);
 
         ParsedDictionaryImport parsed = parseImport(file, format);
@@ -315,7 +315,7 @@ public class DictionaryService {
                                                              Boolean caseSensitive,
                                                              String unicodeNormalization,
                                                              Boolean locked) throws IOException {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         ParsedDictionaryImport parsed = parseImport(file, format);
         String resolvedName = trimToNull(name) != null ? trimToNull(name)
@@ -718,8 +718,8 @@ public class DictionaryService {
         try {
             JsonNode root = objectMapper.readTree(content);
 
-            if (looksLikeUtilityPackage(root)) {
-                throw new IllegalArgumentException("Use the utility package import for .larex-utilities.json files");
+            if (looksLikeToolkitPackage(root)) {
+                throw new IllegalArgumentException("Use the toolkit package import for .larex-toolkit.json files");
             }
 
             if (root.isArray()) {
@@ -754,7 +754,7 @@ public class DictionaryService {
         }
     }
 
-    private boolean looksLikeUtilityPackage(JsonNode root) {
+    private boolean looksLikeToolkitPackage(JsonNode root) {
         if (root == null || !root.isObject()) {
             return false;
         }

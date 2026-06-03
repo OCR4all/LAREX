@@ -58,7 +58,7 @@ public class ProjectPackageDto {
             String sourceWorkspaceName,
             ProjectSnapshot project,
             List<PageSnapshot> pages,
-            UtilityReferences utilityReferences,
+            ToolkitReferences toolkitReferences,
             List<FileEntry> files,
             List<XmlVersionEntry> xmlVersions,
             List<String> warnings
@@ -124,7 +124,7 @@ public class ProjectPackageDto {
     ) {
     }
 
-    public record UtilityReference(
+    public record ToolkitReference(
             String sourceId,
             String name,
             LocalDateTime sourceCreated,
@@ -133,13 +133,13 @@ public class ProjectPackageDto {
     ) {
     }
 
-    public record UtilityReferences(
-            UtilityReference codec,
-            UtilityReference labelSet,
-            UtilityReference dictionary,
-            UtilityReference tagSet,
-            UtilityReference normalizationProfile,
-            UtilityReference validationRuleset
+    public record ToolkitReferences(
+            ToolkitReference codec,
+            ToolkitReference labelSet,
+            ToolkitReference dictionary,
+            ToolkitReference tagSet,
+            ToolkitReference normalizationProfile,
+            ToolkitReference validationRuleset
     ) {
     }
 
@@ -152,7 +152,7 @@ public class ProjectPackageDto {
             int xmlCount,
             int xmlVersionCount,
             List<String> warnings,
-            Map<String, String> utilitySourceToTargetIds
+            Map<String, String> toolkitSourceToTargetIds
     ) {
     }
 

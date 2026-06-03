@@ -5,7 +5,7 @@ export interface WorkspaceCapabilities {
   canEditWorkspaceTextIndexDefaults: boolean
   canManageProjects: boolean
   canManageTasks: boolean
-  canManageUtilities: boolean
+  canManageToolkit: boolean
   canSetPresets: boolean
 }
 
@@ -41,7 +41,7 @@ export interface ResourceCapabilities {
   canDelete: boolean
 }
 
-export type WorkspaceUtilityResourceType
+export type WorkspaceToolkitResourceType
   = | 'CODEC'
     | 'DICTIONARY'
     | 'VIRTUAL_KEYBOARD'
@@ -52,7 +52,7 @@ export type WorkspaceUtilityResourceType
 
 export type TransferableResourceType
   = | 'PROJECT'
-    | WorkspaceUtilityResourceType
+    | WorkspaceToolkitResourceType
 
 export const DEFAULT_WORKSPACE_CAPABILITIES: WorkspaceCapabilities = {
   canAdminWorkspace: false,
@@ -61,7 +61,7 @@ export const DEFAULT_WORKSPACE_CAPABILITIES: WorkspaceCapabilities = {
   canEditWorkspaceTextIndexDefaults: false,
   canManageProjects: false,
   canManageTasks: false,
-  canManageUtilities: false,
+  canManageToolkit: false,
   canSetPresets: false
 }
 

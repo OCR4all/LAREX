@@ -53,7 +53,7 @@ const dropdownItems = computed(() => {
             {{ totalErrors }} error{{ totalErrors > 1 ? 's' : '' }}
           </UBadge>
 
-          <UtilityHelpPopover
+          <ToolkitHelpPopover
             v-if="helpTitle"
             :title="helpTitle"
             :description="helpDescription"

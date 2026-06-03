@@ -37,7 +37,7 @@ const actionItems = computed<DropdownMenuItem[]>(() => {
     </template>
     <template #right>
       <div class="flex items-center gap-2">
-        <UtilityHelpPopover
+        <ToolkitHelpPopover
           v-if="helpTitle"
           :title="helpTitle"
           :description="helpDescription"

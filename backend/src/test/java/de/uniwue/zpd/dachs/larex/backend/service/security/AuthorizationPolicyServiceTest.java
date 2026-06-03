@@ -62,7 +62,7 @@ class AuthorizationPolicyServiceTest {
         assertTrue(caps.canEditWorkspaceTextIndexDefaults());
         assertTrue(caps.canManageProjects());
         assertTrue(caps.canManageTasks());
-        assertTrue(caps.canManageUtilities());
+        assertTrue(caps.canManageToolkit());
         assertTrue(caps.canSetPresets());
     }
 
@@ -87,7 +87,7 @@ class AuthorizationPolicyServiceTest {
         assertTrue(ownerCaps.canEditWorkspace());
         assertTrue(ownerCaps.canManageProjects());
         assertTrue(ownerCaps.canManageTasks());
-        assertTrue(ownerCaps.canManageUtilities());
+        assertTrue(ownerCaps.canManageToolkit());
         assertTrue(ownerCaps.canSetPresets());
 
         AuthorizationCapabilitiesDto.WorkspaceCapabilities curatorCaps = service.resolveWorkspaceCapabilities(workspaceId, "curator");
@@ -97,7 +97,7 @@ class AuthorizationPolicyServiceTest {
         assertTrue(curatorCaps.canEditWorkspaceTextIndexDefaults());
         assertTrue(curatorCaps.canManageProjects());
         assertTrue(curatorCaps.canManageTasks());
-        assertTrue(curatorCaps.canManageUtilities());
+        assertTrue(curatorCaps.canManageToolkit());
         assertTrue(curatorCaps.canSetPresets());
 
         AuthorizationCapabilitiesDto.WorkspaceCapabilities editorCaps = service.resolveWorkspaceCapabilities(workspaceId, "editor");
@@ -107,7 +107,7 @@ class AuthorizationPolicyServiceTest {
         assertFalse(editorCaps.canEditWorkspaceTextIndexDefaults());
         assertFalse(editorCaps.canManageProjects());
         assertFalse(editorCaps.canManageTasks());
-        assertFalse(editorCaps.canManageUtilities());
+        assertFalse(editorCaps.canManageToolkit());
         assertFalse(editorCaps.canSetPresets());
 
         AuthorizationCapabilitiesDto.WorkspaceCapabilities pendingCaps = service.resolveWorkspaceCapabilities(workspaceId, "pending");
@@ -116,7 +116,7 @@ class AuthorizationPolicyServiceTest {
         assertFalse(pendingCaps.canEditWorkspace());
         assertFalse(pendingCaps.canManageProjects());
         assertFalse(pendingCaps.canManageTasks());
-        assertFalse(pendingCaps.canManageUtilities());
+        assertFalse(pendingCaps.canManageToolkit());
         assertFalse(pendingCaps.canSetPresets());
 
         AuthorizationCapabilitiesDto.WorkspaceCapabilities outsiderCaps = service.resolveWorkspaceCapabilities(workspaceId, "outsider");
@@ -125,7 +125,7 @@ class AuthorizationPolicyServiceTest {
         assertFalse(outsiderCaps.canEditWorkspace());
         assertFalse(outsiderCaps.canManageProjects());
         assertFalse(outsiderCaps.canManageTasks());
-        assertFalse(outsiderCaps.canManageUtilities());
+        assertFalse(outsiderCaps.canManageToolkit());
         assertFalse(outsiderCaps.canSetPresets());
     }
 
@@ -143,7 +143,7 @@ class AuthorizationPolicyServiceTest {
         assertTrue(ownerCaps.canEditWorkspaceTextIndexDefaults());
         assertTrue(ownerCaps.canManageProjects());
         assertTrue(ownerCaps.canManageTasks());
-        assertTrue(ownerCaps.canManageUtilities());
+        assertTrue(ownerCaps.canManageToolkit());
         assertTrue(ownerCaps.canSetPresets());
 
         AuthorizationCapabilitiesDto.WorkspaceCapabilities otherCaps = service.resolveWorkspaceCapabilities(workspaceId, "other");
@@ -153,7 +153,7 @@ class AuthorizationPolicyServiceTest {
         assertFalse(otherCaps.canEditWorkspaceTextIndexDefaults());
         assertFalse(otherCaps.canManageProjects());
         assertFalse(otherCaps.canManageTasks());
-        assertFalse(otherCaps.canManageUtilities());
+        assertFalse(otherCaps.canManageToolkit());
         assertFalse(otherCaps.canSetPresets());
     }
 
@@ -173,7 +173,7 @@ class AuthorizationPolicyServiceTest {
         assertEquals(service.canEditWorkspaceTextIndexDefaults(workspaceId, "curator"), caps.canEditWorkspaceTextIndexDefaults());
         assertEquals(service.canManageProjects(workspaceId, "curator"), caps.canManageProjects());
         assertEquals(service.canManageTasks(workspaceId, "curator"), caps.canManageTasks());
-        assertEquals(service.canManageUtilities(workspaceId, "curator"), caps.canManageUtilities());
+        assertEquals(service.canManageToolkit(workspaceId, "curator"), caps.canManageToolkit());
         assertEquals(service.canSetPresets(workspaceId, "curator"), caps.canSetPresets());
     }
 
@@ -247,7 +247,7 @@ class AuthorizationPolicyServiceTest {
     }
 
     @Test
-    void resourceCapabilities_useWorkspaceUtilityPermissionsForSharing() {
+    void resourceCapabilities_useWorkspaceToolkitPermissionsForSharing() {
         String workspaceId = "ws-resource-1";
         TeamWorkspace workspace = teamWorkspace(workspaceId, "owner");
         when(workspaceQueryService.findWorkspaceById(workspaceId)).thenReturn(Optional.of(workspace));

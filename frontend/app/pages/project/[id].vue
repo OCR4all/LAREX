@@ -1233,10 +1233,10 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  const utilityItems: DropdownMenuItem[] = [
+  const toolkitItems: DropdownMenuItem[] = [
     {
       type: 'label',
-      label: 'Utilities'
+      label: 'Toolkit'
     },
     {
       label: 'Generate codec (full project)',
@@ -1366,7 +1366,7 @@ const actionItems = computed<DropdownMenuItem[][]>(() => {
     })
   }
 
-  return [projectItems, larexActionItems, exportItems, utilityItems].filter(group => group.length > 1)
+  return [projectItems, larexActionItems, exportItems, toolkitItems].filter(group => group.length > 1)
 })
 
 const autoCreatedDescription = 'Auto-created from bulk upload'
@@ -1984,10 +1984,10 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  const utilityItems: DropdownMenuItem[] = [
+  const toolkitItems: DropdownMenuItem[] = [
     {
       type: 'label',
-      label: 'Utilities'
+      label: 'Toolkit'
     },
     {
       label: 'Add to dataset',
@@ -2039,7 +2039,7 @@ const selectionMoreActionItems = computed<DropdownMenuItem[][]>(() => {
     }
   ]
 
-  return [exportItems, utilityItems]
+  return [exportItems, toolkitItems]
 })
 
 const uniqueTags = computed(() => {

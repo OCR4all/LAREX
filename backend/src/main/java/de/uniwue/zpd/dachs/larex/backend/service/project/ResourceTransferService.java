@@ -504,6 +504,6 @@ public class ResourceTransferService {
     }
 
     private boolean isUserAdministratorInWorkspace(String workspaceId, String userId) {
-        return authorizationPolicyService.canManageUtilities(workspaceId, userId);
+        return authorizationPolicyService.canManageToolkit(workspaceId, userId);
     }
 }

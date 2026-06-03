@@ -9,7 +9,7 @@ public class AuthorizationCapabilitiesDto {
             boolean canEditWorkspaceTextIndexDefaults,
             boolean canManageProjects,
             boolean canManageTasks,
-            boolean canManageUtilities,
+            boolean canManageToolkit,
             boolean canSetPresets
     ) {}
 

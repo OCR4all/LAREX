@@ -13,7 +13,7 @@ const { allow, compactGroups } = useActionVisibility()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
+const canManageToolkit = computed(() => allow(workspaceCapabilities.value.canManageToolkit))
 const keyboardsKey = computed(() => wsKey(workspaceId.value, 'virtual-keyboards', 'list'))
 
 const { data: keyboards } = await useFetch<KeyboardLayout[]>(() => `/api/workspaces/${workspaceId.value}/virtual-keyboards`, {
@@ -247,7 +247,7 @@ const emptyStateActions = computed(() => {
     }
   ]
 
-  if (canManageUtilities.value) {
+  if (canManageToolkit.value) {
     actions.unshift({
       icon: 'i-lucide-plus',
       label: 'Create new',
@@ -269,7 +269,7 @@ const emptyStateActions = computed(() => {
         </template>
         <template #right>
           <UButton
-            v-if="canManageUtilities"
+            v-if="canManageToolkit"
             data-tour="vk-new"
             label="New Virtual Keyboard"
             color="neutral"

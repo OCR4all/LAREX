@@ -1,8 +1,8 @@
-package de.uniwue.zpd.dachs.larex.backend.controller.utility;
+package de.uniwue.zpd.dachs.larex.backend.controller.toolkit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
-import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
+import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
+import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -20,28 +20,28 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 @RestController
-@RequestMapping("/workspaces/{workspaceId}/utilities")
-public class UtilityPackageController {
+@RequestMapping("/workspaces/{workspaceId}/toolkit")
+public class ToolkitPackageController {
 
-    private final UtilityPackageService utilityPackageService;
+    private final ToolkitPackageService toolkitPackageService;
     private final ObjectMapper objectMapper;
 
-    public UtilityPackageController(UtilityPackageService utilityPackageService,
+    public ToolkitPackageController(ToolkitPackageService toolkitPackageService,
                                     ObjectMapper objectMapper) {
-        this.utilityPackageService = utilityPackageService;
+        this.toolkitPackageService = toolkitPackageService;
         this.objectMapper = objectMapper;
     }
 
     @PostMapping("/export")
-    public ResponseEntity<byte[]> exportUtilities(
+    public ResponseEntity<byte[]> exportToolkit(
             @PathVariable String workspaceId,
-            @RequestBody(required = false) UtilityPackageDto.ExportRequest request,
+            @RequestBody(required = false) ToolkitPackageDto.ExportRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
 
-        byte[] jsonBytes = utilityPackageService.exportUtilityPackage(workspaceId, userId, request);
-        UtilityPackageDto.UtilityPackage utilityPackage =
-                objectMapper.readValue(jsonBytes, UtilityPackageDto.UtilityPackage.class);
-        String filename = buildExportFileName(workspaceId, utilityPackage);
+        byte[] jsonBytes = toolkitPackageService.exportToolkitPackage(workspaceId, userId, request);
+        ToolkitPackageDto.ToolkitPackage toolkitPackage =
+                objectMapper.readValue(jsonBytes, ToolkitPackageDto.ToolkitPackage.class);
+        String filename = buildExportFileName(workspaceId, toolkitPackage);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -53,12 +53,12 @@ public class UtilityPackageController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<UtilityPackageDto.ImportResult> importUtilitiesJson(
+    public ResponseEntity<ToolkitPackageDto.ImportResult> importToolkitJson(
             @PathVariable String workspaceId,
-            @RequestBody UtilityPackageDto.ImportRequest request,
+            @RequestBody ToolkitPackageDto.ImportRequest request,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
 
-        UtilityPackageDto.ImportResult result = utilityPackageService.importUtilityPackageFromContent(
+        ToolkitPackageDto.ImportResult result = toolkitPackageService.importToolkitPackageFromContent(
                 workspaceId,
                 userId,
                 request.content()
@@ -67,13 +67,13 @@ public class UtilityPackageController {
     }
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<UtilityPackageDto.ImportResult> importUtilitiesFile(
+    public ResponseEntity<ToolkitPackageDto.ImportResult> importToolkitFile(
             @PathVariable String workspaceId,
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal(expression = "subject") String userId) throws IOException {
 
         String content = new String(file.getBytes(), StandardCharsets.UTF_8);
-        UtilityPackageDto.ImportResult result = utilityPackageService.importUtilityPackageFromContent(
+        ToolkitPackageDto.ImportResult result = toolkitPackageService.importToolkitPackageFromContent(
                 workspaceId,
                 userId,
                 content
@@ -93,16 +93,16 @@ public class UtilityPackageController {
         return sanitized.isBlank() ? fallback : sanitized;
     }
 
-    private String buildExportFileName(String workspaceId, UtilityPackageDto.UtilityPackage utilityPackage) {
-        if (utilityPackage != null && utilityPackage.resources() != null && utilityPackage.resources().size() == 1) {
-            UtilityPackageDto.UtilityResource resource = utilityPackage.resources().getFirst();
-            String resourceName = sanitizeFileName(resource.name(), resource.type() == null ? "utility" : resource.type().name().toLowerCase());
-            return resourceName + ".larex-utilities.json";
+    private String buildExportFileName(String workspaceId, ToolkitPackageDto.ToolkitPackage toolkitPackage) {
+        if (toolkitPackage != null && toolkitPackage.resources() != null && toolkitPackage.resources().size() == 1) {
+            ToolkitPackageDto.ToolkitResource resource = toolkitPackage.resources().getFirst();
+            String resourceName = sanitizeFileName(resource.name(), resource.type() == null ? "toolkit" : resource.type().name().toLowerCase());
+            return resourceName + ".larex-toolkit.json";
         }
 
-        String workspaceName = utilityPackage != null && utilityPackage.meta() != null
-                ? utilityPackage.meta().workspaceName()
+        String workspaceName = toolkitPackage != null && toolkitPackage.meta() != null
+                ? toolkitPackage.meta().workspaceName()
                 : null;
-        return sanitizeFileName(workspaceName != null ? workspaceName : workspaceId, "workspace") + "-utilities.larex-utilities.json";
+        return sanitizeFileName(workspaceName != null ? workspaceName : workspaceId, "workspace") + "-toolkit.larex-toolkit.json";
     }
 }

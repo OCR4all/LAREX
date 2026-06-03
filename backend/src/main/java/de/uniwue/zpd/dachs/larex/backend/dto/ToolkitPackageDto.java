@@ -8,9 +8,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-public class UtilityPackageDto {
+public class ToolkitPackageDto {
 
-    public enum UtilityType {
+    public enum ToolkitType {
         CODEC,
         DICTIONARY,
         LABEL_SET,
@@ -21,7 +21,7 @@ public class UtilityPackageDto {
     }
 
     public record ResourceSelector(
-            UtilityType type,
+            ToolkitType type,
             List<String> ids
     ) {
     }
@@ -43,8 +43,8 @@ public class UtilityPackageDto {
     ) {
     }
 
-    public record UtilityResource(
-            UtilityType type,
+    public record ToolkitResource(
+            ToolkitType type,
             String sourceId,
             String name,
             LocalDateTime sourceCreated,
@@ -53,9 +53,9 @@ public class UtilityPackageDto {
     ) {
     }
 
-    public record UtilityPackage(
+    public record ToolkitPackage(
             PackageMeta meta,
-            List<UtilityResource> resources
+            List<ToolkitResource> resources
     ) {
     }
 
@@ -66,7 +66,7 @@ public class UtilityPackageDto {
     }
 
     public record ImportedResource(
-            UtilityType type,
+            ToolkitType type,
             String sourceId,
             String targetId,
             String sourceName,

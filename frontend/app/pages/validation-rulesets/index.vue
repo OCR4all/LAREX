@@ -12,7 +12,7 @@ const { allow, compactGroups } = useActionVisibility()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
+const canManageToolkit = computed(() => allow(workspaceCapabilities.value.canManageToolkit))
 const rulesetsKey = computed(() => wsKey(workspaceId.value, 'validation-rulesets', 'list'))
 
 const { data: rulesets } = await useFetch<ValidationRulesetSummary[]>(() => `/api/workspaces/${workspaceId.value}/validation-rulesets`, {
@@ -204,7 +204,7 @@ const emptyStateActions = computed(() => {
     { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refreshNuxtData(rulesetsKey.value) }
   ]
 
-  if (canManageUtilities.value) {
+  if (canManageToolkit.value) {
     actions.unshift({ icon: 'i-lucide-plus', label: 'Create new', variant: 'solid', to: '/validation-rulesets/new' })
   }
 
@@ -221,7 +221,7 @@ const emptyStateActions = computed(() => {
         </template>
         <template #right>
           <UButton
-            v-if="canManageUtilities"
+            v-if="canManageToolkit"
             label="New Ruleset"
             color="neutral"
             variant="outline"

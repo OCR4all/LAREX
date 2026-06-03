@@ -106,7 +106,7 @@ public class NormalizationProfileService {
     public NormalizationProfileDto.Response createProfile(String userId,
                                                           String workspaceId,
                                                           NormalizationProfileDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         String name = request.name().trim();
         if (normalizationProfileRepository.existsByNameAndWorkspaceId(name, workspaceId)) {
             throw new IllegalArgumentException("Normalization profile with name '" + name + "' already exists in this workspace");
@@ -123,7 +123,7 @@ public class NormalizationProfileService {
                                                           String workspaceId,
                                                           String profileId,
                                                           NormalizationProfileDto.CreateOrUpdateRequest request) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         NormalizationProfile profile = requireProfile(workspaceId, profileId);
         String nextName = request.name().trim();
         if (!profile.getName().equals(nextName) && normalizationProfileRepository.existsByNameAndWorkspaceId(nextName, workspaceId)) {
@@ -135,7 +135,7 @@ public class NormalizationProfileService {
 
     @Transactional
     public void deleteProfile(String userId, String workspaceId, String profileId) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
         NormalizationProfile profile = requireProfile(workspaceId, profileId);
         clearAssignments(workspaceId, profileId);
         normalizationProfileRepository.delete(profile);

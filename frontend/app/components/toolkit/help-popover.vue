@@ -20,7 +20,7 @@ withDefaults(defineProps<{
       variant="ghost"
       size="sm"
       square
-      aria-label="Utility help"
+      aria-label="Toolkit help"
     />
 
     <template #content>

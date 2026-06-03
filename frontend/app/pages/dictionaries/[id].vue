@@ -219,7 +219,7 @@ async function exportDictionary() {
 
   try {
     isExporting.value = true
-    const response = await fetch(`/api/workspaces/${workspaceId.value}/utilities/export`, {
+    const response = await fetch(`/api/workspaces/${workspaceId.value}/toolkit/export`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ selectors: [{ type: 'DICTIONARY', ids: [id] }] })
@@ -231,7 +231,7 @@ async function exportDictionary() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${name.value || 'dictionary'}.larex-utilities.json`
+    link.download = `${name.value || 'dictionary'}.larex-toolkit.json`
     link.click()
     window.URL.revokeObjectURL(url)
     toast.add({ title: 'Dictionary exported', color: 'success' })
@@ -324,14 +324,14 @@ async function importEntries(event: Event) {
   let progressToast = addImportProgressToast(null, file.name, 'uploading')
 
   try {
-    if (file.name.toLowerCase().endsWith('.larex-utilities.json')) {
+    if (file.name.toLowerCase().endsWith('.larex-toolkit.json')) {
       importStage.value = 'processing'
       toast.remove(progressToast.id)
       progressToast = addImportProgressToast(null, file.name, 'processing')
       const content = await file.text()
       const result = await $fetch<{
         resources?: Array<{ type: string, targetId: string, targetName: string }>
-      }>(`/api/workspaces/${workspaceId.value}/utilities/import`, {
+      }>(`/api/workspaces/${workspaceId.value}/toolkit/import`, {
         method: 'POST',
         body: { content }
       })
@@ -512,13 +512,13 @@ const emptyStateActions = computed<Array<{ label: string, icon: string, color: '
             @change="importEntries"
           >
           <div class="flex items-center gap-2">
-            <UtilityHelpPopover
+            <ToolkitHelpPopover
               title="About Dictionaries"
               description="Dictionaries store accepted surface forms for QA, editor suggestions, and project-specific spelling control."
               :items="[
                 'Import TXT, CSV, TSV, JSON, or TEI source data into the dictionary entry browser.',
                 'Tune case sensitivity and Unicode normalization so lookup behavior matches your corpus.',
-                'Share and export dictionaries as reusable workspace utilities.'
+                'Share and export dictionaries as reusable workspace toolkit resources.'
               ]"
             />
             <UFieldGroup>

@@ -3,7 +3,7 @@ package de.uniwue.zpd.dachs.larex.backend.service.project;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.uniwue.zpd.dachs.larex.backend.dto.DocumentExportDto;
 import de.uniwue.zpd.dachs.larex.backend.dto.ProjectPackageDto;
-import de.uniwue.zpd.dachs.larex.backend.dto.UtilityPackageDto;
+import de.uniwue.zpd.dachs.larex.backend.dto.ToolkitPackageDto;
 import de.uniwue.zpd.dachs.larex.backend.entity.Library;
 import de.uniwue.zpd.dachs.larex.backend.entity.Page;
 import de.uniwue.zpd.dachs.larex.backend.entity.PageImage;
@@ -28,7 +28,7 @@ import de.uniwue.zpd.dachs.larex.backend.service.page.indexing.PageFilterIndexSe
 import de.uniwue.zpd.dachs.larex.backend.service.storage.HierarchicalFileStorageService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.StorageTrackingService;
 import de.uniwue.zpd.dachs.larex.backend.service.storage.WorkspaceQuotaGuardService;
-import de.uniwue.zpd.dachs.larex.backend.service.utility.UtilityPackageService;
+import de.uniwue.zpd.dachs.larex.backend.service.toolkit.ToolkitPackageService;
 import de.uniwue.zpd.dachs.larex.backend.service.version.PageXmlVersionService;
 import de.uniwue.zpd.dachs.larex.backend.service.workspace.WorkspaceAccessService;
 import de.uniwue.zpd.dachs.larex.backend.service.xml.PageXmlCanonicalizationService;
@@ -87,7 +87,7 @@ class ProjectPackageServiceTest {
     @Mock
     private WorkspaceAccessService workspaceAccessService;
     @Mock
-    private UtilityPackageService utilityPackageService;
+    private ToolkitPackageService toolkitPackageService;
     @Mock
     private HierarchicalFileStorageService hierarchicalFileStorageService;
     @Mock
@@ -124,7 +124,7 @@ class ProjectPackageServiceTest {
                 validationRulesetRepository,
                 workspaceAccessService,
                 archiveIoService,
-                utilityPackageService,
+                toolkitPackageService,
                 hierarchicalFileStorageService,
                 pageFilterIndexService,
                 storageTrackingService,
@@ -157,9 +157,9 @@ class ProjectPackageServiceTest {
                 .thenReturn(false);
         when(pageXmlConversionService.convertFileToVersion(xmlPath, PageXmlConversionService.PRIMARY_PAGE_VERSION))
                 .thenReturn("<PcGts/>".getBytes());
-        when(utilityPackageService.buildProjectUtilitySnapshot("ws-1", null, null, null, null, null, null))
-                .thenReturn(new UtilityPackageDto.UtilityPackage(
-                        new UtilityPackageDto.PackageMeta("1.0", LocalDateTime.now(), "ws-1", "Workspace"),
+        when(toolkitPackageService.buildProjectToolkitSnapshot("ws-1", null, null, null, null, null, null))
+                .thenReturn(new ToolkitPackageDto.ToolkitPackage(
+                        new ToolkitPackageDto.PackageMeta("1.0", LocalDateTime.now(), "ws-1", "Workspace"),
                         List.of()
                 ));
         when(documentExportService.exportEmbeddedProjectOutputs(eq(project), eq(List.of(page)), anyList()))

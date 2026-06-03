@@ -49,7 +49,7 @@ public class TagSetService {
 
     @CacheEvict(value = "tagSets", allEntries = true)
     public TagSetDto.Response createTagSet(String userId, String workspaceId, JsonNode requestJson) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         TagSetDto.CreateOrUpdateRequest request = parseAndValidateRequest(requestJson);
 
@@ -69,7 +69,7 @@ public class TagSetService {
 
     @CacheEvict(value = "tagSets", allEntries = true)
     public TagSetDto.Response updateTagSet(String userId, String workspaceId, String tagSetId, JsonNode requestJson) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         TagSetDto.CreateOrUpdateRequest request = parseAndValidateRequest(requestJson);
 
@@ -112,7 +112,7 @@ public class TagSetService {
 
     @CacheEvict(value = "tagSets", allEntries = true)
     public void deleteTagSet(String userId, String workspaceId, String tagSetId) {
-        workspaceAccessService.requireManageUtilitiesAccess(workspaceId, userId);
+        workspaceAccessService.requireManageToolkitAccess(workspaceId, userId);
 
         tagSetRepository.findByIdAndWorkspaceId(tagSetId, workspaceId)
             .orElseThrow(() -> new ResourceNotFoundException("Tag set not found: " + tagSetId));

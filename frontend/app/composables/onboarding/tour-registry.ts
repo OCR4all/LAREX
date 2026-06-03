@@ -113,7 +113,7 @@ const tours: OnboardingTourDefinition[] = [
         }
       },
       {
-        element: '[data-tour="nav-utilities"]',
+        element: '[data-tour="nav-toolkit"]',
         onHighlightStarted: withHookAction(async () => {
           await ensureSidebarSectionExpanded('Toolkit')
         }),
@@ -155,7 +155,7 @@ const tours: OnboardingTourDefinition[] = [
         }),
         popover: {
           title: 'Search & Commands',
-          description: 'Press Cmd/Ctrl + / to open global search and quick actions, including restarting this page tour.',
+          description: 'Press Cmd/Ctrl + K to open global search and quick actions, including restarting this page tour.',
           side: 'right',
           align: 'start'
         }

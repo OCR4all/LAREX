@@ -12,7 +12,7 @@ const { allow, compactGroups } = useActionVisibility()
 const { selectedWorkspace } = await useWorkspaceBootstrap()
 const workspaceId = computed(() => selectedWorkspace.value ?? '')
 const { capabilities: workspaceCapabilities } = useWorkspaceCapabilities(selectedWorkspace)
-const canManageUtilities = computed(() => allow(workspaceCapabilities.value.canManageUtilities))
+const canManageToolkit = computed(() => allow(workspaceCapabilities.value.canManageToolkit))
 const profilesKey = computed(() => wsKey(workspaceId.value, 'normalization-profiles', 'list'))
 
 const { data: profiles } = await useFetch<NormalizationProfileSummary[]>(() => `/api/workspaces/${workspaceId.value}/normalization-profiles`, {
@@ -204,7 +204,7 @@ const emptyStateActions = computed(() => {
     { icon: 'i-lucide-refresh-cw', label: 'Refresh', color: 'neutral', variant: 'subtle', onClick: () => refreshNuxtData(profilesKey.value) }
   ]
 
-  if (canManageUtilities.value) {
+  if (canManageToolkit.value) {
     actions.unshift({ icon: 'i-lucide-plus', label: 'Create new', variant: 'solid', to: '/normalization-profiles/new' })
   }
 
@@ -221,7 +221,7 @@ const emptyStateActions = computed(() => {
         </template>
         <template #right>
           <UButton
-            v-if="canManageUtilities"
+            v-if="canManageToolkit"
             label="New Profile"
             color="neutral"
             variant="outline"
