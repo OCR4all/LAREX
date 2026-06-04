@@ -176,8 +176,8 @@ const groups = computed(() => {
       to: '/workspace/settings/members',
       onSelect: () => { open.value = false }
     }, {
-      id: 'go-admin-dashboard',
-      label: 'Go to Admin Dashboard',
+      id: 'go-admin-overview',
+      label: 'Go to Admin Overview',
       icon: 'i-lucide-layout-dashboard',
       suffix: 'Administration overview',
       to: '/admin',

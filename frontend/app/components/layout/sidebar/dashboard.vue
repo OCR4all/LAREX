@@ -93,25 +93,32 @@ const defaultNavigation = computed<NavigationMenuItem[]>(() => {
 })
 
 const adminNavigation = computed<NavigationMenuItem[]>(() => {
+  const systemChildren = withActive([
+    { label: 'Actuator', icon: 'i-lucide-heart-pulse', to: '/admin/actuator' },
+    { label: 'Errors', icon: 'i-lucide-bug', to: '/admin/errors' }
+  ])
+  const actionChildren = withActive([
+    { label: 'Actions', icon: 'i-lucide-circle-play', to: '/admin/actions' },
+    { label: 'Action Runs', icon: 'i-lucide-list-ordered', to: '/admin/action-runs' }
+  ])
   const dataManagementChildren = withActive([
+    { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas' },
     { label: 'Import', icon: 'i-lucide-folder-input', to: '/admin/import' },
     { label: 'Backup', icon: 'i-lucide-database-backup', to: '/admin/backup' },
-    { label: 'Storage', icon: 'i-lucide-trash-2', to: '/admin/storage' }
+    { label: 'Storage', icon: 'i-lucide-trash-2', to: '/admin/storage' },
+    { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index' }
+  ])
+  const directoryChildren = withActive([
+    { label: 'Users', icon: 'i-lucide-users', to: '/admin/users' },
+    { label: 'Workspaces', icon: 'i-lucide-layers', to: '/admin/workspaces' }
   ])
 
-  const hasActive = (items: { active: boolean }[]) => items.some(i => i.active)
-
   return [
-    { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/admin', active: route.path === '/admin' },
-    { label: 'Actuator', icon: 'i-lucide-heart-pulse', to: '/admin/actuator', active: isActive('/admin/actuator') },
-    { label: 'Errors', icon: 'i-lucide-bug', to: '/admin/errors', active: isActive('/admin/errors') },
-    { label: 'Actions', icon: 'i-lucide-circle-play', to: '/admin/actions', active: isActive('/admin/actions') },
-    { label: 'Action Runs', icon: 'i-lucide-list-ordered', to: '/admin/action-runs', active: isActive('/admin/action-runs') },
-    { label: 'Search Index', icon: 'i-lucide-search', to: '/admin/search-index', active: isActive('/admin/search-index') },
-    { label: 'Quotas', icon: 'i-lucide-hard-drive', to: '/admin/quotas', active: isActive('/admin/quotas') },
+    { label: 'Overview', icon: 'i-lucide-layout-dashboard', to: '/admin', active: route.path === '/admin' },
+    { label: 'System', icon: 'i-lucide-server', defaultOpen: hasActive(systemChildren), type: 'trigger', children: systemChildren },
+    { label: 'Actions', icon: 'i-lucide-circle-play', defaultOpen: hasActive(actionChildren), type: 'trigger', children: actionChildren },
     { label: 'Data Management', icon: 'i-lucide-database', defaultOpen: hasActive(dataManagementChildren), type: 'trigger', children: dataManagementChildren },
-    { label: 'Workspaces', icon: 'i-lucide-layers', to: '/admin/workspaces', active: isActive('/admin/workspaces') },
-    { label: 'Users', icon: 'i-lucide-users', to: '/admin/users', active: isActive('/admin/users') }
+    { label: 'Directory', icon: 'i-lucide-users', defaultOpen: hasActive(directoryChildren), type: 'trigger', children: directoryChildren }
   ]
 })
 
